@@ -24,7 +24,7 @@ import org.joda.time.chrono.ISOChronology;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Second of the minute of the given timestamp")
-@ScalarFunction("second")
+@ScalarFunction(value = "second", neverFails = true)
 public final class ExtractSecond
 {
     private ExtractSecond() {}

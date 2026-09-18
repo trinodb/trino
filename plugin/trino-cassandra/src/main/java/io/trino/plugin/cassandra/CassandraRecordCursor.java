@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.cassandra.CassandraType.Kind;
@@ -42,13 +43,18 @@ public class CassandraRecordCursor
     private final ResultSet rs;
     private Row currentRow;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<String> columnNames, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(
+            CassandraSession cassandraSession,
+            CassandraTypeManager cassandraTypeManager,
+            List<String> columnNames,
+            List<CassandraType> cassandraTypes,
+            Statement<?> statement)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.cassandraTypes = cassandraTypes;
         checkArgument(columnNames.size() == cassandraTypes.size(), "columnNames and cassandraTypes sizes don't match");
         this.cassandraTypeManager = cassandraTypeManager;
-        rs = cassandraSession.execute(cql);
+        rs = cassandraSession.execute(statement);
         currentRow = null;
     }
 

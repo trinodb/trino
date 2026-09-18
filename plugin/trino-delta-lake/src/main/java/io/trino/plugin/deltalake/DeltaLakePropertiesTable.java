@@ -56,13 +56,15 @@ public class DeltaLakePropertiesTable
     private final DeltaMetastoreTable table;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
 
-    public DeltaLakePropertiesTable(DeltaLakeFileSystemFactory fileSystemFactory, DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess)
+    public DeltaLakePropertiesTable(DeltaLakeFileSystemFactory fileSystemFactory, DeltaMetastoreTable table, TransactionLogAccess transactionLogAccess, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.table = requireNonNull(table, "table is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(table.schemaTableName(), "tableName is null"), COLUMNS);
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
     }
 
     @Override
@@ -83,9 +85,9 @@ public class DeltaLakePropertiesTable
         MetadataEntry metadataEntry;
         ProtocolEntry protocolEntry;
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try {
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, tableCredentials, Optional.empty());
             metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
         }
@@ -99,6 +101,11 @@ public class DeltaLakePropertiesTable
     private List<Page> buildPages(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
+
+        pagesBuilder.beginRow();
+        pagesBuilder.appendVarchar("location");
+        pagesBuilder.appendVarchar(table.location());
+        pagesBuilder.endRow();
 
         metadataEntry.getConfiguration().forEach((key, value) -> {
             pagesBuilder.beginRow();

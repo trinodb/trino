@@ -153,7 +153,7 @@ class SimulationController
             for (TaskSpecification specification : specificationEnabled.keySet()) {
                 if (specification.getTotalTasks().isPresent() &&
                         specificationEnabled.get(specification) &&
-                        specification.getTotalTasks().getAsInt() <= completedTasks.get(specification).size() + runningTasks.get(specification).size()) {
+                        specification.getTotalTasks().orElseThrow() <= completedTasks.get(specification).size() + runningTasks.get(specification).size()) {
                     log.info("\n%s disabled for reaching target count %s\n", specification.getName(), specification.getTotalTasks());
                     disableSpecification(specification);
                     continue;
@@ -224,7 +224,7 @@ class SimulationController
         enum Type
         {
             LEAF,
-            INTERMEDIATE
+            INTERMEDIATE,
         }
 
         private final Type type;

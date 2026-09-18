@@ -21,5 +21,5 @@ package io.trino.spi.connector;
 public enum PointerType
 {
     TEMPORAL,
-    TARGET_ID
+    TARGET_ID,
 }

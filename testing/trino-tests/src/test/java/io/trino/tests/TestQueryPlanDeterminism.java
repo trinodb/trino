@@ -205,7 +205,7 @@ public class TestQueryPlanDeterminism
     @Test
     public void testTpchQ9deterministic()
     {
-        //This uses a modified version of TPC-H Q9, because the tpch connector uses non-standard column names
+        // This uses a modified version of TPC-H Q9, because the tpch connector uses non-standard column names
         determinismChecker.checkPlanIsDeterministic("SELECT\n" +
                 "  nation,\n" +
                 "  o_year,\n" +
@@ -242,7 +242,7 @@ public class TestQueryPlanDeterminism
     @Test
     public void testTpcdsQ6deterministic()
     {
-        //This is a query inspired on TPC-DS Q6 that reproduces its plan nondeterminism problems
+        // This is a query inspired on TPC-DS Q6 that reproduces its plan nondeterminism problems
         determinismChecker.checkPlanIsDeterministic("SELECT orderdate " +
                 "FROM orders o,\n" +
                 "     lineitem i\n" +

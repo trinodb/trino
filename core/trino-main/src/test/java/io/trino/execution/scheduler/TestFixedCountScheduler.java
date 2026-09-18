@@ -14,13 +14,13 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.client.NodeVersion;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.node.InternalNode;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -68,10 +68,11 @@ public class TestFixedCountScheduler
     public void testSingleNode()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, _) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId(new StageId("test", 1), 1, 0),
-                        node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {}))),
+                        node,
+                        ImmutableList.of(),
+                        new PartitionedSplitCountTracker(_ -> {}))),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -85,10 +86,11 @@ public class TestFixedCountScheduler
     public void testMultipleNodes()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, _) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId(new StageId("test", 1), 1, 0),
-                        node, ImmutableList.of(),
-                        new PartitionedSplitCountTracker(delta -> {}))),
+                        node,
+                        ImmutableList.of(),
+                        new PartitionedSplitCountTracker(_ -> {}))),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();

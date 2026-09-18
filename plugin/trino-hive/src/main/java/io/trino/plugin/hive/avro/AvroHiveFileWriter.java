@@ -22,6 +22,7 @@ import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.AvroTypeManager;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -36,6 +37,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,7 +58,7 @@ public final class AvroHiveFileWriter
     private final CountingOutputStream countingOutputStream;
     private final AggregatedMemoryContext outputStreamMemoryContext;
 
-    private final Closeable rollbackAction;
+    private final RollbackAction rollbackAction;
 
     public AvroHiveFileWriter(
             OutputStream outputStream,
@@ -64,7 +66,7 @@ public final class AvroHiveFileWriter
             Schema fileSchema,
             AvroTypeManager typeManager,
             AvroTypeBlockHandler avroTypeBlockHandler,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<String> inputColumnNames,
             List<Type> inputColumnTypes,
             AvroCompressionKind compressionKind,
@@ -88,7 +90,7 @@ public final class AvroHiveFileWriter
             outputColumnNames.add(field.name().toLowerCase(Locale.ENGLISH));
         }
         ImmutableList.Builder<Block> blocks = ImmutableList.builder();
-        for (Map.Entry<String, Field> entry : fields.entrySet()) {
+        for (Entry<String, Field> entry : fields.entrySet()) {
             outputColumnNames.add(entry.getKey().toLowerCase(Locale.ENGLISH));
             Type type = avroTypeBlockHandler.typeFor(entry.getValue().schema());
             outputColumnTypes.add(type);
@@ -130,7 +132,7 @@ public final class AvroHiveFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         try {
             fileWriter.close();
@@ -144,7 +146,7 @@ public final class AvroHiveFileWriter
     @Override
     public void rollback()
     {
-        try (rollbackAction) {
+        try (Closeable _ = rollbackAction::run) {
             fileWriter.close();
         }
         catch (Exception e) {

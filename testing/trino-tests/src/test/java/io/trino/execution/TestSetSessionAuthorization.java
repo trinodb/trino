@@ -88,16 +88,20 @@ public class TestSetSessionAuthorization
                 .sessionUser(Optional.of("user"))
                 .build();
         assertError(submitQuery("SET SESSION AUTHORIZATION user2", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user user2");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user user2");
         assertError(submitQuery("SET SESSION AUTHORIZATION bob", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user bob");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user bob");
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertError(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user charlie");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user charlie");
         StatementClient client = submitQuery("START TRANSACTION", clientSession);
         clientSession = ClientSession.builder(clientSession).transactionId(client.getStartedTransactionId()).build();
         assertError(submitQuery("SET SESSION AUTHORIZATION alice", clientSession),
-                GENERIC_USER_ERROR.toErrorCode(), "Can't set authorization user in the middle of a transaction");
+                GENERIC_USER_ERROR.toErrorCode(),
+                "Can't set authorization user in the middle of a transaction");
     }
 
     // If user A can impersonate user B, and B can impersonate C - but A cannot go to C,
@@ -123,7 +127,8 @@ public class TestSetSessionAuthorization
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertError(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user charlie");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user charlie");
     }
 
     @Test
@@ -159,7 +164,8 @@ public class TestSetSessionAuthorization
                 .authorizationUser(Optional.of("user2"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user user2");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user user2");
 
         clientSession = defaultClientSessionBuilder()
                 .user(Optional.of("user"))
@@ -167,7 +173,8 @@ public class TestSetSessionAuthorization
                 .authorizationUser(Optional.of("user3"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user user3");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user user3");
 
         clientSession = defaultClientSessionBuilder()
                 .user(Optional.of("user"))
@@ -175,7 +182,8 @@ public class TestSetSessionAuthorization
                 .authorizationUser(Optional.of("charlie"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
-                PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user charlie");
+                PERMISSION_DENIED.toErrorCode(),
+                "Access Denied: User user cannot impersonate user charlie");
     }
 
     @Test
@@ -206,7 +214,8 @@ public class TestSetSessionAuthorization
         StatementClient client = submitQuery("START TRANSACTION", clientSession);
         clientSession = ClientSession.builder(clientSession).transactionId(client.getStartedTransactionId()).build();
         assertError(submitQuery("RESET SESSION AUTHORIZATION", clientSession),
-                GENERIC_USER_ERROR.toErrorCode(), "Can't reset authorization user in the middle of a transaction");
+                GENERIC_USER_ERROR.toErrorCode(),
+                "Can't reset authorization user in the middle of a transaction");
     }
 
     private void assertError(StatementClient client, ErrorCode errorCode, String errorMessage)

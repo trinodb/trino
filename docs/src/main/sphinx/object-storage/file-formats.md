@@ -70,14 +70,22 @@ with Parquet files performed by supported object storage connectors:
   - Maximum values count of pages written by Parquet writer. The equivalent 
     catalog session property is `parquet_writer_page_value_count`.
   - `80000`
-* - `parquet.writer.block-size`
+* - `parquet.writer.row-group-size`
   - Maximum size of row groups written by Parquet writer. The equivalent 
-    catalog session property is `parquet_writer_block_size`.
+    catalog session property is `parquet_writer_row_group_size`.
   - `128 MB`
+* - `parquet.writer.row-group-max-row-count`
+  - Maximum number of rows in row groups written by Parquet writer. The
+    equivalent catalog session property is `parquet_writer_row_group_max_row_count`.
+  - `unlimited`
 * - `parquet.writer.batch-size`
   - Maximum number of rows processed by the parquet writer in a batch.
     The equivalent catalog session property is `parquet_writer_batch_size`.
   - `10000`
+* - `parquet.writer.delta-length-byte-array-encoding-enabled`
+  - Use `DELTA_LENGTH_BYTE_ARRAY` encoding for `BYTE_ARRAY` columns when
+    the Parquet dictionary encoding is not effective.
+  - `true`
 * - `parquet.use-bloom-filter`
   - Whether bloom filters are used for predicate pushdown when reading Parquet
     files. Set this property to `false` to disable the usage of bloom filters by
@@ -86,8 +94,7 @@ with Parquet files performed by supported object storage connectors:
   - `true`
 * - `parquet.use-column-index`
   - Skip reading Parquet pages by using Parquet column indices. The equivalent
-    catalog session property is `parquet_use_column_index`. Only supported by
-    the Delta Lake and Hive connectors.
+    catalog session property is `parquet_use_column_index`.
   - `true`
 * - `parquet.ignore-statistics`
   - Ignore statistics from Parquet to allow querying files with corrupted or
@@ -104,6 +111,11 @@ with Parquet files performed by supported object storage connectors:
     entirely. The equivalent catalog session property is named
     `parquet_small_file_threshold`.
   - `3MB`
+* - `parquet.selected-positions-pushdown-enabled`
+  - Allow the Parquet reader to use rows selected by query filters to skip
+    decoding rejected values and decompressing entirely unselected data pages
+    when beneficial. Set to `false` to disable filter selection pushdown.
+  - `true`
 * - `parquet.experimental.vectorized-decoding.enabled`
   - Enable using Java Vector API (SIMD) for faster decoding of parquet files.
     The equivalent catalog session property is
@@ -115,6 +127,11 @@ with Parquet files performed by supported object storage connectors:
     This prevents workers from going into full GC or crashing due to poorly
     configured Parquet writers.
   - `15MB`
+* - `parquet.footer-read-size`
+  - Sets the expected Parquet footer size used for the initial file-tail read.
+    If the actual footer is larger, Trino reads the footer again using the
+    actual size.
+  - `48kB`
 * - `parquet.max-page-read-size`
   - Maximum allowed size of a parquet page during reads. Files with parquet pages
     larger than this will generate an exception on read.

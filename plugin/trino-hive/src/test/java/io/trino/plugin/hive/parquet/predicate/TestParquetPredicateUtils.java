@@ -60,7 +60,9 @@ public class TestParquetPredicateUtils
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(new ArrayType(INTEGER))));
 
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "my_array",
+                new GroupType(
+                        OPTIONAL,
+                        "my_array",
                         new GroupType(REPEATED, "bag", new PrimitiveType(OPTIONAL, INT32, "array_element"))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
@@ -81,7 +83,9 @@ public class TestParquetPredicateUtils
 
         MessageType fileSchema = new MessageType("hive_schema",
                 new GroupType(OPTIONAL, "my_array_struct",
-                        new GroupType(REPEATED, "bag",
+                        new GroupType(
+                                REPEATED,
+                                "bag",
                                 new GroupType(OPTIONAL, "array_element", new PrimitiveType(OPTIONAL, INT32, "a")))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
@@ -128,7 +132,9 @@ public class TestParquetPredicateUtils
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(rowType)));
 
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "my_struct",
+                new GroupType(
+                        OPTIONAL,
+                        "my_struct",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b"),
                         new PrimitiveType(OPTIONAL, INT32, "c")));
@@ -171,7 +177,9 @@ public class TestParquetPredicateUtils
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
 
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b"),
                         new PrimitiveType(OPTIONAL, INT32, "c")));
@@ -212,10 +220,13 @@ public class TestParquetPredicateUtils
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
 
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b"),
-                        new GroupType(OPTIONAL,
+                        new GroupType(
+                                OPTIONAL,
                                 "c",
                                 new PrimitiveType(OPTIONAL, INT32, "c1"),
                                 new PrimitiveType(OPTIONAL, INT32, "c2"))));
@@ -252,7 +263,9 @@ public class TestParquetPredicateUtils
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
 
         MessageType fileSchema = new MessageType("hive_schema",
-                new GroupType(OPTIONAL, "row_field",
+                new GroupType(
+                        OPTIONAL,
+                        "row_field",
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
@@ -271,7 +284,9 @@ public class TestParquetPredicateUtils
 
         MessageType fileSchema = new MessageType("hive_schema",
                 new GroupType(OPTIONAL, "my_map",
-                        new GroupType(REPEATED, "map",
+                        new GroupType(
+                                REPEATED,
+                                "map",
                                 new PrimitiveType(REQUIRED, INT32, "key"),
                                 new PrimitiveType(OPTIONAL, INT32, "value"))));
 

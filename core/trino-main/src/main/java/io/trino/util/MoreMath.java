@@ -66,14 +66,14 @@ public final class MoreMath
     {
         return DoubleStream.of(values)
                 .min()
-                .getAsDouble();
+                .orElseThrow();
     }
 
     public static double max(double... values)
     {
         return DoubleStream.of(values)
                 .max()
-                .getAsDouble();
+                .orElseThrow();
     }
 
     public static double rangeMin(double left, double right)

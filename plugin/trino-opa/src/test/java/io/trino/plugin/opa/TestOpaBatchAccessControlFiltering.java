@@ -324,7 +324,11 @@ final class TestOpaBatchAccessControlFiltering
     }
 
     private static <T> void assertAccessControlMethodBehaviour(
-            FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, Set<T>, Collection<T>> method, T obj1, T obj2, T obj3, Set<String> expectedRequests)
+            FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, Set<T>, Collection<T>> method,
+            T obj1,
+            T obj2,
+            T obj3,
+            Set<String> expectedRequests)
     {
         assertFilteringAccessControlMethodDoesNotSendRequests(accessControl -> method.apply(accessControl, TEST_SECURITY_CONTEXT, ImmutableSet.of()));
 
@@ -358,7 +362,7 @@ final class TestOpaBatchAccessControlFiltering
 
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
-        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_BATCH_URI, request -> OK_RESPONSE);
+        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_BATCH_URI, _ -> OK_RESPONSE);
         assertThat(method.apply(createOpaAuthorizer(batchFilteringOpaConfig(), httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }

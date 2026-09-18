@@ -26,8 +26,8 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.spi.predicate.Utils.blockToNativeValue;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -81,7 +81,7 @@ public class TestVarbinaryToVarcharCoercer
     private static void assertVarbinaryToVarcharCoercion(Slice actualValue, Type fromType, Slice expectedValue, Type toType, HiveStorageFormat storageFormat)
     {
         Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
-                .apply(nativeValueToBlock(fromType, actualValue));
+                .apply(writeNativeValue(fromType, actualValue));
         assertThat(blockToNativeValue(toType, coercedBlock))
                 .isEqualTo(expectedValue);
     }

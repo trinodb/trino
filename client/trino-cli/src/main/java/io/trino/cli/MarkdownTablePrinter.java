@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -39,6 +40,7 @@ public class MarkdownTablePrinter
         implements OutputPrinter
 {
     private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
+    private static final Pattern SPECIAL_CHARS = Pattern.compile("([\\\\`*_{}\\[\\]<>()#+!|])");
     private final List<String> fieldNames;
     private final List<Align> alignments;
     private final Writer writer;
@@ -60,8 +62,7 @@ public class MarkdownTablePrinter
 
     private enum Align
     {
-        LEFT,
-        RIGHT;
+        LEFT, RIGHT,
     }
 
     @Override
@@ -111,8 +112,8 @@ public class MarkdownTablePrinter
 
     static String formatValue(Object o)
     {
-        return FormatUtils.formatValue(o)
-                .replaceAll("([\\\\`*_{}\\[\\]<>()#+!|])", "\\\\$1")
+        return SPECIAL_CHARS.matcher(FormatUtils.formatValue(o))
+                .replaceAll("\\\\$1")
                 .replace("\n", "<br>");
     }
 

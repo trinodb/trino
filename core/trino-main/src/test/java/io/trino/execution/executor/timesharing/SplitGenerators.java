@@ -58,7 +58,7 @@ final class SplitGenerators
         System.out.println("============================");
         System.out.println();
         System.out.println("Tasks with 8x " + IntermediateSplitGenerator.class.getSimpleName());
-        bins.printDistribution(intermediateSpecs, t -> t.getScheduledTimeNanos() * 8, a -> 1, Duration::succinctNanos, a -> "");
+        bins.printDistribution(intermediateSpecs, t -> t.getScheduledTimeNanos() * 8, _ -> 1, Duration::succinctNanos, _ -> "");
 
         List<SplitGenerator> leafSplitGenerators = ImmutableList.of(
                 new FastLeafSplitGenerator(),

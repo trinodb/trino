@@ -34,6 +34,8 @@ import java.util.Optional;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBooleanStream
@@ -107,6 +109,29 @@ public class TestBooleanStream
         }
     }
 
+    @Test
+    public void testGetSetBitsAsBitmap()
+            throws IOException
+    {
+        BooleanList expectedValues = new BooleanArrayList(256);
+        BooleanOutputStream outputStream = createValueOutputStream();
+        for (int i = 0; i < 256; i++) {
+            boolean value = i % 5 == 0 || i % 7 == 0 || i % 64 == 63;
+            outputStream.writeBoolean(value);
+            expectedValues.add(value);
+        }
+        outputStream.close();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1000);
+        outputStream.getStreamDataOutput(new OrcColumnId(33)).writeData(sliceOutput);
+        Slice slice = sliceOutput.slice();
+
+        assertGetSetBitsAsBitmap(slice, expectedValues, 0, 130);
+        assertGetSetBitsAsBitmap(slice, expectedValues, 3, 127);
+        assertGetSetBitsAsBitmap(slice, expectedValues, 9, 64);
+        assertGetSetBitsAsBitmap(slice, expectedValues, 71, 85);
+    }
+
     @Override
     protected BooleanOutputStream createValueOutputStream()
     {
@@ -132,5 +157,23 @@ public class TestBooleanStream
             throws IOException
     {
         return valueStream.nextBit();
+    }
+
+    private void assertGetSetBitsAsBitmap(Slice slice, BooleanList expectedValues, int skip, int batchSize)
+            throws IOException
+    {
+        BooleanInputStream valueStream = createValueStream(slice);
+        valueStream.skip(skip);
+
+        long[] bitmap = new long[wordsForBits(batchSize)];
+        int setCount = valueStream.getSetBits(batchSize, bitmap);
+
+        int expectedSetCount = 0;
+        for (int position = 0; position < batchSize; position++) {
+            boolean expected = expectedValues.getBoolean(skip + position);
+            expectedSetCount += expected ? 1 : 0;
+            assertThat(isSet(bitmap, 0, position)).isEqualTo(expected);
+        }
+        assertThat(setCount).isEqualTo(expectedSetCount);
     }
 }

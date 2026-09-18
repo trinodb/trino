@@ -114,7 +114,7 @@ public class MockThriftMetastoreClient
 
     public void mockPartitionColumnStats(String database, String table, String partitionName, Map<String, ColumnStatisticsData> columnStatistics)
     {
-        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), key -> new HashMap<>());
+        Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), _ -> new HashMap<>());
         tablePartitionColumnStatistics.put(
                 partitionName,
                 Maps.transformEntries(columnStatistics, (columnName, stats) -> {
@@ -261,6 +261,7 @@ public class MockThriftMetastoreClient
 
     @Override
     public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }
@@ -295,6 +296,13 @@ public class MockThriftMetastoreClient
 
     @Override
     public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    {
+        accessCount.incrementAndGet();
+        // No-op
+    }
+
+    @Override
+    public void setPartitionsColumnStatistics(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
     {
         accessCount.incrementAndGet();
         // No-op
@@ -568,6 +576,13 @@ public class MockThriftMetastoreClient
     public String getConfigValue(String name, String defaultValue)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterPartitions(String databaseName, String tableName, List<Partition> partitions)
+    {
+        accessCount.incrementAndGet();
+        // No-op
     }
 
     @Override

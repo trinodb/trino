@@ -18,9 +18,12 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PageSourceProvider
 {
@@ -28,6 +31,19 @@ public interface PageSourceProvider
             Session session,
             Split split,
             TableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter);
+            DynamicFilter dynamicFilter,
+            MemoryContext memoryContext);
+
+    /**
+     * Adds a reference to the reservation for state which the connector shares across the page sources
+     * created by this provider. A newly created provider holds one reference.
+     */
+    default void retain() {}
+
+    /**
+     * Drops a reference added by {@link #retain()}. Dropping the last reference gives up the reservation.
+     */
+    default void release() {}
 }

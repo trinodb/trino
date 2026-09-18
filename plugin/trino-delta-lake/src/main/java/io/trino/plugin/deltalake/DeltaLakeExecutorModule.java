@@ -24,7 +24,9 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class DeltaLakeExecutorModule
         implements Module
@@ -39,8 +41,13 @@ public class DeltaLakeExecutorModule
     @Provides
     @Singleton
     @ForDeltaLakeMetadata
-    public ExecutorService createMetadataExecutor(CatalogName catalogName)
+    public ExecutorService createMetadataExecutor(CatalogName catalogName, DeltaLakeConfig config)
     {
+        // Metadata enumeration is blocking object-store/transaction-log I/O bounded by BoundedExecutor(delta.metadata.parallelism),
+        // so a virtual-thread-per-task executor caps thread cost while the BoundedExecutor preserves the downstream concurrency limit.
+        if (config.isMetadataVirtualThreadsEnabled()) {
+            return newThreadPerTaskExecutor(virtualThreadsNamed("delta-metadata-" + catalogName + "#v%s"));
+        }
         return newCachedThreadPool(daemonThreadsNamed("delta-metadata-" + catalogName + "-%s"));
     }
 

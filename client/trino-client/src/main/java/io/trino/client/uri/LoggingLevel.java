@@ -15,5 +15,5 @@ package io.trino.client.uri;
 
 public enum LoggingLevel
 {
-    NONE, BASIC, HEADERS, BODY;
+    NONE, BASIC, HEADERS, BODY,
 }

@@ -15,6 +15,7 @@ package io.trino.plugin.exchange.filesystem.azure;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -23,6 +24,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestExchangeAzureConfig
 {
@@ -33,7 +36,10 @@ public class TestExchangeAzureConfig
                 .setAzureStorageEndpoint(null)
                 .setAzureStorageConnectionString(null)
                 .setAzureStorageBlockSize(DataSize.of(4, MEGABYTE))
-                .setMaxErrorRetries(10));
+                .setMaxErrorRetries(10)
+                .setMaxConnections(500)
+                .setPendingAcquireMaxCount(1000)
+                .setConnectionAcquisitionTimeout(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -44,13 +50,19 @@ public class TestExchangeAzureConfig
                 .put("exchange.azure.endpoint", "endpoint")
                 .put("exchange.azure.block-size", "8MB")
                 .put("exchange.azure.max-error-retries", "8")
+                .put("exchange.azure.max-connections", "200")
+                .put("exchange.azure.pending-acquire-max-count", "5000")
+                .put("exchange.azure.connection-acquisition-timeout", "30s")
                 .buildOrThrow();
 
         ExchangeAzureConfig expected = new ExchangeAzureConfig()
                 .setAzureStorageConnectionString("connection")
                 .setAzureStorageEndpoint("endpoint")
                 .setAzureStorageBlockSize(DataSize.of(8, MEGABYTE))
-                .setMaxErrorRetries(8);
+                .setMaxErrorRetries(8)
+                .setMaxConnections(200)
+                .setPendingAcquireMaxCount(5000)
+                .setConnectionAcquisitionTimeout(new Duration(30, SECONDS));
 
         assertFullMapping(properties, expected);
     }

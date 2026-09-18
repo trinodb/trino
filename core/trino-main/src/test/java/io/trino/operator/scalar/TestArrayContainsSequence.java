@@ -83,5 +83,12 @@ public class TestArrayContainsSequence
             assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3, 4, 5, 6]", "ARRAY[%d]".formatted(i)))
                     .isEqualTo(true);
         }
+
+        assertThat(assertions.function("contains_sequence", "ARRAY[1, 2, 3]", "ARRAY[2, 3]"))
+                .neverFails();
+        assertThat(assertions.function("contains_sequence", "ARRAY[ARRAY[1, NULL], ARRAY[3]]", "ARRAY[ARRAY[1, NULL]]"))
+                .neverFails();
+        assertThat(assertions.function("contains_sequence", "ARRAY[ROW(1, NULL), ROW(1, 2), ROW(2, NULL)]", "ARRAY[ROW(1, 2)]"))
+                .neverFails();
     }
 }

@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -42,8 +42,8 @@ public class TestHiveQueryFailureRecoveryTest
         super(RetryPolicy.QUERY);
     }
 
-    private Hive3MinioDataLake hiveMinioDataLake;
-    private MinioStorage minioStorage;
+    private Hive3FlociDataLake hiveFlociDataLake;
+    private FlociStorage storage;
 
     @Override
     protected QueryRunner createQueryRunner(
@@ -54,16 +54,16 @@ public class TestHiveQueryFailureRecoveryTest
             throws Exception
     {
         String bucketName = "test-hive-insert-overwrite-" + randomNameSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
+        this.hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
 
-        this.minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
-        minioStorage.start();
+        storage = closeAfterClass(new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE));
+        storage.start();
 
-        return S3HiveQueryRunner.builder(hiveMinioDataLake)
+        return S3HiveQueryRunner.builder(hiveFlociDataLake)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
@@ -73,7 +73,7 @@ public class TestHiveQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        hiveMinioDataLake = null; // closed by closeAfterClass
-        minioStorage = null; // closed by closeAfterClass
+        hiveFlociDataLake = null; // closed by closeAfterClass
+        storage = null; // closed by closeAfterClass
     }
 }

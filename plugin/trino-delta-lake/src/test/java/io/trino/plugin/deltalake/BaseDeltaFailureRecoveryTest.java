@@ -15,8 +15,8 @@ package io.trino.plugin.deltalake;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
-import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
@@ -34,7 +34,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static io.trino.operator.RetryPolicy.TASK;
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,17 +58,17 @@ public abstract class BaseDeltaFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
-        hiveMinioDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
-        minioStorage.start();
+        Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
+        hiveFlociDataLake.start();
+        FlociStorage storage = closeAfterClass(new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE));
+        storage.start();
 
         return DeltaLakeQueryRunner.builder()
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(configProperties)
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
-                .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
-                .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
+                .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
+                .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)

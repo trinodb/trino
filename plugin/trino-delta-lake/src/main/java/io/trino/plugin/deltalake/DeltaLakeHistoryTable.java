@@ -25,18 +25,19 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -47,10 +48,10 @@ public class DeltaLakeHistoryTable
             DeltaMetastoreTable table,
             DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        super(
-                requireNonNull(table, "table is null"),
+        super(requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,
@@ -62,14 +63,15 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("user_id", VARCHAR))
                                 .add(new ColumnMetadata("user_name", VARCHAR))
                                 .add(new ColumnMetadata("operation", VARCHAR))
-                                .add(new ColumnMetadata("operation_parameters", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                                .add(new ColumnMetadata("operation_parameters", new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
                                 .add(new ColumnMetadata("cluster_id", VARCHAR))
                                 .add(new ColumnMetadata("read_version", BIGINT))
                                 .add(new ColumnMetadata("isolation_level", VARCHAR))
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
-                                .add(new ColumnMetadata("operation_metrics", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                                //TODO add support for userMetadata, engineInfo
-                                .build()));
+                                .add(new ColumnMetadata("operation_metrics", new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
+                                // TODO add support for userMetadata, engineInfo
+                                .build()),
+                tableCredentials);
     }
 
     @Override

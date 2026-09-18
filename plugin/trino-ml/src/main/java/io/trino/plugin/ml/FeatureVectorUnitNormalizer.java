@@ -17,6 +17,7 @@ import io.trino.plugin.ml.type.ModelType;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -62,7 +63,7 @@ public class FeatureVectorUnitNormalizer
         }
         double magnitude = Math.sqrt(sumSquares);
         Map<Integer, Double> transformed = new HashMap<>();
-        for (Map.Entry<Integer, Double> entry : features.getFeatures().entrySet()) {
+        for (Entry<Integer, Double> entry : features.getFeatures().entrySet()) {
             transformed.put(entry.getKey(), entry.getValue() / magnitude);
         }
         return new FeatureVector(transformed);

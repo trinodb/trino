@@ -17,7 +17,6 @@ import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RemoteQueryModifierModule
@@ -27,10 +26,12 @@ public class RemoteQueryModifierModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(FormatBasedRemoteQueryModifierConfig.class);
-        install(conditionalModule(
-                FormatBasedRemoteQueryModifierConfig.class,
-                config -> config.getFormat().isBlank(),
-                innerBinder -> innerBinder.bind(RemoteQueryModifier.class).toInstance(RemoteQueryModifier.NONE),
-                innerBinder -> innerBinder.bind(RemoteQueryModifier.class).to(FormatBasedRemoteQueryModifier.class).in(SINGLETON)));
+
+        if (buildConfigObject(FormatBasedRemoteQueryModifierConfig.class).getFormat().isBlank()) {
+            binder.bind(RemoteQueryModifier.class).toInstance(RemoteQueryModifier.NONE);
+        }
+        else {
+            binder.bind(RemoteQueryModifier.class).to(FormatBasedRemoteQueryModifier.class).in(SINGLETON);
+        }
     }
 }

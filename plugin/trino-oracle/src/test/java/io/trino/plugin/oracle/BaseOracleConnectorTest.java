@@ -25,6 +25,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -117,7 +118,33 @@ public abstract class BaseOracleConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "test_unsupported_col",
-                "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
+                "(one NUMBER(19), two BFILE, three VARCHAR2(10 CHAR))");
+    }
+
+    @Test
+    void testReadingFloatWithQueryTableFunction()
+    {
+        testReadingFloatWithQueryTableFunction("FLOAT");
+        testReadingFloatWithQueryTableFunction("FLOAT(23)");
+        testReadingFloatWithQueryTableFunction("FLOAT(24)");
+        testReadingFloatWithQueryTableFunction("FLOAT(53)");
+        testReadingFloatWithQueryTableFunction("FLOAT(126)");
+    }
+
+    private void testReadingFloatWithQueryTableFunction(String floatType)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y %s)".formatted(floatType))) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
+
+            // test both query with and without through query table function, make sure the type and values are the same
+            // for the oracle FLOAT type
+            String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
+            assertThat(query("SELECT y FROM " + tableName))
+                    .matches(expectedValues);
+            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+                    .matches(expectedValues);
+        }
     }
 
     @Test
@@ -201,22 +228,19 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
-        // test overridden because super uses all-space char values ('  ') that are null-out by Oracle
+        // test overridden because super uses an all-space char value ('   ') that is nulled-out by Oracle
 
         try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
-                        "   (3, CAST('x  ' AS char(3)))")) {
+                        "   (6, CAST('x  ' AS char(3)))")) {
             assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))",
-                    // The value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (3, 'x  ')");
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x' AS varchar(2))",
+                    "VALUES (6, 'x  ')");
 
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(4))",
-                    // The value is included because both sides of the comparison are coerced to char(4)
-                    "VALUES (3, 'x  ')");
+            assertQueryReturnsEmptyResult(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))");
         }
     }
 
@@ -237,16 +261,16 @@ public abstract class BaseOracleConnectorTest
                         "   (4, CAST('x' AS varchar(3)))," +
                         "   (5, CAST('x ' AS varchar(3)))," +
                         "   (6, CAST('x  ' AS varchar(3)))")) {
-            assertQuery(
-                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (1, ' '), (2, '  '), (3, '   ')");
+            // The char value is coerced to varchar by trimming trailing spaces, then compared as varchar
+            // (no blank padding): char '  ' becomes '', which would match only the empty varchar - but
+            // Oracle stores '' as NULL, so nothing matches.
+            assertQueryReturnsEmptyResult(
+                    "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))");
 
-            // value that's not all-spaces
+            // char 'x ' becomes 'x', matching only the exact 'x'.
             assertQuery(
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
-                    // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
-                    "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+                    "VALUES (4, 'x')");
         }
     }
 
@@ -353,7 +377,9 @@ public abstract class BaseOracleConnectorTest
     public void testPredicatePushdownForChars()
     {
         predicatePushdownTest("CHAR(1)", "'0'", "=", "'0'");
-        predicatePushdownTest("CHAR(1)", "'0'", "<=", "'0'");
+        // An ordering comparison of a char column against a varchar value is not unwrapped (char is PAD SPACE,
+        // varchar is NO PAD), so it no longer pushes down; the comparison must stay char-to-char to push down.
+        predicatePushdownTest("CHAR(1)", "'0'", "<=", "CHAR'0'");
         predicatePushdownTest("CHAR(5)", "'0'", "=", "CHAR'0'");
         predicatePushdownTest("CHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
         predicatePushdownTest("NCHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
@@ -377,7 +403,8 @@ public abstract class BaseOracleConnectorTest
                 Session.builder(getSession())
                         .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
                         .build(),
-                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+                "SELECT * from nation",
+                "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
     @Test
@@ -426,6 +453,56 @@ public abstract class BaseOracleConnectorTest
         // override because Oracle succeeds in preparing query, and then fails because of no metadata available
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
                 .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Test
+    public void testNativeQueryMaterializedViewNumberZeroPrecision()
+    {
+        // Oracle JDBC reports precision=0 for COUNT(*) result columns in passthrough queries,
+        // unlike regular NUMBER columns in table metadata which use 127 as the "unspecified" sentinel.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        String viewName = getUser() + ".test_mv_num_" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE MATERIALIZED VIEW " + viewName + " BUILD IMMEDIATE AS SELECT COUNT(*) AS col FROM dual");
+        try {
+            assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT count(*) FROM " + viewName + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewExtractYearNumberZeroPrecision()
+    {
+        // EXTRACT(YEAR FROM date) returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_yr", "SELECT EXTRACT(YEAR FROM SYSDATE) AS yr FROM dual")) {
+            assertThat(query("SELECT yr FROM TABLE(system.query(query => 'SELECT yr FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '" + LocalDate.now().getYear() + "'");
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewCountNumberZeroPrecision()
+    {
+        // COUNT(*) in a stored Oracle view returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_cnt", "SELECT COUNT(*) AS cnt FROM dual")) {
+            assertThat(query("SELECT cnt FROM TABLE(system.query(query => 'SELECT cnt FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
+    }
+
+    @Test
+    public void testNativeQueryStoredViewSumNumberZeroPrecision()
+    {
+        // SUM() in a stored Oracle view returns NUMBER with columnSize=0, decimalDigits=0 via Oracle JDBC.
+        // Without the fix this would throw "DECIMAL precision must be in range [1, 38]: 0".
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view_sum", "SELECT SUM(1) AS total FROM dual")) {
+            assertThat(query("SELECT total FROM TABLE(system.query(query => 'SELECT total FROM " + view.getName() + "'))"))
+                    .matches("VALUES NUMBER '1'");
+        }
     }
 
     @Override

@@ -41,12 +41,13 @@ import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -201,7 +202,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
                 rewrittenUnnest,
                 Assignments.builder()
                         .putIdentities(rewrittenUnnest.getOutputSymbols())
-                        .put(mask, not(metadata, new IsNull(ordinalitySymbol.toSymbolReference())))
+                        .put(mask, not(metadata, getCharVarcharCoercion(context.getSession()), new IsNull(ordinalitySymbol.toSymbolReference())))
                         .build());
 
         // restore all projections, grouped aggregations and global aggregations from the subquery
@@ -317,7 +318,7 @@ public class DecorrelateInnerUnnestWithGlobalAggregation
         // already has a mask, it will be replaced with conjunction of the existing mask and mask_symbol.
         ImmutableMap.Builder<Symbol, Symbol> masks = ImmutableMap.builder();
         Assignments.Builder assignmentsBuilder = Assignments.builder();
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             if (aggregation.getMask().isPresent()) {
                 Symbol newMask = symbolAllocator.newSymbol("mask", BOOLEAN);

@@ -32,10 +32,9 @@ import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractType;
 import io.trino.spi.type.FixedWidthType;
-import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -57,6 +56,7 @@ public class IpAddressType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "ipaddress";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(IpAddressType.class, lookup(), Slice.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -64,7 +64,7 @@ public class IpAddressType
 
     private IpAddressType()
     {
-        super(new TypeSignature(StandardTypes.IPADDRESS), Slice.class, Int128ArrayBlock.class);
+        super(new TypeDescriptor(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -92,6 +92,12 @@ public class IpAddressType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new Int128ArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

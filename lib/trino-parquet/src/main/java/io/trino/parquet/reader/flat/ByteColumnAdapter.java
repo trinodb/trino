@@ -40,15 +40,21 @@ public class ByteColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, byte[] values)
+    public Block createNullableBlock(long[] valueIsValid, byte[] values)
     {
-        return new ByteArrayBlock(values.length, Optional.of(nulls), values);
+        return new ByteArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override
     public void copyValue(byte[] source, int sourceIndex, byte[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void copyValues(byte[] source, int sourceIndex, byte[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
     }
 
     @Override

@@ -33,8 +33,7 @@ public class TestMergeLimitWithDistinct
     {
         tester().assertThat(new MergeLimitWithDistinct())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 p.aggregation(builder -> builder
                                         .singleGroupingSet(p.symbol("foo"))
                                         .source(p.values(p.symbol("foo"))))))
@@ -48,8 +47,7 @@ public class TestMergeLimitWithDistinct
     {
         tester().assertThat(new MergeLimitWithDistinct())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
@@ -58,8 +56,7 @@ public class TestMergeLimitWithDistinct
 
         tester().assertThat(new MergeLimitWithDistinct())
                 .on(p ->
-                        p.limit(
-                                1,
+                        p.limit(1,
                                 p.aggregation(builder -> builder
                                         .globalGrouping()
                                         .source(p.values(p.symbol("foo"))))))

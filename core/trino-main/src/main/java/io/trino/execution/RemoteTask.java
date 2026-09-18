@@ -76,6 +76,13 @@ public interface RemoteTask
      */
     void failRemotely(Throwable cause);
 
+    /**
+     * Forces the task info to a done state using the current task status,
+     * so that finalTaskInfo listeners fire even if the remote worker never delivered
+     * the final TaskInfo.
+     */
+    void forceFinalizationUsingTaskStatus();
+
     PartitionedSplitsInfo getQueuedPartitionedSplitsInfo();
 
     int getUnacknowledgedPartitionedSplitCount();

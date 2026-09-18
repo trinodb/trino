@@ -19,8 +19,8 @@ import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -114,7 +114,7 @@ public class TestPinotGrpcServerQueryClientTlsConfig
     private void writeToFile(Path filepath, String content)
             throws IOException
     {
-        try (FileWriter writer = new FileWriter(filepath.toFile(), UTF_8)) {
+        try (Writer writer = Files.newBufferedWriter(filepath, UTF_8)) {
             writer.write(content);
         }
     }

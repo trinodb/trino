@@ -46,7 +46,7 @@ public class Extract
         MINUTE,
         SECOND,
         TIMEZONE_MINUTE,
-        TIMEZONE_HOUR
+        TIMEZONE_HOUR,
     }
 
     public Extract(NodeLocation location, Expression expression, Field field)

@@ -48,7 +48,8 @@ public class TestJdbcConnectionAccesses
         this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
         return createH2QueryRunner(
                 ImmutableList.of(NATION, REGION),
-                ImmutableMap.of("connection-url", connectionUrl,
+                ImmutableMap.of(
+                        "connection-url", connectionUrl,
                         // disables connection reuse to approximate number of I/O operations since we almost always open a new connection to execute a query
                         "query.reuse-connection", "false"),
                 // to make sure we always open connections in the same way

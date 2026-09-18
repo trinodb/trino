@@ -41,7 +41,7 @@ public class Timestamps
             1_000_000_000L,
             10_000_000_000L,
             100_000_000_000L,
-            1000_000_000_000L
+            1000_000_000_000L,
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1_000;
@@ -123,11 +123,6 @@ public class Timestamps
         }
 
         return (value + 1 - (factor / 2)) / factor;
-    }
-
-    public static long truncateEpochMicrosToMillis(long epochMicros)
-    {
-        return floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND) * MICROSECONDS_PER_MILLISECOND;
     }
 
     public static long epochMicrosToMillisWithRounding(long epochMicros)

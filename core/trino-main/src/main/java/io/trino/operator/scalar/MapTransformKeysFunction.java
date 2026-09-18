@@ -39,11 +39,11 @@ import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -71,12 +71,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -93,16 +94,16 @@ public final class MapTransformKeysFunction
                         .typeVariable("K1")
                         .typeVariable("K2")
                         .typeVariable("V")
-                        .returnType(mapType(new TypeSignature("K2"), new TypeSignature("V")))
-                        .argumentType(mapType(new TypeSignature("K1"), new TypeSignature("V")))
-                        .argumentType(functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2")))
+                        .returnType(mapType(typeVariable("K2"), typeVariable("V")))
+                        .argumentType(mapType(typeVariable("K1"), typeVariable("V")))
+                        .argumentType(functionType(typeVariable("K1"), typeVariable("V"), typeVariable("K2")))
                         .build())
                 .description("Apply lambda to each entry of the map and transform the key")
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
         Type inputKeyType = inputMapType.getKeyType();
@@ -165,7 +166,7 @@ public final class MapTransformKeysFunction
                                         .throwObject(),
                                 ImmutableList.of(type(DuplicateMapKeyException.class))))));
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformKeysFunction.class.getClassLoader());
+        Class<?> generatedClass = defineHiddenClass(definition, Object.class, binder.getClassData());
         return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
@@ -185,9 +186,9 @@ public final class MapTransformKeysFunction
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
 
-        Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
-        Class<?> transformedKeyJavaType = Primitives.wrap(transformedKeyType.getJavaType());
-        Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
+        Class<?> keyJavaType = binder.getAccessibleType(Primitives.wrap(keyType.getJavaType()));
+        Class<?> transformedKeyJavaType = binder.getAccessibleType(Primitives.wrap(transformedKeyType.getJavaType()));
+        Class<?> valueJavaType = binder.getAccessibleType(Primitives.wrap(valueType.getJavaType()));
 
         Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
         Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
@@ -243,7 +244,7 @@ public final class MapTransformKeysFunction
                             .condition(equal(transformedKeyElement, constantNull(transformedKeyJavaType)))
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
-                                    .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
+                                    .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyJavaType)))
                                     .append(valueBuilder.invoke(
                                             "append",
                                             void.class,

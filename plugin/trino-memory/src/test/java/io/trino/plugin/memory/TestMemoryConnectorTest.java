@@ -23,6 +23,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -37,7 +38,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -216,7 +216,8 @@ public class TestMemoryConnectorTest
                     "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
                     noJoinReordering(joinDistributionType),
                     0,
-                    0, ORDERS_COUNT);
+                    0,
+                    ORDERS_COUNT);
         }
     }
 
@@ -232,7 +233,8 @@ public class TestMemoryConnectorTest
                     sql,
                     noJoinReordering(joinDistributionType),
                     expectedRowCount,
-                    60139, ORDERS_COUNT);
+                    60139,
+                    ORDERS_COUNT);
         }
     }
 
@@ -252,14 +254,16 @@ public class TestMemoryConnectorTest
                     "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
                     6,
-                    6, ORDERS_COUNT);
+                    6,
+                    ORDERS_COUNT);
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
                     "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
                     noJoinReordering(joinDistributionType),
                     39,
-                    39, PART_COUNT);
+                    39,
+                    PART_COUNT);
         }
     }
 
@@ -272,7 +276,8 @@ public class TestMemoryConnectorTest
                 "SELECT * FROM coerce_test l JOIN orders o ON l.orderkey_int = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                 noJoinReordering(BROADCAST),
                 6,
-                6, ORDERS_COUNT);
+                6,
+                ORDERS_COUNT);
     }
 
     @Test
@@ -287,7 +292,8 @@ public class TestMemoryConnectorTest
                             " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
                     6,
-                    6, ORDERS_COUNT);
+                    6,
+                    ORDERS_COUNT);
         }
     }
 
@@ -301,7 +307,8 @@ public class TestMemoryConnectorTest
                     "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
                     noJoinReordering(joinDistributionType),
                     0,
-                    0, ORDERS_COUNT);
+                    0,
+                    ORDERS_COUNT);
         }
     }
 
@@ -319,7 +326,8 @@ public class TestMemoryConnectorTest
                     sql,
                     noJoinReordering(joinDistributionType),
                     expectedRowCount,
-                    60139, ORDERS_COUNT);
+                    60139,
+                    ORDERS_COUNT);
         }
     }
 
@@ -333,14 +341,16 @@ public class TestMemoryConnectorTest
                     "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
                     noJoinReordering(joinDistributionType),
                     6,
-                    6, ORDERS_COUNT);
+                    6,
+                    ORDERS_COUNT);
 
             // Join lineitem with a single row of part
             assertDynamicFiltering(
                     "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                     noJoinReordering(joinDistributionType),
                     39,
-                    39, PART_COUNT);
+                    39,
+                    PART_COUNT);
         }
     }
 
@@ -356,7 +366,9 @@ public class TestMemoryConnectorTest
                             "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                     noJoinReordering(joinDistributionType),
                     1,
-                    1, ORDERS_COUNT, PART_COUNT);
+                    1,
+                    ORDERS_COUNT,
+                    PART_COUNT);
         }
     }
 
@@ -388,12 +400,12 @@ public class TestMemoryConnectorTest
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", session, 2, 2, 2);
 
         // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", session, 0, 5, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", session, 1, 3, 2);
-        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", session, 0, 5, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", session, 0, 0, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", session, 1, 1, 2);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", session, 0, 0, 2);
 
         // TODO: make sure it works after https://github.com/trinodb/trino/issues/5777 is fixed
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", session, 1, 1, 2);
@@ -434,7 +446,8 @@ public class TestMemoryConnectorTest
                 "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
                 noJoinReordering(BROADCAST),
                 0,
-                9894, CUSTOMER_COUNT);
+                9894,
+                CUSTOMER_COUNT);
     }
 
     @Test
@@ -593,6 +606,51 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
+    @Test
+    void testDistinctAggregationsOverBetweenOnExpression()
+    {
+        // Splitting distinct aggregations over a BETWEEN expression must remap the Let binder with its body.
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_distinct_over_between",
+                "AS SELECT * FROM (VALUES (1, 10, 'abc'), (2, 20, 'abd'), (3, 30, 'zzz')) x(orderkey, partkey, comment)")) {
+            assertThat(query(
+                    session,
+                    "SELECT count(DISTINCT orderkey), count(DISTINCT partkey) FROM " + table.getName() +
+                            " WHERE substring(comment, 1, 3) BETWEEN 'a' AND 'b'"))
+                    .matches("VALUES (BIGINT '2', BIGINT '2')");
+        }
+    }
+
+    @Test
+    void testDistinctAggregationsOverNondeterministicSource()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_distinct_over_nondeterministic",
+                "AS SELECT x % 10 k, x a, x b FROM UNNEST(sequence(1, 10000)) t(x)")) {
+            assertThat(query(
+                    session,
+                    "SELECT count(*), count_if(ca <> cb) FROM (" +
+                            "SELECT k, count(DISTINCT a) ca, count(DISTINCT b) cb FROM " + table.getName() +
+                            " WHERE random() < 0.5 GROUP BY k)"))
+                    .matches("VALUES (BIGINT '10', BIGINT '0')");
+
+            assertThat(query(
+                    session,
+                    "SELECT count_if(ca <> cb) FROM (" +
+                            "SELECT g, count(DISTINCT a) ca, count(DISTINCT b) cb FROM (" +
+                            "SELECT k + CAST(floor(random() * 2) AS bigint) g, a, b FROM " + table.getName() + ") GROUP BY g)"))
+                    .matches("VALUES BIGINT '0'");
+        }
     }
 
     @Test

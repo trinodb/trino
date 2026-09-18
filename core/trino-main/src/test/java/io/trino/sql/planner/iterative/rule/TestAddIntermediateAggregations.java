@@ -44,8 +44,7 @@ public class TestAddIntermediateAggregations
                                             p.aggregation(ap -> ap.globalGrouping()
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
-                                                    .source(
-                                                            p.values(p.symbol("a"))))));
+                                                    .source(p.values(p.symbol("a"))))));
                 }))
                 .doesNotFire();
     }
@@ -66,8 +65,7 @@ public class TestAddIntermediateAggregations
                                             p.aggregation(ap -> ap.singleGroupingSet(p.symbol("b"))
                                                     .step(AggregationNode.Step.PARTIAL)
                                                     .addAggregation(p.symbol("b"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "a"))), ImmutableList.of(BIGINT))
-                                                    .source(
-                                                            p.values(p.symbol("a"))))));
+                                                    .source(p.values(p.symbol("a"))))));
                 }))
                 .doesNotFire();
     }

@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
@@ -40,7 +41,6 @@ import static io.trino.plugin.loki.LokiErrorCode.LOKI_TABLE_ERROR;
 import static io.trino.plugin.loki.QueryRangeTableFunction.SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +57,7 @@ public class LokiMetadata
     public LokiMetadata(LokiClient lokiClient, TypeManager typeManager)
     {
         this.lokiClient = requireNonNull(lokiClient, "lokiClient is null");
-        labelsMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        labelsMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
     }
 
     @Override

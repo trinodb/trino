@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 
@@ -50,11 +51,27 @@ public class FirstValueFunction
         recordedNullPosition = -1;
     }
 
+    @SqlNullable
     @Override
-    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition, int excludedStart, int excludedEnd, int keptRow)
     {
         // empty frame
         if (frameStart < 0) {
+            output.appendNull();
+            return;
+        }
+
+        if (excludedStart <= excludedEnd) {
+            // the frame has a hole punched out by an EXCLUDE clause; scan for the first surviving position,
+            // skipping nulls when IGNORE NULLS is specified. The recorded-position optimization below assumes
+            // a contiguous frame, so it is bypassed here.
+            for (int position = frameStart; position <= frameEnd; position++) {
+                boolean excluded = position >= excludedStart && position <= excludedEnd && position != keptRow;
+                if (!excluded && (!ignoreNulls || !windowIndex.isNull(argumentChannel, position))) {
+                    windowIndex.appendTo(argumentChannel, position, output);
+                    return;
+                }
+            }
             output.appendNull();
             return;
         }

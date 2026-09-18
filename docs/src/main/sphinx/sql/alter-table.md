@@ -92,6 +92,12 @@ Add column `zip` to the `users` table:
 ALTER TABLE users ADD COLUMN zip varchar;
 ```
 
+Add column `zip` to the `users` table with default value of `90210`:
+
+```sql
+ALTER TABLE users ADD COLUMN zip varchar DEFAULT '90210';
+```
+
 Add column `zip` to the `users` table if table `users` exists and column `zip`
 not already exists:
 

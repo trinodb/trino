@@ -25,7 +25,7 @@ import io.trino.spi.type.Type;
 import static io.airlift.slice.Slices.utf8Slice;
 
 @Description("Textual representation of expression type")
-@ScalarFunction("typeof")
+@ScalarFunction(value = "typeof", neverFails = true)
 public final class TypeOfFunction
 {
     private TypeOfFunction() {}

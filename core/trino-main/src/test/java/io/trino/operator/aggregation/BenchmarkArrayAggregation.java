@@ -44,7 +44,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.openjdk.jmh.annotations.Level.Invocation;
 
@@ -82,20 +82,11 @@ public class BenchmarkArrayAggregation
             Block block;
             Type elementType;
             switch (type) {
-                case "BIGINT":
-                    elementType = BIGINT;
-                    break;
-                case "VARCHAR":
-                    elementType = VARCHAR;
-                    break;
-                case "DOUBLE":
-                    elementType = DOUBLE;
-                    break;
-                case "BOOLEAN":
-                    elementType = BOOLEAN;
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+                case "BIGINT" -> elementType = BIGINT;
+                case "VARCHAR" -> elementType = VARCHAR;
+                case "DOUBLE" -> elementType = DOUBLE;
+                case "BOOLEAN" -> elementType = BOOLEAN;
+                default -> throw new UnsupportedOperationException();
             }
             TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction("array_agg", fromTypes(elementType));
             aggregator = function.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()).createAggregator(new AggregationMetrics());

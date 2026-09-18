@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.jdbc.exceptions.MysqlDataTruncation;
 import io.trino.Session;
@@ -112,7 +113,7 @@ public abstract class BaseMySqlConnectorTest
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
+                "(one bigint, two bit(10), three varchar(10))");
     }
 
     @Test
@@ -209,8 +210,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['a']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint) WITH (primary_key = ARRAY['a', 'b'])",
@@ -223,8 +223,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['a','b']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint) WITH (primary_key = ARRAY['b', 'a'])",
@@ -237,8 +236,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','a']
                 )\
-                """
-        );
+                """);
 
         verifyCreateTableDefinition(
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint NOT NULL, d bigint) WITH (primary_key = ARRAY['b', 'c', 'a'])",
@@ -252,8 +250,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','c','a']
                 )\
-                """
-        );
+                """);
     }
 
     private void verifyCreateTableDefinition(String tableDefinition, String showCreateTableFormat)
@@ -282,17 +279,16 @@ public abstract class BaseMySqlConnectorTest
     public void testCreateTableWithUnsupportedKey()
     {
         verifyTableDefinitionWithUnsupportedKey(
-                "(a decimal(50,0), b bigint, c bigint, PRIMARY KEY(a))",
+                "(a bit(10), b bigint, c bigint, PRIMARY KEY(a))",
                 """
                 CREATE TABLE %s.%s.%s (
                    b bigint,
                    c bigint
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
-                "(a decimal(50,0), b bigint, c bigint, PRIMARY KEY(a, b))",
+                "(a bit(10), b bigint, c bigint, PRIMARY KEY(a, b))",
                 """
                 CREATE TABLE %s.%s.%s (
                    b bigint NOT NULL,
@@ -301,11 +297,10 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
-                "(a decimal(50,0), b bigint, c bigint, d bigint, PRIMARY KEY(a, b, c))",
+                "(a bit(10), b bigint, c bigint, d bigint, PRIMARY KEY(a, b, c))",
                 """
                 CREATE TABLE %s.%s.%s (
                    b bigint NOT NULL,
@@ -315,11 +310,10 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b','c']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
-                "(a decimal(50,0), b bigint, c bigint, d bigint, PRIMARY KEY(a, c, b))",
+                "(a bit(10), b bigint, c bigint, d bigint, PRIMARY KEY(a, c, b))",
                 """
                 CREATE TABLE %s.%s.%s (
                    b bigint NOT NULL,
@@ -329,11 +323,10 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['c','b']
                 )\
-                """
-        );
+                """);
 
         verifyTableDefinitionWithUnsupportedKey(
-                "(a decimal(50,0), b bigint, c decimal(50,0), d bigint, PRIMARY KEY(a, b, c))",
+                "(a bit(10), b bigint, c bit(10), d bigint, PRIMARY KEY(a, b, c))",
                 """
                 CREATE TABLE %s.%s.%s (
                    b bigint NOT NULL,
@@ -342,8 +335,7 @@ public abstract class BaseMySqlConnectorTest
                 WITH (
                    primary_key = ARRAY['b']
                 )\
-                """
-        );
+                """);
     }
 
     private void verifyTableDefinitionWithUnsupportedKey(String tableDefinition, String showCreateTableFormat)
@@ -488,6 +480,26 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    @Override
+    public void testVarcharEqualityPushdownIgnoresTrailingSpaces()
+    {
+        // Uses a case-sensitive legacy collation (latin1_general_cs): it is PAD SPACE and uses full predicate pushdown,
+        // so it exercises the re-check path. The default utf8mb4_0900_ai_ci collation is NO PAD and would not.
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_varchar_pad_space",
+                "(v varchar(5) CHARACTER SET latin1 COLLATE latin1_general_cs)",
+                List.of("'a'", "'a '"))) {
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a'"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a'");
+            assertThat(query("SELECT v FROM " + table.getName() + " WHERE v = 'a '"))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'a '");
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
         // varchar like
@@ -547,6 +559,23 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        // IS NOT NULL is pushed down even for case insensitive columns
+        try (TestTable table = newTrinoTable(
+                "test_is_not_null_pushdown",
+                "(id bigint, name varchar(50))",
+                ImmutableList.of("1, 'ROMANIA'", "2, 'romania'", "3, NULL"))) {
+            // sanity check: name is a case insensitive column, so equality is not fully pushed down
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE name = 'ROMANIA'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT id, name FROM " + table.getName() + " WHERE name IS NOT NULL"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testPredicatePushdownWithCollationView()
     {
         testPredicatePushdownWithCollationView("latin1", "latin1_general_cs");
@@ -585,11 +614,11 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar inequality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name != 'ROMANIA' AND name != 'ALGERIA'", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar equality
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'ROMANIA'", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar range
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name BETWEEN 'POLAND' AND 'RPA'", objectName)))
@@ -599,7 +628,7 @@ public abstract class BaseMySqlConnectorTest
 
         // varchar NOT IN
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name NOT IN ('POLAND', 'ROMANIA', 'VIETNAM')", objectName)))
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar NOT IN with small compaction threshold
         assertThat(query(
@@ -622,7 +651,7 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES " +
                         "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255))), " +
                         "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(255)))")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar IN with small compaction threshold
         assertThat(query(
@@ -645,7 +674,7 @@ public abstract class BaseMySqlConnectorTest
         // varchar different case
         assertThat(query(format("SELECT regionkey, nationkey, name FROM %s WHERE name = 'romania'", objectName)))
                 .returnsEmptyResult()
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         Session joinPushdownEnabled = joinPushdownEnabled(getSession());
         // join on varchar columns
@@ -701,13 +730,13 @@ public abstract class BaseMySqlConnectorTest
     {
         // MySQL JDBC driver < 8.0.29 didn't return metadata when the query contained a WITH clause
         assertQuery(
-                    """
-                    SELECT * FROM TABLE(mysql.system.query(query => '
-                    WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
-                    SELECT custkey, name FROM tpch.customer
-                    WHERE custkey = 1
-                    '))
-                    """,
+                """
+                SELECT * FROM TABLE(mysql.system.query(query => '
+                WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
+                SELECT custkey, name FROM tpch.customer
+                WHERE custkey = 1
+                '))
+                """,
                 "VALUES (1, 'Customer#000000001')");
     }
 

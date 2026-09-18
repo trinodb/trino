@@ -33,6 +33,7 @@ import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.ConnectorServicesProvider.PrunableState;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -52,12 +53,14 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -75,7 +78,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -134,6 +136,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private volatile long activeTasks;
     private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
@@ -313,6 +316,8 @@ public class SqlTaskManager
                 }
             }, 0, intervalSeconds, SECONDS);
         });
+
+        taskManagementExecutor.scheduleWithFixedDelay(() -> activeTasks = tasks.asMap().values().stream().filter(task -> task.getTaskEndTime() == null).count(), 0, 1, SECONDS);
     }
 
     @PreDestroy
@@ -352,6 +357,12 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Active tasks count")
+    public long getActiveTasksCount()
+    {
+        return activeTasks;
     }
 
     @Managed(description = "Tracked tasks count")
@@ -463,25 +474,17 @@ public class SqlTaskManager
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
     }
 
-    private final ReentrantReadWriteLock catalogsLock = new ReentrantReadWriteLock();
-
     public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
     {
         Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
-        ReentrantReadWriteLock.WriteLock pruneLock = catalogsLock.writeLock();
-        pruneLock.lock();
-        try {
-            for (SqlTask task : tasks.asMap().values()) {
-                // add all catalogs being used by a non-done task
-                if (!task.getTaskState().isDone()) {
-                    catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
-                }
+        PrunableState prunableState = connectorServicesProvider.getPrunableState();
+        for (SqlTask task : tasks.asMap().values()) {
+            // add all catalogs being used by a non-done task
+            if (!task.getTaskState().isDone()) {
+                catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
             }
-            connectorServicesProvider.pruneCatalogs(catalogsInUse);
         }
-        finally {
-            pruneLock.unlock();
-        }
+        connectorServicesProvider.pruneCatalogs(prunableState, catalogsInUse);
     }
 
     /**
@@ -493,13 +496,14 @@ public class SqlTaskManager
             TaskId taskId,
             Span stageSpan,
             Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
             boolean speculative)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains, speculative)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -513,6 +517,7 @@ public class SqlTaskManager
             TaskId taskId,
             Span stageSpan,
             Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
@@ -551,15 +556,8 @@ public class SqlTaskManager
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {
-                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
-                        catalogInitLock.lock();
-                        try {
-                            connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
-                            sqlTask.setCatalogsLoaded();
-                        }
-                        finally {
-                            catalogInitLock.unlock();
-                        }
+                        connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
+                        sqlTask.setCatalogsLoaded();
                     }
                 });
 
@@ -567,7 +565,7 @@ public class SqlTaskManager
                 .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);
+        return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);
     }
 
     /**
@@ -680,7 +678,7 @@ public class SqlTaskManager
             TaskId taskId = sqlTask.getTaskId();
             try {
                 TaskState taskState = sqlTask.getTaskState();
-                if (taskState.isDone()) {
+                if (taskState.isTerminatingOrDone()) {
                     continue;
                 }
                 Instant lastHeartbeat = sqlTask.lastHeartbeat();
@@ -745,7 +743,6 @@ public class SqlTaskManager
 
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
-
     {
         return queryContexts.getUnchecked(queryId);
     }
@@ -864,7 +861,7 @@ public class SqlTaskManager
             task.recordHeartbeat();
         }
 
-        public String getTaskInstanceId()
+        public long getTaskInstanceId()
         {
             return task.getTaskInstanceId();
         }

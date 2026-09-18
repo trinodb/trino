@@ -278,7 +278,9 @@ public class RcFilePageSource
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
-                    block = selectedPositions.apply(block);
+                    // loaded blocks already reflect the previous selection, so the incoming
+                    // positions apply to them directly
+                    block = block.getPositions(positions, offset, size);
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }

@@ -54,6 +54,7 @@ import java.util.function.Predicate;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,8 +92,8 @@ public class TestTaskExecutorStuckSplits
                     .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, SECONDS))
                     .setInterruptStuckSplitTasksTimeout(new Duration(10, SECONDS));
 
-            try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, taskManagementExecutor, stackTraceElements -> true)) {
-                sqlTaskManager.addStateChangeListener(taskId, (state) -> {
+            try (SqlTaskManager sqlTaskManager = createSqlTaskManager(taskManagerConfig, new NodeMemoryConfig(), taskExecutor, taskManagementExecutor, _ -> true)) {
+                sqlTaskManager.addStateChangeListener(taskId, state -> {
                     if (state.isTerminatingOrDone() && !taskHandle.isDestroyed()) {
                         taskExecutor.removeTask(taskHandle);
                     }
@@ -106,7 +107,7 @@ public class TestTaskExecutorStuckSplits
                 assertThat(taskInfos).hasSize(1);
 
                 TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
-                assertThat(taskInfo.taskStatus().getState()).isEqualTo(TaskState.FAILED);
+                assertThat(taskInfo.taskStatus().state()).isEqualTo(TaskState.FAILED);
             }
         }
         finally {
@@ -126,7 +127,7 @@ public class TestTaskExecutorStuckSplits
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
-                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager()),
+                new WorkerLanguageFunctionProvider(new LanguageFunctionEngineManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 taskExecutor,
                 new NodeInfo("test"),
@@ -145,10 +146,10 @@ public class TestTaskExecutorStuckSplits
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
             throws InterruptedException, ExecutionException, TimeoutException
     {
-        assertThat(taskInfo.taskStatus().getState().isTerminatingOrDone()).isTrue();
+        assertThat(taskInfo.taskStatus().state().isTerminatingOrDone()).isTrue();
         int attempts = 3;
-        while (attempts > 0 && taskInfo.taskStatus().getState().isTerminating()) {
-            taskInfo = taskManager.getTaskInfo(taskInfo.taskStatus().getTaskId(), taskInfo.taskStatus().getVersion()).get(5, SECONDS);
+        while (attempts > 0 && taskInfo.taskStatus().state().isTerminating()) {
+            taskInfo = taskManager.getTaskInfo(taskInfo.taskStatus().taskId(), taskInfo.taskStatus().version()).get(5, SECONDS);
             attempts--;
         }
         return taskInfo;
@@ -164,7 +165,13 @@ public class TestTaskExecutorStuckSplits
         public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
-        public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)
+        public PrunableState getPrunableState()
+        {
+            return PrunableState.empty();
+        }
+
+        @Override
+        public void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse)
         {
             throw new UnsupportedOperationException();
         }

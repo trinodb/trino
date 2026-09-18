@@ -38,7 +38,8 @@ public class TestExampleQueries
     @Test
     public void selectFromTable()
     {
-        assertQuery("SELECT name FROM example.public.test",
+        assertQuery(
+                "SELECT name FROM example.public.test",
                 "VALUES 'one', 'two'");
     }
 }

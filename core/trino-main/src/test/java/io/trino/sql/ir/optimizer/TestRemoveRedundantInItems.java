@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
@@ -30,20 +31,24 @@ import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantInItems
 {
+    private static final Expression RANDOM_BOUND = new Constant(TINYINT, 10L);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
+    // random with tinyint bound may fail
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of(new TypeDescriptorProvider(TINYINT.getTypeDescriptor())));
     private static final ResolvedFunction IS_INDETERMINATE = FUNCTIONS.resolveOperator(INDETERMINATE, ImmutableList.of(BIGINT));
 
     @Test
@@ -51,11 +56,10 @@ public class TestRemoveRedundantInItems
     {
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"), ImmutableList.of(new Reference(BIGINT, "y")))))
-                .isEqualTo(Optional.of(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
+                .isEqualTo(Optional.of(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Reference(BIGINT, "y")))))
@@ -63,8 +67,7 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "y"),
                                 new Reference(BIGINT, "z"),
@@ -77,8 +80,7 @@ public class TestRemoveRedundantInItems
                                 new Reference(BIGINT, "z")))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
@@ -86,64 +88,59 @@ public class TestRemoveRedundantInItems
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(
-                        new Reference(BIGINT, "x"),
+                new In(new Reference(BIGINT, "x"),
                         ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
                 .describedAs("exact match found, another item can fail, duplicate removed")
                 .isEqualTo(Optional.of(
-                        new In(
-                                new Reference(BIGINT, "x"),
+                        new In(new Reference(BIGINT, "x"),
                                 ImmutableList.of(
                                         new Reference(BIGINT, "x"),
                                         new Cast(new Reference(VARCHAR, "y"), BIGINT)))));
 
         assertThat(optimize(
-                new In(
-                        new Reference(DOUBLE, "x"),
+                new In(new Reference(TINYINT, "x"),
                         ImmutableList.of(
-                                new Call(RANDOM, ImmutableList.of()),
-                                new Call(RANDOM, ImmutableList.of())))))
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
                 .describedAs("non-deterministic items")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
-                new In(
-                        new Reference(DOUBLE, "x"),
+                new In(new Reference(TINYINT, "x"),
                         ImmutableList.of(
-                                new Reference(DOUBLE, "x"),
-                                new Reference(DOUBLE, "x"),
-                                new Call(RANDOM, ImmutableList.of()),
-                                new Call(RANDOM, ImmutableList.of())))))
+                                new Reference(TINYINT, "x"),
+                                new Reference(TINYINT, "x"),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
                 .describedAs("non-deterministic items")
                 .isEqualTo(Optional.of(new In(
-                        new Reference(DOUBLE, "x"),
+                        new Reference(TINYINT, "x"),
                         ImmutableList.of(
-                                new Reference(DOUBLE, "x"),
-                                new Call(RANDOM, ImmutableList.of()),
-                                new Call(RANDOM, ImmutableList.of())))));
+                                new Reference(TINYINT, "x"),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
 
         assertThat(optimize(
-                new In(
-                        new Call(RANDOM, ImmutableList.of()),
+                new In(new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                         ImmutableList.of(
-                                new Reference(DOUBLE, "x"),
-                                new Reference(DOUBLE, "x"),
-                                new Call(RANDOM, ImmutableList.of()),
-                                new Call(RANDOM, ImmutableList.of())))))
+                                new Reference(TINYINT, "x"),
+                                new Reference(TINYINT, "x"),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
                 .describedAs("non-deterministic value")
                 .isEqualTo(Optional.of(new In(
-                        new Call(RANDOM, ImmutableList.of()),
+                        new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
                         ImmutableList.of(
-                                new Reference(DOUBLE, "x"),
-                                new Call(RANDOM, ImmutableList.of()),
-                                new Call(RANDOM, ImmutableList.of())))));
+                                new Reference(TINYINT, "x"),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

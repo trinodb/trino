@@ -47,7 +47,7 @@ public final class ArrayContains
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equals,
+            MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Object value)
     {
@@ -82,7 +82,7 @@ public final class ArrayContains
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equals,
+            MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") long value)
     {
@@ -117,7 +117,7 @@ public final class ArrayContains
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equals,
+            MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") boolean value)
     {
@@ -152,7 +152,7 @@ public final class ArrayContains
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equals,
+            MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") double value)
     {

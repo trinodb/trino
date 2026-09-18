@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
@@ -31,6 +30,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +41,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -48,7 +49,7 @@ public class MemoryRevokingScheduler
 {
     private static final Logger log = Logger.get(MemoryRevokingScheduler.class);
 
-    private static final Ordering<SqlTask> ORDER_BY_CREATE_TIME = Ordering.natural().onResultOf(SqlTask::getTaskCreatedTime);
+    private static final Comparator<SqlTask> ORDER_BY_CREATE_TIME = comparing(SqlTask::getTaskCreatedTime);
     private final MemoryPool memoryPool;
     private final Supplier<? extends Collection<SqlTask>> currentTasksSupplier;
     private final ScheduledExecutorService taskManagementExecutor;
@@ -69,8 +70,7 @@ public class MemoryRevokingScheduler
             TaskManagementExecutor taskManagementExecutor,
             FeaturesConfig config)
     {
-        this(
-                localMemoryManager.getMemoryPool(),
+        this(localMemoryManager.getMemoryPool(),
                 sqlTaskManager::getAllTasks,
                 taskManagementExecutor.getExecutor(),
                 config.getMemoryRevokingThreshold(),
@@ -93,7 +93,8 @@ public class MemoryRevokingScheduler
         checkArgument(
                 memoryRevokingTarget <= memoryRevokingThreshold,
                 "memoryRevokingTarget should be less than or equal memoryRevokingThreshold, but got %s and %s respectively",
-                memoryRevokingTarget, memoryRevokingThreshold);
+                memoryRevokingTarget,
+                memoryRevokingThreshold);
     }
 
     private static double checkFraction(double value, String valueName)
@@ -117,7 +118,7 @@ public class MemoryRevokingScheduler
                 requestMemoryRevokingIfNeeded();
             }
             catch (Throwable e) {
-                log.error(e, "Error requesting system memory revoking");
+                log.error(e, "Error requesting memory revoking");
             }
         }, 1, 1, SECONDS);
     }

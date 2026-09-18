@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -54,7 +51,7 @@ public class GroupIdMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
@@ -74,7 +71,7 @@ public class GroupIdMatcher
             if (!AggregationMatcher.matches(
                     expectedGroupingSet.stream().map(symbol -> groupingColumns.getOrDefault(symbol, symbol)).collect(toImmutableList()),
                     actualGroupingSet.stream().map(symbol -> groupIdNode.getGroupingColumns().getOrDefault(symbol, symbol)).collect(toImmutableList()),
-                    symbolAliases)) {
+                    context.symbolAliases())) {
                 return NO_MATCH;
             }
             for (int j = 0; j < expectedGroupingSet.size(); j++) {
@@ -86,7 +83,7 @@ public class GroupIdMatcher
             }
         }
 
-        if (!AggregationMatcher.matches(aggregationArguments, actualAggregationArguments, symbolAliases)) {
+        if (!AggregationMatcher.matches(aggregationArguments, actualAggregationArguments, context.symbolAliases())) {
             return NO_MATCH;
         }
 

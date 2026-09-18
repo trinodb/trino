@@ -18,16 +18,17 @@ import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ElementToArrayConcatFunction
@@ -47,16 +48,16 @@ public class ElementToArrayConcatFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(new TypeSignature("E"))
-                        .argumentType(arrayType(new TypeSignature("E")))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(typeVariable("E"))
+                        .argumentType(arrayType(typeVariable("E")))
                         .build())
                 .description("Concatenates an element to an array")
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         MethodHandle methodHandle;

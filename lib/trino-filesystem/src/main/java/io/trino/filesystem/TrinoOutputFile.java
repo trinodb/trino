@@ -48,6 +48,7 @@ public interface TrinoOutputFile
      * If an error occurs while writing, the file will not be created.
      *
      * @throws FileAlreadyExistsException if the file already exists
+     * @throws FileMayHaveAlreadyExistedException if the file exists and file system cannot determine whether the file was created by the call or already existed
      * @throws UnsupportedOperationException if the file system does not support this operation
      */
     default void createExclusive(byte[] data)

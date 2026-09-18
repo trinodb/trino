@@ -103,9 +103,9 @@ public class PinotProxyGrpcRequestBuilder
             metadata.put(KEY_OF_PROXY_GRPC_FORWARD_PORT, String.valueOf(this.port));
         }
         return Server.ServerRequest.newBuilder()
-            .putAllMetadata(metadata)
-            .setSql(sql)
-            .addAllSegments(segments)
-            .build();
+                .putAllMetadata(metadata)
+                .setSql(sql)
+                .addAllSegments(segments)
+                .build();
     }
 }

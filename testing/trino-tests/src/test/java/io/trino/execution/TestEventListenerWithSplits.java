@@ -75,8 +75,8 @@ public class TestEventListenerWithSplits
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of("test_table"))
-                        .withApplyProjection((session, handle, projections, assignments) -> {
+                        .withListTables((_, _) -> ImmutableList.of("test_table"))
+                        .withApplyProjection((_, _, _, _) -> {
                             throw new RuntimeException("Throw from apply projection");
                         })
                         .build();

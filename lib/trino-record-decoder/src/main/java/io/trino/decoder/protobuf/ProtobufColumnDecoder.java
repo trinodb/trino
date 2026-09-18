@@ -14,7 +14,6 @@
 package io.trino.decoder.protobuf;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
@@ -43,8 +42,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -68,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 public class ProtobufColumnDecoder
 {
     // Trino JSON types are expected to be sorted by key
-    private static final ObjectMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
+    private static final JsonMapper mapper = JsonMapper.builder().configure(ORDER_MAP_ENTRIES_BY_KEYS, true).build();
     private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
 
@@ -95,7 +94,7 @@ public class ProtobufColumnDecoder
             requireNonNull(columnHandle, "columnHandle is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.descriptorProvider = requireNonNull(descriptorProvider, "descriptorProvider is null");
-            this.jsonType = typeManager.getType(new TypeSignature(JSON));
+            this.jsonType = typeManager.getType(new TypeDescriptor(JSON));
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
             this.columnName = columnHandle.getName();
@@ -117,19 +116,16 @@ public class ProtobufColumnDecoder
             return true;
         }
 
-        if (type instanceof ArrayType) {
-            checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
-            return isSupportedType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            return isSupportedType(arrayType.getElementType());
         }
 
-        if (type instanceof MapType) {
-            List<Type> typeParameters = type.getTypeParameters();
-            checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
-            return isSupportedType(typeParameters.get(0)) && isSupportedType(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            return isSupportedType(mapType.getKeyType()) && isSupportedType(mapType.getValueType());
         }
 
-        if (type instanceof RowType) {
-            for (Type fieldType : type.getTypeParameters()) {
+        if (type instanceof RowType rowType) {
+            for (Type fieldType : rowType.getFieldTypes()) {
                 if (!isSupportedType(fieldType)) {
                     return false;
                 }

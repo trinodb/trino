@@ -109,7 +109,8 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_2", BIGINT))
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .build();
-        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
+                createSessionWithNumSplits(1, false, pinotConfig),
                 new PinotQueryInfo("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
                 columnHandles,
                 testingPinotClient,
@@ -131,7 +132,8 @@ public class TestBrokerQueries
     @Test
     public void testCountStarBrokerQuery()
     {
-        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
+                createSessionWithNumSplits(1, false, pinotConfig),
                 new PinotQueryInfo("test_table", "SELECT COUNT(*) FROM test_table", 0),
                 ImmutableList.of(),
                 testingPinotClient,
@@ -163,7 +165,8 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_2", BIGINT))
                 .add(new PinotColumnHandle("col_3", VARCHAR))
                 .build();
-        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
+                createSessionWithNumSplits(1, false, pinotConfig),
                 new PinotQueryInfo("test_table", "SELECT col_1, col_2, col_3 FROM test_table", 0),
                 columnHandles,
                 testingPinotClient,

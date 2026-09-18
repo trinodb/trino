@@ -38,7 +38,7 @@ public class SkipTo
         PAST_LAST,
         NEXT,
         FIRST,
-        LAST
+        LAST,
     }
 
     // default

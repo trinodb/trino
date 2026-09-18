@@ -60,7 +60,9 @@ public class BucketAdapter
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
                 throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
                         "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
-                        bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
+                        bucket,
+                        bucketToKeep % partitionBucketCount,
+                        partitionBucketCount));
             }
             if (bucket == bucketToKeep) {
                 ids.add(position);

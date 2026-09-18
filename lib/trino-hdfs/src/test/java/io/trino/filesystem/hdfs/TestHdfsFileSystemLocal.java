@@ -55,7 +55,7 @@ public class TestHdfsFileSystemLocal
             throws IOException
     {
         RawLocalFileSystem.useStatIfAvailable();
-        DynamicConfigurationProvider viewFs = (config, context, uri) ->
+        DynamicConfigurationProvider viewFs = (config, _, _) ->
                 config.set("fs.viewfs.mounttable.abc.linkFallback", tempDirectory.toAbsolutePath().toUri().toString());
 
         HdfsConfig hdfsConfig = new HdfsConfig();

@@ -34,22 +34,4 @@ public final class ByteBuffers
         checkArgument(byteBuffer.remaining() == array.length, "buffer has %s remaining bytes while array length is %s", byteBuffer.remaining(), array.length);
         return array;
     }
-
-    /**
-     * Gets the bytes the provided {@link ByteBuffer} represents, without advancing buffer position.
-     * The returned byte array may be shared with the buffer.
-     */
-    public static byte[] getBytes(ByteBuffer byteBuffer)
-    {
-        if (byteBuffer.hasArray() && byteBuffer.arrayOffset() == 0 && byteBuffer.position() == 0) {
-            byte[] array = byteBuffer.array();
-            if (byteBuffer.remaining() == array.length) {
-                return array;
-            }
-        }
-
-        byte[] bytes = new byte[byteBuffer.remaining()];
-        byteBuffer.asReadOnlyBuffer().get(bytes);
-        return bytes;
-    }
 }

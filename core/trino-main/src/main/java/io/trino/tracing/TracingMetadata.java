@@ -37,6 +37,8 @@ import io.trino.metadata.QualifiedObjectPrefix;
 import io.trino.metadata.QualifiedSchemaPrefix;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.RedirectionAwareView;
+import io.trino.metadata.ResolvedAggregationFunctionMetadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.metadata.TableExecuteHandle;
@@ -62,7 +64,10 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.EntityKindAndName;
@@ -89,7 +94,6 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
-import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -97,6 +101,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
@@ -111,8 +116,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
 import java.util.List;
@@ -211,6 +216,25 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(Session session, TableHandle tableHandle, String procedureName, Map<String, Object> executeProperties)
+    {
+        Span span = startSpan("getTableHandleForMaterializedViewExecute", tableHandle)
+                .setAttribute(TrinoAttributes.PROCEDURE, procedureName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForMaterializedViewExecute(session, tableHandle, procedureName, executeProperties);
+        }
+    }
+
+    @Override
+    public Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    {
+        Span span = startSpan("getColumnHandlesForTableExecute", tableExecuteHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnHandlesForTableExecute(session, tableExecuteHandle);
+        }
+    }
+
+    @Override
     public Optional<TableLayout> getLayoutForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         Span span = startSpan("getLayoutForTableExecute", tableExecuteHandle);
@@ -229,11 +253,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         Span span = startSpan("finishTableExecute", handle);
         try (var _ = scopedSpan(span)) {
-            delegate.finishTableExecute(session, handle, fragments, tableExecuteState);
+            return delegate.finishTableExecute(session, handle, fragments, tableExecuteState);
         }
     }
 
@@ -778,7 +802,8 @@ public class TracingMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+            List<String> sourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         Span span = startSpan("finishRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
@@ -789,7 +814,8 @@ public class TracingMetadata
                     fragments,
                     computedStatistics,
                     sourceTableHandles,
-                    sourceTableFunctions);
+                    sourceTableFunctions,
+                    hasNonDeterministicFunctions);
         }
     }
 
@@ -866,14 +892,14 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.tableHandle().catalogHandle().getCatalogName());
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.TABLE, tableHandle.tableHandle().connectorHandle().toString());
         }
         try (var _ = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
+            return delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 
@@ -883,6 +909,15 @@ public class TracingMetadata
         Span span = startSpan("getCatalogHandle", catalogName);
         try (var _ = scopedSpan(span)) {
             return delegate.getCatalogHandle(session, catalogName);
+        }
+    }
+
+    @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        Span span = startSpan("getCatalogInfo", catalogName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getCatalogInfo(session, catalogName);
         }
     }
 
@@ -1348,46 +1383,46 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
                 .setAttribute(TrinoAttributes.FUNCTION, name);
         try (var _ = scopedSpan(span)) {
-            return delegate.resolveBuiltinFunction(name, parameterTypes);
+            return delegate.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
         }
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         // no tracing since it doesn't call any connector
-        return delegate.resolveOperator(operatorType, argumentTypes);
+        return delegate.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(operatorType, fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
-        return delegate.getCoercion(name, fromType, toType);
+        return delegate.getCoercion(charVarcharCoercion, name, fromType, toType);
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
+    public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getAggregationFunctionMetadata")
                 .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.catalogHandle().getCatalogName().toString())
@@ -1558,11 +1593,11 @@ public class TracingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, boolean considerGracePeriod)
     {
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
+            return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
         }
     }
 
@@ -1617,6 +1652,15 @@ public class TracingMetadata
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getRedirectionAwareView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectionAwareView(session, viewName);
         }
     }
 
@@ -1698,6 +1742,33 @@ public class TracingMetadata
         Span span = startSpan("getFunctionsAuthorizationInfo", prefix);
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionsAuthorizationInfo(session, prefix);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", catalogHandle, tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, catalogHandle, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle tableHandle)
+    {
+        Span span = startSpan("getTableCredentials", catalogHandle, tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, catalogHandle, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan("getTableCredentials", catalogHandle, tableFunctionHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableCredentials(session, catalogHandle, tableFunctionHandle);
         }
     }
 
@@ -1787,6 +1858,36 @@ public class TracingMetadata
         return span;
     }
 
+    private Span startSpan(String methodName, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString());
+            span.setAttribute(TrinoAttributes.HANDLE, tableHandle.toString());
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString());
+            span.setAttribute(TrinoAttributes.HANDLE, tableFunctionHandle.toString());
+        }
+        return span;
+    }
+
+    private Span startSpan(String methodName, CatalogHandle catalogHandle, ConnectorWritableTableHandle tableHandle)
+    {
+        Span span = startSpan(methodName);
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString());
+            span.setAttribute(TrinoAttributes.HANDLE, tableHandle.toString());
+        }
+        return span;
+    }
+
     private Span startSpan(String methodName, TableExecuteHandle handle)
     {
         Span span = startSpan(methodName);
@@ -1800,20 +1901,21 @@ public class TracingMetadata
     private Span startSpan(String methodName, CatalogSchemaFunctionName table)
     {
         return startSpan(methodName)
-                .setAttribute(TrinoAttributes.CATALOG, table.getCatalogName())
-                .setAttribute(TrinoAttributes.SCHEMA, table.getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, table.getFunctionName());
+                .setAttribute(TrinoAttributes.CATALOG, table.catalogName())
+                .setAttribute(TrinoAttributes.SCHEMA, table.schemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, table.functionName());
     }
 
     private Span startSpan(String methodName, EntityKindAndName entity, Set<EntityPrivilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            String grant = String.format("%s-%s-%s-%s-%s%s",
+            String grant = String.format(
+                    "%s-%s-%s-%s-%s%s",
                     entity.entityKind(),
                     entity.name(),
                     grantee.getType(),
-                    grantee.getName(),
+                    grantee.getPrincipalName(),
                     privileges.stream().map(EntityPrivilege::name).collect(Collectors.joining("-")),
                     grantOption ? "-grantOption" : "");
             span.setAttribute(TrinoAttributes.PRIVILEGE_GRANT, grant);

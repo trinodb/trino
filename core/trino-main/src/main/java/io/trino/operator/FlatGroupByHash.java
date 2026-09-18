@@ -46,6 +46,7 @@ public class FlatGroupByHash
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
     private final FlatHash flatHash;
+    private final InterpretedHashGenerator hashGenerator;
     private final int groupByChannelCount;
 
     private final boolean processDictionary;
@@ -69,6 +70,7 @@ public class FlatGroupByHash
             UpdateMemory checkMemoryReservation)
     {
         this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), cacheHashValue, expectedSize, checkMemoryReservation);
+        this.hashGenerator = hashStrategyCompiler.getInterpretedHashGenerator(hashTypes);
         this.groupByChannelCount = hashTypes.size();
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -83,6 +85,7 @@ public class FlatGroupByHash
     public FlatGroupByHash(FlatGroupByHash other)
     {
         this.flatHash = other.flatHash.copy();
+        this.hashGenerator = other.hashGenerator;
         groupByChannelCount = other.groupByChannelCount;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
@@ -245,7 +248,11 @@ public class FlatGroupByHash
         int positionCount = blocks[0].getPositionCount();
         long cardinality = 1;
         for (int channel = 0; channel < groupByChannelCount; channel++) {
-            if (!(blocks[channel] instanceof DictionaryBlock dictionaryBlock)) {
+            Block block = blocks[channel];
+            if (block instanceof RunLengthEncodedBlock) {
+                continue;
+            }
+            if (!(block instanceof DictionaryBlock dictionaryBlock)) {
                 return false;
             }
             cardinality = multiplyExact(cardinality, dictionaryBlock.getDictionary().getPositionCount());
@@ -358,7 +365,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0; i < batchSize; i++) {
                     flatHash.putIfAbsent(blocks, lastPosition + i, hashes[i]);
                 }
@@ -524,7 +531,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0, position = lastPosition; i < batchSize; i++, position++) {
                     groupIds[position] = flatHash.putIfAbsent(blocks, position, hashes[i]);
                 }
@@ -724,6 +731,10 @@ public class FlatGroupByHash
         int maxCardinality = 1;
         for (int channel = 0; channel < groupByChannelCount; channel++) {
             Block block = blocks[channel];
+            // RLE is equivalent to a dictionary with cardinality one and id zero.
+            if (block instanceof RunLengthEncodedBlock) {
+                continue;
+            }
             verify(block instanceof DictionaryBlock, "Only dictionary blocks are supported");
             DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
             int dictionarySize = dictionaryBlock.getDictionary().getPositionCount();

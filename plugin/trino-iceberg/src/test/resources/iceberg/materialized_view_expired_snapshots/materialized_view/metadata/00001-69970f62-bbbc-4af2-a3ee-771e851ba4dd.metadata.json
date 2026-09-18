@@ -1,0 +1,134 @@
+{
+    "format-version": 2,
+    "table-uuid": "34e32361-c24e-40d0-aaec-ca4d0f129fad",
+    "location": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view",
+    "last-sequence-number": 2,
+    "last-updated-ms": 1768503590929,
+    "last-column-id": 1,
+    "current-schema-id": 0,
+    "schemas": [
+        {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {
+                    "id": 1,
+                    "name": "a",
+                    "required": false,
+                    "type": "int"
+                }
+            ]
+        }
+    ],
+    "default-spec-id": 0,
+    "partition-specs": [
+        {
+            "spec-id": 0,
+            "fields": []
+        }
+    ],
+    "last-partition-id": 999,
+    "default-sort-order-id": 0,
+    "sort-orders": [
+        {
+            "order-id": 0,
+            "fields": []
+        }
+    ],
+    "properties": {
+        "write.format.default": "PARQUET",
+        "write.parquet.compression-codec": ""
+    },
+    "current-snapshot-id": 2658918943052245018,
+    "refs": {
+        "main": {
+            "snapshot-id": 2658918943052245018,
+            "type": "branch"
+        }
+    },
+    "snapshots": [
+        {
+            "sequence-number": 1,
+            "snapshot-id": 1908038061182547556,
+            "timestamp-ms": 1768503590871,
+            "summary": {
+                "operation": "delete",
+                "changed-partition-count": "0",
+                "total-records": "0",
+                "total-files-size": "0",
+                "total-data-files": "0",
+                "total-delete-files": "0",
+                "total-position-deletes": "0",
+                "total-equality-deletes": "0",
+                "engine-version": "testversion",
+                "engine-name": "trino",
+                "iceberg-version": "Apache Iceberg 1.10.1-e.1 (commit 57448704eb9967abee52da13672326592e9ebe25)"
+            },
+            "manifest-list": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view/metadata/snap-1908038061182547556-1-17582660-010e-4fe2-89d0-469798adc68a.avro",
+            "schema-id": 0
+        },
+        {
+            "sequence-number": 2,
+            "snapshot-id": 2658918943052245018,
+            "parent-snapshot-id": 1908038061182547556,
+            "timestamp-ms": 1768503590920,
+            "summary": {
+                "operation": "append",
+                "dependsOnTables": "tpch.source_table=458588277474304854",
+                "dependsOnTableFunctions": "false",
+                "trino_query_id": "20260115_185950_00214_cqxxi",
+                "trino_user": "jack.fitzpatrick",
+                "trino-query-start-time": "2026-01-15T18:59:50.832196Z",
+                "added-data-files": "1",
+                "added-records": "1",
+                "added-files-size": "203",
+                "changed-partition-count": "1",
+                "total-records": "1",
+                "total-files-size": "203",
+                "total-data-files": "1",
+                "total-delete-files": "0",
+                "total-position-deletes": "0",
+                "total-equality-deletes": "0",
+                "engine-version": "testversion",
+                "engine-name": "trino",
+                "iceberg-version": "Apache Iceberg 1.10.1-e.1 (commit 57448704eb9967abee52da13672326592e9ebe25)"
+            },
+            "manifest-list": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view/metadata/snap-2658918943052245018-1-b7882118-6324-473f-bdf3-3fd9229294ad.avro",
+            "schema-id": 0
+        }
+    ],
+    "statistics": [
+        {
+            "snapshot-id": 2658918943052245018,
+            "statistics-path": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view/metadata/20260115_185950_00214_cqxxi-cfbf14bd-c5bf-4a27-a8fa-964796eae61f.stats",
+            "file-size-in-bytes": 298,
+            "file-footer-size-in-bytes": 265,
+            "blob-metadata": [
+                {
+                    "type": "apache-datasketches-theta-v1",
+                    "snapshot-id": 2658918943052245018,
+                    "sequence-number": 2,
+                    "fields": [
+                        1
+                    ],
+                    "properties": {
+                        "ndv": "1"
+                    }
+                }
+            ]
+        }
+    ],
+    "partition-statistics": [],
+    "snapshot-log": [
+        {
+            "timestamp-ms": 1768503590920,
+            "snapshot-id": 2658918943052245018
+        }
+    ],
+    "metadata-log": [
+        {
+            "timestamp-ms": 1768503590693,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/materialized_view/metadata/00000-e1e6abe7-6dfd-4d25-b44c-afc99189ae8d.metadata.json"
+        }
+    ]
+}

@@ -48,12 +48,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,7 +65,7 @@ public class TestTypeValidator
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final SymbolAllocator symbolAllocator = new SymbolAllocator();
+    private final SymbolAllocator symbolAllocator = emptySymbolAllocator();
     private final Symbol columnA = symbolAllocator.newSymbol("a", BIGINT);
     private final Symbol columnB = symbolAllocator.newSymbol("b", INTEGER);
     private final Symbol columnC = symbolAllocator.newSymbol("c", DOUBLE);
@@ -141,7 +143,8 @@ public class TestTypeValidator
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 
@@ -235,7 +238,8 @@ public class TestTypeValidator
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), Optional.empty(), frame, false, false);
 
@@ -267,7 +271,8 @@ public class TestTypeValidator
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 

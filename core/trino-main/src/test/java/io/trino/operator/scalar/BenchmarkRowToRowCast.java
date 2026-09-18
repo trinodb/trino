@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -25,8 +25,9 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -43,11 +44,12 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.relational.Expressions.field;
+import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -67,7 +69,6 @@ public class BenchmarkRowToRowCast
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(
                 SESSION,
-                new DriverYieldSignal(),
                 newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                 SourcePage.create(data.getPage())));
     }
@@ -87,12 +88,13 @@ public class BenchmarkRowToRowCast
         {
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
-            List<RowExpression> projections = ImmutableList.of(new CallExpression(
-                    functionResolution.getCoercion(RowType.anonymous(toFieldTypes), RowType.anonymous(fromFieldTypes)),
-                    ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
+            RowType fromRowType = RowType.anonymous(fromFieldTypes);
+            List<Expression> projections = ImmutableList.of(call(
+                    functionResolution.getCoercion(fromRowType, RowType.anonymous(toFieldTypes)),
+                    new Reference(fromRowType, "$col_0")));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections)
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), projections, ImmutableMap.of(new Symbol(fromRowType, "$col_0"), 0))
                     .get();
 
             Block[] fieldBlocks = fromFieldTypes.stream()

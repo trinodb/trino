@@ -53,8 +53,10 @@ public class BenchmarkDateTimeFunctions
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"millisecond", "second", "minute", "hour", "day", "week", "month", "quarter", "year",
-                "MILLISECOND", "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR"})
+        @Param({
+                "millisecond", "second", "minute", "hour", "day", "week", "month", "quarter", "year",
+                "MILLISECOND", "SECOND", "MINUTE", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR",
+        })
         private String unitString = "year";
         private Slice unit;
 

@@ -19,7 +19,6 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -28,9 +27,10 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
 import static io.trino.sql.planner.plan.Patterns.intersect;
 import static java.util.Objects.requireNonNull;
@@ -92,19 +92,19 @@ public class ImplementIntersectAll
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForAll(node);
 
         // compute expected multiplicity for every row
-        checkState(result.getCountSymbols().size() > 0, "IntersectNode translation result has no count symbols");
-        ResolvedFunction least = metadata.resolveBuiltinFunction("least", fromTypes(BIGINT, BIGINT));
+        checkState(result.countSymbols().size() > 0, "IntersectNode translation result has no count symbols");
+        ResolvedFunction least = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "least", ImmutableList.of(BIGINT, BIGINT));
 
-        Expression minCount = result.getCountSymbols().get(0).toSymbolReference();
-        for (int i = 1; i < result.getCountSymbols().size(); i++) {
-            minCount = new Call(least, ImmutableList.of(minCount, result.getCountSymbols().get(i).toSymbolReference()));
+        Expression minCount = result.countSymbols().get(0).toSymbolReference();
+        for (int i = 1; i < result.countSymbols().size(); i++) {
+            minCount = new Call(least, ImmutableList.of(minCount, result.countSymbols().get(i).toSymbolReference()));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = new Comparison(LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), minCount);
+        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.rowNumberSymbol().orElseThrow().toSymbolReference(), minCount);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
-                result.getPlanNode(),
+                result.planNode(),
                 removeExtraRows);
 
         // prune helper symbols

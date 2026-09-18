@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -37,13 +37,13 @@ public class GeometryStateSerializer
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, JtsGeometrySerde.serialize(state.getGeometry()));
         }
     }
 
     @Override
     public void deserialize(Block block, int index, GeometryState state)
     {
-        state.setGeometry(GeometrySerde.deserialize(GEOMETRY.getSlice(block, index)));
+        state.setGeometry(JtsGeometrySerde.deserialize(GEOMETRY.getSlice(block, index)));
     }
 }

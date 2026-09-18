@@ -7,7 +7,6 @@ running, and managing Trino clusters.
 :maxdepth: 1
 
 admin/web-interface
-admin/preview-web-interface
 admin/logging
 admin/tuning
 admin/jmx

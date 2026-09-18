@@ -101,7 +101,8 @@ public class TpchRecordSet<E extends TpchEntity>
     private final List<Type> columnTypes;
     private final TupleDomain<ColumnHandle> predicate;
 
-    public TpchRecordSet(Iterable<E> rows,
+    public TpchRecordSet(
+            Iterable<E> rows,
             TpchTable<E> table,
             List<TpchColumn<E>> columns,
             DecimalTypeMapping decimalTypeMapping,

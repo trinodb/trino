@@ -23,9 +23,11 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
+
 public final class FailureFunction
 {
-    private static final JsonCodec<FailureInfo> JSON_CODEC = JsonCodec.jsonCodec(FailureInfo.class);
+    private static final JsonCodec<FailureInfo> JSON_CODEC = jsonCodec(FailureInfo.class);
 
     private FailureFunction() {}
 

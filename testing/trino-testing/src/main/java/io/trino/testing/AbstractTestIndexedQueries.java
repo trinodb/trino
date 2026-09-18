@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.testing.tpch.TpchIndexSpec;
 import io.trino.testing.tpch.TpchIndexSpec.Builder;
@@ -521,7 +522,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindow()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -546,7 +548,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindowDoubleAggregation()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -571,7 +574,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testIndexJoinThroughWindowPartialPartition()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -596,7 +600,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithRowNumberFunction()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -621,7 +626,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithOrderBy()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT *\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -646,7 +652,8 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testNoIndexJoinThroughWindowWithRowFrame()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT l.orderkey, o.c\n" +
                         "FROM (\n" +
                         "  SELECT *\n" +
@@ -666,6 +673,58 @@ public abstract class AbstractTestIndexedQueries
                         "  SELECT *, 1 as c\n" +
                         "  FROM orders) o\n" +
                         "  ON l.orderkey = o.orderkey");
+    }
+
+    @Test
+    public void testNoIndexJoinOverNondeterministicProjection()
+    {
+        // One random() value per index source row, shared by every probe row matching it
+        assertQuery(
+                nondeterministicIndexSourceSession(),
+                """
+                SELECT count(*)
+                FROM (
+                    SELECT count(DISTINCT o.sample) AS variants
+                    FROM (
+                        SELECT orderkey FROM lineitem
+                        UNION ALL
+                        SELECT orderkey FROM lineitem) l
+                    JOIN (SELECT orderkey, random() AS sample FROM orders) o
+                      ON l.orderkey = o.orderkey
+                    GROUP BY l.orderkey)
+                WHERE variants <> 1
+                """,
+                "SELECT 0");
+    }
+
+    @Test
+    public void testNoIndexJoinOverNondeterministicFilter()
+    {
+        // One sampling decision per index source row, so a surviving orderkey matches both probe branches
+        assertQuery(
+                nondeterministicIndexSourceSession(),
+                """
+                SELECT count(*)
+                FROM (
+                    SELECT min(l.branch) AS lo, max(l.branch) AS hi
+                    FROM (
+                        SELECT orderkey, 1 AS branch FROM lineitem
+                        UNION ALL
+                        SELECT orderkey, 2 AS branch FROM lineitem) l
+                    JOIN (SELECT orderkey, custkey FROM orders WHERE random() < 0.5) o
+                      ON l.orderkey = o.orderkey
+                    GROUP BY l.orderkey, o.custkey)
+                WHERE lo <> 1 OR hi <> 2
+                """,
+                "SELECT 0");
+    }
+
+    private Session nondeterministicIndexSourceSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("task_concurrency", "4")
+                .setSystemProperty("task_share_index_loading", "false")
+                .build();
     }
 
     @Test

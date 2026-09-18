@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -74,7 +75,7 @@ public class TestIgniteClient
 
     public static final JdbcClient JDBC_CLIENT = new IgniteClient(
             new BaseJdbcConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            _ -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
@@ -165,7 +166,8 @@ public class TestIgniteClient
     public void testConvertIsNull()
     {
         // c_varchar IS NULL
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
                                 new IsNull(
                                         new Reference(VARCHAR, "c_varchar_symbol"))),
@@ -179,9 +181,10 @@ public class TestIgniteClient
     public void testConvertIsNotNull()
     {
         // c_varchar IS NOT NULL
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
-                                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
+                                not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(`c_varchar`) IS NOT NULL");
@@ -192,11 +195,12 @@ public class TestIgniteClient
     public void testConvertNotExpression()
     {
         // NOT(expression)
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
                         translateToConnectorExpression(
-                                not(
-                                        PLANNER_CONTEXT.getMetadata(),
-                                        not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
+                                not(PLANNER_CONTEXT.getMetadata(),
+                                        getCharVarcharCoercion(TEST_SESSION),
+                                        not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((`c_varchar`) IS NOT NULL)");

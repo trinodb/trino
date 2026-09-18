@@ -14,6 +14,8 @@
 
 package io.trino.plugin.hive.coercions;
 
+import io.airlift.slice.Slice;
+import io.trino.plugin.base.util.NumberParser;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DoubleType;
@@ -37,7 +39,8 @@ public class VarcharToDoubleCoercer
     {
         double doubleValue;
         try {
-            doubleValue = Double.parseDouble(fromType.getSlice(block, position).toStringUtf8());
+            Slice slice = fromType.getSlice(block, position);
+            doubleValue = NumberParser.parseDouble(slice, 0, slice.length());
         }
         catch (NumberFormatException e) {
             blockBuilder.appendNull();

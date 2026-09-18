@@ -29,6 +29,7 @@ import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -186,8 +187,8 @@ public class VacuumProcedure
             checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
             DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
-            accessControl.checkCanInsertIntoTable(null, tableName);
-            accessControl.checkCanDeleteFromTable(null, tableName);
+            accessControl.checkCanInsertIntoTable(null, tableName, Optional.empty());
+            accessControl.checkCanDeleteFromTable(null, tableName, Optional.empty());
 
             checkUnsupportedUniversalFormat(handle.getMetadataEntry());
 
@@ -208,7 +209,8 @@ public class VacuumProcedure
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, handle, Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, handle);
+            Optional<DeltaLakeTableCredentials> tableCredentials = metadata.getTableCredentials(session, handle).map(DeltaLakeTableCredentials.class::cast);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
             String commonPathPrefix = tableLocation.endsWith("/") ? tableLocation : tableLocation + "/";
             String queryId = session.getQueryId();
 
@@ -219,6 +221,7 @@ public class VacuumProcedure
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
                     session,
                     handle,
+                    tableCredentials,
                     tableSnapshot,
                     TupleDomain.all(),
                     alwaysFalse())) {

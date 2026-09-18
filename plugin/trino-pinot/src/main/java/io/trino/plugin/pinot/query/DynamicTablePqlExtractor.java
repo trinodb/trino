@@ -85,10 +85,10 @@ public final class DynamicTablePqlExtractor
         if (table.limit().isPresent()) {
             builder.append(" LIMIT ");
             if (table.offset().isPresent()) {
-                builder.append(table.offset().getAsLong())
+                builder.append(table.offset().orElseThrow())
                         .append(", ");
             }
-            builder.append(table.limit().getAsLong());
+            builder.append(table.limit().orElseThrow());
         }
         return builder.toString();
     }

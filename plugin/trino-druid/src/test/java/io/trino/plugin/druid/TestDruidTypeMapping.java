@@ -26,7 +26,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.BufferedWriter;
-import java.io.FileWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -70,7 +71,7 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "long", "NULL", BIGINT, "BIGINT '0'")
+                .addRoundTrip("col_0", "long", "NULL", BIGINT, "CAST(NULL AS bigint)")
                 .addRoundTrip("col_1", "long", "0", BIGINT, "BIGINT '0'")
                 .addRoundTrip("col_2", "long", "-9223372036854775808", BIGINT, "-9223372036854775808") // min value in Trino
                 .addRoundTrip("col_3", "long", "123456789012", BIGINT, "123456789012")
@@ -83,11 +84,11 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "double", "NULL", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("col_0", "double", "NULL", DOUBLE, "CAST(NULL AS double)")
                 .addRoundTrip("col_1", "double", "0.0", DOUBLE, "DOUBLE '0.0'")
                 .addRoundTrip("col_2", "double", "1.0E100", DOUBLE, "1.0E100")
                 .addRoundTrip("col_3", "double", "123.456E10", DOUBLE, "123.456E10")
-                .addRoundTrip("col_4", "double", "Invalid String", DOUBLE, "DOUBLE '0.0'")
+                .addRoundTrip("col_4", "double", "Invalid String", DOUBLE, "CAST(NULL AS double)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_double"));
     }
 
@@ -129,11 +130,11 @@ public class TestDruidTypeMapping
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
-                .addRoundTrip("col_0", "float", "NULL", REAL, "REAL '0.0'")
+                .addRoundTrip("col_0", "float", "NULL", REAL, "CAST(NULL AS real)")
                 .addRoundTrip("col_1", "float", "0.0", REAL, "REAL '0.0'")
                 .addRoundTrip("col_2", "float", "3.14", REAL, "REAL '3.14'")
                 .addRoundTrip("col_3", "float", "3.1415927", REAL, "REAL '3.1415927'")
-                .addRoundTrip("col_4", "float", "Invalid String", REAL, "REAL '0.0'")
+                .addRoundTrip("col_4", "float", "Invalid String", REAL, "CAST(NULL AS real)")
                 .execute(getQueryRunner(), druidCreateAndInsert("test_float"));
     }
 
@@ -173,7 +174,7 @@ public class TestDruidTypeMapping
     @Test
     public void testVarchar()
     {
-        //TODO Add test for unicode characters
+        // TODO Add test for unicode characters
         SqlDataTypeTest.create()
                 .addRoundTrip("__time", "timestamp", "2020-01-01 00:00:00.000", TIMESTAMP_MILLIS, "TIMESTAMP '2020-01-01 00:00:00.000'")
                 .addRoundTrip("col_0", "string", "null", createUnboundedVarcharType(), "CAST('null' AS varchar)")
@@ -223,7 +224,7 @@ public class TestDruidTypeMapping
 
         try (DruidTable testTable = new DruidTable("test_timestamp")) {
             String dataFilePath = format("%s/%s.tsv", druidServer.getHostWorkingDirectory(), testTable.getName());
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(dataFilePath, UTF_8))) {
+            try (BufferedWriter writer = Files.newBufferedWriter(Path.of(dataFilePath), UTF_8)) {
                 for (TimestampCase row : rows) {
                     writer.write("%s\t%s".formatted(row.inputLiteral, row.id));
                     writer.newLine();

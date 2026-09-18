@@ -57,6 +57,7 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -64,6 +65,7 @@ import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.EntityKindAndName;
@@ -94,7 +96,6 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
-import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -104,6 +105,7 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
@@ -118,11 +120,12 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
@@ -153,6 +156,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
@@ -160,6 +164,7 @@ import static io.trino.metadata.CatalogStatus.OPERATIONAL;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
+import static io.trino.metadata.MaterializedViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -199,7 +204,6 @@ public final class MetadataManager
     private final LanguageFunctionManager languageFunctionManager;
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
-    private final TypeCoercion typeCoercion;
     private final CatalogManager catalogManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
@@ -219,7 +223,6 @@ public final class MetadataManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
-        this.typeCoercion = new TypeCoercion(typeManager::getType);
         this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -311,6 +314,25 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    {
+        return getMetadata(session, catalogHandle).getTableCredentials(session.toConnectorSession(catalogHandle), tableHandle);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return getMetadata(session, catalogHandle).getTableCredentials(session.toConnectorSession(catalogHandle), tableFunctionHandle);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorWritableTableHandle tableHandle)
+    {
+        return getMetadata(session, catalogHandle)
+                .getTableCredentials(session.toConnectorSession(catalogHandle), tableHandle);
+    }
+
+    @Override
     public Optional<TableExecuteHandle> getTableHandleForExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
     {
         requireNonNull(session, "session is null");
@@ -333,7 +355,45 @@ public final class MetadataManager
         return executeHandle.map(handle -> new TableExecuteHandle(
                 catalogHandle,
                 tableHandle.transaction(),
+                tableHandle.connectorHandle(),
                 handle));
+    }
+
+    @Override
+    public Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(Session session, TableHandle tableHandle, String procedure, Map<String, Object> executeProperties)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(procedure, "procedure is null");
+        requireNonNull(executeProperties, "executeProperties is null");
+
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+        Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForMaterializedViewExecute(
+                session.toConnectorSession(catalogHandle),
+                new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()),
+                tableHandle.connectorHandle(),
+                procedure,
+                executeProperties,
+                getRetryPolicy(session).getRetryMode());
+
+        return executeHandle.map(handle -> new TableExecuteHandle(
+                catalogHandle,
+                tableHandle.transaction(),
+                tableHandle.connectorHandle(),
+                handle));
+    }
+
+    @Override
+    public Set<ColumnHandle> getColumnHandlesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    {
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.getColumnHandlesForTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.tableHandle(), tableExecuteHandle.connectorHandle());
     }
 
     @Override
@@ -361,11 +421,11 @@ public final class MetadataManager
     }
 
     @Override
-    public void finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(Session session, TableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.finishTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle(), fragments, tableExecuteState);
+        return metadata.finishTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle(), fragments, tableExecuteState);
     }
 
     @Override
@@ -423,10 +483,10 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         return metadata.applyPartitioning(
-                connectorSession,
-                tableHandle.connectorHandle(),
-                partitioning.map(PartitioningHandle::getConnectorHandle),
-                columns)
+                        connectorSession,
+                        tableHandle.connectorHandle(),
+                        partitioning.map(PartitioningHandle::getConnectorHandle),
+                        columns)
                 .map(handle -> new TableHandle(catalogHandle, handle, tableHandle.transaction()));
     }
 
@@ -821,14 +881,13 @@ public final class MetadataManager
     @Override
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
-        Optional<CatalogMetadata> catalogMetadata = Optional.empty();
         // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
-        Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
-        if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == OPERATIONAL) {
-            catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
-        }
+        boolean systemSecurityManagement = catalogManager.getCatalog(catalog)
+                .filter(foundCatalog -> foundCatalog.getCatalogStatus() == OPERATIONAL)
+                .flatMap(Catalog::getSecurityManagement)
+                .orElse(CONNECTOR) == SYSTEM;
         catalogManager.dropCatalog(catalog, cascade);
-        if (catalogMetadata.isPresent() && catalogMetadata.get().getSecurityManagement() == SYSTEM) {
+        if (systemSecurityManagement) {
             systemSecurityMetadata.catalogDropped(session, catalog);
         }
     }
@@ -1148,6 +1207,7 @@ public final class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, getCharVarcharCoercion(session));
         return metadata.getSupportedType(session.toConnectorSession(catalogHandle), tableProperties, type)
                 .map(newType -> {
                     if (!typeCoercion.isCompatible(newType, type)) {
@@ -1251,7 +1311,7 @@ public final class MetadataManager
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override
@@ -1286,7 +1346,8 @@ public final class MetadataManager
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+            List<String> sourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         CatalogHandle catalogHandle = insertHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
@@ -1304,7 +1365,8 @@ public final class MetadataManager
                 computedStatistics,
                 sourceConnectorHandles,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
-                !sourceTableFunctions.isEmpty());
+                !sourceTableFunctions.isEmpty(),
+                hasNonDeterministicFunctions);
     }
 
     @Override
@@ -1391,7 +1453,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle mergeHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle mergeHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         CatalogHandle catalogHandle = mergeHandle.tableHandle().catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
@@ -1399,13 +1461,19 @@ public final class MetadataManager
                 .filter(handle -> handle.catalogHandle().equals(catalogHandle))
                 .map(TableHandle::connectorHandle)
                 .collect(toImmutableList());
-        metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), sourceConnectorHandles, fragments, computedStatistics);
+        return metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), sourceConnectorHandles, fragments, computedStatistics);
     }
 
     @Override
     public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getCatalogHandle);
+    }
+
+    @Override
+    public Optional<CatalogInfo> getCatalogInfo(Session session, String catalogName)
+    {
+        return transactionManager.getOptionalCatalogInfo(session.getRequiredTransactionId(), catalogName);
     }
 
     @Override
@@ -1827,7 +1895,7 @@ public final class MetadataManager
                         .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
                         .collect(toImmutableList()),
                 view.getGracePeriod(),
-                view.getWhenStaleBehavior(),
+                view.getWhenStaleBehavior().orElse(DEFAULT_WHEN_STALE_BEHAVIOR),
                 view.getComment(),
                 runAsIdentity,
                 view.getPath(),
@@ -1871,7 +1939,7 @@ public final class MetadataManager
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, boolean considerGracePeriod)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
@@ -1880,7 +1948,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), considerGracePeriod);
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
     }
@@ -2012,6 +2080,19 @@ public final class MetadataManager
             throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.schemaName()));
         }
         throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+    }
+
+    @Override
+    public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
+    {
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<ViewDefinition> view = getView(session, targetViewName);
+
+        if (targetViewName.equals(viewName)) {
+            return RedirectionAwareView.noRedirection(view);
+        }
+
+        return new RedirectionAwareView(view, Optional.of(targetViewName));
     }
 
     @Override
@@ -2180,8 +2261,7 @@ public final class MetadataManager
         projections.forEach(projection -> requireNonNull(projection, "one of the projections is null"));
         assignments.forEach(assignment -> requireNonNull(assignment, "one of the assignments is null"));
 
-        verify(
-                expectedProjectionSize == projections.size(),
+        verify(expectedProjectionSize == projections.size(),
                 "ConnectorMetadata returned invalid number of projections: %s instead of %s for %s",
                 projections.size(),
                 expectedProjectionSize,
@@ -2602,6 +2682,9 @@ public final class MetadataManager
     {
         ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
         for (CatalogInfo catalog : listCatalogs(session)) {
+            if (!catalog.isOperational()) {
+                continue;
+            }
             functions.addAll(tableFunctionRegistry.listTableFunctions(catalog.catalogHandle()));
         }
         return functions.build();
@@ -2623,33 +2706,33 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
-        return functionResolver.resolveBuiltinFunction(name, parameterTypes);
+        return functionResolver.resolveBuiltinFunction(charVarcharCoercion, name, parameterTypes);
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return functionResolver.resolveOperator(operatorType, argumentTypes);
+        return functionResolver.resolveOperator(charVarcharCoercion, operatorType, argumentTypes);
     }
 
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(operatorType, fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, operatorType, fromType, toType);
     }
 
     @Override
-    public ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // coercion can only be resolved for builtin functions
         if (!isBuiltinFunctionName(name)) {
             throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", name));
         }
 
-        return functionResolver.resolveCoercion(name.getFunctionName(), fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, name.functionName(), fromType, toType);
     }
 
     @Override
@@ -2670,11 +2753,11 @@ public final class MetadataManager
     public Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
         if (isBuiltinFunctionName(name)) {
-            return getBuiltinFunctions(name.getFunctionName());
+            return getBuiltinFunctions(name.functionName());
         }
 
-        return getOptionalCatalogMetadata(session, name.getCatalogName())
-                .map(metadata -> getFunctions(session, metadata.getMetadata(session), metadata.getCatalogHandle(), name.getSchemaFunctionName()))
+        return getOptionalCatalogMetadata(session, name.catalogName())
+                .map(metadata -> getFunctions(session, metadata.getMetadata(session), metadata.getCatalogHandle(), name.schemaFunctionName()))
                 .orElse(ImmutableList.of());
     }
 
@@ -2691,7 +2774,7 @@ public final class MetadataManager
         ImmutableList.Builder<CatalogFunctionMetadata> functions = ImmutableList.builder();
 
         metadata.getFunctions(connectorSession, name).stream()
-                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.schemaName(), function))
                 .forEach(functions::add);
 
         RunAsIdentityLoader identityLoader = owner -> {
@@ -2707,14 +2790,14 @@ public final class MetadataManager
         };
 
         languageFunctionManager.getFunctions(session, catalogHandle, name, metadata::getLanguageFunctions, identityLoader).stream()
-                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.schemaName(), function))
                 .forEach(functions::add);
 
         return functions.build();
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
+    public ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Signature functionSignature;
         AggregationFunctionMetadata aggregationFunctionMetadata;
@@ -2729,19 +2812,15 @@ public final class MetadataManager
             aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(connectorSession, resolvedFunction.functionId());
         }
 
-        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
-        if (aggregationFunctionMetadata.isOrderSensitive()) {
-            builder.orderSensitive();
-        }
-
+        List<TypeDescriptor> intermediateTypes = List.of();
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
-            aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
-                    .forEach(builder::intermediateType);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(type -> applyBoundVariables(type, functionBinding.variables()))
+                    .collect(toImmutableList());
         }
 
-        return builder.build();
+        return new ResolvedAggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override
@@ -2908,7 +2987,7 @@ public final class MetadataManager
 
     private void registerCatalogForQuery(Session session, CatalogMetadata catalogMetadata)
     {
-        catalogsByQueryId.computeIfAbsent(session.getQueryId(), queryId -> new QueryCatalogs(session))
+        catalogsByQueryId.computeIfAbsent(session.getQueryId(), _ -> new QueryCatalogs(session))
                 .registerCatalog(catalogMetadata);
     }
 

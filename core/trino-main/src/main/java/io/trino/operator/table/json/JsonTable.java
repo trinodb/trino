@@ -29,6 +29,7 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.gen.PageFunctionCompiler;
 
 import java.util.Arrays;
 import java.util.List;
@@ -62,8 +63,8 @@ public final class JsonTable
      * @param outer the parent-child relationship between the input relation and the processingPlan result
      * @param errorOnError the error behavior: true for ERROR ON ERROR, false for EMPTY ON ERROR
      * @param parametersType type of the row containing JSON path parameters for the root JSON path. The function expects the parameters row in the channel 1.
-     * Other channels in the input page correspond to JSON context item (channel 0), and default values for the value columns. Each value column in the processingPlan
-     * knows the indexes of its default channels.
+     *         Other channels in the input page correspond to JSON context item (channel 0), and default values for the value columns. Each value column in the processingPlan
+     *         knows the indexes of its default channels.
      * @param outputTypes types of the proper columns produced by the function
      */
     public record JsonTableFunctionHandle(JsonTablePlanNode processingPlan, boolean outer, boolean errorOnError, Type parametersType, Type[] outputTypes)
@@ -82,6 +83,7 @@ public final class JsonTable
 
     public static TableFunctionProcessorProvider getJsonTableFunctionProcessorProvider(Metadata metadata, TypeManager typeManager, FunctionManager functionManager)
     {
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, metadata, typeManager, 0);
         return new TableFunctionProcessorProvider()
         {
             @Override
@@ -93,11 +95,11 @@ public final class JsonTable
                         jsonTableFunctionHandle.processingPlan(),
                         newRow,
                         jsonTableFunctionHandle.errorOnError(),
-                        jsonTableFunctionHandle.outputTypes(),
                         session,
                         metadata,
                         typeManager,
-                        functionManager);
+                        functionManager,
+                        pageFunctionCompiler);
                 return new JsonTableFunctionProcessor(executionPlan, newRow, jsonTableFunctionHandle.outputTypes(), (RowType) jsonTableFunctionHandle.parametersType(), jsonTableFunctionHandle.outer());
             }
         };

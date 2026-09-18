@@ -1,0 +1,156 @@
+{
+    "format-version": 2,
+    "table-uuid": "32b533bb-23b5-482f-ba83-c9e67363c089",
+    "location": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table",
+    "last-sequence-number": 11,
+    "last-updated-ms": 1768503595026,
+    "last-column-id": 1,
+    "current-schema-id": 0,
+    "schemas": [
+        {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {
+                    "id": 1,
+                    "name": "a",
+                    "required": false,
+                    "type": "int"
+                }
+            ]
+        }
+    ],
+    "default-spec-id": 0,
+    "partition-specs": [
+        {
+            "spec-id": 0,
+            "fields": []
+        }
+    ],
+    "last-partition-id": 999,
+    "default-sort-order-id": 0,
+    "sort-orders": [
+        {
+            "order-id": 0,
+            "fields": []
+        }
+    ],
+    "properties": {
+        "write.format.default": "PARQUET"
+    },
+    "current-snapshot-id": 3545425111120995268,
+    "refs": {
+        "main": {
+            "snapshot-id": 3545425111120995268,
+            "type": "branch"
+        }
+    },
+    "snapshots": [
+        {
+            "sequence-number": 11,
+            "snapshot-id": 3545425111120995268,
+            "parent-snapshot-id": 9095872224551306473,
+            "timestamp-ms": 1768503594726,
+            "summary": {
+                "operation": "replace",
+                "trino_query_id": "20260115_185954_00227_cqxxi",
+                "trino_user": "jack.fitzpatrick",
+                "added-data-files": "1",
+                "deleted-data-files": "5",
+                "removed-position-delete-files": "4",
+                "removed-delete-files": "4",
+                "added-records": "1",
+                "deleted-records": "5",
+                "added-files-size": "203",
+                "removed-files-size": "5208",
+                "removed-position-deletes": "4",
+                "changed-partition-count": "1",
+                "total-records": "1",
+                "total-files-size": "203",
+                "total-data-files": "1",
+                "total-delete-files": "0",
+                "total-position-deletes": "0",
+                "total-equality-deletes": "0",
+                "engine-version": "testversion",
+                "engine-name": "trino",
+                "iceberg-version": "Apache Iceberg 1.10.1-e.1 (commit 57448704eb9967abee52da13672326592e9ebe25)"
+            },
+            "manifest-list": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/snap-3545425111120995268-1-18a67dd0-3e07-4a65-aae0-432e3ab85180.avro",
+            "schema-id": 0
+        }
+    ],
+    "statistics": [
+        {
+            "snapshot-id": 3545425111120995268,
+            "statistics-path": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/20260115_185954_00227_cqxxi-067db6a7-abde-4ddc-bd49-15fa6016fb68.stats",
+            "file-size-in-bytes": 339,
+            "file-footer-size-in-bytes": 266,
+            "blob-metadata": [
+                {
+                    "type": "apache-datasketches-theta-v1",
+                    "snapshot-id": 9095872224551306473,
+                    "sequence-number": 10,
+                    "fields": [
+                        1
+                    ],
+                    "properties": {
+                        "ndv": "5"
+                    }
+                }
+            ]
+        }
+    ],
+    "partition-statistics": [],
+    "snapshot-log": [
+        {
+            "timestamp-ms": 1768503594726,
+            "snapshot-id": 3545425111120995268
+        }
+    ],
+    "metadata-log": [
+        {
+            "timestamp-ms": 1768503590291,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00000-a3d67418-9e3e-40c0-ab06-c3cda4e92eb0.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503590537,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00001-c10716bd-4254-41ca-9c87-8adaab2886b3.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503591166,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00002-3d2dad07-86d9-42a3-b9fa-df90c1ce198b.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503591451,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00003-0653c5d8-e2d7-4a49-8cfb-e557ff41e9d8.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503592068,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00004-28cf9cf0-4298-492f-9162-41a1f67c48b5.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503592344,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00005-36a19d00-457d-4b50-bca9-6c335acb2fe7.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503592968,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00006-5776e50e-0e4a-4b74-bf3f-9f62108e9e5c.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503593246,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00007-f16c1241-72b4-430e-a654-cbb1e8e74c88.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503593857,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00008-9689bb54-14df-4758-92da-8facedf5f882.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503594117,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00009-43fb2399-818a-48ce-a670-2bffc54b3402.metadata.json"
+        },
+        {
+            "timestamp-ms": 1768503594737,
+            "metadata-file": "s3://test-bucket-mv-refresh-expired-snapshots/materialized_view_expired_snapshots/source_table/metadata/00010-ed86a8ff-1731-4905-a017-d4549a85de9d.metadata.json"
+        }
+    ]
+}

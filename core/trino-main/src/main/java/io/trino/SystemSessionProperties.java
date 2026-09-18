@@ -33,6 +33,7 @@ import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +55,8 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.CharVarcharCoercion.LEGACY;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -86,6 +89,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE = "task_scale_writers_max_writer_memory_percentage";
     public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
@@ -153,9 +157,11 @@ public final class SystemSessionProperties
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String LEGACY_VARCHAR_TO_CHAR_COERCION = "legacy_varchar_to_char_coercion";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
+    public static final String DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED = "direct_trino_client_fault_tolerant_execution_enabled";
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
@@ -216,6 +222,7 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String SPOOLING_ENABLED = "spooling_enabled";
     public static final String DEBUG_ADAPTIVE_PLANNER = "debug_adaptive_planner";
     public static final String SOURCE_PAGES_VALIDATION_ENABLED = "output_pages_validation_enabled";
@@ -225,8 +232,7 @@ public final class SystemSessionProperties
 
     public SystemSessionProperties()
     {
-        this(
-                new QueryManagerConfig(),
+        this(new QueryManagerConfig(),
                 new SpoolingEnabledConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
@@ -334,6 +340,16 @@ public final class SystemSessionProperties
                         TASK_SCALE_WRITERS_ENABLED,
                         "Scale the number of concurrent table writers per task based on throughput",
                         taskManagerConfig.isScaleWritersEnabled(),
+                        false),
+                doubleProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE,
+                        "Maximum percentage of memory per node that can be used by concurrent writers within a task before stopping writer scaling",
+                        taskManagerConfig.getScaleWritersMaxWriterMemoryPercentage(),
+                        value -> {
+                            if (value < 0.0 || value > 100.0) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be between 0.0 and 100.0: %s", TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         WRITER_SCALING_MIN_DATA_PROCESSED,
@@ -761,6 +777,11 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyCatalogRoles(),
                         true),
                 booleanProperty(
+                        LEGACY_VARCHAR_TO_CHAR_COERCION,
+                        "Implicitly coerce varchar to char, instead of char to varchar",
+                        featuresConfig.isLegacyVarcharToCharCoercion(),
+                        true),
+                booleanProperty(
                         INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
                         "Use smaller load factor for small hash arrays in order to improve performance",
                         featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
@@ -781,6 +802,11 @@ public final class SystemSessionProperties
                             }
                         },
                         true),
+                booleanProperty(
+                        DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED,
+                        "Allow DirectTrinoClient to consume results of queries running under fault-tolerant execution; when disabled such queries are forced to retry_policy=NONE",
+                        queryManagerConfig.isDirectTrinoClientFaultTolerantExecutionEnabled(),
+                        false),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
                         "Maximum number of query retry attempts",
@@ -891,11 +917,13 @@ public final class SystemSessionProperties
                         "Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(),
                         true),
-                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
                         "Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(),
                         true),
-                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
                         "Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(),
                         true),
@@ -1100,15 +1128,23 @@ public final class SystemSessionProperties
                         "Enables columnar evaluation of filters",
                         featuresConfig.isColumnarFilterEvaluationEnabled(),
                         false),
-                integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
+                booleanProperty(
+                        ADAPTIVE_FILTER_REORDERING_ENABLED,
+                        "Reorder conjunctive/disjunctive filter terms at runtime based on observed selectivity and performance",
+                        featuresConfig.isAdaptiveFilterReorderingEnabled(),
+                        false),
+                integerProperty(
+                        PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
                         true),
-                dataSizeProperty(IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
+                dataSizeProperty(
+                        IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD,
                         "Minimum amount of data written by a writer operator on average before it tries to close the idle writers",
                         DataSize.of(256, MEGABYTE),
                         true),
-                durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
+                durationProperty(
+                        CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
                         "The duration after which the writer operator tries to close the idle writers",
                         new Duration(5, SECONDS),
                         true),
@@ -1121,7 +1157,7 @@ public final class SystemSessionProperties
                         SPOOLING_ENABLED,
                         "Enable client spooling protocol",
                         true,
-                        true),
+                        false),
                 booleanProperty(
                         DEBUG_ADAPTIVE_PLANNER,
                         "Enable debug information for the adaptive planner",
@@ -1218,6 +1254,11 @@ public final class SystemSessionProperties
     public static boolean isTaskScaleWritersEnabled(Session session)
     {
         return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
+    }
+
+    public static double getTaskScaleWritersMaxWriterMemoryPercentage(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, Double.class);
     }
 
     public static int getMaxWriterTaskCount(Session session)
@@ -1696,6 +1737,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
     }
 
+    public static CharVarcharCoercion getCharVarcharCoercion(Session session)
+    {
+        return session.getSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, Boolean.class) ? LEGACY : SQL_STANDARD;
+    }
+
     public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
     {
         return session.getSystemProperty(INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED, Boolean.class);
@@ -1709,6 +1755,11 @@ public final class SystemSessionProperties
     public static RetryPolicy getRetryPolicy(Session session)
     {
         return session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
+    }
+
+    public static boolean isDirectTrinoClientFaultTolerantExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static int getQueryRetryAttempts(Session session)
@@ -2009,6 +2060,11 @@ public final class SystemSessionProperties
     public static boolean isColumnarFilterEvaluationEnabled(Session session)
     {
         return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAdaptiveFilterReorderingEnabled(Session session)
+    {
+        return session.getSystemProperty(ADAPTIVE_FILTER_REORDERING_ENABLED, Boolean.class);
     }
 
     public static boolean isSpoolingEnabled(Session session)

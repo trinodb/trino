@@ -23,6 +23,7 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -58,6 +59,7 @@ public final class RealAverageAggregation
         sum.setValue(sum.getValue() + otherSum.getValue());
     }
 
+    @SqlNullable
     @OutputFunction("REAL")
     public static void output(
             @AggregationState LongState count,

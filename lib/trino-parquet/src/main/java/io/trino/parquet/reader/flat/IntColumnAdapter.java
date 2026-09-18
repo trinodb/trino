@@ -40,15 +40,21 @@ public class IntColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, int[] values)
+    public Block createNullableBlock(long[] valueIsValid, int[] values)
     {
-        return new IntArrayBlock(values.length, Optional.of(nulls), values);
+        return new IntArrayBlock(values.length, Optional.of(valueIsValid), values);
     }
 
     @Override
     public void copyValue(int[] source, int sourceIndex, int[] destination, int destinationIndex)
     {
         destination[destinationIndex] = source[sourceIndex];
+    }
+
+    @Override
+    public void copyValues(int[] source, int sourceIndex, int[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
     }
 
     @Override

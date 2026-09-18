@@ -22,17 +22,25 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.fromCodePoints;
+import static io.trino.spi.type.CodePoints.nextCodePoint;
+import static io.trino.spi.type.CodePoints.previousCodePoint;
+import static io.trino.spi.type.CodePoints.tryCodePoints;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "varchar";
+
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
@@ -42,6 +50,12 @@ public final class VarcharType
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
+
+    // The range bounds, as well as the values adjacent to a given value, may be materialized in the plan, so we
+    // don't want them to be too large. Range comparison against large values is usually nonsensical, too, so there
+    // is no need to support them beyond a certain size. The specific choice here is arbitrary and can be adjusted
+    // if needed.
+    private static final int MAX_MATERIALIZED_VALUE_LENGTH = 100;
 
     private static final VarcharType[] CACHED_INSTANCES = new VarcharType[128];
 
@@ -74,9 +88,9 @@ public final class VarcharType
     private VarcharType(int length)
     {
         super(
-                new TypeSignature(
-                        StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter(length))),
+                new TypeDescriptor(
+                        NAME,
+                        singletonList(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -104,6 +118,12 @@ public final class VarcharType
     public boolean isUnbounded()
     {
         return length == UNBOUNDED_LENGTH;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + (isUnbounded() ? "" : "(" + length + ")");
     }
 
     @Override
@@ -158,10 +178,7 @@ public final class VarcharType
         @SuppressWarnings("OptionalAssignedToNull")
         boolean cachedRangePresent = range != null;
         if (!cachedRangePresent) {
-            if (length > 100) {
-                // The max/min values may be materialized in the plan, so we don't want them to be too large.
-                // Range comparison against large values is usually nonsensical, too, so no need to support them
-                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+            if (length > MAX_MATERIALIZED_VALUE_LENGTH) {
                 range = Optional.empty();
             }
             else {
@@ -178,6 +195,59 @@ public final class VarcharType
             this.range = range;
         }
         return range;
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        if (isUnbounded() || length > MAX_MATERIALIZED_VALUE_LENGTH) {
+            // The greatest lesser value is padded with the highest code point up to the length of the type, so it
+            // does not exist when the length is unbounded, and it is not materialized when the length is large.
+            return Optional.empty();
+        }
+        Optional<int[]> decoded = tryCodePoints((Slice) value);
+        if (decoded.isEmpty()) {
+            return Optional.empty();
+        }
+        int[] valueCodePoints = decoded.get();
+        if (valueCodePoints.length == 0) {
+            // the empty value is the least
+            return Optional.empty();
+        }
+        int lastPosition = valueCodePoints.length - 1;
+        if (valueCodePoints[lastPosition] == MIN_CODE_POINT) {
+            // nothing sorts between a value and the same value without its trailing lowest code point
+            return Optional.of(fromCodePoints(valueCodePoints, 0, lastPosition));
+        }
+        int[] codePoints = Arrays.copyOf(valueCodePoints, length);
+        codePoints[lastPosition] = previousCodePoint(valueCodePoints[lastPosition]);
+        Arrays.fill(codePoints, lastPosition + 1, length, MAX_CODE_POINT);
+        return Optional.of(fromCodePoints(codePoints));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        Optional<int[]> decoded = tryCodePoints((Slice) value);
+        if (decoded.isEmpty()) {
+            return Optional.empty();
+        }
+        int[] codePoints = decoded.get();
+        if (isUnbounded() || codePoints.length < length) {
+            // nothing sorts between a value and the same value with the lowest code point appended
+            int[] nextCodePoints = Arrays.copyOf(codePoints, codePoints.length + 1);
+            nextCodePoints[codePoints.length] = MIN_CODE_POINT;
+            return Optional.of(fromCodePoints(nextCodePoints));
+        }
+        // The value is as long as the type allows, so the least greater value increments the last code point that
+        // is not the highest and drops the code points after it.
+        for (int position = codePoints.length - 1; position >= 0; position--) {
+            if (codePoints[position] != MAX_CODE_POINT) {
+                codePoints[position] = nextCodePoint(codePoints[position]);
+                return Optional.of(fromCodePoints(codePoints, 0, position + 1));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -29,10 +28,13 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -116,7 +118,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                     p.values(symbolA),
                                     p.project(identity(symbolB),
                                             p.filter(
-                                                    new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 10L)),
+                                                    comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 10L)),
                                                     p.join(
                                                             INNER,
                                                             p.values(symbolB),
@@ -128,7 +130,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                         .left(values("A"))
                                         .right(project(
                                                 filter(
-                                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "B"), new Constant(INTEGER, 10L)),
+                                                        comparison(GREATER_THAN, new Reference(INTEGER, "B"), new Constant(INTEGER, 10L)),
                                                         join(INNER, rightJoinBuilder -> rightJoinBuilder
                                                                 .left(values("B"))
                                                                 .right(values("C")))
@@ -140,7 +142,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicJoins()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
@@ -157,12 +159,12 @@ public class TestOptimizeDuplicateInsensitiveJoins
                                             INNER,
                                             p.values(symbolB),
                                             p.values(symbolC)),
-                                    new Comparison(GREATER_THAN, symbolB.toSymbolReference(), randomFunction))));
+                                    comparison(GREATER_THAN, symbolB.toSymbolReference(), randomFunction))));
                 })
                 .matches(
                         aggregation(ImmutableMap.of(),
                                 join(INNER, builder -> builder
-                                        .filter(new Comparison(GREATER_THAN, new Reference(DOUBLE, "B"), new Call(RANDOM, ImmutableList.of())))
+                                        .filter(comparison(GREATER_THAN, new Reference(DOUBLE, "B"), new Call(RANDOM, ImmutableList.of())))
                                         .left(values("A"))
                                         .right(
                                                 join(INNER, rightJoinBuilder -> rightJoinBuilder
@@ -176,7 +178,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicFilter()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())
@@ -185,7 +187,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
                     Symbol symbolB = p.symbol("b", DOUBLE);
                     return p.aggregation(a -> a
                             .singleGroupingSet(symbolA)
-                            .source(p.filter(new Comparison(GREATER_THAN, symbolB.toSymbolReference(), randomFunction),
+                            .source(p.filter(comparison(GREATER_THAN, symbolB.toSymbolReference(), randomFunction),
                                     p.join(
                                             INNER,
                                             p.values(symbolA),
@@ -198,7 +200,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     public void testNondeterministicProjection()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new OptimizeDuplicateInsensitiveJoins())

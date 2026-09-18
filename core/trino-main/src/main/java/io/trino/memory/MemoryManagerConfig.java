@@ -30,12 +30,13 @@ import static java.util.Locale.ENGLISH;
         "experimental.cluster-memory-manager-enabled",
         "query.low-memory-killer.enabled",
         "resources.reserved-system-memory",
-        "query.low-memory-killer.delay"})
+        "query.low-memory-killer.delay",
+})
 public class MemoryManagerConfig
 {
-    // enforced against user memory allocations
+    // enforced against normal memory allocations
     private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
-    // enforced against user + system memory allocations (default is maxQueryMemory * 2)
+    // enforced against normal + and revocable memory allocations (default is maxQueryMemory * 2)
     private DataSize maxQueryTotalMemory;
     private DataSize faultTolerantExecutionCoordinatorTaskMemory = DataSize.of(2, GIGABYTE);
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(5, GIGABYTE);

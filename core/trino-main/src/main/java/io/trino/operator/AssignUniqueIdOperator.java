@@ -37,9 +37,9 @@ public class AssignUniqueIdOperator
     private static final long ROW_IDS_PER_REQUEST = 1L << 20L;
     private static final long MAX_ROW_ID = 1L << 40L;
 
-    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId)
+    public static OperatorFactory createOperatorFactory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, valuePool));
     }
 
     private static class Factory
@@ -48,19 +48,22 @@ public class AssignUniqueIdOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private boolean closed;
-        private final AtomicLong valuePool = new AtomicLong();
+        // The unique id embeds only the stage and partition of the task, so all AssignUniqueId
+        // operators in a task must draw row ids from a single pool for their ids to be distinct
+        private final AtomicLong valuePool;
 
-        private Factory(int operatorId, PlanNodeId planNodeId)
+        private Factory(int operatorId, PlanNodeId planNodeId, AtomicLong valuePool)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.valuePool = requireNonNull(valuePool, "valuePool is null");
         }
 
         @Override
-        public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        public WorkProcessorOperator create(OperatorContext operatorContext, WorkProcessor<Page> sourcePages)
         {
             checkState(!closed, "Factory is already closed");
-            return new AssignUniqueIdOperator(processorContext, sourcePages, valuePool);
+            return new AssignUniqueIdOperator(operatorContext, sourcePages, valuePool);
         }
 
         @Override
@@ -90,17 +93,17 @@ public class AssignUniqueIdOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId);
+            return new Factory(operatorId, planNodeId, valuePool);
         }
     }
 
     private final WorkProcessor<Page> pages;
 
-    private AssignUniqueIdOperator(ProcessorContext context, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
+    private AssignUniqueIdOperator(OperatorContext operatorContext, WorkProcessor<Page> sourcePages, AtomicLong rowIdPool)
     {
         pages = sourcePages
                 .transform(new AssignUniqueId(
-                        context.getTaskId(),
+                        operatorContext.getDriverContext().getTaskId(),
                         rowIdPool));
     }
 

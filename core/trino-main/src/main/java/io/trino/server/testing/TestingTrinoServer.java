@@ -41,6 +41,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheManagerConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
@@ -62,7 +64,6 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
@@ -89,12 +90,14 @@ import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.session.PropertyMetadata;
@@ -135,7 +138,6 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -149,6 +151,7 @@ import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -157,8 +160,12 @@ public class TestingTrinoServer
 {
     static {
         Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.connector.CatalogStoreManager", Level.WARN);
+        logging.setLevel("io.trino.server.PluginManager", Level.WARN);
+        logging.setLevel("io.trino.memory.RemoteNodeMemory", Level.ERROR);
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
         logging.setLevel("org.eclipse.jetty", Level.ERROR);
+        logging.setLevel("io.airlift.http.server", Level.WARN);
         logging.setLevel("io.airlift.concurrent.BoundedExecutor", Level.OFF);
 
         // Trino server behavior does not depend on locale settings.
@@ -215,6 +222,7 @@ public class TestingTrinoServer
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     public static class TestShutdownAction
@@ -265,7 +273,7 @@ public class TestingTrinoServer
         this.preserveData = baseDataDir.isPresent();
 
         properties = new HashMap<>(properties);
-        int httpPort = parseInt(firstNonNull(properties.remove("http-server.http.port"), "0"));
+        int httpPort = parseInt(requireNonNullElse(properties.remove("http-server.http.port"), "0"));
 
         ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
                 .putAll(properties)
@@ -317,8 +325,10 @@ public class TestingTrinoServer
                     newSetBinder(binder, Filter.class)
                             .addBinding()
                             .to(TracingServletFilter.class);
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(VERSION));
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerConfig.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingGroupProvider.class).in(Scopes.SINGLETON);
@@ -335,6 +345,7 @@ public class TestingTrinoServer
                     binder.bind(NodeStateManager.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+                    binder.bind(CacheManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
 
                     newSetBinder(binder, SystemSessionPropertiesProvider.class)
@@ -352,10 +363,6 @@ public class TestingTrinoServer
                         newOptionalBinder(binder, SessionSupplier.class).setBinding().to(TestingSessionSupplier.class).in(Scopes.SINGLETON);
                     }
                 });
-
-        if (coordinator) {
-            modules.add(new TestingSessionTimeModule());
-        }
 
         modules.add(additionalModule);
 
@@ -430,6 +437,7 @@ public class TestingTrinoServer
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
         spoolingManagerRegistry = injector.getInstance(SpoolingManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
@@ -523,6 +531,11 @@ public class TestingTrinoServer
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
+    public void loadBlobCacheManager(String name, Map<String, String> properties)
+    {
+        cacheManagerRegistry.loadBlobCacheManager(name, properties);
     }
 
     public void loadSpoolingManager(String name, Map<String, String> properties)
@@ -684,13 +697,7 @@ public class TestingTrinoServer
         return coordinator;
     }
 
-    public void registerServer(InternalNode server)
-    {
-        checkState(coordinator, "Current server is not a coordinator");
-        nodeManager.refreshNodes(true);
-    }
-
-    public void unregisterServer(InternalNode worker)
+    public void refreshNodes()
     {
         checkState(coordinator, "Current server is not a coordinator");
         nodeManager.refreshNodes(true);

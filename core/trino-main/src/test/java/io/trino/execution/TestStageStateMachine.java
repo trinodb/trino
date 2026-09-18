@@ -273,7 +273,8 @@ public class TestStageStateMachine
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts, int baseValue)
     {
-        return new TaskStats(Instant.now(),
+        return new TaskStats(
+                Instant.now(),
                 null,
                 null,
                 null,
@@ -350,22 +351,22 @@ public class TestStageStateMachine
         assertThat(stateMachine.getStageId()).isEqualTo(STAGE_ID);
 
         StageInfo stageInfo = stateMachine.getStageInfo(ImmutableList::of);
-        assertThat(stageInfo.getStageId()).isEqualTo(STAGE_ID);
-        assertThat(stageInfo.getSubStages()).isEqualTo(ImmutableList.of());
-        assertThat(stageInfo.getTasks()).isEqualTo(ImmutableList.of());
-        assertThat(stageInfo.getTypes()).isEqualTo(ImmutableList.of(VARCHAR));
-        assertThat(stageInfo.getPlan()).isSameAs(PLAN_FRAGMENT);
+        assertThat(stageInfo.stageId()).isEqualTo(STAGE_ID);
+        assertThat(stageInfo.subStages()).isEqualTo(ImmutableList.of());
+        assertThat(stageInfo.tasks()).isEqualTo(ImmutableList.of());
+        assertThat(stageInfo.types()).isEqualTo(ImmutableList.of(VARCHAR));
+        assertThat(stageInfo.plan()).isSameAs(PLAN_FRAGMENT);
 
         assertThat(stateMachine.getState()).isEqualTo(expectedState);
-        assertThat(stageInfo.getState()).isEqualTo(expectedState);
+        assertThat(stageInfo.state()).isEqualTo(expectedState);
 
         if (expectedState == StageState.FAILED) {
-            ExecutionFailureInfo failure = stageInfo.getFailureCause();
-            assertThat(failure.getMessage()).isEqualTo(FAILED_CAUSE.getMessage());
-            assertThat(failure.getType()).isEqualTo(FAILED_CAUSE.getClass().getName());
+            ExecutionFailureInfo failure = stageInfo.failureCause();
+            assertThat(failure.message()).isEqualTo(FAILED_CAUSE.getMessage());
+            assertThat(failure.type()).isEqualTo(FAILED_CAUSE.getClass().getName());
         }
         else {
-            assertThat(stageInfo.getFailureCause()).isNull();
+            assertThat(stageInfo.failureCause()).isNull();
         }
     }
 
@@ -387,7 +388,8 @@ public class TestStageStateMachine
         PlanNodeId valuesNodeId = new PlanNodeId("plan");
         PlanFragment planFragment = new PlanFragment(
                 new PlanFragmentId("plan"),
-                new ValuesNode(valuesNodeId,
+                new ValuesNode(
+                        valuesNodeId,
                         ImmutableList.of(symbol),
                         ImmutableList.of(new Row(ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("foo")))))),
                 ImmutableSet.of(symbol),

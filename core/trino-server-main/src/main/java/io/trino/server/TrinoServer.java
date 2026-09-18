@@ -18,7 +18,7 @@ import com.google.common.io.Resources;
 import java.io.InputStream;
 import java.util.Properties;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class TrinoServer
 {
@@ -34,7 +34,7 @@ public final class TrinoServer
         }
 
         String trinoVersion = TrinoServer.class.getPackage().getImplementationVersion();
-        new Server().start(firstNonNull(trinoVersion, "unknown"));
+        new Server().start(requireNonNullElse(trinoVersion, "unknown"));
     }
 
     private static int requiredJavaVersion()

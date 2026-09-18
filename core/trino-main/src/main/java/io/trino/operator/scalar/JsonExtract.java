@@ -13,12 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -118,16 +118,16 @@ public final class JsonExtract
 {
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
-    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
+    private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
             .disable(CANONICALIZE_FIELD_NAMES)
-            .build();
+            .build());
 
     private JsonExtract() {}
 
     public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
     {
         requireNonNull(jsonInput, "jsonInput is null");
-        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, jsonInput)) {
+        try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, jsonInput)) {
             return extract(jsonParser, jsonExtractor);
         }
         catch (IOException e) {
@@ -299,7 +299,7 @@ public final class JsonExtract
             }
 
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, dynamicSliceOutput)) {
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, dynamicSliceOutput)) {
                 jsonGenerator.copyCurrentStructure(jsonParser);
             }
             return dynamicSliceOutput.slice();

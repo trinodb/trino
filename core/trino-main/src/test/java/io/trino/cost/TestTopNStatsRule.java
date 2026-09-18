@@ -30,7 +30,7 @@ public class TestTopNStatsRule
     {
         // Test case with more rows in data than in topN SINGLE step
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -47,7 +47,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(10) //Expect TopN to limit
+                        .outputRowsCount(10) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -79,14 +79,14 @@ public class TestTopNStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 10.0)));
 
         tester().assertStatsFor(pb -> pb
                         .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
-                .withSourceStats(0, sourceStats.mapOutputRowCount(ignore -> 5000000.0))
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 50.0)));
+                .withSourceStats(0, sourceStats.mapOutputRowCount(_ -> 5000000.0))
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 50.0)));
 
         tester().assertStatsFor(pb -> pb
                         .topN(
@@ -95,7 +95,7 @@ public class TestTopNStatsRule
                                 TopNNode.Step.FINAL,
                                 pb.topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE)))))
                 .withSourceStats(0, sourceStats)
-                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
+                .check(check -> check.equalTo(sourceStats.mapOutputRowCount(_ -> 10.0)));
     }
 
     @Test
@@ -122,7 +122,7 @@ public class TestTopNStatsRule
                         .topN(1000, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check
-                        .outputRowsCount(100) //Expect TopN not to limit
+                        .outputRowsCount(100) // Expect TopN not to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -147,7 +147,7 @@ public class TestTopNStatsRule
     {
         // Test no nulls case
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -164,7 +164,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(10) //Expect TopN to limit
+                        .outputRowsCount(10) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -180,7 +180,7 @@ public class TestTopNStatsRule
 
         // test Reducing the nullFraction
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -197,7 +197,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(50) //Expect TopN to limit
+                        .outputRowsCount(50) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)
@@ -213,7 +213,7 @@ public class TestTopNStatsRule
 
         // test nulls first
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
+                        .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
@@ -230,7 +230,7 @@ public class TestTopNStatsRule
                                 .build())
                         .build())
                 .check(check -> check
-                        .outputRowsCount(50) //Expect TopN to limit
+                        .outputRowsCount(50) // Expect TopN to limit
                         .symbolStats("i1", assertion -> assertion
                                 .lowValue(1)
                                 .highValue(10)

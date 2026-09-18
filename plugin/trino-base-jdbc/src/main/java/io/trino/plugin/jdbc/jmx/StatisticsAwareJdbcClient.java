@@ -65,6 +65,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -259,7 +260,8 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<PreparedQuery> implementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             Map<JdbcColumnHandle, String> leftProjections,
@@ -272,7 +274,8 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<PreparedQuery> legacyImplementJoin(ConnectorSession session,
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
             PreparedQuery rightSource,
@@ -352,9 +355,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata));
+        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata, rollbackActionCollector));
     }
 
     @Override
@@ -380,10 +383,10 @@ public final class StatisticsAwareJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
-        return stats.getBeginMergeTable().wrap(() -> delegate().beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode));
+        return stats.getBeginMergeTable().wrap(() -> delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode));
     }
 
     @Override
@@ -399,9 +402,15 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
-        stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
+        stats.getRollbackDestinationTableCreation().wrap(() -> delegate().rollbackDestinationTableCreation(session, remoteTableName));
+    }
+
+    @Override
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
+    {
+        stats.getRollbackTemporaryTableCreation().wrap(() -> delegate().rollbackTemporaryTableCreation(session, handle));
     }
 
     @Override

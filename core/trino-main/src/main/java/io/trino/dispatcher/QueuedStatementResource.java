@@ -78,7 +78,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
@@ -102,6 +101,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -283,7 +283,7 @@ public class QueuedStatementResource
             Duration elapsedTime,
             Duration queuedTime)
     {
-        QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
+        QueryState state = queryError.map(_ -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
@@ -309,7 +309,7 @@ public class QueuedStatementResource
     {
         NOT_SUBMITTED,
         SUBMITTED,
-        ABANDONED
+        ABANDONED,
     }
 
     private static final class Query
@@ -363,7 +363,7 @@ public class QueuedStatementResource
 
         public boolean isSubmissionAbandoned()
         {
-            return ABANDONED.equals(submissionGate.get());
+            return submissionGate.get() == ABANDONED;
         }
 
         public boolean isCreated()
@@ -467,8 +467,8 @@ public class QueuedStatementResource
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
         {
             ErrorCode errorCode;
-            if (executionFailureInfo.getErrorCode() != null) {
-                errorCode = executionFailureInfo.getErrorCode();
+            if (executionFailureInfo.errorCode() != null) {
+                errorCode = executionFailureInfo.errorCode();
             }
             else {
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
@@ -476,12 +476,12 @@ public class QueuedStatementResource
             }
 
             return new QueryError(
-                    firstNonNull(executionFailureInfo.getMessage(), "Internal error"),
+                    requireNonNullElse(executionFailureInfo.message(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
                     errorCode.getType().toString(),
-                    executionFailureInfo.getErrorLocation(),
+                    executionFailureInfo.errorLocation(),
                     executionFailureInfo.toFailureInfo());
         }
     }

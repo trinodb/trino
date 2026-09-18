@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -28,11 +27,13 @@ import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplie
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.Split;
 import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -143,12 +144,13 @@ public final class TaskTestUtils
         PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()));
 
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(PLANNER_CONTEXT.getTypeOperators());
+        NullSafeHashCompiler hashCompiler = new NullSafeHashCompiler(PLANNER_CONTEXT.getTypeOperators());
         PartitionFunctionProvider partitionFunctionProvider = new PartitionFunctionProvider(
-                PLANNER_CONTEXT.getTypeOperators(),
+                hashCompiler,
                 CatalogServiceProvider.fail());
 
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT, 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
@@ -159,27 +161,28 @@ public final class TaskTestUtils
                 new MockDirectExchangeClientSupplier(),
                 new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler),
                 pageFunctionCompiler,
-                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
+                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager()),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
-                new GenericSpillerFactory((types, spillContext, memoryContext, parallelSpill) -> {
+                new GenericSpillerFactory((_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 }),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
                 Optional.empty(),
-                (types, spillContext, memoryContext, parallelSpill) -> {
+                (_, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
-                (types, partitionFunction, spillContext, memoryContext) -> {
+                (_, _, _, _, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
-                new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators()),
+                new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators(), hashCompiler),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
+                hashCompiler,
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new NodeVersion("test"),
@@ -188,6 +191,6 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of(), false);
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), ImmutableMap.of(), splitAssignments, outputBuffers, ImmutableMap.of(), false);
     }
 }

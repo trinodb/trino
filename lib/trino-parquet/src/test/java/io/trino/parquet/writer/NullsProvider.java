@@ -13,84 +13,95 @@
  */
 package io.trino.parquet.writer;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
+
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 enum NullsProvider
 {
     NO_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<long[]> getValidities(int positionCount)
         {
             return Optional.empty();
         }
     },
     NO_NULLS_WITH_MAY_HAVE_NULL {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<long[]> getValidities(int positionCount)
         {
-            return Optional.of(new boolean[positionCount]);
+            long[] valueIsValid = allocateWords(positionCount, true);
+            return Optional.of(valueIsValid);
         }
     },
     ALL_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<long[]> getValidities(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
-            Arrays.fill(nulls, true);
-            return Optional.of(nulls);
+            return Optional.of(new long[wordsForBits(positionCount)]);
         }
     },
     RANDOM_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<long[]> getValidities(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
+            long[] valueIsValid = new long[wordsForBits(positionCount)];
             for (int i = 0; i < positionCount; i++) {
-                nulls[i] = RANDOM.nextBoolean();
+                if (!RANDOM.nextBoolean()) {
+                    set(valueIsValid, 0, i);
+                }
             }
-            return Optional.of(nulls);
+            return Optional.of(valueIsValid);
         }
     },
     GROUPED_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<long[]> getValidities(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
+            long[] valueIsValid = new long[wordsForBits(positionCount)];
             int maxGroupSize = 23;
             int position = 0;
             while (position < positionCount) {
                 int remaining = positionCount - position;
                 int groupSize = Math.min(RANDOM.nextInt(maxGroupSize) + 1, remaining);
-                Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean());
+                boolean valid = !RANDOM.nextBoolean();
+                if (valid) {
+                    for (int i = position; i < position + groupSize; i++) {
+                        set(valueIsValid, 0, i);
+                    }
+                }
                 position += groupSize;
             }
-            return Optional.of(nulls);
+            return Optional.of(valueIsValid);
         }
     };
 
     private static final Random RANDOM = new Random(42);
 
-    abstract Optional<boolean[]> getNulls(int positionCount);
+    abstract Optional<long[]> getValidities(int positionCount);
 
-    Optional<boolean[]> getNulls(int positionCount, Optional<boolean[]> forcedNulls)
+    Optional<long[]> getValidities(int positionCount, Optional<long[]> forcedValidities)
     {
-        Optional<boolean[]> nulls = getNulls(positionCount);
-        if (forcedNulls.isEmpty()) {
-            return nulls;
+        Optional<long[]> validities = getValidities(positionCount);
+        if (forcedValidities.isEmpty()) {
+            return validities;
         }
-        if (nulls.isEmpty()) {
-            return forcedNulls;
+        if (validities.isEmpty()) {
+            return forcedValidities;
         }
 
-        boolean[] nullPositions = nulls.get();
-        boolean[] forcedNullPositions = forcedNulls.get();
+        long[] validity = validities.get();
+        long[] forcedValidity = forcedValidities.get();
+        long[] combined = new long[wordsForBits(positionCount)];
         for (int i = 0; i < positionCount; i++) {
-            if (forcedNullPositions[i]) {
-                nullPositions[i] = true;
+            if (isSet(validity, 0, i) && isSet(forcedValidity, 0, i)) {
+                set(combined, 0, i);
             }
         }
-        return Optional.of(nullPositions);
+        return Optional.of(combined);
     }
 }

@@ -21,9 +21,10 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -71,9 +72,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestArbitraryOutputBuffer
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
 
-    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId FIRST = new OutputBufferId(0);
     private static final OutputBufferId SECOND = new OutputBufferId(1);
 
@@ -158,7 +159,8 @@ public class TestArbitraryOutputBuffer
         outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
         buffer.setOutputBuffers(outputBuffers);
         assertQueueState(buffer, 10, SECOND, 0, 0);
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(0,
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(
+                0,
                 createPage(4),
                 createPage(5),
                 createPage(6),
@@ -365,7 +367,7 @@ public class TestArbitraryOutputBuffer
         buffer.setNoMorePages();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(1));
-        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
+        assertThat(buffer.getInfo().totalPagesSent()).isEqualTo(0);
     }
 
     @Test
@@ -405,7 +407,7 @@ public class TestArbitraryOutputBuffer
         buffer.destroy();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(1));
-        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
+        assertThat(buffer.getInfo().totalPagesSent()).isEqualTo(0);
     }
 
     @Test
@@ -461,7 +463,7 @@ public class TestArbitraryOutputBuffer
 
             BufferResult result = getFuture(firstReads.remove(completed), NO_WAIT);
             // Store completion order of first for follow up sequence
-            secondReads.add(buffer.get(completed, result.getNextToken(), sizeOfPages(1)));
+            secondReads.add(buffer.get(completed, result.nextToken(), sizeOfPages(1)));
         }
         // Test sanity
         assertThat(secondReads).hasSize(ids.length);
@@ -688,7 +690,9 @@ public class TestArbitraryOutputBuffer
         assertFutureIsDone(secondEnqueuePage);
 
         // get and acknowledge the last 5 pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
+        assertBufferResultEquals(
+                TYPES,
+                getBufferResult(buffer, FIRST, 1, sizeOfPages(100), NO_WAIT),
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
@@ -1022,14 +1026,14 @@ public class TestArbitraryOutputBuffer
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
 
-        assertThat(outputBufferInfo.getTotalBufferedPages() - assignedPages)
+        assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
-        PipelinedBufferInfo bufferInfo = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+        PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
@@ -1049,19 +1053,19 @@ public class TestArbitraryOutputBuffer
     {
         OutputBufferInfo outputBufferInfo = buffer.getInfo();
 
-        long assignedPages = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::getBufferedPages).sum();
-        assertThat(outputBufferInfo.getTotalBufferedPages() - assignedPages)
+        long assignedPages = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream().mapToInt(PipelinedBufferInfo::bufferedPages).sum();
+        assertThat(outputBufferInfo.totalBufferedPages() - assignedPages)
                 .describedAs("unassignedPages")
                 .isEqualTo(unassignedPages);
 
-        PipelinedBufferInfo bufferInfo = outputBufferInfo.getPipelinedBufferStates().orElse(ImmutableList.of()).stream()
-                .filter(info -> info.getBufferId().equals(bufferId))
+        PipelinedBufferInfo bufferInfo = outputBufferInfo.pipelinedBufferStates().orElse(ImmutableList.of()).stream()
+                .filter(info -> info.bufferId().equals(bufferId))
                 .findAny()
                 .orElse(null);
 
-        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
-        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
-        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(bufferInfo.bufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.pagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.finished()).isTrue();
     }
 
     private ArbitraryOutputBuffer createArbitraryBuffer(OutputBuffers buffers, DataSize dataSize)
@@ -1070,7 +1074,7 @@ public class TestArbitraryOutputBuffer
                 TASK_INSTANCE_ID,
                 new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), stateNotificationExecutor),
                 dataSize,
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(buffers);
         return buffer;

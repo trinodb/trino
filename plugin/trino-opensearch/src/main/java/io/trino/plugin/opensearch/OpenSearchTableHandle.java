@@ -45,8 +45,7 @@ public record OpenSearchTableHandle(
 
     public OpenSearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
-        this(
-                type,
+        this(type,
                 schema,
                 index,
                 TupleDomain.all(),

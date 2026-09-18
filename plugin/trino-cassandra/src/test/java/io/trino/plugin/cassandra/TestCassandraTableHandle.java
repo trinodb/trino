@@ -16,11 +16,12 @@ package io.trino.plugin.cassandra;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraTableHandle
 {
-    private final JsonCodec<CassandraTableHandle> codec = JsonCodec.jsonCodec(CassandraTableHandle.class);
+    private final JsonCodec<CassandraTableHandle> codec = jsonCodec(CassandraTableHandle.class);
 
     @Test
     public void testRoundTripNamedRelationHandle()

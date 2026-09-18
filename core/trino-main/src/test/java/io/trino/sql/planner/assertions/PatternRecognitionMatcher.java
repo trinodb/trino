@@ -16,9 +16,6 @@ package io.trino.sql.planner.assertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
@@ -38,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -91,13 +89,13 @@ public class PatternRecognitionMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         PatternRecognitionNode patternRecognitionNode = (PatternRecognitionNode) node;
 
-        boolean specificationMatches = specification.map(expected -> expected.getExpectedValue(symbolAliases).equals(patternRecognitionNode.getSpecification())).orElse(true);
+        boolean specificationMatches = specification.map(expected -> expected.getExpectedValue(context.symbolAliases()).equals(patternRecognitionNode.getSpecification())).orElse(true);
         if (!specificationMatches) {
             return NO_MATCH;
         }
@@ -106,7 +104,7 @@ public class PatternRecognitionMatcher
             if (patternRecognitionNode.getCommonBaseFrame().isEmpty()) {
                 return NO_MATCH;
             }
-            if (!WindowFrameMatcher.matches(frame.get(), patternRecognitionNode.getCommonBaseFrame().get(), symbolAliases)) {
+            if (!WindowFrameMatcher.matches(frame.get(), patternRecognitionNode.getCommonBaseFrame().get(), context.symbolAliases())) {
                 return NO_MATCH;
             }
         }
@@ -135,14 +133,14 @@ public class PatternRecognitionMatcher
             return NO_MATCH;
         }
 
-        for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : variableDefinitions.entrySet()) {
+        for (Entry<IrLabel, ExpressionAndValuePointers> entry : variableDefinitions.entrySet()) {
             IrLabel name = entry.getKey();
             ExpressionAndValuePointers actual = patternRecognitionNode.getVariableDefinitions().get(name);
             if (actual == null) {
                 return NO_MATCH;
             }
 
-            if (!ExpressionAndValuePointersMatcher.matches(entry.getValue(), actual, symbolAliases)) {
+            if (!ExpressionAndValuePointersMatcher.matches(entry.getValue(), actual, context.symbolAliases())) {
                 return NO_MATCH;
             }
         }

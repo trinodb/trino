@@ -70,7 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInt96Timestamp
 {
-    private static final LocalDateTime[] TIMESTAMPS = new LocalDateTime[] {
+    private static final LocalDateTime[] TIMESTAMPS = {
             LocalDateTime.of(-5000, 1, 1, 1, 1, 1),
             LocalDateTime.of(-1, 4, 2, 4, 2, 4, 2),
             LocalDateTime.of(1, 1, 1, 0, 0),
@@ -86,7 +86,8 @@ public class TestInt96Timestamp
             LocalDateTime.of(2022, 2, 3, 12, 8, 51, 123456789),
             LocalDateTime.of(2022, 2, 3, 12, 8, 51, 1),
             LocalDateTime.of(2022, 2, 3, 12, 8, 51, 999999999),
-            LocalDateTime.of(123456, 1, 2, 3, 4, 5, 678901234)};
+            LocalDateTime.of(123456, 1, 2, 3, 4, 5, 678901234),
+    };
 
     @Test
     public void testVariousTimestamps()

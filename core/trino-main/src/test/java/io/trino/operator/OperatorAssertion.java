@@ -41,7 +41,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageAssertions.assertPagesEqual;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -211,10 +211,7 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
-        assertThat(actual).hasSize(expected.size());
-        for (int i = 0; i < actual.size(); i++) {
-            assertPageEquals(types, actual.get(i), expected.get(i));
-        }
+        assertPagesEqual(types, actual, expected);
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected)

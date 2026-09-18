@@ -16,13 +16,13 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
+import io.trino.plugin.elasticsearch.client.SearchDocument;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class RawJsonDecoder
         implements Decoder
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private final String path;
 
     public RawJsonDecoder(String path)
@@ -44,7 +44,7 @@ public class RawJsonDecoder
     }
 
     @Override
-    public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
+    public void decode(SearchDocument document, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
         if (value == null) {
@@ -52,7 +52,7 @@ public class RawJsonDecoder
         }
         else {
             try {
-                String rawJsonValue = OBJECT_MAPPER.writeValueAsString(value);
+                String rawJsonValue = JSON_MAPPER.writeValueAsString(value);
                 VARCHAR.writeSlice(output, Slices.utf8Slice(rawJsonValue));
             }
             catch (JsonProcessingException e) {

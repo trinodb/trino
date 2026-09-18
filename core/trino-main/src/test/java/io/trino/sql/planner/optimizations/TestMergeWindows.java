@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
@@ -40,11 +39,14 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -56,6 +58,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
@@ -71,7 +74,8 @@ public class TestMergeWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQSS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     DISCOUNT_ALIAS, "discount",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey",
@@ -79,14 +83,16 @@ public class TestMergeWindows
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DOQS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     DISCOUNT_ALIAS, "discount",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey"));
 
     private static final PlanMatchPattern LINEITEM_TABLESCAN_DEOQS = tableScan(
             "lineitem",
-            ImmutableMap.of(QUANTITY_ALIAS, "quantity",
+            ImmutableMap.of(
+                    QUANTITY_ALIAS, "quantity",
                     SUPPKEY_ALIAS, "suppkey",
                     ORDERKEY_ALIAS, "orderkey",
                     DISCOUNT_ALIAS, "discount",
@@ -99,7 +105,8 @@ public class TestMergeWindows
             Optional.empty(),
             FrameBoundType.CURRENT_ROW,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            NO_OTHERS);
 
     private final ExpectedValueProvider<DataOrganizationSpecification> specificationA;
     private final ExpectedValueProvider<DataOrganizationSpecification> specificationB;
@@ -243,7 +250,7 @@ public class TestMergeWindows
                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                         .specification(specificationB)
                                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
-                                                filter(not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, SHIPDATE_ALIAS))),
+                                                filter(not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, SHIPDATE_ALIAS))),
                                                         project(
                                                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                                                 .specification(specificationA)
@@ -294,7 +301,7 @@ public class TestMergeWindows
                                         .addFunction(windowFunction("sum", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME))
                                         .addFunction(windowFunction("avg", ImmutableList.of(QUANTITY_ALIAS), COMMON_FRAME)),
                                 project(
-                                        filter(not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, SHIPDATE_ALIAS))),
+                                        filter(not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, SHIPDATE_ALIAS))),
                                                 project(
                                                         window(windowMatcherBuilder -> windowMatcherBuilder
                                                                         .specification(specificationA)
@@ -344,7 +351,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.CURRENT_ROW,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -358,7 +366,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         @Language("SQL") String sql = "SELECT " +
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C, " +
@@ -386,7 +395,8 @@ public class TestMergeWindows
                 Optional.empty(),
                 FrameBoundType.UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         ExpectedValueProvider<DataOrganizationSpecification> specificationD = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -462,7 +472,7 @@ public class TestMergeWindows
 
         assertUnitPlan(sql,
                 anyTree(
-                        filter(new Comparison(EQUAL, new Reference(BIGINT, "SUM"), new Reference(BIGINT, "AVG")),
+                        filter(comparison(EQUAL, new Reference(BIGINT, "SUM"), new Reference(BIGINT, "AVG")),
                                 join(INNER, builder -> builder
                                         .left(
                                                 any(
@@ -587,6 +597,7 @@ public class TestMergeWindows
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
+                        "TestMergeWindows",
                         getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
                         getPlanTester().getStatsCalculator(),

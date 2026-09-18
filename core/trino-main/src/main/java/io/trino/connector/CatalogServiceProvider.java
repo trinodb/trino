@@ -26,7 +26,7 @@ public interface CatalogServiceProvider<T>
 
     static <T> CatalogServiceProvider<T> fail(String message)
     {
-        return catalogName -> {
+        return _ -> {
             throw new IllegalStateException(message);
         };
     }

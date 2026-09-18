@@ -15,8 +15,8 @@ package io.trino.parquet.reader;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -89,7 +89,8 @@ class FilteredOffsetIndex
             for (int i = 0, n = offsetIndex.getPageCount(); i < n; ++i) {
                 int index = Arrays.binarySearch(indexMap, i);
                 boolean isHidden = index < 0;
-                formatter.format("%spage-%-5d  %20d  %16d  %20d\n",
+                formatter.format(
+                        "%spage-%-5d  %20d  %16d  %20d\n",
                         isHidden ? "- " : "  ",
                         isHidden ? i : index,
                         offsetIndex.getOffset(i),

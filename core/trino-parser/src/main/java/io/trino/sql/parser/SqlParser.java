@@ -16,6 +16,7 @@ package io.trino.sql.parser;
 import io.trino.grammar.sql.SqlBaseBaseListener;
 import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
+import io.trino.grammar.sql.SqlKeywords;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
@@ -25,6 +26,7 @@ import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
 import org.antlr.v4.runtime.ANTLRErrorListener;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -39,6 +41,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.Pair;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -60,7 +63,7 @@ public class SqlParser
             throw new ParsingException(message, e, line, charPositionInLine + 1);
         }
     };
-    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
+    private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (_, _) -> {};
 
     private static final ErrorHandler PARSER_ERROR_HANDLER = ErrorHandler.builder()
             .specialRule(SqlBaseParser.RULE_expression, "<expression>")
@@ -69,6 +72,8 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_primaryExpression, "<expression>")
             .specialRule(SqlBaseParser.RULE_predicate, "<predicate>")
             .specialRule(SqlBaseParser.RULE_identifier, "<identifier>")
+            .specialRule(SqlBaseParser.RULE_methodName, "<identifier>")
+            .tokenPredicate(SqlBaseParser.RULE_methodName, SqlKeywords::isKeyword)
             .specialRule(SqlBaseParser.RULE_string, "<string>")
             .specialRule(SqlBaseParser.RULE_query, "<query>")
             .specialRule(SqlBaseParser.RULE_type, "<type>")
@@ -144,42 +149,27 @@ public class SqlParser
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
             initializer.accept(lexer, parser);
 
-            // Override the default error strategy to not attempt inserting or deleting a token.
-            // Otherwise, it messes up error reporting
-            parser.setErrorHandler(new DefaultErrorStrategy()
-            {
-                @Override
-                public Token recoverInline(Parser recognizer)
-                        throws RecognitionException
-                {
-                    if (nextTokensContext == null) {
-                        throw new InputMismatchException(recognizer);
-                    }
-                    throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
-                }
-            });
-
             parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
 
             lexer.removeErrorListeners();
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(PARSER_ERROR_HANDLER);
 
             ParserRuleContext tree;
             try {
                 try {
                     // first, try parsing with potentially faster SLL mode
                     parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                    parser.setErrorHandler(new BailErrorStrategy());
                     tree = parseFunction.apply(parser);
                 }
-                catch (ParsingException ex) {
+                catch (ParseCancellationException e) {
                     // if we fail, parse with LL mode
-                    tokenStream.seek(0); // rewind input stream
                     parser.reset();
-
                     parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                    parser.setErrorHandler(new NonRecoveringErrorStrategy());
+                    parser.addErrorListener(PARSER_ERROR_HANDLER);
                     tree = parseFunction.apply(parser);
                 }
             }
@@ -200,6 +190,21 @@ public class SqlParser
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)", location.orElse(new NodeLocation(1, 1)));
+        }
+    }
+
+    // Override the default error strategy to not attempt inserting or deleting a token.
+    // Otherwise, it messes up error reporting.
+    private static final class NonRecoveringErrorStrategy
+            extends DefaultErrorStrategy
+    {
+        @Override
+        public Token recoverInline(Parser recognizer)
+        {
+            if (nextTokensContext == null) {
+                throw new InputMismatchException(recognizer);
+            }
+            throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
         }
     }
 

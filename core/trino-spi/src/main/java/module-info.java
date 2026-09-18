@@ -22,6 +22,7 @@ module trino.spi {
     exports io.trino.spi;
     exports io.trino.spi.block;
     exports io.trino.spi.catalog;
+    exports io.trino.spi.cache;
     exports io.trino.spi.classloader;
     exports io.trino.spi.connector;
     exports io.trino.spi.eventlistener;
@@ -39,4 +40,5 @@ module trino.spi {
     exports io.trino.spi.statistics;
     exports io.trino.spi.transaction;
     exports io.trino.spi.type;
+    exports io.trino.spi.variant;
 }

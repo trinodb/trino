@@ -3,86 +3,61 @@
     "spec": {
         "dataSchema": {
             "dataSource": "lineitem",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "shipdate_druid_ts",
-                        "format": "auto"
+            "timestampSpec": {
+                "column": "shipdate_druid_ts",
+                "format": "auto"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "orderkey",
+                        "type": "long"
                     },
-                    "columns": [
-                        "orderkey",
-                        "partkey",
-                        "suppkey",
-                        "linenumber",
-                        "quantity",
-                        "extendedprice",
-                        "discount",
-                        "tax",
-                        "returnflag",
-                        "linestatus",
-                        "shipdate",
-                        "shipdate_druid_ts",
-                        "commitdate",
-                        "receiptdate",
-                        "shipinstruct",
-                        "shipmode",
-                        "comment"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            {
-                                "name": "orderkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "partkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "suppkey",
-                                "type": "long"
-                            },
-                            {
-                                "name": "linenumber",
-                                "type": "long"
-                            },
-                            {
-                                "name": "returnflag",
-                                "type": "string"
-                            },
-                            {
-                                "name": "linestatus",
-                                "type": "string"
-                            },
-                            {
-                                "name": "shipdate",
-                                "type": "string"
-                            },
-                            {
-                                "name": "commitdate",
-                                "type": "string"
-                            },
-                            {
-                                "name": "receiptdate",
-                                "type": "string"
-                            },
-                            {
-                                "name": "shipinstruct",
-                                "type": "string"
-                            },
-                            {
-                                "name": "shipmode",
-                                "type": "string"
-                            },
-                            {
-                                "name": "comment",
-                                "type": "string"
-                            }
-                        ]
+                    {
+                        "name": "partkey",
+                        "type": "long"
+                    },
+                    {
+                        "name": "suppkey",
+                        "type": "long"
+                    },
+                    {
+                        "name": "linenumber",
+                        "type": "long"
+                    },
+                    {
+                        "name": "returnflag",
+                        "type": "string"
+                    },
+                    {
+                        "name": "linestatus",
+                        "type": "string"
+                    },
+                    {
+                        "name": "shipdate",
+                        "type": "string"
+                    },
+                    {
+                        "name": "commitdate",
+                        "type": "string"
+                    },
+                    {
+                        "name": "receiptdate",
+                        "type": "string"
+                    },
+                    {
+                        "name": "shipinstruct",
+                        "type": "string"
+                    },
+                    {
+                        "name": "shipmode",
+                        "type": "string"
+                    },
+                    {
+                        "name": "comment",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "metricsSpec": [
                 {
@@ -121,10 +96,33 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "lineitem.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "orderkey",
+                    "partkey",
+                    "suppkey",
+                    "linenumber",
+                    "quantity",
+                    "extendedprice",
+                    "discount",
+                    "tax",
+                    "returnflag",
+                    "linestatus",
+                    "shipdate",
+                    "shipdate_druid_ts",
+                    "commitdate",
+                    "receiptdate",
+                    "shipinstruct",
+                    "shipmode",
+                    "comment"
+                ]
             },
             "appendToExisting": false
         },

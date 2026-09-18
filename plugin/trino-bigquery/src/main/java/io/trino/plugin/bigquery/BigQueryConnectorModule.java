@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.common.collect.ImmutableMultimap;
@@ -37,6 +38,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -44,7 +46,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
@@ -68,6 +69,8 @@ public class BigQueryConnectorModule
         @Override
         protected void setup(Binder binder)
         {
+            BigQueryConfig config = buildConfigObject(BigQueryConfig.class);
+
             // BigQuery related
             binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryWriteClientFactory.class).in(Scopes.SINGLETON);
@@ -82,13 +85,14 @@ public class BigQueryConnectorModule
             binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
             binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
+            binder.bind(BigQuerySchemaProperties.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(BigQueryConfig.class);
             configBinder(binder).bindConfig(BigQueryRpcConfig.class);
             newOptionalBinder(binder, BigQueryArrowBufferAllocator.class);
-            install(conditionalModule(
-                    BigQueryConfig.class,
-                    BigQueryConfig::isArrowSerializationEnabled,
-                    new ArrowSerializationModule()));
+
+            if (config.isArrowSerializationEnabled()) {
+                install(new ArrowSerializationModule());
+            }
             newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
             newSetBinder(binder, Procedure.class).addBinding().toProvider(ExecuteProcedure.class).in(Scopes.SINGLETON);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);
@@ -101,14 +105,11 @@ public class BigQueryConnectorModule
             optionsConfigurers.addBinding().to(TracingOptionsConfigurer.class).in(Scopes.SINGLETON);
             newOptionalBinder(binder, ProxyTransportFactory.class);
 
-            install(conditionalModule(
-                    BigQueryConfig.class,
-                    BigQueryConfig::isProxyEnabled,
-                    proxyBinder -> {
-                        configBinder(proxyBinder).bindConfig(BigQueryProxyConfig.class);
-                        newSetBinder(proxyBinder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
-                        newOptionalBinder(binder, ProxyTransportFactory.class).setDefault().to(ProxyTransportFactory.DefaultProxyTransportFactory.class).in(Scopes.SINGLETON);
-                    }));
+            if (config.isProxyEnabled()) {
+                configBinder(binder).bindConfig(BigQueryProxyConfig.class);
+                newSetBinder(binder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
+                newOptionalBinder(binder, ProxyTransportFactory.class).setDefault().to(ProxyTransportFactory.DefaultProxyTransportFactory.class).in(Scopes.SINGLETON);
+            }
 
             closingBinder(binder).registerExecutor(ListeningExecutorService.class);
             closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForBigQueryPageSource.class));
@@ -126,6 +127,19 @@ public class BigQueryConnectorModule
         public static BigQueryLabelFactory labelFactory(BigQueryConfig config)
         {
             return new BigQueryLabelFactory(config.getQueryLabelName(), new FormatInterpolator<>(config.getQueryLabelFormat(), SessionInterpolatedValues.values()));
+        }
+
+        @Provides
+        @Singleton
+        @ForBigQueryWriter
+        public static RetrySettings provideRetrySettings(BigQueryConfig config)
+        {
+            return RetrySettings.newBuilder()
+                    .setMaxAttempts(config.getWriteRetryMaxAttempts())
+                    .setInitialRetryDelayDuration(Duration.ofMillis(config.getWriteRetryInitialDelay().toMillis()))
+                    .setRetryDelayMultiplier(1.3)
+                    .setMaxRetryDelayDuration(Duration.ofMillis(config.getWriteRetryMaxDelay().toMillis()))
+                    .build();
         }
 
         @Provides

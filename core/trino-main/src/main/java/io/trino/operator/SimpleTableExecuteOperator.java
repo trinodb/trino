@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -144,7 +145,7 @@ public class SimpleTableExecuteOperator
         PageBuilder pageBuilder = new PageBuilder(types);
         BlockBuilder metricNameBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder metricValueBuilder = pageBuilder.getBlockBuilder(1);
-        for (Map.Entry<String, Long> entry : metrics.entrySet()) {
+        for (Entry<String, Long> entry : metrics.entrySet()) {
             types.get(0).writeSlice(metricNameBuilder, Slices.utf8Slice(entry.getKey()));
             types.get(1).writeLong(metricValueBuilder, entry.getValue());
             pageBuilder.declarePosition();

@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.primitives.Doubles;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -286,7 +285,7 @@ public class NumericHistogram
     private static void sort(final double[] values, final double[] weights, int nextIndex)
     {
         // sort x and y value arrays based on the x values
-        Arrays.quickSort(0, nextIndex, (a, b) -> Doubles.compare(values[a], values[b]), (a, b) -> {
+        Arrays.quickSort(0, nextIndex, (a, b) -> Double.compare(values[a], values[b]), (a, b) -> {
             double temp = values[a];
             values[a] = values[b];
             values[b] = temp;

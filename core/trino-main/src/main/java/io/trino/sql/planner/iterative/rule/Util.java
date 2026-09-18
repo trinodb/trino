@@ -96,7 +96,7 @@ final class Util
 
     /**
      * @return The original node, with identity projections possibly inserted between node and each child, limiting the columns to those permitted.
-     * Returns a present Optional iff at least one child was rewritten.
+     *         Returns a present Optional iff at least one child was rewritten.
      */
     @SafeVarargs
     public static Optional<PlanNode> restrictChildOutputs(PlanNodeIdAllocator idAllocator, PlanNode node, Set<Symbol>... permittedChildOutputsArgs)

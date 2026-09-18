@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.containers.NessieContainer;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -48,10 +49,13 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.airlift.units.Duration.ZERO;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -119,7 +123,7 @@ public class TestTrinoNessieCatalog
                 TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient, ENCRYPTION_MANAGER_FACTORY),
                 nessieClient,
                 tmpDirectory.toAbsolutePath().toString(),
                 useUniqueTableLocations);
@@ -144,7 +148,7 @@ public class TestTrinoNessieCatalog
                 TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
+                new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient, ENCRYPTION_MANAGER_FACTORY),
                 nessieClient,
                 icebergNessieCatalogConfig.getDefaultWarehouseDir(),
                 false);
@@ -152,7 +156,10 @@ public class TestTrinoNessieCatalog
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        catalogWithDefaultLocation.createNamespace(SESSION, namespace, ImmutableMap.of(),
+        catalogWithDefaultLocation.createNamespace(
+                SESSION,
+                namespace,
+                ImmutableMap.of(),
                 new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace);
@@ -170,6 +177,14 @@ public class TestTrinoNessieCatalog
     public void testView()
     {
         assertThatThrownBy(super::testView)
+                .hasMessageContaining("createView is not supported for Iceberg Nessie catalogs");
+    }
+
+    @Test
+    @Override
+    public void testViewNamespaceFilter()
+    {
+        assertThatThrownBy(super::testViewNamespaceFilter)
                 .hasMessageContaining("createView is not supported for Iceberg Nessie catalogs");
     }
 
@@ -196,21 +211,26 @@ public class TestTrinoNessieCatalog
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    new CatalogName("iceberg"),
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
+                    (_, _) -> {
                         throw new UnsupportedOperationException();
                     },
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    0,
+                    ZERO,
+                    ConnectorExpressionEvaluator.NO_OP);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

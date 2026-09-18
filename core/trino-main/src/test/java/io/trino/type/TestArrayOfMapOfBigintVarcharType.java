@@ -42,13 +42,16 @@ public class TestArrayOfMapOfBigintVarcharType
     public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 4);
-        TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
+        TYPE.writeObject(blockBuilder, arrayBlockOf(
+                TYPE.getElementType(),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(2, "bye"))));
-        TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
+        TYPE.writeObject(blockBuilder, arrayBlockOf(
+                TYPE.getElementType(),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(3, "4", 4, "bye"))));
-        TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
+        TYPE.writeObject(blockBuilder, arrayBlockOf(
+                TYPE.getElementType(),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(100, "hundred")),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(200, "two hundred"))));
         return blockBuilder.buildValueBlock();

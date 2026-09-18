@@ -93,18 +93,10 @@ public class QueryManagerStats
 
         if (info.getErrorCode() != null) {
             switch (info.getErrorCode().getType()) {
-                case USER_ERROR:
-                    userErrorFailures.update(1);
-                    break;
-                case INTERNAL_ERROR:
-                    internalFailures.update(1);
-                    break;
-                case INSUFFICIENT_RESOURCES:
-                    insufficientResourcesFailures.update(1);
-                    break;
-                case EXTERNAL:
-                    externalFailures.update(1);
-                    break;
+                case USER_ERROR -> userErrorFailures.update(1);
+                case INTERNAL_ERROR -> internalFailures.update(1);
+                case INSUFFICIENT_RESOURCES -> insufficientResourcesFailures.update(1);
+                case EXTERNAL -> externalFailures.update(1);
             }
 
             if (info.getErrorCode().getCode() == ABANDONED_QUERY.toErrorCode().getCode()) {

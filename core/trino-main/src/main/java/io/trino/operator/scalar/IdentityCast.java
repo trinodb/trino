@@ -16,10 +16,10 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -27,6 +27,7 @@ import java.lang.invoke.MethodHandles;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public class IdentityCast
         extends SqlScalarFunction
@@ -38,14 +39,15 @@ public class IdentityCast
         super(FunctionMetadata.operatorBuilder(CAST)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("T"))
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("T"))
                         .build())
+                .neverFails()
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getReturnType();
         MethodHandle identity = MethodHandles.identity(type.getJavaType());

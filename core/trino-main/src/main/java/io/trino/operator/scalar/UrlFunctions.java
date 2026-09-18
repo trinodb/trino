@@ -28,7 +28,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import jakarta.annotation.Nullable;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
@@ -48,7 +47,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract protocol from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractProtocol(@SqlType("varchar(x)") Slice url)
@@ -59,7 +58,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract host from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractHost(@SqlType("varchar(x)") Slice url)
@@ -70,7 +69,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract port from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static Long urlExtractPort(@SqlType("varchar(x)") Slice url)
@@ -84,7 +83,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract part from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractPath(@SqlType("varchar(x)") Slice url)
@@ -95,7 +94,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract query from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractQuery(@SqlType("varchar(x)") Slice url)
@@ -106,7 +105,7 @@ public final class UrlFunctions
 
     @SqlNullable
     @Description("Extract fragment from url")
-    @ScalarFunction
+    @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice urlExtractFragment(@SqlType("varchar(x)") Slice url)
@@ -168,10 +167,7 @@ public final class UrlFunctions
     private static Slice decodeUrl(String value)
     {
         try {
-            return slice(URLDecoder.decode(value, UTF_8.name()));
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
+            return slice(URLDecoder.decode(value, UTF_8));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

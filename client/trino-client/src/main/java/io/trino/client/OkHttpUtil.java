@@ -28,6 +28,7 @@ import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
 import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.logging.HttpLoggingInterceptor.Level;
@@ -123,7 +124,7 @@ public final class OkHttpUtil
         requireNonNull(extraHeaders, "extraHeaders is null");
 
         return chain -> {
-            okhttp3.Request.Builder builder = chain.request().newBuilder();
+            Request.Builder builder = chain.request().newBuilder();
             extraHeaders.forEach(builder::addHeader);
             return chain.proceed(builder.build());
         };

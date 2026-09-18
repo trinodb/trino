@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServices;
+import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
@@ -24,6 +25,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
+
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -96,6 +99,17 @@ public class Catalog
     public CatalogStatus getCatalogStatus()
     {
         return catalogStatus;
+    }
+
+    public Optional<SecurityManagement> getSecurityManagement()
+    {
+        return Optional.ofNullable(catalogConnector)
+                .map(ConnectorServices::getSecurityManagement);
+    }
+
+    public CatalogInfo toInfo()
+    {
+        return new CatalogInfo(catalogName.toString(), catalogHandle, connectorName, catalogStatus);
     }
 
     public boolean isFailed()

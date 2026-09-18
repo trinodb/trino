@@ -116,7 +116,9 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(
-                    connection, statement, "X'12345678'",
+                    connection,
+                    statement,
+                    "X'12345678'",
                     ImmutableList.of(
                             "bytea E'\\\\x12345678'", // PostgreSQL
                             "hextoraw('12345678')"), // Oracle
@@ -210,7 +212,9 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
                             "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
@@ -230,7 +234,9 @@ public class TestJdbcVendorCompatibility
                     });
 
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
                             "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
@@ -252,7 +258,9 @@ public class TestJdbcVendorCompatibility
                     });
 
             checkRepresentation(
-                    connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
+                    connection,
+                    statement,
+                    "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
                     ImmutableList.of(
                             "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
                             "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle

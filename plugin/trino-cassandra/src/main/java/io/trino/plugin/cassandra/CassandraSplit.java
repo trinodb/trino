@@ -56,13 +56,13 @@ public record CassandraSplit(String partitionId, String splitCondition, List<Hos
     {
         if (partitionId.equals(CassandraPartition.UNPARTITIONED_ID)) {
             if (splitCondition != null) {
-                return " WHERE " + splitCondition;
+                return splitCondition;
             }
             return "";
         }
         if (splitCondition != null) {
-            return " WHERE " + partitionId + " AND " + splitCondition;
+            return partitionId + " AND " + splitCondition;
         }
-        return " WHERE " + partitionId;
+        return partitionId;
     }
 }

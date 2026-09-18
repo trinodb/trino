@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 
@@ -35,8 +35,10 @@ import static java.lang.String.format;
 public class FileSessionPropertyManager
         extends AbstractSessionPropertyManager
 {
-    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    public static final JsonCodec<List<SessionMatchSpec>> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .build())
             .listJsonCodec(SessionMatchSpec.class);
 
     private final List<SessionMatchSpec> sessionMatchSpecs;
@@ -53,7 +55,8 @@ public class FileSessionPropertyManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format("Unknown property at line %s:%s: %s",
+                String message = format(
+                        "Unknown property at line %s:%s: %s",
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),
                         ex.getPropertyName());

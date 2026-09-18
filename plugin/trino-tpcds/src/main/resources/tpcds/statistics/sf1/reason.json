@@ -1,26 +1,26 @@
 {
-  "rowCount" : 35,
+  "rowCount" : 75,
   "columns" : {
     "r_reason_sk" : {
-      "distinctValuesCount" : 35,
+      "distinctValuesCount" : 75,
       "nullsCount" : 0,
       "min" : 1,
-      "max" : 35,
+      "max" : 75,
       "dataSize" : null
     },
     "r_reason_id" : {
-      "distinctValuesCount" : 35,
+      "distinctValuesCount" : 75,
       "nullsCount" : 0,
       "min" : "AAAAAAAAABAAAAAA",
-      "max" : "AAAAAAAAPBAAAAAA",
-      "dataSize" : 560
+      "max" : "AAAAAAAAPDAAAAAA",
+      "dataSize" : 1200
     },
     "r_reason_desc" : {
-      "distinctValuesCount" : 34,
+      "distinctValuesCount" : 75,
       "nullsCount" : 0,
       "min" : "Did not fit",
       "max" : "unauthoized purchase",
-      "dataSize" : 569
+      "dataSize" : 938
     }
   }
 }

@@ -31,6 +31,4 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = ViewReferenceInfo.class, name = "view"),
 })
 public sealed interface TableReferenceInfo
-        permits BaseViewReferenceInfo, FilterMaskReferenceInfo
-{
-}
+        permits BaseViewReferenceInfo, FilterMaskReferenceInfo {}

@@ -20,7 +20,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
@@ -32,10 +31,10 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.OrcType;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.metadata.BlockMetadata;
-import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -47,19 +46,31 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.encryption.DefaultEncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
+import io.trino.plugin.iceberg.encryption.PlaintextEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -69,16 +80,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -93,6 +103,7 @@ public final class IcebergTestUtils
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new IcebergSessionProperties(
                     new IcebergConfig(),
+                    new IcebergEncryptionConfig(),
                     new OrcReaderConfig(),
                     new OrcWriterConfig(),
                     new ParquetReaderConfig(),
@@ -101,10 +112,11 @@ public final class IcebergTestUtils
 
     public static final TableStatisticsReader TABLE_STATISTICS_READER = new TableStatisticsReader(
             TESTING_TYPE_MANAGER,
-            newDirectExecutorService(),
-            new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)));
+            newDirectExecutorService());
 
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
+
+    public static final EncryptionManagerFactory ENCRYPTION_MANAGER_FACTORY = new PlaintextEncryptionManagerFactory();
 
     private IcebergTestUtils() {}
 
@@ -112,7 +124,6 @@ public final class IcebergTestUtils
     {
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "20")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "1kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "20")
                 .build();
     }
@@ -134,32 +145,36 @@ public final class IcebergTestUtils
         OrcReaderOptions readerOptions = new OrcReaderOptions();
         try (OrcDataSource dataSource = dataSourceSupplier.get()) {
             OrcReader orcReader = OrcReader.createOrcReader(dataSource, readerOptions).orElseThrow();
-            OrcColumn sortColumn = orcReader.getRootColumn().getNestedColumns().stream()
-                    .filter(column -> column.getColumnName().equals(sortColumnName))
+            String[] pathParts = sortColumnName.split("\\.");
+
+            // Read only the top-level column; nulls on intermediate struct columns are tracked there,
+            // not in the leaf column's present stream
+            OrcColumn topColumn = orcReader.getRootColumn().getNestedColumns().stream()
+                    .filter(column -> column.getColumnName().equals(pathParts[0]))
                     .collect(onlyElement());
-            Type sortColumnType = getType(sortColumn.getColumnType().getOrcTypeKind());
+
+            // Walk to the leaf to determine its type, but read from topColumn
+            OrcColumn leafColumn = topColumn;
+            for (int i = 1; i < pathParts.length; i++) {
+                String part = pathParts[i];
+                leafColumn = leafColumn.getNestedColumns().stream()
+                        .filter(column -> column.getColumnName().equals(part))
+                        .collect(onlyElement());
+            }
+            Type leafType = getType(leafColumn.getColumnType().getOrcTypeKind());
+            Type columnType = buildColumnType(pathParts, leafType);
+
             try (OrcRecordReader recordReader = orcReader.createRecordReader(
-                    List.of(sortColumn),
-                    List.of(sortColumnType),
+                    List.of(topColumn),
+                    List.of(columnType),
                     false,
                     OrcPredicate.TRUE,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     RuntimeException::new)) {
-                Comparable<Object> previousMax = null;
-                for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-                    Block block = page.getBlock(0);
-                    for (int position = 0; position < block.getPositionCount(); position++) {
-                        Comparable<Object> current = (Comparable<Object>) readNativeValue(sortColumnType, block, position);
-                        if (previousMax != null && previousMax.compareTo(current) > 0) {
-                            return false;
-                        }
-                        previousMax = current;
-                    }
-                }
+                return checkSortOrder(recordReader::nextPage, pathParts.length, leafType);
             }
-            return true;
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -174,54 +189,132 @@ public final class IcebergTestUtils
         };
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean checkParquetFileSorting(TrinoInputFile inputFile, String sortColumnName)
     {
-        ParquetMetadata parquetMetadata = getParquetFileMetadata(inputFile);
-        List<BlockMetadata> blocks;
-        try {
-            blocks = parquetMetadata.getBlocks();
+        try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
+            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
+
+            String[] pathParts = sortColumnName.split("\\.");
+            ColumnIO columnIO = messageColumnIO;
+            for (String part : pathParts) {
+                columnIO = lookupColumnByName((GroupColumnIO) columnIO, part);
+                checkState(columnIO != null, "Column not found in Parquet schema: %s (while resolving %s)", part, sortColumnName);
+            }
+            Type leafType = getType(columnIO.getType().asPrimitiveType().getPrimitiveTypeName());
+            // e.g. "row_t.name" → RowType(field("name", VARCHAR)), read column "row_t"
+            Type columnType = buildColumnType(pathParts, leafType);
+            String topLevelColumnName = pathParts[0];
+
+            try (ParquetReader parquetReader = ParquetTestUtils.createParquetReader(
+                    dataSource,
+                    parquetMetadata,
+                    List.of(columnType),
+                    List.of(topLevelColumnName))) {
+                return checkSortOrder(parquetReader::nextPage, pathParts.length, leafType);
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
 
-        Comparable previousMax = null;
-        verify(blocks.size() > 1, "Test must produce at least two row groups");
-        for (BlockMetadata blockMetaData : blocks) {
-            ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
-                    .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
-                    .collect(onlyElement());
-            if (previousMax != null) {
-                if (previousMax.compareTo(columnMetadata.getStatistics().genericGetMin()) > 0) {
+    private static Type getType(PrimitiveType.PrimitiveTypeName primitiveTypeName)
+    {
+        return switch (primitiveTypeName) {
+            case BINARY -> VARCHAR;
+            default -> throw new IllegalArgumentException("Unsupported parquet primitive type: " + primitiveTypeName);
+        };
+    }
+
+    // Builds a nested RowType wrapping leafType from the inside out.
+    // e.g. pathParts=["row_t","name"], leafType=VARCHAR → RowType(field("name", VARCHAR))
+    private static Type buildColumnType(String[] pathParts, Type leafType)
+    {
+        Type columnType = leafType;
+        for (int i = pathParts.length - 2; i >= 0; i--) {
+            columnType = RowType.rowType(RowType.field(pathParts[i + 1], columnType));
+        }
+        return columnType;
+    }
+
+    // Checks NULLS FIRST ascending order across all pages from the supplier.
+    // Returns false if any non-null value is followed by a smaller value, or if a null follows a non-null.
+    @SuppressWarnings("unchecked")
+    private static boolean checkSortOrder(PageSupplier pageSupplier, int pathDepth, Type leafType)
+            throws IOException
+    {
+        Comparable<Object> previousMax = null;
+        boolean seenNonNull = false;
+        for (SourcePage page = pageSupplier.nextPage(); page != null; page = pageSupplier.nextPage()) {
+            Block topBlock = page.getBlock(0);
+            for (int position = 0; position < topBlock.getPositionCount(); position++) {
+                Comparable<Object> current = drillToLeaf(topBlock, position, pathDepth, leafType);
+                if (current == null) {
+                    if (seenNonNull) {
+                        return false;
+                    }
+                    continue;
+                }
+                seenNonNull = true;
+                if (previousMax != null && previousMax.compareTo(current) > 0) {
                     return false;
                 }
+                previousMax = current;
             }
-            previousMax = columnMetadata.getStatistics().genericGetMax();
         }
         return true;
     }
 
+    @FunctionalInterface
+    private interface PageSupplier
+    {
+        SourcePage nextPage() throws IOException;
+    }
+
+    // Drills into nested RowBlocks per position, returning null if any level is null.
+    // Each intermediate RowType is a single-field wrapper, so the field index is always 0 at each level.
+    @SuppressWarnings("unchecked")
+    private static Comparable<Object> drillToLeaf(Block block, int position, int pathDepth, Type leafType)
+    {
+        for (int depth = 1; depth < pathDepth; depth++) {
+            if (block.isNull(position)) {
+                return null;
+            }
+            block = RowBlock.getRowFieldsFromBlock(block).get(0);
+        }
+        if (block.isNull(position)) {
+            return null;
+        }
+        return (Comparable<Object>) readNativeValue(leafType, block, position);
+    }
+
+    public static <T> T getConnectorService(QueryRunner queryRunner, Class<T> clazz)
+    {
+        Connector connector = queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG);
+        return ((IcebergConnector) connector).getInjector().getInstance(clazz);
+    }
+
     public static TrinoFileSystemFactory getFileSystemFactory(QueryRunner queryRunner)
     {
-        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
-                .getInjector().getInstance(TrinoFileSystemFactory.class);
+        return getConnectorService(queryRunner, TrinoFileSystemFactory.class);
     }
 
     public static HiveMetastore getHiveMetastore(QueryRunner queryRunner)
     {
-        return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
+        return getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
     }
 
-    public static BaseTable loadTable(String tableName,
+    public static BaseTable loadTable(
+            String tableName,
             HiveMetastore metastore,
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName,
             String schemaName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())));
         TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
         return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
@@ -231,7 +324,16 @@ public final class IcebergTestUtils
             TrinoFileSystemFactory fileSystemFactory,
             String catalogName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY);
+        return getTrinoCatalog(metastore, fileSystemFactory, catalogName, new DefaultEncryptionManagerFactory(Optional.of(new TestingFileMetastoreKeyManagementClient())));
+    }
+
+    public static TrinoCatalog getTrinoCatalog(
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName,
+            EncryptionManagerFactory encryptionManagerFactory)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, encryptionManagerFactory);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName(catalogName),
@@ -245,7 +347,8 @@ public final class IcebergTestUtils
                 false,
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
     }
 
     public static Map<String, Long> getMetadataFileAndUpdatedMillis(TrinoFileSystem trinoFileSystem, String tableLocation)

@@ -43,24 +43,26 @@ docker exec -it trino trino --catalog tpch --schema sf1
 
 ## Configuration
 
-Configuration is expected to be mounted `/etc/trino`. If it is not mounted
+Configuration is expected to be mounted at `/etc/trino`. If it is not mounted
 then the default single node configuration will be used.
 
 ### Specific Config Options
 
 #### `node.id`
 
-The container supplied `run-trino` command will set the config property
-`node.id` to the hostname of the container if it is not specified in the
-`node.properties` file. This allows for `node.properties` to be a static file
-across all worker nodes if desired. Additionally this has the added benefit of
-`node.id` being consistent, predictable, and stable through restarts.
+The default `node.properties` sets `node.id` to `${ENV:HOSTNAME}`, which resolves
+to the hostname of the container. This allows for `node.properties` to be a
+static file across all worker nodes if desired. Additionally this has the added
+benefit of `node.id` being consistent, predictable, and stable through restarts.
+
+If you mount your own `node.properties`, include that line to keep this
+behaviour; otherwise Trino generates a random `node.id` on every start.
 
 #### `node.data-dir`
 
 The default configuration uses `/data/trino` as the default for
-`node.data-dir`. Thus if using the default configuration and a mounted volume
-is desired for the data directory it should be mounted to `/data/trino`.
+`node.data-dir`. If you use the default configuration and want the data
+directory on a mounted volume, mount it at `/data/trino`.
 
 ## Building a custom Docker image
 

@@ -52,6 +52,6 @@ public class TestLoggingInvocationHandlerWithHiveMetastore
         return (ThriftHiveMetastore.Iface) newProxyInstance(
                 TestLoggingInvocationHandlerWithHiveMetastore.class.getClassLoader(),
                 new Class<?>[] {ThriftHiveMetastore.Iface.class},
-                (proxy, method, args) -> null);
+                (_, _, _) -> null);
     }
 }

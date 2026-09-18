@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -39,7 +39,8 @@ public record TableChangesSplit(
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
-        Map<String, String> fileIoProperties) implements ConnectorSplit
+        Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+        implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
 
@@ -51,7 +52,7 @@ public record TableChangesSplit(
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
-        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
+        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
     }
 
     @Override
@@ -68,7 +69,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + splitWeight.getRetainedSizeInBytes()
-                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + SizeOf.sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
     }
 
     @Override
@@ -82,7 +83,8 @@ public record TableChangesSplit(
                 .toString();
     }
 
-    public enum ChangeType {
+    public enum ChangeType
+    {
         ADDED_FILE("insert"),
         DELETED_FILE("delete"),
         POSITIONAL_DELETE("delete");

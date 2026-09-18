@@ -44,14 +44,14 @@ public class TestOAuth2Config
                 .setScopes(ImmutableSet.of("openid"))
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
-                .setGroupsField(null)
                 .setAdditionalAudiences(Collections.emptyList())
                 .setMaxClockSkew(new Duration(1, MINUTES))
                 .setJwtType(null)
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null)
                 .setEnableRefreshTokens(false)
-                .setEnableDiscovery(true));
+                .setEnableDiscovery(true)
+                .setDomainHint(null));
     }
 
     @Test
@@ -66,7 +66,6 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
                 .put("http-server.authentication.oauth2.scopes", "email,offline")
                 .put("http-server.authentication.oauth2.principal-field", "some-field")
-                .put("deprecated.http-server.authentication.oauth2.groups-field", "groups")
                 .put("http-server.authentication.oauth2.additional-audiences", "test-aud1,test-aud2")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.max-clock-skew", "15s")
@@ -75,6 +74,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
                 .put("http-server.authentication.oauth2.refresh-tokens", "true")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("http-server.authentication.oauth2.domain-hint", "example.com")
                 .buildOrThrow();
 
         OAuth2Config expected = new OAuth2Config()
@@ -84,7 +84,6 @@ public class TestOAuth2Config
                 .setClientSecret("consumer-secret")
                 .setScopes(ImmutableSet.of("email", "offline"))
                 .setPrincipalField("some-field")
-                .setGroupsField("groups")
                 .setAdditionalAudiences(List.of("test-aud1", "test-aud2"))
                 .setChallengeTimeout(new Duration(90, SECONDS))
                 .setMaxClockSkew(new Duration(15, SECONDS))
@@ -92,7 +91,8 @@ public class TestOAuth2Config
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
                 .setEnableRefreshTokens(true)
-                .setEnableDiscovery(false);
+                .setEnableDiscovery(false)
+                .setDomainHint("example.com");
 
         assertFullMapping(properties, expected);
     }

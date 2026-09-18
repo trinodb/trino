@@ -29,13 +29,13 @@ import static java.util.Objects.requireNonNull;
 public class CachingKerberosHadoopAuthentication
         implements HadoopAuthentication
 {
-    private final KerberosHadoopAuthentication delegate;
+    private final HadoopAuthentication delegate;
 
     private final UserGroupInformation userGroupInformation;
     @GuardedBy("this")
     private long nextRefreshTime;
 
-    public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
+    public CachingKerberosHadoopAuthentication(HadoopAuthentication delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");

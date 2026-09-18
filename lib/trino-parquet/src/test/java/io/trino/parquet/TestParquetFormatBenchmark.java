@@ -13,13 +13,12 @@
  */
 package io.trino.parquet;
 
+import io.trino.parquet.BenchmarkParquetFormat.CompressionCounter;
+import io.trino.parquet.BenchmarkParquetFormat.DataSet;
 import org.apache.parquet.format.CompressionCodec;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-
-import static io.trino.parquet.BenchmarkParquetFormat.CompressionCounter;
-import static io.trino.parquet.BenchmarkParquetFormat.DataSet;
 
 public class TestParquetFormatBenchmark
 {

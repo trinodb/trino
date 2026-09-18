@@ -13,14 +13,17 @@
  */
 package io.trino.filesystem.cache;
 
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.spi.cache.BlobCache;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
@@ -33,10 +36,10 @@ public final class CacheFileSystem
         implements TrinoFileSystem
 {
     private final TrinoFileSystem delegate;
-    private final TrinoFileSystemCache cache;
+    private final BlobCache cache;
     private final CacheKeyProvider keyProvider;
 
-    public CacheFileSystem(TrinoFileSystem delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider)
+    public CacheFileSystem(TrinoFileSystem delegate, BlobCache cache, CacheKeyProvider keyProvider)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");
@@ -50,9 +53,21 @@ public final class CacheFileSystem
     }
 
     @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, key), cache, keyProvider, OptionalLong.empty(), Optional.empty());
+    }
+
+    @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
         return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, length, key), cache, keyProvider, OptionalLong.of(length), Optional.empty());
     }
 
     @Override
@@ -62,41 +77,63 @@ public final class CacheFileSystem
     }
 
     @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        return new CacheInputFile(delegate.newEncryptedInputFile(location, length, lastModified, key), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified));
+    }
+
+    @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        TrinoOutputFile output = delegate.newOutputFile(location);
-        try {
-            cache.expire(location);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return output;
+        // Invalidation must follow the write, not precede it: a concurrent read during the
+        // write could otherwise repopulate the entry with the previous content
+        return new CacheOutputFile(delegate.newOutputFile(location), () -> invalidate(location));
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        return new CacheOutputFile(delegate.newEncryptedOutputFile(location, key), () -> invalidate(location));
     }
 
     @Override
     public void deleteFile(Location location)
             throws IOException
     {
-        delegate.deleteFile(location);
-        cache.expire(location);
+        try {
+            delegate.deleteFile(location);
+        }
+        finally {
+            // Invalidate even when the delete fails: it may have partially taken effect
+            invalidate(location);
+        }
     }
 
     @Override
     public void deleteDirectory(Location location)
             throws IOException
     {
-        delegate.deleteDirectory(location);
-        cache.expire(location);
+        try {
+            delegate.deleteDirectory(location);
+        }
+        finally {
+            // Invalidate every entry beneath the directory by its key prefix. This walks the
+            // in-memory cache keys, not the file system, so it adds no listing traffic
+            invalidate(location);
+        }
     }
 
     @Override
     public void renameFile(Location source, Location target)
             throws IOException
     {
-        delegate.renameFile(source, target);
-        cache.expire(source);
-        cache.expire(target);
+        try {
+            delegate.renameFile(source, target);
+        }
+        finally {
+            invalidate(source);
+            invalidate(target);
+        }
     }
 
     @Override
@@ -104,6 +141,13 @@ public final class CacheFileSystem
             throws IOException
     {
         return delegate.listFiles(location);
+    }
+
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        return delegate.listFilesStartingFrom(location, startingFrom);
     }
 
     @Override
@@ -124,7 +168,13 @@ public final class CacheFileSystem
     public void renameDirectory(Location source, Location target)
             throws IOException
     {
-        delegate.renameDirectory(source, target);
+        try {
+            delegate.renameDirectory(source, target);
+        }
+        finally {
+            invalidate(source);
+            invalidate(target);
+        }
     }
 
     @Override
@@ -145,7 +195,24 @@ public final class CacheFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        delegate.deleteFiles(locations);
-        cache.expire(locations);
+        try {
+            delegate.deleteFiles(locations);
+        }
+        finally {
+            // Invalidate even when the delete fails: it may have partially taken effect
+            locations.forEach(this::invalidate);
+        }
+    }
+
+    private void invalidate(Location location)
+    {
+        keyProvider.getCacheKeyPrefix(location).ifPresent(cache::tryInvalidate);
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return delegate.encryptedPreSignedUri(location, ttl, key);
     }
 }

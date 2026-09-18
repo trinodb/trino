@@ -38,13 +38,10 @@ class TestHdfsFileSystemManager
                         .put("hive.dfs.verify-checksum", "false")
                         .put("hive.s3.region", "us-west-1")
                         .buildOrThrow(),
-                true,
-                true,
-                true,
                 "test",
                 new TestingConnectorContext());
 
-        assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
+        assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum");
 
         TrinoFileSystemFactory factory = manager.create();
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));

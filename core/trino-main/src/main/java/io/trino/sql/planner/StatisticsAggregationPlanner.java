@@ -43,11 +43,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.operator.aggregation.ApproximateSetGenericAggregation.APPROX_SET_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
@@ -84,7 +86,7 @@ public class StatisticsAggregationPlanner
                 throw new TrinoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    metadata.resolveBuiltinFunction("count", ImmutableList.of()),
+                    metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of()),
                     ImmutableList.of(),
                     false,
                     Optional.empty(),
@@ -128,9 +130,8 @@ public class StatisticsAggregationPlanner
             case MIN_VALUE -> createAggregation("min", input, inputType);
             case MAX_VALUE -> createAggregation("max", input, inputType);
             case NUMBER_OF_DISTINCT_VALUES -> createAggregation("approx_distinct", input, inputType);
-            case NUMBER_OF_DISTINCT_VALUES_SUMMARY ->
-                // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
-                    createAggregation("$approx_set", input, inputType);
+            // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
+            case NUMBER_OF_DISTINCT_VALUES_SUMMARY -> createAggregation(APPROX_SET_FUNCTION_NAME, input, inputType);
             case NUMBER_OF_NON_NULL_VALUES -> createAggregation("count", input, inputType);
             case NUMBER_OF_TRUE_VALUES -> createAggregation("count_if", input, BOOLEAN);
             case TOTAL_SIZE_IN_BYTES -> createAggregation(SumDataSizeForStats.NAME, input, inputType);
@@ -149,7 +150,7 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(String functionName, Symbol input, Type inputType)
     {
-        return createAggregation(metadata.resolveBuiltinFunction(functionName, fromTypes(inputType)), input, inputType);
+        return createAggregation(metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), functionName, ImmutableList.of(inputType)), input, inputType);
     }
 
     private static ColumnStatisticsAggregation createAggregation(ResolvedFunction resolvedFunction, Symbol input, Type inputType)

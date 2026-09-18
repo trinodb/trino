@@ -80,7 +80,6 @@ public class OperatorStats
     private final DataSize revocableMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
-    private final DataSize peakTotalMemoryReservation;
 
     private final DataSize spilledDataSize;
 
@@ -135,7 +134,6 @@ public class OperatorStats
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
-            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
 
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
@@ -193,7 +191,6 @@ public class OperatorStats
 
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
-        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
@@ -419,12 +416,6 @@ public class OperatorStats
     }
 
     @JsonProperty
-    public DataSize getPeakTotalMemoryReservation()
-    {
-        return peakTotalMemoryReservation;
-    }
-
-    @JsonProperty
     public DataSize getSpilledDataSize()
     {
         return spilledDataSize;
@@ -497,7 +488,6 @@ public class OperatorStats
         long revocableMemoryReservation = this.revocableMemoryReservation.toBytes();
         long peakUserMemory = this.peakUserMemoryReservation.toBytes();
         long peakRevocableMemory = this.peakRevocableMemoryReservation.toBytes();
-        long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
         long spilledDataSize = this.spilledDataSize.toBytes();
 
@@ -547,7 +537,6 @@ public class OperatorStats
 
             peakUserMemory = max(peakUserMemory, operator.getPeakUserMemoryReservation().toBytes());
             peakRevocableMemory = max(peakRevocableMemory, operator.getPeakRevocableMemoryReservation().toBytes());
-            peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
 
             spilledDataSize += operator.getSpilledDataSize().toBytes();
 
@@ -607,7 +596,6 @@ public class OperatorStats
                 DataSize.ofBytes(revocableMemoryReservation),
                 DataSize.ofBytes(peakUserMemory),
                 DataSize.ofBytes(peakRevocableMemory),
-                DataSize.ofBytes(peakTotalMemory),
 
                 DataSize.ofBytes(spilledDataSize),
 
@@ -678,7 +666,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);
@@ -723,7 +710,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);
@@ -768,7 +754,6 @@ public class OperatorStats
                 revocableMemoryReservation,
                 peakUserMemoryReservation,
                 peakRevocableMemoryReservation,
-                peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,
                 info);

@@ -23,9 +23,7 @@ public class LogicalExpression
 {
     public enum Operator
     {
-        AND,
-        OR,
-        /**/;
+        AND, OR,
     }
 
     private final Operator operator;

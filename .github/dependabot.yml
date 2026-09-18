@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions"
-    directory: "/"
+    directories:
+      # "/" covers workflows in .github/workflows; composite actions must be listed explicitly
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
     cooldown:
@@ -13,6 +16,11 @@ updates:
     schedule:
       interval: "daily"
     open-pull-requests-limit: 10
+    groups:
+      airlift:
+        patterns:
+          - "io.airlift:airbase"
+          - "io.airlift:bom"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
@@ -20,3 +28,27 @@ updates:
       exclude:
         - io.airlift:*
         - io.trino:*
+    ignore:
+      # TODO remove once https://github.com/jline/jline3/issues/1879 has been addressed
+      - dependency-name: "org.jline:jline-*"
+  - package-ecosystem: "bun"
+    directory: "/core/trino-web-ui/src/main/resources/webapp"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+    # Group dependabot updates for the web UI dependencies to reduce PR volume.
+    groups:
+      web-ui-dependencies:
+        patterns:
+          - "*"
+    allow:
+      - dependency-type: "all"
+    ignore:
+      # Ignore major updates for all dependencies; allow only minor/patch updates.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised.
+      default-days: 7

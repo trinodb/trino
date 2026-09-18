@@ -18,13 +18,14 @@ import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import org.apache.commons.math3.util.Precision;
 
@@ -49,19 +50,19 @@ public final class AggregationTestUtils
 {
     private AggregationTestUtils() {}
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Block... blocks)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeDescriptorProvider> parameterTypes, Object expectedValue, Block... blocks)
     {
         assertAggregation(functionResolution, name, parameterTypes, expectedValue, new Page(blocks));
     }
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Page page)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeDescriptorProvider> parameterTypes, Object expectedValue, Page page)
     {
         BiFunction<Object, Object, Boolean> equalAssertion = makeValidityAssertion(expectedValue);
 
         assertAggregation(functionResolution, name, parameterTypes, equalAssertion, null, page, expectedValue);
     }
 
-    public static TrinoExceptionAssert assertAggregationFails(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Block... blocks)
+    public static TrinoExceptionAssert assertAggregationFails(TestingFunctionResolution functionResolution, String name, List<TypeDescriptorProvider> parameterTypes, Block... blocks)
     {
         return assertTrinoExceptionThrownBy(() -> assertAggregation(functionResolution, name, parameterTypes, null, blocks));
     }
@@ -77,7 +78,7 @@ public final class AggregationTestUtils
         return Objects::equals;
     }
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeDescriptorProvider> parameterTypes, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
     {
         TestingAggregationFunction function = functionResolution.getAggregateFunction(name, parameterTypes);
 
@@ -104,7 +105,7 @@ public final class AggregationTestUtils
     public static Block getIntermediateBlock(Type intermediateType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder);
+        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
         return blockBuilder.build();
     }
 
@@ -118,7 +119,7 @@ public final class AggregationTestUtils
     public static Block getFinalBlock(Type finalType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = finalType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder);
+        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
         return blockBuilder.build();
     }
 

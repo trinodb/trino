@@ -36,10 +36,12 @@ import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NA
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpecializeCastWithJsonParse
@@ -53,7 +55,7 @@ public class TestSpecializeCastWithJsonParse
         assertThat(optimize(
                 new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "x"))), new ArrayType(BIGINT))))
                 .isEqualTo(Optional.of(new Call(
-                        PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, new ArrayType(BIGINT)),
+                        PLANNER_CONTEXT.getMetadata().getCoercion(SQL_STANDARD, builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), VARCHAR, new ArrayType(BIGINT)),
                         ImmutableList.of(new Reference(VARCHAR, "x")))));
     }
 
@@ -65,7 +67,7 @@ public class TestSpecializeCastWithJsonParse
         assertThat(optimize(
                 new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "x"))), new MapType(BIGINT, BIGINT, typeOperators))))
                 .isEqualTo(Optional.of(new Call(
-                        PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, new MapType(BIGINT, BIGINT, typeOperators)),
+                        PLANNER_CONTEXT.getMetadata().getCoercion(SQL_STANDARD, builtinFunctionName(JSON_STRING_TO_MAP_NAME), VARCHAR, new MapType(BIGINT, BIGINT, typeOperators)),
                         ImmutableList.of(new Reference(VARCHAR, "x")))));
     }
 
@@ -75,12 +77,12 @@ public class TestSpecializeCastWithJsonParse
         assertThat(optimize(
                 new Cast(new Call(JSON_PARSE, ImmutableList.of(new Reference(VARCHAR, "x"))), anonymousRow(BIGINT, BIGINT))))
                 .isEqualTo(Optional.of(new Call(
-                        PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, anonymousRow(BIGINT, BIGINT)),
+                        PLANNER_CONTEXT.getMetadata().getCoercion(SQL_STANDARD, builtinFunctionName(JSON_STRING_TO_ROW_NAME), VARCHAR, anonymousRow(BIGINT, BIGINT)),
                         ImmutableList.of(new Reference(VARCHAR, "x")))));
     }
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeCastWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SpecializeCastWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

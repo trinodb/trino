@@ -38,9 +38,9 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
     public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Set<QueryId> queriesWithTaskRetryPolicy = runningQueries.stream()
-                                                          .filter(query -> query.getRetryPolicy() == TASK)
-                                                          .map(RunningQueryInfo::getQueryId)
-                                                          .collect(toImmutableSet());
+                .filter(query -> query.getRetryPolicy() == TASK)
+                .map(RunningQueryInfo::getQueryId)
+                .collect(toImmutableSet());
 
         if (queriesWithTaskRetryPolicy.isEmpty()) {
             return Optional.empty();
@@ -83,7 +83,7 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
                 if (taskInfo == null) {
                     return false;
                 }
-                return taskInfo.taskStatus().isSpeculative();
+                return taskInfo.taskStatus().speculative();
             });
         }
 

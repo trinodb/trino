@@ -33,6 +33,7 @@ import io.trino.spi.type.ArrayType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -104,7 +105,7 @@ public class UnregisterPartitionProcedure
             Table table = metastore.getTable(schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
-            accessControl.checkCanDeleteFromTable(null, schemaTableName);
+            accessControl.checkCanDeleteFromTable(null, schemaTableName, Optional.empty());
 
             checkIsPartitionedTable(table);
             checkPartitionColumns(table, partitionColumns);

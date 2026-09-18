@@ -19,23 +19,26 @@ import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseHandlerUtils;
 import io.airlift.http.client.StringResponseHandler;
+import io.trino.spi.NodeVersion;
 import jakarta.ws.rs.core.UriBuilder;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.DELETE;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.GET;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.POST;
 import static com.nimbusds.oauth2.sdk.http.HTTPRequest.Method.PUT;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.USER_AGENT;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
@@ -47,11 +50,18 @@ public class NimbusAirliftHttpClient
         implements NimbusHttpClient
 {
     private final HttpClient httpClient;
+    private final String userAgent;
+
+    public NimbusAirliftHttpClient(HttpClient httpClient)
+    {
+        this(httpClient, new NodeVersion("unknown"));
+    }
 
     @Inject
-    public NimbusAirliftHttpClient(@ForOAuth2 HttpClient httpClient)
+    public NimbusAirliftHttpClient(@ForOAuth2 HttpClient httpClient, NodeVersion nodeVersion)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.userAgent = "Trino/" + requireNonNull(nodeVersion, "nodeVersion is null").version();
     }
 
     @Override
@@ -60,9 +70,12 @@ public class NimbusAirliftHttpClient
     {
         try {
             StringResponseHandler.StringResponse response = httpClient.execute(
-                    prepareGet().setUri(url.toURI()).build(),
+                    prepareGet()
+                            .setUri(url.toURI())
+                            .setHeader(USER_AGENT, userAgent)
+                            .build(),
                     createStringResponseHandler());
-            return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE));
+            return new Resource(response.getBody(), response.getHeader(CONTENT_TYPE).orElse(null));
         }
         catch (URISyntaxException e) {
             throw new RuntimeException(e);
@@ -88,8 +101,8 @@ public class NimbusAirliftHttpClient
 
         request.setUri(url.build());
 
-        ImmutableMultimap.Builder<String, String> headers = ImmutableMultimap.builder();
-        httpRequest.getHeaderMap().forEach(headers::putAll);
+        ImmutableMultimap.Builder<HeaderName, String> headers = ImmutableMultimap.builder();
+        httpRequest.getHeaderMap().forEach((name, values) -> headers.putAll(HeaderName.of(name), values));
         request.addHeaders(headers.build());
 
         if (method.equals(POST) || method.equals(PUT)) {

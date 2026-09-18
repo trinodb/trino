@@ -66,8 +66,10 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
+                .setAdaptiveFilterReorderingEnabled(true)
                 .setLegacyArithmeticDecimalOperators(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setLegacyVarcharToCharCoercion(false)
+                .setExternalExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -101,8 +103,10 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
+                .put("experimental.adaptive-filter-reordering.enabled", "false")
                 .put("deprecated.legacy-arithmetic-decimal-operators", "true")
-                .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
+                .put("deprecated.legacy-varchar-to-char-coercion", "true")
+                .put("external-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -133,8 +137,10 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
+                .setAdaptiveFilterReorderingEnabled(false)
                 .setLegacyArithmeticDecimalOperators(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setLegacyVarcharToCharCoercion(true)
+                .setExternalExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

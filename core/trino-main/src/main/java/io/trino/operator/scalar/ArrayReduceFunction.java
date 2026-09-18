@@ -18,11 +18,11 @@ import com.google.common.primitives.Primitives;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
@@ -33,8 +33,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -52,11 +53,11 @@ public final class ArrayReduceFunction
                         .typeVariable("T")
                         .typeVariable("S")
                         .typeVariable("R")
-                        .returnType(new TypeSignature("R"))
-                        .argumentType(arrayType(new TypeSignature("T")))
-                        .argumentType(new TypeSignature("S"))
-                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
-                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("R")))
+                        .returnType(typeVariable("R"))
+                        .argumentType(arrayType(typeVariable("T")))
+                        .argumentType(typeVariable("S"))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("T"), typeVariable("S")))
+                        .argumentType(functionType(typeVariable("S"), typeVariable("R")))
                         .build())
                 .nullable()
                 .argumentNullability(false, true, false, false)
@@ -65,7 +66,7 @@ public final class ArrayReduceFunction
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         Type inputType = arrayType.getElementType();

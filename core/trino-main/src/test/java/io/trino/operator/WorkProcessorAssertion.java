@@ -55,7 +55,7 @@ public final class WorkProcessorAssertion
 
     public static <T> void assertResult(WorkProcessor<T> processor, T result)
     {
-        validateResult(processor, actualResult -> assertThat(processor.getResult()).isEqualTo(result));
+        validateResult(processor, _ -> assertThat(processor.getResult()).isEqualTo(result));
     }
 
     public static <T> void validateResult(WorkProcessor<T> processor, Consumer<T> validator)

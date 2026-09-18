@@ -28,6 +28,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -83,7 +84,7 @@ public class CassandraPartitionManager
                                         .map(Set::stream))
                                 .orElseGet(Stream::empty))
                         .collect(toImmutableSet());
-                remainingTupleDomain = tupleDomain.filter((column, domain) -> !usedPartitionColumns.contains(column));
+                remainingTupleDomain = tupleDomain.filter((column, _) -> !usedPartitionColumns.contains(column));
             }
         }
 
@@ -93,7 +94,7 @@ public class CassandraPartitionManager
             List<ColumnHandle> indexedColumns = new ArrayList<>();
             // compose partitionId by using indexed column
             StringBuilder sb = new StringBuilder();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 if (column.indexed() && domain.isSingleValue()) {
@@ -172,7 +173,7 @@ public class CassandraPartitionManager
                         }
                         return ImmutableSet.of();
                     },
-                    allOrNone -> ImmutableSet.of());
+                    _ -> ImmutableSet.of());
             partitionColumnValues.add(values);
         }
         return partitionColumnValues.build();

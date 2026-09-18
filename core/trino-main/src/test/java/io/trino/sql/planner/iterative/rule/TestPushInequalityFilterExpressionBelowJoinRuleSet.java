@@ -19,9 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
-import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -29,14 +27,16 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.and;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -55,7 +55,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @BeforeAll
     public void setUpBeforeClass()
     {
-        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet();
+        ruleSet = new PushInequalityFilterExpressionBelowJoinRuleSet(FUNCTIONS.getMetadata());
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
+                                .filter(comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")))
                                 .left(values("a"))
                                 .right(project(
                                         ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
@@ -113,7 +113,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "expr_less"), new Reference(BIGINT, "a")), new Comparison(GREATER_THAN, new Reference(BIGINT, "expr_greater"), new Reference(BIGINT, "a")))))
+                                .filter(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(BIGINT, "expr_less"), new Reference(BIGINT, "a")), comparison(GREATER_THAN, new Reference(BIGINT, "expr_greater"), new Reference(BIGINT, "a")))))
                                 .left(values("a"))
                                 .right(
                                         project(
@@ -138,7 +138,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         join(INNER, builder -> builder
-                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L)))))
+                                .filter(comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L)))))
                                 .left(values("a"))
                                 .right(
                                         project(
@@ -180,10 +180,9 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter(
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")),
+                                        comparison(LESS_THAN, new Reference(BIGINT, "expr"), new Reference(BIGINT, "a")),
                                         join(INNER, builder -> builder
-                                                .left(
-                                                        values("a"))
+                                                .left(values("a"))
                                                 .right(
                                                         project(
                                                                 ImmutableMap.of("expr", expression(new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "b"), new Constant(BIGINT, 1L))))),
@@ -208,7 +207,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 })
                 .matches(
                         project(
-                                filter(new Logical(AND, ImmutableList.of(new Comparison(LESS_THAN, new Reference(BIGINT, "expr_less"), new Reference(BIGINT, "a")), new Comparison(GREATER_THAN, new Reference(BIGINT, "expr_greater"), new Reference(BIGINT, "a")))),
+                                filter(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(BIGINT, "expr_less"), new Reference(BIGINT, "a")), comparison(GREATER_THAN, new Reference(BIGINT, "expr_greater"), new Reference(BIGINT, "a")))),
                                         join(INNER, builder -> builder
                                                 .left(values("a"))
                                                 .right(
@@ -237,9 +236,9 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                 .matches(
                         project(
                                 filter(
-                                        new Comparison(LESS_THAN, new Reference(BIGINT, "parent_expression"), new Reference(BIGINT, "a")),
+                                        comparison(LESS_THAN, new Reference(BIGINT, "parent_expression"), new Reference(BIGINT, "a")),
                                         join(INNER, builder -> builder
-                                                .filter(new Comparison(LESS_THAN, new Reference(BIGINT, "join_expression"), new Reference(BIGINT, "a")))
+                                                .filter(comparison(LESS_THAN, new Reference(BIGINT, "join_expression"), new Reference(BIGINT, "a")))
                                                 .left(values("a"))
                                                 .right(
                                                         project(
@@ -276,13 +275,8 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
                             INNER,
                             p.values(a),
                             p.values(b),
-                            not(FUNCTIONS.getMetadata(), comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
+                            not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), comparison(IDENTICAL, a.toSymbolReference(), b.toSymbolReference())));
                 }).doesNotFire();
-    }
-
-    private static Comparison comparison(Operator operator, Expression left, Expression right)
-    {
-        return new Comparison(operator, left, right);
     }
 
     private Call add(Symbol symbol, long value)

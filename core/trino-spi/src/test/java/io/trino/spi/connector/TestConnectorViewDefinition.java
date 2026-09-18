@@ -13,11 +13,12 @@
  */
 package io.trino.spi.connector;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeDeserializer;
@@ -43,9 +44,10 @@ class TestConnectorViewDefinition
 
     private static JsonCodec<ConnectorViewDefinition> createTestingViewCodec()
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer(new TestingTypeManager())));
-        return new JsonCodecFactory(provider).jsonCodec(ConnectorViewDefinition.class);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer(new TestingTypeManager())))
+                .get();
+        return new JsonCodecFactory(jsonMapper).jsonCodec(ConnectorViewDefinition.class);
     }
 
     @Test

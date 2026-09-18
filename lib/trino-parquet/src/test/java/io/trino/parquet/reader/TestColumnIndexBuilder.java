@@ -24,6 +24,7 @@ import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
@@ -257,7 +258,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.decimalType(2, 12)).named("test_binary_decimal");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -401,7 +402,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
@@ -651,7 +652,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(BOOLEAN).named("test_boolean");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.BooleanColumn col = booleanColumn("test_col");
 
@@ -733,11 +734,12 @@ public class TestColumnIndexBuilder
                 Types.required(BOOLEAN).named("test_boolean"),
                 BoundaryOrder.DESCENDING,
                 asList(false, true, false, true, false, true),
-                asList(9L, 8L, 7L, 6L, 5L, 0L),
+                // Since parquet 1.18, ColumnIndexBuilder rejects a null page with a zero null count
+                asList(9L, 8L, 7L, 6L, 5L, 4L),
                 toBBList(false, null, false, null, true, null),
                 toBBList(true, null, false, null, true, null));
         assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
-        assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 5, 0);
+        assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 5, 4);
         assertCorrectNullPages(columnIndex, false, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), true, null, false, null, true, null);
         assertCorrectValues(columnIndex.getMinValues(), false, null, false, null, true, null);
@@ -748,7 +750,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(DOUBLE).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.DoubleColumn col = doubleColumn("test_col");
 
@@ -842,7 +844,8 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildDoubleZeroNaN()
     {
-        PrimitiveType type = Types.required(DOUBLE).named("test_double");
+        // Zero/NaN normalization only applies under the legacy type-defined order
+        PrimitiveType type = Types.required(DOUBLE).columnOrder(ColumnOrder.typeDefined()).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         StatsBuilder sb = new StatsBuilder();
         builder.add(sb.stats(type, -1.0, -0.0));
@@ -881,7 +884,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(FLOAT).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.FloatColumn col = floatColumn("test_col");
 
@@ -975,7 +978,8 @@ public class TestColumnIndexBuilder
     @Test
     public void testBuildFloatZeroNaN()
     {
-        PrimitiveType type = Types.required(FLOAT).named("test_float");
+        // Zero/NaN normalization only applies under the legacy type-defined order
+        PrimitiveType type = Types.required(FLOAT).columnOrder(ColumnOrder.typeDefined()).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         StatsBuilder sb = new StatsBuilder();
         builder.add(sb.stats(type, -1.0f, -0.0f));
@@ -1014,7 +1018,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).named("test_int32");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1072,7 +1076,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1103,7 +1117,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 2), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1129,7 +1153,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT32).as(LogicalTypeAnnotation.intType(8, false)).named("test_uint8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
@@ -1187,7 +1211,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1218,7 +1252,16 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, 42), 8);
         assertCorrectFiltering(columnIndex, ltEq(col, 42), 5, 8);
         assertCorrectFiltering(columnIndex, userDefined(col, IntegerIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, IntegerIsDivisibleWith3.class)), 0, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, IntegerIsDivisibleWith3.class)),
+                0,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1227,7 +1270,7 @@ public class TestColumnIndexBuilder
     {
         PrimitiveType type = Types.required(INT64).named("test_int64");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
-        //assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
+        // assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
         assertThat(builder.build()).isNull();
         Operators.LongColumn col = longColumn("test_col");
 
@@ -1285,7 +1328,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L), 1, 2);
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 1, 2, 5);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 2, 5, 7);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -1316,7 +1369,17 @@ public class TestColumnIndexBuilder
         assertCorrectFiltering(columnIndex, lt(col, -42L));
         assertCorrectFiltering(columnIndex, ltEq(col, -42L), 8);
         assertCorrectFiltering(columnIndex, userDefined(col, LongIsDivisibleWith3.class), 1, 3, 5, 8);
-        assertCorrectFiltering(columnIndex, invert(userDefined(col, LongIsDivisibleWith3.class)), 0, 1, 2, 3, 4, 5, 6, 7,
+        assertCorrectFiltering(
+                columnIndex,
+                invert(userDefined(col, LongIsDivisibleWith3.class)),
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
                 8);
     }
 
@@ -1342,8 +1405,11 @@ public class TestColumnIndexBuilder
     {
         ColumnIndexBuilder builder = ColumnIndexBuilder.getNoOpBuilder();
         StatsBuilder sb = new StatsBuilder();
-        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"), stringBinary("Jeltz"),
-                stringBinary("Slartibartfast"), null, null));
+        builder.add(sb.stats(Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8"),
+                stringBinary("Jeltz"),
+                stringBinary("Slartibartfast"),
+                null,
+                null));
         builder.add(sb.stats(Types.required(BOOLEAN).named("test_boolean"), true, true, null, null));
         builder.add(sb.stats(Types.required(DOUBLE).named("test_double"), null, null, null));
         builder.add(sb.stats(Types.required(INT32).named("test_int32"), null, null));
@@ -1613,28 +1679,13 @@ public class TestColumnIndexBuilder
                     continue;
                 }
                 switch (type.getPrimitiveTypeName()) {
-                    case BINARY:
-                    case FIXED_LEN_BYTE_ARRAY:
-                    case INT96:
-                        stats.updateStats((Binary) value);
-                        break;
-                    case BOOLEAN:
-                        stats.updateStats((boolean) value);
-                        break;
-                    case DOUBLE:
-                        stats.updateStats((double) value);
-                        break;
-                    case FLOAT:
-                        stats.updateStats((float) value);
-                        break;
-                    case INT32:
-                        stats.updateStats((int) value);
-                        break;
-                    case INT64:
-                        stats.updateStats((long) value);
-                        break;
-                    default:
-                        fail("Unsupported value type for stats: " + value.getClass());
+                    case BINARY, FIXED_LEN_BYTE_ARRAY, INT96 -> stats.updateStats((Binary) value);
+                    case BOOLEAN -> stats.updateStats((boolean) value);
+                    case DOUBLE -> stats.updateStats((double) value);
+                    case FLOAT -> stats.updateStats((float) value);
+                    case INT32 -> stats.updateStats((int) value);
+                    case INT64 -> stats.updateStats((long) value);
+                    default -> fail("Unsupported value type for stats: " + value.getClass());
                 }
             }
             if (stats.hasNonNullValue()) {

@@ -20,11 +20,11 @@ import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -33,8 +33,9 @@ import java.util.Optional;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.functionType;
-import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeTemplates.functionType;
+import static io.trino.spi.type.TypeTemplates.mapType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.util.Reflection.methodHandle;
@@ -55,17 +56,17 @@ public final class MapZipWithFunction
                         .typeVariable("V1")
                         .typeVariable("V2")
                         .typeVariable("V3")
-                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V3")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V1")))
-                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
-                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3")))
+                        .returnType(mapType(typeVariable("K"), typeVariable("V3")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V1")))
+                        .argumentType(mapType(typeVariable("K"), typeVariable("V2")))
+                        .argumentType(functionType(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")))
                         .build())
                 .description("Merge two maps into a single map by applying the lambda function to the pair of values with the same key")
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType outputMapType = (MapType) boundSignature.getReturnType();
         Type keyType = outputMapType.getKeyType();

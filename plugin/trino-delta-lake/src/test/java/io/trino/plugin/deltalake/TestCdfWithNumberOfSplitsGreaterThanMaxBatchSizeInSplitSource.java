@@ -49,43 +49,43 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
         assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE views = 2", 2);
         assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
                 """
-                        VALUES
-                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
-                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
-                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
-                            ('url4', 'domain4', 4, 'insert', BIGINT '2'),
-                            ('url5', 'domain5', 2, 'insert', BIGINT '2'),
-                            ('url6', 'domain6', 6, 'insert', BIGINT '2'),
-                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
-                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
-                            ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
-                            ('url22', 'domain5', 2, 'update_postimage', BIGINT '3')
-                        """);
+                VALUES
+                    ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                    ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                    ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                    ('url4', 'domain4', 4, 'insert', BIGINT '2'),
+                    ('url5', 'domain5', 2, 'insert', BIGINT '2'),
+                    ('url6', 'domain6', 6, 'insert', BIGINT '2'),
+                    ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
+                    ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
+                    ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
+                    ('url22', 'domain5', 2, 'update_postimage', BIGINT '3')
+                """);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE views = 2", 2);
         assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 3))",
                 """
-                        VALUES
-                            ('url22', 'domain2', 2, 'delete', BIGINT '4'),
-                            ('url22', 'domain5', 2, 'delete', BIGINT '4')
-                        """);
+                VALUES
+                    ('url22', 'domain2', 2, 'delete', BIGINT '4'),
+                    ('url22', 'domain5', 2, 'delete', BIGINT '4')
+                """);
 
         assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
                 """
-                        VALUES
-                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
-                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
-                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
-                            ('url4', 'domain4', 4, 'insert', BIGINT '2'),
-                            ('url5', 'domain5', 2, 'insert', BIGINT '2'),
-                            ('url6', 'domain6', 6, 'insert', BIGINT '2'),
-                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
-                            ('url22', 'domain5', 2, 'update_postimage', BIGINT '3'),
-                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
-                            ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
-                            ('url22', 'domain2', 2, 'delete', BIGINT '4'),
-                            ('url22', 'domain5', 2, 'delete', BIGINT '4')
-                        """);
+                VALUES
+                    ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                    ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                    ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                    ('url4', 'domain4', 4, 'insert', BIGINT '2'),
+                    ('url5', 'domain5', 2, 'insert', BIGINT '2'),
+                    ('url6', 'domain6', 6, 'insert', BIGINT '2'),
+                    ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
+                    ('url22', 'domain5', 2, 'update_postimage', BIGINT '3'),
+                    ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
+                    ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
+                    ('url22', 'domain2', 2, 'delete', BIGINT '4'),
+                    ('url22', 'domain5', 2, 'delete', BIGINT '4')
+                """);
     }
 
     private void assertTableChangesQuery(@Language("SQL") String sql, @Language("SQL") String expectedResult)

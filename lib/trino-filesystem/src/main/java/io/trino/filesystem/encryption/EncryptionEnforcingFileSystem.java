@@ -133,6 +133,13 @@ public class EncryptionEnforcingFileSystem
     }
 
     @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        return delegate.listFilesStartingFrom(location, startingFrom);
+    }
+
+    @Override
     public Optional<Boolean> directoryExists(Location location)
             throws IOException
     {

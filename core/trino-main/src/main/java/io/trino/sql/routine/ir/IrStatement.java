@@ -31,4 +31,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @SuppressWarnings("MarkerInterface")
 public sealed interface IrStatement
         extends IrNode
-        permits IrBlock, IrBreak, IrContinue, IrIf, IrLoop, IrRepeat, IrReturn, IrSet, IrWhile {}
+        permits IrBlock,
+                IrBreak,
+                IrContinue,
+                IrIf,
+                IrLoop,
+                IrRepeat,
+                IrReturn,
+                IrSet,
+                IrWhile {}

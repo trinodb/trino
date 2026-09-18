@@ -13,13 +13,15 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.testing.QueryRunner;
@@ -54,7 +56,8 @@ public class TestDropCatalog
     public void setUp()
     {
         Duration catalogPruneInterval = new Duration(1, SECONDS); // lowest allowed
-        QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION,
+        QueryRunner queryRunner = new StandaloneQueryRunner(
+                TEST_SESSION,
                 server -> server.addProperty("catalog.prune.update-interval", catalogPruneInterval.toString()));
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withName("connector_with_cleanup_query")
@@ -152,9 +155,10 @@ public class TestDropCatalog
                 queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, java.time.Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
                 Optional.empty(),
-                new NodeVersion("test"));
+                NodeVersion.UNKNOWN);
     }
 }

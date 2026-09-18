@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -25,14 +25,12 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.opensearch.client.Request;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
@@ -42,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.opensearch.RestClientUtils.createClient;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -59,6 +58,7 @@ public abstract class BaseOpenSearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
+    private String jmxBaseName;
     private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
@@ -73,10 +73,13 @@ public abstract class BaseOpenSearchConnectorTest
     {
         opensearch = new OpenSearchServer(image, false, ImmutableMap.of());
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+
+        client = createClient(address);
+        jmxBaseName = randomNameSuffix();
 
         return OpenSearchQueryRunner.builder(opensearch.getAddress())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .addConnectorProperties(Map.of("jmx.base-name", jmxBaseName))
                 .build();
     }
 
@@ -139,8 +142,8 @@ public abstract class BaseOpenSearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", jmxBaseName, catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"%s.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", jmxBaseName, catalogName));
     }
 
     @Test
@@ -178,7 +181,8 @@ public abstract class BaseOpenSearchConnectorTest
 
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "nationkey::bigint", "::\\s\\[\\[42\\]\\]");
+                "nationkey::bigint",
+                "::\\s\\[\\[42\\]\\]");
     }
 
     @Test
@@ -1032,18 +1036,18 @@ public abstract class BaseOpenSearchConnectorTest
         index(indexName,
                 ImmutableMap.of("a",
                         ImmutableMap.of("b",
-                                ImmutableMap.of("c",
-                                        "value1"))));
+                                ImmutableMap.of(
+                                        "c", "value1"))));
 
         index(indexName,
                 ImmutableMap.of("a.b",
-                        ImmutableMap.of("c",
-                                "value2")));
+                        ImmutableMap.of(
+                                "c", "value2")));
 
         index(indexName,
                 ImmutableMap.of("a",
-                        ImmutableMap.of("b.c",
-                                "value3")));
+                        ImmutableMap.of(
+                                "b.c", "value3")));
 
         index(indexName,
                 ImmutableMap.of("a.b.c", "value4"));
@@ -1709,8 +1713,7 @@ public abstract class BaseOpenSearchConnectorTest
         createIndex(indexName, properties);
 
         index(indexName, ImmutableMap.of(
-                "field",
-                ImmutableMap.<String, Object>builder()
+                "field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1740,8 +1743,17 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM types_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -1779,8 +1791,7 @@ public abstract class BaseOpenSearchConnectorTest
         createIndex(indexName, mappings);
 
         index(indexName, ImmutableMap.of(
-                "nested_field",
-                ImmutableMap.<String, Object>builder()
+                "nested_field", ImmutableMap.<String, Object>builder()
                         .put("boolean_column", true)
                         .put("float_column", 1.0f)
                         .put("double_column", 1.0d)
@@ -1810,8 +1821,17 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM nested_type_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0), "1.2.3.4", "2001:db8::1:0:0:1")
+                .row(true,
+                        1.0f,
+                        1.0d,
+                        1,
+                        1L,
+                        "cool",
+                        "some text",
+                        new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        "1.2.3.4",
+                        "2001:db8::1:0:0:1")
                 .build();
 
         assertThat(rows.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -2540,7 +2560,7 @@ public abstract class BaseOpenSearchConnectorTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(document);
+        String json = new JsonMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
 
         Request request = new Request("PUT", endpoint);

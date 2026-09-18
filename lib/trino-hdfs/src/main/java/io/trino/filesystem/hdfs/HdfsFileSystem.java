@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.hdfs;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.FileIterator;
@@ -21,7 +20,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
@@ -59,13 +57,6 @@ import static java.util.stream.Collectors.toList;
 class HdfsFileSystem
         implements TrinoFileSystem
 {
-    private static final Map<String, Boolean> KNOWN_HIERARCHICAL_FILESYSTEMS = ImmutableMap.<String, Boolean>builder()
-            .put("s3", false)
-            .put("s3a", false)
-            .put("s3n", false)
-            .put("hdfs", true)
-            .buildOrThrow();
-
     private final HdfsEnvironment environment;
     private final HdfsContext context;
     private final TrinoHdfsFileSystemStats stats;
@@ -142,19 +133,14 @@ class HdfsFileSystem
         for (Entry<Path, List<Path>> directoryWithPaths : pathsGroupedByDirectory.entrySet()) {
             FileSystem rawFileSystem = getRawFileSystem(environment.getFileSystem(context, directoryWithPaths.getKey()));
             environment.doAs(context.getIdentity(), () -> {
-                if (rawFileSystem instanceof FileSystemWithBatchDelete fileSystemWithBatchDelete) {
-                    fileSystemWithBatchDelete.deleteFiles(directoryWithPaths.getValue());
-                }
-                else {
-                    for (Path path : directoryWithPaths.getValue()) {
-                        stats.getDeleteFileCalls().newCall();
-                        try (TimeStat.BlockTimer _ = stats.getDeleteFileCalls().time()) {
-                            rawFileSystem.delete(path, false);
-                        }
-                        catch (IOException e) {
-                            stats.getDeleteFileCalls().recordException(e);
-                            throw e;
-                        }
+                for (Path path : directoryWithPaths.getValue()) {
+                    stats.getDeleteFileCalls().newCall();
+                    try (TimeStat.BlockTimer _ = stats.getDeleteFileCalls().time()) {
+                        rawFileSystem.delete(path, false);
+                    }
+                    catch (IOException e) {
+                        stats.getDeleteFileCalls().recordException(e);
+                        throw e;
                     }
                 }
                 return null;
@@ -437,9 +423,8 @@ class HdfsFileSystem
 
     private boolean hierarchical(FileSystem fileSystem, Location rootLocation)
     {
-        Boolean knownResult = KNOWN_HIERARCHICAL_FILESYSTEMS.get(fileSystem.getScheme());
-        if (knownResult != null) {
-            return knownResult;
+        if ("hdfs".equals(fileSystem.getScheme())) {
+            return true;
         }
 
         Boolean cachedResult = hierarchicalFileSystemCache.get(fileSystem);

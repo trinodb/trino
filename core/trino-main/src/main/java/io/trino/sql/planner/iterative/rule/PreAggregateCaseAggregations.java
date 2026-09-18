@@ -45,6 +45,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +54,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isPreAggregateCaseAggregationsEnabled;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
@@ -61,11 +63,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -288,7 +290,7 @@ public class PreAggregateCaseAggregations
         return aggregations.stream()
                 .collect(toImmutableSetMultimap(PreAggregationKey::new, identity()))
                 .asMap().entrySet().stream().collect(toImmutableMap(
-                        Map.Entry::getKey,
+                        Entry::getKey,
                         entry -> {
                             PreAggregationKey key = entry.getKey();
                             Set<CaseAggregation> caseAggregations = (Set<CaseAggregation>) entry.getValue();
@@ -299,11 +301,11 @@ public class PreAggregateCaseAggregations
                             Type preProjectionType = getType(preProjection);
                             Type aggregationInputType = getOnlyElement(key.getFunction().signature().getArgumentTypes());
                             if (!preProjectionType.equals(aggregationInputType)) {
-                                preProjection = new Cast(preProjection, aggregationInputType);
+                                preProjection = cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), preProjection, aggregationInputType);
                             }
 
                             // Wrap the preProjection with IF to retain the conditional nature on the CASE aggregation(s) during pre-aggregation
-                            if (mayFail(plannerContext, preProjection)) {
+                            if (mayFail(plannerContext, getCharVarcharCoercion(context.getSession()), preProjection)) {
                                 Expression unionConditions = or(caseAggregations.stream()
                                         .map(CaseAggregation::getOperand)
                                         .collect(toImmutableSet()));
@@ -319,7 +321,7 @@ public class PreAggregateCaseAggregations
     private Optional<List<CaseAggregation>> extractCaseAggregations(AggregationNode aggregationNode, ProjectNode projectNode, Context context)
     {
         ImmutableList.Builder<CaseAggregation> caseAggregations = ImmutableList.builder();
-        for (Map.Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> aggregation : aggregationNode.getAggregations().entrySet()) {
             Optional<CaseAggregation> caseAggregation = extractCaseAggregation(
                     aggregation.getKey(),
                     aggregation.getValue(),
@@ -371,10 +373,15 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
+        // The pre-aggregation evaluates the operand once per group and shares one result between aggregations
+        if (!isDeterministic(caseExpression)) {
+            return Optional.empty();
+        }
+
         Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(name.getFunctionName(), fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), name.functionName(), ImmutableList.of(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation
@@ -416,7 +423,7 @@ public class PreAggregateCaseAggregations
                     name,
                     caseExpression.whenClauses().get(0).getOperand(),
                     caseExpression.whenClauses().get(0).getResult(),
-                    new Cast(caseExpression.defaultValue(), aggregationType)));
+                    cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), caseExpression.defaultValue(), aggregationType)));
         }
 
         return Optional.empty();
@@ -429,7 +436,7 @@ public class PreAggregateCaseAggregations
 
     private Expression optimizeExpression(Expression expression, Context context)
     {
-        return newOptimizer(plannerContext).process(expression, context.getSession(), ImmutableMap.of()).orElse(expression);
+        return plannerContext.getExpressionOptimizer().process(expression, context.getSession(), context.getSymbolAllocator(), ImmutableMap.of()).orElse(expression);
     }
 
     private static class CaseAggregation

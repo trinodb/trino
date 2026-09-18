@@ -28,15 +28,14 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
-import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -63,7 +62,7 @@ public class PositionDeleteWriter
             Map<String, String> storageProperties)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
-        this.dataFilePathBlock = nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath));
+        this.dataFilePathBlock = writeNativeValue(VARCHAR, utf8Slice(dataFilePath));
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -77,7 +76,7 @@ public class PositionDeleteWriter
         this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
-    public CommitTaskData write(ImmutableLongBitmapDataProvider rowsToDelete)
+    public CommitTaskData write(DeletionVector rowsToDelete)
     {
         writeDeletes(rowsToDelete);
         writer.commit();
@@ -87,11 +86,13 @@ public class PositionDeleteWriter
                 fileFormat,
                 writer.getWrittenBytes(),
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
-                PartitionSpecParser.toJson(partitionSpec),
+                partitionSpec.specId(),
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
-                writer.getFileMetrics().splitOffsets());
+                writer.getFileMetrics().splitOffsets(),
+                SortOrder.unsorted().orderId(),
+                Optional.empty());
     }
 
     public void abort()
@@ -99,10 +100,10 @@ public class PositionDeleteWriter
         writer.rollback();
     }
 
-    private void writeDeletes(ImmutableLongBitmapDataProvider rowsToDelete)
+    private void writeDeletes(DeletionVector rowsToDelete)
     {
         PositionsList deletedPositions = new PositionsList(4 * 1024);
-        rowsToDelete.forEach(rowPosition -> {
+        rowsToDelete.forEachDeletedRow(rowPosition -> {
             deletedPositions.add(rowPosition);
             if (deletedPositions.isFull()) {
                 writePage(deletedPositions);
@@ -163,7 +164,6 @@ public class PositionDeleteWriter
         void reset()
         {
             size = 0;
-            positions = new long[positions.length];
         }
     }
 }

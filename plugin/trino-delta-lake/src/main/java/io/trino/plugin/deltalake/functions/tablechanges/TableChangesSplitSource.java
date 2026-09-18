@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -25,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,14 +61,15 @@ public class TableChangesSplitSource
     public TableChangesSplitSource(
             ConnectorSession session,
             DeltaLakeFileSystemFactory fileSystemFactory,
-            TableChangesTableFunctionHandle functionHandle)
+            TableChangesTableFunctionHandle functionHandle,
+            Optional<DeltaLakeTableCredentials> tableCredentials)
     {
         tableLocation = functionHandle.tableLocation();
         splits = prepareSplits(
                 functionHandle.firstReadVersion(),
                 functionHandle.tableReadVersion(),
                 getTransactionLogDir(functionHandle.tableLocation()),
-                fileSystemFactory.create(session, functionHandle.credentialsHandle()))
+                fileSystemFactory.create(session, tableCredentials))
                 .iterator();
     }
 
@@ -132,7 +135,7 @@ public class TableChangesSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         ImmutableList.Builder<ConnectorSplit> result = ImmutableList.builder();
         int i = 0;
@@ -140,7 +143,7 @@ public class TableChangesSplitSource
             result.add(splits.next());
             i++;
         }
-        return CompletableFuture.completedFuture(new ConnectorSplitBatch(result.build(), isFinished()));
+        return CompletableFuture.completedFuture(result.build());
     }
 
     private TableChangesSplit mapToDeltaLakeTableChangesSplit(

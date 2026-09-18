@@ -53,7 +53,10 @@ final class ExasolTpchTables
                 FROM LOCAL CSV FILE '%s'
                 ROW SEPARATOR = 'LF'
                 COLUMN SEPARATOR = ','
-                """, TEST_SCHEMA, tableName, tempFile.toAbsolutePath());
+                """,
+                TEST_SCHEMA,
+                tableName,
+                tempFile.toAbsolutePath());
         server.execute(importStatement);
     }
 

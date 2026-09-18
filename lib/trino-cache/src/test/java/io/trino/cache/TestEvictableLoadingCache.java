@@ -67,7 +67,7 @@ public class TestEvictableLoadingCache
         LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(10_000)
                 .recordStats()
-                .build(CacheLoader.from((Integer ignored) -> "abc"));
+                .build(CacheLoader.from((Integer _) -> "abc"));
 
         assertThat(cache.get(42)).isEqualTo("abc");
     }
@@ -108,7 +108,7 @@ public class TestEvictableLoadingCache
         AtomicInteger loads = new AtomicInteger();
         LoadingCache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(20)
-                .weigher((Integer key, String value) -> value.length())
+                .weigher((Integer _, String value) -> value.length())
                 .build(CacheLoader.from(key -> {
                     loads.incrementAndGet();
                     return "a".repeat(key);
@@ -252,7 +252,7 @@ public class TestEvictableLoadingCache
         LoadingCache<CacheKey, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(10_000)
                 .recordStats()
-                .build(CacheLoader.from((CacheKey ignored) -> "abc"));
+                .build(CacheLoader.from((CacheKey _) -> "abc"));
 
         assertThat(cache.stats()).isEqualTo(new CacheStats(0, 0, 0, 0, 0, 0));
 

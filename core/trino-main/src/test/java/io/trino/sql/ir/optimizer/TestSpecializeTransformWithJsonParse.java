@@ -19,6 +19,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.JsonPath;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.FunctionType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -26,20 +27,22 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
 import io.trino.sql.planner.Symbol;
-import io.trino.type.FunctionType;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,7 +68,7 @@ public class TestSpecializeTransformWithJsonParse
                                                 new Constant(JsonPathType.JSON_PATH, jsonPath))))))))
                 .isEqualTo(Optional.of(
                         new Call(
-                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, fromTypes(VARCHAR, JsonPathType.JSON_PATH)),
+                                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, ImmutableList.of(VARCHAR, JsonPathType.JSON_PATH)),
                                 ImmutableList.of(
                                         new Reference(VARCHAR, "json_string"),
                                         new Constant(JsonPathType.JSON_PATH, jsonPath)))));
@@ -73,6 +76,6 @@ public class TestSpecializeTransformWithJsonParse
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new SpecializeTransformWithJsonParse(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

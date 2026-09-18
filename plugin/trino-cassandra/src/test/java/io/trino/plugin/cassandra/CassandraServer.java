@@ -20,7 +20,6 @@ import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import org.testcontainers.cassandra.CassandraContainer;
@@ -40,6 +39,7 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADA
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static com.google.common.io.Resources.getResource;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -100,7 +100,7 @@ public class CassandraServer
 
         session = new CassandraSession(
                 CASSANDRA_TYPE_MANAGER,
-                JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
+                listJsonCodec(ExtraColumnMetadata.class),
                 cqlSessionBuilder::build,
                 new Duration(1, MINUTES));
     }

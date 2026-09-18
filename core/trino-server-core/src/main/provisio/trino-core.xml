@@ -1,6 +1,6 @@
 <runtime>
     <!-- Target -->
-    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+    <archive name="${project.artifactId}-${project.version}.tar.gz" streaming="true" gzipCompressionLevel="6" hardLinkIncludes="**/*.jar" />
 
     <!-- Notices -->
     <fileSet to="/">
@@ -35,6 +35,18 @@
     <!-- Plugins -->
     <artifactSet to="plugin/exchange-filesystem">
         <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/blob-cache-alluxio">
+        <artifact id="${project.groupId}:trino-blob-cache-alluxio:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/blob-cache-memory">
+        <artifact id="${project.groupId}:trino-blob-cache-memory:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

@@ -13,16 +13,33 @@
  */
 package io.trino.server;
 
+import io.airlift.http.client.HeaderName;
+
 public final class InternalHeaders
 {
     public static final String TRINO_CURRENT_VERSION = "X-Trino-Current-Version";
+    public static final HeaderName TRINO_CURRENT_VERSION_HEADER = HeaderName.of(TRINO_CURRENT_VERSION);
+
     public static final String TRINO_MAX_WAIT = "X-Trino-Max-Wait";
+    public static final HeaderName TRINO_MAX_WAIT_HEADER = HeaderName.of(TRINO_MAX_WAIT);
+
     public static final String TRINO_MAX_SIZE = "X-Trino-Max-Size";
+    public static final HeaderName TRINO_MAX_SIZE_HEADER = HeaderName.of(TRINO_MAX_SIZE);
+
     public static final String TRINO_TASK_INSTANCE_ID = "X-Trino-Task-Instance-Id";
+    public static final HeaderName TRINO_TASK_INSTANCE_ID_HEADER = HeaderName.of(TRINO_TASK_INSTANCE_ID);
+
     public static final String TRINO_PAGE_TOKEN = "X-Trino-Page-Sequence-Id";
+    public static final HeaderName TRINO_PAGE_TOKEN_HEADER = HeaderName.of(TRINO_PAGE_TOKEN);
+
     public static final String TRINO_PAGE_NEXT_TOKEN = "X-Trino-Page-End-Sequence-Id";
+    public static final HeaderName TRINO_PAGE_NEXT_TOKEN_HEADER = HeaderName.of(TRINO_PAGE_NEXT_TOKEN);
+
     public static final String TRINO_BUFFER_COMPLETE = "X-Trino-Buffer-Complete";
+    public static final HeaderName TRINO_BUFFER_COMPLETE_HEADER = HeaderName.of(TRINO_BUFFER_COMPLETE);
+
     public static final String TRINO_TASK_FAILED = "X-Trino-Task-Failed";
+    public static final HeaderName TRINO_TASK_FAILED_HEADER = HeaderName.of(TRINO_TASK_FAILED);
 
     private InternalHeaders() {}
 }

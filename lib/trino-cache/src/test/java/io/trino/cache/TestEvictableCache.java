@@ -103,7 +103,7 @@ public class TestEvictableCache
     {
         Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(20)
-                .weigher((Integer key, String value) -> value.length())
+                .weigher((Integer _, String value) -> value.length())
                 .build();
 
         for (int i = 0; i < 10; i++) {

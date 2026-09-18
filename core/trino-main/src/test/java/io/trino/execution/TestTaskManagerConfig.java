@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.clamp;
@@ -63,6 +63,7 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(8)
                 .setScaleWritersEnabled(true)
+                .setScaleWritersMaxWriterMemoryPercentage(70.0)
                 .setMinWriterCount(1)
                 .setMaxWriterCount(DEFAULT_MAX_WRITER_COUNT)
                 .setTaskConcurrency(DEFAULT_PROCESSOR_COUNT)
@@ -108,6 +109,7 @@ public class TestTaskManagerConfig
                 .put("driver.max-page-partitioning-buffer-size", "40MB")
                 .put("driver.page-partitioning-buffer-pool-size", "0")
                 .put("task.scale-writers.enabled", "false")
+                .put("task.scale-writers.max-writer-memory-percentage", "65")
                 .put("task.min-writer-count", "4")
                 .put("task.max-writer-count", Integer.toString(maxWriterCount))
                 .put("task.concurrency", Integer.toString(processorCount))
@@ -148,6 +150,7 @@ public class TestTaskManagerConfig
                 .setMaxPagePartitioningBufferSize(DataSize.of(40, Unit.MEGABYTE))
                 .setPagePartitioningBufferPoolSize(0)
                 .setScaleWritersEnabled(false)
+                .setScaleWritersMaxWriterMemoryPercentage(65.0)
                 .setMinWriterCount(4)
                 .setMaxWriterCount(maxWriterCount)
                 .setTaskConcurrency(processorCount)

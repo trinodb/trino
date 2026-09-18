@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -81,7 +82,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -161,17 +162,17 @@ public class MigrateProcedure
                 MIGRATE.bindTo(this));
     }
 
-    public void migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         // this line guarantees that classLoader that we stored in the field will be used inside try/catch
         // as we captured reference to PluginClassLoader during initialization of this class
         // we can use it now to correctly execute the procedure
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doMigrate(session, schemaName, tableName, recursiveDirectory);
+            return doMigrate(session, schemaName, tableName, recursiveDirectory);
         }
     }
 
-    public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
         TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
@@ -214,7 +215,7 @@ public class MigrateProcedure
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
                 int fileCount = 1;
-                for (Map.Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
+                for (Entry<String, Optional<Partition>> partition : partitions.entrySet()) {
                     Storage storage = partition.getValue().orElseThrow().getStorage();
                     log.debug("Building data files from '%s' for partition %d of %d", storage.getLocation(), fileCount++, partitions.size());
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());
@@ -250,6 +251,10 @@ public class MigrateProcedure
 
             transaction.commitTransaction();
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
+
+            return ImmutableMap.<String, Long>builder()
+                    .put("added_data_files_count", (long) dataFiles.size())
+                    .buildOrThrow();
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to migrate table", e);
@@ -283,7 +288,7 @@ public class MigrateProcedure
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeDescriptor(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
             Types.NestedField field = Types.NestedField.optional(index, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }

@@ -21,7 +21,6 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -39,9 +38,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -121,7 +122,7 @@ public class ImplementLimitWithTies
         Symbol rankSymbol = symbolAllocator.newSymbol("rank_num", BIGINT);
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                metadata.resolveBuiltinFunction("rank", ImmutableList.of()),
+                metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "rank", ImmutableList.of()),
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,
@@ -139,7 +140,9 @@ public class ImplementLimitWithTies
         return new FilterNode(
                 idAllocator.getNextId(),
                 windowNode,
-                new Comparison(
+                comparison(
+                        metadata,
+                        getCharVarcharCoercion(session),
                         LESS_THAN_OR_EQUAL,
                         rankSymbol.toSymbolReference(),
                         new Constant(BIGINT, limitNode.getCount())));

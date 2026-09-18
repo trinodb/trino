@@ -46,15 +46,13 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
-                        p.aggregation((a) -> a
+                        p.aggregation(a -> a
                                 .globalGrouping()
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
                                         ImmutableList.of())
-                                .source(
-                                        p.tableScan(ImmutableList.of(), ImmutableMap.of())))
-                ).doesNotFire();
+                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())))).doesNotFire();
     }
 
     @Test
@@ -62,7 +60,7 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
-                        p.aggregation((a) -> a
+                        p.aggregation(a -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
@@ -82,7 +80,7 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
-                        p.aggregation((a) -> a
+                        p.aggregation(a -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
@@ -98,7 +96,7 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
-                        p.aggregation((a) -> a
+                        p.aggregation(a -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
@@ -114,7 +112,7 @@ public class TestPruneCountAggregationOverScalar
     {
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p ->
-                        p.aggregation((a) -> a
+                        p.aggregation(a -> a
                                 .addAggregation(
                                         p.symbol("count_1", BigintType.BIGINT),
                                         PlanBuilder.aggregation("count", ImmutableList.of()),
@@ -136,7 +134,7 @@ public class TestPruneCountAggregationOverScalar
         tester().assertThat(new PruneCountAggregationOverScalar(tester().getMetadata()))
                 .on(p -> {
                     Symbol totalPrice = p.symbol("total_price", DOUBLE);
-                    AggregationNode inner = p.aggregation((a) -> a
+                    AggregationNode inner = p.aggregation(a -> a
                             .addAggregation(
                                     totalPrice,
                                     PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(DOUBLE, "totalprice"))),
@@ -153,7 +151,7 @@ public class TestPruneCountAggregationOverScalar
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.name(), DOUBLE))))));
 
-                    return p.aggregation((a) -> a
+                    return p.aggregation(a -> a
                             .addAggregation(
                                     p.symbol("sum_outer", DOUBLE),
                                     PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "sum_inner"))),

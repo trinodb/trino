@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Shorts;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -35,12 +36,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.parseUnsignedInt;
 import static java.util.Objects.requireNonNull;
 
+@DefunctConfig("hive.fs.new-file-inherit-ownership")
 public class HdfsConfig
 {
     public static final String SKIP_DIR_PERMISSIONS = "skip";
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String newDirectoryPermissions = "0777";
-    private boolean newFileInheritOwnership;
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -87,19 +88,6 @@ public class HdfsConfig
     public HdfsConfig setNewDirectoryPermissions(String newDirectoryPermissions)
     {
         this.newDirectoryPermissions = requireNonNull(newDirectoryPermissions, "newDirectoryPermissions is null");
-        return this;
-    }
-
-    public boolean isNewFileInheritOwnership()
-    {
-        return newFileInheritOwnership;
-    }
-
-    @Config("hive.fs.new-file-inherit-ownership")
-    @ConfigDescription("Flag to determine if new files inherit the ownership information from the directory.")
-    public HdfsConfig setNewFileInheritOwnership(boolean newFileInheritOwnership)
-    {
-        this.newFileInheritOwnership = newFileInheritOwnership;
         return this;
     }
 

@@ -66,8 +66,7 @@ public final class JdbcTableHandle
 
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
     {
-        this(
-                new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
+        this(new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
                 TupleDomain.all(),
                 ImmutableList.of(),
                 Optional.empty(),
@@ -102,7 +101,7 @@ public final class JdbcTableHandle
         this.otherReferencedTables = otherReferencedTables.map(ImmutableSet::copyOf);
         this.nextSyntheticColumnId = nextSyntheticColumnId;
         this.authorization = requireNonNull(authorization, "authorization is null");
-        this.updateAssignments = requireNonNull(updateAssignments, "updateAssignments is null");
+        this.updateAssignments = ImmutableList.copyOf(updateAssignments);
     }
 
     public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)

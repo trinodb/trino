@@ -29,6 +29,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -58,6 +59,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -134,7 +136,7 @@ public class IndexJoinOptimizer
                 }
 
                 switch (node.getType()) {
-                    case INNER:
+                    case INNER -> {
                         // Prefer the right candidate over the left candidate
                         PlanNode indexJoinNode = null;
                         if (rightIndexCandidate.isPresent()) {
@@ -158,27 +160,21 @@ public class IndexJoinOptimizer
 
                             return indexJoinNode;
                         }
-                        break;
-
-                    case LEFT:
+                    }
+                    case LEFT -> {
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && rightIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, leftRewritten, rightIndexCandidate.get(), createEquiJoinClause(leftJoinSymbols, rightJoinSymbols), idAllocator);
                         }
-                        break;
-
-                    case RIGHT:
+                    }
+                    case RIGHT -> {
                         // We cannot use indices for outer joins until index join supports in-line filtering
                         if (node.getFilter().isEmpty() && leftIndexCandidate.isPresent()) {
                             return createIndexJoinWithExpectedOutputs(node.getOutputSymbols(), IndexJoinNode.Type.SOURCE_OUTER, rightRewritten, leftIndexCandidate.get(), createEquiJoinClause(rightJoinSymbols, leftJoinSymbols), idAllocator);
                         }
-                        break;
-
-                    case FULL:
-                        break;
-
-                    default:
-                        throw new IllegalArgumentException("Unknown type: " + node.getType());
+                    }
+                    case FULL -> {}
+                    default -> throw new IllegalArgumentException("Unknown type: " + node.getType());
                 }
             }
 
@@ -246,6 +242,9 @@ public class IndexJoinOptimizer
             this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         }
 
+        /// A subtree rewritten into an index source is re-executed for every probe-side lookup, so
+        /// anything nondeterministic in it would be evaluated independently per lookup and match
+        /// different rows each time. The visitors below give up on such a subtree.
         public static Optional<PlanNode> rewriteWithIndex(
                 PlanNode planNode,
                 Set<Symbol> lookupSymbols,
@@ -282,7 +281,7 @@ public class IndexJoinOptimizer
                     session,
                     predicate);
 
-            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
+            TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.tupleDomain()
                     .transformKeys(node.getAssignments()::get)
                     .intersect(node.getEnforcedConstraint());
 
@@ -312,8 +311,8 @@ public class IndexJoinOptimizer
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
-                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
-                    decomposedPredicate.getRemainingExpression());
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    decomposedPredicate.remainingExpression());
 
             if (!resultingPredicate.equals(TRUE)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
@@ -326,6 +325,10 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<Context> context)
         {
+            if (!node.getAssignments().expressions().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
+                return node;
+            }
+
             // Rewrite the lookup symbols in terms of only the pre-projected symbols that have direct translations
             Set<Symbol> newLookupSymbols = context.get().getLookupSymbols().stream()
                     .map(node.getAssignments()::get)
@@ -343,6 +346,10 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
+            if (!DeterminismEvaluator.isDeterministic(node.getPredicate())) {
+                return node;
+            }
+
             if (node.getSource() instanceof TableScanNode) {
                 return planTableScan((TableScanNode) node.getSource(), node.getPredicate(), context.get());
             }
@@ -357,6 +364,11 @@ public class IndexJoinOptimizer
                     .map(Function::getResolvedFunction)
                     .map(ResolvedFunction::functionKind)
                     .allMatch(AGGREGATE::equals)) {
+                return node;
+            }
+
+            if (!node.getWindowFunctions().values().stream()
+                    .allMatch(function -> isDeterministicCall(function.getResolvedFunction(), function.getArguments()))) {
                 return node;
             }
 
@@ -408,6 +420,11 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
+            if (!node.getAggregations().values().stream()
+                    .allMatch(aggregation -> isDeterministicCall(aggregation.getResolvedFunction(), aggregation.getArguments()))) {
+                return node;
+            }
+
             // Lookup symbols can only be passed through if they are part of the group by columns
             if (!node.getGroupingKeys().containsAll(context.get().getLookupSymbols())) {
                 return node;
@@ -421,6 +438,11 @@ public class IndexJoinOptimizer
         {
             // Sort has no bearing when building an index, so just ignore the sort
             return context.rewrite(node.getSource(), context.get());
+        }
+
+        private static boolean isDeterministicCall(ResolvedFunction function, List<Expression> arguments)
+        {
+            return function.deterministic() && arguments.stream().allMatch(DeterminismEvaluator::isDeterministic);
         }
 
         public static class Context

@@ -71,7 +71,7 @@ public class KdbTree
             this.left = requireNonNull(left, "left is null");
             this.right = requireNonNull(right, "right is null");
             if (leafId.isPresent()) {
-                checkArgument(leafId.getAsInt() >= 0, "leafId must be >= 0");
+                checkArgument(leafId.orElseThrow() >= 0, "leafId must be >= 0");
                 checkArgument(left.isEmpty(), "Leaf node cannot have left child");
                 checkArgument(right.isEmpty(), "Leaf node cannot have right child");
             }
@@ -164,7 +164,7 @@ public class KdbTree
     public Map<Integer, Rectangle> getLeaves()
     {
         ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> true);
+        addLeaves(root, leaves, _ -> true);
         return leaves.buildOrThrow();
     }
 
@@ -182,7 +182,7 @@ public class KdbTree
         }
 
         if (node.leafId.isPresent()) {
-            leaves.put(node.leafId.getAsInt(), node.extent);
+            leaves.put(node.leafId.orElseThrow(), node.extent);
         }
         else {
             addLeaves(node.left.get(), leaves, predicate);

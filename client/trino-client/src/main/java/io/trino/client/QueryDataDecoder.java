@@ -23,7 +23,7 @@ public interface QueryDataDecoder
 {
     interface Factory
     {
-        QueryDataDecoder create(List<Column> columns, DataAttributes attributes);
+        QueryDataDecoder create(List<Column> columns, DataAttributes attributes, boolean supportsVariantBinary);
 
         String encoding();
     }
@@ -36,7 +36,6 @@ public interface QueryDataDecoder
      *
      * @param input Input stream to decode (in memory or over the network)
      * @param segmentAttributes Attributes of the segment
-     *
      * @throws IOException if an I/O error occurs
      */
     CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)

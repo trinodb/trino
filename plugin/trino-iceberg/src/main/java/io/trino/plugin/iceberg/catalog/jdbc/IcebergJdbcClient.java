@@ -18,8 +18,11 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V0;
 import static io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion.V1;
 import static java.util.Objects.requireNonNull;
@@ -48,10 +51,11 @@ public class IcebergJdbcClient
     private void createTableV0(String schemaName, String tableName, String metadataLocation)
     {
         try (Handle handle = Jdbi.open(connectionFactory)) {
-            handle.createUpdate("" +
-                            "INSERT INTO iceberg_tables " +
-                            "(catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location) " +
-                            "VALUES (:catalog, :schema, :table, :metadata_location, null)")
+            handle.createUpdate(
+                            """
+                            INSERT INTO iceberg_tables
+                            (catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location)
+                            VALUES (:catalog, :schema, :table, :metadata_location, null)""")
                     .bind("catalog", catalogName)
                     .bind("schema", schemaName)
                     .bind("table", tableName)
@@ -63,10 +67,11 @@ public class IcebergJdbcClient
     private void createTableV1(String schemaName, String tableName, String metadataLocation)
     {
         try (Handle handle = Jdbi.open(connectionFactory)) {
-            handle.createUpdate("" +
-                            "INSERT INTO iceberg_tables " +
-                            "(catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location, iceberg_type) " +
-                            "VALUES (:catalog, :schema, :table, :metadata_location, null, 'TABLE')")
+            handle.createUpdate(
+                            """
+                            INSERT INTO iceberg_tables
+                            (catalog_name, table_namespace, table_name, metadata_location, previous_metadata_location, iceberg_type)
+                            VALUES (:catalog, :schema, :table, :metadata_location, null, 'TABLE')""")
                     .bind("catalog", catalogName)
                     .bind("schema", schemaName)
                     .bind("table", tableName)
@@ -78,10 +83,11 @@ public class IcebergJdbcClient
     public void alterTable(String schemaName, String tableName, String newMetadataLocation, String previousMetadataLocation)
     {
         try (Handle handle = Jdbi.open(connectionFactory)) {
-            int updatedRecords = handle.createUpdate("" +
-                            "UPDATE iceberg_tables " +
-                            "SET metadata_location = :metadata_location, previous_metadata_location = :previous_metadata_location " +
-                            "WHERE catalog_name = :catalog AND table_namespace = :schema AND table_name = :table AND metadata_location = :previous_metadata_location")
+            int updatedRecords = handle.createUpdate(
+                            """
+                            UPDATE iceberg_tables
+                            SET metadata_location = :metadata_location, previous_metadata_location = :previous_metadata_location
+                            WHERE catalog_name = :catalog AND table_namespace = :schema AND table_name = :table AND metadata_location = :previous_metadata_location""")
                     .bind("metadata_location", newMetadataLocation)
                     .bind("previous_metadata_location", previousMetadataLocation)
                     .bind("catalog", catalogName)
@@ -97,15 +103,32 @@ public class IcebergJdbcClient
     public Optional<String> getMetadataLocation(String schemaName, String tableName)
     {
         try (Handle handle = Jdbi.open(connectionFactory)) {
-            return handle.createQuery("" +
-                            "SELECT metadata_location " +
-                            "FROM iceberg_tables " +
-                            "WHERE catalog_name = :catalog AND table_namespace = :schema AND table_name = :table")
+            return handle.createQuery(
+                            """
+                            SELECT metadata_location
+                            FROM iceberg_tables
+                            WHERE catalog_name = :catalog AND table_namespace = :schema AND table_name = :table""")
                     .bind("catalog", catalogName)
                     .bind("schema", schemaName)
                     .bind("table", tableName)
                     .mapTo(String.class)
                     .findOne();
+        }
+    }
+
+    public Map<String, String> getViewMetadataLocations(String schemaName)
+    {
+        try (Handle handle = Jdbi.open(connectionFactory)) {
+            return handle.createQuery(
+                            """
+                            SELECT table_name, metadata_location
+                            FROM iceberg_tables
+                            WHERE catalog_name = :catalog AND table_namespace = :schema AND iceberg_type = 'VIEW'""")
+                    .bind("catalog", catalogName)
+                    .bind("schema", schemaName)
+                    .map((rs, _) -> Map.entry(rs.getString("table_name"), rs.getString("metadata_location")))
+                    .stream()
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         }
     }
 }

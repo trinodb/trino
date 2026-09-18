@@ -19,6 +19,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -342,5 +343,56 @@ public class TestWindow
                             (2, ARRAY[3, 2, 1]),
                             (2, ARRAY[3, 2, 1])
                         """);
+    }
+
+    @Test
+    public void testBigintSumOverflowInUnboundedFrame()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT sum(a) OVER ()
+                FROM (VALUES BIGINT '9223372036854775807', BIGINT '1') t(a)
+                """))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE).hasMessage("bigint addition overflow: 9223372036854775807 + 1");
+
+        // the frame total is in range, but the running sum leaves it, just as sum(a) over the same rows does
+        assertThat(assertions.query(
+                """
+                SELECT sum(a) OVER ()
+                FROM (VALUES
+                    BIGINT '9223372036854775807',
+                    BIGINT '9223372036854775807',
+                    BIGINT '-9223372036854775807') t(a)
+                """))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE).hasMessage("bigint addition overflow: 9223372036854775807 + 9223372036854775807");
+    }
+
+    @Test
+    public void testBigintSumInSlidingFrame()
+    {
+        // Frames at least three rows wide are advanced by removing values from the accumulator,
+        // so the running sum leaves the bigint range on the way out of the frame as well.
+        assertThat(assertions.query(
+                """
+                SELECT sum(a) OVER (ORDER BY b ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (BIGINT '9223372036854775807', 1),
+                    (BIGINT '-9223372036854775807', 2),
+                    (BIGINT '-2', 3),
+                    (BIGINT '5', 4)) t(a, b)
+                """))
+                .failure().hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE).hasMessage("bigint subtraction overflow: -2 - 9223372036854775807");
+
+        // the smallest bigint is removed from the frame
+        assertThat(assertions.query(
+                """
+                SELECT sum(a) OVER (ORDER BY b ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                FROM (VALUES
+                    (BIGINT '-9223372036854775808', 1),
+                    (BIGINT '1', 2),
+                    (BIGINT '2', 3),
+                    (BIGINT '3', 4)) t(a, b)
+                """))
+                .matches("VALUES BIGINT '-9223372036854775808', BIGINT '-9223372036854775807', BIGINT '-9223372036854775805', BIGINT '6'");
     }
 }

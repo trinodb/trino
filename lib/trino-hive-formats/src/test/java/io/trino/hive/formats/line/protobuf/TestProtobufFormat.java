@@ -25,7 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -164,7 +164,7 @@ class TestProtobufFormat
                                 field("enumArrayField", new ArrayType(VARCHAR)),
                                 field("bytesArrayField", new ArrayType(VARBINARY))))))), 33));
 
-        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Paths.get(getClass().getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS), 1);
+        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Path.of(getClass().getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS), 1);
         ProtobufDeserializer deserializer = factory.create(columns, Map.of("serialization.class", "io.trino.hive.formats.line.protobuf.examples.DataRecordProtos$DataRecord"));
 
         LineBuffer lineBuffer = new LineBuffer(128, 1024);

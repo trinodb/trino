@@ -15,9 +15,9 @@ package io.trino.type;
 
 import io.trino.FeaturesConfig;
 import io.trino.metadata.TypeRegistry;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,7 +29,7 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        assertThatThrownBy(() -> typeRegistry.getType(new TypeSignature("not a real type")))
+        assertThatThrownBy(() -> typeRegistry.getType(new TypeDescriptor("not a real type")))
                 .isInstanceOf(TypeNotFoundException.class)
                 .hasMessage("Unknown type: not a real type");
     }

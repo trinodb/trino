@@ -13,12 +13,22 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.math.IntMath;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.GenericStatisticsFile;
+import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinWriter;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,6 +40,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.loadTable;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
@@ -44,6 +57,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergStatistics
         extends AbstractTestQueryFramework
 {
+    private HiveMetastore metastore;
+    private TrinoFileSystemFactory fileSystemFactory;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -51,6 +67,13 @@ public class TestIcebergStatistics
         return IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
                 .build();
+    }
+
+    @BeforeAll
+    public void setUp()
+    {
+        metastore = getHiveMetastore(getQueryRunner());
+        fileSystemFactory = getFileSystemFactory(getQueryRunner());
     }
 
     @ParameterizedTest
@@ -66,8 +89,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name', 583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name', 513.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)""";
 
         if (collectOnStatsOnWrites) {
@@ -80,8 +103,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, null, 0, null, '0', '24'),
                       ('regionkey', null, null, 0, null, '0', '4'),
-                      ('comment', 2162.0, null, 0, null, null, null),
-                      ('name', 583.0, null, 0, null, null, null),
+                      ('comment', 2087.0, null, 0, null, null, null),
+                      ('name', 513.0, null, 0, null, null, null),
                       (null, null, null, null, 25, null, null)""");
         }
 
@@ -99,8 +122,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 4325.0, 25, 0, null, null, null),
-                  ('name', 1166.0, 25, 0, null, null, null),
+                  ('comment', 4174.0, 25, 0, null, null, null),
+                  ('name', 1026.0, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)""";
         assertUpdate("ANALYZE " + tableName);
         assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterFirstInsert);
@@ -112,8 +135,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 6463.0, 50, 0, null, null, null),
-                  ('name', 1768.0, 50, 0, null, null, null),
+                  ('comment', 6247.0, 50, 0, null, null, null),
+                  ('name', 1536.0, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
 
@@ -128,8 +151,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 6463.0, 25, 0, null, null, null),
-                      ('name', 1768.0, 25, 0, null, null, null),
+                      ('comment', 6247.0, 25, 0, null, null, null),
+                      ('name', 1536.0, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
         }
@@ -158,18 +181,6 @@ public class TestIcebergStatistics
                 .filter(row -> "name".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
         assertThat(nameDataSize).isBetween(1000.0, 3000.0);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                VALUES
-                  ('nationkey', null, 25, 0, null, '0', '24'),
-                  ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('name', %s, 25, 0, null, null, null),
-                  ('info', null, null, null, null, null, null),
-                  (null, null, null, null, 50, null, null)
-                """.formatted(nameDataSize));
-
-        assertUpdate("ANALYZE " + tableName);
         double infoDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
                 .filter(row -> "info".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
@@ -181,7 +192,19 @@ public class TestIcebergStatistics
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
                   ('name', %s, 25, 0, null, null, null),
-                  ('info', %s, 25, 0.1, null, null, null),
+                  ('info', %s, null, 0, null, null, null),
+                  (null, null, null, null, 50, null, null)
+                """.formatted(nameDataSize, infoDataSize));
+
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('name', %s, 25, 0, null, null, null),
+                  ('info', %s, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """.formatted(nameDataSize, infoDataSize)); // Row count statistics do not yet account for position deletes
 
@@ -200,8 +223,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 3507.0, 25, 0, null, null, null),
-                  ('name', 1182.0, 25, 0, null, null, null),
+                  ('comment', 3639.0, 25, 0, null, null, null),
+                  ('name', 1212.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """;
 
@@ -215,8 +238,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, null, 0, null, '0', '24'),
                       ('regionkey', null, null, 0, null, '0', '4'),
-                      ('comment', 3507.0, null, 0, null, null, null),
-                      ('name', 1182.0, null, 0, null, null, null),
+                      ('comment', 3639.0, null, 0, null, null, null),
+                      ('name', 1212.0, null, 0, null, null, null),
                       (null, null, null, null, 25, null, null)
                     """);
         }
@@ -234,8 +257,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 7014.0, 25, 0, null, null, null),
-                  ('name', 2365.0, 25, 0, null, null, null),
+                  ('comment', 7279.0, 25, 0, null, null, null),
+                  ('name', 2424.0, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -246,8 +269,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 10493.999999999998, 50, 0, null, null, null),
-                  ('name', 3564.0000000000005, 50, 0, null, null, null),
+                  ('comment', 10891.0, 50, 0, null, null, null),
+                  ('name', 3635.9999999999995, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """;
 
@@ -262,8 +285,8 @@ public class TestIcebergStatistics
                     VALUES
                       ('nationkey', null, 25, 0, null, '0', '49'),
                       ('regionkey', null, 5, 0, null, '0', '9'),
-                      ('comment', 10493.999999999998, 25, 0, null, null, null),
-                      ('name', 3564.0000000000005, 25, 0, null, null, null),
+                      ('comment', 10891.0, 25, 0, null, null, null),
+                      ('name', 3635.9999999999995, 25, 0, null, null, null),
                       (null, null, null, null, 75, null, null)
                     """);
         }
@@ -317,8 +340,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name', 583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name', 513.0, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """);
 
@@ -340,47 +363,51 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 collectOnStatsOnCreateTable
-                        ? """
-                          VALUES
-                            ('nationkey', null, 7, 0, null, '0', '9'),
-                            ('regionkey', null, 3, 0, null, '0', '2'),
-                            ('comment', %s, 7, 0, null, null, null),
-                            ('name', %s, 7, 0, null, null, null),
-                            (null, null, null, null, 7, null, null)
-                          """
-                        .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0")
-                        : """
-                          VALUES
-                            ('nationkey', null, null, 0, null, '0', '9'),
-                            ('regionkey', null, null, 0, null, '0', '2'),
-                            ('comment', %s, null, 0, null, null, null),
-                            ('name', %s, null, 0, null, null, null),
-                            (null, null, null, null, 7, null, null)
-                          """
-                        .formatted(partitioned ? "1301.0" : "936.0", partitioned ? "469.0" : "270.0"));
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 7, 0, null, '0', '9'),
+                          ('regionkey', null, 3, 0, null, '0', '2'),
+                          ('comment', %s, 7, 0, null, null, null),
+                          ('name', %s, 7, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)
+                        """
+                        .formatted(partitioned ? "1360.0" : "963.0000000000001", partitioned ? "496.0" : "275.0")
+                        :
+                        """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '9'),
+                          ('regionkey', null, null, 0, null, '0', '2'),
+                          ('comment', %s, null, 0, null, null, null),
+                          ('name', %s, null, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)
+                        """
+                        .formatted(partitioned ? "1360.0" : "963.0000000000001", partitioned ? "496.0" : "275.0"));
 
         assertUpdate(withStatsOnWrite(getSession(), true), "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation WHERE nationkey >= 12 OR regionkey >= 3", 18);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 collectOnStatsOnCreateTable
-                        ? """
-                          VALUES
-                            ('nationkey', null, 25, 0, null, '0', '24'),
-                            ('regionkey', null, 5, 0, null, '0', '4'),
-                            ('comment', %s, 25, 0, null, null, null),
-                            ('name', %s, 25, 0, null, null, null),
-                            (null, null, null, null, 25, null, null)
-                          """
-                        .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0")
-                        : """
-                          VALUES
-                            ('nationkey', null, null, 0, null, '0', '24'),
-                            ('regionkey', null, null, 0, null, '0', '4'),
-                            ('comment', %s, null, 0, null, null, null),
-                            ('name', %s, null, 0, null, null, null),
-                            (null, null, null, null, 25, null, null)
-                          """
-                        .formatted(partitioned ? "4058.0" : "2627.0", partitioned ? "1447.0" : "726.0"));
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          ('comment', %s, 25, 0, null, null, null),
+                          ('name', %s, 25, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)
+                        """
+                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0")
+                        :
+                        """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '24'),
+                          ('regionkey', null, null, 0, null, '0', '4'),
+                          ('comment', %s, null, 0, null, null, null),
+                          ('name', %s, null, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)
+                        """
+                        .formatted(partitioned ? "4241.0" : "2624.0", partitioned ? "1506.0" : "718.0"));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -419,7 +446,7 @@ public class TestIcebergStatistics
                   ('name', %f, 25, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """
-                        .formatted(partitioned ? 3507.0 : 2162.0, partitioned ? 1182.0 : 583));
+                        .formatted(partitioned ? 3639.0 : 2087.0, partitioned ? 1212.0 : 513));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -481,12 +508,13 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 withOptimize
-                        ? """
-                          VALUES
-                            ('nationkey', null, 15, 0, null, '0', '24'),
-                            ('regionkey', null, 4, 0, null, '0', '3'), -- not updated yet
-                            (null, null, null, null, 15, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 4, 0, null, '0', '3'), -- not updated yet
+                          (null, null, null, null, 15, null, null)
+                        """
                         :
                         // TODO row count and min/max values are incorrect as they are taken from manifest file list
                         """
@@ -501,12 +529,13 @@ public class TestIcebergStatistics
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 withOptimize
-                        ? """
-                          VALUES
-                            ('nationkey', null, 15, 0, null, '0', '24'),
-                            ('regionkey', null, 3, 0, null, '0', '3'),
-                            (null, null, null, null, 15, null, null)
-                          """
+                        ?
+                        """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 3, 0, null, '0', '3'),
+                          (null, null, null, null, 15, null, null)
+                        """
                         :
                         // TODO row count and min/max values are incorrect as they are taken from manifest file list
                         """
@@ -551,8 +580,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name', 583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name', 513.0, null, 0, null, null, null),
                   (null, null, null, null, 25, null, null)
                 """);
 
@@ -567,8 +596,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 4441.0, null, 0, null, null, null),
-                  ('name', 1193.0, null, 0, null, null, null),
+                  ('comment', 4293.0, null, 0, null, null, null),
+                  ('name', 1069.0, null, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -583,8 +612,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '49'),
                   ('regionkey', null, 10, 0, null, '0', '9'),
-                  ('comment', 4441.0, 50, 0, null, null, null),
-                  ('name', 1193.0, 50, 0, null, null, null),
+                  ('comment', 4293.0, 50, 0, null, null, null),
+                  ('name', 1069.0, 50, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """);
 
@@ -598,8 +627,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 50, 0, null, '0', '74'),
                   ('regionkey', null, 10, 0, null, '0', '14'),
-                  ('comment', 6701.0, 50, 0, null, null, null),
-                  ('name', 1803.0, 50, 0, null, null, null),
+                  ('comment', 6482.0, 50, 0, null, null, null),
+                  ('name', 1625.0, 50, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -611,8 +640,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 75, 0, null, '0', '74'),
                   ('regionkey', null, 15, 0, null, '0', '14'),
-                  ('comment', 6701.0, 50, 0, null, null, null), -- result of previous analyze
-                  ('name', 1803.0, 50, 0, null, null, null), -- result of previous analyze
+                  ('comment', 6482.0, 50, 0, null, null, null), -- result of previous analyze
+                  ('name', 1625.0, 50, 0, null, null, null), -- result of previous analyze
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -624,8 +653,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 75, 0, null, '0', '74'),
                   ('regionkey', null, 15, 0, null, '0', '14'),
-                  ('comment', 6701.0, 75, 0, null, null, null),
-                  ('name', 1803.0, 75, 0, null, null, null),
+                  ('comment', 6482.0, 75, 0, null, null, null),
+                  ('name', 1625.0, 75, 0, null, null, null),
                   (null, null, null, null, 75, null, null)
                 """);
 
@@ -670,8 +699,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, null, 0, null, '0', '24'),
                   ('regionkey', null, null, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name',  583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name',  513.0, null, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """;
         String extendedStats =
@@ -679,15 +708,16 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """;
 
         assertQuery("SHOW STATS FOR " + tableName, extendedStats);
 
         // Dropping extended stats clears distinct count and leaves other stats alone
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
+        assertThat(query("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS"))
+                .matches("VALUES (VARCHAR 'removed_statistics_count', BIGINT '1')");
         assertQuery("SHOW STATS FOR " + tableName, baseStats);
 
         // Re-analyzing should work
@@ -711,8 +741,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, null, 0, null, '0', '24'),
                   ('regionkey', null, null, 0, null, '0', '4'),
-                  ('comment', 2162.0, null, 0, null, null, null),
-                  ('name',  583.0, null, 0, null, null, null),
+                  ('comment', 2087.0, null, 0, null, null, null),
+                  ('name',  513.0, null, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 
@@ -782,8 +812,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2448.0, 25, 0, null, null, null),
-                  ('name',  704.0, 25, 0, null, null, null),
+                  ('comment', 2389.0, 25, 0, null, null, null),
+                  ('name',  637.0, 25, 0, null, null, null),
                   (null,  null, null, null, 26, null, null)
                 """);
 
@@ -795,8 +825,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 
@@ -822,8 +852,8 @@ public class TestIcebergStatistics
                 VALUES
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('comment', 2162.0, 25, 0, null, null, null),
-                  ('name',  583.0, 25, 0, null, null, null),
+                  ('comment', 2087.0, 25, 0, null, null, null),
+                  ('name',  513.0, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)
                 """);
 
@@ -979,22 +1009,24 @@ public class TestIcebergStatistics
         try (TestTable table = newTrinoTable("show_stats_after_replace_table_", "AS SELECT 1 a, 2 b")) {
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('a', null, 1e0, 0e0, NULL, '1', '1'),
-                        ('b', null, 1e0, 0e0, NULL, '2', '2'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('a', null, 1e0, 0e0, NULL, '1', '1'),
+                            ('b', null, 1e0, 0e0, NULL, '2', '2'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 x, 4 y", 1);
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('x', null, 1e0, 0e0, NULL, '3', '3'),
-                        ('y', null, 1e0, 0e0, NULL, '4', '4'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('x', null, 1e0, 0e0, NULL, '3', '3'),
+                            ('y', null, 1e0, 0e0, NULL, '4', '4'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
         }
     }
 
@@ -1141,6 +1173,66 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testOptimizeWithoutPreexistingStatistics()
+    {
+        String tableName = "test_optimize_no_stats_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+        // Delete forces OPTIMIZE to actually rewrite the file (a lone file with no deletions is skipped)
+        assertUpdate(writeSession, "DELETE FROM " + tableName + " WHERE key = 1", 1);
+
+        // OPTIMIZE with no prior ANALYZE — must not write a statistics file
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+
+        assertThat(loadIcebergTable(tableName).statisticsFiles()).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testOptimizeWithEmptyPreexistingStatistics()
+            throws Exception
+    {
+        String tableName = "test_optimize_empty_stats_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+        // Delete forces OPTIMIZE to actually rewrite the file (a lone file with no deletions is skipped)
+        assertUpdate(writeSession, "DELETE FROM " + tableName + " WHERE key = 1", 1);
+
+        // Register an empty statistics file (no blobs) for the current snapshot by writing a real Puffin file.
+        // Iceberg silently discards GenericStatisticsFile registrations with empty blob lists if no physical file exists.
+        BaseTable icebergTable = loadIcebergTable(tableName);
+        long snapshotId = icebergTable.currentSnapshot().snapshotId();
+        TableOperations ops = icebergTable.operations();
+        String statsPath = ops.metadataFileLocation("empty-stats-" + randomNameSuffix() + ".stats");
+        try (PuffinWriter writer = Puffin.write(ops.io().newOutputFile(statsPath)).build()) {
+            writer.finish();
+            StatisticsFile emptyStatsFile = new GenericStatisticsFile(snapshotId, statsPath, writer.fileSize(), writer.footerSize(), ImmutableList.of());
+            icebergTable.updateStatistics()
+                    .setStatistics(emptyStatsFile)
+                    .commit();
+        }
+        icebergTable.refresh();
+
+        List<StatisticsFile> statisticsFiles = icebergTable.statisticsFiles();
+        assertThat(statisticsFiles).hasSize(1);
+
+        // OPTIMIZE with an empty pre-existing statistics file — must not write a new statistics file
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+
+        icebergTable.refresh();
+        assertThat(icebergTable.statisticsFiles())
+                .hasSize(1)
+                .containsExactlyInAnyOrderElementsOf(statisticsFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testStatsAfterDeletingAllRows()
     {
         String tableName = "test_stats_after_deleting_all_rows_";
@@ -1196,5 +1288,10 @@ public class TestIcebergStatistics
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
+    }
+
+    private BaseTable loadIcebergTable(String tableName)
+    {
+        return loadTable(tableName, metastore, fileSystemFactory, "iceberg", "tpch");
     }
 }

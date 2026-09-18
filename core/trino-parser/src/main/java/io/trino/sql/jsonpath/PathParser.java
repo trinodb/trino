@@ -19,16 +19,19 @@ import io.trino.grammar.jsonpath.JsonPathParser;
 import io.trino.sql.jsonpath.tree.PathNode;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.tree.NodeLocation;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -95,20 +98,20 @@ public final class PathParser
             lexer.addErrorListener(errorListener);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(errorListener);
 
             ParserRuleContext tree;
             try {
                 // first, try parsing with potentially faster SLL mode
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                parser.setErrorHandler(new BailErrorStrategy());
                 tree = parser.path();
             }
-            catch (ParsingException ex) {
+            catch (ParseCancellationException e) {
                 // if we fail, parse with LL mode
-                tokenStream.seek(0); // rewind input stream
                 parser.reset();
-
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                parser.setErrorHandler(new DefaultErrorStrategy());
+                parser.addErrorListener(errorListener);
                 tree = parser.path();
             }
 

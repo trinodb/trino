@@ -27,7 +27,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.Assignments.Assignment;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -86,7 +86,7 @@ public class UnwrapSingleColumnRowInApply
 
         boolean applied = false;
         ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> applyAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
+        for (Entry<Symbol, ApplyNode.SetExpression> assignment : node.getSubqueryAssignments().entrySet()) {
             Symbol output = assignment.getKey();
             ApplyNode.SetExpression expression = assignment.getValue();
 
@@ -110,9 +110,9 @@ public class UnwrapSingleColumnRowInApply
                 applied = true;
 
                 Unwrapping unwrapping = unwrapped.get();
-                inputAssignments.add(unwrapping.getInputAssignment());
-                nestedPlanAssignments.add(unwrapping.getNestedPlanAssignment());
-                applyAssignments.put(output, unwrapping.getExpression());
+                inputAssignments.add(unwrapping.inputAssignment());
+                nestedPlanAssignments.add(unwrapping.nestedPlanAssignment());
+                applyAssignments.put(output, unwrapping.expression());
             }
             else {
                 applyAssignments.put(assignment);
@@ -141,7 +141,7 @@ public class UnwrapSingleColumnRowInApply
         Type type = value.type();
         if (type instanceof RowType rowType) {
             if (rowType.getFields().size() == 1) {
-                Type elementType = rowType.getTypeParameters().get(0);
+                Type elementType = rowType.getFields().getFirst().getType();
 
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);
@@ -157,32 +157,13 @@ public class UnwrapSingleColumnRowInApply
         return Optional.empty();
     }
 
-    private static class Unwrapping
+    private record Unwrapping(ApplyNode.SetExpression expression, Assignment inputAssignment, Assignment nestedPlanAssignment)
     {
-        private final ApplyNode.SetExpression expression;
-        private final Assignment inputAssignment;
-        private final Assignment nestedPlanAssignment;
-
-        public Unwrapping(ApplyNode.SetExpression expression, Assignment inputAssignment, Assignment nestedPlanAssignment)
+        private Unwrapping
         {
-            this.expression = requireNonNull(expression, "expression is null");
-            this.inputAssignment = requireNonNull(inputAssignment, "inputAssignment is null");
-            this.nestedPlanAssignment = requireNonNull(nestedPlanAssignment, "nestedPlanAssignment is null");
-        }
-
-        public ApplyNode.SetExpression getExpression()
-        {
-            return expression;
-        }
-
-        public Assignment getInputAssignment()
-        {
-            return inputAssignment;
-        }
-
-        public Assignment getNestedPlanAssignment()
-        {
-            return nestedPlanAssignment;
+            requireNonNull(expression, "expression is null");
+            requireNonNull(inputAssignment, "inputAssignment is null");
+            requireNonNull(nestedPlanAssignment, "nestedPlanAssignment is null");
         }
     }
 }

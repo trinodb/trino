@@ -69,7 +69,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -96,7 +96,7 @@ public class TestAddColumnTask
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("test", BIGINT));
 
-        getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("new_col"), INTEGER, Optional.empty(), new io.trino.sql.tree.ColumnPosition.Last(), false, false));
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("new_col"), INTEGER, Optional.empty(), new ColumnPosition.Last(), false, false));
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("test", BIGINT), new ColumnMetadata("new_col", INTEGER));
     }
@@ -454,7 +454,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "x", "c"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageContaining("Field 'x' does not exist within row(a row(b integer))");
+                .hasMessageContaining("Field 'x' does not exist within row(\"a\" row(\"b\" integer))");
     }
 
     @Test
@@ -505,7 +505,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "c"), INTEGER, false, false)))
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Unsupported type: map(row(key integer), row(key integer))");
+                .hasMessage("Unsupported type: map(row(\"key\" integer), row(\"key\" integer))");
     }
 
     @Test
@@ -546,7 +546,7 @@ public class TestAddColumnTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "z"), INTEGER, false, false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessageContaining("Field path [a, z] within row(a row(x integer), A row(y integer)) is ambiguous");
+                .hasMessageContaining("Field path [a, z] within row(\"a\" row(\"x\" integer), \"A\" row(\"y\" integer)) is ambiguous");
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("col", rowType(
                         new RowType.Field(Optional.of("a"), rowType(new RowType.Field(Optional.of("x"), INTEGER))),

@@ -36,6 +36,7 @@ public class TestDeltaLakeTableStatistics
     {
         return DeltaLakeQueryRunner.builder()
                 .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .build();
     }
 
@@ -187,22 +188,24 @@ public class TestDeltaLakeTableStatistics
         try (TestTable table = newTrinoTable("show_stats_after_replace_table_", "AS SELECT 1 a, 2 b")) {
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('a', null, 1e0, 0e0, NULL, '1', '1'),
-                        ('b', null, 1e0, 0e0, NULL, '2', '2'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('a', null, 1e0, 0e0, NULL, '1', '1'),
+                            ('b', null, 1e0, 0e0, NULL, '2', '2'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 x, 4 y", 1);
             assertThat(query("SHOW STATS FOR " + table.getName()))
                     .skippingTypesCheck()
-                    .matches("""
-                        VALUES
-                        ('x', null, 1e0, 0e0, NULL, '3', '3'),
-                        ('y', null, 1e0, 0e0, NULL, '4', '4'),
-                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
-                        """);
+                    .matches(
+                            """
+                            VALUES
+                            ('x', null, 1e0, 0e0, NULL, '3', '3'),
+                            ('y', null, 1e0, 0e0, NULL, '4', '4'),
+                            (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                            """);
         }
     }
 }

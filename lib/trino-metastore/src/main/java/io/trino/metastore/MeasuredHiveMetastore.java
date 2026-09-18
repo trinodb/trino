@@ -32,6 +32,7 @@ import io.trino.spi.security.RoleGrant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -63,7 +64,7 @@ public class MeasuredHiveMetastore
     {
         ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.builder();
         allApiCallsStats.storeTo(metrics, "metastore.all");
-        for (Map.Entry<String, MetastoreApiCallStats> callStats : apiCallStats.entrySet()) {
+        for (Entry<String, MetastoreApiCallStats> callStats : apiCallStats.entrySet()) {
             callStats.getValue().storeTo(metrics, "metastore.%s".formatted(callStats.getKey()));
         }
         return new Metrics(metrics.buildOrThrow());

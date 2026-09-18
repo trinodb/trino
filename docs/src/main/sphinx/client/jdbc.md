@@ -55,7 +55,8 @@ may need to manually register and configure the driver.
 ## Registering and configuring the driver
 
 Drivers are commonly loaded automatically by applications once they are added to
-its classpath. If your application does not, such as is the case for some
+the application classpath. If your application does not, such as is the case
+for some
 GUI-based SQL editors, read this section. The steps to register the JDBC driver
 in a UI or on the command line depend upon the specific application you are
 using. Please check your application's documentation.
@@ -249,10 +250,12 @@ may not be specified using both methods.
   - Allows the sharing of external authentication tokens between different
     connections for the same authenticated user until the cache is invalidated,
     such as when a client is restarted or when the classloader reloads the JDBC
-    driver. This is disabled by default, with a value of `NONE`. To enable, set
-    the value to `MEMORY`. If the JDBC driver is used in a shared mode by
-    different users, the first registered token is stored and authenticates all
-    users.
+    driver. This is disabled by default, with a value of `NONE`. Set the value
+    to `MEMORY` to cache the token in memory within the same process. Set the
+    value to `SYSTEM` to persist the token to the filesystem (`~/.trino/`),
+    allowing it to be reused across separate CLI or JDBC processes. If the JDBC
+    driver is used in a shared mode by different users, the first registered
+    token is stored and authenticates all users.
 * - `disableCompression`
   -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`

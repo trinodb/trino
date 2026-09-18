@@ -31,7 +31,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import java.lang.reflect.AnnotatedElement;
 import java.net.URL;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static io.specto.hoverfly.junit.core.HoverflyConstants.DEFAULT_HOVERFLY_EXPORT_PATH;
 import static io.specto.hoverfly.junit.core.HoverflyConstants.DEFAULT_HOVERFLY_RESOURCE_DIR;
@@ -43,7 +42,11 @@ import static io.specto.hoverfly.junit5.HoverflyExtensionUtils.getHoverflyConfig
  * separate simulation files for each test method.
  */
 public class TrinoHoverflyExtension
-        implements AfterEachCallback, BeforeEachCallback, AfterAllCallback, BeforeAllCallback, ParameterResolver
+        implements AfterAllCallback,
+                   AfterEachCallback,
+                   BeforeAllCallback,
+                   BeforeEachCallback,
+                   ParameterResolver
 {
     private Hoverfly hoverfly;
     private HoverflyMode mode;
@@ -92,7 +95,7 @@ public class TrinoHoverflyExtension
                 URL url = context.getRequiredTestClass().getClassLoader().getResource(name);
                 source = (url != null) ? SimulationSource.url(url) : SimulationSource.empty();
             }
-            case CAPTURE -> capturePath = Paths.get(DEFAULT_HOVERFLY_EXPORT_PATH).resolve(testName);
+            case CAPTURE -> capturePath = Path.of(DEFAULT_HOVERFLY_EXPORT_PATH).resolve(testName);
             default -> throw new AssertionError("Unexpected value: " + mode);
         }
 

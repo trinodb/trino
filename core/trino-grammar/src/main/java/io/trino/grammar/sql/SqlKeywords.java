@@ -28,6 +28,20 @@ public final class SqlKeywords
 
     private SqlKeywords() {}
 
+    /**
+     * Whether the token type denotes a keyword: a token whose literal name in the
+     * vocabulary is a quoted bare word ('SELECT'), unlike operator literals ('=')
+     * and tokens defined by patterns, which have no literal name.
+     */
+    public static boolean isKeyword(int tokenType)
+    {
+        if (tokenType < 0) {
+            return false;
+        }
+        String name = nullToEmpty(SqlBaseLexer.VOCABULARY.getLiteralName(tokenType));
+        return IDENTIFIER.matcher(name).matches();
+    }
+
     public static Set<String> sqlKeywords()
     {
         ImmutableSet.Builder<String> names = ImmutableSet.builder();

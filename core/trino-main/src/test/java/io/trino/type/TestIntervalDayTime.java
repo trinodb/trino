@@ -26,7 +26,9 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -37,6 +39,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.util.DateTimeUtils.formatDayTimeInterval;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -87,6 +90,20 @@ public class TestIntervalDayTime
 
         assertThat(assertions.operator(ADD, "INTERVAL '3' SECOND", "INTERVAL '6' DAY"))
                 .matches("INTERVAL '6 00:00:03.000' DAY TO SECOND");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' SECOND * 5000000000000000",
+                "INTERVAL '1' SECOND * 5000000000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second addition overflow: 5000000000000000000 + 5000000000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' SECOND * (-5000000000000000)",
+                "INTERVAL '1' SECOND * (-5000000000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second addition overflow: -5000000000000000000 + -5000000000000000000");
     }
 
     @Test
@@ -100,6 +117,20 @@ public class TestIntervalDayTime
 
         assertThat(assertions.operator(SUBTRACT, "INTERVAL '3' SECOND", "INTERVAL '6' DAY"))
                 .matches("INTERVAL '-5 23:59:57.000' DAY TO SECOND");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' SECOND * (-5000000000000000)",
+                "INTERVAL '1' SECOND * 5000000000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second subtraction overflow: -5000000000000000000 - 5000000000000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' SECOND * 5000000000000000",
+                "INTERVAL '1' SECOND * (-5000000000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second subtraction overflow: 5000000000000000000 - -5000000000000000000");
     }
 
     @Test
@@ -134,6 +165,14 @@ public class TestIntervalDayTime
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' DAY")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "INTERVAL '1' SECOND", "9223372036854775807")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second multiplication overflow: 1000 * 9223372036854775807");
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "9223372036854775807", "INTERVAL '1' SECOND")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second multiplication overflow: 9223372036854775807 * 1000");
     }
 
     @Test
@@ -172,6 +211,12 @@ public class TestIntervalDayTime
 
         assertThat(assertions.operator(NEGATION, "INTERVAL '6' DAY"))
                 .matches("INTERVAL '-6' DAY");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                NEGATION,
+                "INTERVAL '1' SECOND * (-9223372036854775) - INTERVAL '0.808' SECOND")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval day to second negation overflow: -9223372036854775808");
     }
 
     @Test
@@ -519,6 +564,16 @@ public class TestIntervalDayTime
                 .binding("a", "INTERVAL '32' SECOND"))
                 .hasType(VARCHAR)
                 .isEqualTo("0 00:00:32.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar(14))")
+                .binding("a", "INTERVAL '32' SECOND"))
+                .hasType(createVarcharType(14))
+                .isEqualTo("0 00:00:32.000");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS varchar(13))")
+                .binding("a", "INTERVAL '32' SECOND")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '0 00:00:32.000' to varchar(13)");
     }
 
     @Test

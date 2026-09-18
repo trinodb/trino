@@ -20,6 +20,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -28,7 +29,6 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
@@ -53,7 +53,7 @@ public final class IcebergParquetFileWriter
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
             TrinoOutputFile outputFile,
-            Closeable rollbackAction,
+            RollbackAction rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
             MessageType messageType,
@@ -113,7 +113,7 @@ public final class IcebergParquetFileWriter
     }
 
     @Override
-    public Closeable commit()
+    public RollbackAction commit()
     {
         return parquetFileWriter.commit();
     }

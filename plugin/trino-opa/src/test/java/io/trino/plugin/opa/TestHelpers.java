@@ -63,7 +63,7 @@ public final class TestHelpers
             Class<? extends OpaQueryException> expectedException,
             String expectedErrorMessage)
     {
-        assertAccessControlMethodThrowsForResponseHandler(request -> response, expectedUri, opaConfig, methodToTest, expectedException, expectedErrorMessage);
+        assertAccessControlMethodThrowsForResponseHandler(_ -> response, expectedUri, opaConfig, methodToTest, expectedException, expectedErrorMessage);
     }
 
     public static void assertAccessControlMethodThrowsForResponseHandler(
@@ -92,6 +92,7 @@ public final class TestHelpers
         config.getOpaRowFiltersUri().ifPresent(rowFiltersUri -> configBuilder.put("opa.policy.row-filters-uri", rowFiltersUri.toString()));
         config.getOpaColumnMaskingUri().ifPresent(columnMaskingUri -> configBuilder.put("opa.policy.column-masking-uri", columnMaskingUri.toString()));
         config.getOpaBatchColumnMaskingUri().ifPresent(batchColumnMaskingUri -> configBuilder.put("opa.policy.batch-column-masking-uri", batchColumnMaskingUri.toString()));
+        config.getAdditionalContextFile().ifPresent(additionalContextFile -> configBuilder.put("opa.context-file", additionalContextFile.toString()));
         return configBuilder.buildOrThrow();
     }
 

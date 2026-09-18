@@ -62,8 +62,7 @@ public class AddFileEntry
             @JsonProperty("tags") @Nullable Map<String, String> tags,
             @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector)
     {
-        this(
-                path,
+        this(path,
                 partitionValues,
                 canonicalizePartitionValues(partitionValues),
                 size,
@@ -192,8 +191,15 @@ public class AddFileEntry
     @Override
     public String toString()
     {
-        return format("AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}",
-                path, partitionValues, size, modificationTime, dataChange, parsedStats, tags);
+        return format(
+                "AddFileEntry{path=%s, partitionValues=%s, size=%d, modificationTime=%d, dataChange=%b, parsedStats=%s, tags=%s}",
+                path,
+                partitionValues,
+                size,
+                modificationTime,
+                dataChange,
+                parsedStats,
+                tags);
     }
 
     @Override

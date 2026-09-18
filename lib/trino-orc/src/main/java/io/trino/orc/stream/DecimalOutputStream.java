@@ -63,16 +63,16 @@ public class DecimalOutputStream
         }
         int length = value.bitLength();
         while (true) {
-            long lowBits = value.longValue() & 0x7fff_ffff_ffff_ffffL;
+            long lowBits = value.longValue() & 0x7FFF_FFFF_FFFF_FFFFL;
             length -= 63;
             // write out the next 63 bits worth of data
             for (int i = 0; i < 9; ++i) {
                 // if this is the last byte, leave the high bit off
-                if (length <= 0 && (lowBits & ~0x7f) == 0) {
+                if (length <= 0 && (lowBits & ~0x7F) == 0) {
                     buffer.write((byte) lowBits);
                     return;
                 }
-                buffer.write((byte) (0x80 | (lowBits & 0x7f)));
+                buffer.write((byte) (0x80 | (lowBits & 0x7F)));
                 lowBits >>>= 7;
             }
             value = value.shiftRight(63);

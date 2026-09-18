@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.CommentCharacteristic;
-import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonPredicate;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateFunction;
@@ -35,6 +35,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.ParameterDeclaration;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -310,24 +311,24 @@ class TestSqlParserRoutines
         return new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT, left, right);
     }
 
-    private static ComparisonExpression lt(String name, Expression expression)
+    private static Predicated lt(String name, Expression expression)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, identifier(name), expression);
+        return new Predicated(null, identifier(name), new ComparisonPredicate(null, ComparisonPredicate.Operator.LESS_THAN, expression));
     }
 
-    private static ComparisonExpression lte(String name, Expression expression)
+    private static Predicated lte(String name, Expression expression)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, identifier(name), expression);
+        return new Predicated(null, identifier(name), new ComparisonPredicate(null, ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL, expression));
     }
 
-    private static ComparisonExpression gt(String name, Expression expression)
+    private static Predicated gt(String name, Expression expression)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, identifier(name), expression);
+        return new Predicated(null, identifier(name), new ComparisonPredicate(null, ComparisonPredicate.Operator.GREATER_THAN, expression));
     }
 
-    private static ComparisonExpression gte(String name, Expression expression)
+    private static Predicated gte(String name, Expression expression)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, identifier(name), expression);
+        return new Predicated(null, identifier(name), new ComparisonPredicate(null, ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL, expression));
     }
 
     private static StringLiteral literal(String literal)

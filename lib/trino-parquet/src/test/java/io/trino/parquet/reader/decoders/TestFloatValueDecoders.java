@@ -15,6 +15,7 @@ package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.OptionalInt;
@@ -22,7 +23,6 @@ import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.RealType.REAL;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;

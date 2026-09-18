@@ -18,6 +18,9 @@ import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
+import io.trino.spi.block.Bitmap;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -60,6 +63,45 @@ public class PresentOutputStream
             booleanOutputStream.writeBoolean(value);
         }
         currentGroupCount++;
+    }
+
+    public int writeBlock(Block block)
+    {
+        if (block instanceof ValueBlock valueBlock) {
+            int positionCount = valueBlock.getPositionCount();
+            Optional<Bitmap> validity = valueBlock.getValidityBitmap();
+            if (validity.isEmpty()) {
+                if (booleanOutputStream != null) {
+                    booleanOutputStream.writeBooleans(positionCount, true);
+                }
+                currentGroupCount += positionCount;
+                return positionCount;
+            }
+
+            Bitmap bitmap = validity.orElseThrow();
+            int nonNullCount = 0;
+            for (int position = 0; position < positionCount; position += Long.SIZE) {
+                nonNullCount += Long.bitCount(Bitmap.getBits(bitmap.getRawWords(), bitmap.getRawBitOffset(), position, Math.min(Long.SIZE, positionCount - position)));
+            }
+            if (nonNullCount < positionCount && booleanOutputStream == null) {
+                createBooleanOutputStream();
+            }
+            if (booleanOutputStream != null) {
+                booleanOutputStream.writeBits(bitmap.getRawWords(), bitmap.getRawBitOffset(), positionCount);
+            }
+            currentGroupCount += positionCount;
+            return nonNullCount;
+        }
+
+        int nonNullCount = 0;
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            boolean present = !block.isNull(position);
+            writeBoolean(present);
+            if (present) {
+                nonNullCount++;
+            }
+        }
+        return nonNullCount;
     }
 
     private void createBooleanOutputStream()

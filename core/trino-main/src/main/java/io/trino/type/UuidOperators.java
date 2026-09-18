@@ -16,18 +16,21 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.util.UUID;
+
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -35,21 +38,22 @@ public final class UuidOperators
     private UuidOperators() {}
 
     @Description("Generates a random UUID")
-    @ScalarFunction(deterministic = false)
+    @ScalarFunction(deterministic = false, neverFails = true)
     @SqlType(StandardTypes.UUID)
     public static Slice uuid()
     {
-        java.util.UUID uuid = randomUUID();
+        UUID uuid = randomUUID();
         return javaUuidToTrinoUuid(uuid);
     }
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.UUID)
     public static Slice castFromVarcharToUuid(@SqlType("varchar(x)") Slice slice)
     {
         try {
-            java.util.UUID uuid = java.util.UUID.fromString(slice.toStringUtf8());
+            UUID uuid = UUID.fromString(slice.toStringUtf8());
             if (slice.length() == 36) {
                 return javaUuidToTrinoUuid(uuid);
             }
@@ -60,13 +64,21 @@ public final class UuidOperators
         }
     }
 
+    // fallible
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice castFromUuidToVarchar(@SqlType(StandardTypes.UUID) Slice slice)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice castFromUuidToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.UUID) Slice slice)
     {
-        return utf8Slice(trinoUuidToJavaUuid(slice).toString());
+        Slice varchar = utf8Slice(trinoUuidToJavaUuid(slice).toString());
+        // varchar is all-ASCII, so varchar.length() here returns actual code points count
+        if (varchar.length() <= x) {
+            return varchar;
+        }
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to varchar(%s)", varchar.toStringUtf8(), x));
     }
 
+    // fallible
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.UUID)
     public static Slice castFromVarbinaryToUuid(@SqlType("varbinary") Slice slice)
@@ -77,10 +89,10 @@ public final class UuidOperators
         throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID binary length: " + slice.length());
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castFromUuidToVarbinary(@SqlType(StandardTypes.UUID) Slice slice)
     {
-        return wrappedBuffer(slice.getBytes());
+        return slice;
     }
 }

@@ -24,14 +24,16 @@ import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.iceberg.IcebergSplitManager;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,9 +59,9 @@ public class LakehouseSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, DynamicFilter dynamicFilter, Constraint constraint)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, Set<ColumnHandle> dynamicFilterColumns, Constraint constraint)
     {
-        return forHandle(table).getSplits(transaction, session, table, dynamicFilter, constraint);
+        return forHandle(table).getSplits(transaction, session, table, dynamicFilterColumns, constraint);
     }
 
     @Override

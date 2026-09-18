@@ -33,7 +33,8 @@ public final class KafkaSessionProperties
         sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
                 TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
                 "Enable or disable timestamp upper bound push down for topic createTime mode",
-                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+                kafkaConfig.isTimestampUpperBoundPushDownEnabled(),
+                false));
     }
 
     @Override

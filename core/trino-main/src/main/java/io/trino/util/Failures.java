@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
@@ -42,6 +41,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class Failures
 {
@@ -79,7 +79,7 @@ public final class Failures
 
     /**
      * @deprecated This overload can result in performance issues due to the varargs array creation and primitive boxing, consider adding an overload that
-     * matches the specific argument types you're passing instead of using this method.
+     *         matches the specific argument types you're passing instead of using this method.
      */
     @Deprecated
     @FormatMethod
@@ -183,11 +183,11 @@ public final class Failures
         String type;
         HostAddress remoteHost = null;
         if (throwable instanceof Failure failure) {
-            type = failure.getFailureInfo().getType();
+            type = failure.getFailureInfo().type();
         }
         else {
             Class<?> clazz = throwable.getClass();
-            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+            type = requireNonNullElse(clazz.getCanonicalName(), clazz.getName());
         }
         if (throwable instanceof TrinoTransportException trinoTransportException) {
             remoteHost = trinoTransportException.getRemoteHost();
@@ -213,7 +213,7 @@ public final class Failures
                 errorCode = GENERIC_INTERNAL_ERROR.toErrorCode();
             }
             else {
-                errorCode = cause.getErrorCode();
+                errorCode = cause.errorCode();
             }
         }
 
@@ -241,7 +241,7 @@ public final class Failures
         }
         if (throwable instanceof TrinoException trinoException) {
             return trinoException.getLocation()
-                    .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
+                    .map(location -> new ErrorLocation(location.lineNumber(), location.columnNumber()))
                     .orElse(null);
         }
         return null;
@@ -252,7 +252,7 @@ public final class Failures
     {
         return switch (requireNonNull(throwable)) {
             case TrinoException trinoException -> trinoException.getErrorCode();
-            case Failure failure -> failure.getFailureInfo().getErrorCode();
+            case Failure failure -> failure.getFailureInfo().errorCode();
             case ParsingException _ -> SYNTAX_ERROR.toErrorCode();
             default -> null;
         };

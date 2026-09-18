@@ -140,9 +140,7 @@ class RangerTrinoResource
         return ret;
     }
 
-    private RangerTrinoResource()
-    {
-    }
+    private RangerTrinoResource() {}
 
     public RangerTrinoResource(String key, String value)
     {

@@ -25,6 +25,7 @@ import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -35,7 +36,6 @@ import java.util.stream.LongStream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -88,11 +88,11 @@ public final class DynamicFiltersTestUtil
         dynamicFilter.update(tupleDomain);
         Map<ColumnHandle, Type> types = tupleDomain.getDomains().orElse(ImmutableMap.of())
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().getType()));
         int index = 0;
         ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Integer> layout = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Integer> entry : channels.entrySet()) {
+        for (Entry<ColumnHandle, Integer> entry : channels.entrySet()) {
             ColumnHandle column = entry.getKey();
             Symbol symbol = new Symbol(types.get(column), "col" + index++);
             columns.put(symbol, column);
@@ -104,8 +104,9 @@ public final class DynamicFiltersTestUtil
                 testSessionBuilder().build(),
                 columns.buildOrThrow(),
                 layout.buildOrThrow(),
-                selectivityThreshold)
-                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(createTestingFunctionManager(), 0), dynamicFilter)
+                selectivityThreshold,
+                true)
+                .createDynamicPageFilterEvaluator(new ColumnarFilterCompiler(PLANNER_CONTEXT, 0), dynamicFilter)
                 .get();
     }
 

@@ -32,7 +32,9 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -94,7 +96,8 @@ import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
+import static io.trino.spi.block.Bitmap.allocateWords;
+import static io.trino.spi.block.Bitmap.clear;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -120,7 +123,7 @@ public class BenchmarkPartitionedOutputOperator
     {
         PartitionedOutputOperator operator = data.createPartitionedOutputOperator();
         for (int i = 0; i < data.getPageCount(); i++) {
-            operator.addInput(data.getDataPage());
+            operator.addInput(data.getDataPage(i));
         }
         operator.finish();
     }
@@ -153,83 +156,22 @@ public class BenchmarkPartitionedOutputOperator
         @Param("8192")
         private int positionCount = DEFAULT_POSITION_COUNT;
 
-        @Param({
-                // Flat BIGINT data channel, flat BIGINT partition channel.
-                "BIGINT",
-                // Flat BIGINT data channel, flat BIGINT partition channel with only 2 values.
-                "BIGINT_PARTITION_CHANNEL_SKEWED",
-                // Dictionary BIGINT data channel, flat BIGINT partition channel.
-                "DICTIONARY_BIGINT",
-                // Rle BIGINT data channel, flat BIGINT partition channel.
-                "RLE_BIGINT",
-                // Flat BIGINT data channel, flat BIGINT partition channel with number of distinct values equal to 20% of data page size.
-                "BIGINT_PARTITION_CHANNEL_20_PERCENT",
-                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 20% of data page size.
-                // To be compared with BIGINT_PARTITION_CHANNEL_20_PERCENT.
-                "BIGINT_PARTITION_CHANNEL_DICTIONARY_20_PERCENT",
-                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 50% of data page size.
-                "BIGINT_PARTITION_CHANNEL_DICTIONARY_50_PERCENT",
-                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 80% of data page size.
-                "BIGINT_PARTITION_CHANNEL_DICTIONARY_80_PERCENT",
-                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size.
-                "BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT",
-                // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size - 1.
-                // To be compared with BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT.
-                "BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT_MINUS_1",
-                // Flat BIGINT data channel, rle BIGINT partition channel with not null value.
-                "BIGINT_PARTITION_CHANNEL_RLE",
-                // Flat BIGINT data channel, rle BIGINT partition channel with null value.
-                "BIGINT_PARTITION_CHANNEL_RLE_NULL",
-                // Flat LONG_DECIMAL data channel, flat BIGINT partition channel.
-                "LONG_DECIMAL",
-                // Dictionary LONG_DECIMAL data channel, flat BIGINT partition channel.
-                "DICTIONARY_LONG_DECIMAL",
-                // Flat INTEGER data channel, flat BIGINT partition channel.
-                "INTEGER",
-                // Dictionary INTEGER data channel, flat BIGINT partition channel.
-                "DICTIONARY_INTEGER",
-                // Flat SMALLINT data channel, flat BIGINT partition channel.
-                "SMALLINT",
-                // Dictionary SMALLINT data channel, flat BIGINT partition channel.
-                "DICTIONARY_SMALLINT",
-                // Flat BOOLEAN data channel, flat BIGINT partition channel.
-                "BOOLEAN",
-                // Dictionary BOOLEAN data channel, flat BIGINT partition channel.
-                "DICTIONARY_BOOLEAN",
-                // Flat VARCHAR data channel, flat BIGINT partition channel.
-                "VARCHAR",
-                // Dictionary VARCHAR data channel, flat BIGINT partition channel.
-                "DICTIONARY_VARCHAR",
-                // Flat array of BIGINT data channel, flat BIGINT partition channel.
-                "ARRAY_BIGINT",
-                // Flat array of VARCHAR data channel, flat BIGINT partition channel.
-                "ARRAY_VARCHAR",
-                // Flat array of array of BIGINT data channel, flat BIGINT partition channel.
-                "ARRAY_ARRAY_BIGINT",
-                // Flat map<BIGINT, BIGINT> data channel, flat BIGINT partition channel.
-                "MAP_BIGINT_BIGINT",
-                // Flat map<BIGINT map<BIGINT, BIGINT>> data channel, flat BIGINT partition channel.
-                "MAP_BIGINT_MAP_BIGINT_BIGINT",
-                // Flat RowType with two BIGINT fields data channel, flat BIGINT partition channel.
-                "ROW_BIGINT_BIGINT",
-                // Flat RowType with BIGINT and array of BIGINT fields data channel, flat BIGINT partition channel.
-                "ROW_ARRAY_BIGINT_ARRAY_BIGINT",
-                // Flat RowType with rle BIGINT and flat BIGINT fields data channel, flat BIGINT partition channel.
-                "ROW_RLE_BIGINT_BIGINT",
-        })
+        @Param
         private TestType type = TestType.BIGINT;
 
         @Param({"0", "0.2"})
-        private float nullRate = 0.2F;
+        private float nullRate = 0.2f;
 
         private List<Type> types;
         private int pageCount;
-        private Page dataPage;
+        private List<Page> dataPages;
         private Blackhole blackhole;
 
         public enum TestType
         {
+            // Flat BIGINT data channel, flat BIGINT partition channel.
             BIGINT(BigintType.BIGINT, 5000),
+            // Flat BIGINT data channel, flat BIGINT partition channel with only 2 values.
             BIGINT_PARTITION_CHANNEL_SKEWED(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
@@ -237,8 +179,11 @@ public class BenchmarkPartitionedOutputOperator
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
                         createRandomLongsBlock(positionCount, 2));
             }),
+            // Dictionary BIGINT data channel, flat BIGINT partition channel.
             DICTIONARY_BIGINT(BigintType.BIGINT, 5000, PageTestUtils::createRandomDictionaryPage),
+            // Rle BIGINT data channel, flat BIGINT partition channel.
             RLE_BIGINT(BigintType.BIGINT, 3000, PageTestUtils::createRandomRlePage),
+            // Flat BIGINT data channel, flat BIGINT partition channel with number of distinct values equal to 20% of data page size.
             BIGINT_PARTITION_CHANNEL_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
@@ -248,16 +193,24 @@ public class BenchmarkPartitionedOutputOperator
                                 .mapToObj(value -> value % (positionCount / 5))
                                 .collect(toImmutableList())));
             }),
+            // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 20% of data page size.
+            // To be compared with BIGINT_PARTITION_CHANNEL_20_PERCENT.
             BIGINT_PARTITION_CHANNEL_DICTIONARY_20_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
                     createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 5)),
+            // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 50% of data page size.
             BIGINT_PARTITION_CHANNEL_DICTIONARY_50_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
                     createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount / 2)),
+            // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to 80% of data page size.
             BIGINT_PARTITION_CHANNEL_DICTIONARY_80_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
                     createDictionaryPartitionChannelPage(types, positionCount, nullRate, (int) (positionCount * 0.8))),
+            // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size.
             BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
                     createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount)),
+            // Flat BIGINT data channel, dictionary BIGINT partition channel with dictionary size equal to data page size - 1.
+            // To be compared with BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT.
             BIGINT_PARTITION_CHANNEL_DICTIONARY_100_PERCENT_MINUS_1(BigintType.BIGINT, 3000, (types, positionCount, nullRate) ->
                     createDictionaryPartitionChannelPage(types, positionCount, nullRate, positionCount - 1)),
+            // Flat BIGINT data channel, rle BIGINT partition channel with not null value.
             BIGINT_PARTITION_CHANNEL_RLE(BigintType.BIGINT, 5000, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
@@ -265,6 +218,7 @@ public class BenchmarkPartitionedOutputOperator
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
                         createRepeatedValuesBlock(42, positionCount));
             }),
+            // Flat BIGINT data channel, rle BIGINT partition channel with null value.
             BIGINT_PARTITION_CHANNEL_RLE_NULL(BigintType.BIGINT, 20, (types, positionCount, nullRate) -> {
                 return page(
                         positionCount,
@@ -272,51 +226,73 @@ public class BenchmarkPartitionedOutputOperator
                         () -> createRandomBlockForType(BigintType.BIGINT, positionCount, nullRate),
                         RunLengthEncodedBlock.create(createLongsBlock((Long) null), positionCount));
             }),
+            // Flat LONG_DECIMAL data channel, flat BIGINT partition channel.
             LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000),
+            // Dictionary LONG_DECIMAL data channel, flat BIGINT partition channel.
             DICTIONARY_LONG_DECIMAL(createDecimalType(MAX_SHORT_PRECISION + 1), 5000, PageTestUtils::createRandomDictionaryPage),
+            // Flat INTEGER data channel, flat BIGINT partition channel.
             INTEGER(IntegerType.INTEGER, 5000),
+            // Dictionary INTEGER data channel, flat BIGINT partition channel.
             DICTIONARY_INTEGER(IntegerType.INTEGER, 5000, PageTestUtils::createRandomDictionaryPage),
+            // Flat SMALLINT data channel, flat BIGINT partition channel.
             SMALLINT(SmallintType.SMALLINT, 5000),
+            // Dictionary SMALLINT data channel, flat BIGINT partition channel.
             DICTIONARY_SMALLINT(SmallintType.SMALLINT, 5000, PageTestUtils::createRandomDictionaryPage),
+            // Flat BOOLEAN data channel, flat BIGINT partition channel.
             BOOLEAN(BooleanType.BOOLEAN, 5000),
+            // Dictionary BOOLEAN data channel, flat BIGINT partition channel.
             DICTIONARY_BOOLEAN(BooleanType.BOOLEAN, 5000, PageTestUtils::createRandomDictionaryPage),
+            // Flat VARCHAR data channel, flat BIGINT partition channel.
             VARCHAR(VarcharType.VARCHAR, 5000),
+            // Dictionary VARCHAR data channel, flat BIGINT partition channel.
             DICTIONARY_VARCHAR(VarcharType.VARCHAR, 5000, PageTestUtils::createRandomDictionaryPage),
+            // Flat array of BIGINT data channel, flat BIGINT partition channel.
             ARRAY_BIGINT(new ArrayType(BigintType.BIGINT), 1000),
+            // Flat array of VARCHAR data channel, flat BIGINT partition channel.
             ARRAY_VARCHAR(new ArrayType(VarcharType.VARCHAR), 1000),
+            // Dictionary array of VARCHAR data channel, flat BIGINT partition channel, input switches to a new dictionary 8 times.
+            DICTIONARY_ARRAY_VARCHAR_ROTATING(new ArrayType(VarcharType.VARCHAR), 1000, PageTestUtils::createRandomDictionaryPage, 8),
+            // Flat array of array of BIGINT data channel, flat BIGINT partition channel.
             ARRAY_ARRAY_BIGINT(new ArrayType(new ArrayType(BigintType.BIGINT)), 1000),
+            // Flat map<BIGINT, BIGINT> data channel, flat BIGINT partition channel.
             MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, BigintType.BIGINT), 1000),
+            // Flat map<BIGINT map<BIGINT, BIGINT>> data channel, flat BIGINT partition channel.
             MAP_BIGINT_MAP_BIGINT_BIGINT(createMapType(BigintType.BIGINT, createMapType(BigintType.BIGINT, BigintType.BIGINT)), 1000),
+            // Flat RowType with two BIGINT fields data channel, flat BIGINT partition channel.
             ROW_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000),
+            // Flat RowType with BIGINT and array of BIGINT fields data channel, flat BIGINT partition channel.
             ROW_ARRAY_BIGINT_ARRAY_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(new ArrayType(BigintType.BIGINT), new ArrayType(BigintType.BIGINT))), 1000),
+            // Flat RowType with rle BIGINT and flat BIGINT fields data channel, flat BIGINT partition channel.
             ROW_RLE_BIGINT_BIGINT(rowTypeWithDefaultFieldNames(ImmutableList.of(BigintType.BIGINT, BigintType.BIGINT)), 1000, (types, positionCount, nullRate) -> {
                 return PageTestUtils.createPage(
                         types,
                         positionCount,
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
-                                .map(type -> {
-                                    boolean[] isNull = null;
+                                .map(_ -> {
+                                    long[] valueIsValid = null;
                                     if (nullRate > 0) {
-                                        isNull = new boolean[positionCount];
+                                        valueIsValid = allocateWords(positionCount, true);
                                         Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
                                         for (int nullPosition : nullPositions) {
-                                            isNull[nullPosition] = true;
+                                            clear(valueIsValid, 0, nullPosition);
                                         }
                                     }
 
                                     return RowBlock.fromNotNullSuppressedFieldBlocks(
                                             positionCount,
-                                            Optional.ofNullable(isNull),
+                                            Optional.ofNullable(valueIsValid),
                                             new Block[] {
                                                     RunLengthEncodedBlock.create(createLongsBlock(-65128734213L), positionCount),
-                                                    createRandomLongsBlock(positionCount, nullRate)});
+                                                    createRandomLongsBlock(positionCount, nullRate),
+                                            });
                                 })
                                 .collect(toImmutableList()));
             });
 
             private final Type type;
             private final int pageCount;
+            private final int distinctPageCount;
 
             private final PageGenerator pageGenerator;
 
@@ -327,14 +303,25 @@ public class BenchmarkPartitionedOutputOperator
 
             TestType(Type type, int pageCount, PageGenerator pageGenerator)
             {
+                this(type, pageCount, pageGenerator, 1);
+            }
+
+            TestType(Type type, int pageCount, PageGenerator pageGenerator, int distinctPageCount)
+            {
                 this.type = requireNonNull(type, "type is null");
                 this.pageCount = pageCount;
+                this.distinctPageCount = distinctPageCount;
                 this.pageGenerator = requireNonNull(pageGenerator, "pageGenerator is null");
             }
 
             public PageGenerator getPageGenerator()
             {
                 return pageGenerator;
+            }
+
+            public int getDistinctPageCount()
+            {
+                return distinctPageCount;
             }
 
             public int getPageCount()
@@ -387,9 +374,10 @@ public class BenchmarkPartitionedOutputOperator
             this.type = requireNonNull(type, "type is null");
         }
 
-        public Page getDataPage()
+        public Page getDataPage(int index)
         {
-            return dataPage;
+            // each input page is used for a contiguous run of the benchmark iteration
+            return dataPages.get(index * dataPages.size() / pageCount);
         }
 
         @Setup
@@ -405,7 +393,9 @@ public class BenchmarkPartitionedOutputOperator
             // and in case of unit test it will be null
             this.blackhole = blackhole;
             types = type.getTypes(channelCount);
-            dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
+            dataPages = IntStream.range(0, type.getDistinctPageCount())
+                    .mapToObj(_ -> type.getPageGenerator().createPage(types, positionCount, nullRate))
+                    .collect(toImmutableList());
             pageCount = type.getPageCount();
             types = ImmutableList.<Type>builder()
                     .addAll(types)
@@ -475,11 +465,11 @@ public class BenchmarkPartitionedOutputOperator
         private TestingPartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)
         {
             return new TestingPartitionedOutputBuffer(
-                    "task-instance-id",
+                    0,
                     new OutputBufferStateMachine(new TaskId(new StageId(new QueryId("query"), 0), 0, 0), SCHEDULER),
                     buffers,
                     dataSize,
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    Lazy.from(() -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test")),
                     SCHEDULER,
                     blackhole);
         }
@@ -490,11 +480,11 @@ public class BenchmarkPartitionedOutputOperator
             private final Blackhole blackhole;
 
             public TestingPartitionedOutputBuffer(
-                    String taskInstanceId,
+                    long taskInstanceId,
                     OutputBufferStateMachine stateMachine,
                     PipelinedOutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> memoryContextSupplier,
+                    Lazy<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {

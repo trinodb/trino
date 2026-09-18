@@ -151,7 +151,8 @@ final class TestOpaResponseDecoding
                     "result": ["foo"],
                     "decision_id": "foobar"
                 }\
-                """, batchResponseCodec);
+                """,
+                batchResponseCodec);
     }
 
     @Test
@@ -240,7 +241,8 @@ final class TestOpaResponseDecoding
                 {
                     "result": ["foo"]
                 }\
-                """, rowFilteringResponseCodec);
+                """,
+                rowFilteringResponseCodec);
     }
 
     @Test
@@ -314,7 +316,8 @@ final class TestOpaResponseDecoding
                 {
                     "result": {"foo": "bar"}
                 }\
-                """, columnMaskingResponseCodec);
+                """,
+                columnMaskingResponseCodec);
     }
 
     private <T> void testIllegalResponseDecodingThrows(String rawResponse, JsonCodec<T> codec)

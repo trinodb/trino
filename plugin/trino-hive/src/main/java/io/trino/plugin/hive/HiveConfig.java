@@ -65,12 +65,16 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.s3select-pushdown.enabled",
         "hive.s3select-pushdown.experimental-textfile-pushdown-enabled",
         "hive.s3select-pushdown.max-connections",
+        "hive.write-validation-threads",
+        "hive.max-initial-splits",
+        "hive.max-initial-split-size",
 })
 public class HiveConfig
 {
     private boolean singleStatementWritesOnly;
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private DataSize parquetMaxSplitSize = DataSize.of(120, MEGABYTE);
     private int maxPartitionsPerScan = 1_000_000;
     private int maxPartitionsForEagerLoad = 100_000;
     private int maxOutstandingSplits = 3_000;
@@ -78,10 +82,8 @@ public class HiveConfig
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
-    private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 64;
     private Integer maxSplitsPerSecond;
-    private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 1000;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
@@ -94,7 +96,7 @@ public class HiveConfig
 
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
-    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
+    private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.PARQUET;
     private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
@@ -105,7 +107,6 @@ public class HiveConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
-    private int writeValidationThreads = 16;
     private boolean validateBucketing = true;
     private boolean parallelPartitionedBucketedWrites = true;
 
@@ -178,6 +179,7 @@ public class HiveConfig
     private S3GlacierFilter s3GlacierFilter = S3GlacierFilter.READ_ALL;
 
     private int metadataParallelism = 8;
+    private boolean metadataVirtualThreadsEnabled = true;
 
     private Path protobufDescriptorsLocation;
     private Duration protobufDescriptorsCacheRefreshInterval = new Duration(1, TimeUnit.DAYS);
@@ -193,33 +195,6 @@ public class HiveConfig
     public HiveConfig setSingleStatementWritesOnly(boolean singleStatementWritesOnly)
     {
         this.singleStatementWritesOnly = singleStatementWritesOnly;
-        return this;
-    }
-
-    public int getMaxInitialSplits()
-    {
-        return maxInitialSplits;
-    }
-
-    @Config("hive.max-initial-splits")
-    public HiveConfig setMaxInitialSplits(int maxInitialSplits)
-    {
-        this.maxInitialSplits = maxInitialSplits;
-        return this;
-    }
-
-    public DataSize getMaxInitialSplitSize()
-    {
-        if (maxInitialSplitSize == null) {
-            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
-        }
-        return maxInitialSplitSize;
-    }
-
-    @Config("hive.max-initial-split-size")
-    public HiveConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
-    {
-        this.maxInitialSplitSize = maxInitialSplitSize;
         return this;
     }
 
@@ -390,6 +365,20 @@ public class HiveConfig
     public HiveConfig setMaxSplitSize(DataSize maxSplitSize)
     {
         this.maxSplitSize = maxSplitSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getParquetMaxSplitSize()
+    {
+        return parquetMaxSplitSize;
+    }
+
+    @Config("hive.parquet.max-split-size")
+    @ConfigDescription("Largest size of a single file section assigned to a worker for Parquet files")
+    public HiveConfig setParquetMaxSplitSize(DataSize parquetMaxSplitSize)
+    {
+        this.parquetMaxSplitSize = parquetMaxSplitSize;
         return this;
     }
 
@@ -609,19 +598,6 @@ public class HiveConfig
     public HiveConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
-        return this;
-    }
-
-    public int getWriteValidationThreads()
-    {
-        return writeValidationThreads;
-    }
-
-    @Config("hive.write-validation-threads")
-    @ConfigDescription("Number of threads used for verifying data after a write")
-    public HiveConfig setWriteValidationThreads(int writeValidationThreads)
-    {
-        this.writeValidationThreads = writeValidationThreads;
         return this;
     }
 
@@ -1300,6 +1276,19 @@ public class HiveConfig
     public HiveConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isMetadataVirtualThreadsEnabled()
+    {
+        return metadataVirtualThreadsEnabled;
+    }
+
+    @ConfigDescription("Run blocking metadata enumeration I/O on virtual threads")
+    @Config("hive.metadata.virtual-threads-enabled")
+    public HiveConfig setMetadataVirtualThreadsEnabled(boolean metadataVirtualThreadsEnabled)
+    {
+        this.metadataVirtualThreadsEnabled = metadataVirtualThreadsEnabled;
         return this;
     }
 

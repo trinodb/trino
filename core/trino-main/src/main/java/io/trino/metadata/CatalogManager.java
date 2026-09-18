@@ -46,7 +46,7 @@ public interface CatalogManager
         }
 
         @Override
-        public Set<CatalogHandle> getActiveCatalogs()
+        public Set<CatalogHandle> getReachableDynamicCatalogs()
         {
             return ImmutableSet.of();
         }
@@ -70,7 +70,10 @@ public interface CatalogManager
 
     Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
 
-    Set<CatalogHandle> getActiveCatalogs();
+    /**
+     * Returns the catalogs that are currently reachable by name, but could potentially be dropped later.
+     */
+    Set<CatalogHandle> getReachableDynamicCatalogs();
 
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 

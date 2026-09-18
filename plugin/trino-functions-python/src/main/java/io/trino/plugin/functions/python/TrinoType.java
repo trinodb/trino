@@ -38,6 +38,7 @@ enum TrinoType
     JSON(20),
     UUID(21),
     IPADDRESS(22),
+    NUMBER(23),
     /**/;
 
     private final int id;

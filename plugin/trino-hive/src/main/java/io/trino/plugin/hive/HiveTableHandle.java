@@ -73,8 +73,7 @@ public class HiveTableHandle
             @JsonProperty("analyzePartitionValues") Optional<List<List<String>>> analyzePartitionValues,
             @JsonProperty("transaction") AcidTransaction transaction)
     {
-        this(
-                schemaName,
+        this(schemaName,
                 tableName,
                 Optional.empty(),
                 partitionColumns,
@@ -100,8 +99,7 @@ public class HiveTableHandle
             List<HiveColumnHandle> dataColumns,
             Optional<HiveTablePartitioning> tablePartitioning)
     {
-        this(
-                schemaName,
+        this(schemaName,
                 tableName,
                 Optional.of(tableParameters),
                 partitionColumns,
@@ -137,8 +135,7 @@ public class HiveTableHandle
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
     {
-        this(
-                schemaName,
+        this(schemaName,
                 tableName,
                 tableParameters,
                 partitionColumns,

@@ -336,19 +336,19 @@ class TestingSystemSecurityMetadata
         List<String> name = entityKindAndName.name();
         if (entityKindAndName.entityKind().contains("VIEW")) {
             checkArgument(principal.getType() == USER, "Only a user can be a view owner");
-            viewOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+            viewOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getPrincipalName()));
         }
         else if (entityKindAndName.entityKind().startsWith("TABLE")) {
             checkArgument(principal.getType() == USER, "Only a user can be a table owner");
-            tableOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+            tableOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getPrincipalName()));
         }
         else if (entityKindAndName.entityKind().startsWith("FUNCTION")) {
             checkArgument(principal.getType() == USER, "Only a user can be a function owner");
-            functionOwners.put(new CatalogSchemaFunctionName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+            functionOwners.put(new CatalogSchemaFunctionName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getPrincipalName()));
         }
         else if (entityKindAndName.entityKind().startsWith("SCHEMA")) {
             checkArgument(principal.getType() == USER, "Only a user can be a schema owner");
-            schemaOwners.put(new CatalogSchemaName(name.get(0), name.get(1)), Identity.ofUser(principal.getName()));
+            schemaOwners.put(new CatalogSchemaName(name.get(0), name.get(1)), Identity.ofUser(principal.getPrincipalName()));
         }
         else {
             throw new UnsupportedOperationException();
@@ -395,12 +395,12 @@ class TestingSystemSecurityMetadata
         return functionOwners.keySet().stream()
                 .filter(catalogSchemaFunctionName -> prefix.matches(
                         new QualifiedObjectName(
-                                catalogSchemaFunctionName.getCatalogName(),
-                                catalogSchemaFunctionName.getSchemaName(),
-                                catalogSchemaFunctionName.getFunctionName())))
+                                catalogSchemaFunctionName.catalogName(),
+                                catalogSchemaFunctionName.schemaName(),
+                                catalogSchemaFunctionName.functionName())))
                 .map(functionName -> {
                     Identity owner = functionOwners.get(functionName);
-                    return new FunctionAuthorization(functionName.getSchemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
+                    return new FunctionAuthorization(functionName.schemaFunctionName(), new TrinoPrincipal(USER, owner.getUser()));
                 })
                 .collect(toImmutableSet());
     }

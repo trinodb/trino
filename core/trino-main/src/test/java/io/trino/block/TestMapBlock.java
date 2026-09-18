@@ -29,11 +29,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.block.BlockAssertions.toValidityArray;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -60,13 +62,14 @@ public class TestMapBlock
         Block inCompactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
         boolean[] mapIsNull = {false, true, false, false, false, false};
+        long[] valueIsValid = toValidityArray(mapIsNull);
 
         testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.empty(), new int[1], emptyBlock, emptyBlock));
-        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
+        testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(valueIsValid), offsets, compactKeyBlock, compactValueBlock));
         // TODO: Add test case for a sliced MapBlock
 
         // underlying key/value block is not compact
-        testNotCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, inCompactKeyBlock, inCompactValueBlock));
+        testNotCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(valueIsValid), offsets, inCompactKeyBlock, inCompactValueBlock));
     }
 
     @Test
@@ -250,7 +253,7 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i];
             }
             else {
-                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                for (Entry<String, Long> entry : map.entrySet()) {
                     keys.add(entry.getKey());
                     values.add(entry.getValue());
                 }
@@ -258,7 +261,7 @@ public class TestMapBlock
             }
         }
         return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(
-                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
+                hasNullValue ? Optional.of(toValidityArray(mapIsNull)) : Optional.empty(),
                 offsets,
                 createStringsBlock(keys),
                 createLongsBlock(values));
@@ -271,7 +274,7 @@ public class TestMapBlock
         }
         else {
             mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                for (Entry<String, Long> entry : map.entrySet()) {
                     VARCHAR.writeSlice(keyBuilder, utf8Slice(entry.getKey()));
                     if (entry.getValue() == null) {
                         valueBuilder.appendNull();
@@ -303,7 +306,7 @@ public class TestMapBlock
         assertThat(sqlMap.getSize()).isEqualTo(map.size());
 
         // Test new/hash-index access: assert inserted keys
-        for (Map.Entry<String, Long> entry : map.entrySet()) {
+        for (Entry<String, Long> entry : map.entrySet()) {
             int index = sqlMap.seekKey(utf8Slice(entry.getKey()));
             assertThat(index)
                     .isNotEqualTo(-1);
@@ -391,7 +394,7 @@ public class TestMapBlock
             return 0;
         }
         int size = 0;
-        for (Map.Entry<String, Long> entry : map.entrySet()) {
+        for (Entry<String, Long> entry : map.entrySet()) {
             size += entry.getKey().length();
             size += entry.getValue() == null ? 0 : Long.BYTES;
         }

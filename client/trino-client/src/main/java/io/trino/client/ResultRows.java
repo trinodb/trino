@@ -30,7 +30,8 @@ import static java.util.Collections.emptyIterator;
 public interface ResultRows
         extends Iterable<List<Object>>, Closeable
 {
-    ResultRows NULL_ROWS = new ResultRows() {
+    ResultRows NULL_ROWS = new ResultRows()
+    {
         @Override
         public void close() {}
 
@@ -57,8 +58,9 @@ public interface ResultRows
 
     static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator, long maxRows)
     {
-        return new ResultRows() {
-            private volatile boolean fetched;
+        return new ResultRows()
+        {
+            private boolean iterated;
 
             @Override
             public void close()
@@ -70,8 +72,8 @@ public interface ResultRows
             @Override
             public Iterator<List<Object>> iterator()
             {
-                verify(!fetched, "Iterator already fetched");
-                fetched = true;
+                verify(!iterated, "Iterator already fetched");
+                iterated = true;
                 return limit(iterator, maxRows);
             }
 

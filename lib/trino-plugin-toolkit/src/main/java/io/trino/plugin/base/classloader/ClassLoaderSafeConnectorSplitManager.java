@@ -15,14 +15,16 @@ package io.trino.plugin.base.classloader;
 
 import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,11 +46,11 @@ public final class ClassLoaderSafeConnectorSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            DynamicFilter dynamicFilter,
+            Set<ColumnHandle> dynamicFilterColumns,
             Constraint constraint)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSplits(transaction, session, table, dynamicFilter, constraint);
+            return delegate.getSplits(transaction, session, table, dynamicFilterColumns, constraint);
         }
     }
 

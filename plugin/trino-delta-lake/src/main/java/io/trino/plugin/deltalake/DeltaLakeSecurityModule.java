@@ -32,7 +32,6 @@ public class DeltaLakeSecurityModule
         READ_ONLY,
         FILE,
         SYSTEM,
-        /**/
     }
 
     @Override

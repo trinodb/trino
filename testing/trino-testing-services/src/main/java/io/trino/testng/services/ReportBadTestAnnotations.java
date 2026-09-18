@@ -16,6 +16,7 @@ package io.trino.testng.services;
 import com.google.common.annotations.VisibleForTesting;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
+import org.testng.annotations.Test;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
@@ -57,12 +58,6 @@ public class ReportBadTestAnnotations
     {
         Class<?> realClass = testClass.getRealClass();
 
-        if (realClass.getSuperclass() != null &&
-                "io.trino.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
-            // Ignore tempto generated convention tests.
-            return;
-        }
-
         List<Method> unannotatedTestMethods = findUnannotatedTestMethods(realClass);
         if (!unannotatedTestMethods.isEmpty()) {
             reportListenerFailure(
@@ -91,7 +86,7 @@ public class ReportBadTestAnnotations
     static Optional<Class<?>> classWithMeaninglessTestAnnotation(Class<?> realClass)
     {
         for (Class<?> clazz = realClass; clazz != null; clazz = clazz.getSuperclass()) {
-            org.testng.annotations.Test testAnnotation = clazz.getAnnotation(org.testng.annotations.Test.class);
+            Test testAnnotation = clazz.getAnnotation(Test.class);
             if (testAnnotation != null && isAllDefaults(testAnnotation)) {
                 return Optional.of(clazz);
             }
@@ -99,10 +94,10 @@ public class ReportBadTestAnnotations
         return Optional.empty();
     }
 
-    private static boolean isAllDefaults(org.testng.annotations.Test annotationInstance)
+    private static boolean isAllDefaults(Test annotationInstance)
     {
         try {
-            for (Method method : org.testng.annotations.Test.class.getDeclaredMethods()) {
+            for (Method method : Test.class.getDeclaredMethods()) {
                 if (Modifier.isStatic(method.getModifiers())) {
                     continue;
                 }
@@ -136,7 +131,7 @@ public class ReportBadTestAnnotations
     public void onAfterClass(ITestClass testClass) {}
 
     /**
-     * Is explicitly annotated as @Test, @BeforeMethod, @DataProvider, or any method that implements Tempto SPI
+     * Is explicitly annotated as @Test, @BeforeMethod, or @DataProvider.
      */
     private static boolean isAllowedPublicMethodInTest(Method method)
     {
@@ -148,17 +143,6 @@ public class ReportBadTestAnnotations
             return true;
         }
 
-        if (method.getDeclaringClass().isInterface()) {
-            return isTemptoClass(method.getDeclaringClass());
-        }
-
-        for (Class<?> interfaceClass : method.getDeclaringClass().getInterfaces()) {
-            Optional<Method> overridden = getOverridden(method, interfaceClass);
-            if (overridden.isPresent() && isTemptoClass(interfaceClass)) {
-                return true;
-            }
-        }
-
         return getOverridden(method, method.getDeclaringClass().getSuperclass())
                 .map(ReportBadTestAnnotations::isAllowedPublicMethodInTest)
                 .orElse(false);
@@ -166,6 +150,9 @@ public class ReportBadTestAnnotations
 
     private static Optional<Method> getOverridden(Method method, Class<?> base)
     {
+        if (base == null) {
+            return Optional.empty();
+        }
         try {
             // Simplistic override detection
             return Optional.of(base.getMethod(method.getName(), method.getParameterTypes()));
@@ -186,16 +173,12 @@ public class ReportBadTestAnnotations
                     if ("org.openjdk.jmh.annotations.Benchmark".equals(annotationClass.getName())) {
                         return true;
                     }
-                    if (org.testng.annotations.Test.class.getPackage().equals(annotationClass.getPackage())) {
+                    if (Test.class.getPackage().equals(annotationClass.getPackage())) {
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }
                     if (isJUnitAnnotation(annotationClass)) {
                         // allowed so that we can transition tests gradually to JUnit
-                        return true;
-                    }
-                    if (isTemptoClass(annotationClass)) {
-                        // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
                         return true;
                     }
                     return false;
@@ -207,17 +190,7 @@ public class ReportBadTestAnnotations
         return clazz.getPackage().getName().startsWith("org.junit.jupiter.");
     }
 
-    @VisibleForTesting
-    static boolean isTemptoClass(Class<?> aClass)
-    {
-        String temptoPackage = "io.trino.tempto";
-        String aPackage = aClass.getPackage().getName();
-        return aPackage.equals(temptoPackage) || aPackage.startsWith(temptoPackage + ".");
-    }
-
     @Retention(RUNTIME)
     @Target({TYPE, METHOD})
-    public @interface Suppress
-    {
-    }
+    public @interface Suppress {}
 }

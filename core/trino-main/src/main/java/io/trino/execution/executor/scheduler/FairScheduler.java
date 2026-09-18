@@ -13,12 +13,12 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 
@@ -27,8 +27,11 @@ import java.util.StringJoiner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,10 +68,20 @@ public final class FairScheduler
 
     private final Gate paused = new Gate(true);
 
-    @GuardedBy("this")
-    private boolean closed;
+    /// Prevents group creation and removal from racing with [#close()]. Submission only needs the
+    /// volatile `closed` check: a task accepted while close is in progress either observes that its
+    /// group was removed, or is rejected by the executor after shutdown.
+    private final ReadWriteLock lifecycleLock = new ReentrantReadWriteLock();
+
+    private volatile boolean closed;
 
     public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
+    {
+        this(maxConcurrentTasks, daemonThreadsNamed(threadNameFormat), ticker);
+    }
+
+    @VisibleForTesting
+    public FairScheduler(int maxConcurrentTasks, ThreadFactory threadFactory, Ticker ticker)
     {
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -77,7 +90,7 @@ public final class FairScheduler
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
         schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
 
-        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), daemonThreadsNamed(threadNameFormat));
+        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
         executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
     }
@@ -110,41 +123,59 @@ public final class FairScheduler
     }
 
     @Override
-    public synchronized void close()
+    public void close()
     {
-        if (closed) {
-            return;
+        lifecycleLock.writeLock().lock();
+        try {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            Set<TaskControl> tasks = queue.finishAll();
+
+            for (TaskControl task : tasks) {
+                task.cancel();
+            }
+
+            taskExecutor.shutdownNow();
+            schedulerExecutor.shutdownNow();
         }
-        closed = true;
-
-        Set<TaskControl> tasks = queue.finishAll();
-
-        for (TaskControl task : tasks) {
-            task.cancel();
+        finally {
+            lifecycleLock.writeLock().unlock();
         }
-
-        taskExecutor.shutdownNow();
-        schedulerExecutor.shutdownNow();
     }
 
-    public synchronized Group createGroup(String name)
+    public Group createGroup(String name)
     {
-        checkArgument(!closed, "Already closed");
+        lifecycleLock.readLock().lock();
+        try {
+            checkArgument(!closed, "Already closed");
 
-        Group group = new Group(name);
-        queue.startGroup(group);
+            Group group = new Group(name);
+            queue.startGroup(group);
 
-        return group;
+            return group;
+        }
+        finally {
+            lifecycleLock.readLock().unlock();
+        }
     }
 
-    public synchronized void removeGroup(Group group)
+    public void removeGroup(Group group)
     {
-        checkArgument(!closed, "Already closed");
+        lifecycleLock.readLock().lock();
+        try {
+            checkArgument(!closed, "Already closed");
 
-        Set<TaskControl> tasks = queue.finishGroup(group);
+            Set<TaskControl> tasks = queue.finishGroup(group);
 
-        for (TaskControl task : tasks) {
-            task.cancel();
+            for (TaskControl task : tasks) {
+                task.cancel();
+            }
+        }
+        finally {
+            lifecycleLock.readLock().unlock();
         }
     }
 
@@ -155,7 +186,7 @@ public final class FairScheduler
                 .collect(toImmutableSet());
     }
 
-    public synchronized ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
+    public ListenableFuture<Void> submit(Group group, int id, Schedulable runner)
     {
         checkArgument(!closed, "Already closed");
 

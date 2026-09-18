@@ -94,7 +94,7 @@ public final class TestInt96ValueDecoder
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                LocalDateTime[] constants = new LocalDateTime[] {
+                LocalDateTime[] constants = {
                         LocalDateTime.MIN,
                         LocalDateTime.of(1410, 7, 15, 14, 30, 12),
                         LocalDateTime.of(1920, 8, 15, 23, 59, 59, 10020030),
@@ -102,7 +102,8 @@ public final class TestInt96ValueDecoder
                         LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1000000),
                         LocalDateTime.of(2022, 2, 3, 12, 8, 51, 1),
                         LocalDateTime.of(123456, 1, 2, 3, 4, 5, 678901234),
-                        LocalDateTime.MAX};
+                        LocalDateTime.MAX,
+                };
                 long[] epochSeconds = new long[dataSize];
                 int[] nanos = new int[dataSize];
                 for (int i = 0; i < dataSize; i++) {

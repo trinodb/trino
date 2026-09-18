@@ -48,6 +48,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
@@ -109,7 +110,8 @@ public class TestWindowClause
                                                                 Optional.of(new Symbol(UNKNOWN, "expr_b")),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty()))),
+                                                                Optional.empty(),
+                                                                NO_OTHERS))),
                                 project(
                                         ImmutableMap.of("frame_start", expression(new Call(SUBTRACT_INTEGER, ImmutableList.of(new Reference(INTEGER, "expr_b"), new Reference(INTEGER, "expr_c"))))),
                                         anyTree(project(
@@ -163,9 +165,11 @@ public class TestWindowClause
     {
         @Language("SQL") String sql = "SELECT a old_a, 2e0 a FROM (VALUES -100, -99, -98) t(a) WINDOW w AS (ORDER BY a + 1) ORDER BY count(*) OVER (w RANGE BETWEEN CURRENT ROW AND a + 1e0 FOLLOWING)";
         PlanMatchPattern pattern =
-                anyTree(sort(// sort by window function result
+                anyTree(sort(
+                        // sort by window function result
                         ImmutableList.of(sort("count_result", ASCENDING, LAST)),
-                        project(window(// window function in ORDER BY
+                        project(window(
+                                // window function in ORDER BY
                                 windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification(
                                                 ImmutableList.of(),
@@ -183,10 +187,13 @@ public class TestWindowClause
                                                                 Optional.empty(),
                                                                 FOLLOWING,
                                                                 Optional.of(new Symbol(UNKNOWN, "frame_bound")),
-                                                                Optional.of(new Symbol(UNKNOWN, "coerced_sortkey"))))),
-                                project(// frame bound value computation
+                                                                Optional.of(new Symbol(UNKNOWN, "coerced_sortkey")),
+                                                                NO_OTHERS))),
+                                project(
+                                        // frame bound value computation
                                         ImmutableMap.of("frame_bound", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "coerced_sortkey"), new Reference(DOUBLE, "frame_offset"))))),
-                                        project(// sort key coercion to frame bound type
+                                        project(
+                                                // sort key coercion to frame bound type
                                                 ImmutableMap.of("coerced_sortkey", expression(new Cast(new Reference(INTEGER, "sortkey"), DOUBLE))),
                                                 node(FilterNode.class,
                                                         project(project(
@@ -195,8 +202,9 @@ public class TestWindowClause
                                                                         "sortkey", expression(new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)))),
                                                                         // frame offset based on "a" in output scope
                                                                         "frame_offset", expression(new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "new_a"), new Constant(DOUBLE, 1.0))))),
-                                                                project(// output expression
-                                                                        ImmutableMap.of("new_a", expression(new Constant(DOUBLE, 2E0))),
+                                                                project(
+                                                                        // output expression
+                                                                        ImmutableMap.of("new_a", expression(new Constant(DOUBLE, 2e0))),
                                                                         project(project(values("a")))))))))))));
 
         assertPlan(sql, CREATED, pattern);
@@ -205,33 +213,34 @@ public class TestWindowClause
     @Test
     public void testPreservationOfWindowFunctionOrder()
     {
-        @Language("SQL") String sql = """
-        WITH data AS (
-            SELECT *
-            FROM (VALUES
-                ('A', 1, 100, 25),
-                ('A', 2, 200, 25),
-                ('A', 1, 150, 50),
-                ('B', 1, 300, 50),
-                ('B', 2, 100, 100),
-                ('B', 1, 200, 100)
-            ) AS t(category, subcategory, value, subvalue)
-        )
-        SELECT
-            RANK() OVER (
-                PARTITION BY category
-            ) AS rank_by_category,
-            RANK() OVER (
-                PARTITION BY category, subcategory
-            ) AS rank_by_category_subcategory,
-            RANK() OVER (
-                PARTITION BY category, subcategory, value
-            ) AS rank_by_category_subcategory_value,
-            RANK() OVER (
-                PARTITION BY category, subcategory, value, subvalue
-            ) AS rank_by_category_subcategory_value_subvalue
-        FROM data
-        """;
+        @Language("SQL") String sql =
+                """
+                WITH data AS (
+                    SELECT *
+                    FROM (VALUES
+                        ('A', 1, 100, 25),
+                        ('A', 2, 200, 25),
+                        ('A', 1, 150, 50),
+                        ('B', 1, 300, 50),
+                        ('B', 2, 100, 100),
+                        ('B', 1, 200, 100)
+                    ) AS t(category, subcategory, value, subvalue)
+                )
+                SELECT
+                    RANK() OVER (
+                        PARTITION BY category
+                    ) AS rank_by_category,
+                    RANK() OVER (
+                        PARTITION BY category, subcategory
+                    ) AS rank_by_category_subcategory,
+                    RANK() OVER (
+                        PARTITION BY category, subcategory, value
+                    ) AS rank_by_category_subcategory_value,
+                    RANK() OVER (
+                        PARTITION BY category, subcategory, value, subvalue
+                    ) AS rank_by_category_subcategory_value_subvalue
+                FROM data
+                """;
         PlanMatchPattern pattern =
                 anyTree(
                         window(

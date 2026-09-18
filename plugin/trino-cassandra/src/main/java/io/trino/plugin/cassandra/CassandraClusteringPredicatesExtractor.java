@@ -50,7 +50,7 @@ public class CassandraClusteringPredicatesExtractor
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
-        return predicates.filter((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
+        return predicates.filter((columnHandle, _) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
     }
 
     private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates)
@@ -80,14 +80,16 @@ public class CassandraClusteringPredicatesExtractor
                             return CassandraCqlUtils.validColumnName(columnHandle.name()) + " IN (" + inValues + ")";
                         }
                         return translateRangeIntoCql(columnHandle, ranges.getSpan());
-                    }, discreteValues -> {
+                    },
+                    discreteValues -> {
                         if (discreteValues.isInclusive()) {
                             if (discreteValues.getValuesCount() == 0) {
                                 return null;
                             }
                             if (discreteValues.getValuesCount() == 1) {
                                 fullyPushedColumnPredicates.add(columnHandle);
-                                return format("%s = %s",
+                                return format(
+                                        "%s = %s",
                                         CassandraCqlUtils.validColumnName(columnHandle.name()),
                                         toCqlLiteral(columnHandle, getOnlyElement(discreteValues.getValues())));
                             }
@@ -99,7 +101,8 @@ public class CassandraClusteringPredicatesExtractor
                             return CassandraCqlUtils.validColumnName(columnHandle.name()) + " IN (" + inValues + " )";
                         }
                         return null;
-                    }, allOrNone -> null);
+                    },
+                    _ -> null);
 
             if (predicateString == null) {
                 break;
@@ -131,7 +134,8 @@ public class CassandraClusteringPredicatesExtractor
             return null;
         }
         if (range.isSingleValue()) {
-            return format("%s = %s",
+            return format(
+                    "%s = %s",
                     CassandraCqlUtils.validColumnName(columnHandle.name()),
                     toCqlLiteral(columnHandle, range.getSingleValue()));
         }

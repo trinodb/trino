@@ -21,6 +21,7 @@ import io.trino.operator.SimplePagesHashStrategy;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
@@ -42,6 +43,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinCompiler
@@ -70,11 +72,8 @@ public class TestJoinCompiler
         assertThat(hashStrategy.hashRow(0, new Page(channel.get(0)))).isEqualTo(0L);
         assertThat(hashStrategy.hashPosition(0, 5)).isEqualTo(0L);
         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, 5, 0, 5)).isTrue();
-        assertThat(hashStrategy.positionEqualsPosition(0, 5, 0, 5)).isTrue();
         assertThat(hashStrategy.positionIdenticalToPosition(0, 5, 0, 5)).isTrue();
-        assertThat(hashStrategy.positionEqualsRow(0, 5, 5, new Page(channel.get(0)))).isTrue();
         assertThat(hashStrategy.positionIdenticalToRow(0, 5, 5, new Page(channel.get(0)))).isTrue();
-        assertThat(hashStrategy.rowEqualsRow(5, new Page(channel.get(0)), 5, new Page(channel.get(0)))).isTrue();
         assertThat(hashStrategy.rowIdenticalToRow(5, new Page(channel.get(0)), 5, new Page(channel.get(0)))).isTrue();
         assertThat(hashStrategy.positionEqualsRowIgnoreNulls(0, 5, 5, new Page(channel.get(0)))).isTrue();
         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, 5, 0, 5)).isTrue();
@@ -125,13 +124,10 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = equalOperator.equalNullSafe(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         boolean expectedIdentical = identicalOperator.isIdentical(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertThat(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expectedIdentical);
-                        assertThat(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.rowIdenticalToRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock))).isEqualTo(expectedIdentical);
                         assertThat(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expected);
-                        assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expected);
                         assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedIdentical);
                     }
                 }
@@ -142,13 +138,10 @@ public class TestJoinCompiler
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         boolean expected = equalOperator.equalNullSafe(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         boolean expectedIdentical = identicalOperator.isIdentical(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-                        assertThat(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expectedIdentical);
-                        assertThat(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.rowIdenticalToRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock))).isEqualTo(expectedIdentical);
                         assertThat(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock))).isEqualTo(expected);
                         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expected);
-                        assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expected);
                         assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedIdentical);
                     }
                 }
@@ -233,7 +226,6 @@ public class TestJoinCompiler
 
                 // position must be equal to itself
                 assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
-                assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
                 assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
 
                 // check equality of every position against every other position in the block
@@ -241,7 +233,6 @@ public class TestJoinCompiler
                     Block rightBlock = varcharChannel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
                         assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
-                        assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
                         assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
                     }
                 }
@@ -256,12 +247,10 @@ public class TestJoinCompiler
 
                     int rightPositionCount = varcharChannel.get(rightBlockIndex).getPositionCount();
                     for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
-                        boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
+                        boolean expected = expectedHashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
                         boolean expectedIdentical = expectedHashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
 
-                        assertThat(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expected);
                         assertThat(hashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expectedIdentical);
-                        assertThat(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks))).isEqualTo(expected);
                         assertThat(hashStrategy.rowIdenticalToRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks))).isEqualTo(expectedIdentical);
                         assertThat(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expected);
                     }
@@ -280,6 +269,49 @@ public class TestJoinCompiler
                     doubleChannel.get(leftBlockIndex),
                     booleanChannel.get(leftBlockIndex),
                     extraChannel.get(leftBlockIndex)));
+        }
+    }
+
+    @Test
+    void testStructuralChannel()
+    {
+        // ARRAY equality has a nullable return; compiling the hash strategy must adapt it to DEFAULT_ON_NULL.
+        Type arrayType = new ArrayType(BIGINT);
+        List<Integer> joinChannels = Ints.asList(0);
+
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(ImmutableList.of(arrayType), joinChannels);
+
+        ObjectArrayList<Block> channel = new ObjectArrayList<>();
+        channel.add(BlockAssertions.createArrayBigintBlock(asList(
+                asList(1L, 2L),
+                asList(1L, null),
+                null,
+                asList(1L, 2L),
+                asList(3L))));
+
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(ImmutableList.of(channel));
+
+        assertThat(hashStrategy.getChannelCount()).isEqualTo(1);
+
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+        BlockPositionEqual equalOperator = blockTypeOperators.getEqualOperator(arrayType);
+        BlockPositionIsIdentical identicalOperator = blockTypeOperators.getIdenticalOperator(arrayType);
+
+        Block block = channel.get(0);
+        for (int leftPosition = 0; leftPosition < block.getPositionCount(); leftPosition++) {
+            for (int rightPosition = 0; rightPosition < block.getPositionCount(); rightPosition++) {
+                boolean expectedIdentical = identicalOperator.isIdentical(block, leftPosition, block, rightPosition);
+                assertThat(hashStrategy.positionIdenticalToPosition(0, leftPosition, 0, rightPosition)).isEqualTo(expectedIdentical);
+                assertThat(hashStrategy.positionIdenticalToRow(0, leftPosition, rightPosition, new Page(block))).isEqualTo(expectedIdentical);
+                assertThat(hashStrategy.rowIdenticalToRow(leftPosition, new Page(block), rightPosition, new Page(block))).isEqualTo(expectedIdentical);
+
+                // positionEquals*IgnoreNulls callers guarantee non-null inputs; a non-null array with a null element compares as no match.
+                if (!block.isNull(leftPosition) && !block.isNull(rightPosition)) {
+                    boolean expected = equalOperator.equal(block, leftPosition, block, rightPosition);
+                    assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(0, leftPosition, 0, rightPosition)).isEqualTo(expected);
+                    assertThat(hashStrategy.positionEqualsRowIgnoreNulls(0, leftPosition, rightPosition, new Page(block))).isEqualTo(expected);
+                }
+            }
         }
     }
 

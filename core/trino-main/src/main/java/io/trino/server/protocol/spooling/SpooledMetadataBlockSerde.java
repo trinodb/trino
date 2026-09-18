@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -44,7 +45,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class SpooledMetadataBlockSerde
 {
     private static final JsonCodec<Map<String, List<String>>> HEADERS_CODEC = mapJsonCodec(String.class, listJsonCodec(String.class));
-    private static final JsonCodec<DataAttributes> ATTRIBUTES_CODEC = JsonCodec.jsonCodec(DataAttributes.class);
+    private static final JsonCodec<DataAttributes> ATTRIBUTES_CODEC = jsonCodec(DataAttributes.class);
 
     private static final RowType SPOOLING_METADATA_TYPE = RowType.from(List.of(
             new RowType.Field(Optional.empty(), VARCHAR),

@@ -40,7 +40,7 @@ public class BenchmarkIntColumnReader
 
     @Param({
             "0", "1", "2", "3", "4", "5", "6", "7", "8",
-            "11", "15", "20", "25", "32"
+            "11", "15", "20", "25", "32",
     })
     public int bitWidth;
 

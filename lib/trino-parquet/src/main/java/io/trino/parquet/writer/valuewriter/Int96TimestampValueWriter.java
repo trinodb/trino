@@ -13,12 +13,14 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
-import io.trino.spi.type.LongTimestamp;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
@@ -61,59 +63,110 @@ public class Int96TimestampValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+
         if (timestampType.isShort()) {
-            writeShortTimestamps(block);
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (!mayHaveNull || !block.isNull(position)) {
+                    readShortTimestampAndWriteToBuffer((LongArrayBlock) block, position, buffer);
+
+                    valuesWriter.writeBytes(reusedSlice);
+                    statistics.updateStats(reusedBinary);
+                }
+            }
         }
         else {
-            writeLongTimestamps(block);
-        }
-    }
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (!mayHaveNull || !block.isNull(position)) {
+                    readLongTimestampAndWriteToBuffer((Fixed12Block) block, position, buffer);
 
-    private void writeShortTimestamps(Block block)
-    {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
-        boolean mayHaveNull = block.mayHaveNull();
-        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
-        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
-
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!mayHaveNull || !block.isNull(position)) {
-                long epochMicros = timestampType.getLong(block, position);
-                long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-                int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
-
-                convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
-                valuesWriter.writeBytes(reusedBinary);
-                statistics.updateStats(reusedBinary);
+                    valuesWriter.writeBytes(reusedSlice);
+                    statistics.updateStats(reusedBinary);
+                }
             }
         }
     }
 
-    private void writeLongTimestamps(Block block)
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        if (timestampType.isShort()) {
+            readShortTimestampAndWriteToBuffer((LongArrayBlock) block, 0, buffer);
+        }
+        else {
+            readLongTimestampAndWriteToBuffer((Fixed12Block) block, 0, buffer);
+        }
+
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(reusedSlice);
+        }
+        statistics.updateStats(reusedBinary);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[Long.BYTES + Integer.BYTES];
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
         Binary reusedBinary = Binary.fromReusedByteArray(buffer);
 
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!mayHaveNull || !block.isNull(position)) {
-                LongTimestamp timestamp = (LongTimestamp) timestampType.getObject(block, position);
-                long epochMicros = timestamp.getEpochMicros();
-                // This should divide exactly because timestamp precision is <= 9
-                int nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
-                long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-                int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
+        if (timestampType.isShort()) {
+            for (int index = 0; index < length; index++) {
+                int position = positions[offset + index];
+                if (!mayHaveNull || !block.isNull(position)) {
+                    readShortTimestampAndWriteToBuffer((LongArrayBlock) block, position, buffer);
 
-                convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
-                valuesWriter.writeBytes(reusedBinary);
-                statistics.updateStats(reusedBinary);
+                    valuesWriter.writeBytes(reusedSlice);
+                    statistics.updateStats(reusedBinary);
+                }
             }
         }
+        else {
+            for (int index = 0; index < length; index++) {
+                int position = positions[offset + index];
+                if (!mayHaveNull || !block.isNull(position)) {
+                    readLongTimestampAndWriteToBuffer((Fixed12Block) block, position, buffer);
+
+                    valuesWriter.writeBytes(reusedSlice);
+                    statistics.updateStats(reusedBinary);
+                }
+            }
+        }
+    }
+
+    private void readShortTimestampAndWriteToBuffer(LongArrayBlock block, int position, byte[] buffer)
+    {
+        long epochMicros = block.getLong(position);
+        long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+        int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND;
+
+        convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
+    }
+
+    private void readLongTimestampAndWriteToBuffer(Fixed12Block block, int position, byte[] buffer)
+    {
+        long epochMicros = block.getFixed12First(position);
+        // This should divide exactly because timestamp precision is <= 9
+        int nanosOfMicro = block.getFixed12Second(position) / PICOSECONDS_PER_NANOSECOND;
+        long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+        int nanosOfMillis = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
+
+        convertAndWriteToBuffer(localEpochMillis, nanosOfMillis, buffer);
     }
 
     private void convertAndWriteToBuffer(long localEpochMillis, int nanosOfMillis, byte[] buffer)

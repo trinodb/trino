@@ -13,7 +13,7 @@
  */
 package io.trino.sql.routine.ir;
 
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
 
 public class DefaultIrNodeVisitor
         implements IrNodeVisitor<Void, Void>
@@ -108,5 +108,5 @@ public class DefaultIrNodeVisitor
         return null;
     }
 
-    public void visitRowExpression(RowExpression expression) {}
+    public void visitRowExpression(Expression expression) {}
 }

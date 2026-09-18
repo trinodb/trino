@@ -29,10 +29,11 @@ final class TestHttpEventListenerPlugin
 
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
         factory.create(
-                ImmutableMap.<String, String>builder()
-                        .put("http-event-listener.connect-ingest-uri", "http://localhost:8080")
-                        .put("bootstrap.quiet", "true")
-                        .buildOrThrow(), new TestingEventListenerContext())
+                        ImmutableMap.<String, String>builder()
+                                .put("http-event-listener.connect-ingest-uri", "http://localhost:8080")
+                                .put("bootstrap.quiet", "true")
+                                .buildOrThrow(),
+                        new TestingEventListenerContext())
                 .shutdown();
     }
 }

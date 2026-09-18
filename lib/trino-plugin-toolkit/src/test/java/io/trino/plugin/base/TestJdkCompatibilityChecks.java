@@ -46,8 +46,10 @@ public class TestJdkCompatibilityChecks
     {
         ThrowableSettableMock errorSink = new ThrowableSettableMock();
         new JdkCompatibilityChecks(List.of("--add-opens", "java.base/java.nio=ALL-UNNAMED")).verifyAccessOpened(errorSink, "Connector 'snowflake'", ImmutableMultimap.of(
-                "java.base", "java.nio",
-                "java.base", "java.lang"));
+                "java.base",
+                "java.nio",
+                "java.base",
+                "java.lang"));
 
         assertThat(errorSink.getThrowable())
                 .isInstanceOf(IllegalStateException.class)
@@ -68,8 +70,10 @@ public class TestJdkCompatibilityChecks
     {
         ThrowableSettableMock errorSink = new ThrowableSettableMock();
         new JdkCompatibilityChecks(List.of("--add-opens=java.base/java.nio=ALL-UNNAMED", "--add-opens java.base/java.lang=ALL-UNNAMED")).verifyAccessOpened(errorSink, "Connector 'snowflake'", ImmutableMultimap.of(
-                "java.base", "java.nio",
-                "java.base", "java.lang"));
+                "java.base",
+                "java.nio",
+                "java.base",
+                "java.lang"));
 
         assertThat(errorSink.getThrowable()).isNull();
     }
@@ -102,8 +106,10 @@ public class TestJdkCompatibilityChecks
         public void configure(Binder binder)
         {
             verifyConnectorAccessOpened(binder, "Testing", ImmutableMultimap.of(
-                    "java.base", "java.non.existing",
-                    "java.base", "java.this.should.fail"));
+                    "java.base",
+                    "java.non.existing",
+                    "java.base",
+                    "java.this.should.fail"));
         }
     }
 

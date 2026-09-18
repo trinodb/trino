@@ -144,7 +144,9 @@ public final class TrinoThriftPageResult
         for (int i = 0; i < columnBlocks.size(); i++) {
             checkArgument(columnBlocks.get(i).numberOfRecords() == expectedNumberOfRows,
                     "Incorrect number of records for column with index %s: expected %s, got %s",
-                    i, expectedNumberOfRows, columnBlocks.get(i).numberOfRecords());
+                    i,
+                    expectedNumberOfRows,
+                    columnBlocks.get(i).numberOfRecords());
         }
     }
 

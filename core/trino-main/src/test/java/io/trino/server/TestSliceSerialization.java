@@ -14,12 +14,11 @@
 package io.trino.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -36,20 +35,15 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestSliceSerialization
 {
-    private ObjectMapperProvider provider;
+    private JsonMapper jsonMapper;
 
     @BeforeAll
     public void setup()
     {
-        provider = new ObjectMapperProvider();
-        provider.setJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceSerializer()));
-        provider.setJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()));
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        provider = null;
+        jsonMapper = new JsonMapperProvider()
+                .withJsonSerializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceSerializer()))
+                .withJsonDeserializers(ImmutableMap.of(Slice.class, new SliceSerialization.SliceDeserializer()))
+                .get();
     }
 
     @Test
@@ -82,10 +76,9 @@ public class TestSliceSerialization
     private void testRoundTrip(Slice slice)
             throws JsonProcessingException
     {
-        ObjectMapper objectMapper = provider.get();
         Container expected = new Container(slice);
-        String json = objectMapper.writeValueAsString(expected);
-        Container actual = objectMapper.readValue(json, Container.class);
+        String json = jsonMapper.writeValueAsString(expected);
+        Container actual = jsonMapper.readValue(json, Container.class);
         assertThat(actual).isEqualTo(expected);
     }
 

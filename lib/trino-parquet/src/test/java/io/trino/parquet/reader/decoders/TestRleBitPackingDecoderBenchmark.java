@@ -13,11 +13,10 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-
-import static io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 
 public class TestRleBitPackingDecoderBenchmark
 {

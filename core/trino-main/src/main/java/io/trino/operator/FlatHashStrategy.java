@@ -39,6 +39,4 @@ public interface FlatHashStrategy
     long hash(Block[] blocks, int position);
 
     long hash(byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset);
-
-    void hashBlocksBatched(Block[] blocks, long[] hashes, int offset, int length);
 }

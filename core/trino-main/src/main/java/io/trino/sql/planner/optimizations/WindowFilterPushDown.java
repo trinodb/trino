@@ -24,6 +24,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Booleans;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
@@ -41,11 +42,11 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
-import static io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
@@ -87,8 +88,8 @@ public class WindowFilterPushDown
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
-            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).functionId();
-            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).functionId();
+            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of()).functionId();
+            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "rank", ImmutableList.of()).functionId();
             this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         }
 
@@ -98,7 +99,8 @@ public class WindowFilterPushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
-                return new RowNumberNode(idAllocator.getNextId(),
+                return new RowNumberNode(
+                        idAllocator.getNextId(),
                         rewrittenSource,
                         node.getPartitionBy(),
                         false,
@@ -152,17 +154,17 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).tupleDomain();
 
             if (source instanceof RowNumberNode) {
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
                 OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
 
                 if (upperBound.isPresent()) {
-                    if (upperBound.getAsInt() <= 0) {
+                    if (upperBound.orElseThrow() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols());
                     }
-                    source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
+                    source = mergeLimit((RowNumberNode) source, upperBound.orElseThrow());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
@@ -173,11 +175,11 @@ public class WindowFilterPushDown
                     OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
 
                     if (upperBound.isPresent()) {
-                        if (upperBound.getAsInt() <= 0) {
+                        if (upperBound.orElseThrow() <= 0) {
                             return new ValuesNode(node.getId(), node.getOutputSymbols());
                         }
-                        source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
-                        return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());
+                        source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.orElseThrow());
+                        return rewriteFilterSource(node, source, rankingSymbol, upperBound.orElseThrow());
                     }
                 }
             }
@@ -187,17 +189,17 @@ public class WindowFilterPushDown
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rankingSymbol, int upperBound)
         {
             ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, filterNode.getPredicate());
-            TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
             if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
             }
 
             // Remove the ranking domain because it is absorbed into the node
-            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
+            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
-                    extractionResult.getRemainingExpression(),
-                    domainTranslator.toPredicate(newTupleDomain));
+                    extractionResult.remainingExpression(),
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
             if (newPredicate.equals(Booleans.TRUE)) {
                 return source;
@@ -266,7 +268,8 @@ public class WindowFilterPushDown
 
         private TopNRankingNode convertToTopNRanking(WindowNode windowNode, RankingType rankingType, int limit)
         {
-            return new TopNRankingNode(idAllocator.getNextId(),
+            return new TopNRankingNode(
+                    idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     rankingType,

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -25,18 +25,6 @@
                 <groupId>io.opencensus</groupId>
                 <artifactId>opencensus-api</artifactId>
                 <version>0.31.1</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore</artifactId>
-                <version>4.4.16</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.conscrypt</groupId>
-                <artifactId>conscrypt-openjdk-uber</artifactId>
-                <version>2.5.2</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -185,12 +173,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
         </dependency>
@@ -213,6 +195,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -321,7 +308,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20250517</version>
+            <version>20260814</version>
         </dependency>
 
         <dependency>
@@ -372,21 +359,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -398,6 +373,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -553,6 +534,7 @@
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMappingWithCache.java</exclude>
+                                <exclude>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                                 <exclude>**/TestBigQueryParentProjectId.java</exclude>
@@ -579,30 +561,9 @@
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
                                 <include>**/TestBigQueryParentProjectId.java</include>
                                 <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Separate profile for TestBigQueryCaseInsensitiveMapping until we can fully isolate it -->
-        <profile>
-            <id>cloud-tests-case-insensitive-mapping</id>
-            <activation>
-                <activeByDefault>false</activeByDefault>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
                                 <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
                                 <include>**/TestBigQueryCaseInsensitiveMappingWithCache.java</include>
-                                <!-- Also included here to make sure the case-insesitive project also gets cleaned up -->
-                                <include>**/TestBigQueryInstanceCleaner.java</include>
+                                <include>**/TestBigQueryCaseInsensitiveMappingInstanceCleaner.java</include>
                             </includes>
                         </configuration>
                     </plugin>

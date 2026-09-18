@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
@@ -25,6 +24,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.ExceededCpuLimitException;
+import io.trino.ExceededOutputLimitException;
 import io.trino.ExceededScanLimitException;
 import io.trino.ExceededWriteLimitException;
 import io.trino.Session;
@@ -43,6 +43,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -52,6 +53,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.Comparators.min;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -79,6 +81,7 @@ public class QueryManager
     private final Duration maxQueryCpuTime;
     private final Optional<DataSize> maxQueryScanPhysicalBytes;
     private final Optional<DataSize> maxQueryWritePhysicalSize;
+    private final Optional<DataSize> maxQueryOutputDataSize;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -95,6 +98,7 @@ public class QueryManager
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
         this.maxQueryWritePhysicalSize = queryManagerConfig.getQueryMaxWritePhysicalSize();
+        this.maxQueryOutputDataSize = queryManagerConfig.getQueryMaxOutputDataSize();
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
@@ -136,6 +140,13 @@ public class QueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query write bytes limits");
+            }
+
+            try {
+                enforceOutputDataSizeLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query output data size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -266,6 +277,11 @@ public class QueryManager
         return queryTracker.getQuery(queryId).getQueryPlan();
     }
 
+    public Optional<Map<String, Long>> getCallResult(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).callResult();
+    }
+
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
     {
         queryTracker.getQuery(queryId).addFinalQueryInfoListener(stateChangeListener);
@@ -305,7 +321,7 @@ public class QueryManager
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
         }
 
-        queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
+        queryExecution.addFinalQueryInfoListener(_ -> {
             // execution MUST be added to the expiration queue or there will be a leak
             queryTracker.expireQuery(queryExecution.getQueryId());
         });
@@ -397,7 +413,7 @@ public class QueryManager
         for (QueryExecution query : queryTracker.getAllQueries()) {
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
-            Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
+            Duration limit = min(maxQueryCpuTime, sessionLimit);
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
             }
@@ -413,7 +429,7 @@ public class QueryManager
             Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
             if (maxQueryScanPhysicalBytes.isPresent()) {
                 limitOpt = limitOpt
-                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> min(serverLimit, sessionLimit)))
                         .or(() -> maxQueryScanPhysicalBytes);
             }
 
@@ -438,7 +454,7 @@ public class QueryManager
             Optional<DataSize> limitOpt = getQueryMaxWritePhysicalSize(query.getSession());
             if (maxQueryWritePhysicalSize.isPresent()) {
                 limitOpt = limitOpt
-                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                        .flatMap(sessionLimit -> maxQueryWritePhysicalSize.map(serverLimit -> min(serverLimit, sessionLimit)))
                         .or(() -> maxQueryWritePhysicalSize);
             }
 
@@ -449,5 +465,16 @@ public class QueryManager
                 }
             });
         }
+    }
+
+    private void enforceOutputDataSizeLimits()
+    {
+        maxQueryOutputDataSize.ifPresent(outputLimit -> {
+            for (QueryExecution query : queryTracker.getAllQueries()) {
+                if (query.getQueryInfo().getQueryStats().getOutputDataSize().compareTo(outputLimit) > 0) {
+                    query.fail(new ExceededOutputLimitException(outputLimit));
+                }
+            }
+        });
     }
 }

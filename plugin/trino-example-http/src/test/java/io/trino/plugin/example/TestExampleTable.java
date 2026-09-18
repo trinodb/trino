@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExampleTable
 {
-    private final ExampleTable exampleTable = new ExampleTable("tableName",
+    private final ExampleTable exampleTable = new ExampleTable(
+            "tableName",
             ImmutableList.of(new ExampleColumn("a", createUnboundedVarcharType()), new ExampleColumn("b", BIGINT)),
             ImmutableList.of(URI.create("file://table-1.json"), URI.create("file://table-2.json")));
 

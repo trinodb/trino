@@ -56,6 +56,21 @@ public final class MetadataListing
 
     public static SortedSet<String> listCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
     {
+        Set<String> catalogs = metadata.listCatalogs(session).stream()
+                .filter(CatalogInfo::isOperational)
+                .map(CatalogInfo::catalogName)
+                .filter(stringFilter(catalogDomain))
+                .collect(toImmutableSet());
+        return ImmutableSortedSet.copyOf(accessControl.filterCatalogs(session.toSecurityContext(), catalogs));
+    }
+
+    /**
+     * Like {@link #listCatalogNames(Session, Metadata, AccessControl, Domain)} but also includes catalogs
+     * that failed to load. Use this only when the caller does not access the catalog's connector —
+     * for example, when displaying a catalog list to the user.
+     */
+    public static SortedSet<String> listAllCatalogNames(Session session, Metadata metadata, AccessControl accessControl, Domain catalogDomain)
+    {
         Optional<String> catalogName = tryGetSingleVarcharValue(catalogDomain);
         Set<String> catalogs;
         if (catalogName.isPresent()) {
@@ -349,8 +364,7 @@ public final class MetadataListing
                                     actualTableName.asCatalogSchemaTableName().getCatalogName(),
                                     ImmutableMap.of(
                                             // Use redirected table name for applying column filters, since the source does not know the column metadata
-                                            actualTableName.asSchemaTableName(),
-                                            columns.stream()
+                                            actualTableName.asSchemaTableName(), columns.stream()
                                                     .map(ColumnMetadata::getName)
                                                     .collect(toImmutableSet())))
                             .getOrDefault(actualTableName.asSchemaTableName(), ImmutableSet.of());
@@ -380,7 +394,7 @@ public final class MetadataListing
     {
         checkArgument(varcharDomain.getType() instanceof VarcharType, "Invalid domain type: %s", varcharDomain.getType());
         if (varcharDomain.isAll()) {
-            return value -> true;
+            return _ -> true;
         }
         return value -> varcharDomain.includesNullableValue(value == null ? null : utf8Slice(value));
     }

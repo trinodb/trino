@@ -16,11 +16,12 @@ package io.trino.sql.ir.optimizer;
 import io.trino.Session;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
 
 public interface IrOptimizerRule
 {
-    Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings);
+    Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings);
 }

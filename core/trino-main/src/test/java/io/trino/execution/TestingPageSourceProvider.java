@@ -23,10 +23,12 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +45,7 @@ public class TestingPageSourceProvider
     }
 
     @Override
-    public ConnectorPageSourceProvider createPageSourceProvider()
+    public ConnectorPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
         return this;
     }
@@ -54,13 +56,14 @@ public class TestingPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         requireNonNull(columns, "columns is null");
 
         List<Block> blocks = columns.stream()
-                .map(column -> new LongArrayBlock(1, Optional.of(new boolean[] {true}), new long[1]))
+                .map(_ -> new LongArrayBlock(1, Optional.of(new long[] {0}), new long[1]))
                 .collect(toImmutableList());
 
         return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));

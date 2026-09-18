@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Predicate;
 
@@ -45,7 +46,7 @@ public class ColumnHandleMatcher
 
         Map<Symbol, ColumnHandle> assignments = tableScanNode.getAssignments();
 
-        for (Map.Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
+        for (Entry<Symbol, ColumnHandle> entry : assignments.entrySet()) {
             if (matcher.test(entry.getValue())) {
                 return Optional.of(entry.getKey());
             }

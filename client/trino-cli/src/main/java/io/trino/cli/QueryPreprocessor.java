@@ -210,8 +210,7 @@ public final class QueryPreprocessor
     private static <T> Future<T> executeInNewThread(String threadName, Callable<T> callable)
     {
         FutureTask<T> task = new FutureTask<>(callable);
-        Thread thread = new Thread(task);
-        thread.setName(threadName);
+        Thread thread = new Thread(task, threadName);
         thread.setDaemon(true);
         thread.start();
         return task;

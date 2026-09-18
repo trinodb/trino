@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -43,13 +43,13 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class BenchmarkSTEnvelope
 {
     @Benchmark
-    public Slice simpleGeometry(BenchmarkData data)
+    public Geometry simpleGeometry(BenchmarkData data)
     {
         return GeoFunctions.stEnvelope(data.simpleGeometry);
     }
 
     @Benchmark
-    public Slice complexGeometry(BenchmarkData data)
+    public Geometry complexGeometry(BenchmarkData data)
     {
         return GeoFunctions.stEnvelope(data.complexGeometry);
     }
@@ -57,15 +57,15 @@ public class BenchmarkSTEnvelope
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice complexGeometry;
-        private Slice simpleGeometry;
+        private Geometry complexGeometry;
+        private Geometry simpleGeometry;
 
         @Setup
         public void setup()
                 throws IOException
         {
             complexGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4))"));
+            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4, 1 1))"));
         }
     }
 

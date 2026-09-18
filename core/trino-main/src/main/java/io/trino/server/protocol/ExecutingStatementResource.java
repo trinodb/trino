@@ -234,7 +234,7 @@ public class ExecutingStatementResource
 
         // add set original roles
         resultsResponse.setOriginalRoles()
-                        .forEach(name -> response.header(protocolHeaders.responseOriginalRole(), name));
+                .forEach(name -> response.header(protocolHeaders.responseOriginalRole(), name));
 
         // add set session properties
         resultsResponse.setSessionProperties()

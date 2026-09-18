@@ -31,7 +31,7 @@ public interface StatsCalculator
 
     static StatsCalculator noopStatsCalculator()
     {
-        return (node, context) -> PlanNodeStatsEstimate.unknown();
+        return (_, _) -> PlanNodeStatsEstimate.unknown();
     }
 
     record Context(

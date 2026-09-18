@@ -59,12 +59,12 @@
 
 ## Web UI
 
-* Add query details page to the [](/admin/preview-web-interface). ({issue}`25554`)
-* Add query JSON page to the [](/admin/preview-web-interface). ({issue}`26319`)
-* Add query live plan flow page to the [](/admin/preview-web-interface). ({issue}`26392`)
-* Add query references page to the [](/admin/preview-web-interface). ({issue}`26327`)
-* Add query stages view to the [](/admin/preview-web-interface). ({issue}`26440`)
-* Add query live plan flow page to the [](/admin/preview-web-interface). ({issue}`26610`)
+* Add query details page to the preview Web UI. ({issue}`25554`)
+* Add query JSON page to the preview Web UI. ({issue}`26319`)
+* Add query live plan flow page to the preview Web UI. ({issue}`26392`)
+* Add query references page to the preview Web UI. ({issue}`26327`)
+* Add query stages view to the preview Web UI. ({issue}`26440`)
+* Add query live plan flow page to the preview Web UI. ({issue}`26610`)
 * Enhance UI responsiveness for Trino clusters without external network
   access. ({issue}`26031`)
 

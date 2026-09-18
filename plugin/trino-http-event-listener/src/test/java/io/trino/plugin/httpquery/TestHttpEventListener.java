@@ -14,7 +14,7 @@
 package io.trino.plugin.httpquery;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
@@ -116,7 +116,9 @@ final class TestHttpEventListener
                 Optional.of(new ResourceGroupId("name")),
                 new HashMap<>(), // sessionProperties
                 new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.of(1000L)),
-                "serverAddress", "serverVersion", "environment",
+                "serverAddress",
+                "serverVersion",
+                "environment",
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.QUERY.toString());
 
@@ -180,6 +182,7 @@ final class TestHttpEventListener
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -427,7 +430,7 @@ final class TestHttpEventListener
         assertThat(recordedRequest)
                 .describedAs("No request sent when logging is enabled")
                 .isNotNull();
-        customHeaders.forEach((key, value) -> {
+        customHeaders.forEach((key, _) -> {
             assertThat(recordedRequest.getHeaders().get(key))
                     .describedAs(format("Custom header %s not present in request", key))
                     .isNotNull();
@@ -440,10 +443,10 @@ final class TestHttpEventListener
                 .describedAs("Body is empty")
                 .isFalse();
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        assertThat(objectMapper.readTree(body))
+        JsonMapper jsonMapper = new JsonMapper();
+        assertThat(jsonMapper.readTree(body))
                 .as("Json value is wrong, expected %s but found %s", eventJson, body)
-                .isEqualTo(objectMapper.readTree(eventJson));
+                .isEqualTo(jsonMapper.readTree(eventJson));
     }
 
     private void setupServerTLSCertificate()

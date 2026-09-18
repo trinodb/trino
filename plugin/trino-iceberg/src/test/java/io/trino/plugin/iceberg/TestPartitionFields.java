@@ -19,12 +19,13 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.ListType;
 import org.apache.iceberg.types.Types.LongType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
+import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.types.Types.TimestampNanoType;
 import org.apache.iceberg.types.Types.TimestampType;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +51,14 @@ public class TestPartitionFields
         assertParse("month(ts)", partitionSpec(builder -> builder.month("ts")));
         assertParse("day(ts)", partitionSpec(builder -> builder.day("ts")));
         assertParse("hour(ts)", partitionSpec(builder -> builder.hour("ts")));
+        assertParse("year(ts_nano)", partitionSpec(builder -> builder.year("ts_nano")));
+        assertParse("month(ts_nano)", partitionSpec(builder -> builder.month("ts_nano")));
+        assertParse("day(ts_nano)", partitionSpec(builder -> builder.day("ts_nano")));
+        assertParse("hour(ts_nano)", partitionSpec(builder -> builder.hour("ts_nano")));
+        assertParse("year(ts_nano_tz)", partitionSpec(builder -> builder.year("ts_nano_tz")));
+        assertParse("month(ts_nano_tz)", partitionSpec(builder -> builder.month("ts_nano_tz")));
+        assertParse("day(ts_nano_tz)", partitionSpec(builder -> builder.day("ts_nano_tz")));
+        assertParse("hour(ts_nano_tz)", partitionSpec(builder -> builder.hour("ts_nano_tz")));
         assertParse("bucket(order_key, 42)", partitionSpec(builder -> builder.bucket("order_key", 42)));
         assertParse("truncate(comment, 13)", partitionSpec(builder -> builder.truncate("comment", 13)));
         assertParse("truncate(order_key, 88)", partitionSpec(builder -> builder.truncate("order_key", 88)));
@@ -125,16 +134,50 @@ public class TestPartitionFields
         assertParseName(List.of("col", "col_year", "col_year_3"), TimestampType.withZone(), List.of("year(col)"), List.of("col_year_2"));
 
         assertParseName(List.of("col", "col_year", "col_year_2"), TimestampType.withZone(), List.of("year(col)", "col_year_2"), List.of("col_year_3", "col_year_2"));
+        assertParseName(List.of("col", "col_year"), TimestampNanoType.withZone(), List.of("year(col)"), List.of("col_year_2"));
+    }
+
+    @Test
+    public void testConflictsWithPartitionName()
+    {
+        Schema schema = new Schema(
+                NestedField.required(1, "order_key", LongType.get()),
+                NestedField.optional(2, "comment", StringType.get()));
+
+        List<PartitionField> existingPartitionFields = PartitionSpec.builderFor(schema)
+                .truncate("comment", 10)
+                .bucket("order_key", 10)
+                .build()
+                .fields();
+
+        // size matches the existing partition specification
+        assertParseName(List.of("order_key"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 10)"), List.of("order_key_bucket"));
+        assertParseName(List.of("comment"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 10)"), List.of("comment_trunc"));
+
+        // size differs from the existing partition specification
+        assertParseName(List.of("order_key"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20"));
+        assertParseName(List.of("comment"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20"));
+
+        // conflicts with existing column names
+        assertParseName(List.of("order_key", "order_key_bucket_20"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_2"));
+        assertParseName(List.of("comment", "comment_trunc_20"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_2"));
+        assertParseName(List.of("order_key", "order_key_bucket_20", "order_key_bucket_20_2"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_3"));
+        assertParseName(List.of("comment", "comment_trunc_20", "comment_trunc_20_2"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_3"));
     }
 
     private static void assertParseName(List<String> columnNames, Type type, List<String> partitions, List<String> expected)
+    {
+        assertParseName(columnNames, type, ImmutableList.of(), partitions, expected);
+    }
+
+    private static void assertParseName(List<String> columnNames, Type type, List<PartitionField> existingPartitionFields, List<String> partitions, List<String> expected)
     {
         ImmutableList.Builder<NestedField> columns = ImmutableList.builderWithExpectedSize(columnNames.size());
         int i = 1;
         for (String name : columnNames) {
             columns.add(NestedField.required(i++, name, type));
         }
-        PartitionSpec spec = parsePartitionFields(new Schema(columns.build()), partitions);
+        PartitionSpec spec = parsePartitionFields(new Schema(columns.build()), partitions, existingPartitionFields);
         assertThat(spec.fields()).extracting(PartitionField::name)
                 .containsExactlyElementsOf(expected);
     }
@@ -163,7 +206,7 @@ public class TestPartitionFields
 
     private static PartitionSpec parseField(String value)
     {
-        return partitionSpec(builder -> parsePartitionField(builder, value, ""));
+        return partitionSpec(builder -> parsePartitionField(builder, value, "", false));
     }
 
     private static PartitionSpec partitionSpec(Consumer<PartitionSpec.Builder> consumer)
@@ -177,17 +220,19 @@ public class TestPartitionFields
                 NestedField.optional(7, "quoted field", StringType.get()),
                 NestedField.optional(8, "quoted ts", TimestampType.withoutZone()),
                 NestedField.optional(9, "\"another\" \"quoted\" \"field\"", StringType.get()),
-                NestedField.required(10, "nested", Types.StructType.of(
+                NestedField.required(10, "nested", StructType.of(
                         NestedField.required(12, "value", StringType.get()),
                         NestedField.required(13, "ts", TimestampType.withZone()),
                         NestedField.required(14, "list", ListType.ofRequired(15, StringType.get())),
-                        NestedField.required(16, "nested", Types.StructType.of(
+                        NestedField.required(16, "nested", StructType.of(
                                 NestedField.required(17, "value", StringType.get()),
                                 NestedField.required(18, "ts", TimestampType.withZone()))))),
                 NestedField.required(19, "MixedTs", TimestampType.withoutZone()),
                 NestedField.optional(20, "MixedString", StringType.get()),
-                NestedField.required(21, "MixedNested", Types.StructType.of(
-                        NestedField.required(22, "MixedValue", StringType.get()))));
+                NestedField.required(21, "MixedNested", StructType.of(
+                        NestedField.required(22, "MixedValue", StringType.get()))),
+                NestedField.required(23, "ts_nano", TimestampNanoType.withoutZone()),
+                NestedField.required(24, "ts_nano_tz", TimestampNanoType.withZone()));
 
         PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
         consumer.accept(builder);

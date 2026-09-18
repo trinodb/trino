@@ -56,6 +56,7 @@ import static java.util.Arrays.asList;
 public class MapType
         extends AbstractType
 {
+    public static final String NAME = "map";
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
@@ -114,10 +115,10 @@ public class MapType
     public MapType(Type keyType, Type valueType, TypeOperators typeOperators)
     {
         super(
-                new TypeSignature(
-                        StandardTypes.MAP,
-                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
+                new TypeDescriptor(
+                        NAME,
+                        TypeParameter.typeParameter(keyType.getTypeDescriptor()),
+                        TypeParameter.typeParameter(valueType.getTypeDescriptor())),
                 SqlMap.class,
                 MapBlock.class);
         if (!keyType.isComparable()) {
@@ -403,13 +404,13 @@ public class MapType
     @Override
     public String getDisplayName()
     {
-        return "map(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
+        return NAME + "(" + keyType.getDisplayName() + ", " + valueType.getDisplayName() + ")";
     }
 
-    public MapBlock createBlockFromKeyValue(Optional<boolean[]> mapIsNull, int[] offsets, Block keyBlock, Block valueBlock)
+    public MapBlock createBlockFromKeyValue(Optional<long[]> valueIsValid, int[] offsets, Block keyBlock, Block valueBlock)
     {
         return MapBlock.fromKeyValueBlock(
-                mapIsNull,
+                valueIsValid,
                 offsets,
                 keyBlock,
                 valueBlock,

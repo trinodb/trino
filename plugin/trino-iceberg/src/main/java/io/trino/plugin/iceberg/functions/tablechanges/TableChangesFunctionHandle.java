@@ -29,7 +29,8 @@ public record TableChangesFunctionHandle(
         List<IcebergColumnHandle> columns,
         Optional<String> nameMappingJson,
         long startSnapshotId,
-        long endSnapshotId) implements ConnectorTableFunctionHandle
+        long endSnapshotId)
+        implements ConnectorTableFunctionHandle
 {
     public TableChangesFunctionHandle
     {

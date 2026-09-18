@@ -111,7 +111,7 @@ final class TestRowBlockFieldExtraction
 
         for (int fieldId = 0; fieldId < 5; fieldId++) {
             Block fieldBlock = nullSuppressedFields.get(fieldId);
-            Type fieldType = rowType.getTypeParameters().get(fieldId);
+            Type fieldType = rowType.getFields().get(fieldId).getType();
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];
                 assertThat(block.isNull(position)).isEqualTo(expectedRow == null);
@@ -129,7 +129,7 @@ final class TestRowBlockFieldExtraction
 
         for (int fieldId = 0; fieldId < 5; fieldId++) {
             Block fieldBlock = nullSuppressedFields.get(fieldId);
-            Type fieldType = rowType.getTypeParameters().get(fieldId);
+            Type fieldType = rowType.getFields().get(fieldId).getType();
             int nullSuppressedPosition = 0;
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];

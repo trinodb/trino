@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.IndexReference;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
@@ -49,7 +50,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
@@ -312,7 +312,7 @@ public class ParquetWriteValidation
                     .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
-            for (Type ignored : types) {
+            for (var _ : types) {
                 columnHashes.add(new XxHash64());
             }
             this.columnHashes = columnHashes.build();
@@ -465,7 +465,7 @@ public class ParquetWriteValidation
                     types.size(),
                     columnNames.size());
             this.checksum = new WriteChecksumBuilder(types);
-            retainedSize += estimatedSizeOf(types, type -> 0)
+            retainedSize += estimatedSizeOf(types, _ -> 0)
                     + estimatedSizeOf(columnNames, SizeOf::estimatedSizeOf);
         }
 

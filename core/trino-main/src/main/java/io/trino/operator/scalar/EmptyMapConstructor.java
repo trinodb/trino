@@ -24,14 +24,14 @@ import io.trino.spi.type.Type;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 
 @Description("Creates an empty map")
-@ScalarFunction("map")
+@ScalarFunction(value = "map", neverFails = true)
 public final class EmptyMapConstructor
 {
     private final SqlMap emptyMap;
 
     public EmptyMapConstructor(@TypeParameter("map(unknown,unknown)") Type mapType)
     {
-        emptyMap = buildMapValue(((MapType) mapType), 0, (keyBuilder, valueBuilder) -> {});
+        emptyMap = buildMapValue(((MapType) mapType), 0, (_, _) -> {});
     }
 
     @SqlType("map(unknown,unknown)")

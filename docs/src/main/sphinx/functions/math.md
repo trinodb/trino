@@ -9,7 +9,7 @@
 | `-`      | Subtraction                                     |
 | `*`      | Multiplication                                  |
 | `/`      | Division (integer division performs truncation) |
-| `%`      | Modulus (remainder)                             |
+| `%`      | Modulo (remainder)                              |
 
 ## Mathematical functions
 
@@ -62,7 +62,7 @@ Returns the base 10 logarithm of `x`.
 :::
 
 :::{function} mod(n, m) -> [same as input]
-Returns the modulus (remainder) of `n` divided by `m`.
+Returns the modulo (remainder) of `n` divided by `m`.
 :::
 
 :::{function} pi() -> double
@@ -102,16 +102,21 @@ For floating point arguments, the function additionally returns:
 
 - -0 if the argument is -0,
 - NaN if the argument is NaN,
-- 1 if the argument is +Infinity,
-- -1 if the argument is -Infinity.
 :::
 
 :::{function} sqrt(x) -> double
 Returns the square root of `x`.
 :::
 
-:::{function} truncate(x) -> double
+:::{function} truncate(x) -> [same as input]
 Returns `x` rounded to integer by dropping digits after decimal point.
+:::
+
+:::{function} truncate(x, d) -> [same as input]
+:noindex: true
+
+Returns `x` truncated to `d` decimal places. `d` can be negative,
+in which case `d` digits to the left of the decimal point are zeroed out.
 :::
 
 :::{function} width_bucket(x, bound1, bound2, n) -> bigint

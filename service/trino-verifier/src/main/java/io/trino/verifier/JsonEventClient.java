@@ -19,12 +19,13 @@ import io.airlift.json.JsonCodec;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.Objects.requireNonNull;
 
 public class JsonEventClient
         implements EventConsumer
 {
-    private final JsonCodec<VerifierQueryEvent> serializer = JsonCodec.jsonCodec(VerifierQueryEvent.class);
+    private final JsonCodec<VerifierQueryEvent> serializer = jsonCodec(VerifierQueryEvent.class);
     private final PrintStream out;
 
     @Inject
@@ -42,7 +43,5 @@ public class JsonEventClient
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

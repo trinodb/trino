@@ -30,6 +30,8 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -143,7 +145,7 @@ public class TestMergeProjectWithValues
     public void testNonDeterministicValues()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues())
@@ -179,8 +181,10 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x", DOUBLE), new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "a"))),
-                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "b")),
+                                p.symbol("x", DOUBLE),
+                                new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "a"))),
+                                p.symbol("y", DOUBLE),
+                                new Reference(DOUBLE, "b")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
@@ -200,14 +204,16 @@ public class TestMergeProjectWithValues
     public void testDoNotFireOnNonDeterministicValues()
     {
         Call randomFunction = new Call(
-                tester().getMetadata().resolveBuiltinFunction("random", ImmutableList.of()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "random", ImmutableList.of()),
                 ImmutableList.of());
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(
                         Assignments.of(
-                                p.symbol("x", DOUBLE), new Reference(DOUBLE, "rand"),
-                                p.symbol("y", DOUBLE), new Reference(DOUBLE, "rand")),
+                                p.symbol("x", DOUBLE),
+                                new Reference(DOUBLE, "rand"),
+                                p.symbol("y", DOUBLE),
+                                new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
@@ -256,7 +262,7 @@ public class TestMergeProjectWithValues
     @Test
     public void testFailingExpression()
     {
-        Call failFunction = failFunction(tester().getMetadata(), GENERIC_USER_ERROR, "message");
+        Call failFunction = failFunction(tester().getMetadata(), getCharVarcharCoercion(TEST_SESSION), GENERIC_USER_ERROR, "message");
 
         tester().assertThat(new MergeProjectWithValues())
                 .on(p -> p.project(

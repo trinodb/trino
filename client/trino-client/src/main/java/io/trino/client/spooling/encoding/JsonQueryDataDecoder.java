@@ -54,9 +54,9 @@ public class JsonQueryDataDecoder
             implements QueryDataDecoder.Factory
     {
         @Override
-        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes)
+        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes, boolean supportsVariantBinary)
         {
-            return new JsonQueryDataDecoder(createTypeDecoders(columns));
+            return new JsonQueryDataDecoder(createTypeDecoders(columns, supportsVariantBinary));
         }
 
         @Override
@@ -70,9 +70,9 @@ public class JsonQueryDataDecoder
             extends Factory
     {
         @Override
-        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes)
+        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes, boolean supportsVariantBinary)
         {
-            return new ZstdQueryDataDecoder(super.create(columns, queryAttributes));
+            return new ZstdQueryDataDecoder(super.create(columns, queryAttributes, supportsVariantBinary));
         }
 
         @Override
@@ -86,9 +86,9 @@ public class JsonQueryDataDecoder
             extends Factory
     {
         @Override
-        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes)
+        public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes, boolean supportsVariantBinary)
         {
-            return new Lz4QueryDataDecoder(super.create(columns, queryAttributes));
+            return new Lz4QueryDataDecoder(super.create(columns, queryAttributes, supportsVariantBinary));
         }
 
         @Override

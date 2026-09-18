@@ -20,6 +20,9 @@ import io.airlift.slice.SliceOutput;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.spi.block.EncoderUtil.decodeValidityAsLongs;
+import static io.trino.spi.block.EncoderUtil.encodeValidityAsLongs;
+
 public class RowBlockEncoding
         implements BlockEncoding
 {
@@ -50,7 +53,7 @@ public class RowBlockEncoding
             blockEncodingSerde.writeBlock(sliceOutput, fieldBlock);
         }
 
-        EncoderUtil.encodeNullsAsBits(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
+        encodeValidityAsLongs(sliceOutput, rowBlock.getRawValueIsValid(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
     }
 
     @Override
@@ -64,7 +67,7 @@ public class RowBlockEncoding
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        Optional<boolean[]> rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
+        long[] valueIsValid = decodeValidityAsLongs(sliceInput, positionCount);
+        return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(valueIsValid), fieldBlocks);
     }
 }

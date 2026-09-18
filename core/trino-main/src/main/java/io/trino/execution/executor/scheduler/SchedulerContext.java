@@ -34,8 +34,8 @@ public final class SchedulerContext
      * Attempt to relinquish control to let other tasks run.
      *
      * @return false if the task was interrupted or cancelled while yielding,
-     * for example if the Java thread was interrupted, the scheduler was shutdown,
-     * or the scheduling group was removed. The caller is expected to clean up and finish.
+     *         for example if the Java thread was interrupted, the scheduler was shutdown,
+     *         or the scheduling group was removed. The caller is expected to clean up and finish.
      */
     public boolean maybeYield()
     {
@@ -49,8 +49,8 @@ public final class SchedulerContext
      * completes of it the task is interrupted.
      *
      * @return false if the task was interrupted or cancelled while blocked,
-     * for example if the Java thread was interrupted, the scheduler was shutdown,
-     * or the scheduling group was removed. The caller is expected to clean up and finish.
+     *         for example if the Java thread was interrupted, the scheduler was shutdown,
+     *         or the scheduling group was removed. The caller is expected to clean up and finish.
      */
     public boolean block(ListenableFuture<?> future)
     {

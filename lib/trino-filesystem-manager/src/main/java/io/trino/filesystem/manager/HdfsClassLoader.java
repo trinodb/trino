@@ -101,7 +101,6 @@ final class HdfsClassLoader
         return hasPackage(name, "io.trino.spi.") ||
                 hasPackage(name, "com.fasterxml.jackson.annotation.") ||
                 hasPackage(name, "io.airlift.slice.") ||
-                hasPackage(name, "org.openjdk.jol.") ||
                 hasPackage(name, "io.opentelemetry.api.") ||
                 hasPackage(name, "io.opentelemetry.context.") ||
                 hasPackage(name, "com.google.common.") ||

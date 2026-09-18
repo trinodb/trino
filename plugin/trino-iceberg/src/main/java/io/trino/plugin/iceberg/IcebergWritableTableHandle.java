@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.iceberg.SortOrder;
 
 import java.util.List;
 import java.util.Map;
@@ -30,12 +31,12 @@ public record IcebergWritableTableHandle(
         String schemaAsJson,
         Map<Integer, String> partitionsSpecsAsJson,
         int partitionSpecId,
-        List<TrinoSortField> sortOrder,
+        List<TrinoSortField> sortFields,
+        int sortOrderId,
         List<IcebergColumnHandle> partitionColumns,
         String outputPath,
         IcebergFileFormat fileFormat,
-        Map<String, String> storageProperties,
-        Map<String, String> fileIoProperties)
+        Map<String, String> storageProperties)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     public IcebergWritableTableHandle
@@ -43,13 +44,13 @@ public record IcebergWritableTableHandle(
         requireNonNull(name, "name is null");
         requireNonNull(schemaAsJson, "schemaAsJson is null");
         partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
-        sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
+        checkArgument(sortOrderId == SortOrder.unsorted().orderId() || !sortFields.isEmpty(), "sorted order id can be present only when sortFields is not empty");
         partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         requireNonNull(outputPath, "outputPath is null");
         requireNonNull(fileFormat, "fileFormat is null");
         storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
-        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override

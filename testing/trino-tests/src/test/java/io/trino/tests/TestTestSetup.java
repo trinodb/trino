@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,7 +32,7 @@ public class TestTestSetup
 {
     private static final Logger log = Logger.get(TestTestSetup.class);
 
-    private static final Path ROOT_POM_REPO_PATH = Paths.get("pom.xml");
+    private static final Path ROOT_POM_REPO_PATH = Path.of("pom.xml");
 
     @Test
     public void testSetupOfTests()
@@ -81,7 +80,7 @@ public class TestTestSetup
 
     private static Path findRepositoryRoot()
     {
-        Path workingDirectory = Paths.get("").toAbsolutePath();
+        Path workingDirectory = Path.of("").toAbsolutePath();
         log.info("Current working directory: %s", workingDirectory);
         for (Path path = workingDirectory; path != null; path = path.getParent()) {
             if (Files.isDirectory(path.resolve(".git"))) {

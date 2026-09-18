@@ -146,9 +146,9 @@ to the following table:
 * - `DOUBLE`
   - `DOUBLE`
   -
-* - `DECIMAL(p,s)`
-  - `DECIMAL(p,s)`
-  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `CHAR(n)`
   - `CHAR(n)`
   -

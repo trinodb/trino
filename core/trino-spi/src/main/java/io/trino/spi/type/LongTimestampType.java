@@ -60,7 +60,7 @@ final class LongTimestampType
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
 
-    public LongTimestampType(int precision)
+    LongTimestampType(int precision)
     {
         super(precision, LongTimestamp.class, Fixed12Block.class);
 
@@ -158,6 +158,40 @@ final class LongTimestampType
     public Optional<Range> getRange()
     {
         return Optional.of(range);
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        LongTimestamp timestamp = (LongTimestamp) value;
+        long epochMicros = timestamp.getEpochMicros();
+        int picosOfMicro = timestamp.getPicosOfMicro();
+        picosOfMicro -= toIntExact(rescale(1, 0, 12 - getPrecision()));
+        if (picosOfMicro < 0) {
+            if (epochMicros == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            epochMicros--;
+            picosOfMicro += PICOSECONDS_PER_MICROSECOND;
+        }
+        return Optional.of(new LongTimestamp(epochMicros, picosOfMicro));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        LongTimestamp timestamp = (LongTimestamp) value;
+        long epochMicros = timestamp.getEpochMicros();
+        int picosOfMicro = timestamp.getPicosOfMicro();
+        picosOfMicro += toIntExact(rescale(1, 0, 12 - getPrecision()));
+        if (picosOfMicro >= PICOSECONDS_PER_MICROSECOND) {
+            if (epochMicros == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            epochMicros++;
+            picosOfMicro -= PICOSECONDS_PER_MICROSECOND;
+        }
+        return Optional.of(new LongTimestamp(epochMicros, picosOfMicro));
     }
 
     @ScalarOperator(READ_VALUE)

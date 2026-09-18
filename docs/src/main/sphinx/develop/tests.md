@@ -158,13 +158,13 @@ systems.
 
 ### Avoid flaky tests
 
-Flaky tests are test that are not reliable. Multiple runs of the same test
+Flaky tests are tests that are not reliable. Multiple runs of the same test
 result in inconsistent results. Typically the tests are successful, and then
 rarely fail. Reasons for flakiness include reliance on external, unstable
 systems, connections, and other hard to troubleshoot setups.
 
-Existing flaky tests using the legacy TestNG library can be marked with the
-`@Flaky` annotation temporarily to improve CI reliability until a fix is
+Existing flaky tests can be marked with the `@Flaky` annotation
+temporarily to improve CI reliability until a fix is
 implemented:
 
 * Ideally the fix is to make the test reliable.
@@ -175,8 +175,8 @@ implemented:
 After a certain time period, if the test hasn’t been fixed, it should be
 removed.
 
-New tests with the `@Flaky` annotation can not be introduced, since new tests
-must use JUnit. Rewrite the test to be stable or avoid the test altogether.
+New tests with the `@Flaky` annotation cannot be introduced. Rewrite the test
+to be stable or avoid the test altogether.
 
 ### Avoid disabling tests
 

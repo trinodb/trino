@@ -23,7 +23,6 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -70,9 +69,11 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -112,6 +113,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -188,8 +190,10 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -262,6 +266,27 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNamedArgumentsRejectedForFunctionsWithoutDeclaredNames()
+    {
+        // No built-in function declares parameter names yet, so any named-arg call should
+        // fail with a "no argument named X" diagnostic pointing at the offending name.
+        assertFails("SELECT substr('abc', \"from\" => 1)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("No argument named from for function substr");
+
+        // Duplicate named arguments are caught before lookup so the error points at the
+        // second occurrence rather than failing in candidate filtering.
+        assertFails("SELECT some_fn(x => 1, x => 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Duplicate named argument: x");
+
+        // Positional after named is rejected at analysis time.
+        assertFails("SELECT some_fn(x => 1, 2)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Positional arguments cannot follow named arguments");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
     {
         assertFails("SELECT * FROM (SELECT approx_set(1)) GROUP BY 1")
@@ -275,6 +300,14 @@ public class TestAnalyzer
         assertFails("SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(CAST (NULL AS HyperLogLog))) AS t(x)")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:40: HyperLogLog is not comparable, and therefore cannot be used in window function PARTITION BY");
+    }
+
+    @Test
+    public void testNonOrderableWindowPartition()
+    {
+        assertFails("SELECT row_number() OVER (PARTITION BY t.x) FROM (VALUES(MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[2373, 3463, 45837])) )AS t(x)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:40: map(varchar(4), integer) is not orderable, and therefore cannot be used in window function PARTITION BY");
     }
 
     @Test
@@ -379,6 +412,35 @@ public class TestAnalyzer
         assertFails("SELECT 1 AS x FROM (values (1,2)) t(x, y) GROUP BY y ORDER BY sum(y) FILTER (WHERE x > 0)")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 1:84: Invalid reference to output projection attribute from ORDER BY aggregation");
+    }
+
+    @Test
+    public void testColumnNotFoundSuggestion()
+    {
+        // typo — one close match
+        assertFails("SELECT firs_name FROM (VALUES 1) t(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'firs_name' cannot be resolved. Did you mean 'first_name'?");
+
+        // typo — two close matches
+        assertFails("SELECT first_nme FROM (VALUES (1, 2)) t(first_name, first_line)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'first_nme' cannot be resolved. Did you mean 'first_name' or 'first_line'?");
+
+        // typo — three close matches, capped at 3
+        assertFails("SELECT first_nme FROM (VALUES (1, 2, 3, 4)) t(first_name, first_line, first_lime, first_nine)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageMatching("line 1:8: Column 'first_nme' cannot be resolved\\. Did you mean 'first_n.+', 'first_.+' or 'first_.+'\\?");
+
+        // no close match — no suggestion appended
+        assertFails("SELECT xyz FROM (VALUES 1) t(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column 'xyz' cannot be resolved");
+
+        // suggestion from outer scope of a correlated subquery
+        assertFails("SELECT (SELECT first_nme FROM (VALUES 1) t(x)) FROM (VALUES 1) u(first_name)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:16: Column 'first_nme' cannot be resolved. Did you mean 'first_name'?");
     }
 
     @Test
@@ -2437,9 +2499,8 @@ public class TestAnalyzer
         assertFails("INSERT INTO t8 (unbounded_varchar_column) VALUES (1)")
                 .hasErrorCode(TYPE_MISMATCH);
 
-        // coercion with potential loss is not allowed for nested bounded character string types
-        assertFails("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))")
-                .hasErrorCode(TYPE_MISMATCH);
+        // a value is assignable to a nested bounded character string type; truncation of non-space characters is checked at run time
+        analyze("INSERT INTO t8 (nested_bounded_varchar_column) VALUES (ROW(ROW(CAST('aa' AS varchar(10)))))");
     }
 
     @Test
@@ -2960,7 +3021,7 @@ public class TestAnalyzer
                 "          )" +
                 "          SELECT * from t")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:82: recursion step relation output type (decimal(3,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
+                .hasMessage("line 1:82: recursion step relation output type (decimal(2,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
 
         assertFails("WITH RECURSIVE t(n) AS (" +
                 "          SELECT * FROM (VALUES('a'), ('b')) AS t(n)" +
@@ -3085,12 +3146,7 @@ public class TestAnalyzer
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:28: Escape for LIKE expression must evaluate to a varchar (actual: integer)");
-        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
-        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
+        // a char pattern or escape is now accepted: it is implicitly coerced to varchar
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
@@ -3788,10 +3844,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT INTERVAL '12.1' DAY TO SECOND")
                 .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '12' YEAR TO DAY")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
-                .hasErrorCode(INVALID_LITERAL);
 
         // json
         assertFails("SELECT JSON ''")
@@ -3810,6 +3862,78 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT JSON ''")
                 .hasErrorCode(INVALID_LITERAL);
+    }
+
+    @Test
+    void testInterval()
+    {
+        assertFails("SELECT INTERVAL '1' YEAR(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' YEAR(1) TO MONTH")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' MONTH(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' DAY(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' DAY(1) TO HOUR")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' DAY(1) TO MINUTE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' DAY(1) TO SECOND(2)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' HOUR(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' HOUR(1) TO MINUTE")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' HOUR(1) TO SECOND(2)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' MINUTE(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' MINUTE(1) TO SECOND(2)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' SECOND(1)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
+
+        assertFails("SELECT INTERVAL '1' SECOND(1, 2)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:21: Only INTERVAL literals with default precision are supported");
     }
 
     @Test
@@ -3913,8 +4037,7 @@ public class TestAnalyzer
                 .hasMessageMatching(".* Lambda expression cannot contain subqueries");
 
         // GROUP BY column captured in lambda
-        analyze(
-                "SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
+        analyze("SELECT (SELECT apply(0, x -> x + b) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
 
         // non-GROUP BY column captured in lambda
         assertFails("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
@@ -4076,6 +4199,38 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidTableExecute()
+    {
+        assertFails("ALTER TABLE foo EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Table 'tpch.s1.foo' does not exist");
+        assertFails("ALTER TABLE v1 EXECUTE optimize")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: ALTER TABLE EXECUTE is not supported for views");
+        assertFails("ALTER TABLE mv1 EXECUTE optimize")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: ALTER TABLE EXECUTE is not supported for materialized views");
+    }
+
+    @Test
+    public void testInvalidMaterializedViewExecute()
+    {
+        assertFails("ALTER MATERIALIZED VIEW foo EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.foo' does not exist");
+        assertFails("ALTER MATERIALIZED VIEW t1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.t1' does not exist");
+        assertFails("ALTER MATERIALIZED VIEW v1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.v1' does not exist");
+        // mv1 has no storage table configured in the mock metadata
+        assertFails("ALTER MATERIALIZED VIEW mv1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Storage table for materialized view 'tpch.s1.mv1' does not exist");
+    }
+
+    @Test
     public void testInvalidShowTables()
     {
         assertFails("SHOW TABLES FROM a.b.c")
@@ -4232,6 +4387,60 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testMatchPredicate()
+    {
+        // basic SIMPLE / PARTIAL / FULL / UNIQUE all analyze when row and subquery shapes match
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH SIMPLE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH PARTIAL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH FULL (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE (SELECT b FROM t2)");
+        analyze("SELECT * FROM t1 WHERE ROW(t1.a) MATCH UNIQUE FULL (SELECT b FROM t2)");
+
+        // mismatched row arity
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT b, c FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // mismatched element types
+        assertFails("SELECT * FROM t1 WHERE ROW(t1.a) MATCH (SELECT 'abc' FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // MATCH requires comparable types — HLL is not comparable
+        assertFails("SELECT * FROM t1 WHERE ROW(cast(NULL AS HyperLogLog)) MATCH (SELECT cast(NULL AS HyperLogLog) FROM t2)")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testUniquePredicate()
+    {
+        // Comparable scalar/row types
+        analyze("SELECT UNIQUE (SELECT a FROM t1)");
+        analyze("SELECT UNIQUE (SELECT a, b FROM t1)");
+        analyze("SELECT * FROM t1 WHERE NOT UNIQUE (SELECT a FROM t1)");
+
+        // Non-comparable type rejected
+        assertFails("SELECT UNIQUE (SELECT cast(NULL AS HyperLogLog))")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
+    public void testBooleanTest()
+    {
+        // boolean operand accepted in all forms
+        analyze("SELECT a IS TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT TRUE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT FALSE FROM (VALUES true) t(a)");
+        analyze("SELECT a IS UNKNOWN FROM (VALUES true) t(a)");
+        analyze("SELECT a IS NOT UNKNOWN FROM (VALUES true) t(a)");
+
+        // non-boolean operand rejected
+        assertFails("SELECT 1 IS TRUE FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:8: Boolean test value must evaluate to a boolean (actual: integer)");
+    }
+
+    @Test
     public void testJoinUnnest()
     {
         // Lateral references are only allowed in INNER and LEFT join.
@@ -4282,6 +4491,314 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testJoinNearest()
+    {
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < trades.ts
+                )
+                """);
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON TRUE
+                """);
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts > trades.ts
+                )
+                """);
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON TRUE
+                """);
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                INNER JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON TRUE
+                """);
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01', 10)) quotes(symbol, ts, price)
+                    WHERE quotes.price = (SELECT 10)
+                    MATCH quotes.ts <= date_add('second', (SELECT 0), trades.ts)
+                )
+                """);
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.ts <= (SELECT trades.ts)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Correlated subqueries are not supported in NEAREST WHERE clause");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.ts <= trades.ts
+                    MATCH quotes.ts <= (SELECT trades.ts)
+                )
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Correlated subqueries are not supported in NEAREST MATCH clause");
+        analyze(
+                """
+                SELECT *
+                FROM (VALUES (TIMESTAMP '2020-01-01 00:00:02')) trades(ts),
+                     NEAREST (
+                         FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
+                         MATCH quotes.ts <= trades.ts
+                     )
+                """);
+
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                INNER JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON 1 = 1
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("INNER JOIN involving NEAREST is only supported with condition ON TRUE");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                RIGHT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON true
+                """)
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("LATERAL reference not allowed in RIGHT JOIN");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                FULL JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:03')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts >= trades.ts
+                ) ON true
+                """)
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("LATERAL reference not allowed in FULL JOIN");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) ON 1 = 1
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("LEFT JOIN involving NEAREST is only supported with condition ON TRUE");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                LEFT JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <= trades.ts
+                ) USING (symbol)
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("JOIN USING involving NEAREST is not supported");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                NATURAL JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Natural join not supported");
+        assertFails(
+                """
+                SELECT *
+                FROM NEAREST (
+                    FROM (VALUES (TIMESTAMP '2020-01-01 00:00:01')) quotes(ts)
+                    MATCH quotes.ts <= TIMESTAMP '2020-01-01 00:00:02'
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST is only supported on the right side of CROSS JOIN, INNER JOIN, LEFT JOIN, or an implicit join");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts = trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts <> trades.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must use <, <=, >, or >=");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < trades.ts AND quotes.symbol = trades.symbol
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must be a comparison expression");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE quotes.symbol = trades.symbol
+                    MATCH quotes.ts < quotes.ts
+                )
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("NEAREST MATCH clause must compare one FROM relation expression with one non-FROM expression");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE 1
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("NEAREST WHERE clause must evaluate to a boolean");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH 1
+                )
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("NEAREST MATCH clause must evaluate to a boolean");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE sum(1) = 1
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    WHERE grouping(trades.symbol) = 0
+                    MATCH quotes.ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST WHERE clause cannot contain aggregations, window functions or grouping operations");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH row_number() OVER () = 1
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts)
+                    MATCH quotes.ts <= grouping(trades.symbol)
+                )
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("NEAREST MATCH clause cannot contain aggregations, window functions or grouping operations");
+        assertFails(
+                """
+                SELECT *
+                FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:02')) trades(symbol, ts)
+                CROSS JOIN NEAREST (
+                    FROM (SELECT * FROM (VALUES ('A', TIMESTAMP '2020-01-01 00:00:01')) quotes(symbol, ts) WHERE quotes.symbol = trades.symbol)
+                    MATCH ts <= trades.ts
+                )
+                """)
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageContaining("Column 'trades.symbol' cannot be resolved");
+    }
+
+    @Test
     public void testNullTreatment()
     {
         assertFails("SELECT count() RESPECT NULLS OVER ()")
@@ -4324,6 +4841,65 @@ public class TestAnalyzer
                 .hasMessage("line 1:1: Values rows have mismatched types: row(integer, integer) vs row(varchar(1), varchar(1))");
 
         analyze("VALUES 'a', ('a'), ROW('a'), CAST(ROW('a') AS row(char(5)))");
+    }
+
+    @Test
+    public void testPivot()
+    {
+        // t1 has columns a, b, c, d, all BIGINT.
+        analyze("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (1 AS one))");
+
+        // An expression must contain an aggregate.
+        assertFails("SELECT * FROM t1 PIVOT (a FOR b IN (1 AS one))")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageContaining("PIVOT expression must contain an aggregate function");
+        assertFails("SELECT * FROM t1 PIVOT (1 FOR b IN (1 AS one))")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        // Window functions and grouping operations are not aggregates.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) OVER () FOR b IN (1 AS one))")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessageContaining("PIVOT expression cannot contain window functions");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) + grouping(c) FOR b IN (1 AS one) GROUP BY ROLLUP (c))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("PIVOT expression cannot contain grouping operations");
+
+        // A subquery outside the aggregate calls is not supported; one inside an aggregate call is fine.
+        assertFails("SELECT * FROM t1 PIVOT ((sum(a) + (SELECT 1)) AS x FOR b IN (1 AS one))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("PIVOT expression cannot contain a subquery outside an aggregate function");
+        analyze("SELECT * FROM t1 PIVOT (sum((SELECT a)) AS x FOR b IN (1 AS one))");
+
+        // An IN value must be a constant: no aggregate, subquery, input-column reference, or
+        // non-deterministic function.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (max(a)))")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageContaining("PIVOT IN clause cannot contain aggregations");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN ((SELECT 1)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot contain a subquery");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (a))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot reference a column: a");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (CAST(random(3) AS bigint)))")
+                .hasErrorCode(EXPRESSION_NOT_CONSTANT)
+                .hasMessageContaining("cannot be non-deterministic");
+
+        // A value must share a comparable supertype with the pivot column.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (VARCHAR 'x'))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("not comparable");
+
+        // Shape constraints.
+        assertFails("SELECT * FROM t1 PIVOT (sum(a), count(a) FOR b IN (1))")
+                .hasErrorCode(MISSING_COLUMN_ALIASES)
+                .hasMessageContaining("requires an alias");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR (b, c) IN ((1)))")
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessageContaining("Number of pivot values");
+        assertFails("SELECT * FROM t1 PIVOT (sum(a) FOR b IN (1) GROUP BY AUTO)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("GROUP BY AUTO is not supported in PIVOT");
     }
 
     // TEST ROW PATTERN RECOGNITION: MATCH_RECOGNIZE CLAUSE
@@ -5797,9 +6373,17 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeFreshMaterializedView()
     {
-        analyze("SELECT * FROM fresh_materialized_view");
-        analyze("SELECT * FROM fresh_materialized_view_non_existent_table");
-        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table")
+        testAnalyzeFreshMaterializedView(INLINE);
+        testAnalyzeFreshMaterializedView(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeFreshMaterializedView(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        analyze("SELECT * FROM fresh_materialized_view" + suffix);
+        analyze("SELECT * FROM fresh_materialized_view_non_existent_table" + suffix);
+        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
@@ -5807,11 +6391,28 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeStaleMaterializedView()
     {
-        analyze("SELECT * FROM stale_materialized_view");
-        assertFails("SELECT * FROM stale_materialized_view_non_existent_table")
+        testAnalyzeStaleMaterializedViewWithWhenStaleInline(INLINE);
+
+        assertFails("SELECT * FROM stale_materialized_view_when_stale_fail")
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_when_stale_fail' is stale");
+        assertFails("SELECT * FROM stale_materialized_view_non_existent_table_when_stale_fail")
+                .hasErrorCode(VIEW_IS_STALE)
+                .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_non_existent_table_when_stale_fail' is stale");
+        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table_when_stale_fail")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+    }
+
+    public void testAnalyzeStaleMaterializedViewWithWhenStaleInline(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        analyze("SELECT * FROM stale_materialized_view" + suffix);
+        assertFails("SELECT * FROM stale_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
-        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table")
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table" + suffix + "': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table" + suffix)
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
@@ -5819,13 +6420,21 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeInvalidFreshMaterializedView()
     {
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_count")
+        testAnalyzeInvalidFreshMaterializedView(INLINE);
+        testAnalyzeInvalidFreshMaterializedView(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeInvalidFreshMaterializedView(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_count" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: storage table column count (2) does not match column count derived from the materialized view query analysis (1)");
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_name")
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_name" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
-        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type" + suffix)
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: cannot cast column [b] of type bigint projected from storage table at position 1 into column [b] of type row(tinyint) stored in view definition");
     }
@@ -5833,37 +6442,53 @@ public class TestAnalyzer
     @Test
     public void testAnalyzeMaterializedViewWithAccessControl()
     {
+        testAnalyzeMaterializedViewWithAccessControl(INLINE);
+        testAnalyzeMaterializedViewWithAccessControl(WhenStaleBehavior.FAIL);
+    }
+
+    private void testAnalyzeMaterializedViewWithAccessControl(WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
         TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager, emptyEventListenerManager(), new SecretsResolver(ImmutableMap.of()));
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
 
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
 
         // materialized view analysis should succeed even if access to storage table is denied when querying the table directly
         accessControlManager.deny(privilege("t2.a", SELECT_COLUMN));
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
 
-        accessControlManager.deny(privilege("fresh_materialized_view.a", SELECT_COLUMN));
+        accessControlManager.deny(privilege("fresh_materialized_view" + suffix + ".a", SELECT_COLUMN));
         assertFails(
                 CLIENT_SESSION,
-                "SELECT * FROM fresh_materialized_view",
+                "SELECT * FROM fresh_materialized_view" + suffix,
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view" + suffix);
         accessControlManager.reset();
 
         // Deny access to the table referenced by the underlying query
         accessControlManager.denyIdentityTable((_, table) -> !"t1".equals(table));
         // When an MV is fresh or within the grace period, analysis of the underlying query is not performed,
         // so access control checks on the tables referenced by the query are not executed.
-        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
-        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view", accessControlManager)
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view" + suffix, accessControlManager);
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
-        // Now we check that when the MV is stale, access to the underlying tables is checked.
-        assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view", accessControlManager)
-                .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
-        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view", accessControlManager)
+        if (whenStaleBehavior == INLINE) {
+            // Now we check that when the MV is stale, access to the underlying tables is checked.
+            assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view" + suffix, accessControlManager)
+                    .hasErrorCode(PERMISSION_DENIED)
+                    .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        }
+        else {
+            assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view" + suffix, accessControlManager)
+                    .hasErrorCode(VIEW_IS_STALE)
+                    .hasMessage("line 1:15: Materialized view 'tpch.s1.stale_materialized_view_when_stale_fail' is stale");
+        }
+
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view" + suffix, accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
     }
@@ -6062,14 +6687,12 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON EMPTY) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON EMPTY) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON EMPTY result must evaluate to a double (actual: varchar(4))");
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
 
         // default value has the same type as the declared returned type
         analyze("SELECT JSON_VALUE( " +
@@ -6087,14 +6710,34 @@ public class TestAnalyzer
                 "                   DEFAULT 1.0 ON ERROR) " +
                 "       FROM (VALUES '-1', 'ala') t(json_column)");
 
-        assertFails("SELECT JSON_VALUE( " +
+        analyze("SELECT JSON_VALUE( " +
                 "                   json_column, " +
                 "                   'lax $.double()'" +
                 "                   RETURNING double" +
                 "                   DEFAULT 'text' ON ERROR) " +
-                "       FROM (VALUES '-1', 'ala') t(json_column)")
+                "       FROM (VALUES '-1', 'ala') t(json_column)");
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $'
+                    COLUMNS(x DATE DEFAULT true ON EMPTY))
+                """)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:149: Function JSON_VALUE default ON ERROR result must evaluate to a double (actual: varchar(4))");
+                .hasMessageContaining("Function JSON_TABLE default ON EMPTY result must evaluate to a date");
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'strict $'
+                    COLUMNS(x DATE DEFAULT true ON ERROR))
+                """)
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessageContaining("Function JSON_TABLE default ON ERROR result must evaluate to a date");
     }
 
     @Test
@@ -6426,9 +7069,10 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
-        assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))"))
-                .isInstanceOf(ParsingException.class)
-                .hasMessageContaining("line 1:93: mismatched input '=>'.");
+        // same diagnostic when the inner call uses named-argument syntax (now accepted at parse time)
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => my_schema.my_table_function(arg => 1)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:52: Invalid table argument INPUT. Table functions are not allowed as table function arguments");
 
         // cannot pass a table function as the argument, also preceding nested table function with TABLE is incorrect
         assertThatThrownBy(() -> analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(my_schema.my_table_function(1))))"))
@@ -6820,7 +7464,7 @@ public class TestAnalyzer
 
         assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(column_alias)")
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessage("line 1:8: Column 'column' cannot be resolved");
+                .hasMessageStartingWith("line 1:8: Column 'column' cannot be resolved");
 
         assertFails("SELECT column FROM TABLE(system.two_arguments_function('a', 1)) table_alias(col1, col2, col3)")
                 .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
@@ -7391,9 +8035,20 @@ public class TestAnalyzer
                 FROM JSON_TABLE(
                     (SELECT '[1, 2, 3]'),
                     'lax $[2]' PASSING (SELECT 1) AS parameter_name
+                    COLUMNS(x BIGINT))
+                """);
+
+        assertFails(
+                """
+                SELECT *
+                FROM JSON_TABLE(
+                    (SELECT '[1, 2, 3]'),
+                    'lax $[2]' PASSING (SELECT 1) AS parameter_name
                     COLUMNS(
                         x BIGINT DEFAULT (SELECT 2) ON EMPTY))
-                """);
+                """)
+                .hasErrorCode(UNSUPPORTED_SUBQUERY)
+                .hasMessageContaining("Subqueries are not supported in JSON_TABLE default expressions");
     }
 
     @Test
@@ -7512,7 +8167,8 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testSelectColumnsLineageInfoAggregateFunction() {
+    public void testSelectColumnsLineageInfoAggregateFunction()
+    {
         String sql = "SELECT SUM(a) FROM t1 WHERE b > 1";
 
         Analysis analysis = analyze(sql);
@@ -7545,9 +8201,9 @@ public class TestAnalyzer
         ColumnLineageInfo colA = lineageInfo.getFirst();
         assertThat(colA.name()).isEqualTo("unionized");
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "c"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "a"));
+                new ColumnDetail("tpch", "s1", "t1", "c"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "a"));
     }
 
     @Test
@@ -7567,14 +8223,14 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("a");
         // The source columns should include both 'a' from t1 and 'b' from t2
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"));
+                new ColumnDetail("tpch", "s1", "t1", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"));
     }
 
     @Test
     public void testSelectColumnsLineageInfoWithSubquery()
     {
-    String sql = "SELECT (SELECT max(a)+min(b) FROM t2) AS min_max FROM t1 UNION SELECT max(a) FROM t3";
+        String sql = "SELECT (SELECT max(a)+min(b) FROM t2) AS min_max FROM t1 UNION SELECT max(a) FROM t3";
 
         Analysis analysis = analyze(sql);
 
@@ -7588,9 +8244,9 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("min_max");
         // The source columns should include both 'a' and 'b' from t2 in the subquery and t3.a from the union
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t2", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "a"));
+                new ColumnDetail("tpch", "s1", "t2", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "a"));
     }
 
     @Test
@@ -7610,9 +8266,9 @@ public class TestAnalyzer
         assertThat(colA.name()).isEqualTo("a");
         // The source columns should include both 'a' from the subquery and 'b' from t2
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
-                new ColumnDetail("tpch","s1","t1", "a"),
-                new ColumnDetail("tpch","s1","t2", "b"),
-                new ColumnDetail("tpch","s1","t3", "b"));
+                new ColumnDetail("tpch", "s1", "t1", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"),
+                new ColumnDetail("tpch", "s1", "t3", "b"));
     }
 
     @Test
@@ -7633,6 +8289,36 @@ public class TestAnalyzer
         // The source column should include 'a' from t1
         assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
                 new ColumnDetail("tpch", "s1", "t1", "a"));
+    }
+
+    @Test
+    public void testSelectColumnsLineageInfoRecursiveAliases()
+    {
+        String sql =
+                """
+                WITH RECURSIVE t(x, y) AS (
+                    SELECT a, b FROM t1
+                    UNION ALL
+                    SELECT x + 1, y + 1 FROM t WHERE x < 5
+                )
+                SELECT * FROM t""";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> optionalLineageInfo = analysis.getSelectColumnsLineageInfo();
+        assertThat(optionalLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = optionalLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(2);
+
+        ColumnLineageInfo colX = lineageInfo.getFirst();
+        assertThat(colX.name()).isEqualTo("x");
+        assertThat(colX.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+
+        ColumnLineageInfo colY = lineageInfo.get(1);
+        assertThat(colY.name()).isEqualTo("y");
+        assertThat(colY.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "b"));
     }
 
     @Test
@@ -7875,7 +8561,9 @@ public class TestAnalyzer
         planTester.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table1, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -7884,14 +8572,18 @@ public class TestAnalyzer
                 FAIL));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table2, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT))),
                 FAIL));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -7900,7 +8592,9 @@ public class TestAnalyzer
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         ColumnMetadata.builder().setName("b").setType(BIGINT).setHidden(true).build())),
@@ -7908,7 +8602,9 @@ public class TestAnalyzer
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table6, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", VARCHAR),
@@ -7918,7 +8614,9 @@ public class TestAnalyzer
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table7, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", DOUBLE),
@@ -7933,7 +8631,7 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
-                Optional.empty(),
+                INLINE,
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 ImmutableList.of(),
@@ -7992,7 +8690,9 @@ public class TestAnalyzer
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                TPCH_CATALOG,
                 new ConnectorTableMetadata(table8, ImmutableList.of(
                         new ColumnMetadata("tinyint_column", TINYINT),
                         new ColumnMetadata("integer_column", INTEGER),
@@ -8016,39 +8716,51 @@ public class TestAnalyzer
         Type doubleNestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
 
         SchemaTableName b = new SchemaTableName("a", "b");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(b, ImmutableList.of(
                         new ColumnMetadata("x", VARCHAR))),
                 FAIL));
 
         SchemaTableName t1 = new SchemaTableName("a", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t1, ImmutableList.of(
                         new ColumnMetadata("b", rowType))),
                 FAIL));
 
         SchemaTableName t2 = new SchemaTableName("a", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t2, ImmutableList.of(
                         new ColumnMetadata("a", rowType))),
                 FAIL));
 
         SchemaTableName t3 = new SchemaTableName("a", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t3, ImmutableList.of(
                         new ColumnMetadata("b", nestedRowType),
                         new ColumnMetadata("c", BIGINT))),
                 FAIL));
 
         SchemaTableName t4 = new SchemaTableName("a", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t4, ImmutableList.of(
                         new ColumnMetadata("b", doubleNestedRowType),
                         new ColumnMetadata("c", BIGINT))),
                 FAIL));
 
         SchemaTableName t5 = new SchemaTableName("a", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t5, ImmutableList.of(
                         new ColumnMetadata("b", singleFieldRowType))),
                 FAIL));
@@ -8063,7 +8775,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.of(Duration.ZERO),
-                        Optional.empty(),
+                        INLINE,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8108,20 +8820,28 @@ public class TestAnalyzer
                         ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 FAIL));
 
+        createMaterializedViews(metadata, testingConnectorMetadata, INLINE);
+        createMaterializedViews(metadata, testingConnectorMetadata, WhenStaleBehavior.FAIL);
+    }
+
+    private void createMaterializedViews(Metadata metadata, TestingMetadata testingConnectorMetadata, WhenStaleBehavior whenStaleBehavior)
+    {
+        String suffix = resolveMaterializedViewNameSuffix(whenStaleBehavior);
+
         MaterializedViewDefinition materializedView = new MaterializedViewDefinition(
                 "SELECT a, b FROM t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
-                Optional.empty(),
+                whenStaleBehavior,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view");
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
@@ -8131,7 +8851,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view");
+        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedView,
@@ -8146,14 +8866,14 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
-                Optional.empty(),
+                whenStaleBehavior,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 // t3 has a, b column and hidden column x
                 Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
 
-        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table");
+        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewNonExistentTable,
@@ -8163,7 +8883,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewNonExistentTable.asSchemaTableName());
 
-        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table");
+        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 staleMaterializedViewNonExistentTable,
@@ -8172,7 +8892,7 @@ public class TestAnalyzer
                 false,
                 false));
 
-        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count");
+        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
@@ -8182,7 +8902,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8192,7 +8912,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewMismatchedColumnCount.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name");
+        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
@@ -8202,7 +8922,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8212,7 +8932,7 @@ public class TestAnalyzer
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnName.asSchemaTableName());
 
-        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type");
+        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type" + suffix);
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,
@@ -8222,7 +8942,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
                         Optional.empty(),
-                        Optional.empty(),
+                        whenStaleBehavior,
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
@@ -8231,6 +8951,11 @@ public class TestAnalyzer
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
+    }
+
+    private static String resolveMaterializedViewNameSuffix(WhenStaleBehavior whenStaleBehavior)
+    {
+        return "_when_stale_" + whenStaleBehavior.name().toLowerCase(Locale.ENGLISH);
     }
 
     @Test
@@ -8281,12 +9006,11 @@ public class TestAnalyzer
                 new SchemaPropertyManager(CatalogServiceProvider.fail()),
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
-                new ViewPropertyManager(catalogName -> ImmutableMap.of()),
-                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
+                new ViewPropertyManager(_ -> ImmutableMap.of()),
+                new MaterializedViewPropertyManager(_ -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
-                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager()
                 {
@@ -8297,9 +9021,9 @@ public class TestAnalyzer
                         return new ConnectorTransactionHandle() {};
                     }
                 },
-                user -> ImmutableSet.of(),
+                _ -> ImmutableSet.of(),
                 new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
-                new TableFunctionRegistry(catalogName -> new CatalogTableFunctions(ImmutableList.of(
+                new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of(
                         new TwoScalarArgumentsFunction(),
                         new TableArgumentFunction(),
                         new TableArgumentRowSemanticsFunction(),

@@ -48,7 +48,8 @@ public class QueryTemplate
             String queryParameterKey = asQueryParameterKey(parameter.getKey());
             checkArgument(
                     queryTemplate.contains(queryParameterKey),
-                    "Query template does not contain: %s", queryParameterKey);
+                    "Query template does not contain: %s",
+                    queryParameterKey);
         }
         this.queryTemplate = queryTemplate;
         this.defaultParameters = ImmutableList.copyOf(parameters);
@@ -75,7 +76,8 @@ public class QueryTemplate
             String queryParameterKey = asQueryParameterKey(parameter.getKey());
             checkArgument(
                     !query.contains(queryParameterKey),
-                    "Query template parameters was not given: %s", queryParameterKey);
+                    "Query template parameters was not given: %s",
+                    queryParameterKey);
         }
     }
 

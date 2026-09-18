@@ -79,7 +79,7 @@ public class SourcePartitionedScheduler
          * All splits have been provided to caller of this scheduler.
          * Cleanup operations are done
          */
-        FINISHED
+        FINISHED,
     }
 
     private final StageExecution stageExecution;
@@ -366,7 +366,7 @@ public class SourcePartitionedScheduler
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override

@@ -29,6 +29,7 @@ import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -90,6 +91,6 @@ public class TestEvaluateIn
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new EvaluateIn(PLANNER_CONTEXT).apply(expression, testSession(), ImmutableMap.of());
+        return new EvaluateIn(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
     }
 }

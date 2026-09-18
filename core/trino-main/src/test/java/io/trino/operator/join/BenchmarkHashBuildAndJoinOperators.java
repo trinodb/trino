@@ -20,13 +20,15 @@ import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.TaskContext;
 import io.trino.operator.exchange.LocalPartitionGenerator;
-import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.join.spilling.PartitionedLookupSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -95,7 +97,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_BUILD_OPERATOR_ID = 1;
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     @State(Scope.Benchmark)
     public static class BuildContext
@@ -121,17 +123,10 @@ public class BenchmarkHashBuildAndJoinOperators
         public void setup()
         {
             switch (hashColumns) {
-                case "varchar":
-                    hashChannels = Ints.asList(0);
-                    break;
-                case "bigint":
-                    hashChannels = Ints.asList(1);
-                    break;
-                case "all":
-                    hashChannels = Ints.asList(0, 1, 2);
-                    break;
-                default:
-                    throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
+                case "varchar" -> hashChannels = Ints.asList(0);
+                case "bigint" -> hashChannels = Ints.asList(1);
+                case "all" -> hashChannels = Ints.asList(0, 1, 2);
+                default -> throw new UnsupportedOperationException(format("Unknown hashColumns value [%s]", hashColumns));
             }
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
@@ -166,7 +161,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeBuildPages()
         {
-            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             int maxValue = buildRowsNumber / buildRowsRepetition + 40;
             int rows = 0;
@@ -209,17 +204,10 @@ public class BenchmarkHashBuildAndJoinOperators
             super.setup();
 
             switch (outputColumns) {
-                case "varchar":
-                    outputChannels = Ints.asList(0);
-                    break;
-                case "bigint":
-                    outputChannels = Ints.asList(1);
-                    break;
-                case "all":
-                    outputChannels = Ints.asList(0, 1, 2);
-                    break;
-                default:
-                    throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
+                case "varchar" -> outputChannels = Ints.asList(0);
+                case "bigint" -> outputChannels = Ints.asList(1);
+                case "all" -> outputChannels = Ints.asList(0, 1, 2);
+                default -> throw new UnsupportedOperationException(format("Unknown outputColumns value [%s]", hashColumns));
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
@@ -233,7 +221,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     Optional.of(outputChannels),
                     OptionalInt.empty(),
                     unsupportedPartitioningSpillerFactory(),
-                    TYPE_OPERATORS);
+                    HASH_COMPILER);
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
         }
@@ -250,7 +238,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeProbePages()
         {
-            RowPagesBuilder probePagesBuilder = rowPagesBuilder(hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder probePagesBuilder = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT, BIGINT));
 
             Random random = new Random(42);
             int remainingRows = PROBE_ROWS_NUMBER;
@@ -317,7 +305,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATORS));
+                HASH_COMPILER));
     }
 
     private static void buildHash(BuildContext buildContext, JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager, List<Integer> outputChannels, int partitionCount)
@@ -329,7 +317,7 @@ public class BenchmarkHashBuildAndJoinOperators
                 outputChannels,
                 buildContext.getHashChannels(),
                 Optional.empty(),
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
@@ -356,7 +344,7 @@ public class BenchmarkHashBuildAndJoinOperators
                                     .map(channel -> buildContext.getTypes().get(channel))
                                     .collect(toImmutableList()),
                             Ints.toArray(buildContext.getHashChannels()),
-                            TYPE_OPERATORS),
+                            HASH_COMPILER),
                     partitionCount);
 
             for (Page page : buildContext.getBuildPages()) {
@@ -453,7 +441,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         // assert that there are any rows
         checkState(!pages.isEmpty());
-        checkState(pages.get(0).getPositionCount() > 0);
+        checkState(pages.getFirst().getPositionCount() > 0);
     }
 
     @Test

@@ -15,7 +15,11 @@ package io.trino.metastore.type;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.TypeInfo
 public abstract sealed class TypeInfo
-        permits ListTypeInfo, MapTypeInfo, PrimitiveTypeInfo, StructTypeInfo, UnionTypeInfo
+        permits ListTypeInfo,
+                MapTypeInfo,
+                PrimitiveTypeInfo,
+                StructTypeInfo,
+                UnionTypeInfo
 {
     protected TypeInfo() {}
 

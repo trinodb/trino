@@ -16,7 +16,7 @@ package io.trino.plugin.prometheus;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.trino.spi.TrinoException;
@@ -41,7 +41,7 @@ public class PrometheusQueryResponseParse
     public PrometheusQueryResponseParse(InputStream response)
             throws IOException
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
         mapper.registerModule(new JavaTimeModule());
         JsonParser parser = jsonFactory().createParser(response);
         while (!parser.isClosed()) {
@@ -68,7 +68,7 @@ public class PrometheusQueryResponseParse
                         }
                     }
                     else {
-                        //error path
+                        // error path
                         String parsedStatus = parser.getValueAsString();
                         parser.nextToken();
                         parser.nextToken();
@@ -86,17 +86,14 @@ public class PrometheusQueryResponseParse
         }
         if (result != null && resultType != null) {
             switch (resultType) {
-                case "matrix":
-                case "vector":
-                    results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
-                    break;
-                case "scalar":
-                case "string":
+                case "matrix", "vector" -> results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
+                case "scalar", "string" -> {
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
                     PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
                     results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                }
             }
         }
     }

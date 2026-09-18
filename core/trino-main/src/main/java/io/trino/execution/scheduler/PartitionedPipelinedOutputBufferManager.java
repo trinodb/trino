@@ -51,7 +51,7 @@ public class PartitionedPipelinedOutputBufferManager
         if (existingBufferId == null) {
             throw new IllegalStateException("Unexpected new output buffer " + newBuffer);
         }
-        if (newBuffer.getId() != existingBufferId) {
+        if (newBuffer.id() != existingBufferId) {
             throw new IllegalStateException("newOutputBuffers has changed the assignment for task " + newBuffer);
         }
     }

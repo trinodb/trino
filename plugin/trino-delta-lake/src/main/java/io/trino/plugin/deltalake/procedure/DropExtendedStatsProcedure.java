@@ -18,6 +18,7 @@ import com.google.inject.Provider;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
@@ -87,8 +88,8 @@ public class DropExtendedStatsProcedure
             if (tableHandle == null) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
             }
-            accessControl.checkCanInsertIntoTable(null, name);
-            statsAccess.deleteExtendedStatistics(session, name, tableHandle.location(), tableHandle.toCredentialsHandle());
+            accessControl.checkCanInsertIntoTable(null, name, Optional.empty());
+            statsAccess.deleteExtendedStatistics(session, name, tableHandle.location(), metadata.getTableCredentials(session, tableHandle).map(DeltaLakeTableCredentials.class::cast));
         }
     }
 }

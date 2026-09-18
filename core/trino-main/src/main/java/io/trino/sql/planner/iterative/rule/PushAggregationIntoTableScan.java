@@ -55,7 +55,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -185,10 +184,11 @@ public class PushAggregationIntoTableScan
 
         List<Expression> newProjections = result.getProjections().stream()
                 .map(expression -> {
-                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
+                    Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings, context.getSymbolAllocator());
+                    translated = LambdaCaptureDesugaringRewriter.rewrite(translated, context.getSymbolAllocator());
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return newOptimizer(plannerContext).process(translated, session, ImmutableMap.of()).orElse(translated);
+                    return plannerContext.getExpressionOptimizer().process(translated, session, context.getSymbolAllocator(), ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 
@@ -243,7 +243,7 @@ public class PushAggregationIntoTableScan
                 .map(symbol -> new Variable(symbol.name(), symbol.type()));
 
         return new AggregateFunction(
-                signature.getName().getFunctionName(),
+                signature.getName().functionName(),
                 signature.getReturnType(),
                 arguments.build(),
                 sortBy.orElse(ImmutableList.of()),

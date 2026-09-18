@@ -67,7 +67,7 @@ public final class TransactionLogEntries
             }
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while reading from transaction entry iterator for the file %s".formatted(transactionLogFilePath));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while reading from transaction entry iterator for the file %s".formatted(transactionLogFilePath), e);
         }
     }
 
@@ -140,7 +140,7 @@ public final class TransactionLogEntries
                 inputStream = inputFile.newStream();
             }
             catch (Exception e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initializing the transaction entry iterator for the file %s".formatted(inputFile.location()));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initializing the transaction entry iterator for the file %s".formatted(inputFile.location()), e);
             }
             this.reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8), JSON_LOG_ENTRY_READ_BUFFER_SIZE);
         }
@@ -153,7 +153,7 @@ public final class TransactionLogEntries
                 line = reader.readLine();
             }
             catch (IOException e) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while reading from transaction entry iterator for the file %s".formatted(location));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while reading from transaction entry iterator for the file %s".formatted(location), e);
             }
             if (line == null) {
                 close();

@@ -48,6 +48,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -59,6 +60,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -471,6 +473,79 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(decimal(3, 1))", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
                 .addRoundTrip("Nullable(decimal(30, 5))", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_decimal"));
+    }
+
+    @Test
+    public void testDecimalExceedingPrecisionMax()
+    {
+        // Test that DECIMAL types with precision > 38 map to NUMBER type
+        // ClickHouse uses Decimal256 for precision from 39 to 76 digits
+        // Scale range: [0 : P] where P is the precision
+
+        // Test precision 39 (minimum for Decimal256, just above Trino's MAX_PRECISION of 38)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(39, 0)", "123456789012345678901234567890123456789", NUMBER, "NUMBER '123456789012345678901234567890123456789'")
+                .addRoundTrip("decimal(39, 0)", "-123456789012345678901234567890123456789", NUMBER, "NUMBER '-123456789012345678901234567890123456789'")
+                .addRoundTrip("Nullable(decimal(39, 0))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p39"));
+
+        // Test precision 40, scale 5
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(40, 5)", "12345678901234567890123456789012345.12345", NUMBER, "NUMBER '12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40, 5)", "-12345678901234567890123456789012345.12345", NUMBER, "NUMBER '-12345678901234567890123456789012345.12345'")
+                .addRoundTrip("decimal(40, 5)", "123.45", NUMBER, "NUMBER '123.45'")
+                .addRoundTrip("decimal(40, 5)", "-123.45", NUMBER, "NUMBER '-123.45'")
+                .addRoundTrip("Nullable(decimal(40, 5))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p40"));
+
+        // Test precision 50, scale 10
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(50, 10)", "1234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '1234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("decimal(50, 10)", "-1234567890123456789012345678901234567890.1234567890", NUMBER, "NUMBER '-1234567890123456789012345678901234567890.1234567890'")
+                .addRoundTrip("Nullable(decimal(50, 10))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p50"));
+
+        // Test precision 60, scale 20
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(60, 20)", "1234567890123456789012345678901234567890.12345678901234567890", NUMBER, "NUMBER '1234567890123456789012345678901234567890.12345678901234567890'")
+                .addRoundTrip("decimal(60, 20)", "-1234567890123456789012345678901234567890.12345678901234567890", NUMBER, "NUMBER '-1234567890123456789012345678901234567890.12345678901234567890'")
+                .addRoundTrip("Nullable(decimal(60, 20))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p60"));
+
+        // Test precision 76 (ClickHouse Decimal256's max), scale 30
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(76, 30)", "1234567890123456789012345678901234567890123456.123456789012345678901234567890", NUMBER, "NUMBER '1234567890123456789012345678901234567890123456.123456789012345678901234567890'")
+                .addRoundTrip("decimal(76, 30)", "-1234567890123456789012345678901234567890123456.123456789012345678901234567890", NUMBER, "NUMBER '-1234567890123456789012345678901234567890123456.123456789012345678901234567890'")
+                .addRoundTrip("Nullable(decimal(76, 30))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p76"));
+
+        // Test precision 76 (ClickHouse Decimal256's max), scale 76 (ClickHouse Decimal256's max)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(76, 76)", "0.0123456789012345678901234567890123456789012345689012345678901234567890123456", NUMBER, "NUMBER '0.0123456789012345678901234567890123456789012345689012345678901234567890123456'")
+                .addRoundTrip("decimal(76, 76)", "-0.0123456789012345678901234567890123456789012345689012345678901234567890123456", NUMBER, "NUMBER '-0.0123456789012345678901234567890123456789012345689012345678901234567890123456'")
+                .addRoundTrip("Nullable(decimal(76, 76))", "NULL", NUMBER, "CAST(NULL AS NUMBER)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal_exceeding_precision_max_p76_s76"));
+    }
+
+    @Test
+    public void testClickHouseDecimalUnsupportedPrecision()
+    {
+        assertThatThrownBy(() -> clickhouseServer.execute("CREATE TABLE verify_negative_scale_not_supported(a decimal(77, 0)) ENGINE=Log"))
+                .hasStackTraceContaining("Wrong precision");
+    }
+
+    @Test
+    public void testClickHouseDecimalNegativeScale()
+    {
+        assertThatThrownBy(() -> clickhouseServer.execute("CREATE TABLE verify_negative_scale_not_supported(a decimal(5, -1)) ENGINE=Log"))
+                .hasStackTraceContaining("Negative scales and scales larger than precision are not supported");
+    }
+
+    @Test
+    public void testClickHouseDecimalScaleExceedingPrecision()
+    {
+        assertThatThrownBy(() -> clickhouseServer.execute("CREATE TABLE verify_negative_scale_not_supported(a decimal(76, 77)) ENGINE=Log"))
+                .hasStackTraceContaining("Negative scales and scales larger than precision are not supported");
     }
 
     @Test

@@ -20,8 +20,8 @@ import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -33,6 +33,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
@@ -124,7 +125,7 @@ public class TestMemoryPagesStore
         assertThat(readPage.getBlock(2))
                 .isInstanceOf(RunLengthEncodedBlock.class);
         assertThat(readPage.getBlock(2).getUnderlyingValueBlock())
-                .isInstanceOf(ByteArrayBlock.class);
+                .isInstanceOf(BitArrayBlock.class);
     }
 
     @Test
@@ -181,6 +182,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryInsertTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.appendPage(page);
         pageSink.finish();
@@ -192,6 +194,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createMemoryOutputTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.finish();
     }
@@ -202,6 +205,7 @@ public class TestMemoryPagesStore
                 MemoryTransactionHandle.INSTANCE,
                 SESSION,
                 createOverwriteMemoryInsertTableHandle(tableId, activeTableIds),
+                Optional.empty(),
                 TESTING_PAGE_SINK_ID);
         pageSink.finish();
     }

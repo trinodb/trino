@@ -17,7 +17,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 public interface RemoteQueryModifier
 {
-    RemoteQueryModifier NONE = (session, query) -> query;
+    RemoteQueryModifier NONE = (_, query) -> query;
 
     String apply(ConnectorSession session, String query);
 }

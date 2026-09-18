@@ -96,12 +96,14 @@ import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NullInputCharacteristic;
@@ -110,6 +112,9 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.Pivot;
+import io.trino.sql.tree.PivotAggregation;
+import io.trino.sql.tree.PivotValueGroup;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
 import io.trino.sql.tree.PlanSiblings;
@@ -184,6 +189,7 @@ import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.Use;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDeclaration;
@@ -476,6 +482,22 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitNearest(Nearest node, Integer indent)
+        {
+            append(indent, "NEAREST (");
+            append(indent + 1, "FROM ");
+            process(node.getRelation(), indent + 1);
+            node.getWhere().ifPresent(where -> append(indent + 1, "WHERE ")
+                    .append(formatExpression(where))
+                    .append('\n'));
+            append(indent + 1, "MATCH ")
+                    .append(formatExpression(node.getMatch()))
+                    .append('\n');
+            append(indent, ")");
+            return null;
+        }
+
+        @Override
         protected Void visitTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
         {
             append(indent, "TABLE(");
@@ -635,7 +657,12 @@ public final class SqlFormatter
         protected Void visitDescribeOutput(DescribeOutput node, Integer indent)
         {
             append(indent, "DESCRIBE OUTPUT ");
-            builder.append(formatName(node.getName()));
+
+            builder.append(switch (node.getTarget()) {
+                case DescribeOutput.Target.PreparedStatement(Identifier name) -> formatName(name);
+                case DescribeOutput.Target.InlineQuery(Query query) -> '(' + formatSql(query) + ')';
+            });
+
             return null;
         }
 
@@ -985,7 +1012,7 @@ public final class SqlFormatter
 
         private void processRelationSuffix(Relation relation, Integer indent)
         {
-            if ((relation instanceof AliasedRelation) || (relation instanceof SampledRelation) || (relation instanceof PatternRecognitionRelation)) {
+            if ((relation instanceof AliasedRelation) || (relation instanceof SampledRelation) || (relation instanceof PatternRecognitionRelation) || (relation instanceof Pivot)) {
                 builder.append("( ");
                 process(relation, indent + 1);
                 append(indent, ")");
@@ -993,6 +1020,64 @@ public final class SqlFormatter
             else {
                 process(relation, indent);
             }
+        }
+
+        @Override
+        protected Void visitPivot(Pivot node, Integer indent)
+        {
+            processRelationSuffix(node.getInput(), indent);
+
+            builder.append(" PIVOT (\n");
+            append(indent + 1, node.getAggregations().stream()
+                    .map(this::formatPivotAggregation)
+                    .collect(joining(", ")))
+                    .append("\n");
+            append(indent + 1, "FOR ")
+                    .append(formatPivotColumns(node.getPivotColumns()))
+                    .append(" IN ")
+                    .append(node.getValueGroups().stream()
+                            .map(this::formatPivotValueGroup)
+                            .collect(joining(", ", "(", ")")))
+                    .append("\n");
+            node.getGroupBy().ifPresent(groupBy ->
+                    append(indent + 1, "GROUP BY " + (groupBy.isDistinct() ? "DISTINCT " : "") + formatGroupBy(groupBy.getGroupingElements()))
+                            .append("\n"));
+            append(indent, ")");
+            return null;
+        }
+
+        private String formatPivotAggregation(PivotAggregation aggregation)
+        {
+            String result = formatExpression(aggregation.getExpression());
+            if (aggregation.getAlias().isPresent()) {
+                result += " AS " + formatName(aggregation.getAlias().get());
+            }
+            return result;
+        }
+
+        private static String formatPivotColumns(List<Expression> pivotColumns)
+        {
+            return formatPivotTuple(pivotColumns);
+        }
+
+        private String formatPivotValueGroup(PivotValueGroup valueGroup)
+        {
+            String formatted = formatPivotTuple(valueGroup.getValues());
+            if (valueGroup.getAlias().isPresent()) {
+                formatted += " AS " + formatName(valueGroup.getAlias().get());
+            }
+            return formatted;
+        }
+
+        // A single element is bare; two or more are wrapped in parentheses, matching the grammar.
+        private static String formatPivotTuple(List<Expression> expressions)
+        {
+            if (expressions.size() == 1) {
+                return formatExpression(expressions.getFirst());
+            }
+            return expressions.stream()
+                    .map(SqlFormatter::formatExpression)
+                    .collect(joining(", ", "(", ")"));
         }
 
         @Override
@@ -1111,7 +1196,12 @@ public final class SqlFormatter
 
             append(indent + 1, "USING ");
 
-            processRelation(node.getSource(), indent + 2);
+            if (node.getSource() instanceof Table table) {
+                builder.append(formatName(table.getName()));
+            }
+            else {
+                processRelation(node.getSource(), indent + 2);
+            }
 
             builder.append("\n");
             append(indent + 1, "ON ");
@@ -1848,6 +1938,26 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitMaterializedViewExecute(MaterializedViewExecute node, Integer indent)
+        {
+            builder.append("ALTER MATERIALIZED VIEW ");
+            builder.append(formatName(node.getTable().getName()));
+            builder.append(" EXECUTE ");
+            builder.append(formatName(node.getProcedureName()));
+            if (!node.getArguments().isEmpty()) {
+                builder.append("(");
+                formatCallArguments(indent, node.getArguments());
+                builder.append(")");
+            }
+            node.getWhere().ifPresent(where -> builder
+                    .append("\n")
+                    .append(indentString(indent))
+                    .append("WHERE ")
+                    .append(formatExpression(where)));
+            return null;
+        }
+
+        @Override
         protected Void visitAnalyze(Analyze node, Integer indent)
         {
             builder.append("ANALYZE ")
@@ -2016,6 +2126,18 @@ public final class SqlFormatter
         {
             builder.append("RESET SESSION ")
                     .append(formatName(node.getName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer indent)
+        {
+            builder.append("USE ");
+            node.getCatalog().ifPresent(catalog -> builder
+                    .append(formatName(catalog))
+                    .append("."));
+            builder.append(formatName(node.getSchema()));
 
             return null;
         }
@@ -2431,7 +2553,7 @@ public final class SqlFormatter
             builder.append("ALTER BRANCH ");
             builder.append(formatName(node.getSourceBranchName()));
             builder.append(" IN TABLE ");
-            builder.append(formatName(node.geTableName()));
+            builder.append(formatName(node.getTableName()));
             builder.append(" FAST FORWARD TO ");
             builder.append(formatName(node.getTargetBranchName()));
             return null;
@@ -2449,7 +2571,7 @@ public final class SqlFormatter
         protected Void visitSessionProperty(SessionProperty node, Integer indent)
         {
             append(indent, formatName(node.getName()))
-                .append(" = ")
+                    .append(" = ")
                     .append(formatExpression(node.getValue()));
             return null;
         }
@@ -2794,7 +2916,8 @@ public final class SqlFormatter
 
     private static String formatGrantScope(GrantObject grantObject)
     {
-        return String.format("%s%s%s",
+        return String.format(
+                "%s%s%s",
                 grantObject.getBranch().isPresent() ? "BRANCH " + formatName(grantObject.getBranch().get()) + " IN " : "",
                 grantObject.getEntityKind().isPresent() ? grantObject.getEntityKind().get() + " " : "",
                 formatName(grantObject.getName()));

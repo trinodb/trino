@@ -13,7 +13,6 @@
  */
 package io.trino.orc;
 
-import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.orc.metadata.ColumnMetadata;
@@ -63,6 +62,9 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
+import static java.util.Comparator.naturalOrder;
+import static java.util.Comparator.nullsFirst;
+import static java.util.Comparator.nullsLast;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -144,6 +146,16 @@ public final class TestingOrcPredicate
         return list.stream()
                 .map(value -> (value == null) ? null : function.apply(value))
                 .collect(toList());
+    }
+
+    private static <T extends Comparable<? super T>> T min(List<T> values)
+    {
+        return values.stream().min(nullsLast(naturalOrder())).orElseThrow();
+    }
+
+    private static <T extends Comparable<? super T>> T max(List<T> values)
+    {
+        return values.stream().max(nullsFirst(naturalOrder())).orElseThrow();
     }
 
     public static class BasicOrcPredicate<T>
@@ -283,12 +295,12 @@ public final class TestingOrcPredicate
                 }
                 else {
                     // verify min
-                    if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - Ordering.natural().nullsLast().min(chunk)) > 0.001) {
+                    if (Math.abs(columnStatistics.getDoubleStatistics().getMin() - min(chunk)) > 0.001) {
                         return false;
                     }
 
                     // verify max
-                    if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - Ordering.natural().nullsFirst().max(chunk)) > 0.001) {
+                    if (Math.abs(columnStatistics.getDoubleStatistics().getMax() - max(chunk)) > 0.001) {
                         return false;
                     }
                 }
@@ -339,12 +351,12 @@ public final class TestingOrcPredicate
                 }
                 else {
                     // verify min
-                    if (!columnStatistics.getIntegerStatistics().getMin().equals(Ordering.natural().nullsLast().min(chunk))) {
+                    if (!columnStatistics.getIntegerStatistics().getMin().equals(min(chunk))) {
                         return false;
                     }
 
                     // verify max
-                    if (!columnStatistics.getIntegerStatistics().getMax().equals(Ordering.natural().nullsFirst().max(chunk))) {
+                    if (!columnStatistics.getIntegerStatistics().getMax().equals(max(chunk))) {
                         return false;
                     }
                 }
@@ -424,10 +436,8 @@ public final class TestingOrcPredicate
                     }
                 }
                 else {
-                    Slice chunkMin = Ordering.natural().nullsLast().min(slices);
-                    Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
-                    return columnStatistics.getStringStatistics().getMin().equals(chunkMin) &&
-                            columnStatistics.getStringStatistics().getMax().equals(chunkMax);
+                    return columnStatistics.getStringStatistics().getMin().equals(min(slices)) &&
+                            columnStatistics.getStringStatistics().getMax().equals(max(slices));
                 }
             }
 
@@ -474,14 +484,12 @@ public final class TestingOrcPredicate
                 }
                 else {
                     // verify min
-                    String chunkMin = Ordering.natural().nullsLast().min(strings);
-                    if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(chunkMin) > 0) {
+                    if (columnStatistics.getStringStatistics().getMin().toStringUtf8().trim().compareTo(min(strings)) > 0) {
                         return false;
                     }
 
                     // verify max
-                    String chunkMax = Ordering.natural().nullsFirst().max(strings);
-                    if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(chunkMax) < 0) {
+                    if (columnStatistics.getStringStatistics().getMax().toStringUtf8().trim().compareTo(max(strings)) < 0) {
                         return false;
                     }
                 }
@@ -522,14 +530,13 @@ public final class TestingOrcPredicate
                 else {
                     // verify min
                     Long min = columnStatistics.getDateStatistics().getMin().longValue();
-                    if (!min.equals(Ordering.natural().nullsLast().min(chunk))) {
+                    if (!min.equals(min(chunk))) {
                         return false;
                     }
 
                     // verify max
                     Long statMax = columnStatistics.getDateStatistics().getMax().longValue();
-                    Long chunkMax = Ordering.natural().nullsFirst().max(chunk);
-                    if (!statMax.equals(chunkMax)) {
+                    if (!statMax.equals(max(chunk))) {
                         return false;
                     }
 

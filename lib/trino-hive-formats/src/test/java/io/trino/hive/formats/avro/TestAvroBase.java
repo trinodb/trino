@@ -25,8 +25,8 @@ import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.MapBlock;
@@ -159,7 +159,7 @@ public abstract class TestAvroBase
 
         ALL_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_TYPES_RECORD_SCHEMA);
         ALL_TYPES_GENERIC_RECORD.put("aBoolean", true);
-        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}));
+        allTypeBlocks.add(new BitArrayBlock(1, Optional.empty(), new long[] {1}));
         ALL_TYPES_GENERIC_RECORD.put("aInt", 42);
         allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {42}));
         ALL_TYPES_GENERIC_RECORD.put("aLong", 3400L);
@@ -177,7 +177,8 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("anArray", ImmutableList.of(1, 2, 3, 4));
         allTypeBlocks.add(ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, 4}, createIntsBlock(1, 2, 3, 4)));
         ALL_TYPES_GENERIC_RECORD.put("aMap", ImmutableMap.of(new Utf8("key1"), 1, new Utf8("key2"), 2));
-        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(Optional.empty(),
+        allTypeBlocks.add(MAP_VARCHAR_INTEGER.createBlockFromKeyValue(
+                Optional.empty(),
                 new int[] {0, 2},
                 createStringsBlock("key1", "key2"),
                 createIntsBlock(1, 2)));
@@ -186,7 +187,7 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("aRecord", SIMPLE_GENERIC_RECORD);
         allTypeBlocks.add(createRowBlock(ImmutableList.of(INTEGER, DoubleType.DOUBLE, VARCHAR), new Object[] {5, 3.14159265358979, "Simple Record String Field"}));
         ALL_TYPES_GENERIC_RECORD.put("aUnion", null);
-        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new boolean[] {true})));
+        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new long[] {0})));
         ALL_TYPES_PAGE = new Page(allTypeBlocks.build().toArray(Block[]::new));
     }
 
@@ -309,6 +310,7 @@ public abstract class TestAvroBase
             }
         }
 
+        RowType type = (RowType) new BaseAvroTypeBlockHandler().typeFor(schema);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(temp2).create(),
                 schema,
@@ -316,7 +318,8 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(schema).getTypeParameters(), false)) {
+                type.getFieldTypes(),
+                false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }
@@ -346,7 +349,7 @@ public abstract class TestAvroBase
     protected static void assertIsAllTypesPage(Page p)
     {
         // test boolean
-        assertThat(p.getBlock(0)).isInstanceOf(ByteArrayBlock.class);
+        assertThat(p.getBlock(0)).isInstanceOf(BitArrayBlock.class);
         assertThat(BooleanType.BOOLEAN.getBoolean(p.getBlock(0), 0)).isTrue();
         // test int
         assertThat(p.getBlock(1)).isInstanceOf(IntArrayBlock.class);
@@ -369,7 +372,7 @@ public abstract class TestAvroBase
         // test fixed
         assertThat(p.getBlock(7)).isInstanceOf(VariableWidthBlock.class);
         assertThat(VarbinaryType.VARBINARY.getObject(p.getBlock(7), 0)).isEqualTo(Slices.wrappedBuffer(A_FIXED_VALUE.bytes()));
-        //test array
+        // test array
         assertThat(p.getBlock(8)).isInstanceOf(ArrayBlock.class);
         assertThat(ARRAY_INTEGER.getObject(p.getBlock(8), 0)).isInstanceOf(IntArrayBlock.class);
         assertBlockEquals(INTEGER, ARRAY_INTEGER.getObject(p.getBlock(8), 0), createIntsBlock(1, 2, 3, 4));

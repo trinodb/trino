@@ -316,7 +316,7 @@ public class LocalDispatchQuery
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
+        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::errorCode);
     }
 
     @Override

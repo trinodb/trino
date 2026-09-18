@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -115,12 +116,12 @@ public class MergeProjectWithValues
         }
 
         // fix iteration order over ProjectNode's assignments
-        List<Map.Entry<Symbol, Expression>> assignments = ImmutableList.copyOf(node.getAssignments().entrySet());
+        List<Entry<Symbol, Expression>> assignments = ImmutableList.copyOf(node.getAssignments().entrySet());
         List<Symbol> outputs = assignments.stream()
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableList());
         List<Expression> expressions = assignments.stream()
-                .map(Map.Entry::getValue)
+                .map(Entry::getValue)
                 .collect(toImmutableList());
 
         // handle values with no output symbols
@@ -148,7 +149,7 @@ public class MergeProjectWithValues
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
                 .entrySet().stream()
                 .filter(entry -> entry.getValue() > 1)
-                .map(Map.Entry::getKey)
+                .map(Entry::getKey)
                 .collect(toImmutableSet());
         if (!Sets.intersection(nonDeterministicValuesOutputs, multipleReferencedSymbols).isEmpty()) {
             return Result.empty();

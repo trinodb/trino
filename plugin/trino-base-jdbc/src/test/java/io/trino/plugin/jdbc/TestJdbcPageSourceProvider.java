@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
@@ -106,7 +107,7 @@ public class TestJdbcPageSourceProvider
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, Optional.empty(), ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
         assertThat(pageSource).withFailMessage("pageSource is null").isNotNull();
 
         Map<String, Long> data = new LinkedHashMap<>();
@@ -177,33 +178,29 @@ public class TestJdbcPageSourceProvider
 
         getCursor(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        textColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
+                        textColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false)),
                                 false),
 
-                        textShortColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
+                        textShortColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(createVarcharType(32), utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
                                 false))));
 
         getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        textColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
-                                Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
-                                Range.equal(VARCHAR, utf8Slice("apple")),
-                                Range.equal(VARCHAR, utf8Slice("banana")),
-                                Range.equal(VARCHAR, utf8Slice("zoo"))),
+                        textColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true),
+                                        Range.range(VARCHAR, utf8Slice("hello"), false, utf8Slice("world"), false),
+                                        Range.equal(VARCHAR, utf8Slice("apple")),
+                                        Range.equal(VARCHAR, utf8Slice("banana")),
+                                        Range.equal(VARCHAR, utf8Slice("zoo"))),
                                 false),
 
-                        valueColumn,
-                        Domain.create(ValueSet.ofRanges(
-                                Range.range(BIGINT, 1L, true, 5L, true),
-                                Range.range(BIGINT, 10L, false, 20L, false)),
+                        valueColumn, Domain.create(ValueSet.ofRanges(
+                                        Range.range(BIGINT, 1L, true, 5L, true),
+                                        Range.range(BIGINT, 10L, false, 20L, false)),
                                 true))));
     }
 
@@ -222,10 +219,10 @@ public class TestJdbcPageSourceProvider
                 ImmutableList.of());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
-        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());
+        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000, DynamicFilterSnapshot.EMPTY)));
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, columns, DynamicFilter.EMPTY);
+        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, Optional.empty(), columns, DynamicFilter.EMPTY);
     }
 }

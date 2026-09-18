@@ -25,6 +25,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeSourceHandle.SourceFile;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
+import io.trino.plugin.exchange.filesystem.MetricsBuilder.DistributionMetricBuilder;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
@@ -32,6 +34,7 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,6 +100,16 @@ public class FileSystemExchange
     private boolean exchangeSourceHandlesCreationStarted;
 
     private final CompletableFuture<List<ExchangeSourceHandle>> exchangeSourceHandlesFuture = new CompletableFuture<>();
+    private final MetricsBuilder metricsBuilder = new MetricsBuilder();
+    private final CounterMetricBuilder sinkAddedMetric = metricsBuilder.getCounterMetric("FileSystemExchange.sinkAddedTotal");
+    private final CounterMetricBuilder sinkInstancesCreatedMetric = metricsBuilder.getCounterMetric("FileSystemExchange.sinkInstancesCreatedTotal");
+    private final CounterMetricBuilder filesWrittenMetric = metricsBuilder.getCounterMetric("FileSystemExchange.filesWrittenTotal");
+    private final CounterMetricBuilder sourceHandlesCreatedMetric = metricsBuilder.getCounterMetric("FileSystemExchange.sourceHandlesCreatedTotal");
+    private final CounterMetricBuilder storageLocationsUsedMetric = metricsBuilder.getCounterMetric("FileSystemExchange.storageLocationsUsedTotal");
+    private final DistributionMetricBuilder fileSizeBytesMetric = metricsBuilder.getDistributionMetric("FileSystemExchange.fileSizeBytes");
+    private final DistributionMetricBuilder partitionSizeBytesMetric = metricsBuilder.getDistributionMetric("FileSystemExchange.partitionSizeBytes");
+    private final DistributionMetricBuilder sourceHandleFilesCountMetric = metricsBuilder.getDistributionMetric("FileSystemExchange.sourceHandleFilesCount");
+    private final DistributionMetricBuilder sourceHandleDataSizeBytesMetric = metricsBuilder.getDistributionMetric("FileSystemExchange.sourceHandleDataSizeBytes");
 
     public FileSystemExchange(
             List<URI> baseDirectories,
@@ -142,6 +155,7 @@ public class FileSystemExchange
     {
         FileSystemExchangeSinkHandle sinkHandle = new FileSystemExchangeSinkHandle(taskPartition);
         allSinks.add(taskPartition);
+        sinkAddedMetric.increment();
         return sinkHandle;
     }
 
@@ -166,7 +180,11 @@ public class FileSystemExchange
             throw new UncheckedIOException(e);
         }
 
-        return completedFuture(new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount, preserveOrderWithinPartition));
+        return completedFuture(new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount, preserveOrderWithinPartition))
+                .thenApply(instance -> {
+                    sinkInstancesCreatedMetric.increment();
+                    return instance;
+                });
     }
 
     @Override
@@ -229,25 +247,43 @@ public class FileSystemExchange
                 partitionsList -> {
                     Multimap<Integer, SourceFile> sourceFiles = ArrayListMultimap.create();
                     partitionsList.forEach(partitions -> partitions.forEach(sourceFiles::put));
+                    filesWrittenMetric.add(sourceFiles.size());
+
                     ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
                     for (Integer partitionId : sourceFiles.keySet()) {
                         Collection<SourceFile> files = sourceFiles.get(partitionId);
                         long currentExchangeHandleDataSizeInBytes = 0;
                         ImmutableList.Builder<SourceFile> currentExchangeHandleFiles = ImmutableList.builder();
+                        long currentHandleFilesCount = 0;
+                        long partitionSizeInBytes = 0;
+
                         for (SourceFile file : files) {
-                            if (currentExchangeHandleDataSizeInBytes > 0 && currentExchangeHandleDataSizeInBytes + file.getFileSize() > exchangeSourceHandleTargetDataSizeInBytes) {
+                            long fileSize = file.getFileSize();
+                            if (currentExchangeHandleDataSizeInBytes > 0 && currentExchangeHandleDataSizeInBytes + fileSize > exchangeSourceHandleTargetDataSizeInBytes) {
                                 result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build()));
+                                sourceHandleFilesCountMetric.add(currentHandleFilesCount);
+                                sourceHandleDataSizeBytesMetric.add(currentExchangeHandleDataSizeInBytes);
                                 currentExchangeHandleDataSizeInBytes = 0;
                                 currentExchangeHandleFiles = ImmutableList.builder();
+                                currentHandleFilesCount = 0;
                             }
-                            currentExchangeHandleDataSizeInBytes += file.getFileSize();
+                            fileSizeBytesMetric.add(fileSize);
+                            currentExchangeHandleDataSizeInBytes += fileSize;
+                            partitionSizeInBytes += fileSize;
                             currentExchangeHandleFiles.add(file);
+                            currentHandleFilesCount++;
                         }
+                        partitionSizeBytesMetric.add(partitionSizeInBytes);
                         if (currentExchangeHandleDataSizeInBytes > 0) {
                             result.add(new FileSystemExchangeSourceHandle(exchangeContext.getExchangeId(), partitionId, currentExchangeHandleFiles.build()));
+                            sourceHandleFilesCountMetric.add(currentHandleFilesCount);
+                            sourceHandleDataSizeBytesMetric.add(currentExchangeHandleDataSizeInBytes);
                         }
                     }
-                    return result.build();
+
+                    List<ExchangeSourceHandle> sourceHandles = result.build();
+                    sourceHandlesCreatedMetric.add(sourceHandles.size());
+                    return sourceHandles;
                 },
                 executor);
     }
@@ -303,8 +339,12 @@ public class FileSystemExchange
     {
         // Add a randomized prefix to evenly distribute data into different S3 shards
         // Data output file path format: {randomizedHexPrefix}.{queryId}.{stageId}.{sinkPartitionId}/{attemptId}/{sourcePartitionId}_{splitId}.data
-        return outputDirectories.computeIfAbsent(taskPartitionId, _ -> baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
-                .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR));
+        return outputDirectories.computeIfAbsent(taskPartitionId, _ -> {
+            URI taskOutputURI = baseDirectories.get(ThreadLocalRandom.current().nextInt(baseDirectories.size()))
+                    .resolve(generateRandomizedHexPrefix() + "." + exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId() + "." + taskPartitionId + PATH_SEPARATOR);
+            storageLocationsUsedMetric.increment();
+            return taskOutputURI;
+        });
     }
 
     @Override
@@ -334,6 +374,12 @@ public class FileSystemExchange
         }
         stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
         exchangeSpan.end();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return metricsBuilder.buildMetrics();
     }
 
     /**

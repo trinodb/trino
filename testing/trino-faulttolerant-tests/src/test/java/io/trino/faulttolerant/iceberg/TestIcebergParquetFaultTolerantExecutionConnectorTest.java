@@ -14,15 +14,15 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.filesystem.Location;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
+import io.trino.plugin.iceberg.BaseIcebergParquetConnectorTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
-import io.trino.plugin.iceberg.TestIcebergParquetConnectorTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -33,19 +33,24 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @Isolated
 @TestInstance(PER_CLASS)
 public class TestIcebergParquetFaultTolerantExecutionConnectorTest
-        extends TestIcebergParquetConnectorTest
+        extends BaseIcebergParquetConnectorTest
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
+
+    public TestIcebergParquetFaultTolerantExecutionConnectorTest()
+    {
+        super(2);
+    }
 
     @Override
     protected IcebergQueryRunner.Builder createQueryRunnerBuilder()
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE);
+        storage.start();
 
         return super.createQueryRunnerBuilder()
                 .addExtraProperties(getExtraProperties())
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage));
+                .withExchange("filesystem", storage.getExchangeManagerProperties());
     }
 
     @Test
@@ -87,13 +92,25 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         return checkParquetFileSorting(fileSystem.newInputFile(Location.of(path)), sortColumnName);
     }
 
+    @Override
+    protected String getTableChangesParquetRowGroupSize()
+    {
+        return "16kB";
+    }
+
+    @Override
+    protected int getTableChangesSplitBatchSize()
+    {
+        return 2;
+    }
+
     @AfterAll
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
+        if (storage != null) {
+            storage.close();
+            storage = null;
         }
     }
 }

@@ -38,11 +38,9 @@ public class TimestampParametricType
 
         TypeParameter parameter = parameters.get(0);
 
-        if (!parameter.isLongLiteral()) {
+        if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIMESTAMP precision must be a number");
         }
-
-        long precision = parameter.getLongLiteral();
 
         if (precision < 0 || precision > TimestampType.MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid TIMESTAMP precision " + precision);

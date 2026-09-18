@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -33,7 +32,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -50,7 +50,7 @@ public class TestPruneJoinChildrenColumns
                 .matches(
                         join(INNER, builder -> builder
                                 .equiCriteria("leftKey", "rightKey")
-                                .filter(new Comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L)))
+                                .filter(comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L)))
                                 .left(values("leftKey", "leftValue"))
                                 .right(
                                         strictProject(
@@ -111,6 +111,6 @@ public class TestPruneJoinChildrenColumns
                 rightOutputs.stream()
                         .filter(joinOutputFilter)
                         .collect(toImmutableList()),
-                Optional.of(new Comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L))));
+                Optional.of(comparison(GREATER_THAN, new Reference(BIGINT, "leftValue"), new Constant(BIGINT, 5L))));
     }
 }

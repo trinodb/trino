@@ -5,14 +5,14 @@ local exchange (GATHER, SINGLE, [])
                 cross join:
                     join (LEFT, REPLICATED):
                         join (INNER, PARTITIONED):
-                            final aggregation over (ca_state, wr_returning_customer_sk)
+                            final aggregation over (wr_returning_customer_sk, ca_state)
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [wr_returning_customer_sk])
-                                        partial aggregation over (ca_state, wr_returning_customer_sk)
+                                        partial aggregation over (wr_returning_customer_sk, ca_state)
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [wr_returning_addr_sk])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (wr_returned_date_sk::EQUAL, wr_returning_addr_sk::EQUAL, wr_returning_customer_sk::EQUAL)
+                                                        dynamic filter (wr_returning_customer_sk::EQUAL, wr_returning_addr_sk::EQUAL, wr_returned_date_sk::EQUAL)
                                                             scan web_returns
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -34,14 +34,14 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [ca_state_91])
                                             partial aggregation over (ca_state_91)
-                                                final aggregation over (ca_state_91, wr_returning_customer_sk_31)
+                                                final aggregation over (wr_returning_customer_sk_31, ca_state_91)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, [ca_state_91, wr_returning_customer_sk_31])
-                                                            partial aggregation over (ca_state_91, wr_returning_customer_sk_31)
+                                                        remote exchange (REPARTITION, HASH, [wr_returning_customer_sk_31, ca_state_91])
+                                                            partial aggregation over (wr_returning_customer_sk_31, ca_state_91)
                                                                 join (INNER, PARTITIONED):
                                                                     remote exchange (REPARTITION, HASH, [wr_returning_addr_sk_34])
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (wr_returned_date_sk_48::EQUAL, wr_returning_addr_sk_34::EQUAL)
+                                                                            dynamic filter (wr_returning_addr_sk_34::EQUAL, wr_returned_date_sk_48::EQUAL)
                                                                                 scan web_returns
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.annotation.NotThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -104,6 +105,18 @@ class OperationTimer
         private final AtomicLong calls = new AtomicLong();
         private final AtomicLong wallNanos = new AtomicLong();
         private final AtomicLong cpuNanos = new AtomicLong();
+        @Nullable
+        private final ResourceUsageTimeSeriesRecorder timeSeriesRecorder;
+
+        OperationTiming()
+        {
+            this.timeSeriesRecorder = null;
+        }
+
+        OperationTiming(ResourceUsageTimeSeriesRecorder timeSeriesRecorder)
+        {
+            this.timeSeriesRecorder = requireNonNull(timeSeriesRecorder, "timeSeriesRecorder is null");
+        }
 
         long getCalls()
         {
@@ -125,6 +138,9 @@ class OperationTimer
             this.calls.incrementAndGet();
             this.wallNanos.addAndGet(wallNanos);
             this.cpuNanos.addAndGet(cpuNanos);
+            if (timeSeriesRecorder != null) {
+                timeSeriesRecorder.record(wallNanos, cpuNanos);
+            }
         }
 
         @Override

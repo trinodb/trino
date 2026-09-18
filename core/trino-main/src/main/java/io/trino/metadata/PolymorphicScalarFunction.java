@@ -22,6 +22,7 @@ import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction.ScalarImplementationChoice;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -50,7 +51,7 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
@@ -104,7 +105,10 @@ class PolymorphicScalarFunction
     {
         Method method = methodAndNativeContainerTypes.method();
         checkState(method.getParameterCount() >= boundSignature.getArity(),
-                "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), boundSignature.getArity());
+                "method %s has not enough arguments: %s (should have at least %s)",
+                method.getName(),
+                method.getParameterCount(),
+                boundSignature.getArity());
 
         Class<?>[] methodParameterJavaTypes = method.getParameterTypes();
         int methodParameterIndex = 0;
@@ -115,29 +119,27 @@ class PolymorphicScalarFunction
             Class<?> expectedType = null;
             Class<?> actualType;
             switch (argumentConvention) {
-                case NEVER_NULL:
-                case NULL_FLAG:
+                case NEVER_NULL, NULL_FLAG -> {
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
                     actualType = resolvedType.getJavaType();
-                    break;
-                case BOXED_NULLABLE:
+                }
+                case BOXED_NULLABLE -> {
                     expectedType = methodParameterJavaTypes[methodParameterIndex];
                     actualType = Primitives.wrap(resolvedType.getJavaType());
-                    break;
-                case BLOCK_POSITION:
+                }
+                case BLOCK_POSITION -> {
                     Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.explicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
                         expectedType = explicitNativeContainerTypes.get();
                     }
                     actualType = resolvedType.getJavaType();
-                    break;
-                case IN_OUT:
+                }
+                case IN_OUT -> {
                     // any type is supported, so just ignore this check
                     actualType = resolvedType.getJavaType();
                     expectedType = resolvedType.getJavaType();
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+                }
+                default -> throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
             }
             if (!actualType.equals(expectedType)) {
                 return false;
@@ -162,7 +164,10 @@ class PolymorphicScalarFunction
                 .sum();
         int matchingMethodArgumentCount = matchingMethod.getParameterCount();
         checkState(matchingMethodArgumentCount == expectedArgumentsCount,
-                "method %s has invalid number of arguments: %s (should have %s)", matchingMethod.getName(), matchingMethodArgumentCount, expectedArgumentsCount);
+                "method %s has invalid number of arguments: %s (should have %s)",
+                matchingMethod.getName(),
+                matchingMethodArgumentCount,
+                expectedArgumentsCount);
 
         MethodHandle matchingMethodHandle = Reflection.methodHandle(matchingMethod);
         matchingMethodHandle = MethodHandles.insertArguments(

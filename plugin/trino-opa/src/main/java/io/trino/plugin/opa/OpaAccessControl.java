@@ -36,6 +36,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -50,6 +51,7 @@ import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -74,10 +76,8 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowFunctions;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
@@ -112,8 +112,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {}
+    public void checkCanSetUser(Optional<Principal> principal, String userName) {}
 
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
@@ -251,7 +250,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetSchemaAuthorization(schema.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schema.getCatalogName(), schema.getSchemaName())), principal);
         }
     }
 
@@ -373,7 +372,7 @@ public sealed class OpaAccessControl
     public Map<SchemaTableName, Set<String>> filterColumns(SystemSecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         ImmutableSet.Builder<TrinoTable> allColumnsBuilder = ImmutableSet.builder();
-        for (Map.Entry<SchemaTableName, Set<String>> entry : tableColumns.entrySet()) {
+        for (Entry<SchemaTableName, Set<String>> entry : tableColumns.entrySet()) {
             SchemaTableName schemaTableName = entry.getKey();
             TrinoTable trinoTable = new TrinoTable(catalogName, schemaTableName.getSchemaName(), schemaTableName.getTableName());
             for (String columnName : entry.getValue()) {
@@ -424,7 +423,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetTableAuthorization(table.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName())), principal);
         }
     }
 
@@ -494,7 +493,7 @@ public sealed class OpaAccessControl
         OpaQueryInput input = new OpaQueryInput(buildQueryContext(context), action);
 
         if (!opaHighLevelClient.queryOpa(input)) {
-            denySetViewAuthorization(view.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
         }
     }
 
@@ -507,7 +506,7 @@ public sealed class OpaAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        checkTableAndColumnsOperation(context, "CreateViewWithSelectFromColumns", table, columns, (tableAsString, columnSet) -> denyCreateViewWithSelect(tableAsString, context.getIdentity()));
+        checkTableAndColumnsOperation(context, "CreateViewWithSelectFromColumns", table, columns, (tableAsString, _) -> denyCreateViewWithSelect(tableAsString, context.getIdentity()));
     }
 
     @Override
@@ -655,8 +654,8 @@ public sealed class OpaAccessControl
                         OpaQueryInputResource.builder()
                                 .function(
                                         new TrinoFunction(
-                                                new TrinoSchema(catalogName, function.getSchemaName()),
-                                                function.getFunctionName()))
+                                                new TrinoSchema(catalogName, function.schemaName()),
+                                                function.functionName()))
                                 .build()));
     }
 
@@ -743,7 +742,7 @@ public sealed class OpaAccessControl
         return opaHighLevelClient.getColumnMasksFromOpa(buildQueryContext(context), tableName, columns)
                 .entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue().toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     @Override
@@ -797,16 +796,16 @@ public sealed class OpaAccessControl
     {
         return properties.entrySet().stream()
                 .map(propertiesEntry -> Map.entry(propertiesEntry.getKey(), Optional.ofNullable(propertiesEntry.getValue())))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
     OpaQueryContext buildQueryContext(Identity trinoIdentity)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, Optional.empty());
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(trinoIdentity), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.empty());
     }
 
     OpaQueryContext buildQueryContext(SystemSecurityContext securityContext)
     {
-        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, Optional.of(securityContext.getQueryId()));
+        return new OpaQueryContext(TrinoIdentity.fromTrinoIdentity(securityContext.getIdentity()), pluginContext, opaHighLevelClient.getAdditionalContext(), Optional.of(securityContext.getQueryId()));
     }
 }

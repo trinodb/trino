@@ -13,46 +13,118 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.lang.invoke.MethodType.methodType;
 
+/**
+ * Binds method handles and constants used by a generated class. The bindings are attached
+ * to the hidden class as class data: constants load as dynamic constants and method handles
+ * are invoked exactly through a dynamic constant load.
+ */
 public final class CallSiteBinder
 {
-    private int nextId;
-
-    private final Map<Long, MethodHandle> bindings = new HashMap<>();
+    private final ClassLoader classLoader = CallSiteBinder.class.getClassLoader();
+    private final List<Object> bindings = new ArrayList<>();
+    // Bindings deduplicate by identity: repeated types and cached operator handles are
+    // bound once per generated class, and identical dynamic constant loads then share a
+    // single constant pool entry and resolution
+    private final Map<MethodHandle, Binding> methodHandleBindings = new IdentityHashMap<>();
+    private final Map<ConstantKey, Binding> constantBindings = new HashMap<>();
 
     public Binding bind(MethodHandle method)
     {
-        long bindingId = nextId++;
-        Binding binding = new Binding(bindingId, method.type());
+        return methodHandleBindings.computeIfAbsent(method, handle -> {
+            // Bound handles can come from plugin class loaders. Hide reference
+            // types the generated-code loader cannot resolve to the same class.
+            MethodType type = getAccessibleType(handle.type());
+            if (!handle.type().equals(type)) {
+                handle = handle.asType(type);
+            }
 
-        bindings.put(bindingId, method);
-        return binding;
+            return addBinding(handle, type, Binding.Kind.HANDLE);
+        });
     }
 
     public Binding bind(Object constant, Class<?> type)
     {
-        return bind(MethodHandles.constant(type, constant));
+        // stored raw so it can be loaded as a dynamic constant from the class data
+        return constantBindings.computeIfAbsent(
+                new ConstantKey(constant, type),
+                _ -> addBinding(constant, methodType(getAccessibleType(type)), Binding.Kind.CONSTANT));
     }
 
-    public Map<Long, MethodHandle> getBindings()
+    private Binding addBinding(Object value, MethodType type, Binding.Kind kind)
     {
-        return ImmutableMap.copyOf(bindings);
+        Binding binding = new Binding(bindings.size(), type, kind);
+        bindings.add(value);
+        return binding;
+    }
+
+    public List<Object> getClassData()
+    {
+        return ImmutableList.copyOf(bindings);
+    }
+
+    public MethodType getAccessibleType(MethodType type)
+    {
+        MethodType accessibleType = type.changeReturnType(getAccessibleType(type.returnType()));
+        for (int i = 0; i < type.parameterCount(); i++) {
+            accessibleType = accessibleType.changeParameterType(i, getAccessibleType(type.parameterType(i)));
+        }
+        return accessibleType;
+    }
+
+    public Class<?> getAccessibleType(Class<?> type)
+    {
+        if (isAccessible(type)) {
+            return type;
+        }
+        return Object.class;
+    }
+
+    private boolean isAccessible(Class<?> type)
+    {
+        if (type.isPrimitive()) {
+            return true;
+        }
+        try {
+            return Class.forName(type.getName(), false, classLoader) == type;
+        }
+        catch (ClassNotFoundException | LinkageError _) {
+            return false;
+        }
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("nextId", nextId)
                 .add("bindings", bindings)
                 .toString();
+    }
+
+    private record ConstantKey(Object constant, Class<?> type)
+    {
+        @Override
+        public boolean equals(Object other)
+        {
+            return other instanceof ConstantKey that && constant == that.constant && type == that.type;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return System.identityHashCode(constant) * 31 + type.hashCode();
+        }
     }
 }

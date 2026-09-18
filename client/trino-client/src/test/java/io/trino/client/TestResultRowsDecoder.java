@@ -36,7 +36,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static io.trino.client.JsonIterators.createJsonFactory;
+import static io.trino.client.JsonIterators.JSON_MAPPER;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -69,8 +69,8 @@ class TestResultRowsDecoder
     public void testJsonNodeMaterialization()
             throws Exception
     {
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser("[[2137], [1337]]")) {
-            assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree())))))
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser("[[2137], [1337]]")) {
+            assertThat(eagerlyMaterialize(decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser)))))
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337));
         }
     }
@@ -90,8 +90,8 @@ class TestResultRowsDecoder
             throws Exception
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
             assertThat(stream.getCount()).isEqualTo(16);
@@ -103,8 +103,8 @@ class TestResultRowsDecoder
             throws Exception
     {
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = createJsonFactory().createParser(stream)) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(new JsonQueryData(parser.readValueAsTree()))).iterator();
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(); JsonParser parser = JSON_MAPPER.createParser(stream)) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromQueryData(JsonQueryData.copyFrom(parser))).iterator();
             assertThat(stream.getCount()).isEqualTo(16);
             iterator.next();
             assertThat(stream.getCount()).isEqualTo(16);
@@ -117,7 +117,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
@@ -132,7 +132,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
@@ -148,7 +148,7 @@ class TestResultRowsDecoder
                 .mapToObj(Integer::toString)
                 .reduce("[", (a, b) -> a + "[" + b + "],", String::concat) + "[1337]]";
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream(data.getBytes(UTF_8)));
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream), false)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2501))).iterator();
             assertThat(stream.getCount()).isEqualTo(0);
             iterator.next();
@@ -174,7 +174,7 @@ class TestResultRowsDecoder
     {
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
-        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged), false)) {
             Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))
                     .iterator();
 
@@ -227,9 +227,7 @@ class TestResultRowsDecoder
         }
 
         @Override
-        public void close()
-        {
-        }
+        public void close() {}
     }
 
     private static List<List<Object>> eagerlyMaterialize(Iterable<List<Object>> values)
@@ -239,7 +237,8 @@ class TestResultRowsDecoder
 
     private static SegmentLoader loaderFromStream(InputStream stream)
     {
-        return new SegmentLoader() {
+        return new SegmentLoader()
+        {
             @Override
             public InputStream load(SpooledSegment segment)
             {
@@ -247,14 +246,10 @@ class TestResultRowsDecoder
             }
 
             @Override
-            public void acknowledge(SpooledSegment segment)
-            {
-            }
+            public void acknowledge(SpooledSegment segment) {}
 
             @Override
-            public void close()
-            {
-            }
+            public void close() {}
         };
     }
 

@@ -51,6 +51,7 @@ import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.unpackShortNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.util.Objects.requireNonNull;
 
 public class LongColumnReader
@@ -133,13 +134,14 @@ public class LongColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -182,25 +184,25 @@ public class LongColumnReader
 
     protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         if (type instanceof BigintType) {
-            return longReadNullBlock(isNull, nonNullCount);
+            return longReadNullBlock(valueIsValid, nonNullCount);
         }
         if (type instanceof TimeType) {
-            return longReadNullBlock(isNull, nonNullCount);
+            return longReadNullBlock(valueIsValid, nonNullCount);
         }
         if (type instanceof IntegerType || type instanceof DateType) {
-            return intReadNullBlock(isNull, nonNullCount);
+            return intReadNullBlock(valueIsValid, nonNullCount);
         }
         if (type instanceof SmallintType) {
-            return shortReadNullBlock(isNull, nonNullCount);
+            return shortReadNullBlock(valueIsValid, nonNullCount);
         }
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block longReadNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -213,12 +215,12 @@ public class LongColumnReader
         dataStream.next(longNonNullValueTemp, nonNullCount);
 
         maybeTransformValues(longNonNullValueTemp, nonNullCount);
-        long[] result = unpackLongNulls(longNonNullValueTemp, isNull);
+        long[] result = unpackLongNulls(longNonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
-    private Block intReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block intReadNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -230,12 +232,12 @@ public class LongColumnReader
 
         dataStream.next(intNonNullValueTemp, nonNullCount);
 
-        int[] result = unpackIntNulls(intNonNullValueTemp, isNull);
+        int[] result = unpackIntNulls(intNonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new IntArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new IntArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
-    private Block shortReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block shortReadNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -247,9 +249,9 @@ public class LongColumnReader
 
         dataStream.next(shortNonNullValueTemp, nonNullCount);
 
-        short[] result = unpackShortNulls(shortNonNullValueTemp, isNull);
+        short[] result = unpackShortNulls(shortNonNullValueTemp, valueIsValid, nextBatchSize);
 
-        return new ShortArrayBlock(nextBatchSize, Optional.of(isNull), result);
+        return new ShortArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
     }
 
     private void openRowGroup()

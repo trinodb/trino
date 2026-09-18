@@ -180,7 +180,7 @@ public class BeginTableWrite
                     node.getId(),
                     child,
                     newTarget,
-                    node.getRowCountSymbol(),
+                    node.getOutputSymbols(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
@@ -264,6 +264,7 @@ public class BeginTableWrite
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
                         refreshMV.getSourceTableFunctions(),
+                        refreshMV.hasNonDeterministicFunctions(),
                         refreshMV.getWriterScalingOptions(metadata, session));
             }
             if (target instanceof TableExecuteTarget tableExecute) {

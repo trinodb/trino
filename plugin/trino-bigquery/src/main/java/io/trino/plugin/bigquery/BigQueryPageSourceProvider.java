@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.ColumnHandle;
@@ -20,6 +21,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryPageSourceProvider
@@ -66,11 +69,13 @@ public class BigQueryPageSourceProvider
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to non-deprecated createPageSource overload
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -109,23 +114,30 @@ public class BigQueryPageSourceProvider
 
     private ConnectorPageSource createStoragePageSource(ConnectorSession session, BigQuerySplit split, List<BigQueryColumnHandle> columnHandles)
     {
-        if (arrowSerializationEnabled) {
-            return new BigQueryStorageArrowPageSource(
-                    typeManager,
-                    bigQueryReadClientFactory.create(session),
+        BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.create(session);
+        try {
+            if (arrowSerializationEnabled) {
+                return new BigQueryStorageArrowPageSource(
+                        typeManager,
+                        bigQueryReadClient,
+                        executor,
+                        arrowBufferAllocator.orElseThrow(() -> new IllegalStateException("ArrowBufferAllocator was not bound")),
+                        maxReadRowsRetries,
+                        split,
+                        columnHandles);
+            }
+            return new BigQueryStorageAvroPageSource(
+                    bigQueryReadClient,
                     executor,
-                    arrowBufferAllocator.orElseThrow(() -> new IllegalStateException("ArrowBufferAllocator was not bound")),
+                    typeManager,
                     maxReadRowsRetries,
                     split,
                     columnHandles);
         }
-        return new BigQueryStorageAvroPageSource(
-                bigQueryReadClientFactory.create(session),
-                executor,
-                typeManager,
-                maxReadRowsRetries,
-                split,
-                columnHandles);
+        catch (Throwable t) {
+            closeAllSuppress(t, bigQueryReadClient);
+            throw t;
+        }
     }
 
     private ConnectorPageSource createQueryPageSource(ConnectorSession session, BigQueryTableHandle table, List<BigQueryColumnHandle> columnHandles, Optional<String> filter)

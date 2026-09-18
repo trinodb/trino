@@ -45,6 +45,7 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestAsyncResultIterator
 {
@@ -66,7 +67,8 @@ class TestAsyncResultIterator
                         interruptedButSwallowedLatch.countDown();
                     }
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
-                }), ignored -> {},
+                }),
+                ignored -> {},
                 new WarningsManager(),
                 Optional.of(new ArrayBlockingQueue<>(100)));
 
@@ -95,7 +97,8 @@ class TestAsyncResultIterator
                 new MockStatementClient(() -> {
                     thread.compareAndSet(null, Thread.currentThread());
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
-                }), ignored -> {},
+                }),
+                ignored -> {},
                 new WarningsManager(),
                 Optional.of(queue));
 
@@ -107,6 +110,24 @@ class TestAsyncResultIterator
         while (!iterator.isBackgroundThreadFinished()) {
             TimeUnit.MILLISECONDS.sleep(10);
         }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testIteratorPropagatesAdvanceException()
+    {
+        RuntimeException exception = new RuntimeException();
+        AsyncResultIterator iterator = new AsyncResultIterator(
+                new MockStatementClientThrowingOnAdvance(() -> fromList(ImmutableList.of(ImmutableList.of(new Object()))), exception),
+                ignored -> {},
+                new WarningsManager(),
+                Optional.empty());
+
+        assertThatThrownBy(() -> {
+            while (iterator.next() != null) {
+                // Iterate until exception
+            }
+        }).isSameAs(exception);
     }
 
     private static class MockStatementClient
@@ -282,6 +303,24 @@ class TestAsyncResultIterator
         }
     }
 
+    private static class MockStatementClientThrowingOnAdvance
+            extends MockStatementClient
+    {
+        private final RuntimeException exception;
+
+        public MockStatementClientThrowingOnAdvance(Supplier<ResultRows> queryData, RuntimeException exception)
+        {
+            super(queryData);
+            this.exception = requireNonNull(exception, "exception is null");
+        }
+
+        @Override
+        public boolean advance()
+        {
+            throw exception;
+        }
+    }
+
     private static QueryStatusInfo statusInfo(String status)
     {
         return new QueryStatusInfo()
@@ -381,7 +420,8 @@ class TestAsyncResultIterator
 
     static ResultRows fromList(List<List<Object>> values)
     {
-        return new ResultRows() {
+        return new ResultRows()
+        {
             @Override
             public void close() {}
 

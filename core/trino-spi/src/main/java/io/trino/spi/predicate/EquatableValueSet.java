@@ -41,6 +41,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -349,10 +351,10 @@ public class EquatableValueSet
     private String formatValues(int limit)
     {
         return Stream.concat(
-                entries.stream()
-                        .map(entry -> type.getObjectValue(entry.getBlock(), 0).toString())
-                        .limit(limit),
-                limit < getValuesCount() ? Stream.of("...") : Stream.of())
+                        entries.stream()
+                                .map(entry -> type.getObjectValue(entry.getBlock(), 0).toString())
+                                .limit(limit),
+                        limit < getValuesCount() ? Stream.of("...") : Stream.of())
                 .collect(joining(", ", inclusive ? "{" : "EXCLUDES{", "}"));
     }
 
@@ -450,7 +452,7 @@ public class EquatableValueSet
 
         public static ValueEntry create(Type type, Object value)
         {
-            return new ValueEntry(type, Utils.nativeValueToBlock(type, value));
+            return new ValueEntry(type, writeNativeValue(type, value));
         }
 
         @JsonProperty
@@ -467,7 +469,7 @@ public class EquatableValueSet
 
         public Object getValue()
         {
-            return Utils.blockToNativeValue(type, block);
+            return blockToNativeValue(type, block);
         }
 
         @Override

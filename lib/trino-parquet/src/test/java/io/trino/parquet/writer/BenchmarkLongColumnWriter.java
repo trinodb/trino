@@ -32,7 +32,7 @@ public class BenchmarkLongColumnWriter
     private static final Random RANDOM = new Random(23423523L);
 
     @Param({
-            "0", "20", "35", "50", "64"
+            "0", "20", "35", "50", "64",
     })
     public int bitWidth;
 

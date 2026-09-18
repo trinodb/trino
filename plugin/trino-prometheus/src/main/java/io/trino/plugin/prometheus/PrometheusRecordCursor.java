@@ -16,7 +16,6 @@ package io.trino.plugin.prometheus;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -39,10 +38,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
@@ -53,6 +54,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -160,7 +162,7 @@ public class PrometheusRecordCursor
     public Slice getSlice(int field)
     {
         checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice((String) requireNonNull(getFieldValue(field)));
+        return utf8Slice((String) requireNonNull(getFieldValue(field)));
     }
 
     @Override
@@ -185,11 +187,12 @@ public class PrometheusRecordCursor
     private List<PrometheusStandardizedRow> prometheusResultsInStandardizedForm(List<PrometheusMetricResult> results)
     {
         return results.stream().map(result ->
-                result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
-                        result.getMetricHeader(),
-                        prometheusTimeSeriesValue.getTimestamp(),
-                        Double.parseDouble(prometheusTimeSeriesValue.getValue())))
-                        .collect(Collectors.toList()))
+                        result.getTimeSeriesValues().getValues().stream()
+                                .map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
+                                        result.getMetricHeader(),
+                                        prometheusTimeSeriesValue.getTimestamp(),
+                                        Double.parseDouble(prometheusTimeSeriesValue.getValue())))
+                                .collect(Collectors.toList()))
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
     }
@@ -240,7 +243,7 @@ public class PrometheusRecordCursor
         }
         else if (type instanceof MapType mapType) {
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
-                for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
                     writeObject(keyBuilder, mapType.getKeyType(), entry.getKey());
                     writeObject(valueBuilder, mapType.getValueType(), entry.getValue());
                 }
@@ -252,9 +255,11 @@ public class PrometheusRecordCursor
                     || SMALLINT.equals(type)
                     || INTEGER.equals(type)
                     || BIGINT.equals(type)
-                    || DOUBLE.equals(type)
-                    || type instanceof VarcharType) {
-                TypeUtils.writeNativeValue(type, builder, obj);
+                    || DOUBLE.equals(type)) {
+                writeNativeValue(type, builder, obj);
+            }
+            else if (type instanceof VarcharType) {
+                writeNativeValue(type, builder, obj == null ? null : utf8Slice((String) obj));
             }
         }
     }

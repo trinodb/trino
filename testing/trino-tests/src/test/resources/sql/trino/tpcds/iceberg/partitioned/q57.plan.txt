@@ -5,11 +5,11 @@ local exchange (GATHER, SINGLE, [])
                 join (INNER, PARTITIONED):
                     join (INNER, PARTITIONED):
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [cc_name, i_brand, i_category])
-                                final aggregation over (cc_name, d_moy, d_year, i_brand, i_category)
+                            remote exchange (REPARTITION, HASH, [i_category, i_brand, cc_name])
+                                final aggregation over (i_category, i_brand, cc_name, d_year, d_moy)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [cc_name, d_moy, d_year, i_brand, i_category])
-                                            intermediate aggregation over (cc_name, d_moy, d_year, i_brand, i_category)
+                                        remote exchange (REPARTITION, HASH, [i_category, i_brand, cc_name, d_year, d_moy])
+                                            intermediate aggregation over (i_category, i_brand, cc_name, d_year, d_moy)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
@@ -21,18 +21,18 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_brand::EQUAL, i_brand::EQUAL, i_category::EQUAL, i_category::EQUAL)
+                                                                dynamic filter (i_category::EQUAL, i_brand::EQUAL, i_category::EQUAL, i_brand::EQUAL)
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             dynamic filter (cc_name::EQUAL, cc_name::EQUAL)
                                                                 scan call_center
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [cc_name_108, i_brand_17, i_category_21])
-                                final aggregation over (cc_name_108, d_moy_79, d_year_77, i_brand_17, i_category_21)
+                            remote exchange (REPARTITION, HASH, [i_category_21, i_brand_17, cc_name_108])
+                                final aggregation over (i_category_21, i_brand_17, cc_name_108, d_year_77, d_moy_79)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [cc_name_108, d_moy_79, d_year_77, i_brand_17, i_category_21])
-                                            intermediate aggregation over (cc_name_108, d_moy_79, d_year_77, i_brand_17, i_category_21)
+                                        remote exchange (REPARTITION, HASH, [i_category_21, i_brand_17, cc_name_108, d_year_77, d_moy_79])
+                                            intermediate aggregation over (i_category_21, i_brand_17, cc_name_108, d_year_77, d_moy_79)
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
@@ -44,18 +44,18 @@ local exchange (GATHER, SINGLE, [])
                                                                     scan date_dim
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_brand_17::EQUAL, i_category_21::EQUAL)
+                                                                dynamic filter (i_category_21::EQUAL, i_brand_17::EQUAL)
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             dynamic filter (cc_name_108::EQUAL)
                                                                 scan call_center
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [cc_name_237, i_brand_146, i_category_150])
-                            final aggregation over (cc_name_237, d_moy_208, d_year_206, i_brand_146, i_category_150)
+                        remote exchange (REPARTITION, HASH, [i_category_150, i_brand_146, cc_name_237])
+                            final aggregation over (i_category_150, i_brand_146, cc_name_237, d_year_206, d_moy_208)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, [cc_name_237, d_moy_208, d_year_206, i_brand_146, i_category_150])
-                                        intermediate aggregation over (cc_name_237, d_moy_208, d_year_206, i_brand_146, i_category_150)
+                                    remote exchange (REPARTITION, HASH, [i_category_150, i_brand_146, cc_name_237, d_year_206, d_moy_208])
+                                        intermediate aggregation over (i_category_150, i_brand_146, cc_name_237, d_year_206, d_moy_208)
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):

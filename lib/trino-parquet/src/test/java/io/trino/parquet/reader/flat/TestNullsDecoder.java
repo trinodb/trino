@@ -24,6 +24,9 @@ import java.util.Random;
 
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
+import static io.trino.spi.block.Bitmap.isSet;
+import static io.trino.spi.block.Bitmap.setBits;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static java.lang.Math.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,11 +35,14 @@ public class TestNullsDecoder
     private static final int N = 1000;
     private static final int MAX_MIXED_GROUP_SIZE = 23;
     private static final boolean[] ALL_NON_NULLS_ARRAY = new boolean[N];
+    private static final boolean[] SINGLE_NULL_ARRAY = new boolean[N];
     private static final boolean[] RANDOM_ARRAY = new boolean[N];
     private static final boolean[] MIXED_RANDOM_AND_GROUPED_ARRAY;
 
     static {
         Arrays.fill(ALL_NON_NULLS_ARRAY, true);
+        Arrays.fill(SINGLE_NULL_ARRAY, true);
+        SINGLE_NULL_ARRAY[N / 2] = false;
         Random r = new Random(0);
         for (int i = 0; i < N; i++) {
             RANDOM_ARRAY[i] = r.nextBoolean();
@@ -62,14 +68,17 @@ public class TestNullsDecoder
                 byte[] encoded = encode(values);
                 FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
-                boolean[] result = new boolean[N];
+                long[] result = new long[wordsForBits(N)];
                 int nonNullCount = 0;
                 for (int i = 0; i < N; i += batchSize) {
-                    nonNullCount += decoder.readNext(result, i, min(batchSize, N - i));
+                    int chunkSize = min(batchSize, N - i);
+                    int chunkNonNullCount = decoder.readNext(result, i, chunkSize);
+                    if (chunkNonNullCount == chunkSize) {
+                        setBits(result, 0, i, chunkSize);
+                    }
+                    nonNullCount += chunkNonNullCount;
                 }
-                // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
-                assertThat(byteResult).containsExactly(values);
+                assertThat(toBooleanArray(result, N)).containsExactly(values);
                 int expectedNonNull = nonNullCount(values);
                 assertThat(nonNullCount).isEqualTo(expectedNonNull);
             }
@@ -105,20 +114,61 @@ public class TestNullsDecoder
                 }
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values, alreadyRead));
 
-                boolean[] result = new boolean[N - alreadyRead];
+                long[] result = new long[wordsForBits(N - alreadyRead)];
                 boolean[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
                 int offset = 0;
                 while (alreadyRead < N) {
                     int chunkSize = min(batchSize, N - alreadyRead);
-                    nonNullCount += decoder.readNext(result, offset, chunkSize);
+                    int chunkNonNullCount = decoder.readNext(result, offset, chunkSize);
+                    if (chunkNonNullCount == chunkSize) {
+                        setBits(result, 0, offset, chunkSize);
+                    }
+                    nonNullCount += chunkNonNullCount;
                     alreadyRead += chunkSize;
                     offset += chunkSize;
                 }
-                // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
-                assertThat(byteResult).containsExactly(expected);
+                assertThat(toBooleanArray(result, expected.length)).containsExactly(expected);
 
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values));
+            }
+        }
+    }
+
+    @Test
+    public void testDeferredValidity()
+            throws IOException
+    {
+        for (boolean vectorizedDecodingEnabled : new boolean[] {false, true}) {
+            for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
+                for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
+                    boolean[] values = nullValuesProvider.getPositions();
+                    FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
+                    decoder.init(Slices.wrappedBuffer(encode(values)));
+                    long[] result = new long[wordsForBits(N)];
+                    int nonNullCount = 0;
+                    boolean validityMaterialized = false;
+                    for (int offset = 0; offset < N; offset += batchSize) {
+                        int chunkSize = min(batchSize, N - offset);
+                        int chunkNonNullCount = decoder.readNext(result, offset, chunkSize);
+                        if (chunkNonNullCount == chunkSize && validityMaterialized) {
+                            setBits(result, 0, offset, chunkSize);
+                        }
+                        else if (chunkNonNullCount < chunkSize && !validityMaterialized) {
+                            setBits(result, 0, 0, offset);
+                            validityMaterialized = true;
+                        }
+                        nonNullCount += chunkNonNullCount;
+                    }
+
+                    assertThat(nonNullCount).isEqualTo(nonNullCount(values));
+                    assertThat(validityMaterialized).isEqualTo(nonNullCount < N);
+                    if (validityMaterialized) {
+                        assertThat(toBooleanArray(result, N)).containsExactly(values);
+                    }
+                    else {
+                        assertThat(result).containsOnly(0);
+                    }
+                }
             }
         }
     }
@@ -137,6 +187,13 @@ public class TestNullsDecoder
             boolean[] getPositions()
             {
                 return ALL_NON_NULLS_ARRAY;
+            }
+        },
+        SINGLE_NULL {
+            @Override
+            boolean[] getPositions()
+            {
+                return SINGLE_NULL_ARRAY;
             }
         },
         RANDOM {
@@ -167,11 +224,11 @@ public class TestNullsDecoder
         return encoder.toBytes().toByteArray();
     }
 
-    private static boolean[] flip(boolean[] values)
+    private static boolean[] toBooleanArray(long[] values, int length)
     {
-        boolean[] result = new boolean[values.length];
-        for (int i = 0; i < values.length; i++) {
-            result[i] = !values[i];
+        boolean[] result = new boolean[length];
+        for (int i = 0; i < length; i++) {
+            result[i] = isSet(values, 0, i);
         }
         return result;
     }

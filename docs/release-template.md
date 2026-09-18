@@ -46,6 +46,8 @@
 
 ## Kafka connector
 
+## Lakehouse connector
+
 ## Loki connector
 
 ## MariaDB connector
@@ -79,7 +81,5 @@
 ## TPC-H connector
 
 ## TPC-DS connector
-
-## Vertica connector
 
 ## SPI

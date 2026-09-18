@@ -91,11 +91,11 @@ public class ReplaceRedundantJoinWithSource
             }
             case LEFT -> rightSourceScalarWithNoOutputs ?
                     Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
-                            .orElse(node.getLeft())) :
+                                      .orElse(node.getLeft())) :
                     Result.empty();
             case RIGHT -> leftSourceScalarWithNoOutputs ?
                     Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getRight(), ImmutableSet.copyOf(node.getRightOutputSymbols()))
-                            .orElse(node.getRight())) :
+                                      .orElse(node.getRight())) :
                     Result.empty();
             case FULL -> {
                 if (leftSourceScalarWithNoOutputs && rightCardinality.isAtLeastScalar()) {

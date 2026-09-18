@@ -16,13 +16,13 @@ package io.trino.hive.formats;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeDescriptor;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
+import static io.trino.spi.type.TypeParameter.namedField;
 
 public final class UnionToRowCoercionUtils
 {
@@ -42,13 +42,13 @@ public final class UnionToRowCoercionUtils
         return RowType.from(fields.build());
     }
 
-    public static TypeSignature rowTypeSignatureForUnionOfTypes(List<TypeSignature> typeSignatures)
+    public static TypeDescriptor rowTypeDescriptorForUnionOfTypes(List<TypeDescriptor> typeDescriptors)
     {
-        ImmutableList.Builder<TypeSignatureParameter> fields = ImmutableList.builder();
-        fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
-        for (int i = 0; i < typeSignatures.size(); i++) {
-            fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeSignatures.get(i)));
+        ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
+        fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeDescriptor()));
+        for (int i = 0; i < typeDescriptors.size(); i++) {
+            fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeDescriptors.get(i)));
         }
-        return TypeSignature.rowType(fields.build());
+        return TypeDescriptor.rowType(fields.build());
     }
 }

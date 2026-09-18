@@ -44,6 +44,7 @@ public final class PlanNodeStatsEstimateMath
     private static final List<Class<? extends PlanNode>> EXPANDING_NODE_CLASSES = ImmutableList.of(JoinNode.class, UnnestNode.class);
 
     private PlanNodeStatsEstimateMath() {}
+
     /**
      * Subtracts subset stats from supersets stats.
      * It is assumed that each NDV from subset has a matching NDV in superset.

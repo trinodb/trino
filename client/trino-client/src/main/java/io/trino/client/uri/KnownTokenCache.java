@@ -30,6 +30,13 @@ public enum KnownTokenCache
         {
             return KnownToken.memoryCached();
         }
+    },
+    SYSTEM {
+        @Override
+        KnownToken create()
+        {
+            return KnownToken.systemCached();
+        }
     };
 
     abstract KnownToken create();

@@ -13,10 +13,11 @@
  */
 package io.trino.sql.planner;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -31,8 +32,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestSymbolKeySerialization
 {
-    private static final ObjectMapperProvider OBJECT_MAPPER_PROVIDER = createObjectMapperProvider(TESTING_TYPE_MANAGER);
-    private static final JsonCodec<Map<Symbol, String>> SYMBOL_KEY_CODEC = new JsonCodecFactory(OBJECT_MAPPER_PROVIDER)
+    private static final JsonMapper JSON_MAPPER = createJsonMapper(TESTING_TYPE_MANAGER);
+    private static final JsonCodec<Map<Symbol, String>> SYMBOL_KEY_CODEC = new JsonCodecFactory(JSON_MAPPER)
             .mapJsonCodec(Symbol.class, String.class);
 
     @Test
@@ -72,11 +73,11 @@ class TestSymbolKeySerialization
                 .hasMessageContaining("Symbol key is malformed: 1|a");
     }
 
-    private static ObjectMapperProvider createObjectMapperProvider(TypeManager typeManager)
+    private static JsonMapper createJsonMapper(TypeManager typeManager)
     {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setKeyDeserializers(ImmutableMap.of(Symbol.class, new SymbolKeyDeserializer(typeManager)));
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager::getType)));
-        return provider;
+        return new JsonMapperProvider()
+                .withKeyDeserializers(ImmutableMap.of(Symbol.class, new SymbolKeyDeserializer(typeManager)))
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager::getType)))
+                .get();
     }
 }

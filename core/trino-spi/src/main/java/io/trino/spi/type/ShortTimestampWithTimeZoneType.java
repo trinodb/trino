@@ -31,6 +31,7 @@ import io.trino.spi.function.ScalarOperator;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -39,8 +40,12 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.DateTimeEncoding.isValidMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -56,7 +61,7 @@ final class ShortTimestampWithTimeZoneType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampWithTimeZoneType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
-    public ShortTimestampWithTimeZoneType(int precision)
+    ShortTimestampWithTimeZoneType(int precision)
     {
         super(precision, long.class, LongArrayBlock.class);
 
@@ -125,6 +130,33 @@ final class ShortTimestampWithTimeZoneType
     public int getFlatFixedSize()
     {
         return Long.BYTES;
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        long epochMillis = unpackMillisUtc((long) value) - millisPerUnit();
+        if (!isValidMillisUtc(epochMillis)) {
+            return Optional.empty();
+        }
+        // time zone doesn't matter for ordering
+        return Optional.of(packDateTimeWithZone(epochMillis, UTC_KEY));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        long epochMillis = unpackMillisUtc((long) value) + millisPerUnit();
+        if (!isValidMillisUtc(epochMillis)) {
+            return Optional.empty();
+        }
+        // time zone doesn't matter for ordering
+        return Optional.of(packDateTimeWithZone(epochMillis, UTC_KEY));
+    }
+
+    private long millisPerUnit()
+    {
+        return rescale(1, 0, MAX_SHORT_PRECISION - getPrecision());
     }
 
     @ScalarOperator(READ_VALUE)

@@ -117,7 +117,7 @@ class TestInMemoryGlueCache
 
         // database invalidation does not invalidate the database names
         glueCache.invalidateDatabase("unknown");
-        assertThat(glueCache.getDatabaseNames(cacheDatabase -> { throw new RuntimeException(); })).containsExactly("db2", "db3");
+        assertThat(glueCache.getDatabaseNames(_ -> { throw new RuntimeException(); })).containsExactly("db2", "db3");
 
         glueCache.invalidateDatabaseNames();
 
@@ -178,22 +178,22 @@ class TestInMemoryGlueCache
     void testGetTables()
     {
         GlueCache glueCache = createGlueCache();
-        assertThat(glueCache.getTables("db1", cacheTable -> ImmutableList.of(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"))))
+        assertThat(glueCache.getTables("db1", _ -> ImmutableList.of(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"))))
                 .containsExactlyInAnyOrder(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"));
-        assertThat(glueCache.getTables("db1", cacheTable -> ImmutableList.of(testTableInfo("db1", "fail"))))
+        assertThat(glueCache.getTables("db1", _ -> ImmutableList.of(testTableInfo("db1", "fail"))))
                 .containsExactlyInAnyOrder(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"));
-        assertThat(glueCache.getTables("db1", cacheTable -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getTables("db1", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testTableInfo("db1", "table1"), testTableInfo("db1", "table2"));
 
         glueCache.invalidateTables("db1");
-        assertThat(glueCache.getTables("db1", cacheTable -> ImmutableList.of(testTableInfo("db1", "table3"), testTableInfo("db1", "table4"))))
+        assertThat(glueCache.getTables("db1", _ -> ImmutableList.of(testTableInfo("db1", "table3"), testTableInfo("db1", "table4"))))
                 .containsExactlyInAnyOrder(testTableInfo("db1", "table3"), testTableInfo("db1", "table4"));
 
         glueCache.invalidateTables("db1");
-        assertThatThrownBy(() -> glueCache.getTables("db1", cacheTable -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
+        assertThatThrownBy(() -> glueCache.getTables("db1", _ -> { throw new TrinoException(HIVE_METASTORE_ERROR, "test"); }))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("test");
-        assertThat(glueCache.getTables("db1", cacheTable -> ImmutableList.of(testTableInfo("db1", "after exception"))))
+        assertThat(glueCache.getTables("db1", _ -> ImmutableList.of(testTableInfo("db1", "after exception"))))
                 .containsExactlyInAnyOrder(testTableInfo("db1", "after exception"));
     }
 
@@ -240,7 +240,7 @@ class TestInMemoryGlueCache
 
         // table invalidation does not invalidate the database tables
         glueCache.invalidateTable("db1", "unknown", true);
-        assertThat(glueCache.getTables("db1", cacheTable -> { throw new RuntimeException(); })).containsExactlyInAnyOrder(testTableInfo("db1", "table2"), testTableInfo("db1", "table3"));
+        assertThat(glueCache.getTables("db1", _ -> { throw new RuntimeException(); })).containsExactlyInAnyOrder(testTableInfo("db1", "table2"), testTableInfo("db1", "table3"));
 
         glueCache.invalidateTables("db1");
 
@@ -316,7 +316,7 @@ class TestInMemoryGlueCache
                 .isEmpty();
 
         // stats that fail to load are cached, callback is not invoked
-        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
                 .isEmpty();
 
         glueCache.invalidateTableColumnStatistics("db", "table");
@@ -327,7 +327,7 @@ class TestInMemoryGlueCache
                 }))
                 .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2)));
 
-        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("col1", testStats(1), "col2", testStats(2)));
 
         // additional columns can be requested and only missing columns are fetched
@@ -337,7 +337,7 @@ class TestInMemoryGlueCache
                     return Map.of("col3", testStats(3), "col4", testStats(4));
                 }))
                 .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2), "col3", testStats(3), "col4", testStats(4)));
-        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2", "col3", "col4"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getTableColumnStatistics("db", "table", Set.of("col1", "col2", "col3", "col4"), _ -> { throw new RuntimeException(); }))
                 .isEqualTo(Map.of("col1", testStats(1), "col2", testStats(2), "col3", testStats(3), "col4", testStats(4)));
 
         // table invalidation invalidates the column stats (cascade is not required)
@@ -424,7 +424,7 @@ class TestInMemoryGlueCache
         // part1 and part2 are already in the cache
         assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> { throw new RuntimeException(); })).contains(testPartition("part1", "initial"));
         assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part2"), () -> { throw new RuntimeException(); })).contains(testPartition("part2", "initial"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", cachePartition -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartitionName("part1"), testPartitionName("part2"));
 
         // invalidating the table with "cascade" invalidates partitions and names
@@ -452,7 +452,7 @@ class TestInMemoryGlueCache
 
         // partition invalidation does not invalidate the partition names
         glueCache.invalidatePartition("db1", "table1", testPartitionName("unknown"));
-        assertThat(glueCache.getPartitionNames("db1", "table1", "", cachePartition -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionNames("db1", "table1", "", _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartitionName("part2"), testPartitionName("part3"));
 
         glueCache.invalidateTable("db1", "table1", true);
@@ -540,7 +540,7 @@ class TestInMemoryGlueCache
     {
         GlueCache glueCache = createGlueCache();
         assertThatThrownBy(() -> glueCache.batchGetPartitions("db1", "table1", Set.of(testPartitionName("part1"), testPartitionName("part2")),
-                (cachePartition, missingPartitions) -> {
+                (_, _) -> {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "test");
                 }))
                 .isInstanceOf(TrinoException.class)
@@ -558,7 +558,7 @@ class TestInMemoryGlueCache
         // part1 and part2 are already in the cache
         assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part1"), () -> { throw new RuntimeException(); })).contains(testPartition("part1", "initial"));
         assertThat(glueCache.getPartition("db1", "table1", testPartitionName("part2"), () -> { throw new RuntimeException(); })).contains(testPartition("part2", "initial"));
-        assertThat(glueCache.batchGetPartitions("db1", "table1", Set.of(testPartitionName("part1"), testPartitionName("part2")), (cachePartition, missingPartitions) -> { throw new RuntimeException(); }))
+        assertThat(glueCache.batchGetPartitions("db1", "table1", Set.of(testPartitionName("part1"), testPartitionName("part2")), (_, _) -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrder(testPartition("part1", "initial"), testPartition("part2", "initial"));
 
         // invalidating partition names or table without "cascade" does not invalidate the partitions
@@ -629,7 +629,7 @@ class TestInMemoryGlueCache
                 .isEmpty();
 
         // stats that fail to load are cached, callback is not invoked
-        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
                 .isEmpty();
 
         glueCache.invalidatePartition("db", "table", testPartitionName("part1"));
@@ -640,7 +640,7 @@ class TestInMemoryGlueCache
                 }))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("col1", testStats(1), "col2", testStats(2)));
 
-        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("col1", testStats(1), "col2", testStats(2)));
 
         // additional columns can be requested and only missing columns are fetched
@@ -650,7 +650,7 @@ class TestInMemoryGlueCache
                     return Map.of("col3", testStats(3), "col4", testStats(4));
                 }))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("col1", testStats(1), "col2", testStats(2), "col3", testStats(3), "col4", testStats(4)));
-        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2", "col3", "col4"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2", "col3", "col4"), _ -> { throw new RuntimeException(); }))
                 .containsExactlyInAnyOrderEntriesOf(Map.of("col1", testStats(1), "col2", testStats(2), "col3", testStats(3), "col4", testStats(4)));
 
         // partition invalidation invalidates the column stats
@@ -664,7 +664,7 @@ class TestInMemoryGlueCache
 
         // table invalidation does not invalidate the column stats unless cascade is true
         glueCache.invalidateTable("db", "table", false);
-        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), missingColumns -> { throw new RuntimeException(); }))
+        assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"), _ -> { throw new RuntimeException(); }))
                 .isEqualTo(Map.of("col1", testStats(11), "col2", testStats(22)));
         glueCache.invalidateTable("db", "table", true);
         assertThat(glueCache.getPartitionColumnStatistics("db", "table", testPartitionName("part1"), Set.of("col1", "col2"),

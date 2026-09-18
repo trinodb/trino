@@ -21,39 +21,27 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class LikePredicate
-        extends Expression
+/// SQL spec `<character like predicate part 2> ::= [NOT] LIKE <character pattern> [ESCAPE <escape character>]`.
+/// The in-place `NOT LIKE` is recorded via [#isNegated()]; outer `NOT (x LIKE y)`
+/// stays as a [NotExpression] wrapping a non-negated `LikePredicate`.
+public final class LikePredicate
+        extends Predicate
 {
-    private final Expression value;
+    private final boolean negated;
     private final Expression pattern;
     private final Optional<Expression> escape;
 
-    @Deprecated
-    public LikePredicate(Expression value, Expression pattern, Expression escape)
-    {
-        this(value, pattern, Optional.of(escape));
-    }
-
-    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
+    public LikePredicate(NodeLocation location, boolean negated, Expression pattern, Optional<Expression> escape)
     {
         super(location);
-        this.value = requireNonNull(value, "value is null");
+        this.negated = negated;
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
     }
 
-    @Deprecated
-    public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
+    public boolean isNegated()
     {
-        super(Optional.empty());
-        this.value = requireNonNull(value, "value is null");
-        this.pattern = requireNonNull(pattern, "pattern is null");
-        this.escape = requireNonNull(escape, "escape is null");
-    }
-
-    public Expression getValue()
-    {
-        return value;
+        return negated;
     }
 
     public Expression getPattern()
@@ -67,48 +55,43 @@ public class LikePredicate
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public List<? extends Node> getChildren()
+    {
+        ImmutableList.Builder<Node> builder = ImmutableList.<Node>builder().add(pattern);
+        escape.ifPresent(builder::add);
+        return builder.build();
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitLikePredicate(this, context);
     }
 
     @Override
-    public List<Node> getChildren()
+    public boolean shallowEquals(Node other)
     {
-        ImmutableList.Builder<Node> result = ImmutableList.<Node>builder()
-                .add(value)
-                .add(pattern);
-
-        escape.ifPresent(result::add);
-
-        return result.build();
+        return sameClass(this, other) && negated == ((LikePredicate) other).negated;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        LikePredicate that = (LikePredicate) o;
-        return Objects.equals(value, that.value) &&
-                Objects.equals(pattern, that.pattern) &&
-                Objects.equals(escape, that.escape);
+        return o instanceof LikePredicate that
+                && negated == that.negated
+                && pattern.equals(that.pattern)
+                && escape.equals(that.escape);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, pattern, escape);
+        return Objects.hash(negated, pattern, escape);
     }
 
     @Override
-    public boolean shallowEquals(Node other)
+    public String toString()
     {
-        return sameClass(this, other);
+        return (negated ? "NOT LIKE " : "LIKE ") + pattern + escape.map(e -> " ESCAPE " + e).orElse("");
     }
 }

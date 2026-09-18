@@ -14,6 +14,4 @@
 package io.trino.orc.checkpoint;
 
 @SuppressWarnings("MarkerInterface")
-public interface StreamCheckpoint
-{
-}
+public interface StreamCheckpoint {}

@@ -59,12 +59,12 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.OrcReader.validateFile;
@@ -142,7 +142,7 @@ public final class OrcWriter
             OrcWriterStats stats)
     {
         this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, types)
-                .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+                                            .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -172,7 +172,7 @@ public final class OrcWriter
         // create column writers
         OrcType rootType = orcTypes.get(ROOT_COLUMN);
         checkArgument(rootType.getFieldCount() == types.size());
-        ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builder();
+        ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builderWithExpectedSize(types.size());
         ImmutableSet.Builder<SliceDictionaryColumnWriter> sliceColumnWriters = ImmutableSet.builder();
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             OrcColumnId fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
@@ -200,6 +200,7 @@ public final class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
+        this.columnWritersRetainedBytes = this.columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
                 stripeMinBytes,
@@ -519,7 +520,7 @@ public final class OrcWriter
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
-                .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
+                .collect(toImmutableMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
         Footer footer = new Footer(
                 fileRowCount,

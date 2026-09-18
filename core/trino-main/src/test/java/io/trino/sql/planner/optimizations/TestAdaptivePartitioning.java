@@ -108,7 +108,7 @@ public class TestAdaptivePartitioning
                         .planPattern(
                                 output(
                                         join(LEFT, builder -> builder
-                                                .equiCriteria(ImmutableList.of(aliases ->
+                                                .equiCriteria(ImmutableList.of(_ ->
                                                         new JoinNode.EquiJoinClause(
                                                                 new Symbol(BIGINT, "suppkey"),
                                                                 new Symbol(BIGINT, "nationkey"))))

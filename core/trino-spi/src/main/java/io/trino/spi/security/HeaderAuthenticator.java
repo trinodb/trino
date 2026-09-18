@@ -15,6 +15,7 @@ package io.trino.spi.security;
 
 import java.security.Principal;
 import java.util.List;
+import java.util.Optional;
 
 public interface HeaderAuthenticator
 {
@@ -29,7 +30,18 @@ public interface HeaderAuthenticator
      *
      * @return the authenticated entity
      * @throws AccessDeniedException if not allowed
-
      */
+    @Deprecated
     Principal createAuthenticatedPrincipal(Headers headers);
+
+    /**
+     * If implemented and authenticated; provide an {@link Identity}.
+     *
+     * @param headers headers used to authenticate
+     * @return the authenticated {@link Identity}
+     */
+    default Optional<Identity> createAuthenticatedIdentity(Headers headers)
+    {
+        return Optional.empty();
+    }
 }

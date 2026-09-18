@@ -21,10 +21,6 @@ import io.airlift.configuration.ConfigPropertyMetadata;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
-import io.trino.hdfs.cos.HiveCosModule;
-import io.trino.hdfs.gcs.HiveGcsModule;
-import io.trino.hdfs.s3.HiveS3Module;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
@@ -36,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.stream.Collectors.toMap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public final class HdfsFileSystemManager
 {
@@ -45,9 +41,6 @@ public final class HdfsFileSystemManager
 
     public HdfsFileSystemManager(
             Map<String, String> config,
-            boolean azureEnabled,
-            boolean gcsEnabled,
-            boolean s3Enabled,
             String catalogName,
             ConnectorContext context)
     {
@@ -60,18 +53,7 @@ public final class HdfsFileSystemManager
         modules.add(new HdfsFileSystemModule());
         modules.add(new HdfsModule());
         modules.add(new HdfsAuthenticationModule());
-        modules.add(new HiveCosModule());
         modules.add(new ConnectorContextModule(catalogName, context));
-
-        if (azureEnabled) {
-            modules.add(new HiveAzureModule());
-        }
-        if (gcsEnabled) {
-            modules.add(new HiveGcsModule());
-        }
-        if (s3Enabled) {
-            modules.add(new HiveS3Module());
-        }
 
         bootstrap = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, modules)
                 .doNotInitializeLogging()
@@ -83,7 +65,7 @@ public final class HdfsFileSystemManager
     {
         return bootstrap.configure()
                 .stream()
-                .collect(toMap(ConfigPropertyMetadata::name, ConfigPropertyMetadata::securitySensitive));
+                .collect(toImmutableMap(ConfigPropertyMetadata::name, ConfigPropertyMetadata::securitySensitive));
     }
 
     public TrinoFileSystemFactory create()

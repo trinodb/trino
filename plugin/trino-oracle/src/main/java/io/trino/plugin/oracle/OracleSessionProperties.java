@@ -40,13 +40,13 @@ public final class OracleSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         NUMBER_ROUNDING_MODE,
-                        "Rounding mode for Oracle NUMBER data type",
+                        "Deprecated. Rounding mode for Oracle NUMBER data type. You can set the value to 'UNNECESSARY' (old default) to disable mapping Oracle NUMBER to Trino NUMBER",
                         RoundingMode.class,
-                        config.getNumberRoundingMode(),
+                        config.getNumberRoundingMode().orElse(null),
                         false))
                 .add(integerProperty(
                         NUMBER_DEFAULT_SCALE,
-                        "Default scale for Oracle Number data type",
+                        "Deprecated. Default scale for Oracle Number data type",
                         config.getDefaultNumberScale().orElse(null),
                         false))
                 .build();
@@ -58,11 +58,13 @@ public final class OracleSessionProperties
         return sessionProperties;
     }
 
-    public static RoundingMode getNumberRoundingMode(ConnectorSession session)
+    @Deprecated
+    public static Optional<RoundingMode> getNumberRoundingMode(ConnectorSession session)
     {
-        return session.getProperty(NUMBER_ROUNDING_MODE, RoundingMode.class);
+        return Optional.ofNullable(session.getProperty(NUMBER_ROUNDING_MODE, RoundingMode.class));
     }
 
+    @Deprecated
     public static Optional<Integer> getNumberDefaultScale(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(NUMBER_DEFAULT_SCALE, Integer.class));

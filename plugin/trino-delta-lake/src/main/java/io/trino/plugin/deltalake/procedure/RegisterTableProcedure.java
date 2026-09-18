@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -155,14 +156,15 @@ public class RegisterTableProcedure
                 throw new SchemaNotFoundException(schemaTableName.getSchemaName());
             }
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableLocation);
+            TrinoFileSystem fileSystem;
             try {
+                fileSystem = fileSystemFactory.create(session, tableLocation);
                 Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
                 if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
                     throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
                 }
             }
-            catch (IOException e) {
+            catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
             }
 
@@ -172,8 +174,14 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
-                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory), schemaTableName, tableLocation, Optional.empty(), credentialsHandle);
+                Optional<DeltaLakeTableCredentials> tableCredentials = metadata.getTableCredentials(VendedCredentialsHandle.empty(tableLocation));
+                tableSnapshot = transactionLogAccess.loadSnapshot(
+                        session,
+                        new FileSystemTransactionLogReader(tableLocation, tableCredentials, fileSystemFactory),
+                        schemaTableName,
+                        tableLocation,
+                        Optional.empty(),
+                        tableCredentials);
                 metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             }
             catch (TrinoException e) {

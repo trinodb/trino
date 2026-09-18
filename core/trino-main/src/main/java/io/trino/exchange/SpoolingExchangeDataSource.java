@@ -14,6 +14,7 @@
 package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
@@ -37,14 +38,21 @@ public class SpoolingExchangeDataSource
     // It doesn't have to be declared as volatile as the nullification of this variable doesn't have to be immediately visible to other threads.
     // However since close can be called at any moment this variable has to be accessed in a safe way (avoiding "check-then-use").
     private ExchangeSource exchangeSource;
-    private final LocalMemoryContext systemMemoryContext;
-    private volatile boolean closed;
+    private final LocalMemoryContext memoryContext;
+    @GuardedBy("this")
+    private boolean closed;
 
-    public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext systemMemoryContext)
+    public SpoolingExchangeDataSource(ExchangeSource exchangeSource, LocalMemoryContext memoryContext)
     {
         // this assignment is expected to be followed by an assignment of a final field to ensure safe publication
         this.exchangeSource = requireNonNull(exchangeSource, "exchangeSource is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+    }
+
+    @Override
+    public boolean usesExternalStorage()
+    {
+        return true;
     }
 
     @Override
@@ -56,14 +64,19 @@ public class SpoolingExchangeDataSource
         }
 
         Slice data = exchangeSource.read();
-        systemMemoryContext.setBytes(exchangeSource.getMemoryUsage());
-
-        // If the data source has been closed in a meantime reset memory usage back to 0
-        if (closed) {
-            systemMemoryContext.setBytes(0);
-        }
-
+        updateMemoryUsage(exchangeSource.getMemoryUsage());
         return data;
+    }
+
+    private synchronized void updateMemoryUsage(long bytes)
+    {
+        // This data source is shared between all ExchangeOperator instances of a pipeline while the
+        // memory context belongs to the operator that created it. Once close() completes, that operator
+        // may already be destroyed together with its memory context, so the memory usage must not be
+        // updated anymore. Synchronizing with close() guarantees no update can slip in after it returns.
+        if (!closed) {
+            memoryContext.setBytes(bytes);
+        }
     }
 
     @Override
@@ -139,7 +152,7 @@ public class SpoolingExchangeDataSource
         }
         finally {
             exchangeSource = null;
-            systemMemoryContext.setBytes(0);
+            memoryContext.setBytes(0);
         }
     }
 }

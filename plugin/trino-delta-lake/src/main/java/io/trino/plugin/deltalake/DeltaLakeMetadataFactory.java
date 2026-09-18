@@ -30,6 +30,7 @@ import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.spi.Node;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -65,6 +66,8 @@ public class DeltaLakeMetadataFactory
     private final boolean usingSystemSecurity;
     private final String trinoVersion;
     private final TransactionLogReaderFactory transactionLogReaderFactory;
+    private final ConnectorExpressionEvaluator evaluator;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
     public DeltaLakeMetadataFactory(
@@ -84,7 +87,9 @@ public class DeltaLakeMetadataFactory
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
             @ForDeltaLakeMetadata ExecutorService executorService,
-            TransactionLogReaderFactory transactionLogReaderFactory)
+            TransactionLogReaderFactory transactionLogReaderFactory,
+            ConnectorExpressionEvaluator evaluator,
+            DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -113,6 +118,8 @@ public class DeltaLakeMetadataFactory
             this.metadataFetchingExecutor = new BoundedExecutor(executorService, deltaLakeConfig.getMetadataParallelism());
         }
         this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
+        this.evaluator = requireNonNull(evaluator, "evaluator is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
@@ -151,6 +158,8 @@ public class DeltaLakeMetadataFactory
                 useUniqueTableLocation,
                 allowManagedTableRename,
                 metadataFetchingExecutor,
-                transactionLogReaderFactory);
+                transactionLogReaderFactory,
+                evaluator,
+                tableCredentialsProvider);
     }
 }

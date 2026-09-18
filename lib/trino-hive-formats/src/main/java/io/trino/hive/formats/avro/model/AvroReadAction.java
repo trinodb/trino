@@ -36,23 +36,22 @@ import static io.trino.hive.formats.avro.model.SkipFieldRecordFieldReadAction.cr
 import static java.util.Objects.requireNonNull;
 
 public sealed interface AvroReadAction
-        permits
-        NullRead,
-        BooleanRead,
-        IntRead,
-        LongRead,
-        FloatRead,
-        DoubleRead,
-        StringRead,
-        BytesRead,
-        FixedRead,
-        ArrayReadAction,
-        EnumReadAction,
-        MapReadAction,
-        ReadingUnionReadAction,
-        RecordReadAction,
-        WrittenUnionReadAction,
-        ReadErrorReadAction
+        permits ArrayReadAction,
+                BooleanRead,
+                BytesRead,
+                DoubleRead,
+                EnumReadAction,
+                FixedRead,
+                FloatRead,
+                IntRead,
+                LongRead,
+                MapReadAction,
+                NullRead,
+                ReadErrorReadAction,
+                ReadingUnionReadAction,
+                RecordReadAction,
+                StringRead,
+                WrittenUnionReadAction
 {
     static byte[] getDefaultByes(Schema.Field field)
             throws AvroTypeException
@@ -137,8 +136,7 @@ public sealed interface AvroReadAction
                     }
                     throw new IllegalStateException("Unable to promote to Bytes from type " + action.writer.getType());
                 }
-                case NULL, BOOLEAN, INT, FIXED, ENUM, ARRAY, MAP, RECORD, UNION ->
-                        throw new IllegalStateException("Promotion action not allowed for reader schema type " + action.reader.getType());
+                case NULL, BOOLEAN, INT, FIXED, ENUM, ARRAY, MAP, RECORD, UNION -> throw new IllegalStateException("Promotion action not allowed for reader schema type " + action.reader.getType());
             };
             case CONTAINER -> switch (action.reader.getType()) {
                 case ARRAY -> new ArrayReadAction(action.reader, action.writer, fromAction(((Resolver.Container) action).elementAction));
@@ -183,7 +181,7 @@ public sealed interface AvroReadAction
                         .mapToInt(fieldAction -> switch (fieldAction) {
                             case DefaultValueFieldRecordFieldReadAction a -> a.outputChannel();
                             case ReadFieldAction b -> b.outputChannel();
-                            case SkipFieldRecordFieldReadAction ignore -> -1;
+                            case SkipFieldRecordFieldReadAction _ -> -1;
                         }).filter(a -> a >= 0)
                         .distinct()
                         .sum() == (recordAdjust.reader.getFields().size() * (recordAdjust.reader.getFields().size() - 1) / 2),
@@ -192,7 +190,7 @@ public sealed interface AvroReadAction
                 .mapToInt(fieldAction -> switch (fieldAction) {
                     case DefaultValueFieldRecordFieldReadAction a -> a.outputChannel();
                     case ReadFieldAction b -> b.outputChannel();
-                    case SkipFieldRecordFieldReadAction ignore -> -1;
+                    case SkipFieldRecordFieldReadAction _ -> -1;
                 })
                 .filter(a -> a >= 0)
                 .distinct().count() == (long) recordAdjust.reader.getFields().size(), "Every channel in output block builder must be accounted for");

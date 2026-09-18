@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.security.Identity;
 import io.trino.util.Case;
 
 import java.io.File;
@@ -69,6 +70,14 @@ public final class UserMapping
         throw new UserMappingException("No user mapping patterns match the principal");
     }
 
+    public Identity mapIdentity(Identity identity)
+            throws UserMappingException
+    {
+        return Identity.from(identity)
+                .withUser(mapUser(identity.getUser()))
+                .build();
+    }
+
     public static final class UserMappingRules
     {
         private final List<Rule> rules;
@@ -105,8 +114,7 @@ public final class UserMapping
                 @JsonProperty("allow") Optional<Boolean> allow,
                 @JsonProperty("case") Optional<Case> userCase)
         {
-            this(
-                    pattern,
+            this(pattern,
                     user.orElse("$1"),
                     allow.orElse(TRUE),
                     userCase.orElse(KEEP));

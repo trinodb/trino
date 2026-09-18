@@ -14,10 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.SortOrder;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record CommitTaskData(
@@ -25,21 +27,24 @@ public record CommitTaskData(
         IcebergFileFormat fileFormat,
         long fileSizeInBytes,
         MetricsWrapper metrics,
-        String partitionSpecJson,
+        int partitionSpecId,
         Optional<String> partitionDataJson,
         FileContent content,
         Optional<String> referencedDataFile,
-        Optional<List<Long>> fileSplitOffsets)
+        Optional<List<Long>> fileSplitOffsets,
+        int sortOrderId,
+        Optional<byte[]> serializedDeletionVector)
 {
     public CommitTaskData
     {
         requireNonNull(path, "path is null");
         requireNonNull(fileFormat, "fileFormat is null");
         requireNonNull(metrics, "metrics is null");
-        requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(content, "content is null");
         requireNonNull(referencedDataFile, "referencedDataFile is null");
         requireNonNull(fileSplitOffsets, "fileSplitOffsets is null");
+        checkArgument(content == FileContent.DATA || sortOrderId == SortOrder.unsorted().orderId(), "Sorted order id can be present only for data files");
+        requireNonNull(serializedDeletionVector, "serializedDeletionVector is null");
     }
 }

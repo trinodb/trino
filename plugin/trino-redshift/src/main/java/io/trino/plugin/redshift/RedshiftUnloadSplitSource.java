@@ -16,10 +16,10 @@ package io.trino.plugin.redshift;
 import com.amazon.redshift.jdbc.RedshiftPreparedStatement;
 import com.amazon.redshift.util.RedshiftException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -36,6 +36,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
@@ -62,7 +63,7 @@ public class RedshiftUnloadSplitSource
         implements ConnectorSplitSource
 {
     private static final Logger log = Logger.get(RedshiftUnloadSplitSource.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
 
     private final JdbcClient jdbcClient;
     private final QueryBuilder queryBuilder;
@@ -122,16 +123,16 @@ public class RedshiftUnloadSplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         return resultSetFuture
                 .thenApply(_ -> {
                     unloadedFilePaths = readUnloadedFilePaths();
-                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(unloadedFilePaths.stream()
+                    List<ConnectorSplit> splits = unloadedFilePaths.stream()
                             .map(fileInfo -> (ConnectorSplit) new RedshiftUnloadSplit(fileInfo.path, fileInfo.size))
-                            .collect(toImmutableList()), true);
+                            .collect(toImmutableList());
                     finished = true;
-                    return connectorSplitBatch;
+                    return splits;
                 });
     }
 
@@ -190,7 +191,7 @@ public class RedshiftUnloadSplitSource
         JsonNode outputFileEntries;
         try (TrinoInputStream inputStream = inputFile.newStream()) {
             byte[] manifestContent = inputStream.readAllBytes();
-            outputFileEntries = OBJECT_MAPPER.readTree(manifestContent).path("entries");
+            outputFileEntries = JSON_MAPPER.readTree(manifestContent).path("entries");
         }
         // manifest is not generated if unload query doesn't produce any results.
         // Rely on the catching `FileNotFoundException` as opposed to calling `TrinoInputFile#exists` for determining absence of manifest file as `TrinoInputFile#exists` adds additional call to S3.

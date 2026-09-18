@@ -56,7 +56,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -81,6 +80,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class BigQueryStorageAvroPageSource
         implements ConnectorPageSource
@@ -92,6 +92,7 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryReadClient bigQueryReadClient;
     private final ExecutorService executor;
     private final BigQueryTypeManager typeManager;
+    private final String traceId;
     private final String streamName;
     private final Schema avroSchema;
     private final List<BigQueryColumnHandle> columns;
@@ -115,6 +116,7 @@ public class BigQueryStorageAvroPageSource
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(split, "split is null");
+        this.traceId = split.traceId();
         this.streamName = split.streamName();
         this.avroSchema = parseSchema(split.schemaString());
         this.columns = requireNonNull(columns, "columns is null");
@@ -122,7 +124,7 @@ public class BigQueryStorageAvroPageSource
                 .map(BigQueryColumnHandle::trinoType)
                 .collect(toImmutableList()));
 
-        log.debug("Starting to read from %s", streamName);
+        log.debug("Trace id: %s, Stream: %s, Starting to read", traceId, streamName);
         responses = new ReadRowsHelper(bigQueryReadClient, streamName, maxReadRowsRetries).readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
     }
@@ -133,7 +135,7 @@ public class BigQueryStorageAvroPageSource
             return new Schema.Parser().parse(schemaString);
         }
         catch (SchemaParseException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid Avro schema: " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
 
@@ -290,7 +292,7 @@ public class BigQueryStorageAvroPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 
@@ -302,7 +304,7 @@ public class BigQueryStorageAvroPageSource
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getDisplayName());
         }
     }
 
@@ -328,6 +330,7 @@ public class BigQueryStorageAvroPageSource
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to MemoryContext
     public long getMemoryUsage()
     {
         return pageBuilder.getRetainedSizeInBytes();
@@ -358,7 +361,7 @@ public class BigQueryStorageAvroPageSource
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
-        log.debug("Read %d bytes (total %d) from %s", buffer.length, readBytes.get(), streamName);
+        log.debug("Trace id: %s, Stream: %s, Read %d bytes (total %d)", traceId, streamName, buffer.length, readBytes.get());
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 

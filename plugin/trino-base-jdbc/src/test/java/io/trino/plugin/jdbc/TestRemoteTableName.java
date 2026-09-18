@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoteTableName
@@ -26,7 +27,7 @@ public class TestRemoteTableName
     @Test
     public void testJsonRoundTrip()
     {
-        JsonCodec<RemoteTableName> codec = JsonCodec.jsonCodec(RemoteTableName.class);
+        JsonCodec<RemoteTableName> codec = jsonCodec(RemoteTableName.class);
         RemoteTableName table = new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table");
         RemoteTableName roundTrip = codec.fromJson(codec.toJson(table));
         assertThat(table.getCatalogName()).isEqualTo(roundTrip.getCatalogName());

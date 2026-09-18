@@ -19,6 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -44,6 +45,7 @@ public final class IntervalDayToSecondAverageAggregation
         state.setDouble(state.getDouble() + otherState.getDouble());
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {

@@ -25,6 +25,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -93,6 +94,7 @@ public class PinotSegmentPageSource
     }
 
     @Override
+    @SuppressWarnings("deprecation") // TODO (https://github.com/trinodb/trino/issues/29959) migrate to MemoryContext
     public long getMemoryUsage()
     {
         return estimatedMemoryUsageInBytes;
@@ -219,7 +221,9 @@ public class PinotSegmentPageSource
                     PINOT_UNSUPPORTED_COLUMN_TYPE,
                     format(
                             "Failed to write column %s. pinotColumnType %s, javaType %s",
-                            columnHandles.get(columnIdx).getColumnName(), pinotColumnType, javaType));
+                            columnHandles.get(columnIdx).getColumnName(),
+                            pinotColumnType,
+                            javaType));
         }
     }
 
@@ -299,50 +303,52 @@ public class PinotSegmentPageSource
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
     {
-        Type trinoType = getType(columnIndex);
-        Type elementType = trinoType.getTypeParameters().get(0);
+        Type elementType = ((ArrayType) getType(columnIndex)).getElementType();
         DataSchema.ColumnDataType columnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
-        BlockBuilder blockBuilder;
-        switch (columnType) {
-            case INT_ARRAY:
+        BlockBuilder blockBuilder = switch (columnType) {
+            case INT_ARRAY -> {
                 int[] intArray = currentDataTable.dataTable().getIntArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, intArray.length);
+                BlockBuilder intBlockBuilder = elementType.createBlockBuilder(null, intArray.length);
                 for (int element : intArray) {
-                    INTEGER.writeInt(blockBuilder, element);
+                    INTEGER.writeInt(intBlockBuilder, element);
                 }
-                break;
-            case LONG_ARRAY:
+                yield intBlockBuilder;
+            }
+            case LONG_ARRAY -> {
                 long[] longArray = currentDataTable.dataTable().getLongArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, longArray.length);
+                BlockBuilder longBlockBuilder = elementType.createBlockBuilder(null, longArray.length);
                 for (long element : longArray) {
-                    BIGINT.writeLong(blockBuilder, element);
+                    BIGINT.writeLong(longBlockBuilder, element);
                 }
-                break;
-            case FLOAT_ARRAY:
+                yield longBlockBuilder;
+            }
+            case FLOAT_ARRAY -> {
                 float[] floatArray = currentDataTable.dataTable().getFloatArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
+                BlockBuilder floatBlockBuilder = elementType.createBlockBuilder(null, floatArray.length);
                 for (float element : floatArray) {
-                    REAL.writeFloat(blockBuilder, element);
+                    REAL.writeFloat(floatBlockBuilder, element);
                 }
-                break;
-            case DOUBLE_ARRAY:
+                yield floatBlockBuilder;
+            }
+            case DOUBLE_ARRAY -> {
                 double[] doubleArray = currentDataTable.dataTable().getDoubleArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
+                BlockBuilder doubleBlockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
                 for (double element : doubleArray) {
-                    elementType.writeDouble(blockBuilder, element);
+                    elementType.writeDouble(doubleBlockBuilder, element);
                 }
-                break;
-            case STRING_ARRAY:
+                yield doubleBlockBuilder;
+            }
+            case STRING_ARRAY -> {
                 String[] stringArray = currentDataTable.dataTable().getStringArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, stringArray.length);
+                BlockBuilder stringBlockBuilder = elementType.createBlockBuilder(null, stringArray.length);
                 for (String element : stringArray) {
                     Slice slice = getUtf8Slice(element);
-                    elementType.writeSlice(blockBuilder, slice, 0, slice.length());
+                    elementType.writeSlice(stringBlockBuilder, slice, 0, slice.length());
                 }
-                break;
-            default:
-                throw new UnsupportedOperationException(format("Unexpected pinot type '%s'", columnType));
-        }
+                yield stringBlockBuilder;
+            }
+            default -> throw new UnsupportedOperationException(format("Unexpected pinot type '%s'", columnType));
+        };
         return blockBuilder.build();
     }
 
@@ -372,7 +378,7 @@ public class PinotSegmentPageSource
             }
             return Slices.wrappedBuffer(toBytes(dataTable.getString(rowIndex, columnIndex)));
         }
-        if (trinoType.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.JSON)) {
+        if (trinoType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             String field = dataTable.getString(rowIndex, columnIndex);
             return jsonParse(getUtf8Slice(field));
         }

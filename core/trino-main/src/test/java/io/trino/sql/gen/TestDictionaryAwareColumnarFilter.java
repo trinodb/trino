@@ -49,7 +49,8 @@ public class TestDictionaryAwareColumnarFilter
     @Test
     public void testGetInputChannels()
     {
-        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new ColumnarFilter() {
+        DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new ColumnarFilter()
+        {
             @Override
             public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage loadedPage)
             {
@@ -116,7 +117,9 @@ public class TestDictionaryAwareColumnarFilter
         testFilter(createDictionaryBlock(20, 0), LongArrayBlock.class);
 
         // match all
-        testFilter(DictionaryBlock.create(100, createLongSequenceBlock(4, 5), new int[100]), LongArrayBlock.class);
+        int[] ids = new int[100];
+        Arrays.setAll(ids, index -> index % 2);
+        testFilter(DictionaryBlock.create(100, createLongsBlock(4, 7), ids), LongArrayBlock.class);
     }
 
     @Test

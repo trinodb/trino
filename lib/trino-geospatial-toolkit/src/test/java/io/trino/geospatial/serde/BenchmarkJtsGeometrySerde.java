@@ -13,7 +13,6 @@
  */
 package io.trino.geospatial.serde;
 
-import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
@@ -290,7 +289,8 @@ public class BenchmarkJtsGeometrySerde
 
             simpleGeometryCollection = fromText(GEOMETRYCOLLECTION);
             simpleGeometryCollectionSerialized = serialize(simpleGeometryCollection);
-            complexGeometryCollection = fromText("GEOMETRYCOLLECTION (" + Joiner.on(", ").join(
+            complexGeometryCollection = fromText("GEOMETRYCOLLECTION (" + String.join(
+                    ", ",
                     readResource("complex-multipoint.txt"),
                     readResource("complex-linestring.txt"),
                     readResource("complex-multilinestring.txt"),

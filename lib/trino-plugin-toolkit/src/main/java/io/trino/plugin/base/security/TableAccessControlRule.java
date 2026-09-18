@@ -102,6 +102,14 @@ public class TableAccessControlRule
         return (privileges.contains(SELECT) || privileges.contains(GRANT_SELECT)) && restrictedColumns.stream().noneMatch(columnNames::contains);
     }
 
+    public Set<String> getDeniedColumns(Set<String> columnNames)
+    {
+        if (!privileges.contains(SELECT) && !privileges.contains(GRANT_SELECT)) {
+            return columnNames;
+        }
+        return restrictedColumns.stream().filter(columnNames::contains).collect(toImmutableSet());
+    }
+
     public Optional<ViewExpression> getColumnMask(String catalog, String schema, String column)
     {
         return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->

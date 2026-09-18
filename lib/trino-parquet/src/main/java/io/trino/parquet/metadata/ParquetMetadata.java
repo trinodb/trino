@@ -277,7 +277,8 @@ public class ParquetMetadata
                     else {
                         // Following parquet-mr behavior, issue warning and let converted_type take precedence.
                         log.warn("Converted type and logical type metadata map to different OriginalType (convertedType: %s, logical type: %s). Using value in converted type.",
-                                element.converted_type, element.logicalType);
+                                element.converted_type,
+                                element.logicalType);
                         // parquet-mr reads only OriginalType from converted_type. We retain full LogicalTypeAnnotation
                         // 1. for compatibility, as previous Trino reader code would read LogicalTypeAnnotation from element.converted_type and some additional fields.
                         // 2. so that we override LogicalTypeAnnotation annotation read from element.logicalType in case of mismatch detected.

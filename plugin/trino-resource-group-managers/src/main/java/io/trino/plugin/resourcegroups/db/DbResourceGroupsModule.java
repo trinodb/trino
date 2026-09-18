@@ -31,6 +31,7 @@ public class DbResourceGroupsModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(DbResourceGroupConfig.class);
+        binder.bind(FlywayMigration.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupsDao.class).toProvider(DaoProvider.class).in(Scopes.SINGLETON);
         binder.bind(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         binder.bind(ResourceGroupConfigurationManager.class).to(DbResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);

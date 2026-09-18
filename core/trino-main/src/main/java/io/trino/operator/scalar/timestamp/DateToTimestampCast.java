@@ -13,15 +13,17 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
 
-import java.util.concurrent.TimeUnit;
-
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampCast
@@ -32,7 +34,12 @@ public final class DateToTimestampCast
     @SqlType("timestamp(p)")
     public static long castToShort(@SqlType(StandardTypes.DATE) long date)
     {
-        return TimeUnit.DAYS.toMicros(date);
+        try {
+            return multiplyExact(date, MICROSECONDS_PER_DAY);
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Date cannot be represented as timestamp: " + date, e);
+        }
     }
 
     @LiteralParameters("p")

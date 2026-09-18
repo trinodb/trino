@@ -16,6 +16,7 @@ package io.trino.cost;
 
 import io.trino.cost.StatsCalculator.Context;
 import io.trino.execution.scheduler.OutputDataSizeEstimate;
+import io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
@@ -30,7 +31,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
-import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.sql.planner.plan.Patterns.remoteSourceNode;
 import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;

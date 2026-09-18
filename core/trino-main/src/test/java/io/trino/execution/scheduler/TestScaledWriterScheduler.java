@@ -20,7 +20,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
-import io.trino.client.NodeVersion;
+import io.trino.connector.DefaultNodeManager;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.NodeTaskMap;
@@ -30,10 +30,13 @@ import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.node.TestingInternalNodeManager;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
@@ -56,7 +59,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.trino.execution.TestingRemoteTaskFactory.TestingRemoteTask;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -207,14 +209,21 @@ public class TestScaledWriterScheduler
                 new TestingStageExecution(createFragment()),
                 taskStatusProvider::get,
                 taskStatusProvider::get,
-                new UniformNodeSelectorFactory(
-                        CURRENT_NODE,
-                        TestingInternalNodeManager.createDefault(NODE_1, NODE_2, NODE_3),
-                        new NodeSchedulerConfig().setIncludeCoordinator(true),
-                        new NodeTaskMap(new FinalizerService())).createNodeSelector(testSessionBuilder().build()),
+                createUniformNodeSelectorFactory(TestingInternalNodeManager.createDefault(NODE_1, NODE_2, NODE_3))
+                        .createNodeSelector(testSessionBuilder().build()),
                 newScheduledThreadPool(10, threadsNamed("task-notification-%s")),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 maxWritersNodesCount);
+    }
+
+    private static UniformNodeSelectorFactory createUniformNodeSelectorFactory(InternalNodeManager nodeManager)
+    {
+        return new UniformNodeSelectorFactory(
+                CURRENT_NODE,
+                nodeManager,
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(new FinalizerService()),
+                new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, true), new StableHostAddressProviderConfig()));
     }
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)
@@ -231,7 +240,7 @@ public class TestScaledWriterScheduler
     {
         return new TaskStatus(
                 new TaskId(new StageId(new QueryId("query_id"), 0), 0, 0),
-                "task-instance-id",
+                0,
                 0,
                 TaskState.RUNNING,
                 URI.create("fake://task/" + "taskId" + "/node/some_node"),

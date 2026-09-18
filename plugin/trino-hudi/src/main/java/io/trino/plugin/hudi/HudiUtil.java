@@ -119,9 +119,13 @@ public final class HudiUtil
 
     public static List<HivePartitionKey> buildPartitionKeys(List<Column> keys, List<String> values)
     {
-        checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA,
+        checkCondition(keys.size() == values.size(),
+                HIVE_INVALID_METADATA,
                 "Expected %s partition key values, but got %s. Keys: %s, Values: %s.",
-                keys.size(), values.size(), keys, values);
+                keys.size(),
+                values.size(),
+                keys,
+                values);
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();

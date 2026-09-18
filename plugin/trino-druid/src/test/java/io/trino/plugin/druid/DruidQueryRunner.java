@@ -27,9 +27,9 @@ import io.trino.tpch.TpchTable;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -168,7 +168,7 @@ public final class DruidQueryRunner
             throws IOException
     {
         File file = new File(dataFile);
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file, UTF_8))) {
+        try (BufferedWriter bw = Files.newBufferedWriter(file.toPath(), UTF_8)) {
             for (MaterializedRow row : rows.getMaterializedRows()) {
                 bw.write(convertToTSV(row.getFields()));
                 bw.newLine();

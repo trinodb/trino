@@ -38,7 +38,7 @@ public final class AvroTypeUtils
             throws AvroTypeException
     {
         switch (schema.getType()) {
-            case NULL, BOOLEAN, INT, LONG, FLOAT, DOUBLE, ENUM, STRING, FIXED, BYTES -> {} //no-op
+            case NULL, BOOLEAN, INT, LONG, FLOAT, DOUBLE, ENUM, STRING, FIXED, BYTES -> {} // no-op
             case ARRAY -> verifyNoCircularReferences(schema.getElementType(), enclosingRecords);
             case MAP -> verifyNoCircularReferences(schema.getValueType(), enclosingRecords);
             case RECORD -> {
@@ -81,6 +81,7 @@ public final class AvroTypeUtils
     {
         ZERO(0),
         ONE(1);
+
         private final int index;
 
         SimpleUnionNullIndex(int index)
@@ -97,18 +98,17 @@ public final class AvroTypeUtils
     static Schema lowerCaseAllFieldsForWriter(Schema schema)
     {
         return switch (schema.getType()) {
-            case RECORD ->
-                Schema.createRecord(
-                        schema.getName(),
-                        schema.getDoc(),
-                        schema.getNamespace(),
-                        schema.isError(),
-                        schema.getFields().stream()
-                                .map(field -> new Schema.Field(
-                                        field.name().toLowerCase(Locale.ENGLISH),
-                                        lowerCaseAllFieldsForWriter(field.schema()),
-                                        field.doc()))// Can ignore field default because only used on read path and opens the opportunity for invalid default errors
-                                .collect(toImmutableList()));
+            case RECORD -> Schema.createRecord(
+                    schema.getName(),
+                    schema.getDoc(),
+                    schema.getNamespace(),
+                    schema.isError(),
+                    schema.getFields().stream()
+                            .map(field -> new Schema.Field(
+                                    field.name().toLowerCase(Locale.ENGLISH),
+                                    lowerCaseAllFieldsForWriter(field.schema()),
+                                    field.doc())) // Can ignore field default because only used on read path and opens the opportunity for invalid default errors
+                            .collect(toImmutableList()));
 
             case ARRAY -> Schema.createArray(lowerCaseAllFieldsForWriter(schema.getElementType()));
             case MAP -> Schema.createMap(lowerCaseAllFieldsForWriter(schema.getValueType()));

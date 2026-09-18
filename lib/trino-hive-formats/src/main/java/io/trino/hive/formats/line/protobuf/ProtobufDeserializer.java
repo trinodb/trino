@@ -105,7 +105,8 @@ public class ProtobufDeserializer
         if (fieldDescriptor == null) {
             return null;
         }
-        return requireNonNullElseGet(message.getField(fieldDescriptor),
+        return requireNonNullElseGet(
+                message.getField(fieldDescriptor),
                 () -> fieldDescriptor.hasDefaultValue() ? fieldDescriptor.getDefaultValue() : null);
     }
 
@@ -178,6 +179,6 @@ public class ProtobufDeserializer
     {
         return Stream.concat(message.getAllFields().keySet().stream(),
                         message.getDescriptorForType().getFields().stream().filter(FieldDescriptor::hasDefaultValue))
-                .collect(toImmutableMap(FieldDescriptor::getName, identity(), (l, r) -> l));
+                .collect(toImmutableMap(FieldDescriptor::getName, identity(), (l, _) -> l));
     }
 }

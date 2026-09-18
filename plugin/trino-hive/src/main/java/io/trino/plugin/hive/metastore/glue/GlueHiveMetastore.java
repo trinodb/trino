@@ -116,6 +116,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.avro.AvroHiveFileUtils.withColumnsFromAvroSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
@@ -128,6 +129,7 @@ import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseIn
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueFunctionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGluePartitionInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueTableInput;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
@@ -147,7 +149,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.function.Predicate.not;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toCollection;
-import static java.util.stream.Collectors.toMap;
 
 public class GlueHiveMetastore
         implements HiveMetastore
@@ -190,8 +191,7 @@ public class GlueHiveMetastore
             CatalogName catalogName,
             Set<TableKind> visibleTableKinds)
     {
-        this(
-                glueClient,
+        this(glueClient,
                 glueCache,
                 glueStats,
                 fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),
@@ -370,32 +370,8 @@ public class GlueHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        try {
-            var database = stats.getGetDatabase().call(() -> glueClient.getDatabase(builder -> builder
-                    .name(databaseName)).database());
-            DatabaseInput renamedDatabase = DatabaseInput.builder()
-                    .name(newDatabaseName)
-                    .parameters(database.parameters())
-                    .description(database.description())
-                    .locationUri(database.locationUri())
-                    .build();
-            stats.getUpdateDatabase().call(() -> glueClient.updateDatabase(builder -> builder
-                    .name(databaseName).databaseInput(renamedDatabase)));
-        }
-        catch (EntityNotFoundException e) {
-            throw new SchemaNotFoundException(databaseName, e);
-        }
-        catch (AlreadyExistsException e) {
-            throw new SchemaAlreadyExistsException(newDatabaseName, e);
-        }
-        catch (SdkException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        finally {
-            glueCache.invalidateDatabase(databaseName);
-            glueCache.invalidateDatabase(newDatabaseName);
-            glueCache.invalidateDatabaseNames();
-        }
+        // AWS Glue UpdateDatabase rejects name changes with "Database cannot be renamed".
+        throw new TrinoException(NOT_SUPPORTED, "Database rename is not supported by the Glue service");
     }
 
     @Override
@@ -425,7 +401,8 @@ public class GlueHiveMetastore
     {
         try {
             List<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
-                    .call(() -> glueClient.getTablesPaginator(builder -> builder
+                    .call(() -> glueClient
+                            .getTablesPaginator(builder -> builder
                                     .databaseName(databaseName)).stream()
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
@@ -433,9 +410,11 @@ public class GlueHiveMetastore
                     .filter(filter)
                     .collect(toImmutableList());
 
-            // Store only valid tables in cache
+            // Store only valid tables in cache. Avro tables with a schema set are skipped so that a listing
+            // cannot cache their unresolved columns ahead of the resolution done in getTableInternal.
             for (software.amazon.awssdk.services.glue.model.Table table : glueTables) {
                 convertFromGlueIgnoringErrors(table, databaseName)
+                        .filter(converted -> !isAvroTableWithSchemaSet(converted))
                         .ifPresent(cacheTable);
             }
 
@@ -501,7 +480,11 @@ public class GlueHiveMetastore
             GetTableResponse result = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
                     .databaseName(databaseName)
                     .name(tableName)));
-            return Optional.of(GlueConverter.fromGlueTable(result.table(), databaseName));
+            Table table = GlueConverter.fromGlueTable(result.table(), databaseName);
+            if (isAvroTableWithSchemaSet(table)) {
+                table = withColumnsFromAvroSchema(fileSystem, table);
+            }
+            return Optional.of(table);
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -640,7 +623,8 @@ public class GlueHiveMetastore
         // read the existing table
         software.amazon.awssdk.services.glue.model.Table table;
         try {
-            table = stats.getGetTable().call(() -> glueClient.getTable(builder -> builder
+            table = stats.getGetTable().call(() -> glueClient
+                    .getTable(builder -> builder
                             .databaseName(databaseName)
                             .name(tableName))
                     .table());
@@ -738,7 +722,8 @@ public class GlueHiveMetastore
     private Map<String, HiveColumnStatistics> getTableColumnStatisticsInternal(String databaseName, String tableName, Set<String> columnNames)
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
-                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForTable().call(() -> glueClient.getColumnStatisticsForTable(builder -> builder
+                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForTable().call(() -> glueClient
+                        .getColumnStatisticsForTable(builder -> builder
                                 .databaseName(databaseName)
                                 .tableName(tableName)
                                 .columnNames(partialColumns))
@@ -853,7 +838,7 @@ public class GlueHiveMetastore
                     .filter(entry -> !updateColumnStatistics.containsKey(entry.getValue()))
                     .map(Entry::getKey)
                     .collect(Collectors.toSet());
-            case UNDO_MERGE_INCREMENTAL, CLEAR_ALL -> columns.keySet();
+            case CLEAR_ALL -> columns.keySet();
         };
 
         return new BasicTableStatisticsResult(updateColumnStatistics, removeColumnStatistics);
@@ -942,7 +927,8 @@ public class GlueHiveMetastore
             throws EntityNotFoundException
     {
         try {
-            return stats.getGetPartitionNames().call(() -> glueClient.getPartitionsPaginator(builder -> builder
+            return stats.getGetPartitionNames().call(() -> glueClient
+                    .getPartitionsPaginator(builder -> builder
                             .databaseName(databaseName)
                             .tableName(tableName)
                             .expression(expression)
@@ -970,7 +956,8 @@ public class GlueHiveMetastore
         String databaseName = table.getDatabaseName();
         String tableName = table.getTableName();
         PartitionName partitionName = new PartitionName(partitionValues);
-        return glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName));
+        return avroColumnResolver(table).apply(
+                glueCache.getPartition(databaseName, tableName, partitionName, () -> getPartition(databaseName, tableName, partitionName)));
     }
 
     private Optional<Partition> getPartition(String databaseName, String tableName, PartitionName partitionName)
@@ -997,8 +984,28 @@ public class GlueHiveMetastore
                 .map(HivePartitionManager::extractPartitionValues)
                 .map(PartitionName::new)
                 .collect(toImmutableList());
+        UnaryOperator<Optional<Partition>> avroColumnResolver = avroColumnResolver(table);
         return getPartitionsByNames(table.getDatabaseName(), table.getTableName(), names).entrySet().stream()
-                .collect(toImmutableMap(entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table.getPartitionColumns(), entry.getKey().partitionValues()),
+                        entry -> avroColumnResolver.apply(entry.getValue())));
+    }
+
+    /**
+     * For Avro tables with a schema set, the table's columns resolved from the Avro schema are authoritative for
+     * every partition, so Glue's stored per-partition columns are replaced with them. Otherwise
+     * {@code HiveSplitManager} rejects partitions whose stored columns are not coercible from the resolved table
+     * columns. The Thrift metastore client resolves both levels from the Avro schema.
+     */
+    private static UnaryOperator<Optional<Partition>> avroColumnResolver(Table table)
+    {
+        if (!isAvroTableWithSchemaSet(table)) {
+            return identity();
+        }
+        List<Column> columns = table.getDataColumns();
+        return partition -> partition.map(value -> Partition.builder(value)
+                .setColumns(columns)
+                .build());
     }
 
     private Map<PartitionName, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, Collection<PartitionName> partitionNames)
@@ -1009,7 +1016,7 @@ public class GlueHiveMetastore
                 partitionNames,
                 (cachePartition, missingPartitions) -> batchGetPartition(databaseName, tableName, missingPartitions, cachePartition));
         Map<PartitionName, Partition> partitionValuesToPartitionMap = partitions.stream()
-                .collect(toMap(partition -> new PartitionName(partition.getValues()), identity()));
+                .collect(toImmutableMap(partition -> new PartitionName(partition.getValues()), identity()));
 
         ImmutableMap.Builder<PartitionName, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (PartitionName partitionName : partitionNames) {
@@ -1248,7 +1255,8 @@ public class GlueHiveMetastore
             throws EntityNotFoundException
     {
         var columnStatsTasks = Lists.partition(ImmutableList.copyOf(columnNames), GLUE_COLUMN_READ_STAT_PAGE_SIZE).stream()
-                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient.getColumnStatisticsForPartition(builder -> builder
+                .map(partialColumns -> (Callable<List<ColumnStatistics>>) () -> stats.getGetColumnStatisticsForPartition().call(() -> glueClient
+                        .getColumnStatisticsForPartition(builder -> builder
                                 .databaseName(databaseName)
                                 .tableName(tableName)
                                 .partitionValues(partitionName.partitionValues())
@@ -1372,7 +1380,7 @@ public class GlueHiveMetastore
                     .filter(entry -> !statisticsByColumn.containsKey(entry.getValue()))
                     .map(Entry::getKey)
                     .collect(Collectors.toSet());
-            case UNDO_MERGE_INCREMENTAL, CLEAR_ALL -> columns.keySet();
+            case CLEAR_ALL -> columns.keySet();
         };
 
         ImmutableList.Builder<Callable<Void>> tasks = ImmutableList.builder();
@@ -1415,7 +1423,7 @@ public class GlueHiveMetastore
                     .functionName(metastoreFunctionName(functionName, signatureToken))));
             return true;
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             return false;
         }
         catch (SdkException e) {
@@ -1438,7 +1446,8 @@ public class GlueHiveMetastore
     private Collection<LanguageFunction> getFunctionsByPatternInternal(String databaseName, String functionNamePattern)
     {
         try {
-            return stats.getGetUserDefinedFunctions().call(() -> glueClient.getUserDefinedFunctionsPaginator(builder -> builder
+            return stats.getGetUserDefinedFunctions().call(() -> glueClient
+                    .getUserDefinedFunctionsPaginator(builder -> builder
                             .databaseName(databaseName)
                             .pattern(functionNamePattern)
                             .maxResults(AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS)).stream()
@@ -1447,7 +1456,7 @@ public class GlueHiveMetastore
                     .map(GlueConverter::fromGlueFunction)
                     .collect(toImmutableList()));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException | AccessDeniedException e) {
+        catch (EntityNotFoundException | AccessDeniedException e) {
             log.warn(e, "Failed to get SQL routines for pattern: %s in schema: %s", functionNamePattern, databaseName);
             return ImmutableList.of();
         }
@@ -1463,15 +1472,15 @@ public class GlueHiveMetastore
             throw new TrinoException(NOT_SUPPORTED, "Function names with double underscore are not supported");
         }
         try {
-            software.amazon.awssdk.services.glue.model.UserDefinedFunctionInput functionInput = toGlueFunctionInput(functionName, function);
+            UserDefinedFunctionInput functionInput = toGlueFunctionInput(functionName, function);
             stats.getCreateUserDefinedFunction().call(() -> glueClient.createUserDefinedFunction(builder -> builder
                     .databaseName(databaseName)
                     .functionInput(functionInput)));
         }
-        catch (software.amazon.awssdk.services.glue.model.AlreadyExistsException e) {
+        catch (AlreadyExistsException e) {
             throw new TrinoException(ALREADY_EXISTS, "Function already exists: %s.%s".formatted(databaseName, functionName), e);
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(databaseName, e);
         }
         catch (SdkException e) {
@@ -1492,7 +1501,7 @@ public class GlueHiveMetastore
                     .functionName(metastoreFunctionName(functionName, function.signatureToken()))
                     .functionInput(functionInput)));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found: %s.%s".formatted(databaseName, functionName), e);
         }
         catch (SdkException e) {
@@ -1511,7 +1520,7 @@ public class GlueHiveMetastore
                     .databaseName(databaseName)
                     .functionName(metastoreFunctionName(functionName, signatureToken))));
         }
-        catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException e) {
+        catch (EntityNotFoundException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found: %s.%s".formatted(databaseName, functionName), e);
         }
         catch (SdkException e) {

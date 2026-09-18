@@ -148,6 +148,8 @@ public class TestPinotConnectorTest
     {
         assertExplain(
                 "EXPLAIN SELECT name FROM nation WHERE nationkey = 42",
-                "columnName=nationkey", "dataType=bigint", "\\s\\{\\[42\\]\\}");
+                "columnName=nationkey",
+                "dataType=bigint",
+                "\\s\\{\\[42\\]\\}");
     }
 }

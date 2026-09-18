@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
@@ -74,10 +75,19 @@ public final class PartialTranslator
             return null;
         }
 
-        // TODO support lambda expressions for partial projection
         @Override
-        public Void visitLambda(Lambda functionCall, Void context)
+        public Void visitLambda(Lambda lambda, Void context)
         {
+            // Do not extract partial translations from lambda bodies. Lambdas are pushed
+            // only as part of an enclosing expression that can be translated as a whole.
+            return null;
+        }
+
+        @Override
+        public Void visitBind(Bind bind, Void context)
+        {
+            // Bind is a function-typed expression used to model lambda captures,
+            // so it follows the same rule as Lambda.
             return null;
         }
     }

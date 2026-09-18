@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Geometry;
 
 import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 
@@ -31,7 +31,7 @@ public final class SpatialPartitioningAggregateFunction
     private SpatialPartitioningAggregateFunction() {}
 
     @InputFunction
-    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Slice slice)
+    public static void input(SpatialPartitioningState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
         throw new UnsupportedOperationException("spatial_partitioning(geometry) aggregate function should be re-written into spatial_partitioning(geometry, partitionCount)");
     }

@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 
@@ -158,7 +159,7 @@ public class TestSetDigest
                     smallerSets.put(digest2, expectedCardinality);
                 }
             }
-            for (Map.Entry<SetDigest, Integer> pair : smallerSets.entrySet()) {
+            for (Entry<SetDigest, Integer> pair : smallerSets.entrySet()) {
                 SetDigest digest2 = pair.getKey();
                 long estIntersectionCardinality =
                         intersectionCardinality(digest1.serialize(), digest2.serialize());

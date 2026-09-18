@@ -45,4 +45,11 @@ public interface SpoolingManager
 
     // Converts spooled location back to the handle
     SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers);
+
+    /**
+     * Whether a segment that failed to spool with the given exception can be inlined instead of failing
+     * the query. Transient failures (e.g. storage temporarily unavailable) are recoverable; unrecoverable
+     * ones (e.g. invalid credentials) are not and must fail the query rather than be masked by inlining.
+     */
+    boolean isRecoverableException(IOException exception);
 }

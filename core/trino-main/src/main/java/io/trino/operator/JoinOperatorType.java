@@ -13,18 +13,17 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.sql.planner.plan.JoinType;
 
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.LOOKUP_OUTER;
-import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OUTER;
+import static io.trino.operator.join.JoinType.FULL_OUTER;
+import static io.trino.operator.join.JoinType.INNER;
+import static io.trino.operator.join.JoinType.LOOKUP_OUTER;
+import static io.trino.operator.join.JoinType.PROBE_OUTER;
 import static java.util.Objects.requireNonNull;
 
 public class JoinOperatorType
 {
-    private final LookupJoinOperatorFactory.JoinType type;
+    private final io.trino.operator.join.JoinType type;
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
 
@@ -58,7 +57,7 @@ public class JoinOperatorType
         return new JoinOperatorType(FULL_OUTER, false, false);
     }
 
-    private JoinOperatorType(LookupJoinOperatorFactory.JoinType type, boolean outputSingleMatch, boolean waitForBuild)
+    private JoinOperatorType(io.trino.operator.join.JoinType type, boolean outputSingleMatch, boolean waitForBuild)
     {
         this.type = requireNonNull(type, "type is null");
         this.outputSingleMatch = outputSingleMatch;
@@ -75,7 +74,7 @@ public class JoinOperatorType
         return waitForBuild;
     }
 
-    public LookupJoinOperatorFactory.JoinType getType()
+    public io.trino.operator.join.JoinType getType()
     {
         return type;
     }

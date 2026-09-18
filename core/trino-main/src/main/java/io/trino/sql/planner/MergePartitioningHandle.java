@@ -111,8 +111,8 @@ public final class MergePartitioningHandle
                 .orElse(OptionalInt.empty());
 
         if (optionalInsertBucketCount.isPresent() && optionalUpdateBucketCount.isPresent()) {
-            int insertBucketCount = optionalInsertBucketCount.getAsInt();
-            int updateBucketCount = optionalUpdateBucketCount.getAsInt();
+            int insertBucketCount = optionalInsertBucketCount.orElseThrow();
+            int updateBucketCount = optionalUpdateBucketCount.orElseThrow();
             if (insertBucketCount != updateBucketCount) {
                 throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched bucket counts: " + insertBucketCount + " vs " + updateBucketCount);
             }

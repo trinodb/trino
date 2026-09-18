@@ -15,7 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Inject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -24,7 +24,7 @@ import com.nimbusds.openid.connect.sdk.op.OIDCProviderConfigurationRequest;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.log.Logger;
 
 import java.net.URI;
@@ -48,7 +48,7 @@ public class OidcDiscovery
 {
     private static final Logger LOG = Logger.get(OidcDiscovery.class);
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private final Issuer issuer;
     private final Duration discoveryTimeout;
     private final boolean userinfoEndpointEnabled;
@@ -106,7 +106,7 @@ public class OidcDiscovery
         OIDCProviderMetadata metadata = OIDCProviderMetadata.parse(body);
         checkMetadataState(issuer.equals(metadata.getIssuer()), "The value of the \"issuer\" claim in Metadata document different than the Issuer URL used for the Configuration Request.");
         try {
-            JsonNode metadataJson = OBJECT_MAPPER.readTree(body);
+            JsonNode metadataJson = JSON_MAPPER.readTree(body);
             Optional<String> userinfoEndpoint;
             if (userinfoEndpointEnabled) {
                 userinfoEndpoint = getOptionalField("userinfo_endpoint", Optional.ofNullable(metadata.getUserInfoEndpointURI()).map(URI::toString), USERINFO_URL, userinfoUrl);
@@ -150,11 +150,15 @@ public class OidcDiscovery
 
         if (!configurationValue.equals(metadataValue)) {
             LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
-                    metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
+                    metadataField,
+                    metadataValue.orElse(""),
+                    configurationField,
+                    configurationValue.orElse(""));
         }
         else {
             LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document",
-                    configurationField, metadataField);
+                    configurationField,
+                    metadataField);
         }
         return configurationValue;
     }

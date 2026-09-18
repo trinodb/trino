@@ -253,7 +253,7 @@ public class LocalFileSystem
         return Optional.of(temporary);
     }
 
-    private Path toFilePath(Location location)
+    public Path toFilePath(Location location)
     {
         validateLocalLocation(location);
         location.verifyValidFileLocation();

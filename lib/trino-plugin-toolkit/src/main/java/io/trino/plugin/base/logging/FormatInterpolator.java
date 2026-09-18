@@ -21,8 +21,8 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 
 public class FormatInterpolator<Context>
@@ -32,7 +32,7 @@ public class FormatInterpolator<Context>
 
     public FormatInterpolator(String format, List<InterpolatedValue<Context>> values)
     {
-        this.format = firstNonNull(format, "");
+        this.format = requireNonNullElse(format, "");
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
     }
 

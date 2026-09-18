@@ -14,6 +14,7 @@
 package io.trino.plugin.lakehouse;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.Slice;
 import io.trino.metastore.Table;
@@ -38,8 +39,10 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergPartitioningHandle;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergWritableTableHandle;
+import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.RefreshType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -56,6 +59,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -64,6 +68,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -88,6 +93,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.GrantInfo;
@@ -113,13 +119,16 @@ import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
+import static io.trino.plugin.iceberg.IcebergTableName.isSystemView;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
         implements ConnectorMetadata
 {
     private final LakehouseTableProperties tableProperties;
+    private final Map<TableType, Set<String>> tableProcedureNames;
     private final TransactionalMetadata hiveMetadata;
     private final IcebergMetadata icebergMetadata;
     private final DeltaLakeMetadata deltaMetadata;
@@ -127,12 +136,14 @@ public class LakehouseMetadata
 
     public LakehouseMetadata(
             LakehouseTableProperties tableProperties,
+            Map<TableType, Set<String>> tableProcedureNames,
             TransactionalMetadata hiveMetadata,
             IcebergMetadata icebergMetadata,
             DeltaLakeMetadata deltaMetadata,
             HudiMetadata hudiMetadata)
     {
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.tableProcedureNames = ImmutableMap.copyOf(requireNonNull(tableProcedureNames, "tableProcedureNames is null"));
         this.hiveMetadata = requireNonNull(hiveMetadata, "hiveMetadata is null");
         this.icebergMetadata = requireNonNull(icebergMetadata, "icebergMetadata is null");
         this.deltaMetadata = requireNonNull(deltaMetadata, "deltaMetadata is null");
@@ -179,7 +190,23 @@ public class LakehouseMetadata
     @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
     {
+        TableType tableType = tableTypeForHandle(tableHandle);
+        if (!tableProcedureNames.getOrDefault(tableType, ImmutableSet.of()).contains(procedureName)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table procedure not supported for %s tables: %s".formatted(tableType, procedureName));
+        }
         return forHandle(tableHandle).getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+    }
+
+    @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        return forHandle(tableHandle).getTableHandleForMaterializedViewExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+    }
+
+    @Override
+    public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        return forHandle(tableHandle).getColumnHandlesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);
     }
 
     @Override
@@ -195,9 +222,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
-        forHandle(tableExecuteHandle).finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
+        return forHandle(tableExecuteHandle).finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteState);
     }
 
     @Override
@@ -587,13 +614,13 @@ public class LakehouseMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
     {
         List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions);
+        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
     }
 
     @Override
@@ -621,9 +648,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        forHandle(mergeTableHandle).finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
+        return forHandle(mergeTableHandle).finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
     }
 
     @Override
@@ -671,12 +698,20 @@ public class LakehouseMetadata
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
+        if (isIcebergTableName(viewName.getTableName()) && isSystemView(viewName.getTableName())) {
+            return icebergMetadata.getView(session, viewName);
+        }
+
         return hiveMetadata.getView(session, viewName);
     }
 
     @Override
     public boolean isView(ConnectorSession session, SchemaTableName viewName)
     {
+        if (isIcebergTableName(viewName.getTableName()) && isSystemView(viewName.getTableName())) {
+            return icebergMetadata.isView(session, viewName);
+        }
+
         return hiveMetadata.isView(session, viewName);
     }
 
@@ -939,9 +974,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
-        return icebergMetadata.getMaterializedViewFreshness(session, name);
+        return icebergMetadata.getMaterializedViewFreshness(session, name, considerGracePeriod);
     }
 
     @Override
@@ -954,6 +989,24 @@ public class LakehouseMetadata
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         icebergMetadata.setMaterializedViewProperties(session, viewName, properties);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return forHandle(tableHandle).getTableCredentials(session, tableHandle);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        return forHandle(tableHandle).getTableCredentials(session, tableHandle);
+    }
+
+    @Override
+    public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return forHandle(tableFunctionHandle).getTableCredentials(session, tableFunctionHandle);
     }
 
     @Override
@@ -982,6 +1035,24 @@ public class LakehouseMetadata
             case DeltaLakeTableHandle _ -> deltaMetadata;
             case HudiTableHandle _ -> hudiMetadata;
             default -> throw new IllegalArgumentException("Unsupported table handle: " + handle.getClass().getName());
+        };
+    }
+
+    private ConnectorMetadata forHandle(ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        if (tableFunctionHandle instanceof TableChangesFunctionHandle _) {
+            return icebergMetadata;
+        }
+        throw new IllegalArgumentException("Unsupported ConnectorTableFunctionHandle type: " + tableFunctionHandle.getClass().getName());
+    }
+
+    private ConnectorMetadata forHandle(ConnectorWritableTableHandle handle)
+    {
+        return switch (handle) {
+            case HiveInsertTableHandle _, HiveOutputTableHandle _, HiveTableExecuteHandle _ -> hiveMetadata;
+            case IcebergWritableTableHandle _, IcebergTableExecuteHandle _ -> icebergMetadata;
+            case DeltaLakeInsertTableHandle _, DeltaLakeOutputTableHandle _, DeltaLakeTableExecuteHandle _ -> deltaMetadata;
+            default -> throw new IllegalArgumentException("Unsupported writable table handle: " + handle.getClass().getName());
         };
     }
 

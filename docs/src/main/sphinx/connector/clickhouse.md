@@ -19,7 +19,7 @@ from different catalogs accessing ClickHouse or any other supported data source.
 
 To connect to a ClickHouse server, you need:
 
-- ClickHouse (version 25.3 or higher) or Altinity (version 22.8 or higher).
+- ClickHouse (version 25.3 or higher) or Altinity (version 23.3 or higher).
 - Network access from the Trino coordinator and workers to the ClickHouse
   server. Port 8123 is the default port.
 
@@ -217,8 +217,8 @@ to the following table:
   - `DOUBLE`
   - `DOUBLE` is an alias of `Float64`
 * - `Decimal`
-  - `DECIMAL`
-  -
+  - `DECIMAL` or `NUMBER`
+  - Maps to Trino `DECIMAL` when `p ≤ 38`. Otherwise, maps to `NUMBER`.
 * - `FixedString`
   - `VARBINARY`
   - Enabling `clickhouse.map-string-as-varchar` config property changes the

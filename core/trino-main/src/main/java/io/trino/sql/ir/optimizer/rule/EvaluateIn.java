@@ -25,11 +25,13 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
@@ -51,7 +53,7 @@ public class EvaluateIn
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof In(Constant value, List<Expression> list))) {
             return Optional.empty();
@@ -69,7 +71,7 @@ public class EvaluateIn
             return Optional.of(NULL_BOOLEAN);
         }
 
-        ResolvedFunction equalsOperator = metadata.resolveOperator(EQUAL, ImmutableList.of(value.type(), value.type()));
+        ResolvedFunction equalsOperator = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(value.type(), value.type()));
         ConnectorSession connectorSession = session.toConnectorSession();
 
         boolean nullMatch = false;

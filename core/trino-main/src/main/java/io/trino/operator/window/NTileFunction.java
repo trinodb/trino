@@ -15,6 +15,7 @@ package io.trino.operator.window;
 
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.RankingWindowFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.WindowFunctionSignature;
 
 import java.util.List;
@@ -42,6 +43,7 @@ public class NTileFunction
     }
 
     @Override
+    @SqlNullable
     public void processRow(BlockBuilder output, boolean newPeerGroup, int peerGroupCount, int currentPosition)
     {
         if (windowIndex.isNull(valueChannel, currentPosition)) {

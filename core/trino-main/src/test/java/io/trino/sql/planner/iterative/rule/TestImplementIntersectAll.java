@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -32,9 +31,10 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -46,6 +46,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 
 public class TestImplementIntersectAll
@@ -64,7 +65,8 @@ public class TestImplementIntersectAll
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         tester().assertThat(new ImplementIntersectAll(tester().getMetadata()))
                 .on(p -> {
@@ -92,7 +94,7 @@ public class TestImplementIntersectAll
                                         "a", expression(new Reference(BIGINT, "a")),
                                         "b", expression(new Reference(BIGINT, "b"))),
                                 filter(
-                                        new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Call(LEAST, ImmutableList.of(new Reference(BIGINT, "count_1"), new Reference(BIGINT, "count_2")))),
+                                        comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "row_number"), new Call(LEAST, ImmutableList.of(new Reference(BIGINT, "count_1"), new Reference(BIGINT, "count_2")))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         "a", expression(new Reference(BIGINT, "a")),

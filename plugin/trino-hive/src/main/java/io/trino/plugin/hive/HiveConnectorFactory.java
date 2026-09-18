@@ -53,6 +53,7 @@ import org.weakref.jmx.guice.MBeanModule;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -71,14 +72,14 @@ public class HiveConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), false, Optional.empty());
+        return createConnector(catalogName, config, context, () -> EMPTY_MODULE, Optional.empty(), false, Optional.empty());
     }
 
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Module module,
+            Supplier<Module> module,
             Optional<HiveMetastore> metastore,
             boolean metastoreImpersonationEnabled,
             Optional<TrinoFileSystemFactory> fileSystemFactory)
@@ -101,7 +102,7 @@ public class HiveConnectorFactory
                     new MBeanServerModule(),
                     new ConnectorContextModule(catalogName, context),
                     binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
-                    module);
+                    module.get());
 
             Injector injector = app
                     .doNotInitializeLogging()

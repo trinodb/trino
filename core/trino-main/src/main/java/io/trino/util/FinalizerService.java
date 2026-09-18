@@ -13,7 +13,6 @@
  */
 package io.trino.util;
 
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -23,6 +22,7 @@ import jakarta.annotation.PreDestroy;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,7 +36,7 @@ public class FinalizerService
 {
     private static final Logger log = Logger.get(FinalizerService.class);
 
-    private final Set<FinalizerReference> finalizers = Sets.newConcurrentHashSet();
+    private final Set<FinalizerReference> finalizers = ConcurrentHashMap.newKeySet();
     private final ReferenceQueue<Object> finalizerQueue = new ReferenceQueue<>();
     @GuardedBy("this")
     private ExecutorService executor;

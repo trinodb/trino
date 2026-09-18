@@ -29,6 +29,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 // copy of https://github.com/airlift/airlift/blob/master/security/src/main/java/io/airlift/security/der/DerUtils.java
+
 /**
  * ASN.1 DER encoder methods necessary to process PEM files and to write a certificate signing request.
  * NOTE: this API is only present for the two mentioned use cases, and is subject to change without warning.
@@ -226,6 +227,6 @@ final class DerUtils
             int part = (number >>> shiftSize) & 0x7F | 0x80;
             out.write(part);
         }
-        out.write(number & 0x7f);
+        out.write(number & 0x7F);
     }
 }

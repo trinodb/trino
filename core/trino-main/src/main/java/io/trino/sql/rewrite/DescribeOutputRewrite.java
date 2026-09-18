@@ -16,6 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -29,7 +30,10 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DescribeOutput.Target.InlineQuery;
+import io.trino.sql.tree.DescribeOutput.Target.PreparedStatement;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
@@ -47,6 +51,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.StandardTypes.NUMBER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.identifier;
@@ -55,7 +60,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.values;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public final class DescribeOutputRewrite
@@ -86,14 +91,15 @@ public final class DescribeOutputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
-                new Row[] {row(
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(VARCHAR)),
-                        new Cast(new NullLiteral(), toSqlType(BIGINT)),
-                        new Cast(new NullLiteral(), toSqlType(BOOLEAN)))},
+                new Row[] {
+                        row(new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(VARCHAR)),
+                                new Cast(new NullLiteral(), toSqlType(BIGINT)),
+                                new Cast(new NullLiteral(), toSqlType(BOOLEAN))),
+                },
                 Optional.of(new Limit(new LongLiteral("0"))));
 
         private final Session session;
@@ -115,7 +121,7 @@ public final class DescribeOutputRewrite
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
-            this.analyzerFactory = analyzerFactory;
+            this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -125,8 +131,7 @@ public final class DescribeOutputRewrite
         @Override
         protected Node visitDescribeOutput(DescribeOutput node, Void context)
         {
-            String sqlString = session.getPreparedStatement(node.getName().getValue());
-            Statement statement = parser.createStatement(sqlString);
+            Statement statement = getStatement(node);
 
             Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
@@ -137,6 +142,14 @@ public final class DescribeOutputRewrite
                 return EMPTY_OUTPUT;
             }
             return createDescribeOutputQuery(rows, limit);
+        }
+
+        private Statement getStatement(DescribeOutput node)
+        {
+            return switch (node.getTarget()) {
+                case PreparedStatement(Identifier name) -> parser.createStatement(session.getPreparedStatement(name.getValue()));
+                case InlineQuery(Query query) -> query;
+            };
         }
 
         private static Query createDescribeOutputQuery(Row[] rows, Optional<Node> limit)
@@ -180,12 +193,17 @@ public final class DescribeOutputRewrite
 
             Optional<QualifiedObjectName> originTable = field.getOriginTable();
 
+            String typeName = field.getType().getDisplayName();
+            if (typeName.equals(NUMBER) && !session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString())) {
+                typeName = VARCHAR.getDisplayName();
+            }
+
             return row(
                     new StringLiteral(columnName),
                     new StringLiteral(originTable.map(QualifiedObjectName::catalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::schemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::objectName).orElse("")),
-                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(typeName),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }

@@ -37,6 +37,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
@@ -121,12 +122,12 @@ public class PushPredicateThroughProjectIntoWindow
                 plannerContext,
                 context.getSession(),
                 filter.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {
             return Result.empty();
         }
-        if (upperBound.getAsInt() <= 0) {
+        if (upperBound.orElseThrow() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols()));
         }
         RankingType rankingType = toTopNRankingType(window).orElseThrow();
@@ -136,16 +137,16 @@ public class PushPredicateThroughProjectIntoWindow
                 window.getSpecification(),
                 rankingType,
                 rankingSymbol,
-                upperBound.getAsInt(),
+                upperBound.orElseThrow(),
                 false)));
-        if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
+        if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.orElseThrow())) {
             return Result.ofPlanNode(filter.replaceChildren(ImmutableList.of(project)));
         }
         // Remove the ranking domain because it is absorbed into the node
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                extractionResult.remainingExpression(),
+                domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

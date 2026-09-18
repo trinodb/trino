@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -30,7 +29,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -48,7 +48,7 @@ public class TestPruneFilterColumns
                         strictProject(
                                 ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
+                                        comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                                         strictProject(
                                                 ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                                 values("a", "b")))));
@@ -77,7 +77,7 @@ public class TestPruneFilterColumns
         return planBuilder.project(
                 Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
+                        comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                         planBuilder.values(a, b)));
     }
 }

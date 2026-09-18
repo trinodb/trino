@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.Rule;
@@ -26,9 +25,11 @@ import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
 import static io.trino.sql.planner.plan.Patterns.except;
@@ -90,14 +91,14 @@ public class ImplementExceptDistinctAsUnion
 
         // except predicate: the row must be present in the first source and absent in all the other sources
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-        predicatesBuilder.add(new Comparison(GREATER_THAN_OR_EQUAL, result.getCountSymbols().get(0).toSymbolReference(), new Constant(BIGINT, 1L)));
+        predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN_OR_EQUAL, result.countSymbols().get(0).toSymbolReference(), new Constant(BIGINT, 1L)));
         for (int i = 1; i < node.getSources().size(); i++) {
-            predicatesBuilder.add(new Comparison(EQUAL, result.getCountSymbols().get(i).toSymbolReference(), new Constant(BIGINT, 0L)));
+            predicatesBuilder.add(comparison(metadata, getCharVarcharCoercion(context.getSession()), EQUAL, result.countSymbols().get(i).toSymbolReference(), new Constant(BIGINT, 0L)));
         }
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), and(predicatesBuilder.build())),
+                        new FilterNode(context.getIdAllocator().getNextId(), result.planNode(), and(predicatesBuilder.build())),
                         Assignments.identity(node.getOutputSymbols())));
     }
 }

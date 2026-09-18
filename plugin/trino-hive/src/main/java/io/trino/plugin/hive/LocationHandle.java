@@ -42,8 +42,7 @@ public class LocationHandle
             @JsonProperty("writePath") String writePath,
             @JsonProperty("writeMode") WriteMode writeMode)
     {
-        this(
-                Location.of(requireNonNull(targetPath, "targetPath is null")),
+        this(Location.of(requireNonNull(targetPath, "targetPath is null")),
                 Location.of(requireNonNull(writePath, "writePath is null")),
                 writeMode);
     }

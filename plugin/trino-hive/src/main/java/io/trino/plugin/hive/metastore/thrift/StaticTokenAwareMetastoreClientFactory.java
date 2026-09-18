@@ -103,6 +103,7 @@ public class StaticTokenAwareMetastoreClientFactory
             }
             catch (TException e) {
                 lastException = e;
+                backoff.fail();
             }
         }
 
@@ -193,7 +194,7 @@ public class StaticTokenAwareMetastoreClientFactory
             if (lastFailureTimestamp.isEmpty()) {
                 return 0;
             }
-            long timeSinceLastFail = ticker.read() - lastFailureTimestamp.getAsLong();
+            long timeSinceLastFail = ticker.read() - lastFailureTimestamp.orElseThrow();
             return max(backoffDuration - timeSinceLastFail, 0);
         }
     }

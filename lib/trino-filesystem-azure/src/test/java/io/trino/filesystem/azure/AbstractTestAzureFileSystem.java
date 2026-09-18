@@ -22,8 +22,11 @@ import com.azure.storage.file.datalake.DataLakeServiceClient;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
@@ -290,5 +293,28 @@ public abstract class AbstractTestAzureFileSystem
             abort("Azure requires decryption key to check for the existence of an encrypted blob");
         }
         super.testDirectoryExists();
+    }
+
+    @Test
+    void testListFilesStartingFromConsecutiveSlashesInLocation()
+            throws IOException
+    {
+        // ADLS Gen2 hierarchical canonicalizes runs of slashes; verifies
+        // EmulatedListFilesStartingFromIterator falls back to the slash-collapsed prefix.
+        if (!isHierarchical()) {
+            abort("Only ADLS Gen2 hierarchical canonicalizes `//` and routes through EmulatedListFilesStartingFromIterator");
+        }
+        try (Closer closer = Closer.create()) {
+            Location file1 = createBlob(closer, "level0/level1-file1");
+            Location file2 = createBlob(closer, "level0/level1-file2");
+
+            Location doubledSlash = createLocation("level0").appendSuffix("//");
+            ImmutableList.Builder<Location> builder = ImmutableList.builder();
+            FileIterator iterator = getFileSystem().listFilesStartingFrom(doubledSlash, "level1-file1");
+            while (iterator.hasNext()) {
+                builder.add(iterator.next().location());
+            }
+            assertThat(builder.build()).containsExactlyInAnyOrder(file1, file2);
+        }
     }
 }

@@ -19,8 +19,8 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -47,7 +46,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -91,10 +90,10 @@ public class TestAggregationOperator
         List<Page> input = ImmutableList.of(new Page(
                 4,
                 createLongsBlock(1, 2, 3, 4),
-                new ByteArrayBlock(
+                new BitArrayBlock(
                         4,
-                        Optional.of(new boolean[] {true, true, false, false}),
-                        new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
+                        Optional.of(new long[] {0b1100}),
+                        new long[] {0b1010 /* dirty null at position 1, true value at position 3 */})));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
@@ -126,10 +125,10 @@ public class TestAggregationOperator
                 new PlanNodeId("test"),
                 ImmutableList.of(distinctFactory));
 
-        ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
+        BitArrayBlock trueMaskAllNull = new BitArrayBlock(
                 4,
-                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
-                new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
+                Optional.of(new long[] {0}), /* all positions are null */
+                new long[] {0b1111}); /* all masks are true */
 
         Block trueNullRleMask = RunLengthEncodedBlock.create(trueMaskAllNull.getSingleValueBlock(0), 4);
 
@@ -183,7 +182,7 @@ public class TestAggregationOperator
     public void testMemoryTracking()
             throws Exception
     {
-        Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
+        Page input = rowPagesBuilder(BIGINT).addSequencePage(100, 0).buildPage();
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

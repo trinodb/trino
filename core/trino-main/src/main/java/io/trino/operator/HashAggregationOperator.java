@@ -101,7 +101,7 @@ public class HashAggregationOperator
                     false,
                     DataSize.of(0, MEGABYTE),
                     DataSize.of(0, MEGABYTE),
-                    (types, spillContext, memoryContext) -> {
+                    (_, _, _) -> {
                         throw new UnsupportedOperationException();
                     },
                     hashStrategyCompiler,
@@ -555,7 +555,7 @@ public class HashAggregationOperator
             }
 
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel));
+                aggregatorFactory.createAggregator(aggregationMetrics).evaluate(output.getBlockBuilder(channel), UpdateMemory.NOOP);
                 channel++;
             }
         }

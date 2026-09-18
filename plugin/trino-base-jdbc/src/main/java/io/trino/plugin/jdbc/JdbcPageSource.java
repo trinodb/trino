@@ -99,10 +99,11 @@ public final class JdbcPageSource
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
                 ColumnMapping columnMapping = jdbcClient.toColumnMapping(session, connection, columnHandle.getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Column %s has unsupported type %s".formatted(columnHandle.getColumnName(), columnHandle.getJdbcTypeHandle())));
-                verify(
-                        columnHandle.getColumnType().equals(columnMapping.getType()),
+                verify(columnHandle.getColumnType().equals(columnMapping.getType()),
                         "Type mismatch: column handle has type %s but %s is mapped to %s",
-                        columnHandle.getColumnType(), columnHandle.getJdbcTypeHandle(), columnMapping.getType());
+                        columnHandle.getColumnType(),
+                        columnHandle.getJdbcTypeHandle(),
+                        columnMapping.getType());
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
                 readFunctions[i] = readFunction;

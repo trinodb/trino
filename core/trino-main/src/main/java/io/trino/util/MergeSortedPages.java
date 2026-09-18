@@ -50,7 +50,7 @@ public final class MergeSortedPages
                 comparator,
                 IntStream.range(0, outputTypes.size()).boxed().collect(toImmutableList()),
                 outputTypes,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 aggregatedMemoryContext,
                 yieldSignal);
@@ -79,8 +79,10 @@ public final class MergeSortedPages
                 .collect(toImmutableList());
 
         Comparator<PageWithPosition> pageWithPositionComparator = (firstPageWithPosition, secondPageWithPosition) -> comparator.compareTo(
-                firstPageWithPosition.getPage(), firstPageWithPosition.getPosition(),
-                secondPageWithPosition.getPage(), secondPageWithPosition.getPosition());
+                firstPageWithPosition.getPage(),
+                firstPageWithPosition.getPosition(),
+                secondPageWithPosition.getPage(),
+                secondPageWithPosition.getPosition());
 
         return buildPage(
                 mergeSorted(pageWithPositionProducers, pageWithPositionComparator),

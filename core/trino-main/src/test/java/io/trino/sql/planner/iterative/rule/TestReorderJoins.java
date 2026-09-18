@@ -23,7 +23,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -49,8 +48,9 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -106,8 +106,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "B1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT), p.symbol("A2", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
@@ -207,8 +206,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
@@ -239,8 +237,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
@@ -280,8 +277,7 @@ public class TestReorderJoins
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)), // matches isAtMostScalar
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
@@ -295,8 +291,7 @@ public class TestReorderJoins
                 .overrideStats("valuesA", valuesA)
                 .overrideStats("valuesB", valuesB)
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1", BIGINT)),
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", BIGINT)), // matches isAtMostScalar
                                 ImmutableList.of(new EquiJoinClause(p.symbol("B1", BIGINT), p.symbol("A1", BIGINT))),
@@ -319,8 +314,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
                                 p.values(new PlanNodeId("valuesB"), 2, p.symbol("B1")),
                                 ImmutableList.of(),
@@ -336,8 +330,7 @@ public class TestReorderJoins
         assertReorderJoins()
                 .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1")),
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1")),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1"), p.symbol("B1"))),
@@ -352,14 +345,13 @@ public class TestReorderJoins
     {
         assertReorderJoins()
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.values(new PlanNodeId("valuesA"), p.symbol("A1", DOUBLE)),
                                 p.values(new PlanNodeId("valuesB"), p.symbol("B1", DOUBLE)),
                                 ImmutableList.of(new EquiJoinClause(p.symbol("A1", DOUBLE), p.symbol("B1", DOUBLE))),
                                 ImmutableList.of(p.symbol("A1", DOUBLE)),
                                 ImmutableList.of(p.symbol("B1", DOUBLE)),
-                                Optional.of(new Comparison(
+                                Optional.of(comparison(
                                         LESS_THAN,
                                         p.symbol("A1", DOUBLE).toSymbolReference(),
                                         new TestingFunctionResolution().functionCallBuilder("random").build()))))
@@ -385,8 +377,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.join(
                                         INNER,
                                         p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
@@ -400,7 +391,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2", BIGINT), p.symbol("C1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(),
-                                Optional.of(new Comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
+                                Optional.of(comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
                 .matches(
                         project(
                                 join(INNER, builder -> builder
@@ -431,12 +422,13 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.project(
                                         Assignments.of(
-                                                p.symbol("P1", BIGINT), new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1", BIGINT).toSymbolReference())),
-                                                p.symbol("P2", BIGINT), p.symbol("A1", BIGINT).toSymbolReference()),
+                                                p.symbol("P1", BIGINT),
+                                                new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1", BIGINT).toSymbolReference())),
+                                                p.symbol("P2", BIGINT),
+                                                p.symbol("A1", BIGINT).toSymbolReference()),
                                         p.join(
                                                 INNER,
                                                 p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
@@ -449,7 +441,7 @@ public class TestReorderJoins
                                 ImmutableList.of(new EquiJoinClause(p.symbol("P1", BIGINT), p.symbol("C1", BIGINT))),
                                 ImmutableList.of(p.symbol("P1", BIGINT)),
                                 ImmutableList.of(),
-                                Optional.of(new Comparison(EQUAL, p.symbol("P2", BIGINT).toSymbolReference(), p.symbol("C1", BIGINT).toSymbolReference()))))
+                                Optional.of(comparison(EQUAL, p.symbol("P2", BIGINT).toSymbolReference(), p.symbol("C1", BIGINT).toSymbolReference()))))
                 .matches(
                         project(
                                 join(INNER, builder -> builder
@@ -486,8 +478,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "C1"), new SymbolStatsEstimate(0, 100, 0, 100, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("P1", BIGINT), new Call(NEGATION_BIGINT, ImmutableList.of(p.symbol("B1", BIGINT).toSymbolReference()))),
@@ -537,8 +528,7 @@ public class TestReorderJoins
                         .addSymbolStatistics(ImmutableMap.of(new Symbol(BIGINT, "C1"), new SymbolStatsEstimate(99, 199, 0, 100, 100)))
                         .build())
                 .on(p ->
-                        p.join(
-                                INNER,
+                        p.join(INNER,
                                 p.join(
                                         INNER,
                                         p.values(new PlanNodeId("valuesA"), 2, p.symbol("A1", BIGINT)),
@@ -552,7 +542,7 @@ public class TestReorderJoins
                                         new EquiJoinClause(p.symbol("B2", BIGINT), p.symbol("C1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(),
-                                Optional.of(new Comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
+                                Optional.of(comparison(EQUAL, p.symbol("A1", BIGINT).toSymbolReference(), p.symbol("B1", BIGINT).toSymbolReference()))))
                 .matches(
                         project(join(INNER, builder -> builder
                                 .equiCriteria("A1", "B1")

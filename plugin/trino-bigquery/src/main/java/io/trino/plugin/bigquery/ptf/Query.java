@@ -91,14 +91,14 @@ public class Query
 
         public QueryFunction(BigQueryClientFactory clientFactory, BigQueryTypeManager typeManager)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(ScalarArgumentSpecification.builder()
                             .name("QUERY")
                             .type(VARCHAR)
                             .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }

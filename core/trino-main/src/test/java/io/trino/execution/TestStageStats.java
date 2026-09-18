@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.Optional;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -119,7 +120,7 @@ public class TestStageStats
     @Test
     public void testJson()
     {
-        JsonCodec<StageStats> codec = JsonCodec.jsonCodec(StageStats.class);
+        JsonCodec<StageStats> codec = jsonCodec(StageStats.class);
 
         String json = codec.toJson(EXPECTED);
         StageStats actual = codec.fromJson(json);

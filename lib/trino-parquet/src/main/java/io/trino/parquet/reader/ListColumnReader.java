@@ -14,12 +14,13 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.isOptionalFieldValueNull;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 public final class ListColumnReader
 {
@@ -55,13 +56,17 @@ public final class ListColumnReader
             return new BlockPositions(Optional.empty(), offsets.toIntArray());
         }
 
-        BooleanArrayList collectionIsNull = new BooleanArrayList();
+        long[] collectionIsValid = new long[wordsForBits(definitionLevels.length)];
+        int position = 0;
         int nullValuesCount = 0;
         for (int i = 0; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
             if (definitionLevels[i] >= maxDefinitionLevel - 1) {
                 boolean isNull = isOptionalFieldValueNull(definitionLevels[i], maxDefinitionLevel);
-                collectionIsNull.add(isNull);
                 nullValuesCount += isNull ? 1 : 0;
+                if (!isNull) {
+                    set(collectionIsValid, 0, position);
+                }
+                position++;
                 // definitionLevels[i] == maxDefinitionLevel - 1 => Collection is null
                 // definitionLevels[i] == maxDefinitionLevel     => Collection is defined but empty
                 if (definitionLevels[i] > maxDefinitionLevel) {
@@ -74,10 +79,10 @@ public final class ListColumnReader
         if (nullValuesCount == 0) {
             return new BlockPositions(Optional.empty(), offsets.toIntArray());
         }
-        return new BlockPositions(Optional.of(collectionIsNull.elements()), offsets.toIntArray());
+        return new BlockPositions(Optional.of(collectionIsValid), offsets.toIntArray());
     }
 
-    public record BlockPositions(Optional<boolean[]> isNull, int[] offsets) {}
+    public record BlockPositions(Optional<long[]> valueIsValid, int[] offsets) {}
 
     private static int getNextCollectionStartIndex(int[] repetitionLevels, int maxRepetitionLevel, int elementIndex)
     {

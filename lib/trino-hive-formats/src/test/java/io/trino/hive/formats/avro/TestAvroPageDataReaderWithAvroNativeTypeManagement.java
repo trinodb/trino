@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -230,7 +231,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                     SqlTime timeMicros = (SqlTime) TimeType.TIME_MICROS.getObjectValue(p.getBlock(2), i);
                     assertThat(timeMicros.getPicos()).isEqualTo(39_600_000_000L * 1_000_000L);
 
-                    //UUID const assert
+                    // UUID const assert
                     assertThat(id).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(3), i));
                 }
                 totalRecords += p.getPositionCount();
@@ -244,6 +245,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
             throws IOException, AvroTypeException
     {
         Location testLocation = createLocalTempLocation();
+        RowType type = (RowType) new NativeLogicalTypesAvroTypeBlockHandler().typeFor(ALL_SUPPORTED_TYPES_SCHEMA);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(testLocation).create(),
                 ALL_SUPPORTED_TYPES_SCHEMA,
@@ -251,7 +253,8 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_SUPPORTED_TYPES_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new NativeLogicalTypesAvroTypeBlockHandler().typeFor(ALL_SUPPORTED_TYPES_SCHEMA).getTypeParameters(), false)) {
+                type.getFieldTypes(),
+                false)) {
             fileWriter.write(ALL_SUPPORTED_PAGE);
         }
 
@@ -295,7 +298,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         assertThat(timeMillis).isEqualTo(timeMicros.roundTo(3));
         assertThat(timeMillis.getPicos()).isEqualTo(timeMicros.getPicos()).isEqualTo(39_600_000_000L * 1_000_000L);
 
-        //UUID
+        // UUID
         assertThat(RANDOM_UUID.toString()).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(9), 0));
     }
 }

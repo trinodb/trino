@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -44,7 +45,7 @@ public class TestParametricScalarFunctionImplementationValidation
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionMethodHandle);
-        assertThat(validFunction.getChoices().get(0).getMethodHandle()).isEqualTo(validFunctionMethodHandle);
+        assertThat(getOnlyElement(validFunction.getChoices()).getMethodHandle()).isEqualTo(validFunctionMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 signature,
@@ -62,7 +63,7 @@ public class TestParametricScalarFunctionImplementationValidation
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionWithInstanceFactoryMethodHandle,
                 Optional.of(STATE_FACTORY));
-        assertThat(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle()).isEqualTo(validFunctionWithInstanceFactoryMethodHandle);
+        assertThat(getOnlyElement(validFunctionWithInstanceFactory.getChoices()).getMethodHandle()).isEqualTo(validFunctionWithInstanceFactoryMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 signature,

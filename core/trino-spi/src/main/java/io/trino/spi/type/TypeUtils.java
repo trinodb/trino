@@ -14,7 +14,6 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -23,6 +22,7 @@ import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -33,6 +33,14 @@ public final class TypeUtils
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils() {}
+
+    public static Object blockToNativeValue(Type type, Block block)
+    {
+        if (block.getPositionCount() != 1) {
+            throw new IllegalArgumentException("Block should have exactly one position, but has: " + block.getPositionCount());
+        }
+        return readNativeValue(type, block, 0);
+    }
 
     /**
      * Get the native value as an object in the value at {@code position} of {@code block}.
@@ -84,16 +92,7 @@ public final class TypeUtils
             type.writeLong(blockBuilder, ((long) value));
         }
         else if (type.getJavaType() == Slice.class) {
-            Slice slice;
-            if (value instanceof byte[] bytes) {
-                slice = Slices.wrappedBuffer(bytes);
-            }
-            else if (value instanceof String string) {
-                slice = Slices.utf8Slice(string);
-            }
-            else {
-                slice = (Slice) value;
-            }
+            Slice slice = (Slice) value;
             type.writeSlice(blockBuilder, slice, 0, slice.length());
         }
         else {
@@ -101,16 +100,24 @@ public final class TypeUtils
         }
     }
 
+    public static boolean typeHasNaN(Type type)
+    {
+        return type == REAL || type == DOUBLE || type == NUMBER;
+    }
+
     public static boolean isFloatingPointNaN(Type type, Object value)
     {
         requireNonNull(type, "type is null");
         requireNonNull(value, "value is null");
 
+        if (type == REAL) {
+            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        }
         if (type == DOUBLE) {
             return Double.isNaN((double) value);
         }
-        if (type == REAL) {
-            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        if (type == NUMBER) {
+            return ((TrinoNumber) value).isNaN();
         }
         return false;
     }

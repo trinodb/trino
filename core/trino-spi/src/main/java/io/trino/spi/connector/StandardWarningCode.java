@@ -23,9 +23,8 @@ public enum StandardWarningCode
     REDUNDANT_ORDER_BY(0x0000_0002),
     DEPRECATED_FUNCTION(0x0000_0003),
     SPOOLING_NOT_SUPPORTED(0x0000_0004),
-    DEPRECATED_SYNTAX(0x0000_0005)
+    DEPRECATED_SYNTAX(0x0000_0005);
 
-    /**/;
     private final WarningCode warningCode;
 
     StandardWarningCode(int code)

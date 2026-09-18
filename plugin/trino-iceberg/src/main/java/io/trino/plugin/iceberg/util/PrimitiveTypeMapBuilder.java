@@ -24,9 +24,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.type.StandardTypes.ARRAY;
-import static io.trino.spi.type.StandardTypes.MAP;
-import static io.trino.spi.type.StandardTypes.ROW;
 import static org.apache.iceberg.avro.AvroSchemaUtil.makeCompatibleName;
 
 public class PrimitiveTypeMapBuilder
@@ -50,17 +47,11 @@ public class PrimitiveTypeMapBuilder
 
     private void visitType(Type type, String name, List<String> parent)
     {
-        if (ROW.equals(type.getTypeSignature().getBase())) {
-            visitRowType((RowType) type, name, parent);
-        }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
-            visitMapType((MapType) type, name, parent);
-        }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            visitArrayType((ArrayType) type, name, parent);
-        }
-        else {
-            builder.put(ImmutableList.<String>builder().addAll(parent).add(name).build(), type);
+        switch (type) {
+            case RowType rowType -> visitRowType(rowType, name, parent);
+            case MapType mapType -> visitMapType(mapType, name, parent);
+            case ArrayType arrayType -> visitArrayType(arrayType, name, parent);
+            default -> builder.put(ImmutableList.<String>builder().addAll(parent).add(name).build(), type);
         }
     }
 

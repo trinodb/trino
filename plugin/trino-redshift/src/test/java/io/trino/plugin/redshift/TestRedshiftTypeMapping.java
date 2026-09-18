@@ -42,7 +42,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
-import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -181,7 +181,7 @@ public class TestRedshiftTypeMapping
                 TestView view2 = new TestView("pg_catalog_view", "SELECT relname FROM pg_class")) {
             // Test data and type from a function
             assertThat(query(format("SELECT * FROM %s", view1.name)))
-                    .matches("VALUES CAST('x' AS varchar)");
+                    .matches("VALUES CAST('x' AS varchar(256))");
 
             // Test the type of an internal table
             assertThat(query(format("SELECT * FROM %s LIMIT 1", view2.name)))
@@ -801,23 +801,18 @@ public class TestRedshiftTypeMapping
 
     private void runTestCases(String tableName, List<TestCase> testCases)
     {
-        // Must use CTAS instead of TestTable because if the table is created before the insert,
-        // the type mapping will treat it as TIME(6) no matter what it was created as.
-        getTrinoExecutor().execute(format(
-                "CREATE TABLE %s AS SELECT * FROM (VALUES %s) AS t (id, value)",
+        try (TestTable table = new TestTable(
+                getTrinoExecutor(),
                 tableName,
-                testCases.stream()
-                        .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
-                        .collect(joining("), (", "(", ")"))));
-        try {
+                format("AS SELECT * FROM (VALUES %s) AS t (id, value)",
+                        testCases.stream()
+                                .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
+                                .collect(joining("), (", "(", ")"))))) {
             assertQuery(
-                    format("SELECT value FROM %s ORDER BY id", tableName),
+                    format("SELECT value FROM %s ORDER BY id", table.getName()),
                     testCases.stream()
                             .map(TestCase::expected)
                             .collect(joining("), (", "VALUES (", ")")));
-        }
-        finally {
-            getTrinoExecutor().execute("DROP TABLE " + tableName);
         }
     }
 
@@ -925,22 +920,24 @@ public class TestRedshiftTypeMapping
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
-        verify(
-                zone.getRules().getValidOffsets(dateTime).isEmpty(),
-                "Expected %s to be a gap in %s", dateTime, zone);
+        verify(zone.getRules().getValidOffsets(dateTime).isEmpty(),
+                "Expected %s to be a gap in %s",
+                dateTime,
+                zone);
     }
 
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
-        verify(
-                zone.getRules().getValidOffsets(dateTime).size() == 2,
-                "Expected %s to be doubled in %s", dateTime, zone);
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2,
+                "Expected %s to be doubled in %s",
+                dateTime,
+                zone);
     }
 
     private static Function<String, String> padVarchar(int length)
     {
         // Add the same padding as RedshiftClient.writeCharAsVarchar, but start from String, not Slice
-        return (input) -> input + " ".repeat(length - Utf8.encodedLength(input));
+        return input -> input + " ".repeat(length - Utf8.encodedLength(input));
     }
 
     /**
@@ -986,13 +983,13 @@ public class TestRedshiftTypeMapping
         TestView(String namePrefix, String definition)
         {
             name = requireNonNull(namePrefix) + "_" + randomNameSuffix();
-            executeInRedshift(format("CREATE VIEW %s.%s AS %s", TEST_SCHEMA, name, definition));
+            executeInRedshiftWithRetry(format("CREATE OR REPLACE VIEW %s.%s AS %s", TEST_SCHEMA, name, definition));
         }
 
         @Override
         public void close()
         {
-            executeInRedshift(format("DROP VIEW IF EXISTS %s.%s", TEST_SCHEMA, name));
+            executeInRedshiftWithRetry(format("DROP VIEW IF EXISTS %s.%s", TEST_SCHEMA, name));
         }
     }
 }

@@ -64,6 +64,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -80,7 +81,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestWindowOperator
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
-    private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final FrameInfo UNBOUNDED_FRAME = new FrameInfo(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), NO_OTHERS);
 
     public static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier(0, RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME, false, ImmutableList.of()));
@@ -486,7 +487,7 @@ public class TestWindowOperator
         for (int i = 0; i < 500_000; ++i) {
             pageBuilder.row("b", 0L);
         }
-        List<Page> input = pageBuilder.build();
+        Page input = pageBuilder.buildPage();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
                 ImmutableList.of(VARCHAR, BIGINT),
@@ -499,16 +500,16 @@ public class TestWindowOperator
                 false);
 
         DriverContext driverContext = createDriverContext(1000);
-        Operator operator = operatorFactory.createOperator(driverContext);
-        operatorFactory.noMoreOperators();
-        assertThat(operator.isFinished()).isFalse();
-        assertThat(operator.needsInput()).isTrue();
-        operator.addInput(input.get(0));
-        operator.finish();
-        operator.getOutput();
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            operatorFactory.noMoreOperators();
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.needsInput()).isTrue();
+            operator.addInput(input);
+            operator.finish();
+            operator.getOutput();
 
-        // this should not fail
-        operator.close();
+            // implicit close should not fail
+        }
     }
 
     @Test

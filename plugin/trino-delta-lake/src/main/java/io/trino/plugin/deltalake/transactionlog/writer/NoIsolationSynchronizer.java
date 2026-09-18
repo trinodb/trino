@@ -18,12 +18,13 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,10 +40,10 @@ public class NoIsolationSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, VendedCredentialsHandle credentialsHandle, String clusterId, Location newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials, String clusterId, Location newLogEntryPath, byte[] entryContents)
             throws UncheckedIOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session, credentialsHandle);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableCredentials);
         try {
             TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath);
             try (OutputStream outputStream = outputFile.create()) {

@@ -15,13 +15,15 @@ package io.trino.operator.scalar;
 
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
-import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.numericVariable;
+import static io.trino.spi.type.TypeTemplates.type;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 
 public final class JsonStringToArrayCast
         extends SqlScalarFunction
@@ -34,19 +36,19 @@ public final class JsonStringToArrayCast
         super(FunctionMetadata.scalarBuilder(JSON_STRING_TO_ARRAY_NAME)
                 .signature(Signature.builder()
                         .typeVariable("T")
-                        .longVariable("N")
-                        .returnType(arrayType(new TypeSignature("T")))
-                        .argumentType(new TypeSignature("varchar", typeVariable("N")))
+                        .numericVariable("N")
+                        .returnType(arrayType(typeVariable("T")))
+                        .argumentType(type("varchar", numericVariable("N")))
                         .build())
                 .nullable()
                 .hidden()
-                .noDescription()
+                .description("")
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return JSON_TO_ARRAY.specialize(boundSignature);
+        return JSON_TO_ARRAY.specialize(boundSignature, functionDependencies);
     }
 }

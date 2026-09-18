@@ -1,0 +1,86 @@
+$schema: "http://json-schema.org"
+description: >-
+  Configuration for the scheduling of tests in CI.
+
+  CI runs tests on pushes to master and release branches, on updates to pull requests, on manual
+  dispatches, and on a nightly schedule. This configuration allows specifying which tests run in
+  each of these events.
+type: array
+items:
+  type: object
+  description: A set of tests that run in the same conditions
+  additionalProperties: false
+  required: [modules]
+  properties:
+    modules:
+      description: >-
+        A set of maven modules to test. A single string, or an array where every item is a plain
+        string, all run together in a single test job (per profile). To instead define several
+        independent test jobs that share the rest of this item's config (profiles, when, etc),
+        nest each job's modules in its own array, e.g. [[a, b], [c]] expands to one job testing
+        modules a and b together, and another job testing module c.
+      anyOf:
+        - type: string
+        - type: array
+          minItems: 1
+          items:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+                minItems: 1
+    profile:
+      description: >-
+        A maven profile to test. If unset, one job will be run for each module in modules, running
+        the default profile tests. To test more than one profile for the same modules, add a
+        separate schedule item per profile.
+      type: string
+    runners:
+      description: Runner labels to apply to the jobs created by this set of tests
+      type: array
+      items:
+        type: string
+    notify-channels:
+      description: Slack channel IDs to notify when tests fail on master or release branches
+      type: array
+      items:
+        type: string
+    matrix-properties:
+      description: Additional properties to add to each matrix cell. These will be copied verbatim
+      type: object
+      additionalProperties: true
+    when:
+      type: object
+      description: >-
+        Filters on when these tests run. If left unspecified, behaves the same as if set to
+        { pushes: true }. That is, tests will run unless impact detection ran and didn't detect
+        impact to the module.
+      additionalProperties: false
+      properties:
+        pushes:
+          description: >-
+            Whether to run these tests on any push to main branches (or addition to merge queue).
+            Default: false
+          type: boolean
+        dispatches:
+          description: >-
+            Whether to run these tests on manual dispatches (workflow_dispatch and
+            repository_dispatch events). Default: true
+          type: boolean
+        impacted:
+          description: >-
+            Whether to run tests for impacted modules in this set. Generally, should be true,
+            except in specific cases where other tests for the modules run and these are
+            particularly expensive or long-running. Default: true
+          type: boolean
+        scheduled:
+          description: >-
+            The scheduled run types on which to run these tests. Default: nightly
+          type: string
+          enum: [nightly, weekly, never]
+        labeled:
+          description: A set of labels which force these tests to run
+          type: array
+          items:
+            type: string

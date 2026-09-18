@@ -69,12 +69,12 @@ public class TestErrorThrowableInQuery
                     SchemaTableName classFormatErrorTableName = new SchemaTableName("default", "class_format_error_during_planning");
 
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                            .withListTables((session, s) -> ImmutableList.of(stackOverflowErrorTableName.getTableName()))
-                            .withGetColumns(schemaTableName -> ImmutableList.of(
+                            .withListTables((_, _) -> ImmutableList.of(stackOverflowErrorTableName.getTableName()))
+                            .withGetColumns(_ -> ImmutableList.of(
                                     new ColumnMetadata("test_varchar", createUnboundedVarcharType()),
                                     new ColumnMetadata("test_bigint", BIGINT)))
-                            .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
-                            .withApplyProjection((session, handle, projections, assignments) -> {
+                            .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                            .withApplyProjection((_, handle, _, _) -> {
                                 MockConnectorTableHandle mockTableHandle = (MockConnectorTableHandle) handle;
                                 if (stackOverflowErrorTableName.equals(mockTableHandle.getTableName())) {
                                     throw new StackOverflowError("We run out of stack!!!!!!!!!!!");

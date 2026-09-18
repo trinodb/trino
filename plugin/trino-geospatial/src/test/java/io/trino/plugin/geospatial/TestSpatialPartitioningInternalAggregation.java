@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
@@ -36,19 +32,24 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
 
 import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.math.DoubleMath.roundToInt;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
-import static io.trino.geospatial.serde.GeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getGroupValue;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.math.RoundingMode.CEILING;
@@ -56,6 +57,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpatialPartitioningInternalAggregation
 {
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
     @Test
     public void test()
     {
@@ -71,76 +74,131 @@ public class TestSpatialPartitioningInternalAggregation
         TestingAggregationFunction function = new TestingFunctionResolution(runner)
                 .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
 
-        List<OGCGeometry> geometries = makeGeometries();
+        List<Point> geometries = makeGeometries();
+        String aggregation = aggregate(function, geometries, partitionCount);
+
+        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
+        Slice expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
+        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+
+        String groupedAggregation = groupedAggregate(function, geometries, partitionCount);
+        assertThat(groupedAggregation).isEqualTo(expectedValue.toStringUtf8());
+    }
+
+    @Test
+    public void testUsesPlanarEnvelopeForSridAndZ()
+    {
+        QueryRunner runner = new StandaloneQueryRunner(testSessionBuilder().build());
+        runner.installPlugin(new GeoPlugin());
+
+        TestingAggregationFunction function = new TestingFunctionResolution(runner)
+                .getAggregateFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER));
+
+        List<Point> twoDimensionalGeometries = ImmutableList.of(
+                point(0, 0),
+                point(10, 5),
+                point(5, 10));
+        List<Point> geometriesWithMetadata = ImmutableList.of(
+                pointWithSridAndZ(0, 0, 100),
+                pointWithSridAndZ(10, 5, -100),
+                pointWithSridAndZ(5, 10, 50));
+
+        String aggregation = aggregate(function, geometriesWithMetadata, 2);
+
+        Rectangle expectedExtent = new Rectangle(0, 0, Math.nextUp(10.0), Math.nextUp(10.0));
+        Slice expectedValue = getSpatialPartitioning(expectedExtent, twoDimensionalGeometries, 2);
+        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+    }
+
+    private String aggregate(TestingAggregationFunction function, List<Point> geometries, int partitionCount)
+    {
         Block geometryBlock = makeGeometryBlock(geometries);
 
         BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
         INTEGER.writeInt(blockBuilder, partitionCount);
         Block partitionCountBlock = RunLengthEncodedBlock.create(blockBuilder.build(), geometries.size());
 
-        Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
-        Slice expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
-
         AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Aggregator aggregator = aggregatorFactory.createAggregator(new AggregationMetrics());
         aggregator.processPage(page);
-        String aggregation = (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
-        assertThat(aggregation).isEqualTo(expectedValue.toStringUtf8());
+        return (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
+    }
+
+    private String groupedAggregate(TestingAggregationFunction function, List<Point> geometries, int partitionCount)
+    {
+        Block geometryBlock = makeGeometryBlock(geometries);
+
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeInt(blockBuilder, partitionCount);
+        Block partitionCountBlock = RunLengthEncodedBlock.create(blockBuilder.build(), geometries.size());
+
+        AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
+        Page page = new Page(geometryBlock, partitionCountBlock);
 
         GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator(new AggregationMetrics());
         groupedAggregator.processPage(0, createGroupByIdBlock(0, page.getPositionCount()), page);
-        String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
-        assertThat(groupValue).isEqualTo(expectedValue.toStringUtf8());
+        return (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
     }
 
-    private List<OGCGeometry> makeGeometries()
+    private List<Point> makeGeometries()
     {
-        ImmutableList.Builder<OGCGeometry> geometries = ImmutableList.builder();
+        ImmutableList.Builder<Point> geometries = ImmutableList.builder();
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
-                geometries.add(new OGCPoint(new Point(-10 + i, -10 + j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(-10 + i, -10 + j)));
             }
         }
 
         for (int i = 0; i < 5; i++) {
             for (int j = 0; j < 5; j++) {
-                geometries.add(new OGCPoint(new Point(-10 + 2 * i, 2 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(-10 + 2 * i, 2 * j)));
             }
         }
 
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                geometries.add(new OGCPoint(new Point(2.5 * i, -10 + 2.5 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(2.5 * i, -10 + 2.5 * j)));
             }
         }
 
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                geometries.add(new OGCPoint(new Point(5 * i, 5 * j), null));
+                geometries.add(GEOMETRY_FACTORY.createPoint(new Coordinate(5 * i, 5 * j)));
             }
         }
 
         return geometries.build();
     }
 
-    private Block makeGeometryBlock(List<OGCGeometry> geometries)
+    private Point point(double x, double y)
+    {
+        return GEOMETRY_FACTORY.createPoint(new Coordinate(x, y));
+    }
+
+    private Point pointWithSridAndZ(double x, double y, double z)
+    {
+        Point point = GEOMETRY_FACTORY.createPoint(new Coordinate(x, y, z));
+        point.setSRID(4326);
+        return point;
+    }
+
+    private Block makeGeometryBlock(List<Point> geometries)
     {
         BlockBuilder builder = GEOMETRY.createBlockBuilder(null, geometries.size());
-        for (OGCGeometry geometry : geometries) {
+        for (Geometry geometry : geometries) {
             GEOMETRY.writeSlice(builder, serialize(geometry));
         }
         return builder.build();
     }
 
-    private Slice getSpatialPartitioning(Rectangle extent, List<OGCGeometry> geometries, int partitionCount)
+    private Slice getSpatialPartitioning(Rectangle extent, List<Point> geometries, int partitionCount)
     {
         ImmutableList.Builder<Rectangle> rectangles = ImmutableList.builder();
-        for (OGCGeometry geometry : geometries) {
-            Envelope envelope = new Envelope();
-            geometry.getEsriGeometry().queryEnvelope(envelope);
-            rectangles.add(new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+        for (Point geometry : geometries) {
+            Envelope envelope = geometry.getEnvelopeInternal();
+            rectangles.add(new Rectangle(envelope.getMinX(), envelope.getMinY(), envelope.getMaxX(), envelope.getMaxY()));
         }
 
         return KdbTreeUtils.toJson(buildKdbTree(roundToInt(geometries.size() * 1.0 / partitionCount, CEILING), extent, rectangles.build()));

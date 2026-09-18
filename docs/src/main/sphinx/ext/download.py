@@ -49,6 +49,7 @@ ARTIFACTS = {
     'jmx':  ('trino-jmx', 'zip'),
     'kafka':  ('trino-kafka', 'zip'),
     'kafka-event-listener':  ('trino-kafka-event-listener', 'zip'),
+    'lakehouse':  ('trino-lakehouse', 'zip'),
     'loki':  ('trino-loki', 'zip'),
     'mariadb':  ('trino-mariadb', 'zip'),
     'memory':  ('trino-memory', 'zip'),
@@ -77,7 +78,6 @@ ARTIFACTS = {
     'thrift':  ('trino-thrift', 'zip'),
     'tpcds':  ('trino-tpcds', 'zip'),
     'tpch':  ('trino-tpch', 'zip'),
-    'vertica':  ('trino-vertica', 'zip'),
 }
 
 def filename(artifact, version, extension):

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,10 +15,18 @@
 
     <properties>
         <project.build.targetJdk>11</project.build.targetJdk>
+        <airstyle.rewriteUnusedLambdaParameters>false</airstyle.rewriteUnusedLambdaParameters>
+        <checkstyle.violation.ignore>UnusedLambdaParameterShouldBeUnnamed,UseEnhancedSwitch</checkstyle.violation.ignore>
         <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
@@ -103,6 +111,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>provided</scope>
@@ -115,15 +129,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc11</artifactId>
+            <artifactId>ojdbc17</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -148,6 +155,18 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -184,6 +203,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>security</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -388,15 +413,6 @@
 
         <pluginManagement>
             <plugins>
-                <!-- TODO: move this to Airbase -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <configuration>
-                        <propertiesEncoding>ISO-8859-1</propertiesEncoding>
-                    </configuration>
-                </plugin>
-
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
@@ -420,21 +436,6 @@
         </pluginManagement>
 
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <bannedDependencies>
-                            <includes combine.children="append">
-                                <!-- Legacy HDFS file system uses AWS S3 SDK v1 -->
-                                <include>com.amazonaws:*:*</include>
-                            </includes>
-                        </bannedDependencies>
-                    </rules>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -474,6 +475,10 @@
                                 <relocation>
                                     <pattern>io.trino.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.trino.client.DnsResolver</pattern>
+                                    <shadedPattern>io.trino.jdbc.DnsResolver</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>io.opentelemetry.instrumentation.okhttp.v3_0</pattern>

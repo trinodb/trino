@@ -98,6 +98,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -109,6 +110,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getMinInputRowsPerTask;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
@@ -129,6 +131,7 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.partiti
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
 import static io.trino.sql.planner.optimizations.LocalProperties.grouped;
 import static io.trino.sql.planner.optimizations.PreferredProperties.partitionedWithLocal;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -137,6 +140,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static java.lang.Double.isNaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -670,7 +674,8 @@ public class AddExchanges
                         true,
                         session,
                         plannerContext,
-                        statsProvider);
+                        statsProvider,
+                        symbolAllocator);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }
@@ -819,8 +824,7 @@ public class AddExchanges
                 else {
                     PartitioningHandle partitioningHandle = partitioningScheme.get().getPartitioning().getHandle();
                     verify(!(partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle));
-                    verify(
-                            partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    verify(partitioningScheme.get().getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                             "Table writer partitioning has constant arguments");
                     partitioningScheme = Optional.of(partitioningScheme.get().withPartitioningHandle(
                             new PartitioningHandle(
@@ -936,7 +940,7 @@ public class AddExchanges
 
         private <T> Function<T, Optional<T>> createTranslator(SetMultimap<T, T> inputToOutput)
         {
-            return input -> inputToOutput.get(input).stream().findAny();
+            return input -> inputToOutput.get(input).stream().findFirst();
         }
 
         private <T> Function<T, T> createDirectTranslator(SetMultimap<T, T> inputToOutput)
@@ -1033,6 +1037,14 @@ public class AddExchanges
             // Broadcast Join
             PlanWithProperties right = node.getRight().accept(this, PreferredProperties.any());
 
+            if (left.getProperties().isSingleNode() && node.isCrossJoin() && shouldDistributeCrossJoin(node)) {
+                // A cross join multiplies its inputs, so spread a single-node probe (e.g. the output of a LIMIT)
+                // across all nodes and replicate the build side instead of running the join on one node
+                left = withDerivedProperties(
+                        roundRobinExchange(idAllocator.getNextId(), REMOTE, left.getNode()),
+                        left.getProperties());
+            }
+
             if (left.getProperties().isSingleNode()) {
                 if (!right.getProperties().isSingleNode() ||
                         (!isColocatedJoinEnabled(session) && hasMultipleSources(left.getNode(), right.getNode()))) {
@@ -1048,6 +1060,21 @@ public class AddExchanges
             }
 
             return buildJoin(node, left, right, JoinNode.DistributionType.REPLICATED);
+        }
+
+        private boolean shouldDistributeCrossJoin(JoinNode node)
+        {
+            // A scalar probe has nothing to spread, and a zero threshold disables the rewrite
+            long minInputRowsPerTask = getMinInputRowsPerTask(session);
+            if (minInputRowsPerTask == 0 || isAtMostScalar(node.getLeft())) {
+                return false;
+            }
+            // The join stays on one node only when the output is known to fit in a single task
+            double outputRowCount = statsProvider.getStats(node).getOutputRowCount();
+            if (isNaN(outputRowCount)) {
+                return true;
+            }
+            return outputRowCount >= minInputRowsPerTask;
         }
 
         private PlanWithProperties buildJoin(JoinNode node, PlanWithProperties newLeft, PlanWithProperties newRight, JoinNode.DistributionType newDistributionType)
@@ -1392,7 +1419,9 @@ public class AddExchanges
                             Optional.empty());
 
                     unpartitionedChildren.add(result);
-                    unpartitionedOutputLayouts.add(result.getOutputSymbols());
+                    // Use exchangeOutputLayout, which is positionally aligned with node.getOutputSymbols(),
+                    // rather than the exchange's own output symbols, which the ExchangeNode constructor may reorder.
+                    unpartitionedOutputLayouts.add(exchangeOutputLayout);
                 }
 
                 ImmutableListMultimap.Builder<Symbol, Symbol> mappings = ImmutableListMultimap.builder();
@@ -1507,7 +1536,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanSanityChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, plannerContext, session, symbolAllocator);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1515,7 +1544,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session);
+            return PropertyDerivations.derivePropertiesRecursively(result, plannerContext, session, symbolAllocator);
         }
 
         private PreferredProperties computePreference(PreferredProperties preferredProperties, PreferredProperties parentPreferredProperties)
@@ -1535,9 +1564,9 @@ public class AddExchanges
     private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
-            if (assignment.getValue() instanceof Reference) {
-                outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
+        for (Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
+            if (assignment.getValue() instanceof Reference reference) {
+                outputToInput.put(assignment.getKey(), Symbol.from(reference));
             }
         }
         return outputToInput;

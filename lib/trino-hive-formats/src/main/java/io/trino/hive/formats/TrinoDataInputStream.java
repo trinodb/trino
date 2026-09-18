@@ -420,7 +420,6 @@ public final class TrinoDataInputStream
     @SuppressWarnings("NonSynchronizedMethodOverridesSynchronizedMethod")
     @Deprecated
     public void reset()
-
     {
         throw new UnsupportedOperationException();
     }

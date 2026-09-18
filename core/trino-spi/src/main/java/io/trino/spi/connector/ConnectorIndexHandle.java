@@ -13,6 +13,4 @@
  */
 package io.trino.spi.connector;
 
-public interface ConnectorIndexHandle
-{
-}
+public interface ConnectorIndexHandle {}

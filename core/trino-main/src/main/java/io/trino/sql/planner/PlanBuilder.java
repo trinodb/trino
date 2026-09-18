@@ -48,15 +48,15 @@ class PlanBuilder
         this.root = root;
     }
 
-    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Session session, PlannerContext plannerContext)
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
-        return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of(), session, plannerContext);
+        return newPlanBuilder(plan, analysis, lambdaArguments, ImmutableMap.of(), session, plannerContext, symbolAllocator);
     }
 
-    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings, Session session, PlannerContext plannerContext)
+    public static PlanBuilder newPlanBuilder(RelationPlan plan, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Map<ScopeAware<io.trino.sql.tree.Expression>, Symbol> mappings, Session session, PlannerContext plannerContext, SymbolAllocator symbolAllocator)
     {
         return new PlanBuilder(
-                new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings, session, plannerContext),
+                new TranslationMap(plan.getOuterContext(), plan.getScope(), analysis, lambdaArguments, plan.getFieldMappings(), mappings, session, plannerContext, symbolAllocator),
                 plan.getRoot());
     }
 

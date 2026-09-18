@@ -3,40 +3,49 @@
     "spec": {
         "dataSchema": {
             "dataSource": "orders",
-            "parser": {
-                "type": "string",
-                "parseSpec": {
-                    "format": "tsv",
-                    "timestampSpec": {
-                        "column": "orderdate_druid_ts",
-                        "format": "auto"
+            "timestampSpec": {
+                "column": "orderdate_druid_ts",
+                "format": "auto"
+            },
+            "dimensionsSpec": {
+                "dimensions": [
+                    {
+                        "name": "orderdate",
+                        "type": "string"
                     },
-                    "columns": [
-                        "orderdate",
-                        "orderdate_druid_ts",
-                        "orderkey",
-                        "custkey",
-                        "orderstatus",
-                        "totalprice",
-                        "orderpriority",
-                        "clerk",
-                        "shippriority",
-                        "comment"
-                    ],
-                    "dimensionsSpec": {
-                        "dimensions": [
-                            { "name": "orderdate", "type": "string"},
-                            { "name": "orderkey", "type": "long" },
-                            { "name": "custkey", "type": "long" },
-                            { "name": "orderstatus", "type": "string" },
-                            { "name": "totalprice", "type": "double"},
-                            { "name": "orderpriority", "type": "string" },
-                            { "name": "clerk", "type": "string" },
-                            {"name":  "shippriority", "type": "long"},
-                            { "name": "comment", "type": "string" }
-                        ]
+                    {
+                        "name": "orderkey",
+                        "type": "long"
+                    },
+                    {
+                        "name": "custkey",
+                        "type": "long"
+                    },
+                    {
+                        "name": "orderstatus",
+                        "type": "string"
+                    },
+                    {
+                        "name": "totalprice",
+                        "type": "double"
+                    },
+                    {
+                        "name": "orderpriority",
+                        "type": "string"
+                    },
+                    {
+                        "name": "clerk",
+                        "type": "string"
+                    },
+                    {
+                        "name": "shippriority",
+                        "type": "long"
+                    },
+                    {
+                        "name": "comment",
+                        "type": "string"
                     }
-                }
+                ]
             },
             "granularitySpec": {
                 "type": "uniform",
@@ -49,10 +58,26 @@
         },
         "ioConfig": {
             "type": "index",
-            "firehose": {
+            "inputSource": {
                 "type": "local",
                 "baseDir": "/opt/druid/var/",
                 "filter": "orders.tsv"
+            },
+            "inputFormat": {
+                "type": "tsv",
+                "findColumnsFromHeader": false,
+                "columns": [
+                    "orderdate",
+                    "orderdate_druid_ts",
+                    "orderkey",
+                    "custkey",
+                    "orderstatus",
+                    "totalprice",
+                    "orderpriority",
+                    "clerk",
+                    "shippriority",
+                    "comment"
+                ]
             },
             "appendToExisting": false
         },
@@ -66,4 +91,3 @@
         }
     }
 }
-

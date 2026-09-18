@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 
-@ScalarFunction("array_min")
+@ScalarFunction(value = "array_min", neverFails = true)
 @Description("Get minimum value of array")
 public final class ArrayMinFunction
 {
@@ -42,7 +42,8 @@ public final class ArrayMinFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            MethodHandle compareMethodHandle,
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block block)
             throws Throwable

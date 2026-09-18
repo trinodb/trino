@@ -29,7 +29,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -80,19 +81,19 @@ public final class NullableValue
     {
         Type type = serializable.getType();
         Block block = serializable.getBlock();
-        return new NullableValue(type, block == null ? null : Utils.blockToNativeValue(type, block));
+        return new NullableValue(type, block == null ? null : blockToNativeValue(type, block));
     }
 
     // Jackson serialization only
     @JsonProperty
     public Serializable getSerializable()
     {
-        return new Serializable(type, value == null ? null : Utils.nativeValueToBlock(type, value));
+        return new Serializable(type, value == null ? null : writeNativeValue(type, value));
     }
 
     public Block asBlock()
     {
-        return Utils.nativeValueToBlock(type, value);
+        return writeNativeValue(type, value);
     }
 
     public Type getType()
@@ -160,7 +161,7 @@ public final class NullableValue
     {
         StringBuilder sb = new StringBuilder("NullableValue{");
         sb.append("type=").append(type);
-        sb.append(", value=").append(type.getObjectValue(nativeValueToBlock(type, value), 0));
+        sb.append(", value=").append(type.getObjectValue(writeNativeValue(type, value), 0));
         sb.append('}');
         return sb.toString();
     }

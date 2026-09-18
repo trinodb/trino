@@ -65,7 +65,7 @@ public class TestRemoteQueryCommentLoggingDisabledByDefault
                 .stopEventsRecording()
                 .streamQueriesContaining("*/"))
                 .size()
-                .isGreaterThanOrEqualTo(0); //Depending on whether fault tolerancy is enabled or not, this might vary and we don't want to over-specify
+                .isGreaterThanOrEqualTo(0); // Depending on whether fault tolerancy is enabled or not, this might vary and we don't want to over-specify
 
         assertThat(postgreSqlServer.recordEventsForOperations(() -> getQueryRunner().execute("DROP TABLE postgresql.tpch.log_nation_test_table"))
                 .stopEventsRecording()

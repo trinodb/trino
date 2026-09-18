@@ -74,8 +74,7 @@ public class RawQuery
 
         public RawQueryFunction(OpenSearchMetadata metadata)
         {
-            super(
-                    SCHEMA_NAME,
+            super(SCHEMA_NAME,
                     NAME,
                     List.of(
                             ScalarArgumentSpecification.builder()
@@ -90,7 +89,8 @@ public class RawQuery
                                     .name("QUERY")
                                     .type(VARCHAR)
                                     .build()),
-                    GENERIC_TABLE);
+                    GENERIC_TABLE,
+                    "");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 

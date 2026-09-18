@@ -19,7 +19,6 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import static io.trino.jdbc.TrinoResultSetMetaData.getType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -95,7 +94,7 @@ public class TrinoParameterMetaData
     public String getParameterClassName(int param)
             throws SQLException
     {
-        return getType(getParameter(param).getColumnType());
+        return getParameter(param).getColumnJavaClassName();
     }
 
     @Override

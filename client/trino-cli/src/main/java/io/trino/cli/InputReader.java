@@ -32,23 +32,24 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static io.trino.cli.TerminalUtils.isRealTerminal;
+import static java.util.Objects.requireNonNull;
 import static org.jline.reader.LineReader.BLINK_MATCHING_PAREN;
 import static org.jline.reader.LineReader.HISTORY_FILE;
 import static org.jline.reader.LineReader.MAIN;
 import static org.jline.reader.LineReader.Option.HISTORY_IGNORE_SPACE;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
 import static org.jline.reader.LineReader.SECONDARY_PROMPT_PATTERN;
-import static org.jline.utils.AttributedStyle.BRIGHT;
-import static org.jline.utils.AttributedStyle.DEFAULT;
 
 public class InputReader
         implements Closeable
 {
+    private final Theme theme;
     private final LineReader reader;
 
-    public InputReader(ClientOptions.EditingMode editingMode, Optional<Path> historyFile, boolean disableAutoSuggestion, Completer... completers)
+    public InputReader(ClientOptions.EditingMode editingMode, Optional<Path> historyFile, boolean disableAutoSuggestion, Theme theme, Completer... completers)
             throws IOException
     {
+        this.theme = requireNonNull(theme, "theme is null");
         LineReaderBuilder builder = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())
                 .variable(HISTORY_FILE, historyFile)
@@ -56,7 +57,7 @@ public class InputReader
                 .variable(BLINK_MATCHING_PAREN, 0)
                 .option(HISTORY_IGNORE_SPACE, false) // store history even if the query starts with spaces
                 .parser(new InputParser())
-                .highlighter(new InputHighlighter())
+                .highlighter(new InputHighlighter(theme))
                 .completer(new AggregateCompleter(completers));
         historyFile.ifPresent(path -> builder.variable(HISTORY_FILE, path));
         reader = builder.build();
@@ -94,9 +95,9 @@ public class InputReader
         return reader.getTerminal();
     }
 
-    private static String colored(String value)
+    private String colored(String value)
     {
-        return new AttributedString(value, DEFAULT.foreground(BRIGHT)).toAnsi();
+        return new AttributedString(value, theme.prompt()).toAnsi();
     }
 
     private static KeyMap<Binding> configureKeyMap(LineReader reader, ClientOptions.EditingMode editingMode)

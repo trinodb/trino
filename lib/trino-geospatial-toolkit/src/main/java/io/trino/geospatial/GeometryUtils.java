@@ -13,28 +13,60 @@
  */
 package io.trino.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryCursor;
-import com.esri.core.geometry.GeometryEngine;
-import com.esri.core.geometry.MultiVertexGeometry;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.Polygon;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
-import com.esri.core.geometry.ogc.OGCPolygon;
 import io.trino.spi.TrinoException;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.TopologyException;
+import org.locationtech.jts.geom.impl.CoordinateArraySequence;
+import org.locationtech.jts.geom.util.GeometryFixer;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
+import org.locationtech.jts.operation.union.UnaryUnionOp;
+import org.locationtech.jts.operation.valid.IsValidOp;
+import org.locationtech.jts.operation.valid.TopologyValidationError;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.util.stream.Collectors.joining;
 
 public final class GeometryUtils
 {
+    /**
+     * When set to {@code true} (JVM flag {@code -Dtrino.geospatial.legacy-lenient-overlay=true}),
+     * an overlay or union operation that fails on a topologically invalid input repairs it with
+     * {@link GeometryFixer} and retries once, matching the lenient behavior of the legacy Esri
+     * engine. By default such a failure is reported as {@code INVALID_FUNCTION_ARGUMENT}.
+     */
+    public static final String LEGACY_LENIENT_OVERLAY_PROPERTY = "trino.geospatial.legacy-lenient-overlay";
+    private static final boolean LEGACY_LENIENT_OVERLAY = parseLegacyLenientOverlay(System.getProperty(LEGACY_LENIENT_OVERLAY_PROPERTY));
+
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+    private static final long POINT_INSTANCE_SIZE = instanceSize(Point.class);
+    private static final long LINE_STRING_INSTANCE_SIZE = instanceSize(LineString.class);
+    private static final long LINEAR_RING_INSTANCE_SIZE = instanceSize(LinearRing.class);
+    private static final long POLYGON_INSTANCE_SIZE = instanceSize(Polygon.class);
+    private static final long GEOMETRY_COLLECTION_INSTANCE_SIZE = instanceSize(GeometryCollection.class);
+    private static final long COORDINATE_ARRAY_SEQUENCE_INSTANCE_SIZE = instanceSize(CoordinateArraySequence.class);
+    private static final long COORDINATE_INSTANCE_SIZE = instanceSize(Coordinate.class);
+
     private GeometryUtils() {}
 
     /**
@@ -45,7 +77,7 @@ public final class GeometryUtils
      */
     private static double translateFromAVNaN(double n)
     {
-        return n < -1.0E38D ? (0.0D / 0.0) : n;
+        return n < -1.0e38d ? (0.0d / 0.0) : n;
     }
 
     /**
@@ -63,111 +95,44 @@ public final class GeometryUtils
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
     }
 
-    public static int getPointCount(OGCGeometry ogcGeometry)
+    /**
+     * Do a best-effort attempt to estimate the memory size of a JTS geometry.
+     */
+    public static long estimateMemorySize(Geometry geometry)
     {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        int points = 0;
-        while (true) {
-            com.esri.core.geometry.Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return points;
-            }
-
-            if (geometry.isEmpty()) {
-                continue;
-            }
-
-            if (geometry instanceof Point) {
-                points++;
-            }
-            else {
-                points += ((MultiVertexGeometry) geometry).getPointCount();
-            }
+        if (geometry == null) {
+            return 0;
         }
+
+        if (geometry instanceof Point point) {
+            return POINT_INSTANCE_SIZE + getCoordinateSequenceMemorySize(point.getCoordinateSequence());
+        }
+        if (geometry instanceof LinearRing linearRing) {
+            return LINEAR_RING_INSTANCE_SIZE + getCoordinateSequenceMemorySize(linearRing.getCoordinateSequence());
+        }
+        if (geometry instanceof LineString lineString) {
+            return LINE_STRING_INSTANCE_SIZE + getCoordinateSequenceMemorySize(lineString.getCoordinateSequence());
+        }
+        if (geometry instanceof Polygon polygon) {
+            long size = POLYGON_INSTANCE_SIZE + sizeOfObjectArray(polygon.getNumInteriorRing());
+            size += estimateMemorySize(polygon.getExteriorRing());
+            for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+                size += estimateMemorySize(polygon.getInteriorRingN(i));
+            }
+            return size;
+        }
+        if (geometry instanceof GeometryCollection geometryCollection) {
+            long size = GEOMETRY_COLLECTION_INSTANCE_SIZE + sizeOfObjectArray(geometryCollection.getNumGeometries());
+            for (int i = 0; i < geometryCollection.getNumGeometries(); i++) {
+                size += estimateMemorySize(geometryCollection.getGeometryN(i));
+            }
+            return size;
+        }
+
+        return instanceSize(geometry.getClass());
     }
 
-    public static Envelope getEnvelope(OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        Envelope overallEnvelope = new Envelope();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return overallEnvelope;
-            }
-
-            Envelope envelope = new Envelope();
-            geometry.queryEnvelope(envelope);
-            overallEnvelope.merge(envelope);
-        }
-    }
-
-    public static boolean disjoint(Geometry polygon, OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return true;
-            }
-
-            if (!GeometryEngine.disjoint(geometry, polygon, null)) {
-                return false;
-            }
-        }
-    }
-
-    public static boolean contains(OGCGeometry ogcGeometry, Geometry polygon)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return false;
-            }
-
-            if (GeometryEngine.contains(geometry, polygon, null)) {
-                return true;
-            }
-        }
-    }
-
-    public static boolean isPointOrRectangle(OGCGeometry ogcGeometry, Envelope envelope)
-    {
-        if (ogcGeometry instanceof OGCPoint) {
-            return true;
-        }
-
-        if (!(ogcGeometry instanceof OGCPolygon)) {
-            return false;
-        }
-
-        Polygon polygon = (Polygon) ogcGeometry.getEsriGeometry();
-        if (polygon.getPathCount() > 1) {
-            return false;
-        }
-
-        if (polygon.getPointCount() != 4) {
-            return false;
-        }
-
-        Set<Point> corners = new HashSet<>();
-        corners.add(new Point(envelope.getXMin(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMin(), envelope.getYMax()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
-
-        for (int i = 0; i < 4; i++) {
-            Point point = polygon.getPoint(i);
-            if (!corners.contains(point)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    public static org.locationtech.jts.geom.Geometry jtsGeometryFromJson(String json)
+    public static Geometry jtsGeometryFromJson(String json)
     {
         try {
             return new GeoJsonReader().read(json);
@@ -177,10 +142,229 @@ public final class GeometryUtils
         }
     }
 
-    public static String jsonFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
+    public static String jsonFromJtsGeometry(Geometry geometry)
     {
         GeoJsonWriter geoJsonWriter = new GeoJsonWriter();
         geoJsonWriter.setEncodeCRS(false);
         return geoJsonWriter.write(geometry);
+    }
+
+    public static boolean disjoint(Geometry tileGeometry, Geometry geometry)
+    {
+        if (geometry instanceof GeometryCollection gc) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                if (!disjoint(tileGeometry, gc.getGeometryN(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return geometry.disjoint(tileGeometry);
+    }
+
+    public static boolean contains(Geometry geometry, Geometry tileGeometry)
+    {
+        if (geometry instanceof GeometryCollection gc &&
+                !(geometry instanceof MultiPoint) &&
+                !(geometry instanceof MultiLineString) &&
+                !(geometry instanceof MultiPolygon)) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                if (contains(gc.getGeometryN(i), tileGeometry)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return geometry.contains(tileGeometry);
+    }
+
+    public static boolean isPointOrRectangle(Geometry geometry, Envelope envelope)
+    {
+        if (geometry instanceof Point) {
+            return true;
+        }
+
+        if (!(geometry instanceof Polygon polygon)) {
+            return false;
+        }
+
+        if (polygon.getNumInteriorRing() > 0) {
+            return false;
+        }
+
+        // Polygon has 5 points (4 corners + closing point that repeats the first)
+        if (polygon.getNumPoints() != 5) {
+            return false;
+        }
+
+        Set<Coordinate> corners = new HashSet<>();
+        corners.add(new Coordinate(envelope.getMinX(), envelope.getMinY()));
+        corners.add(new Coordinate(envelope.getMinX(), envelope.getMaxY()));
+        corners.add(new Coordinate(envelope.getMaxX(), envelope.getMinY()));
+        corners.add(new Coordinate(envelope.getMaxX(), envelope.getMaxY()));
+
+        Coordinate[] coordinates = polygon.getExteriorRing().getCoordinates();
+        // Check all 4 unique corners (skip the closing point which is same as first)
+        for (int i = 0; i < 4; i++) {
+            if (!corners.contains(coordinates[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Unions two geometries, handling GeometryCollection inputs that JTS's
+     * standard union method doesn't support.
+     * <p>
+     * When JTS fails because an operand is topologically invalid, {@code repairInvalidInputs}
+     * selects between repairing the operand and retrying, and failing with a user error naming it.
+     * Callers pass {@link #legacyLenientOverlay()}, so the repair is unreachable unless that
+     * property is enabled.
+     */
+    public static Geometry safeUnion(Geometry left, Geometry right, boolean repairInvalidInputs)
+    {
+        // JTS union doesn't support GeometryCollection, so flatten and use UnaryUnionOp
+        List<Geometry> geometries = new ArrayList<>();
+        flattenGeometry(left, geometries);
+        flattenGeometry(right, geometries);
+        if (geometries.isEmpty()) {
+            return GEOMETRY_FACTORY.createGeometryCollection();
+        }
+        try {
+            return UnaryUnionOp.union(geometries);
+        }
+        catch (TopologyException failure) {
+            boolean leftValid;
+            boolean rightValid;
+            try {
+                leftValid = left.isValid();
+                rightValid = right.isValid();
+            }
+            catch (RuntimeException validationFailure) {
+                failure.addSuppressed(validationFailure);
+                throw failure;
+            }
+            if (leftValid && rightValid) {
+                throw failure;
+            }
+            if (!repairInvalidInputs) {
+                throw invalidInputGeometryException(invalidInputs(left, right, leftValid, rightValid), failure);
+            }
+
+            try {
+                // Repair the original inputs, not their components: an invalid MultiPolygon can consist of valid polygons
+                List<Geometry> repairedGeometries = new ArrayList<>();
+                flattenGeometry(leftValid ? left : GeometryFixer.fix(left), repairedGeometries);
+                flattenGeometry(rightValid ? right : GeometryFixer.fix(right), repairedGeometries);
+                if (repairedGeometries.isEmpty()) {
+                    return GEOMETRY_FACTORY.createGeometryCollection();
+                }
+                return UnaryUnionOp.union(repairedGeometries);
+            }
+            catch (RuntimeException retryFailure) {
+                throw invalidInputGeometryException(invalidInputs(left, right, leftValid, rightValid), failure, retryFailure);
+            }
+        }
+    }
+
+    /**
+     * Whether {@link #LEGACY_LENIENT_OVERLAY_PROPERTY} is enabled.
+     */
+    public static boolean legacyLenientOverlay()
+    {
+        return LEGACY_LENIENT_OVERLAY;
+    }
+
+    static boolean parseLegacyLenientOverlay(String value)
+    {
+        if (value == null || value.equals("false")) {
+            return false;
+        }
+        if (value.equals("true")) {
+            return true;
+        }
+        throw new IllegalArgumentException("System property %s must be 'true' or 'false', but was: %s"
+                .formatted(LEGACY_LENIENT_OVERLAY_PROPERTY, value));
+    }
+
+    public static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure)
+    {
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, invalidInputGeometryMessage(invalidInputs), failure);
+    }
+
+    public static TrinoException invalidInputGeometryException(List<Geometry> invalidInputs, TopologyException failure, RuntimeException retryFailure)
+    {
+        failure.addSuppressed(retryFailure);
+        return invalidInputGeometryException(invalidInputs, failure);
+    }
+
+    private static String invalidInputGeometryMessage(List<Geometry> invalidInputs)
+    {
+        String reasons = invalidInputs.stream()
+                .limit(3)
+                .map(GeometryUtils::describeInvalidity)
+                .collect(joining("; "));
+        if (invalidInputs.size() > 3) {
+            reasons += " (and %s more invalid inputs)".formatted(invalidInputs.size() - 3);
+        }
+        return "Invalid input geometry: " + reasons;
+    }
+
+    private static List<Geometry> invalidInputs(Geometry left, Geometry right, boolean leftValid, boolean rightValid)
+    {
+        List<Geometry> invalidInputs = new ArrayList<>();
+        if (!leftValid) {
+            invalidInputs.add(left);
+        }
+        if (!rightValid) {
+            invalidInputs.add(right);
+        }
+        return invalidInputs;
+    }
+
+    private static String describeInvalidity(Geometry geometry)
+    {
+        TopologyValidationError error = new IsValidOp(geometry).getValidationError();
+        if (error == null) {
+            return "unknown validity error";
+        }
+        Coordinate coordinate = error.getCoordinate();
+        if (coordinate == null) {
+            return error.getMessage();
+        }
+        return "%s at or near (%s %s)".formatted(error.getMessage(), coordinate.getX(), coordinate.getY());
+    }
+
+    /**
+     * Create a JTS Point from x/y coordinates.
+     */
+    public static Point createPoint(double x, double y)
+    {
+        Coordinate coordinate = new Coordinate(x, y);
+        return GEOMETRY_FACTORY.createPoint(coordinate);
+    }
+
+    private static void flattenGeometry(Geometry geometry, List<Geometry> output)
+    {
+        if (geometry.isEmpty()) {
+            return;
+        }
+        if (geometry instanceof GeometryCollection gc) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                flattenGeometry(gc.getGeometryN(i), output);
+            }
+        }
+        else {
+            output.add(geometry);
+        }
+    }
+
+    private static long getCoordinateSequenceMemorySize(CoordinateSequence coordinateSequence)
+    {
+        return COORDINATE_ARRAY_SEQUENCE_INSTANCE_SIZE +
+                sizeOfObjectArray(coordinateSequence.size()) +
+                (long) coordinateSequence.size() * COORDINATE_INSTANCE_SIZE;
     }
 }

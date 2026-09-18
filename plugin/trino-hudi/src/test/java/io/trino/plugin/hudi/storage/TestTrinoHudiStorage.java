@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestTrinoHudiStorage
         extends TestHoodieStorageBase
 {
-    private static final byte[] EMPTY_BYTES = new byte[] {};
+    private static final byte[] EMPTY_BYTES = {};
 
     private static TrinoFileSystem fileSystem;
 
@@ -137,9 +137,9 @@ final class TestTrinoHudiStorage
 
         validatePathInfoList(
                 storage.listDirectEntries(ImmutableList.<StoragePath>builder()
-                                .add(new StoragePath(getTempDir(), "w"))
-                                .add(new StoragePath(getTempDir(), "x/z"))
-                                .build()),
+                        .add(new StoragePath(getTempDir(), "w"))
+                        .add(new StoragePath(getTempDir(), "x/z"))
+                        .build()),
                 ImmutableList.<StoragePathInfo>builder()
                         .add(getStoragePathInfo("w/1.file", false))
                         .add(getStoragePathInfo("w/2.file", false))
@@ -204,7 +204,7 @@ final class TestTrinoHudiStorage
         validatePathInfo(storage, path, EMPTY_BYTES, false);
         storage.deleteFile(path);
 
-        byte[] data = new byte[] {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
+        byte[] data = {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
 
         try (OutputStream stream = storage.create(path)) {
             stream.write(data);
@@ -246,8 +246,13 @@ final class TestTrinoHudiStorage
 
     private StoragePathInfo getStoragePathInfo(String subPath, boolean isDirectory)
     {
-        return new StoragePathInfo(new StoragePath(getTempDir(), subPath),
-                0, isDirectory, (short) 1, 1000000L, 10L);
+        return new StoragePathInfo(
+                new StoragePath(getTempDir(), subPath),
+                0,
+                isDirectory,
+                (short) 1,
+                1000000L,
+                10L);
     }
 
     private static void validatePathInfo(
@@ -348,7 +353,7 @@ final class TestTrinoHudiStorage
                 .isInstanceOf(FileNotFoundException.class)
                 .hasMessageContaining("does not exist");
 
-        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, path -> true))
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, _ -> true))
                 .isInstanceOf(FileNotFoundException.class)
                 .hasMessageContaining("does not exist");
     }

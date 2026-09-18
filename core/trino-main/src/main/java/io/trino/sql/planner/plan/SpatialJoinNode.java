@@ -73,7 +73,7 @@ public class SpatialJoinNode
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     @JsonCreator

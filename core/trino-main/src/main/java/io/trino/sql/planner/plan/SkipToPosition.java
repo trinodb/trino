@@ -18,5 +18,5 @@ public enum SkipToPosition
     PAST_LAST,
     NEXT,
     FIRST,
-    LAST
+    LAST,
 }

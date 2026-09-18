@@ -42,6 +42,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Double.doubleToRawLongBits;
@@ -124,14 +125,29 @@ public class FloatColumnReader
         else if (presentStream == null) {
             block = readNonNullBlock();
         }
-        else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+        else if (type == DOUBLE) {
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readLongNullBlock(valueIsValid, nonNullCount);
+            }
+            else {
+                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            }
+        }
+        else {
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
+            if (nullCount == 0) {
+                block = readNonNullBlock();
+            }
+            else if (nullCount != nextBatchSize) {
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -159,7 +175,7 @@ public class FloatColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -171,12 +187,28 @@ public class FloatColumnReader
 
         dataStream.next(nonNullValueTemp, nonNullCount);
 
-        int[] result = ReaderUtils.unpackIntNulls(nonNullValueTemp, isNull);
+        int[] result = ReaderUtils.unpackIntNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
         if (type == REAL) {
-            return new IntArrayBlock(isNull.length, Optional.of(isNull), result);
+            return new IntArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
         }
+        throw new VerifyError("Unsupported type " + type);
+    }
+
+    private Block readLongNullBlock(long[] valueIsValid, int nonNullCount)
+            throws IOException
+    {
+        verifyNotNull(dataStream);
+        int minNonNullValueSize = minNonNullValueSize(nonNullCount);
+        if (nonNullValueTemp.length < minNonNullValueSize) {
+            nonNullValueTemp = new int[minNonNullValueSize];
+            memoryContext.setBytes(sizeOf(nonNullValueTemp));
+        }
+
+        dataStream.next(nonNullValueTemp, nonNullCount);
+
+        int[] result = ReaderUtils.unpackIntNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
         if (type == DOUBLE) {
-            return new LongArrayBlock(isNull.length, Optional.of(isNull), convertToLongArray(result));
+            return new LongArrayBlock(nextBatchSize, Optional.of(valueIsValid), convertToLongArray(result));
         }
         throw new VerifyError("Unsupported type " + type);
     }

@@ -44,7 +44,7 @@ public class JsonExists
         FALSE, // default
         TRUE,
         UNKNOWN,
-        ERROR
+        ERROR,
     }
 
     public JsonPathInvocation getJsonPathInvocation()

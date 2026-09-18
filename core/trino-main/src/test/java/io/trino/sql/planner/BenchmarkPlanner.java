@@ -106,7 +106,7 @@ public class BenchmarkPlanner
                     .buildOrThrow());
 
             planTester.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                    .withGetTableHandle((session1, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                    .withGetTableHandle((_, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                     .withGetColumns(name -> {
                         if (!name.equals(TABLE)) {
                             throw new IllegalArgumentException();

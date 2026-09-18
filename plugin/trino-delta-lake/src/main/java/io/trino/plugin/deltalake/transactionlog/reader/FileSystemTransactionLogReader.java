@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.reader;
 
 import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
+import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -28,13 +28,13 @@ public class FileSystemTransactionLogReader
         implements TransactionLogReader
 {
     private final String tableLocation;
-    private final VendedCredentialsHandle credentialsHandle;
+    private final Optional<DeltaLakeTableCredentials> tableCredentials;
     private final DeltaLakeFileSystemFactory fileSystemFactory;
 
-    public FileSystemTransactionLogReader(String tableLocation, VendedCredentialsHandle credentialsHandle, DeltaLakeFileSystemFactory fileSystemFactory)
+    public FileSystemTransactionLogReader(String tableLocation, Optional<DeltaLakeTableCredentials> tableCredentials, DeltaLakeFileSystemFactory fileSystemFactory)
     {
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
@@ -46,6 +46,6 @@ public class FileSystemTransactionLogReader
             DataSize transactionLogMaxCachedFileSize)
             throws IOException
     {
-        return TransactionLogTail.loadNewTail(fileSystemFactory.create(session, credentialsHandle), tableLocation, startVersion, endVersion, transactionLogMaxCachedFileSize);
+        return TransactionLogTail.loadNewTail(fileSystemFactory.create(session, tableCredentials), tableLocation, startVersion, endVersion, transactionLogMaxCachedFileSize);
     }
 }

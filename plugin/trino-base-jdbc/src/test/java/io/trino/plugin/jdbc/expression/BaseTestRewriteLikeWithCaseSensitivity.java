@@ -50,7 +50,8 @@ public abstract class BaseTestRewriteLikeWithCaseSensitivity
             @Override
             public Map<String, ColumnHandle> getAssignments()
             {
-                return Map.of("case_insensitive_value", new JdbcColumnHandle("case_insensitive_value", JDBC_BIGINT, VARCHAR),
+                return Map.of(
+                        "case_insensitive_value", new JdbcColumnHandle("case_insensitive_value", JDBC_BIGINT, VARCHAR),
                         "case_sensitive_value", new JdbcColumnHandle("case_sensitive_value", new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.of(CASE_SENSITIVE)), VARCHAR));
             }
 

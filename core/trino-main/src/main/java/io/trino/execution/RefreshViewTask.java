@@ -113,12 +113,12 @@ public class RefreshViewTask
         Statement viewDefinitionSql = sqlParser.createStatement(viewDefinition.getOriginalSql());
 
         Analysis analysis = analyzerFactory.createAnalyzer(
-                viewSession,
-                parameters,
-                viewAccessControl,
-                ImmutableMap.of(),
-                stateMachine.getWarningCollector(),
-                stateMachine.getPlanOptimizersStatsCollector())
+                        viewSession,
+                        parameters,
+                        viewAccessControl,
+                        ImmutableMap.of(),
+                        stateMachine.getWarningCollector(),
+                        stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(viewDefinitionSql);
 
         Map<String, String> columnComments =

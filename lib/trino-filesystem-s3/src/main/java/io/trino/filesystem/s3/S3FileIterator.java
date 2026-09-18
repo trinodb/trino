@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static java.util.Objects.requireNonNull;
 
 final class S3FileIterator
@@ -55,7 +56,7 @@ final class S3FileIterator
             return iterator.hasNext();
         }
         catch (SdkException e) {
-            throw new IOException("Failed to list location: " + location, e);
+            throw handleS3Exception(e, "Failed to list location: " + location);
         }
     }
 
@@ -85,7 +86,7 @@ final class S3FileIterator
                     tags);
         }
         catch (SdkException e) {
-            throw new IOException("Failed to list location: " + location, e);
+            throw handleS3Exception(e, "Failed to list location: " + location);
         }
     }
 }

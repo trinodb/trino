@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -121,6 +122,12 @@ public class PushAggregationThroughOuterJoin
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
         JoinNode join = captures.get(JOIN);
+
+        // Without grouping keys, aggregation over an empty inner source produces a row. For example,
+        // count(*) would return 0 instead of counting the null-extended row produced by the outer join.
+        if (join.getCriteria().isEmpty()) {
+            return Result.empty();
+        }
 
         if (join.getFilter().isPresent()
                 || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
@@ -285,10 +292,10 @@ public class PushAggregationThroughOuterJoin
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
         SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.buildOrThrow());
-        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
+        for (Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
             Aggregation overNullAggregation = mapper.map(entry.getValue());
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getResolvedFunction().signature().getName().getFunctionName(), aggregationSymbol.type());
+            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getResolvedFunction().signature().getName().functionName(), aggregationSymbol.type());
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }

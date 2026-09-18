@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
@@ -49,7 +50,7 @@ public final class MinAggregationFunction
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {VALUE_BLOCK_POSITION_NOT_NULL, IN_OUT}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+            MethodHandle compare,
             @AggregationState("T") InOut state,
             @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)
@@ -66,7 +67,7 @@ public final class MinAggregationFunction
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {IN_OUT, IN_OUT}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+            MethodHandle compare,
             @AggregationState("T") InOut state,
             @AggregationState("T") InOut otherState)
             throws Throwable
@@ -76,6 +77,7 @@ public final class MinAggregationFunction
         }
     }
 
+    @SqlNullable
     @OutputFunction("T")
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {

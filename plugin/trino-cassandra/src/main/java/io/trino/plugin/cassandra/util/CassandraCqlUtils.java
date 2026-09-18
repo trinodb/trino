@@ -115,8 +115,11 @@ public final class CassandraCqlUtils
 
     private static String deleteFrom(String schemaName, String tableName, CassandraPartition partition, String clusteringKeyPredicates)
     {
-        return format("DELETE FROM \"%s\".\"%s\" WHERE %s",
-                schemaName, tableName, getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));
+        return format(
+                "DELETE FROM \"%s\".\"%s\" WHERE %s",
+                schemaName,
+                tableName,
+                getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));
     }
 
     public static List<String> getDeleteQueries(CassandraNamedRelationHandle handle)

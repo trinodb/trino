@@ -31,6 +31,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TypeId;
@@ -104,7 +105,7 @@ final class TestRefreshViewTask
                 metadata.getTableHandle(testSession, tableName).orElseThrow(),
                 new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "existing_table"),
                 new ColumnMetadata("new_col", BIGINT),
-                new io.trino.spi.connector.ColumnPosition.Last());
+                new ColumnPosition.Last());
 
         getFutureValue(executeRefreshView(asQualifiedName(qualifiedObjectName("existing_view"))));
         assertThat(metadata.getView(testSession, qualifiedObjectName("existing_view")).orElseThrow().getColumns())
@@ -292,7 +293,7 @@ final class TestRefreshViewTask
 
         assertThatThrownBy(() -> getFutureValue(
                 executeRefreshView(asQualifiedName(
-                        qualifiedObjectName("existing_view")),
+                                qualifiedObjectName("existing_view")),
                         new TestingAccessControl(ImmutableSet.of("existing_table")))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Access Denied: View owner does not have sufficient privileges: Cannot select from columns [test] in table or view test_catalog.schema.existing_table");
@@ -326,18 +327,18 @@ final class TestRefreshViewTask
         }
 
         @Override
-        public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+        public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
         {
             if (deniedTables.contains(tableName.objectName())) {
-                denySelectColumns(tableName.toString(), columnNames);
+                denySelectColumns(tableName.toString(), branch, columnNames);
             }
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+        public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Optional<String> branch, Set<String> columnNames)
         {
             if (deniedTables.contains(tableName.objectName())) {
-                denySelectColumns(tableName.toString(), columnNames);
+                denySelectColumns(tableName.toString(), branch, columnNames);
             }
         }
     }

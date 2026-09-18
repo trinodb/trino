@@ -51,7 +51,7 @@ public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> funct
 
     public BiFunction<F, C, Optional<?>> getFunction()
     {
-        //without the ::apply below, the type system is unable to drop the R type from Optional
+        // without the ::apply below, the type system is unable to drop the R type from Optional
         return function::apply;
     }
 

@@ -53,8 +53,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
     {
         int memoryPool = 12;
         Map<String, Map<String, Long>> queries = ImmutableMap.of(
-                "q_1",
-                ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
+                "q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
         assertThat(lowMemoryKiller.chooseTargetToKill(
                 toRunningQueryInfoList(queries),
@@ -250,7 +249,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
         return new TaskInfo(
                 new TaskStatus(
                         taskId,
-                        "task-instance-id",
+                        0,
                         0,
                         state,
                         URI.create("fake://task/" + taskId + "/node/some_node"),
@@ -287,7 +286,8 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
-                new TaskStats(Instant.now(),
+                new TaskStats(
+                        Instant.now(),
                         null,
                         null,
                         null,

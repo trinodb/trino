@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.exchange.filesystem.alluxio.AlluxioFileSystemExchangeStorage;
-import io.trino.plugin.exchange.filesystem.alluxio.ExchangeAlluxioConfig;
 import io.trino.plugin.exchange.filesystem.azure.AzureBlobFileSystemExchangeStorage;
 import io.trino.plugin.exchange.filesystem.azure.ExchangeAzureConfig;
 import io.trino.plugin.exchange.filesystem.local.LocalFileSystemExchangeStorage;
@@ -70,12 +68,9 @@ public class FileSystemExchangeModule
             binder.bind(FileSystemExchangeStorage.class).to(AzureBlobFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(ExchangeAzureConfig.class);
         }
-        else if (scheme.equals("alluxio")) {
-            binder.bind(FileSystemExchangeStorage.class).to(AlluxioFileSystemExchangeStorage.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(ExchangeAlluxioConfig.class);
-        }
         else {
-            binder.addError(new TrinoException(NOT_SUPPORTED,
+            binder.addError(new TrinoException(
+                    NOT_SUPPORTED,
                     format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
         }
     }

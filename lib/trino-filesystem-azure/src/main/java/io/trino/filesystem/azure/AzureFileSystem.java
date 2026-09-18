@@ -26,7 +26,6 @@ import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.common.sas.SasProtocol;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -38,10 +37,12 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.EmulatedListFilesStartingFromIterator;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -66,10 +67,10 @@ import java.util.concurrent.ExecutorService;
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.azure.AzureUtils.blobCustomerProvidedKey;
 import static io.trino.filesystem.azure.AzureUtils.encodedKey;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
-import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static io.trino.filesystem.azure.AzureUtils.keySha256Checksum;
 import static io.trino.filesystem.azure.AzureUtils.lakeCustomerProvidedKey;
 import static java.lang.Math.toIntExact;
@@ -192,12 +193,9 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation, Optional.empty());
         try {
-            client.delete();
+            client.deleteIfExists();
         }
         catch (RuntimeException e) {
-            if (isFileNotFoundException(e)) {
-                return;
-            }
             throw handleAzureException(e, "deleting file", azureLocation);
         }
     }
@@ -307,21 +305,61 @@ public class AzureFileSystem
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
             return isHierarchicalNamespaceEnabled(azureLocation)
-                    ? listGen2Files(azureLocation)
-                    : listBlobFiles(azureLocation);
+                    ? listGen2Files(azureLocation, Optional.empty())
+                    : listBlobFiles(azureLocation, Optional.empty());
         }
         catch (RuntimeException e) {
             throw handleAzureException(e, "listing files", azureLocation);
         }
     }
 
-    private FileIterator listGen2Files(AzureLocation location)
+    /**
+     * {@inheritDoc}
+     *
+     * <p>On ADLS Gen2 (hierarchical namespace) the native recursive listing returns results in a
+     * depth-first order that does not match the lexicographic ordering required by this API, so
+     * the server-side {@code startFrom} cursor cannot be used directly. This implementation
+     * instead sends a conservative lower bound (truncating {@code startingFrom} at the first
+     * character {@code <= '/'}) and applies a client-side filter over the results. This preserves
+     * correctness while typically still allowing the server to skip a large portion of the
+     * directory. On flat-namespace (blob) storage the native cursor is used directly.
+     */
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        checkStartingFrom(startingFrom);
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        AzureLocation azureLocation = new AzureLocation(location);
+
+        try {
+            return isHierarchicalNamespaceEnabled(azureLocation)
+                    ? listGen2Files(azureLocation, Optional.of(startingFrom))
+                    : listBlobFiles(azureLocation, Optional.of(startingFrom));
+        }
+        catch (RuntimeException e) {
+            throw handleAzureException(e, "listing files", azureLocation);
+        }
+    }
+
+    private FileIterator listGen2Files(AzureLocation location, Optional<String> startingFrom)
             throws IOException
     {
         DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
+        ListPathsOptions options = new ListPathsOptions().setRecursive(true);
+
+        // In ADLS Gen2 recursive listing, startFrom does not implement the same lexicographic ordering as required by
+        // listFilesStartingFrom. Use a conservative server-side lower bound (truncating startingFrom), then filter client-side
+        startingFrom.map(AzureFileSystem::startingFromLowerBound)
+                .filter(not(String::isEmpty))
+                .ifPresent(options::setStartFrom);
+
         PagedIterable<PathItem> pathItems;
         if (location.path().isEmpty()) {
-            pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(true), null);
+            pathItems = fileSystemClient.listPaths(options, null);
         }
         else {
             DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
@@ -331,18 +369,27 @@ public class AzureFileSystem
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new TrinoFileSystemException("Location is not a directory: " + location);
             }
-            pathItems = directoryClient.listPaths(true, false, null, null);
+
+            pathItems = directoryClient.listPaths(options, null, null);
         }
-        return new AzureDataLakeFileIterator(
+        FileIterator iterator = new AzureDataLakeFileIterator(
                 location,
                 pathItems.stream()
                         .filter(not(PathItem::isDirectory))
                         .iterator());
+        if (startingFrom.isPresent()) {
+            return new EmulatedListFilesStartingFromIterator(iterator, location.location(), startingFrom.orElseThrow());
+        }
+        return iterator;
     }
 
-    private FileIterator listBlobFiles(AzureLocation location)
+    private FileIterator listBlobFiles(AzureLocation location, Optional<String> startingFrom)
     {
-        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location, Optional.empty()).listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
+        String directoryPath = location.directoryPath();
+        ListBlobsOptions options = new ListBlobsOptions().setPrefix(directoryPath);
+        startingFrom.ifPresent(startFrom -> options.setStartFrom(directoryPath.concat(startFrom)));
+
+        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location, Optional.empty()).listBlobs(options, null);
         return new AzureBlobFileIterator(location, blobItems.iterator());
     }
 
@@ -603,10 +650,24 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
-                    .getBlobClient("/")
-                    .getBlockBlobClient();
-            return blockBlobClient.exists();
+            // Normalize consecutive slashes: the Azure DataLake getAccessControl API returns HTTP 400
+            // for paths containing "//", while other APIs like listPaths silently canonicalize them
+            String canonicalPath = CharMatcher.is('/').collapseFrom(
+                    CharMatcher.is('/').trimTrailingFrom(location.path()), '/');
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
+            fileSystemClient.getDirectoryClient(canonicalPath).getAccessControl();
+            return true;
+        }
+        catch (DataLakeStorageException e) {
+            // getAccessControl() is only supported on HNS-enabled accounts; flat namespace returns HierarchicalNamespaceNotEnabled
+            if ("HierarchicalNamespaceNotEnabled".equals(e.getErrorCode())) {
+                return false;
+            }
+            // Path does not exist yet (e.g. creating a new nested directory), but the account supports HNS
+            if (e.getStatusCode() == 404) {
+                return true;
+            }
+            throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
         }
         catch (RuntimeException e) {
             throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
@@ -656,10 +717,26 @@ public class AzureFileSystem
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());
-        if (!fileSystemClient.exists()) {
-            throw new IllegalArgumentException();
+        // SAS tokens are scoped to an existing container; directory-scoped tokens cannot perform container-level operations
+        if (!(azureAuth instanceof AzureAuthSasToken)) {
+            if (!fileSystemClient.exists()) {
+                throw new IllegalArgumentException();
+            }
         }
         return fileSystemClient;
+    }
+
+    private static String startingFromLowerBound(String startingFrom)
+    {
+        // Truncate startingFrom to immediately before the first character that is either equal to or lexicographically
+        // smaller than '/'. This is a workaround to disambiguate the startFrom cursor given that Azure Data Lake Storage
+        // Gen2 orders directories before files in listing results
+        for (int index = 0; index < startingFrom.length(); index++) {
+            if (startingFrom.charAt(index) <= '/') {
+                return startingFrom.substring(0, index);
+            }
+        }
+        return startingFrom;
     }
 
     private static DataLakeDirectoryClient createDirectoryClient(DataLakeFileSystemClient fileSystemClient, String directoryName)

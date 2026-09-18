@@ -31,7 +31,7 @@ import java.util.List;
 
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDoubleSumAggregation

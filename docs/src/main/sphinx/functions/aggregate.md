@@ -130,6 +130,21 @@ Returns an array created from the input `x` elements.
 Returns the average (arithmetic mean) of all input values.
 :::
 
+:::{function} avg(real) -> real
+:noindex: true
+Returns the average (arithmetic mean) of all input values.
+:::
+
+:::{function} avg(decimal) -> decimal
+:noindex: true
+Returns the average (arithmetic mean) of all input values.
+:::
+
+:::{function} avg(number) -> number
+:noindex: true
+Returns the average (arithmetic mean) of all input values.
+:::
+
 :::{function} avg(time interval type) -> time interval type
 :noindex: true
 

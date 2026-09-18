@@ -25,15 +25,23 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 
+/**
+ * Replaces certain {@code CAST(json_parse(x) AS T)} with functions logically
+ * implementing {@code CAST(a_json AS T)} along with validation that input is
+ * well-formed JSON. This avoids cost of validation and canonicalization done
+ * by {@code json_parse}.
+ */
 public class SpecializeCastWithJsonParse
         implements IrOptimizerRule
 {
@@ -45,15 +53,15 @@ public class SpecializeCastWithJsonParse
     }
 
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (expression instanceof Cast(Call call, Type type) &&
+        if (expression instanceof Cast(Call call, Type type, _) &&
                 call.function().name().equals(builtinFunctionName("json_parse"))) {
             Expression string = call.arguments().getFirst();
             return switch (type) {
-                case ArrayType arrayType -> Optional.of(new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), string.type(), arrayType), call.arguments()));
-                case MapType mapType -> Optional.of(new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_MAP_NAME), string.type(), mapType), call.arguments()));
-                case RowType rowType -> Optional.of(new Call(metadata.getCoercion(builtinFunctionName(JSON_STRING_TO_ROW_NAME), string.type(), rowType), call.arguments()));
+                case ArrayType arrayType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), string.type(), arrayType), call.arguments()));
+                case MapType mapType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_MAP_NAME), string.type(), mapType), call.arguments()));
+                case RowType rowType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_ROW_NAME), string.type(), rowType), call.arguments()));
                 default -> Optional.empty();
             };
         }

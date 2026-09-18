@@ -18,10 +18,10 @@ import io.trino.FeaturesConfig;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +53,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
@@ -67,11 +68,11 @@ public class TestTypeCoercion
     private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
     private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
     private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
-    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType);
+    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, SQL_STANDARD);
 
     private Type mapType(Type keyType, Type valueType)
     {
-        return typeManager.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return new MapType(keyType, valueType, typeManager.getTypeOperators());
     }
 
     @Test
@@ -177,9 +178,9 @@ public class TestTypeCoercion
         assertThat(createCharType(42), createCharType(44)).hasCommonSuperType(createCharType(44)).canCoerceFirstToSecondOnly();
         assertThat(createVarcharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceToEachOther();
         assertThat(createVarcharType(42), createVarcharType(44)).hasCommonSuperType(createVarcharType(44)).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createCharType(42)).cannotCoerceToEachOther();
-        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
-        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createCharType(44)).canCoerceSecondToFirstOnly();
+        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceFirstToSecondOnly();
+        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createVarcharType(44)).cannotCoerceToEachOther();
 
         assertThat(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
         assertThat(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
@@ -268,8 +269,13 @@ public class TestTypeCoercion
                     for (Type sourceType : types) {
                         if (typeCoercion.canCoerce(sourceType, transitiveType)) {
                             if (!typeCoercion.canCoerce(sourceType, resultType)) {
-                                fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
-                                        sourceType, resultType, sourceType, transitiveType, resultType));
+                                fail(format(
+                                        "'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
+                                        sourceType,
+                                        resultType,
+                                        sourceType,
+                                        transitiveType,
+                                        resultType));
                             }
                         }
                     }

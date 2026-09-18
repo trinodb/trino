@@ -13,9 +13,6 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -52,9 +49,9 @@ public class AliasMatcher
      *    higher up the tree.
      */
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
-        Optional<Symbol> symbol = matcher.getAssignedSymbol(node, session, metadata, symbolAliases);
+        Optional<Symbol> symbol = matcher.getAssignedSymbol(node, context.session(), context.metadata(), context.symbolAliases());
         if (symbol.isPresent() && alias.isPresent()) {
             return match(alias.get(), symbol.get().toSymbolReference());
         }

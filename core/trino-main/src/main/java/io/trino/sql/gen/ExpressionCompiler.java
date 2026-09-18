@@ -15,6 +15,7 @@ package io.trino.sql.gen;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+import io.trino.Session;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -23,15 +24,19 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
-import io.trino.sql.relational.RowExpression;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
 import static java.util.Objects.requireNonNull;
 
@@ -48,25 +53,28 @@ public class ExpressionCompiler
     }
 
     public Function<DynamicFilter, PageProcessor> compilePageProcessor(
+            CharVarcharCoercion charVarcharCoercion,
             boolean columnarFilterEvaluationEnabled,
-            Optional<RowExpression> filter,
+            boolean filterReorderingEnabled,
+            Optional<Expression> filter,
             Optional<DynamicPageFilter> dynamicPageFilter,
-            List<? extends RowExpression> projections,
+            List<? extends Expression> projections,
+            Map<Symbol, Integer> layout,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = Optional.empty();
-        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(columnarFilterEvaluationEnabled, filter, columnarFilterCompiler);
+        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(charVarcharCoercion, columnarFilterEvaluationEnabled, filter, layout, columnarFilterCompiler, filterReorderingEnabled);
         if (columnarFilterEvaluatorSupplier.isEmpty()) {
-            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, layout, charVarcharCoercion, classNameSuffix));
         }
 
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
-                .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
+                .map(projection -> pageFunctionCompiler.compileProjection(projection, layout, charVarcharCoercion, classNameSuffix))
                 .collect(toImmutableList());
 
         Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
-        return (dynamicFilter) -> {
+        return dynamicFilter -> {
             Optional<FilterEvaluator> filterEvaluator = columnarFilterEvaluatorSupplier.map(Supplier::get);
             if (filterEvaluator.isEmpty()) {
                 filterEvaluator = finalFilterFunctionSupplier
@@ -84,16 +92,9 @@ public class ExpressionCompiler
     }
 
     @VisibleForTesting
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(Session session, Optional<Expression> filter, List<? extends Expression> projections, Map<Symbol, Integer> layout)
     {
-        return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
-    }
-
-    @VisibleForTesting
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
-    {
-        return () -> compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.of(initialBatchSize))
+        return () -> compilePageProcessor(getCharVarcharCoercion(session), true, true, filter, Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty())
                 .apply(DynamicFilter.EMPTY);
     }
 }

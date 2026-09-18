@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -56,9 +58,9 @@ public class TableScanOperator
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
+        private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
         private final List<Type> columnTypes;
-        private final DynamicFilter dynamicFilter;
         private boolean closed;
 
         public TableScanOperatorFactory(
@@ -67,18 +69,19 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
                 List<ColumnHandle> columns,
                 List<Type> columnTypes,
-                DynamicFilter dynamicFilter)
+                AggregatedMemoryContext pageSourceProviderMemoryContext)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
+            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
+            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle(), pageSourceProviderMemoryContext);
         }
 
         @Override
@@ -98,8 +101,9 @@ public class TableScanOperator
                     sourceId,
                     pageSourceProvider,
                     table,
-                    columns,
-                    dynamicFilter);
+                    tableCredentials,
+                    columns);
+            pageSourceProvider.retain();
 
             if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
                 return new OutputValidatingSourceOperator(
@@ -113,7 +117,11 @@ public class TableScanOperator
         @Override
         public void noMoreOperators()
         {
+            if (closed) {
+                return;
+            }
             closed = true;
+            pageSourceProvider.release();
         }
     }
 
@@ -121,9 +129,9 @@ public class TableScanOperator
     private final PlanNodeId sourceId;
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
+    private final Optional<ConnectorTableCredentials> tableCredentials;
     private final List<ColumnHandle> columns;
-    private final DynamicFilter dynamicFilter;
-    private final LocalMemoryContext memoryContext;
+    private final LocalMemoryContext pageSourceMemoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
 
     @Nullable
@@ -132,6 +140,7 @@ public class TableScanOperator
     private ConnectorPageSource source;
 
     private boolean finished;
+    private boolean released;
 
     private long completedBytes;
     private long completedPositions;
@@ -142,16 +151,16 @@ public class TableScanOperator
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            List<ColumnHandle> columns,
-            DynamicFilter dynamicFilter)
+            Optional<ConnectorTableCredentials> tableCredentials,
+            List<ColumnHandle> columns)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "planNodeId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
+        this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
+        this.pageSourceMemoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName() + "-ConnectorPageSource");
     }
 
     @Override
@@ -196,7 +205,15 @@ public class TableScanOperator
     @Override
     public void close()
     {
-        finish();
+        try {
+            finish();
+        }
+        finally {
+            if (!released) {
+                released = true;
+                pageSourceProvider.release();
+            }
+        }
     }
 
     @Override
@@ -212,7 +229,6 @@ public class TableScanOperator
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            memoryContext.setBytes(source.getMemoryUsage());
             operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
@@ -222,9 +238,6 @@ public class TableScanOperator
     {
         if (!finished) {
             finished = (source != null) && source.isFinished();
-            if (source != null) {
-                memoryContext.setBytes(source.getMemoryUsage());
-            }
         }
 
         return finished;
@@ -245,7 +258,7 @@ public class TableScanOperator
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override
@@ -267,10 +280,10 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            if (!dynamicFilter.getCurrentPredicate().isAll()) {
-                operatorContext.recordDynamicFilterSplitProcessed(1L);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, tableCredentials, columns, DynamicFilter.EMPTY, pageSourceMemoryContext::setBytes);
+            if (source.isFinished()) {
+                return null;
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();
@@ -294,8 +307,6 @@ public class TableScanOperator
         completedPositions = endCompletedPositions;
         readTimeNanos = endReadTimeNanos;
 
-        // updating memory usage should happen after page is loaded.
-        memoryContext.setBytes(source.getMemoryUsage());
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }

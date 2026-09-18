@@ -20,8 +20,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.client.BodyGenerator;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -37,11 +39,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
-import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -69,7 +71,7 @@ public class HttpEventListener
     private final Duration retryDelay;
     private final Duration maxDelay;
     private final double backoffBase;
-    private final Map<String, String> httpHeaders;
+    private final Map<HeaderName, String> httpHeaders;
     private final URI ingestUri;
     private final HttpEventListenerHttpMethod httpMethod;
     private final ScheduledExecutorService executor;
@@ -95,7 +97,10 @@ public class HttpEventListener
         this.maxDelay = config.getMaxDelay();
         this.backoffBase = config.getBackoffBase();
         this.httpMethod = config.getHttpMethod();
-        this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders());
+        this.httpHeaders = ImmutableMap.copyOf(config.getHttpHeaders())
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(entry -> HeaderName.of(entry.getKey()), Map.Entry::getValue));
 
         try {
             ingestUri = new URI(config.getIngestUri());
@@ -145,7 +150,8 @@ public class HttpEventListener
     private void attemptToSend(Request request, int attempt, Duration delay, String queryId)
     {
         this.executor.schedule(
-                () -> Futures.addCallback(client.executeAsync(request, createStatusResponseHandler()),
+                () -> Futures.addCallback(
+                        client.executeAsync(request, createStatusResponseHandler()),
                         new FutureCallback<>()
                         {
                             @Override
@@ -159,20 +165,32 @@ public class HttpEventListener
                                         int nextAttempt = attempt + 1;
 
                                         log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, will retry after approximately %d seconds",
-                                                queryId, attempt + 1, retryCount + 1, request.getUri().toString(),
-                                                result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
+                                                queryId,
+                                                attempt + 1,
+                                                retryCount + 1,
+                                                request.getUri().toString(),
+                                                result.getStatusCode(),
+                                                nextDelay.roundTo(TimeUnit.SECONDS));
 
                                         attemptToSend(request, nextAttempt, nextDelay, queryId);
                                     }
                                     else {
-                                        log.error("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, fatal error",
-                                                queryId, attempt + 1, retryCount + 1, request.getUri().toString(),
+                                        log.error(
+                                                "QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, fatal error",
+                                                queryId,
+                                                attempt + 1,
+                                                retryCount + 1,
+                                                request.getUri().toString(),
                                                 result.getStatusCode());
                                     }
                                 }
                                 else {
-                                    log.debug("QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
-                                            queryId, attempt + 1, retryCount + 1, request.getUri().toString());
+                                    log.debug(
+                                            "QueryId = \"%s\", attempt = %d/%d, URL = %s | Query event delivered successfully",
+                                            queryId,
+                                            attempt + 1,
+                                            retryCount + 1,
+                                            request.getUri().toString());
                                 }
                             }
 
@@ -183,19 +201,30 @@ public class HttpEventListener
                                     Duration nextDelay = nextDelay(delay);
                                     int nextAttempt = attempt + 1;
 
-                                    log.warn(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Sending event caused an exception, will retry after %d seconds",
-                                            queryId, attempt + 1, retryCount + 1, request.getUri().toString(),
+                                    log.warn(t,
+                                            "QueryId = \"%s\", attempt = %d/%d, URL = %s | Sending event caused an exception, will retry after %d seconds",
+                                            queryId,
+                                            attempt + 1,
+                                            retryCount + 1,
+                                            request.getUri().toString(),
                                             nextDelay.roundTo(TimeUnit.SECONDS));
 
                                     attemptToSend(request, nextAttempt, nextDelay, queryId);
                                 }
                                 else {
-                                    log.error(t, "QueryId = \"%s\", attempt = %d/%d, URL = %s | Error sending HTTP request",
-                                            queryId, attempt + 1, retryCount + 1, request.getUri().toString());
+                                    log.error(
+                                            t,
+                                            "QueryId = \"%s\", attempt = %d/%d, URL = %s | Error sending HTTP request",
+                                            queryId,
+                                            attempt + 1,
+                                            retryCount + 1,
+                                            request.getUri().toString());
                                 }
                             }
-                        }, executor),
-                (long) delay.getValue(), delay.getUnit());
+                        },
+                        executor),
+                (long) delay.getValue(),
+                delay.getUnit());
     }
 
     private boolean shouldRetry(StatusResponse response)

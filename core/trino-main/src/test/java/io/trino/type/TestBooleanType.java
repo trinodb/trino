@@ -13,14 +13,16 @@
  */
 package io.trino.type;
 
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.block.BlockAssertions.assertBlockEquals;
+import java.util.Optional;
+
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,33 +35,24 @@ public class TestBooleanType
     }
 
     @Test
-    public void testBooleanBlockWithoutNullsFromByteArray()
+    public void testBooleanBlockWithoutNulls()
     {
-        byte[] booleanBytes = new byte[4];
-        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(booleanBytes.length);
-        for (int i = 0; i < booleanBytes.length; i++) {
+        BlockBuilder builder = BOOLEAN.createFixedSizeBlockBuilder(4);
+        for (int i = 0; i < 4; i++) {
             boolean value = i % 2 == 0;
-            booleanBytes[i] = value ? (byte) 1 : 0;
             BOOLEAN.writeBoolean(builder, value);
         }
-        Block wrappedBlock = BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(booleanBytes);
         Block builderBlock = builder.build();
-        // wrapped instances have no nulls
-        assertThat(wrappedBlock.mayHaveNull()).isFalse();
-        // wrapped byte array instances and builder based instances both produce ByteArrayBlock
-        assertThat(wrappedBlock).isInstanceOf(ByteArrayBlock.class);
-        assertThat(builderBlock).isInstanceOf(ByteArrayBlock.class);
-        assertBlockEquals(BOOLEAN, wrappedBlock, builderBlock);
-        // the wrapping instance does not copy the byte array defensively
-        assertThat(BOOLEAN.getBoolean(wrappedBlock, 0)).isTrue();
-        booleanBytes[0] = 0;
-        assertThat(BOOLEAN.getBoolean(wrappedBlock, 0)).isFalse();
+        assertThat(builderBlock.mayHaveNull()).isFalse();
+        assertThat(builderBlock).isInstanceOf(BitArrayBlock.class);
+        assertThat(BOOLEAN.getBoolean(builderBlock, 0)).isTrue();
+        assertThat(BOOLEAN.getBoolean(builderBlock, 1)).isFalse();
     }
 
     @Test
     public void testBooleanBlockWithSingleNonNullValue()
     {
-        assertThat(BooleanType.createBlockForSingleNonNullValue(true) instanceof ByteArrayBlock).isTrue();
+        assertThat(BooleanType.createBlockForSingleNonNullValue(true) instanceof BitArrayBlock).isTrue();
         assertThat(BOOLEAN.getBoolean(BooleanType.createBlockForSingleNonNullValue(true), 0)).isTrue();
         assertThat(BOOLEAN.getBoolean(BooleanType.createBlockForSingleNonNullValue(false), 0)).isFalse();
         assertThat(BooleanType.createBlockForSingleNonNullValue(false).mayHaveNull()).isFalse();
@@ -91,21 +84,26 @@ public class TestBooleanType
     @Test
     public void testRange()
     {
-        assertThat(type.getRange())
-                .isEmpty();
+        Type.Range range = type.getRange().orElseThrow();
+        assertThat(range.getMin()).isEqualTo(false);
+        assertThat(range.getMax()).isEqualTo(true);
     }
 
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
+        assertThat(type.getPreviousValue(true))
+                .isEqualTo(Optional.of(false));
+        assertThat(type.getPreviousValue(false))
                 .isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
+        assertThat(type.getNextValue(false))
+                .isEqualTo(Optional.of(true));
+        assertThat(type.getNextValue(true))
                 .isEmpty();
     }
 }

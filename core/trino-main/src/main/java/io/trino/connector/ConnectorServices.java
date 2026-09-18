@@ -87,6 +87,7 @@ public class ConnectorServices
     private final Map<String, PropertyMetadata<?>> schemaProperties;
     private final Map<String, PropertyMetadata<?>> columnProperties;
     private final Map<String, PropertyMetadata<?>> analyzeProperties;
+    private final Map<String, PropertyMetadata<?>> branchProperties;
     private final Set<ConnectorCapabilities> capabilities;
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
@@ -138,7 +139,7 @@ public class ConnectorServices
             requireNonNull(connectorRecordSetProvider, format("Connector '%s' returned a null record set provider", catalogHandle));
             verify(connectorPageSourceProviderFactory == null, "Connector '%s' returned both page source and record set providers", catalogHandle);
             var pageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
-            connectorPageSourceProviderFactory = () -> pageSourceProvider;
+            connectorPageSourceProviderFactory = _ -> pageSourceProvider;
         }
         catch (UnsupportedOperationException _) {
         }
@@ -207,6 +208,10 @@ public class ConnectorServices
         List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
         requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogHandle));
         this.analyzeProperties = Maps.uniqueIndex(analyzeProperties, PropertyMetadata::getName);
+
+        List<PropertyMetadata<?>> branchProperties = connector.getBranchProperties();
+        requireNonNull(branchProperties, format("Connector '%s' returned a null branch properties set", catalogHandle));
+        this.branchProperties = Maps.uniqueIndex(branchProperties, PropertyMetadata::getName);
 
         Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
         requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogHandle));
@@ -324,6 +329,11 @@ public class ConnectorServices
         return analyzeProperties;
     }
 
+    public Map<String, PropertyMetadata<?>> getBranchProperties()
+    {
+        return branchProperties;
+    }
+
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return capabilities;
@@ -387,9 +397,11 @@ public class ConnectorServices
     {
         try {
             clazz.getMethod(name, parameterTypes);
-            throw new IllegalArgumentException(format("Access control %s must not implement removed method %s(%s)",
+            throw new IllegalArgumentException(format(
+                    "Access control %s must not implement removed method %s(%s)",
                     clazz.getName(),
-                    name, Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
+                    name,
+                    Arrays.stream(parameterTypes).map(Class::getName).collect(Collectors.joining(", "))));
         }
         catch (ReflectiveOperationException _) {
         }

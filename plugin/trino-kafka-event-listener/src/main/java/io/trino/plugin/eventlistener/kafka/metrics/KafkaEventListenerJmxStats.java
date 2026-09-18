@@ -14,11 +14,10 @@
 
 package io.trino.plugin.eventlistener.kafka.metrics;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 @ThreadSafe
 public class KafkaEventListenerJmxStats

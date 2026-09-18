@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
+import io.trino.filesystem.s3.S3OutputStream.ByteArrayStreamProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -56,9 +57,7 @@ final class S3OutputFile
                 location,
                 key,
                 false,
-                data,
-                0,
-                data.length);
+                new ByteArrayStreamProvider(data));
     }
 
     @Override
@@ -71,9 +70,7 @@ final class S3OutputFile
                 location,
                 key,
                 true,
-                data,
-                0,
-                data.length);
+                new ByteArrayStreamProvider(data));
     }
 
     @Override

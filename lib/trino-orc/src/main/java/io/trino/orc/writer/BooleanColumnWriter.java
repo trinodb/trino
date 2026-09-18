@@ -29,6 +29,7 @@ import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.stream.BooleanOutputStream;
 import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -43,6 +44,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.CompressionKind.NONE;
+import static io.trino.spi.block.Bitmap.getBits;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanColumnWriter
@@ -91,18 +93,38 @@ public class BooleanColumnWriter
         checkState(!closed);
         checkArgument(block.getPositionCount() > 0, "Block is empty");
 
-        // record nulls
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            presentStream.writeBoolean(!block.isNull(position));
+        presentStream.writeBlock(block);
+
+        if (block instanceof BitArrayBlock bitArrayBlock) {
+            writeBitArrayBlock(bitArrayBlock);
+            return;
         }
 
-        // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 boolean value = type.getBoolean(block, position);
                 dataStream.writeBoolean(value);
                 statisticsBuilder.addValue(value);
             }
+        }
+    }
+
+    private void writeBitArrayBlock(BitArrayBlock block)
+    {
+        int rawOffset = block.getRawValuesOffset();
+        long[] values = block.getRawValues();
+        long[] validity = block.getRawValueIsValid();
+        for (int position = 0; position < block.getPositionCount(); position += Long.SIZE) {
+            int positionCount = Math.min(Long.SIZE, block.getPositionCount() - position);
+            long bits = getBits(values, rawOffset, position, positionCount);
+            int valueCount = positionCount;
+            if (validity != null) {
+                long validBits = getBits(validity, rawOffset, position, positionCount);
+                valueCount = Long.bitCount(validBits);
+                bits = Long.compress(bits, validBits);
+            }
+            dataStream.writeBits(bits, valueCount);
+            statisticsBuilder.addValues(valueCount, Long.bitCount(bits));
         }
     }
 

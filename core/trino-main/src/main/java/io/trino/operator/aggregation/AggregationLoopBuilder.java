@@ -58,7 +58,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
@@ -86,7 +86,7 @@ final class AggregationLoopBuilder
 
         buildSpecializedLoop(binder, definition, function, stateCount, parameterCount, grouped);
 
-        Class<?> clazz = defineClass(definition, Object.class, binder.getBindings(), AggregationLoopBuilder.class.getClassLoader());
+        Class<?> clazz = defineHiddenClass(definition, Object.class, binder.getClassData());
 
         // it is simpler to find the method with reflection than using lookup().findStatic because of the complex signature
         Method invokeMethod = Arrays.stream(clazz.getMethods())
@@ -110,7 +110,7 @@ final class AggregationLoopBuilder
                 type(void.class),
                 aggregationParameters.allParameters());
 
-        Function<List<BlockType>, BytecodeNode> coreLoopBuilder = (blockTypes) -> {
+        Function<List<BlockType>, BytecodeNode> coreLoopBuilder = blockTypes -> {
             MethodDefinition method = buildCoreLoop(binder, classDefinition, function, blockTypes, aggregationParameters);
             return invokeStatic(method, aggregationParameters.allParameters().toArray(new BytecodeExpression[0]));
         };

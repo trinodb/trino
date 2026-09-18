@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -72,7 +73,7 @@ public class SimplifyCountOverConstant
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
 
-        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction("count", ImmutableList.of());
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", ImmutableList.of());
 
         for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();
@@ -113,8 +114,8 @@ public class SimplifyCountOverConstant
         }
 
         Expression argument = aggregation.getArguments().get(0);
-        if (argument instanceof Reference) {
-            argument = inputs.get(Symbol.from(argument));
+        if (argument instanceof Reference reference) {
+            argument = inputs.get(Symbol.from(reference));
         }
 
         return argument instanceof Constant constant && constant.value() != null;

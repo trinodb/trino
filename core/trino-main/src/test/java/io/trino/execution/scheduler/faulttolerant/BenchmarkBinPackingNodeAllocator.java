@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SessionTestUtils;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.TaskId;
 import io.trino.jmh.Benchmarks;
@@ -26,6 +25,7 @@ import io.trino.memory.MemoryInfo;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
@@ -190,8 +190,7 @@ public class BenchmarkBinPackingNodeAllocator
                             taskMemoryUsage.entrySet().stream()
                                     .collect(toImmutableMap(
                                             entry -> entry.getKey().toString(),
-                                            entry -> entry.getValue().toBytes())),
-                            ImmutableMap.of()));
+                                            entry -> entry.getValue().toBytes()))));
         }
 
         private void assertAcquired(NodeAllocator.NodeLease lease)

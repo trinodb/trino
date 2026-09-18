@@ -255,7 +255,8 @@ public class ProxyResource
         SettableFuture<ProxyResponse> future = SettableFuture.create();
 
         // Enqueue the call and resolve the future
-        httpClient.newCall(request).enqueue(new Callback() {
+        httpClient.newCall(request).enqueue(new Callback()
+        {
             @Override
             public void onFailure(Call call, IOException e)
             {

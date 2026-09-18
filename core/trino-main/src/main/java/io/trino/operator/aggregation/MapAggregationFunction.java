@@ -55,6 +55,7 @@ public final class MapAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("map(K, V)")
     public static void output(@AggregationState({"K", "V"}) MapAggregationState state, BlockBuilder out)
     {

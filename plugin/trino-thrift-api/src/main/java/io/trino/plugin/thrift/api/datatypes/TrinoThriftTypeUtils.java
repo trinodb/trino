@@ -19,9 +19,12 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 final class TrinoThriftTypeUtils
 {
@@ -169,5 +172,27 @@ final class TrinoThriftTypeUtils
     public static boolean sameSizeIfPresent(boolean[] nulls, int[] sizes)
     {
         return nulls == null || sizes == null || nulls.length == sizes.length;
+    }
+
+    static Optional<long[]> toValidityBitmap(boolean[] nulls)
+    {
+        if (nulls == null) {
+            return Optional.empty();
+        }
+
+        long[] validity = new long[wordsForBits(nulls.length)];
+        boolean foundNull = false;
+        for (int position = 0; position < nulls.length; position++) {
+            if (nulls[position]) {
+                foundNull = true;
+            }
+            else {
+                set(validity, 0, position);
+            }
+        }
+        if (!foundNull) {
+            return Optional.empty();
+        }
+        return Optional.of(validity);
     }
 }

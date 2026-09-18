@@ -78,7 +78,8 @@ class WindowOperatorStats
             }
         }
 
-        return new WindowOperatorStats(partitionRowsSumSquaredDiffs,
+        return new WindowOperatorStats(
+                partitionRowsSumSquaredDiffs,
                 positionsInIndexesSumSquaredDiffs,
                 sizeOfIndexesSumSquaredDiffs,
                 indexCountPerDriverSumSquaredDiffs,

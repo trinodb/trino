@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -34,6 +33,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3Exceptions.handleS3Exception;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
@@ -128,12 +128,11 @@ final class S3InputFile
                 .bucket(location.bucket())
                 .key(location.key())
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
                                         .sseCustomerAlgorithm(encryption.algorithm())
                                         .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
     }
 
@@ -146,12 +145,11 @@ final class S3InputFile
                 .bucket(location.bucket())
                 .key(location.key())
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
+                        key.ifPresentOrElse(
+                                encryption -> builder.sseCustomerKey(encoded(encryption))
                                         .sseCustomerAlgorithm(encryption.algorithm())
                                         .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         try {
@@ -168,7 +166,7 @@ final class S3InputFile
             return false;
         }
         catch (SdkException e) {
-            throw new TrinoFileSystemException("S3 HEAD request failed for file: " + location, e);
+            throw handleS3Exception(e, "S3 HEAD request failed for file: " + location);
         }
     }
 }

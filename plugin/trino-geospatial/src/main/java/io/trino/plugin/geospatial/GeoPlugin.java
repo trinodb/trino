@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
 import io.trino.plugin.geospatial.aggregation.ConvexHullAggregation;
+import io.trino.plugin.geospatial.aggregation.GeometryCollectAgg;
 import io.trino.plugin.geospatial.aggregation.GeometryUnionAgg;
 import io.trino.spi.Plugin;
 import io.trino.spi.type.Type;
 
 import java.util.Set;
 
+import static io.trino.geospatial.GeometryUtils.legacyLenientOverlay;
 import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.KdbTreeType.KDB_TREE;
@@ -31,6 +33,12 @@ import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRA
 public class GeoPlugin
         implements Plugin
 {
+    public GeoPlugin()
+    {
+        // Fail plugin initialization on a malformed JVM flag instead of silently enabling lenient mode.
+        legacyLenientOverlay();
+    }
+
     @Override
     public Iterable<Type> getTypes()
     {
@@ -45,6 +53,7 @@ public class GeoPlugin
                 .add(BingTileFunctions.class)
                 .add(BingTileCoordinatesFunction.class)
                 .add(ConvexHullAggregation.class)
+                .add(GeometryCollectAgg.class)
                 .add(GeometryUnionAgg.class)
                 .add(KdbTreeCasts.class)
                 .add(EncodedPolylineFunctions.class)

@@ -24,17 +24,22 @@ import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.function.Supplier;
 
-import static io.trino.operator.scalar.TryFunction.NAME;
+import static io.trino.operator.scalar.TryFunction.TRY_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 
 @Description("Internal try function for desugaring TRY")
-@ScalarFunction(value = NAME, hidden = true, deterministic = false)
+@ScalarFunction(value = TRY_FUNCTION_NAME, hidden = true, deterministic = false)
 public final class TryFunction
 {
-    public static final String NAME = "$try";
+    public static final String TRY_FUNCTION_NAME = "$try";
 
     private TryFunction() {}
 
@@ -137,14 +142,19 @@ public final class TryFunction
         }
     }
 
-    private static void propagateIfUnhandled(TrinoException e)
+    public static void propagateIfUnhandled(TrinoException e)
             throws TrinoException
     {
         int errorCode = e.getErrorCode().getCode();
         if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()
                 || errorCode == INVALID_CAST_ARGUMENT.toErrorCode().getCode()
                 || errorCode == INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode()
-                || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()) {
+                || errorCode == NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode().getCode()
+                || errorCode == INVALID_JSON_LITERAL.toErrorCode().getCode()
+                || errorCode == JSON_INPUT_CONVERSION_ERROR.toErrorCode().getCode()
+                || errorCode == JSON_OUTPUT_CONVERSION_ERROR.toErrorCode().getCode()
+                || errorCode == JSON_VALUE_RESULT_ERROR.toErrorCode().getCode()
+                || errorCode == PATH_EVALUATION_ERROR.toErrorCode().getCode()) {
             return;
         }
 

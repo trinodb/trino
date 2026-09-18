@@ -20,6 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import io.trino.metadata.Metadata;
 
 import java.util.List;
 
@@ -46,13 +47,15 @@ public class StatsCalculatorModule
         private final ScalarStatsCalculator scalarStatsCalculator;
         private final FilterStatsCalculator filterStatsCalculator;
         private final StatsNormalizer normalizer;
+        private final Metadata metadata;
 
         @Inject
-        public StatsRulesProvider(ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer)
+        public StatsRulesProvider(ScalarStatsCalculator scalarStatsCalculator, FilterStatsCalculator filterStatsCalculator, StatsNormalizer normalizer, Metadata metadata)
         {
             this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
             this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
             this.normalizer = requireNonNull(normalizer, "normalizer is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
@@ -72,7 +75,7 @@ public class StatsCalculatorModule
             rules.add(new EnforceSingleRowStatsRule(normalizer));
             rules.add(new ProjectStatsRule(scalarStatsCalculator, normalizer));
             rules.add(new ExchangeStatsRule(normalizer));
-            rules.add(new JoinStatsRule(filterStatsCalculator, normalizer));
+            rules.add(new JoinStatsRule(filterStatsCalculator, normalizer, metadata));
             rules.add(new SpatialJoinStatsRule(filterStatsCalculator, normalizer));
             rules.add(new AggregationStatsRule(normalizer));
             rules.add(new UnionStatsRule(normalizer));

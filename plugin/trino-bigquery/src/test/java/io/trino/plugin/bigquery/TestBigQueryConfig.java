@@ -28,6 +28,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestBigQueryConfig
 {
@@ -58,7 +59,10 @@ public class TestBigQueryConfig
                 .setProxyEnabled(false)
                 .setProjectionPushdownEnabled(true)
                 .setMetadataParallelism(Runtime.getRuntime().availableProcessors())
-                .setMaxParallelism(null));
+                .setMaxParallelism(null)
+                .setWriteRetryMaxAttempts(5)
+                .setWriteRetryInitialDelay(new Duration(500, MILLISECONDS))
+                .setWriteRetryMaxDelay(new Duration(30, SECONDS)));
     }
 
     @Test
@@ -89,6 +93,9 @@ public class TestBigQueryConfig
                 .put("bigquery.metadata.parallelism", "31")
                 .put("bigquery.max-parallelism", "100")
                 .put("bigquery.projection-pushdown-enabled", "false")
+                .put("bigquery.write-retry-max-attempts", "8")
+                .put("bigquery.write-retry-initial-delay", "1s")
+                .put("bigquery.write-retry-max-delay", "1m")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -115,7 +122,10 @@ public class TestBigQueryConfig
                 .setProxyEnabled(true)
                 .setProjectionPushdownEnabled(false)
                 .setMetadataParallelism(31)
-                .setMaxParallelism(100);
+                .setMaxParallelism(100)
+                .setWriteRetryMaxAttempts(8)
+                .setWriteRetryInitialDelay(new Duration(1, SECONDS))
+                .setWriteRetryMaxDelay(new Duration(1, MINUTES));
 
         assertFullMapping(properties, expected);
     }

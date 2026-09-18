@@ -16,6 +16,7 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.sql.gen.CallSiteBinder;
 
@@ -33,9 +34,8 @@ import static io.airlift.bytecode.Access.SYNTHETIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -58,7 +58,7 @@ public final class SingleAccessMethodCompiler
         Class<?>[] parameterTypes = method.getParameterTypes();
         MethodHandle adaptedMethodHandle = methodHandle.asType(methodType(method.getReturnType(), parameterTypes));
 
-        List<io.airlift.bytecode.Parameter> parameters = new ArrayList<>();
+        List<Parameter> parameters = new ArrayList<>();
         for (int i = 0; i < parameterTypes.length; i++) {
             parameters.add(arg("arg" + i, parameterTypes[i]));
         }
@@ -70,20 +70,15 @@ public final class SingleAccessMethodCompiler
                 parameters);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        BytecodeExpression invocation = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(adaptedMethodHandle).getBindingId()),
+        BytecodeExpression invocation = invoke(
+                callSiteBinder.bind(adaptedMethodHandle),
                 method.getName(),
-                method.getReturnType(),
-                parameters);
+                ImmutableList.<BytecodeExpression>copyOf(parameters));
         if (method.getReturnType() != void.class) {
             invocation = invocation.ret();
         }
         methodDefinition.getBody().append(invocation);
-        // note this will not work if interface class is not visible from this class loader,
-        // but we must use this class loader to ensure the bootstrap method is visible
-        ClassLoader classLoader = SingleAccessMethodCompiler.class.getClassLoader();
-        Class<? extends T> newClass = defineClass(classDefinition, interfaceType, callSiteBinder.getBindings(), classLoader);
+        Class<? extends T> newClass = defineHiddenClass(classDefinition, interfaceType, interfaceType, callSiteBinder.getClassData());
         try {
             return newClass
                     .getDeclaredConstructor()

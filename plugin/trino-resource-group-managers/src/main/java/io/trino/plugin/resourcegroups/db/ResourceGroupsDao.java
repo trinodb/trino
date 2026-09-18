@@ -58,14 +58,14 @@ public interface ResourceGroupsDao
             "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
             "  hard_cpu_limit, hard_physical_data_scan_limit, parent\n" +
             "FROM resource_groups\n" +
-            "WHERE environment = :environment\n")
+            "WHERE environment = :environment OR environment IS NULL\n")
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
     @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.original_user_regex, S.authenticated_user_regex, S.query_text_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.user_group_regex\n" +
             "FROM selectors S\n" +
             "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
-            "WHERE R.environment = :environment\n" +
+            "WHERE (R.environment = :environment OR R.environment IS NULL)\n" +
             "ORDER by priority DESC")
     @UseRowMapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors(@Bind("environment") String environment);
@@ -87,13 +87,13 @@ public interface ResourceGroupsDao
     void createSelectorsTable();
 
     @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_source_selectors(\n" +
+            "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  environment VARCHAR(128),\n" +
             "  source VARCHAR(512) NOT NULL,\n" +
             "  query_type VARCHAR(512),\n" +
             "  update_time TIMESTAMP NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
-            "  PRIMARY KEY (environment, source, query_type),\n" +
-            "  UNIQUE (source, environment, query_type, resource_group_id)\n" +
+            "  PRIMARY KEY (id)\n" +
             ")")
     void createExactMatchSelectorsTable();
 

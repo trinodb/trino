@@ -47,7 +47,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SharedHiveMetastoreCache
 {
@@ -203,7 +202,7 @@ public class SharedHiveMetastoreCache
         {
             cache = buildNonEvictableCache(
                     CacheBuilder.newBuilder()
-                            .expireAfterWrite(userCacheTtl.toMillis(), MILLISECONDS)
+                            .expireAfterWrite(userCacheTtl.toJavaTime())
                             .maximumSize(userCacheMaximumSize),
                     CacheLoader.from(cachingHiveMetastoreFactory::apply));
         }

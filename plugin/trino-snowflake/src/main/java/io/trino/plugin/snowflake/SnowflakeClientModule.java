@@ -30,7 +30,7 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.table.ConnectorTableFunction;
-import net.snowflake.client.jdbc.SnowflakeDriver;
+import net.snowflake.client.api.driver.SnowflakeDriver;
 
 import java.net.MalformedURLException;
 import java.net.URI;

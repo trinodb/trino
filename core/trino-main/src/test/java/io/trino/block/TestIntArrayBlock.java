@@ -78,11 +78,11 @@ public class TestIntArrayBlock
     public void testCompactBlock()
     {
         int[] intArray = {0, 0, 1, 2, 3, 4};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        long[] valueIsValid = {0b111101};
 
         testCompactBlock(new IntArrayBlock(0, Optional.empty(), new int[0]));
-        testCompactBlock(new IntArrayBlock(intArray.length, Optional.of(valueIsNull), intArray));
-        testNotCompactBlock(new IntArrayBlock(intArray.length - 1, Optional.of(valueIsNull), intArray));
+        testCompactBlock(new IntArrayBlock(intArray.length, Optional.of(valueIsValid), intArray));
+        testNotCompactBlock(new IntArrayBlock(intArray.length - 1, Optional.of(valueIsValid), intArray));
     }
 
     private void assertFixedWithValues(Integer[] expectedValues)

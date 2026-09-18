@@ -71,8 +71,8 @@ public class TestRuleIndex
                 .register(ab)
                 .build();
 
-        assertThat(ruleIndex.getCandidates(new A() { })).containsExactlyInAnyOrder(a);
-        assertThat(ruleIndex.getCandidates(new B() { })).containsExactlyInAnyOrder(b);
+        assertThat(ruleIndex.getCandidates(new A() {})).containsExactlyInAnyOrder(a);
+        assertThat(ruleIndex.getCandidates(new B() {})).containsExactlyInAnyOrder(b);
         assertThat(ruleIndex.getCandidates(new AB())).containsExactlyInAnyOrder(ab, a, b);
     }
 

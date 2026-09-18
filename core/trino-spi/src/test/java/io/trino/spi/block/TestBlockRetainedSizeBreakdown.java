@@ -47,6 +47,16 @@ final class TestBlockRetainedSizeBreakdown
     }
 
     @Test
+    public void testBitArrayBlock()
+    {
+        BitArrayBlockBuilder blockBuilder = new BitArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        for (int i = 0; i < EXPECTED_ENTRIES; i++) {
+            blockBuilder.writeBoolean((i & 1) == 0);
+        }
+        checkRetainedSize(blockBuilder.build(), false);
+    }
+
+    @Test
     public void testByteArrayBlock()
     {
         ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);

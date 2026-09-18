@@ -41,12 +41,10 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         extends AbstractConfigurationAwareModule
@@ -86,11 +84,6 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
 
-        binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
-        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
-        newExporter(binder).export(DynamicFilteringStats.class)
-                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
-
         binder.bind(JdbcClient.class).annotatedWith(ForCaching.class).to(Key.get(RetryingJdbcClient.class)).in(Scopes.SINGLETON);
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
@@ -101,11 +94,13 @@ public class JdbcModule
         newSetBinder(binder, ConnectorTableFunction.class);
 
         binder.bind(ConnectionFactory.class).annotatedWith(ForLazyConnectionFactory.class).to(Key.get(RetryingConnectionFactory.class)).in(Scopes.SINGLETON);
-        install(conditionalModule(
-                QueryConfig.class,
-                QueryConfig::isReuseConnection,
-                new ReusableConnectionFactoryModule(),
-                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
+
+        if (buildConfigObject(QueryConfig.class).isReuseConnection()) {
+            install(new ReusableConnectionFactoryModule());
+        }
+        else {
+            binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+        }
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 

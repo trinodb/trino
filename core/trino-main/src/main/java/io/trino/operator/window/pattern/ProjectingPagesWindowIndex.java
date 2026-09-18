@@ -35,8 +35,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -108,8 +108,8 @@ public class ProjectingPagesWindowIndex
     public void setLabelAndMatchNumber(int currentPosition, int label, long matchNumber)
     {
         this.currentPosition = currentPosition;
-        this.label = nativeValueToBlock(VARCHAR, utf8Slice(labelNames.get(label)));
-        this.matchNumber = nativeValueToBlock(BIGINT, matchNumber);
+        this.label = writeNativeValue(VARCHAR, utf8Slice(labelNames.get(label)));
+        this.matchNumber = writeNativeValue(BIGINT, matchNumber);
         Arrays.fill(results, null);
     }
 

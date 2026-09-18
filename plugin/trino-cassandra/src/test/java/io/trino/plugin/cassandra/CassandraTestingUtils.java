@@ -18,12 +18,12 @@ import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Ints;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -188,7 +188,7 @@ public final class CassandraTestingUtils
                     .value("typedecimal", literal(new BigDecimal(Math.pow(2, rowNumber))))
                     .value("typedouble", literal(Math.pow(4, rowNumber)))
                     .value("typefloat", literal((float) Math.pow(8, rowNumber)))
-                    .value("typeinet", literal(InetAddresses.forString("127.0.0.1")))
+                    .value("typeinet", literal(InetAddress.ofLiteral("127.0.0.1")))
                     .value("typevarchar", literal("varchar " + rowNumber))
                     .value("typevarint", literal(BigInteger.TEN.pow(rowNumber)))
                     .value("typetimeuuid", literal(UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber))))

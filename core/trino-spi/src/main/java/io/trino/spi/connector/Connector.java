@@ -80,7 +80,7 @@ public interface Connector
     default ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
     {
         ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider();
-        return () -> pageSourceProvider;
+        return _ -> pageSourceProvider;
     }
 
     /**
@@ -172,6 +172,14 @@ public interface Connector
      * @return the analyze properties for this connector
      */
     default List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return emptyList();
+    }
+
+    /**
+     * @return the branch properties for this connector
+     */
+    default List<PropertyMetadata<?>> getBranchProperties()
     {
         return emptyList();
     }

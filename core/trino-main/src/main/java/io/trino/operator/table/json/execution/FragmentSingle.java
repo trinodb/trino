@@ -15,8 +15,8 @@ package io.trino.operator.table.json.execution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
-import io.trino.json.JsonPathEvaluator;
-import io.trino.json.ir.IrJsonPath;
+import io.trino.jsonpath.JsonPathEvaluator;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class FragmentSingle
         implements JsonTableProcessingFragment
 {
-    private static final Object[] NO_PARAMETERS = new Object[] {};
+    private static final Object[] NO_PARAMETERS = {};
 
     private final JsonPathEvaluator pathEvaluator;
     private final List<Column> columns;

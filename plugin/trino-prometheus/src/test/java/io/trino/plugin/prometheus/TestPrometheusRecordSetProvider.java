@@ -60,8 +60,12 @@ public class TestPrometheusRecordSetProvider
     {
         ConnectorTableHandle tableHandle = newTableHandle("schema", "table");
         PrometheusRecordSetProvider recordSetProvider = new PrometheusRecordSetProvider(client);
-        RecordSet recordSet = recordSetProvider.getRecordSet(PrometheusTransactionHandle.INSTANCE, SESSION,
-                new PrometheusSplit(dataUri), tableHandle, ImmutableList.of(
+        RecordSet recordSet = recordSetProvider.getRecordSet(
+                PrometheusTransactionHandle.INSTANCE,
+                SESSION,
+                new PrometheusSplit(dataUri),
+                tableHandle,
+                ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
                         new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
@@ -79,17 +83,21 @@ public class TestPrometheusRecordSetProvider
             actual.put((Instant) cursor.getObject(1), getMapFromSqlMap(varcharMapType, (SqlMap) cursor.getObject(0)));
         }
         Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()
-                .put(ofEpochMilli(1565962969044L), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up",
+                .put(ofEpochMilli(1565962969044L), ImmutableMap.of(
+                        "instance", "localhost:9090",
+                        "__name__", "up",
                         "job", "prometheus"))
-                .put(ofEpochMilli(1565962984045L), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up",
+                .put(ofEpochMilli(1565962984045L), ImmutableMap.of(
+                        "instance", "localhost:9090",
+                        "__name__", "up",
                         "job", "prometheus"))
-                .put(ofEpochMilli(1565962999044L), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up",
+                .put(ofEpochMilli(1565962999044L), ImmutableMap.of(
+                        "instance", "localhost:9090",
+                        "__name__", "up",
                         "job", "prometheus"))
-                .put(ofEpochMilli(1565963014044L), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up",
+                .put(ofEpochMilli(1565963014044L), ImmutableMap.of(
+                        "instance", "localhost:9090",
+                        "__name__", "up",
                         "job", "prometheus"))
                 .buildOrThrow();
         assertThat(actual).isEqualTo(expected);

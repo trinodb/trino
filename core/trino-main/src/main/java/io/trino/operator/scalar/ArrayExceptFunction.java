@@ -31,7 +31,7 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static java.lang.Math.min;
 
-@ScalarFunction("array_except")
+@ScalarFunction(value = "array_except", neverFails = true)
 @Description("Returns an array of elements that are in the first array but not the second, without duplicates.")
 public final class ArrayExceptFunction
 {
@@ -44,11 +44,13 @@ public final class ArrayExceptFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical identicalOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
+            BlockPositionIsIdentical identicalOperator,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

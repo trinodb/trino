@@ -126,17 +126,13 @@ public class BenchmarkPagesIndexPageSorter
 
         private Type getType()
         {
-            switch (sortChannelType) {
-                case "BIGINT":
-                    return BIGINT;
-                case "VARCHAR":
-                    return VARCHAR;
-                case "DOUBLE":
-                    return DOUBLE;
-                case "BOOLEAN":
-                    return BOOLEAN;
-            }
-            throw new IllegalArgumentException("Unsupported type: " + sortChannelType);
+            return switch (sortChannelType) {
+                case "BIGINT" -> BIGINT;
+                case "VARCHAR" -> VARCHAR;
+                case "DOUBLE" -> DOUBLE;
+                case "BOOLEAN" -> BOOLEAN;
+                default -> throw new IllegalArgumentException("Unsupported type: " + sortChannelType);
+            };
         }
     }
 

@@ -168,6 +168,14 @@ The maximum physical size of data that can be written by a query during its exec
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
 
+## `query.max-output-data-size`
+
+- **Type:** {ref}`prop-type-data-size`
+
+The maximum size of the output data that a query can produce during its execution.
+When this limit is exceeded, query processing is terminated. This limit protects
+against queries that return excessively large result sets to the client.
+
 ## `query.max-stage-count`
 
 - **Type:** {ref}`prop-type-integer`

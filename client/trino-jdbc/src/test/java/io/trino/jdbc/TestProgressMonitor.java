@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
@@ -55,8 +55,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule())))
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new JsonMapperProvider()
+            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule()))
+            .get())
             .jsonCodec(QueryResults.class);
 
     @StartStop

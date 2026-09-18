@@ -19,6 +19,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.Storage.SignUrlOption;
 import com.google.cloud.storage.StorageBatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +39,7 @@ import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.time.Instant;
@@ -54,12 +56,15 @@ import java.util.Set;
 import static com.google.cloud.storage.Storage.BlobListOption.currentDirectory;
 import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
+import static com.google.cloud.storage.Storage.BlobListOption.startOffset;
 import static com.google.cloud.storage.Storage.SignUrlOption.withExtHeaders;
+import static com.google.cloud.storage.Storage.SignUrlOption.withHostName;
 import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
@@ -76,8 +81,9 @@ public class GcsFileSystem
     private final long writeBlockSizeBytes;
     private final int pageSize;
     private final int batchSize;
+    private final Optional<String> endpoint;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize)
+    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -85,6 +91,7 @@ public class GcsFileSystem
         this.writeBlockSizeBytes = writeBlockSizeBytes;
         this.pageSize = pageSize;
         this.batchSize = batchSize;
+        this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
 
     @Override
@@ -223,6 +230,24 @@ public class GcsFileSystem
         }
     }
 
+    @Override
+    public FileIterator listFilesStartingFrom(Location location, String startingFrom)
+            throws IOException
+    {
+        checkStartingFrom(startingFrom);
+        if (startingFrom.isEmpty()) {
+            return listFiles(location);
+        }
+
+        GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
+        try {
+            return new GcsFileIterator(gcsLocation, getPage(gcsLocation, startOffset(gcsLocation.path() + startingFrom)));
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "listing files", gcsLocation);
+        }
+    }
+
     private static Location normalizeToDirectory(Location location)
     {
         String path = location.path();
@@ -351,7 +376,11 @@ public class GcsFileSystem
                 .build();
 
         Map<String, String> extHeaders = preSignedHeaders(key);
-        URL url = storage.signUrl(blobInfo, ttl.toMillis(), MILLISECONDS, withV4Signature(), withExtHeaders(extHeaders));
+        List<SignUrlOption> options = new ArrayList<>();
+        options.add(withV4Signature());
+        options.add(withExtHeaders(extHeaders));
+        endpoint.ifPresent(uri -> options.add(withHostName(URI.create(uri).getAuthority())));
+        URL url = storage.signUrl(blobInfo, ttl.toMillis(), MILLISECONDS, options.toArray(SignUrlOption[]::new));
         try {
             return Optional.of(new UriLocation(url.toURI(), toMultiMap(extHeaders)));
         }

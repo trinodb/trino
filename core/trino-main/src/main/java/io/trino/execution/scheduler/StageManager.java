@@ -86,6 +86,7 @@ class StageManager
         for (SubPlan planNode : Traverser.forTree(SubPlan::getChildren).breadthFirst(planTree)) {
             PlanFragment fragment = planNode.getFragment();
             SqlStage stage = createSqlStage(
+                    metadata,
                     getStageId(session.getQueryId(), fragment.getId()),
                     fragment,
                     TableInfo.extract(session, metadata, fragment),
@@ -262,7 +263,7 @@ class StageManager
                 rootStageId,
                 stages.values().stream().map(sqlStage -> {
                     StageInfo stageInfo = sqlStage.getStageInfo();
-                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.getStageId()));
+                    List<StageId> childStages = ImmutableList.copyOf(children.get(stageInfo.stageId()));
                     if (childStages.isEmpty()) {
                         return stageInfo;
                     }

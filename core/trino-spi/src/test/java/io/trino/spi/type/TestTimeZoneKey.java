@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -236,7 +236,7 @@ final class TestTimeZoneKey
     public void testRoundTripSerialization()
             throws IOException
     {
-        ObjectMapper mapper = new ObjectMapper();
+        JsonMapper mapper = new JsonMapper();
 
         for (TimeZoneKey zoneKey : TimeZoneKey.getTimeZoneKeys()) {
             String json = mapper.writeValueAsString(zoneKey);

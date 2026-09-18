@@ -24,7 +24,7 @@ import static java.nio.ByteOrder.BIG_ENDIAN;
 
 public class ShortDecimalFixedWidthByteArrayBatchDecoder
 {
-    private static final ShortDecimalDecoder[] VALUE_DECODERS = new ShortDecimalDecoder[] {
+    private static final ShortDecimalDecoder[] VALUE_DECODERS = {
             new BigEndianReader1(),
             new BigEndianReader2(),
             new BigEndianReader3(),
@@ -32,7 +32,7 @@ public class ShortDecimalFixedWidthByteArrayBatchDecoder
             new BigEndianReader5(),
             new BigEndianReader6(),
             new BigEndianReader7(),
-            new BigEndianReader8()
+            new BigEndianReader8(),
     };
     private static final VarHandle LONG_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(long[].class, BIG_ENDIAN);
     private static final VarHandle INT_HANDLE_BIG_ENDIAN = byteArrayViewVarHandle(int[].class, BIG_ENDIAN);

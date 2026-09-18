@@ -13,21 +13,15 @@
  */
 package io.trino.plugin.jmx;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
-import io.trino.spi.type.StandardTypes;
+import io.airlift.json.JsonMapperProvider;
 import io.trino.spi.type.Type;
+import io.trino.type.TypeDeserializer;
 
-import java.util.Map;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class MetadataUtil
 {
@@ -38,33 +32,12 @@ public final class MetadataUtil
     public static final JsonCodec<JmxSplit> SPLIT_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
-        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
+        JsonMapper jsonMapper = new JsonMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+                .get();
+        JsonCodecFactory codecFactory = new JsonCodecFactory(jsonMapper);
         TABLE_CODEC = codecFactory.jsonCodec(JmxTableHandle.class);
         COLUMN_CODEC = codecFactory.jsonCodec(JmxColumnHandle.class);
         SPLIT_CODEC = codecFactory.jsonCodec(JmxSplit.class);
-    }
-
-    public static final class TestingTypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
-                .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.VARCHAR, createUnboundedVarcharType()) // with max value length in signature
-                .buildOrThrow();
-
-        public TestingTypeDeserializer()
-        {
-            super(Type.class);
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = types.get(value.toLowerCase(ENGLISH));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
-        }
     }
 }

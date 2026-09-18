@@ -23,63 +23,73 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Reference;
+import io.trino.type.CharVarcharCoercion;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 
 public final class CanonicalizeExpressionRewriter
 {
     private static final CatalogSchemaFunctionName MULTIPLY_BUILTIN_FUNCTION = builtinFunctionName(OperatorType.MULTIPLY);
     private static final CatalogSchemaFunctionName ADD_BUILTIN_FUNCTION = builtinFunctionName(OperatorType.ADD);
 
-    public static Expression canonicalizeExpression(Expression expression, PlannerContext plannerContext)
+    public static Expression canonicalizeExpression(Expression expression, PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, charVarcharCoercion), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, PlannerContext plannerContext)
+    public static Expression rewrite(Expression expression, PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
     {
         if (expression instanceof Reference) {
             return expression;
         }
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, charVarcharCoercion), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final PlannerContext plannerContext;
+        private final CharVarcharCoercion charVarcharCoercion;
 
-        public Visitor(PlannerContext plannerContext)
+        public Visitor(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
         {
             this.plannerContext = plannerContext;
+            this.charVarcharCoercion = charVarcharCoercion;
         }
 
         @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
-        public Expression rewriteComparison(Comparison node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            // if we have a comparison of the form <constant> <op> <expr>, normalize it to
-            // <expr> <op-flipped> <constant>
-            if (isConstant(node.left()) && !isConstant(node.right())) {
-                node = new Comparison(node.operator().flip(), node.right(), node.left());
-            }
-
-            return treeRewriter.defaultRewrite(node, context);
-        }
-
-        @Override
         public Expression rewriteCall(Call node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
+            if (matchComparison(node) instanceof IrExpressions.Comparison comparison) {
+                ComparisonOperator operator = comparison.operator();
+                Expression left = comparison.left();
+                Expression right = comparison.right();
+                // if we have a comparison of the form <constant> <op> <expr>, normalize it to
+                // <expr> <op-flipped> <constant>
+                if (isConstant(left) && !isConstant(right)) {
+                    operator = operator.flip();
+                    Expression tmp = left;
+                    left = right;
+                    right = tmp;
+                }
+
+                return treeRewriter.defaultRewrite(comparison(plannerContext.getMetadata(), charVarcharCoercion, operator, left, right), context);
+            }
+
             CatalogSchemaFunctionName functionName = node.function().name();
 
             if (functionName.equals(MULTIPLY_BUILTIN_FUNCTION) ||
@@ -90,6 +100,7 @@ public final class CanonicalizeExpressionRewriter
                 if (isConstant(left) && !isConstant(right)) {
                     return new Call(
                             plannerContext.getMetadata().resolveOperator(
+                                    charVarcharCoercion,
                                     getOperator(functionName),
                                     ImmutableList.of(
                                             node.function().signature().getArgumentType(1),

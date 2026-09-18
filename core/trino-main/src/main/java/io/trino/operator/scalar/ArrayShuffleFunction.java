@@ -21,7 +21,7 @@ import io.trino.spi.function.TypeParameter;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-@ScalarFunction(value = "shuffle", deterministic = false)
+@ScalarFunction(value = "shuffle", deterministic = false, neverFails = true)
 @Description("Generates a random permutation of the given array.")
 public final class ArrayShuffleFunction
 {

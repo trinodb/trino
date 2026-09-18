@@ -23,7 +23,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -31,9 +30,11 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -42,16 +43,16 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
-import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -59,6 +60,7 @@ import static io.trino.transaction.InMemoryTransactionManager.createTestTransact
 
 public class TestCanonicalizeExpressionRewriter
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
@@ -73,16 +75,16 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIsNotNullPredicate()
     {
         assertRewritten(
-                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))),
-                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(BIGINT, "x"))));
+                not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "x"))),
+                not(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "x"))));
     }
 
     @Test
     public void testRewriteIfExpression()
     {
         assertRewritten(
-                ifExpression(new Comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
-                new Case(ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)));
+                ifExpression(comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L), new Constant(INTEGER, 1L)),
+                new Case(ImmutableList.of(new WhenClause(comparison(EQUAL, new Reference(INTEGER, "x"), new Constant(INTEGER, 0L)), new Constant(INTEGER, 0L))), new Constant(INTEGER, 1L)));
     }
 
     @Test
@@ -109,60 +111,60 @@ public class TestCanonicalizeExpressionRewriter
     public void testCanonicalizeComparison()
     {
         assertRewritten(
-                new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(NOT_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(NOT_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(NOT_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(GREATER_THAN, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(GREATER_THAN, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(LESS_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(LESS_THAN, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(LESS_THAN, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(GREATER_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
-                new Comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)),
+                comparison(LESS_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
+                comparison(LESS_THAN_OR_EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(GREATER_THAN_OR_EQUAL, new Reference(INTEGER, "a"), new Constant(INTEGER, 1L)));
 
         assertRewritten(
-                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
+                comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
 
         assertRewritten(
-                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
-                new Comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
+                comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")),
+                comparison(IDENTICAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "a")));
     }
 
     @Test
@@ -176,7 +178,7 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertCanonicalizedDate(Type type, String symbolName)
     {
         Call date = new Call(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date", fromTypes(type)),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "date", ImmutableList.of(type)),
                 ImmutableList.of(new Reference(type, symbolName)));
         assertRewritten(date, new Cast(new Reference(VARCHAR, symbolName), DATE));
     }
@@ -184,8 +186,8 @@ public class TestCanonicalizeExpressionRewriter
     private static void assertRewritten(Expression from, Expression to)
     {
         assertExpressionEquals(
-                transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, transactedSession -> {
-                    return rewrite(from, PLANNER_CONTEXT);
+                transaction(TRANSACTION_MANAGER, PLANNER_CONTEXT.getMetadata(), ACCESS_CONTROL).execute(TEST_SESSION, _ -> {
+                    return rewrite(from, PLANNER_CONTEXT, CHAR_VARCHAR_COERCION);
                 }),
                 to,
                 SymbolAliases.builder()

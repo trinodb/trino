@@ -53,6 +53,7 @@ public final class ArrayAggregationFunction
         state.merge(otherState);
     }
 
+    @SqlNullable
     @OutputFunction("array(T)")
     public static void output(
             @TypeParameter("T") Type elementType,

@@ -23,9 +23,9 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.opensearch.OpenSearchConfig;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHost;
 import org.opensearch.client.Node;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
@@ -35,7 +35,9 @@ import org.opensearch.client.RestClient;
 import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -49,18 +51,19 @@ public class BackpressureRestClient
 {
     private static final Logger log = Logger.get(BackpressureRestClient.class);
 
+    @SuppressWarnings("deprecation")
     private final RestClient delegate;
     private final RetryPolicy<Response> retryPolicy;
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestClient(RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestClient(@SuppressWarnings("deprecation") RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.delegate = requireNonNull(delegate, "restClient is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         retryPolicy = RetryPolicy.<Response>builder()
                 .withMaxAttempts(-1)
-                .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))
+                .withMaxDuration(Duration.ofMillis(config.getMaxRetryTime().toMillis()))
                 .withBackoff(config.getBackoffInitDelay().toMillis(), config.getBackoffMaxDelay().toMillis(), MILLIS)
                 .withJitter(0.125)
                 .handleIf(BackpressureRestClient::isBackpressure)
@@ -93,7 +96,7 @@ public class BackpressureRestClient
     {
         Request request = toRequest(method, endpoint, headers);
         requireNonNull(params, "parameters cannot be null");
-        for (Map.Entry<String, String> entry : params.entrySet()) {
+        for (Entry<String, String> entry : params.entrySet()) {
             request.addParameter(entry.getKey(), entry.getValue());
         }
         request.setEntity(entity);

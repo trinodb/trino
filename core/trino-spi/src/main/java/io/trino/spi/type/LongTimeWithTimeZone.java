@@ -17,6 +17,7 @@ import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.TimeWithTimeZoneTypes.normalize;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 
 public final class LongTimeWithTimeZone
         implements Comparable<LongTimeWithTimeZone>
@@ -26,8 +27,13 @@ public final class LongTimeWithTimeZone
     private final long picoseconds;
     private final int offsetMinutes;
 
+    /**
+     * @throws io.trino.spi.TrinoException when {@code offsetMinutes} is outside the range supported by {@code time with time zone}
+     */
     public LongTimeWithTimeZone(long picoseconds, int offsetMinutes)
     {
+        // validate offset is supported
+        getTimeZoneKeyForOffset(offsetMinutes);
         this.picoseconds = picoseconds;
         this.offsetMinutes = offsetMinutes;
     }

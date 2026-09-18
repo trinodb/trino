@@ -15,11 +15,8 @@ package io.trino.tracing;
 
 import io.opentelemetry.api.common.AttributeKey;
 
-import java.util.List;
-
 import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 import static io.opentelemetry.api.common.AttributeKey.longKey;
-import static io.opentelemetry.api.common.AttributeKey.stringArrayKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 
 public final class TrinoAttributes
@@ -47,7 +44,6 @@ public final class TrinoAttributes
     public static final AttributeKey<Boolean> CASCADE = booleanKey("trino.cascade");
 
     public static final AttributeKey<String> OPTIMIZER_NAME = stringKey("trino.optimizer");
-    public static final AttributeKey<List<String>> OPTIMIZER_RULES = stringArrayKey("trino.optimizer.rules");
 
     public static final AttributeKey<Long> SPLIT_BATCH_MAX_SIZE = longKey("trino.split_batch.max_size");
     public static final AttributeKey<Long> SPLIT_BATCH_RESULT_SIZE = longKey("trino.split_batch.result_size");

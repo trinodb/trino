@@ -21,8 +21,6 @@ import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.RestHighLevelClientBuilder;
 import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -38,6 +36,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -54,7 +53,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class ElasticsearchServer
         implements Closeable
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.17.27";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
 
     private final Path configurationPath;
@@ -86,7 +85,7 @@ public class ElasticsearchServer
                 .put("server.key", loadResource("server.key"))
                 .buildOrThrow();
 
-        for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
+        for (Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
 
@@ -110,13 +109,11 @@ public class ElasticsearchServer
         return HostAndPort.fromString(container.getHttpHostAddress());
     }
 
-    public RestHighLevelClient getClient()
+    public RestClient getClient()
     {
         HostAndPort address = getAddress();
-        return new RestHighLevelClientBuilder(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
-                .setStrictDeprecationMode(false)
-                .setHttpClientConfigCallback(ElasticsearchServer::enableSecureCommunication).build())
-                .setApiCompatibilityMode(true) // Needed for 7.x client to work with 8.x server
+        return RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+                .setHttpClientConfigCallback(ElasticsearchServer::enableSecureCommunication)
                 .build();
     }
 

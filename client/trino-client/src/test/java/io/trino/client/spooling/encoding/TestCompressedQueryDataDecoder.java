@@ -14,7 +14,6 @@
 package io.trino.client.spooling.encoding;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.spooling.DataAttributes;
@@ -42,7 +41,8 @@ class TestCompressedQueryDataDecoder
             throws IOException
     {
         AtomicBoolean closed = new AtomicBoolean();
-        InputStream stream = new FilterInputStream(new ByteArrayInputStream("compressed".getBytes(UTF_8))) {
+        InputStream stream = new FilterInputStream(new ByteArrayInputStream("compressed".getBytes(UTF_8)))
+        {
             @Override
             public void close()
                     throws IOException
@@ -52,12 +52,13 @@ class TestCompressedQueryDataDecoder
             }
         };
 
-        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
+        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder()
+        {
             @Override
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
-                assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
+                assertThat(new String(input.readAllBytes(), UTF_8))
                         .isEqualTo("decompressed");
                 return closeable(SAMPLE_VALUES.iterator());
             }
@@ -85,7 +86,8 @@ class TestCompressedQueryDataDecoder
             throws IOException
     {
         AtomicBoolean closed = new AtomicBoolean();
-        InputStream stream = new FilterInputStream(new ByteArrayInputStream("not compressed".getBytes(UTF_8))) {
+        InputStream stream = new FilterInputStream(new ByteArrayInputStream("not compressed".getBytes(UTF_8)))
+        {
             @Override
             public void close()
                     throws IOException
@@ -95,12 +97,13 @@ class TestCompressedQueryDataDecoder
             }
         };
 
-        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
+        QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder()
+        {
             @Override
             public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
-                assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
+                assertThat(new String(input.readAllBytes(), UTF_8))
                         .isEqualTo("not compressed");
                 input.close(); // Closes input stream according to the contract
                 return closeable(SAMPLE_VALUES.iterator());

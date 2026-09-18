@@ -95,12 +95,12 @@ public class TestAggregationStatsRule
     private StatsCalculatorAssertion testAggregation(SymbolStatsEstimate zStats)
     {
         return tester().assertStatsFor(pb -> pb
-                .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("sum", DOUBLE), aggregation("sum", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
-                        .addAggregation(pb.symbol("count", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(pb.symbol("y", DOUBLE), pb.symbol("z", DOUBLE))
-                        .source(pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE), pb.symbol("z", DOUBLE)))))
+                        .aggregation(ab -> ab
+                                .addAggregation(pb.symbol("sum", DOUBLE), aggregation("sum", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
+                                .addAggregation(pb.symbol("count", BIGINT), aggregation("count", ImmutableList.of()), ImmutableList.of())
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
+                                .singleGroupingSet(pb.symbol("y", DOUBLE), pb.symbol("z", DOUBLE))
+                                .source(pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE), pb.symbol("z", DOUBLE)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(DOUBLE, "x"), SymbolStatsEstimate.builder()
@@ -144,10 +144,10 @@ public class TestAggregationStatsRule
     public void testAggregationStatsCappedToInputRows()
     {
         tester().assertStatsFor(pb -> pb
-                .aggregation(ab -> ab
-                        .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
-                        .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
-                        .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                        .aggregation(ab -> ab
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
+                                .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
+                                .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
                 .withSourceStats(PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
                         .addSymbolStatistics(new Symbol(BIGINT, "y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())

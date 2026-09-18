@@ -14,12 +14,12 @@
 package io.trino.sql.analyzer;
 
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.sql.PlannerContext;
@@ -59,11 +59,12 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
-    public static final String DEPRECATED_TYPE_LOGICAL_WARNING = """
-                                                                 WARNING: EXPLAIN TYPE LOGICAL is no longer supported and will be removed in a future release.
-                                                                 Below is the output for EXPLAIN TYPE DISTRIBUTED. Please update your query.
+    public static final String DEPRECATED_TYPE_LOGICAL_WARNING =
+            """
+            WARNING: EXPLAIN TYPE LOGICAL is no longer supported and will be removed in a future release.
+            Below is the output for EXPLAIN TYPE DISTRIBUTED. Please update your query.
 
-                                                                 """;
+            """;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;

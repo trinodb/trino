@@ -20,7 +20,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -42,6 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Comparator.comparing;
 
@@ -80,7 +80,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(value, value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(BIGINT,
                 VARCHAR,
@@ -88,7 +89,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(value, utf8Slice(value.toString())))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(VARCHAR,
                 BIGINT,
@@ -96,7 +98,8 @@ public class TestTypedKeyValueHeap
                         .map(Long::valueOf)
                         .map(value -> new Entry<>(utf8Slice(value.toString()), value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
 
         test(VARCHAR,
                 VARCHAR,
@@ -104,7 +107,9 @@ public class TestTypedKeyValueHeap
                         .map(String::valueOf)
                         .map(Slices::utf8Slice)
                         .map(value -> new Entry<>(value, value))
-                        .toList(), Comparator.naturalOrder(), OUTPUT_SIZE);
+                        .toList(),
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test
@@ -113,7 +118,8 @@ public class TestTypedKeyValueHeap
         test(VARCHAR,
                 VARCHAR,
                 Collections.nCopies(INPUT_SIZE, new Entry<>(EMPTY_SLICE, EMPTY_SLICE)),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test
@@ -124,7 +130,8 @@ public class TestTypedKeyValueHeap
                 LongStream.range(0, 10).boxed()
                         .map(value -> new Entry<>(value, value == 5 ? null : value))
                         .toList(),
-                Comparator.naturalOrder(), OUTPUT_SIZE);
+                Comparator.naturalOrder(),
+                OUTPUT_SIZE);
     }
 
     @Test
@@ -224,7 +231,7 @@ public class TestTypedKeyValueHeap
     private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
-        inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
+        inputStream.forEach(value -> writeNativeValue(type, blockBuilder, value));
         return blockBuilder.buildValueBlock();
     }
 

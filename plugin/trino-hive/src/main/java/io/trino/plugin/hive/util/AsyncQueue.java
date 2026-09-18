@@ -232,7 +232,8 @@ public class AsyncQueue<T>
                             }
                         }
                     }
-                }, directExecutor());
+                },
+                directExecutor());
     }
 
     private static void completeAsync(Executor executor, SettableFuture<Void> future)

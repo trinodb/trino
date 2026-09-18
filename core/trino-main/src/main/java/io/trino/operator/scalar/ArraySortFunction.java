@@ -27,7 +27,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
-@ScalarFunction("array_sort")
+@ScalarFunction(value = "array_sort", neverFails = true)
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
 public final class ArraySortFunction
 {
@@ -41,7 +41,8 @@ public final class ArraySortFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            BlockPositionComparison comparisonOperator,
             @SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();

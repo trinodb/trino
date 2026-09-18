@@ -21,8 +21,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
-import io.trino.execution.ThreadCountParser;
 import io.trino.execution.buffer.CompressionCodec;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -30,11 +30,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
@@ -85,10 +85,7 @@ public class FeaturesConfig
 {
     public enum DataIntegrityVerification
     {
-        NONE,
-        ABORT,
-        RETRY,
-        /**/;
+        NONE, ABORT, RETRY,
     }
 
     @VisibleForTesting
@@ -96,8 +93,8 @@ public class FeaturesConfig
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
-    private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
-    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, DataSize.Unit.MEGABYTE);
+    private DataSize writerScalingMinDataProcessed = DataSize.of(120, MEGABYTE);
+    private DataSize maxMemoryPerPartitionWriter = DataSize.of(256, MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
@@ -111,7 +108,7 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
+    private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private Integer spillerThreads;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -129,10 +126,13 @@ public class FeaturesConfig
     private boolean forceSpillingJoin;
 
     private boolean columnarFilterEvaluationEnabled = true;
+    private boolean adaptiveFilterReorderingEnabled = true;
 
-    private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
+    private boolean externalExchangeEncryptionEnabled = true;
 
     private boolean legacyArithmeticDecimalOperators;
+
+    private boolean legacyVarcharToCharCoercion;
 
     public boolean isRedistributeWrites()
     {
@@ -269,7 +269,7 @@ public class FeaturesConfig
     public FeaturesConfig setSpillerSpillPaths(List<String> spillPaths)
     {
         this.spillerSpillPaths = spillPaths.stream()
-                .map(Paths::get)
+                .map(Path::of)
                 .collect(toImmutableList());
         return this;
     }
@@ -455,6 +455,19 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isLegacyVarcharToCharCoercion()
+    {
+        return legacyVarcharToCharCoercion;
+    }
+
+    @Config("deprecated.legacy-varchar-to-char-coercion")
+    @ConfigDescription("Implicitly coerce varchar to char, instead of char to varchar")
+    public FeaturesConfig setLegacyVarcharToCharCoercion(boolean legacyVarcharToCharCoercion)
+    {
+        this.legacyVarcharToCharCoercion = legacyVarcharToCharCoercion;
+        return this;
+    }
+
     @Deprecated
     public boolean isIncrementalHashArrayLoadFactorEnabled()
     {
@@ -509,16 +522,29 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isFaultTolerantExecutionExchangeEncryptionEnabled()
+    public boolean isAdaptiveFilterReorderingEnabled()
     {
-        return faultTolerantExecutionExchangeEncryptionEnabled;
+        return adaptiveFilterReorderingEnabled;
     }
 
-    @Config("fault-tolerant-execution-exchange-encryption-enabled")
-    @LegacyConfig("fault-tolerant-execution.exchange-encryption-enabled")
-    public FeaturesConfig setFaultTolerantExecutionExchangeEncryptionEnabled(boolean faultTolerantExecutionExchangeEncryptionEnabled)
+    @Config("experimental.adaptive-filter-reordering.enabled")
+    @ConfigDescription("Reorder conjunctive/disjunctive filter terms at runtime based on observed selectivity and performance")
+    public FeaturesConfig setAdaptiveFilterReorderingEnabled(boolean adaptiveFilterReorderingEnabled)
     {
-        this.faultTolerantExecutionExchangeEncryptionEnabled = faultTolerantExecutionExchangeEncryptionEnabled;
+        this.adaptiveFilterReorderingEnabled = adaptiveFilterReorderingEnabled;
+        return this;
+    }
+
+    public boolean isExternalExchangeEncryptionEnabled()
+    {
+        return externalExchangeEncryptionEnabled;
+    }
+
+    @Config("external-exchange-encryption-enabled")
+    @LegacyConfig({"fault-tolerant-execution-exchange-encryption-enabled", "fault-tolerant-execution.exchange-encryption-enabled"})
+    public FeaturesConfig setExternalExchangeEncryptionEnabled(boolean externalExchangeEncryptionEnabled)
+    {
+        this.externalExchangeEncryptionEnabled = externalExchangeEncryptionEnabled;
         return this;
     }
 

@@ -24,6 +24,4 @@ import java.util.function.Supplier;
  * implementation of this interface.
  */
 public interface DbSpecsProvider
-        extends Supplier<List<SessionMatchSpec>>
-{
-}
+        extends Supplier<List<SessionMatchSpec>> {}

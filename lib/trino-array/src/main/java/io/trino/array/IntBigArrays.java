@@ -24,8 +24,7 @@ public final class IntBigArrays
     private static final int SMALL = 7;
     private static final int MEDIUM = 40;
 
-    private IntBigArrays()
-    {}
+    private IntBigArrays() {}
 
     /**
      * Computes the segment associated with a given index.
@@ -89,7 +88,6 @@ public final class IntBigArrays
     /**
      * Sorts the specified range of elements according to the order induced by the specified
      * comparator using quicksort.
-     * <p>
      * <p>The sorting algorithm is a tuned quicksort adapted from Jon L. Bentley and M. Douglas
      * McIlroy, &ldquo;Engineering a Sort Function&rdquo;, <i>Software: Practice and Experience</i>, 23(11), pages
      * 1249&minus;1265, 1993.

@@ -28,7 +28,7 @@
             "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
             "stream.kafka.decoder.prop.schema.registry.rest.url": "http://schema-registry:8081",
             "stream.kafka.zk.broker.url": "zookeeper:2181/",
-            "stream.kafka.broker.list": "kafka:9092",
+            "stream.kafka.broker.list": "kafka:9093",
             "realtime.segment.flush.threshold.time": "24h",
             "realtime.segment.flush.threshold.size": "0",
             "realtime.segment.flush.desired.size": "1M",

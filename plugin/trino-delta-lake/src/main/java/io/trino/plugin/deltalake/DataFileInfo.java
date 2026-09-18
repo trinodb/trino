@@ -25,7 +25,7 @@ public record DataFileInfo(
         String path,
         long size,
         long creationTime,
-        io.trino.plugin.deltalake.DataFileInfo.DataFileType dataFileType,
+        DataFileType dataFileType,
         List<String> partitionValues,
         DeltaLakeJsonFileStatistics statistics,
         Optional<DeletionVectorEntry> deletionVector)

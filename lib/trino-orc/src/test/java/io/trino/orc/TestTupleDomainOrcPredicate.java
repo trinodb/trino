@@ -223,24 +223,24 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(CHAR, 10, stringColumnStats(0L, null, null))).isEqualTo(onlyNull(CHAR));
         assertThat(getDomain(CHAR, 10, stringColumnStats(10L, null, null))).isEqualTo(notNull(CHAR));
 
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco      "))).isEqualTo(singleValue(CHAR, utf8Slice("taco")));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "taco", "taco      "))).isEqualTo(singleValue(CHAR, utf8Slice("taco")));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "taco      ", "taco      "))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "taco", "taco      "))).isEqualTo(notNull(CHAR));
 
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco      "))).isEqualTo(create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco"))).isEqualTo(create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), false));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco      "))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), false));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco"))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), false));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), false));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), false));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco      "))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", "taco"))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco      "))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, null, "taco"))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple     ", null))).isEqualTo(notNull(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "apple", null))).isEqualTo(notNull(CHAR));
 
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco      "))).isEqualTo(create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco"))).isEqualTo(create(ValueSet.ofRanges(range(CHAR, utf8Slice("apple"), true, utf8Slice("taco"), true)), true));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco      "))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), true));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco"))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(CHAR, utf8Slice("taco"))), true));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
-        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(CHAR, utf8Slice("apple"))), true));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco      "))).isEqualTo(all(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", "taco"))).isEqualTo(all(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco      "))).isEqualTo(all(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, null, "taco"))).isEqualTo(all(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple     ", null))).isEqualTo(all(CHAR));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(5L, "apple", null))).isEqualTo(all(CHAR));
 
-        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "\0 ", " "))).isEqualTo(create(ValueSet.ofRanges(range(CHAR, utf8Slice("\0"), true, utf8Slice(""), true)), false));
+        assertThat(getDomain(CHAR, 10, stringColumnStats(10L, "\0 ", " "))).isEqualTo(notNull(CHAR));
     }
 
     private static ColumnStatistics stringColumnStats(Long numberOfValues, String minimum, String maximum)

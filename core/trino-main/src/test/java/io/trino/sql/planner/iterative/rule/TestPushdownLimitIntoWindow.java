@@ -22,11 +22,13 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -35,6 +37,8 @@ import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 public class TestPushdownLimitIntoWindow
         extends BaseRuleTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+
     @Test
     public void testLimitAboveWindow()
     {
@@ -44,7 +48,7 @@ public class TestPushdownLimitIntoWindow
 
     private void assertLimitAboveWindow(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, rankingFunctionName, ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -67,13 +71,14 @@ public class TestPushdownLimitIntoWindow
                                                 ImmutableList.of("a"),
                                                 ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
                                         .maxRankingPerPartition(3)
-                                        .partial(false), values("a"))));
+                                        .partial(false),
+                                values("a"))));
     }
 
     @Test
     public void testConvertToTopNRowNumber()
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction("row_number", fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "row_number", ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -101,7 +106,7 @@ public class TestPushdownLimitIntoWindow
     {
         // We can push Limit with pre-sorted inputs into WindowNode if ordering scheme is satisfied
         // We don't do it currently to avoid relying on LocalProperties outside of AddExchanges/AddLocalExchanges
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction("row_number", fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "row_number", ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -130,7 +135,7 @@ public class TestPushdownLimitIntoWindow
 
     private void assertZeroLimit(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, rankingFunctionName, ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -157,7 +162,7 @@ public class TestPushdownLimitIntoWindow
 
     private void assertWindowNotOrdered(String rankingFunctionName)
     {
-        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(rankingFunctionName, fromTypes());
+        ResolvedFunction ranking = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, rankingFunctionName, ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -175,8 +180,8 @@ public class TestPushdownLimitIntoWindow
     @Test
     public void testMultipleWindowFunctions()
     {
-        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveBuiltinFunction("row_number", fromTypes());
-        ResolvedFunction rankFunction = tester().getMetadata().resolveBuiltinFunction("rank", fromTypes());
+        ResolvedFunction rowNumberFunction = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "row_number", ImmutableList.of());
+        ResolvedFunction rankFunction = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "rank", ImmutableList.of());
         tester().assertThat(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
@@ -187,10 +192,8 @@ public class TestPushdownLimitIntoWindow
                             p.window(
                                     new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                                     ImmutableMap.of(
-                                            rowNumberSymbol,
-                                            newWindowNodeFunction(rowNumberFunction, a),
-                                            rankSymbol,
-                                            newWindowNodeFunction(rankFunction, a)),
+                                            rowNumberSymbol, newWindowNodeFunction(rowNumberFunction, a),
+                                            rankSymbol, newWindowNodeFunction(rankFunction, a)),
                                     p.values(a)));
                 })
                 .doesNotFire();

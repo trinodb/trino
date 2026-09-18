@@ -17,6 +17,7 @@ import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.IsNull;
+import io.trino.spi.function.Name;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -439,6 +440,28 @@ public class TestScalarValidation
         assertThatThrownBy(() -> extractParametricScalar(ConstructorWithInvalidTypeParameters.class))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Expected type parameter not to take parameters, but got 'k' on method .*");
+    }
+
+    @Test
+    public void testNameAnnotationOnConnectorSessionParameter()
+    {
+        assertThatThrownBy(() -> extractScalars(NameOnConnectorSession.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("Method .* has @Name on a non-@SqlType parameter");
+    }
+
+    public static final class NameOnConnectorSession
+    {
+        private NameOnConnectorSession() {}
+
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long bad(
+                @Name("session") ConnectorSession session,
+                @SqlType(StandardTypes.BIGINT) long x)
+        {
+            return x;
+        }
     }
 
     private static void extractParametricScalar(Class<?> clazz)

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -20,6 +21,7 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Optional;
@@ -30,19 +32,27 @@ public class BigQueryPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final BigQueryWriteClientFactory clientFactory;
+    private final RetrySettings retrySettings;
 
     @Inject
-    public BigQueryPageSinkProvider(BigQueryWriteClientFactory clientFactory)
+    public BigQueryPageSinkProvider(BigQueryWriteClientFactory clientFactory, @ForBigQueryWriter RetrySettings retrySettings)
     {
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.retrySettings = requireNonNull(retrySettings, "retrySettings is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorOutputTableHandle outputTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         BigQueryOutputTableHandle handle = (BigQueryOutputTableHandle) outputTableHandle;
         return new BigQueryPageSink(
                 clientFactory.create(session),
+                retrySettings,
                 handle.remoteTableName(),
                 handle.columnNames(),
                 handle.columnTypes(),
@@ -52,11 +62,17 @@ public class BigQueryPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+    public ConnectorPageSink createPageSink(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorInsertTableHandle insertTableHandle,
+            Optional<ConnectorTableCredentials> tableCredentials,
+            ConnectorPageSinkId pageSinkId)
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertTableHandle;
         return new BigQueryPageSink(
                 clientFactory.create(session),
+                retrySettings,
                 handle.remoteTableName(),
                 handle.columnNames(),
                 handle.columnTypes(),

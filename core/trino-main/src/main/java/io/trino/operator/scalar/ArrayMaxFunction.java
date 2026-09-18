@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 
-@ScalarFunction("array_max")
+@ScalarFunction(value = "array_max", neverFails = true)
 @Description("Get maximum value of array")
 public final class ArrayMaxFunction
 {
@@ -42,7 +42,8 @@ public final class ArrayMaxFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+            MethodHandle compareMethodHandle,
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block block)
             throws Throwable

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -37,8 +36,9 @@ import java.util.stream.Collectors;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -102,7 +102,7 @@ public class TestMergeAdjacentWindows
                                 newWindowNodeSpecification(p, "a"),
                                 ImmutableMap.of(p.symbol("avg_2"), newWindowNodeFunction(AVG, "a")),
                                 p.filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
+                                        comparison(GREATER_THAN, new Reference(INTEGER, "a"), new Constant(INTEGER, 5L)),
                                         p.window(
                                                 newWindowNodeSpecification(p, "a"),
                                                 ImmutableMap.of(p.symbol("avg_1"), newWindowNodeFunction(AVG, "a")),
@@ -155,8 +155,8 @@ public class TestMergeAdjacentWindows
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(windowFunction(AVG.signature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME))
-                                        .addFunction(windowFunction(SUM.signature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
+                                        .addFunction(windowFunction(AVG.signature().getName().functionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME))
+                                        .addFunction(windowFunction(SUM.signature().getName().functionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -193,8 +193,8 @@ public class TestMergeAdjacentWindows
                                         avgOutputAlias, PlanMatchPattern.expression(new Reference(DOUBLE, avgOutputAlias))),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, windowFunction(LAG.signature().getName().getFunctionName(), ImmutableList.of(columnAAlias, oneAlias), DEFAULT_FRAME))
-                                                .addFunction(avgOutputAlias, windowFunction(AVG.signature().getName().getFunctionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
+                                                .addFunction(lagOutputAlias, windowFunction(LAG.signature().getName().functionName(), ImmutableList.of(columnAAlias, oneAlias), DEFAULT_FRAME))
+                                                .addFunction(avgOutputAlias, windowFunction(AVG.signature().getName().functionName(), ImmutableList.of(columnAAlias), DEFAULT_FRAME)),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         oneAlias, PlanMatchPattern.expression(new Constant(INTEGER, 1L)),

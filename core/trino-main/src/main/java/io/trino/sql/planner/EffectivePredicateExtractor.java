@@ -21,15 +21,16 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
@@ -62,6 +63,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -69,15 +71,16 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
-import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -87,22 +90,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class EffectivePredicateExtractor
 {
-    private static final Predicate<Map.Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
+    private static final Predicate<Entry<Symbol, ? extends Expression>> SYMBOL_MATCHES_EXPRESSION =
             entry -> entry.getValue().equals(entry.getKey().toSymbolReference());
-
-    private static final Function<Map.Entry<Symbol, ? extends Expression>, Expression> ENTRY_TO_EQUALITY =
-            entry -> {
-                Reference reference = entry.getKey().toSymbolReference();
-                Expression expression = entry.getValue();
-
-                if (expression instanceof Constant constant && constant.value() == null) {
-                    return new IsNull(reference);
-                }
-
-                // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
-                // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new Comparison(EQUAL, reference, expression);
-            };
 
     private final PlannerContext plannerContext;
     private final boolean useTableProperties;
@@ -113,9 +102,9 @@ public class EffectivePredicateExtractor
         this.useTableProperties = useTableProperties;
     }
 
-    public Expression extract(Session session, PlanNode node)
+    public Expression extract(Session session, SymbolAllocator symbolAllocator, PlanNode node)
     {
-        return node.accept(new Visitor(plannerContext, session, useTableProperties), null);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties), null);
     }
 
     private static class Visitor
@@ -124,14 +113,16 @@ public class EffectivePredicateExtractor
         private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
+        private final SymbolAllocator symbolAllocator;
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
 
-        public Visitor(PlannerContext plannerContext, Session session, boolean useTableProperties)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.useTableProperties = useTableProperties;
             this.domainTranslator = new DomainTranslator(metadata);
         }
@@ -140,6 +131,20 @@ public class EffectivePredicateExtractor
         protected Expression visitPlan(PlanNode node, Void context)
         {
             return TRUE;
+        }
+
+        private Expression entryToEquality(Entry<Symbol, ? extends Expression> entry)
+        {
+            Reference reference = entry.getKey().toSymbolReference();
+            Expression expression = entry.getValue();
+
+            if (expression instanceof Constant constant && constant.value() == null) {
+                return new IsNull(reference);
+            }
+
+            // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
+            // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
+            return comparison(metadata, getCharVarcharCoercion(session), EQUAL, reference, expression);
         }
 
         @Override
@@ -166,19 +171,19 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
-            if (underlying.getTupleDomain().isNone()) {
+            if (underlying.tupleDomain().isNone()) {
                 // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
                 // In that case, ignore it and combine it into the filter directly
-                // See EffectivePredicateExtractor#ENTRY_TO_EQUALITY
+                // See EffectivePredicateExtractor.Visitor#entryToEquality
                 // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
                 return combineConjuncts(underlyingPredicate, node.getPredicate());
             }
 
             DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
-                    domainTranslator.toPredicate(underlying.getTupleDomain().intersect(current.getTupleDomain())),
-                    underlying.getRemainingExpression(),
-                    current.getRemainingExpression());
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
+                    underlying.remainingExpression(),
+                    current.remainingExpression());
         }
 
         @Override
@@ -207,12 +212,12 @@ public class EffectivePredicateExtractor
 
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            List<Map.Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
+            List<Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
                     .filter(SYMBOL_MATCHES_EXPRESSION.negate())
                     .collect(toImmutableList());
 
             Set<Symbol> newlyAssignedSymbols = nonIdentityAssignments.stream()
-                    .map(Map.Entry::getKey)
+                    .map(Entry::getKey)
                     .collect(toImmutableSet());
 
             List<Expression> validUnderlyingEqualities = extractConjuncts(underlyingPredicate).stream()
@@ -222,7 +227,7 @@ public class EffectivePredicateExtractor
             List<Expression> projectionEqualities = nonIdentityAssignments.stream()
                     .filter(assignment -> assignment.getKey().type().isComparable() || assignment.getKey().type().isOrderable())
                     .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
-                    .map(ENTRY_TO_EQUALITY)
+                    .map(this::entryToEquality)
                     .collect(toImmutableList());
 
             return pullExpressionThroughSymbols(combineConjuncts(
@@ -268,8 +273,8 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(predicate.simplify()
-                    .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
+            return domainTranslator.toPredicate(getCharVarcharCoercion(session), predicate.simplify()
+                    .filter((columnHandle, _) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
 
@@ -314,7 +319,7 @@ public class EffectivePredicateExtractor
             Expression rightPredicate = node.getRight().accept(this, context);
 
             List<Expression> joinConjuncts = node.getCriteria().stream()
-                    .map(JoinNode.EquiJoinClause::toExpression)
+                    .map(clause -> clause.toExpression(metadata, getCharVarcharCoercion(session)))
                     .collect(toImmutableList());
 
             return switch (node.getType()) {
@@ -371,7 +376,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            Expression item = newOptimizer(plannerContext).process(value, session, ImmutableMap.of()).orElse(value);
+                            Expression item = plannerContext.getExpressionOptimizer().process(value, session, symbolAllocator, ImmutableMap.of()).orElse(value);
                             if (!(item instanceof Constant constant)) {
                                 return TRUE;
                             }
@@ -384,8 +389,9 @@ public class EffectivePredicateExtractor
                                     return TRUE;
                                 }
                                 if (hasNestedNulls(type, ((Constant) item).value())) {
-                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
-                                    // TODO: remove when comparisons are fixed
+                                    // A structural value containing a null element has three-valued equality (it is not
+                                    // even equal to itself), so it cannot be represented as an exact value in a Domain.
+                                    // Skip predicate extraction for it rather than producing an unsound predicate.
                                     return TRUE;
                                 }
                                 if (isFloatingPointNaN(type, ((Constant) item).value())) {
@@ -400,7 +406,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(expression)) {
                         return TRUE;
                     }
-                    Expression evaluated = newOptimizer(plannerContext).process(expression, session, ImmutableMap.of()).orElse(expression);
+                    Expression evaluated = plannerContext.getExpressionOptimizer().process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
                     if (!(evaluated instanceof Constant constant)) {
                         return TRUE;
                     }
@@ -418,8 +424,9 @@ public class EffectivePredicateExtractor
                                 return TRUE;
                             }
                             if (hasNestedNulls(type, item)) {
-                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
-                                // TODO: remove when comparisons are fixed
+                                // A structural value containing a null element has three-valued equality (it is not
+                                // even equal to itself), so it cannot be represented as an exact value in a Domain.
+                                // Skip predicate extraction for it rather than producing an unsound predicate.
                                 return TRUE;
                             }
                             if (isFloatingPointNaN(type, item)) {
@@ -463,7 +470,7 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
+            return domainTranslator.toPredicate(getCharVarcharCoercion(session), TupleDomain.withColumnDomains(domains.buildOrThrow()).simplify());
         }
 
         private boolean hasNestedNulls(Type type, Object value)
@@ -489,6 +496,17 @@ public class EffectivePredicateExtractor
                     }
                 }
             }
+            else if (type instanceof MapType mapType) {
+                SqlMap sqlMap = (SqlMap) value;
+                Block valueBlock = sqlMap.getRawValueBlock();
+                int rawOffset = sqlMap.getRawOffset();
+                // map keys can neither be null nor contain nulls
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    if (valueBlock.isNull(rawOffset + i) || elementHasNulls(mapType.getValueType(), valueBlock, rawOffset + i)) {
+                        return true;
+                    }
+                }
+            }
 
             return false;
         }
@@ -501,6 +519,10 @@ public class EffectivePredicateExtractor
             }
             if (elementType instanceof ArrayType) {
                 Block element = (Block) elementType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+            if (elementType instanceof MapType) {
+                SqlMap element = (SqlMap) elementType.getObject(container, position);
                 return hasNestedNulls(elementType, element);
             }
 
@@ -543,7 +565,7 @@ public class EffectivePredicateExtractor
             };
         }
 
-        private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Map.Entry<Symbol, Reference>>> mapping)
+        private Expression deriveCommonPredicates(PlanNode node, Function<Integer, Collection<Entry<Symbol, Reference>>> mapping)
         {
             // Find the predicates that can be pulled up from each source
             List<Set<Expression>> sourceOutputConjuncts = new ArrayList<>();
@@ -552,7 +574,7 @@ public class EffectivePredicateExtractor
 
                 List<Expression> equalities = mapping.apply(i).stream()
                         .filter(SYMBOL_MATCHES_EXPRESSION.negate())
-                        .map(ENTRY_TO_EQUALITY)
+                        .map(this::entryToEquality)
                         .collect(toImmutableList());
 
                 sourceOutputConjuncts.add(ImmutableSet.copyOf(extractConjuncts(pullExpressionThroughSymbols(combineConjuncts(
@@ -576,11 +598,11 @@ public class EffectivePredicateExtractor
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = new EqualityInference(expression);
+            EqualityInference equalityInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);
-            EqualityInference.nonInferrableConjuncts(expression).forEach(conjunct -> {
+            EqualityInference.nonInferrableConjuncts(plannerContext, getCharVarcharCoercion(session), expression).forEach(conjunct -> {
                 if (DeterminismEvaluator.isDeterministic(conjunct)) {
                     Expression rewritten = equalityInference.rewrite(conjunct, scope);
                     if (rewritten != null) {
@@ -589,7 +611,7 @@ public class EffectivePredicateExtractor
                 }
             });
 
-            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
 
             return combineConjuncts(effectiveConjuncts.build());
         }

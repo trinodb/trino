@@ -23,7 +23,13 @@ public final class TestingIdType
 
     private TestingIdType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeDescriptor(NAME));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

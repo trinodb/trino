@@ -160,6 +160,21 @@ public class ParquetReaderConfig
         return options.getSmallFileThreshold();
     }
 
+    public boolean isSelectedPositionsPushdownEnabled()
+    {
+        return options.isSelectedPositionsPushdownEnabled();
+    }
+
+    @Config("parquet.selected-positions-pushdown-enabled")
+    @ConfigDescription("Enable pushing selected positions into Parquet column readers")
+    public ParquetReaderConfig setSelectedPositionsPushdownEnabled(boolean selectedPositionsPushdownEnabled)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withSelectedPositionsPushdownEnabled(selectedPositionsPushdownEnabled)
+                .build();
+        return this;
+    }
+
     @Config("parquet.experimental.vectorized-decoding.enabled")
     @ConfigDescription("Enable using Java Vector API for faster decoding of parquet files")
     public ParquetReaderConfig setVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
@@ -189,6 +204,24 @@ public class ParquetReaderConfig
     public DataSize getMaxFooterReadSize()
     {
         return options.getMaxFooterReadSize();
+    }
+
+    @Config("parquet.footer-read-size")
+    @ConfigDescription("Expected size of the Parquet footer to read before falling back to a second read")
+    public ParquetReaderConfig setFooterReadSize(DataSize footerReadSize)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withFooterReadSize(footerReadSize)
+                .build();
+        return this;
+    }
+
+    @NotNull
+    @MinDataSize("8B")
+    @MaxDataSize("128MB")
+    public DataSize getFooterReadSize()
+    {
+        return options.getFooterReadSize();
     }
 
     @Config("parquet.max-page-read-size")

@@ -38,7 +38,8 @@ public class SemiJoinNode
     private final Optional<DynamicFilterId> dynamicFilterId;
 
     @JsonCreator
-    public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
+    public SemiJoinNode(
+            @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("filteringSource") PlanNode filteringSource,
             @JsonProperty("sourceJoinSymbol") Symbol sourceJoinSymbol,
@@ -58,12 +59,13 @@ public class SemiJoinNode
 
         checkArgument(source.getOutputSymbols().contains(sourceJoinSymbol), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputSymbols().contains(filteringSourceJoinSymbol), "Filtering source does not contain filtering join symbol");
+        checkArgument(sourceJoinSymbol.type().equals(filteringSourceJoinSymbol.type()), "Type mismatch between source and filtering source join symbols");
     }
 
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     @JsonProperty("source")

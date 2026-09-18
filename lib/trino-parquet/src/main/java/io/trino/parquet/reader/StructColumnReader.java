@@ -14,11 +14,12 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetTypeUtils.isOptionalFieldValueNull;
+import static io.trino.spi.block.Bitmap.set;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 
 public final class StructColumnReader
 {
@@ -52,25 +53,27 @@ public final class StructColumnReader
         }
 
         int nullValuesCount = 0;
-        BooleanArrayList structIsNull = new BooleanArrayList();
+        long[] structIsValid = new long[wordsForBits(fieldDefinitionLevels.length)];
+        int position = 0;
         for (int i = 0; i < fieldDefinitionLevels.length; i++) {
             if (fieldRepetitionLevels[i] <= maxRepetitionLevel) {
                 if (isOptionalFieldValueNull(fieldDefinitionLevels[i], maxDefinitionLevel)) {
                     // Struct is null
-                    structIsNull.add(true);
                     nullValuesCount++;
+                    position++;
                 }
                 else if (fieldDefinitionLevels[i] >= maxDefinitionLevel) {
                     // Struct is defined and not empty
-                    structIsNull.add(false);
+                    set(structIsValid, 0, position);
+                    position++;
                 }
             }
         }
         if (nullValuesCount == 0) {
-            return new RowBlockPositions(Optional.empty(), structIsNull.size());
+            return new RowBlockPositions(Optional.empty(), position);
         }
-        return new RowBlockPositions(Optional.of(structIsNull.elements()), structIsNull.size());
+        return new RowBlockPositions(Optional.of(structIsValid), position);
     }
 
-    public record RowBlockPositions(Optional<boolean[]> isNull, int positionsCount) {}
+    public record RowBlockPositions(Optional<long[]> valueIsValid, int positionsCount) {}
 }

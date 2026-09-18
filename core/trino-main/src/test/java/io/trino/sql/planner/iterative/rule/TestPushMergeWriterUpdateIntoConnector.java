@@ -41,11 +41,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 
@@ -74,7 +74,8 @@ public class TestPushMergeWriterUpdateIntoConnector
 
                         return p.tableFinish(
                                 p.merge(
-                                        p.mergeProcessor(SCHEMA_TABLE_NAME,
+                                        p.mergeProcessor(
+                                                SCHEMA_TABLE_NAME,
                                                 p.project(new Assignments(Map.of(mergeRow, updateMergeRowExpression)),
                                                         p.tableScan(tableScanBuilder -> tableScanBuilder
                                                                 .setAssignments(ImmutableMap.of())
@@ -108,12 +109,14 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
+                        Expression updateMergeRowExpression = new Row(ImmutableList.of(
+                                p.symbol("column_1").toSymbolReference(),
                                 new Call(MULTIPLY_BIGINT, ImmutableList.of(p.symbol("col1").toSymbolReference(), new Constant(BIGINT, 5L)))));
 
                         return p.tableFinish(
                                 p.merge(
-                                        p.mergeProcessor(SCHEMA_TABLE_NAME,
+                                        p.mergeProcessor(
+                                                SCHEMA_TABLE_NAME,
                                                 p.project(new Assignments(Map.of(mergeRow, updateMergeRowExpression)),
                                                         p.tableScan(tableScanBuilder -> tableScanBuilder
                                                                 .setAssignments(ImmutableMap.of())
@@ -148,12 +151,13 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set function call, which represents update all columns statement
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(new Call(
-                                ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)),
+                                ruleTester.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(ruleTester.getSession()), "from_base64", ImmutableList.of(VARCHAR)),
                                 ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(""))))));
 
                         return p.tableFinish(
                                 p.merge(
-                                        p.mergeProcessor(SCHEMA_TABLE_NAME,
+                                        p.mergeProcessor(
+                                                SCHEMA_TABLE_NAME,
                                                 p.project(new Assignments(Map.of(mergeRow, updateMergeRowExpression)),
                                                         p.tableScan(tableScanBuilder -> tableScanBuilder
                                                                 .setAssignments(ImmutableMap.of())
@@ -189,7 +193,8 @@ public class TestPushMergeWriterUpdateIntoConnector
                     @Override
                     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
                     {
-                        return Map.of("column_1", new TestingColumnHandle("column_1"),
+                        return Map.of(
+                                "column_1", new TestingColumnHandle("column_1"),
                                 "column_2", new TestingColumnHandle("column_2"));
                     }
                 });

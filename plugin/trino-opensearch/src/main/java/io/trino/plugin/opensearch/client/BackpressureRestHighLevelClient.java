@@ -37,6 +37,7 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -55,14 +56,14 @@ public class BackpressureRestHighLevelClient
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestHighLevelClient(RestClientBuilder restClientBuilder, OpenSearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestHighLevelClient(@SuppressWarnings("deprecation") RestClientBuilder restClientBuilder, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));
         backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
         retryPolicy = RetryPolicy.<ActionResponse>builder()
                 .withMaxAttempts(-1)
-                .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))
+                .withMaxDuration(Duration.ofMillis(config.getMaxRetryTime().toMillis()))
                 .withBackoff(config.getBackoffInitDelay().toMillis(), config.getBackoffMaxDelay().toMillis(), MILLIS)
                 .withJitter(0.125)
                 .handleIf(BackpressureRestHighLevelClient::isBackpressure)

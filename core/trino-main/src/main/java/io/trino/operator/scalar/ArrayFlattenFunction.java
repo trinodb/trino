@@ -18,17 +18,18 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeTemplates.arrayType;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
 
@@ -44,15 +45,15 @@ public class ArrayFlattenFunction
         super(FunctionMetadata.scalarBuilder(FUNCTION_NAME)
                 .signature(Signature.builder()
                         .typeVariable("E")
-                        .returnType(arrayType(new TypeSignature("E")))
-                        .argumentType(arrayType(arrayType(new TypeSignature("E"))))
+                        .returnType(arrayType(typeVariable("E")))
+                        .argumentType(arrayType(arrayType(typeVariable("E"))))
                         .build())
                 .description("Flattens the given array")
                 .build());
     }
 
     @Override
-    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE

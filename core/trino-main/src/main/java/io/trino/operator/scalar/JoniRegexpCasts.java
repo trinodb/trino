@@ -29,11 +29,13 @@ import io.trino.type.JoniRegexpType;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
+import static java.lang.Math.toIntExact;
 
 public final class JoniRegexpCasts
 {
     private JoniRegexpCasts() {}
 
+    // fallible
     @LiteralParameters("x")
     @ScalarOperator(OperatorType.CAST)
     @SqlType(JoniRegexpType.NAME)
@@ -42,12 +44,13 @@ public final class JoniRegexpCasts
         return joniRegexp(pattern);
     }
 
+    // fallible
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JoniRegexpType.NAME)
-    public static JoniRegexp castCharToJoniRegexp(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static JoniRegexp castCharToJoniRegexp(@LiteralParameter("x") long charLength, @SqlType("char(x)") Slice pattern)
     {
-        return joniRegexp(padSpaces(pattern, charLength.intValue()));
+        return joniRegexp(padSpaces(pattern, toIntExact(charLength)));
     }
 
     public static JoniRegexp joniRegexp(Slice pattern)

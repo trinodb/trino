@@ -4,10 +4,10 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, [expr_11, expr_12])
-                        final aggregation over (groupid, i_category_gid, i_class_gid)
-                            local exchange (REPARTITION, HASH, [groupid, i_category_gid, i_class_gid])
-                                remote exchange (REPARTITION, HASH, [groupid, i_category_gid, i_class_gid])
-                                    partial aggregation over (groupid, i_category_gid, i_class_gid)
+                        final aggregation over (i_category_gid, i_class_gid, groupid)
+                            local exchange (REPARTITION, HASH, [i_category_gid, i_class_gid, groupid])
+                                remote exchange (REPARTITION, HASH, [i_category_gid, i_class_gid, groupid])
+                                    partial aggregation over (i_category_gid, i_class_gid, groupid)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):

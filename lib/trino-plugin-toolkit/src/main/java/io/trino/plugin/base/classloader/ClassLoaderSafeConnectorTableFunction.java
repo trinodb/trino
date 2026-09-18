@@ -57,6 +57,14 @@ public class ClassLoaderSafeConnectorTableFunction
     }
 
     @Override
+    public String getDescription()
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getDescription();
+        }
+    }
+
+    @Override
     public List<ArgumentSpecification> getArguments()
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
@@ -73,7 +81,8 @@ public class ClassLoaderSafeConnectorTableFunction
     }
 
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session,
+    public TableFunctionAnalysis analyze(
+            ConnectorSession session,
             ConnectorTransactionHandle transaction,
             Map<String, Argument> arguments,
             ConnectorAccessControl accessControl)

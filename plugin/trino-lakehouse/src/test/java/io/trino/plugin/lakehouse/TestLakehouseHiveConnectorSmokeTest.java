@@ -17,6 +17,8 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.plugin.lakehouse.TableType.HIVE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +41,7 @@ public class TestLakehouseHiveConnectorSmokeTest
     }
 
     @Override
-    protected TestTable newTrinoTable(String namePrefix, String tableDefinition)
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
     {
         if (tableDefinition.startsWith("(")) {
             tableDefinition += " WITH (transactional = true)";
@@ -47,7 +49,7 @@ public class TestLakehouseHiveConnectorSmokeTest
         else {
             tableDefinition = "WITH (transactional = true) " + tableDefinition;
         }
-        return super.newTrinoTable(namePrefix, tableDefinition);
+        return super.newTrinoTable(namePrefix, tableDefinition, rowsToInsert);
     }
 
     @Test
@@ -65,5 +67,14 @@ public class TestLakehouseHiveConnectorSmokeTest
                    format = 'ORC',
                    type = 'HIVE'
                 )""");
+    }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
     }
 }

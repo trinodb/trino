@@ -29,6 +29,7 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class PostgreSqlClientModule
@@ -43,7 +44,7 @@ public class PostgreSqlClientModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         bindSessionPropertiesProvider(binder, PostgreSqlSessionProperties.class);
         newOptionalBinder(binder, QueryBuilder.class).setBinding().to(CollationAwareQueryBuilder.class).in(Scopes.SINGLETON);
-        install(new DecimalModule());
+        install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
         install(new JdbcJoinPushdownSupportModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

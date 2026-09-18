@@ -38,8 +38,8 @@ public class PruneFilterColumns
     protected Optional<PlanNode> pushDownProjectOff(Context context, FilterNode filterNode, Set<Symbol> referencedOutputs)
     {
         Set<Symbol> prunedFilterInputs = Streams.concat(
-                referencedOutputs.stream(),
-                SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
+                        referencedOutputs.stream(),
+                        SymbolsExtractor.extractUnique(filterNode.getPredicate()).stream())
                 .collect(toImmutableSet());
 
         return restrictChildOutputs(context.getIdAllocator(), filterNode, prunedFilterInputs);

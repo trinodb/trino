@@ -16,14 +16,36 @@ package io.trino.client;
 public enum ClientCapabilities
 {
     PATH,
-    // Whether clients support datetime types with variable precision
-    //   timestamp(p) with time zone
-    //   timestamp(p) without time zone
-    //   time(p) with time zone
-    //   time(p) without time zone
-    //   interval X(p1) to Y(p2)
-    // When this capability is not set, the server returns datetime types with precision = 3
+
+    /**
+     * Whether clients support datetime types with variable precision
+     * timestamp(p) with time zone
+     * timestamp(p) without time zone
+     * time(p) with time zone
+     * time(p) without time zone
+     * interval X(p1) to Y(p2)
+     * When this capability is not set, the server returns datetime types with precision = 3
+     */
     PARAMETRIC_DATETIME,
-    // Whether clients support the session authorization set/reset feature
-    SESSION_AUTHORIZATION;
+
+    /**
+     * Whether client supports the `NUMBER` type. When this capability is not set, the server returns `varchar` for `NUMBER` columns.
+     */
+    NUMBER,
+
+    /**
+     * Whether client supports the `VARIANT` type.
+     * When neither this capability nor `VARIANT_BINARY` are set, the server returns `json` for `VARIANT` columns.
+     */
+    VARIANT,
+
+    /**
+     * Whether client supports the `VARIANT` type encoded as a binary payload on the wire.
+     */
+    VARIANT_BINARY,
+
+    /**
+     * Whether clients support the session authorization set/reset feature
+     */
+    SESSION_AUTHORIZATION,
 }

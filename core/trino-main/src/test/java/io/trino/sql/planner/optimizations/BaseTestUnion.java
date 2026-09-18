@@ -147,7 +147,7 @@ abstract class BaseTestUnion
                 false);
         assertAtMostOneAggregationBetweenRemoteExchanges(plan);
         // TODO: Enable this check once distributed UNION can handle both partitioned and single node sources at the same time
-        //assertPlanIsFullyDistributed(plan);
+        // assertPlanIsFullyDistributed(plan);
     }
 
     @Test

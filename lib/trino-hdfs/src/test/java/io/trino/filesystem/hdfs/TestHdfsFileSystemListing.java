@@ -85,7 +85,7 @@ public class TestHdfsFileSystemListing
                 rootPath + "/e f",
                 rootPath + "/xyz");
 
-        createFile(tempDir.resolve("mydir").resolve("qqq"));
+        createFile(tempDir.resolve("mydir", "qqq"));
 
         assertThat(listFiles(fileSystem, root)).containsExactlyInAnyOrder(
                 root + "/abc",

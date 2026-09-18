@@ -18,11 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryStats;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.RetryPolicy;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.eventlistener.StageGcStatistics;
@@ -36,7 +37,6 @@ import java.util.OptionalDouble;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -134,6 +134,7 @@ public class TestBasicQueryInfo
                                         106,
                                         107)),
                                 DynamicFiltersStats.EMPTY,
+                                ImmutableMap.of(),
                                 ImmutableMap.of(),
                                 ImmutableList.of(),
                                 ImmutableList.of()),

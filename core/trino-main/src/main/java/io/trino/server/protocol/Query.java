@@ -33,6 +33,7 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
@@ -43,6 +44,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
 import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ExternalUriInfo;
@@ -50,6 +52,7 @@ import io.trino.server.GoneException;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -70,6 +73,7 @@ import java.io.EOFException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -77,7 +81,6 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
@@ -85,6 +88,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
@@ -98,9 +102,12 @@ import static io.trino.server.protocol.QueryResultRows.empty;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Failures.toFailure;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 class Query
@@ -127,9 +134,16 @@ class Query
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
+    private final PagesSerdeFactory serdeFactory;
+
     @GuardedBy("this")
     private PageDeserializer deserializer;
+    @GuardedBy("this")
+    private boolean exchangeFinished;
     private final boolean supportsParametricDateTime;
+    private final boolean supportsNumberType;
+    private final boolean supportsVariant;
+    private final boolean supportsVariantBinary;
 
     @GuardedBy("this")
     private OptionalLong nextToken = OptionalLong.of(0);
@@ -257,8 +271,10 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        deserializer = createExchangePagesSerdeFactory(blockEncodingSerde, session)
-                .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
+        this.supportsNumberType = session.getClientCapabilities().contains(ClientCapabilities.NUMBER.toString());
+        this.supportsVariant = session.getClientCapabilities().contains(ClientCapabilities.VARIANT.toString());
+        this.supportsVariantBinary = session.getClientCapabilities().contains(ClientCapabilities.VARIANT_BINARY.toString());
+        this.serdeFactory = createExchangePagesSerdeFactory(blockEncodingSerde, session);
     }
 
     public void cancel()
@@ -414,7 +430,7 @@ class Query
         }
 
         // if this is not a request for the next results, return not found
-        if (token != nextToken.getAsLong()) {
+        if (token != nextToken.orElseThrow()) {
             // unknown token
             throw new NotFoundException();
         }
@@ -431,7 +447,7 @@ class Query
         }
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
-        verify(token == nextToken.getAsLong(), "Expected token to equal next token");
+        verify(token == nextToken.orElseThrow(), "Expected token to equal next token");
 
         // get the query info before returning
         // force update if query manager is closed
@@ -450,7 +466,7 @@ class Query
         }
 
         QueryData queryData = queryDataProducer.produce(externalUriInfo, resultRows, this::handleSerializationException);
-        if (deserializer == null) {
+        if (exchangeFinished) {
             queryDataProducer.close(); // Close when there are no more pages
         }
 
@@ -487,7 +503,7 @@ class Query
         URI nextResultsUri = null;
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
-            long nextToken = this.nextToken.getAsLong();
+            long nextToken = this.nextToken.orElseThrow();
             nextResultsUri = createNextResultsUri(externalUriInfo, nextToken);
             partialCancelUri = findCancelableLeafStage(queryInfo)
                     .map(stage -> createPartialCancelUri(stage, externalUriInfo, nextToken))
@@ -567,6 +583,29 @@ class Query
     {
         if (!resultsConsumed && queryInfo.stages().isEmpty()) {
             if (columns == null) {
+                String updateType = queryInfo.updateType();
+                if ("CALL".equals(updateType)) {
+                    types = ImmutableList.of(VARCHAR, BIGINT);
+                    columns = ImmutableList.of(
+                            createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary),
+                            createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+                    queryDataProducer = QueryDataProducerFactory.create(session, types);
+                    Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
+                    if (callResult.isPresent() && !callResult.get().isEmpty()) {
+                        Map<String, Long> metrics = callResult.get();
+                        PageBuilder pageBuilder = new PageBuilder(types);
+                        for (Entry<String, Long> entry : metrics.entrySet()) {
+                            pageBuilder.declarePosition();
+                            VARCHAR.writeSlice(pageBuilder.getBlockBuilder(0), utf8Slice(entry.getKey()));
+                            BIGINT.writeLong(pageBuilder.getBlockBuilder(1), entry.getValue());
+                        }
+                        return queryResultRowsBuilder()
+                                .withTypes(types)
+                                .addPage(pageBuilder.build())
+                                .build();
+                    }
+                    return QueryResultRows.empty();
+                }
                 columns = ImmutableList.of();
                 types = ImmutableList.of();
             }
@@ -589,6 +628,15 @@ class Query
                     break;
                 }
 
+                // Lazy initialization is required because the encryption key depends on whether
+                // the exchange uses external storage (spooling) or direct exchange. This is determined
+                // by LazyExchangeDataSource, which resolves the concrete exchange type only after
+                // the first input is delivered — which happens after Query is created.
+                if (deserializer == null) {
+                    Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(session, exchangeDataSource);
+                    deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+                }
+
                 Page page = deserializer.deserialize(serializedPage);
                 bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
@@ -596,6 +644,7 @@ class Query
             if (exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
                 deserializer = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
+                exchangeFinished = true;
             }
         }
         catch (Throwable cause) {
@@ -617,23 +666,29 @@ class Query
     private static long estimateJsonSize(Block block)
     {
         switch (block) {
-            case RunLengthEncodedBlock rleBlock:
+            case RunLengthEncodedBlock rleBlock -> {
                 return estimateJsonSize(rleBlock.getValue()) * rleBlock.getPositionCount();
-            case DictionaryBlock dictionaryBlock:
+            }
+            case DictionaryBlock dictionaryBlock -> {
                 ValueBlock dictionary = dictionaryBlock.getDictionary();
                 double averageSizePerEntry = (double) estimateJsonSize(dictionary) / dictionary.getPositionCount();
                 return (long) (averageSizePerEntry * block.getPositionCount());
-            case RowBlock rowBlock:
+            }
+            case RowBlock rowBlock -> {
                 return rowBlock.getFieldBlocks().stream()
                         .mapToLong(Query::estimateJsonSize)
                         .sum();
-            case ArrayBlock arrayBlock:
+            }
+            case ArrayBlock arrayBlock -> {
                 return estimateJsonSize(arrayBlock.getElementsBlock());
-            case MapBlock mapBlock:
+            }
+            case MapBlock mapBlock -> {
                 return estimateJsonSize(mapBlock.getKeyBlock()) +
                         estimateJsonSize(mapBlock.getValueBlock());
-            default:
+            }
+            default -> {
                 return block.getSizeInBytes();
+            }
         }
     }
 
@@ -689,7 +744,7 @@ class Query
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
+                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
@@ -769,7 +824,7 @@ class Query
             ErrorCode errorCode = SERIALIZATION_ERROR.toErrorCode();
             FailureInfo failure = toFailure(exception.get()).toFailureInfo();
             return new QueryError(
-                    firstNonNull(failure.getMessage(), "Internal error"),
+                    requireNonNullElse(failure.getMessage(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),

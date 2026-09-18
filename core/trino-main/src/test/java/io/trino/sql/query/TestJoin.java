@@ -98,7 +98,7 @@ public class TestJoin
         // The issue happens because ReorderJoins evaluates candidates for equality inference
         // based on one form of the join criteria (i.e., CAST(...) = CASE ... END)) and then
         // attempts to make reformulate the join criteria based on another form of the expression
-        // with the terms flipped (i.e., CASE ... END = CAST(...)). Because NullabilityAnalyzer.mayReturnNullOnNonNullInput
+        // with the terms flipped (i.e., CASE ... END = CAST(...)). Because IrExpressions.mayReturnNullOnNonNullInput
         // could return an inconsistent result for both forms, the expression ended being dropped
         // from the join clause.
         assertThat(assertions.query(
@@ -347,5 +347,65 @@ public class TestJoin
                 FROM t JOIN b ON t.k = b.k AND t.v1 = 10 AND t.v = b.v
                 """))
                 .returnsEmptyResult();
+    }
+
+    @Test
+    void testNullKeysInEquiJoin()
+    {
+        // Multi-column varchar keys route through DefaultPagesHash, whose equality codegen assumes non-null keys.
+        // EQUAL excludes rows with any null key.
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) t(a, b)
+                JOIN (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) u(a, b)
+                  ON t.a = u.a AND t.b = u.b
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'x', 'a', 'x')");
+
+        // IS NOT DISTINCT FROM matches null to null and stays in the join filter, not the equi-join keys.
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) t(a, b)
+                JOIN (VALUES ('a', 'x'), ('b', CAST(null AS varchar)), (CAST(null AS varchar), 'z')) u(a, b)
+                  ON t.a IS NOT DISTINCT FROM u.a AND t.b IS NOT DISTINCT FROM u.b
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES ('a', 'x', 'a', 'x'), ('b', null, 'b', null), (null, 'z', null, 'z')");
+    }
+
+    @Test
+    public void testCountOverOuterJoinWithEmptyInnerSide()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (VALUES 1) l(a)
+                LEFT JOIN (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) r(b) ON true
+                """))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) l(a)
+                RIGHT JOIN (VALUES 1) r(b) ON true
+                """))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testGroupedCountOverOuterJoinWithEmptyInnerSide()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a, count(*)
+                FROM (SELECT DISTINCT a FROM (VALUES 1, 2) t(a)) l
+                LEFT JOIN (SELECT * FROM UNNEST(CAST(ARRAY[] AS array(integer)))) r(b) ON true
+                GROUP BY a
+                """))
+                .matches("VALUES (1, BIGINT '1'), (2, BIGINT '1')");
     }
 }

@@ -23,12 +23,12 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleEpochMicrosToSeconds;
 import static java.lang.Math.multiplyExact;
 

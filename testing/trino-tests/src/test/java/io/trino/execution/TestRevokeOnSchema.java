@@ -63,7 +63,7 @@ public class TestRevokeOnSchema
         schemaGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), "default", EnumSet.allOf(Privilege.class), true);
         schemaGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), "default", ImmutableSet.of(Privilege.SELECT), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
+                .withListSchemaNames(_ -> ImmutableList.of("information_schema", "default"))
                 .withSchemaGrants(schemaGrants)
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));

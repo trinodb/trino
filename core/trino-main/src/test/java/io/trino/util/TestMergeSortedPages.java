@@ -326,7 +326,7 @@ public class TestMergeSortedPages
                 new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
@@ -355,13 +355,13 @@ public class TestMergeSortedPages
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         yieldSignal.forceYieldForTesting();
-        List<Type> types = ImmutableList.of(INTEGER);
+        Type type = INTEGER;
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
-                ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types).build())),
-                new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
+                ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(type).build())),
+                new SimplePageWithPositionComparator(ImmutableList.of(type), ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
-                types,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
+                ImmutableList.of(type),
+                (pageBuilder, _) -> pageBuilder.isFull(),
                 false,
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);

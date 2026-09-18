@@ -20,7 +20,8 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
@@ -32,17 +33,18 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.type.CharVarcharCoercion;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +66,7 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = new TypeSignature("Geometry");
+    private static final TypeDescriptor GEOMETRY_TYPE_SIGNATURE = new TypeDescriptor("Geometry");
     private static final CatalogSchemaFunctionName NAME = builtinFunctionName("spatial_partitioning");
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
@@ -91,25 +93,27 @@ public class RewriteSpatialPartitioningAggregation
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(NAME.getFunctionName(), fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature()));
-        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction("ST_Envelope", fromTypeSignatures(GEOMETRY_TYPE_SIGNATURE));
+        Type geometryType = plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE);
+        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(context.getSession());
+        ResolvedFunction spatialPartitioningFunction = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, NAME.functionName(), ImmutableList.of(geometryType, INTEGER));
+        ResolvedFunction stEnvelopeFunction = plannerContext.getMetadata().resolveBuiltinFunction(charVarcharCoercion, "ST_Envelope", ImmutableList.of(geometryType));
 
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+        for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
             CatalogSchemaFunctionName name = aggregation.getResolvedFunction().signature().getName();
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 Expression geometry = getOnlyElement(aggregation.getArguments());
-                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE));
+                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
                 if (isStEnvelopeFunctionCall(geometry, stEnvelopeFunction)) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                    envelopeAssignments.put(envelopeSymbol, BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), charVarcharCoercion)
                             .setName("ST_Envelope")
-                            .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
+                            .addArgument(geometryType, geometry)
                             .build());
                 }
                 aggregations.put(entry.getKey(),

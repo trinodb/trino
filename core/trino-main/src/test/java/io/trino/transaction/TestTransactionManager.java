@@ -16,6 +16,9 @@ package io.trino.transaction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import io.trino.NotInTransactionException;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.testing.QueryRunner;
@@ -43,6 +46,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -150,6 +154,31 @@ public class TestTransactionManager
             getFutureValue(transactionManager.asyncAbort(transactionId));
 
             assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
+        }
+    }
+
+    @Test
+    public void testMetricsCollectionAfterTransactionFinishes()
+    {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
+            TransactionManager transactionManager = queryRunner.getTransactionManager();
+            Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of());
+
+            TransactionId transactionId = transactionManager.beginTransaction(false);
+            Session session = TEST_SESSION.beginTransactionId(transactionId, transactionManager, queryRunner.getAccessControl());
+
+            // register the catalog as active in the transaction, materializing the transactional ConnectorMetadata
+            transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).orElseThrow().getMetadata(session);
+
+            getFutureValue(transactionManager.asyncCommit(transactionId));
+
+            // metrics collection races with query completion: the transaction is already finished, so
+            // getMetrics will throw NotInTransactionException that is then handled by
+            assertThatThrownBy(() -> metadata.getMetrics(session, TEST_CATALOG_NAME))
+                    .isInstanceOf(NotInTransactionException.class);
         }
     }
 

@@ -1,0 +1,27 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.spi.cache;
+
+import java.util.Optional;
+
+public interface ConnectorCacheFactory
+{
+    /**
+     * Returns a blob cache satisfying the given requirements, or {@link Optional#empty()}
+     * when no loaded cache manager provides the required capabilities. Consumers for whom
+     * caching is optional run uncached on empty; consumers for whom caching is required
+     * (an explicit operator opt-in) should fail instead.
+     */
+    Optional<BlobCache> createBlobCache(CacheRequirements requirements);
+}

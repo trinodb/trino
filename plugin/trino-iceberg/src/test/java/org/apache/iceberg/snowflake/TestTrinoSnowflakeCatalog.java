@@ -34,6 +34,7 @@ import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -61,6 +62,8 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.units.Duration.ZERO;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_ACCESS_KEY;
@@ -74,6 +77,7 @@ import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.S
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_TEST_DATABASE;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_USER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.TableType.ICEBERG;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -181,7 +185,7 @@ public class TestTrinoSnowflakeCatalog
         SnowflakeCatalog snowflakeCatalog = new SnowflakeCatalog();
         snowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, catalogFileIOFactory, properties);
 
-        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG);
+        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(s3FileSystemFactory, FILE_IO_FACTORY, CATALOG_CONFIG, ENCRYPTION_MANAGER_FACTORY);
 
         return new TrinoSnowflakeCatalog(
                 snowflakeCatalog,
@@ -224,21 +228,26 @@ public class TestTrinoSnowflakeCatalog
 
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                new CatalogName("iceberg"),
                 PLANNER_CONTEXT.getTypeManager(),
                 jsonCodec(CommitTaskData.class),
                 catalog,
-                (connectorIdentity, fileIOProperties) -> {
+                (_, _) -> {
                     throw new UnsupportedOperationException();
                 },
                 TABLE_STATISTICS_READER,
                 new TableStatisticsWriter(new NodeVersion("test-version")),
+                UNSUPPORTED_DELETION_VECTOR_WRITER,
                 Optional.empty(),
                 false,
                 _ -> false,
                 newDirectExecutorService(),
                 directExecutor(),
                 newDirectExecutorService(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                0,
+                ZERO,
+                ConnectorExpressionEvaluator.NO_OP);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -280,7 +289,8 @@ public class TestTrinoSnowflakeCatalog
         String namespace = "test_create_sort_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+        Schema tableSchema = new Schema(
+                Types.NestedField.optional(1, "col1", Types.LongType.get()),
                 Types.NestedField.optional(2, "col2", Types.StringType.get()),
                 Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
                 Types.NestedField.optional(4, "col4", Types.StringType.get()));
@@ -353,8 +363,24 @@ public class TestTrinoSnowflakeCatalog
                 false,
                 ImmutableList.of());
         TrinoCatalog catalog = createTrinoCatalog(false);
-        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, true))
+        assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, ImmutableMap.of(), true))
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");
+    }
+
+    @Test
+    @Override
+    public void testTableNamespaceFilter()
+    {
+        assertThatThrownBy(super::testTableNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
+    }
+
+    @Test
+    @Override
+    public void testViewNamespaceFilter()
+    {
+        assertThatThrownBy(super::testViewNamespaceFilter)
+                .hasMessageContaining("Iceberg Snowflake catalog schemas do not support modifications");
     }
 
     @Test

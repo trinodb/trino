@@ -19,6 +19,7 @@ import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.TaskContext;
+import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
 import io.trino.operator.join.NestedLoopJoinOperator.NestedLoopOutputIterator;
@@ -42,7 +43,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
-import static io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -523,7 +523,8 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = new NestedLoopJoinOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager, probeChannels, buildChannels);
         Operator valuesOperator = valuesOperatorFactory.createOperator(driverContext);
         Operator nestedLoopBuildOperator = nestedLoopBuildOperatorFactory.createOperator(driverContext);
-        Driver driver = Driver.createDriver(driverContext,
+        Driver driver = Driver.createDriver(
+                driverContext,
                 valuesOperator,
                 nestedLoopBuildOperator);
 

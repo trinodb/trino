@@ -156,7 +156,7 @@ public final class PropertyUtil
         Object sqlObjectValue;
         try {
             Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-            Object value = evaluateConstant(rewritten, propertyType, plannerContext, session, accessControl);
+            Object value = evaluateConstant(rewritten, propertyType, parameters, plannerContext, session, accessControl);
 
             // convert to object value type of SQL type
             Block block = writeNativeValue(propertyType, value);

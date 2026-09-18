@@ -196,7 +196,8 @@ public abstract class BaseMariaDbTableStatisticsTest
     public void testNullsFraction()
     {
         String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
-        assertUpdate("" +
+        assertUpdate(
+                "" +
                         "CREATE TABLE " + tableName + " AS " +
                         "SELECT " +
                         "    orderkey, " +

@@ -25,11 +25,10 @@ import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AtLocal;
 import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
-import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
@@ -45,9 +44,6 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IsNotNullPredicate;
-import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
@@ -56,7 +52,6 @@ import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaExpression;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
@@ -67,7 +62,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.Predicated;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
@@ -206,7 +201,9 @@ class AggregationAnalyzer
 
         this.groupingFields.forEach(fieldId -> {
             checkState(isFieldFromScope(fieldId, sourceScope),
-                    "Grouping field %s should originate from %s", fieldId, sourceScope.getRelationType());
+                    "Grouping field %s should originate from %s",
+                    fieldId,
+                    sourceScope.getRelationType());
         });
     }
 
@@ -237,6 +234,12 @@ class AggregationAnalyzer
         }
 
         @Override
+        protected Boolean visitAtLocal(AtLocal node, Void context)
+        {
+            return process(node.getValue(), context);
+        }
+
+        @Override
         protected Boolean visitSubqueryExpression(SubqueryExpression node, Void context)
         {
             /*
@@ -248,8 +251,11 @@ class AggregationAnalyzer
                     .filter(expression -> !isGroupingKey(expression))
                     .findFirst()
                     .ifPresent(expression -> {
-                        throw semanticException(EXPRESSION_NOT_AGGREGATE, expression,
-                                "Subquery uses '%s' which must appear in GROUP BY clause", expression);
+                        throw semanticException(
+                                EXPRESSION_NOT_AGGREGATE,
+                                expression,
+                                "Subquery uses '%s' which must appear in GROUP BY clause",
+                                expression);
                     });
 
             return true;
@@ -300,14 +306,6 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitBetweenPredicate(BetweenPredicate node, Void context)
-        {
-            return process(node.getMin(), context) &&
-                    process(node.getValue(), context) &&
-                    process(node.getMax(), context);
-        }
-
-        @Override
         protected Boolean visitCurrentTime(CurrentTime node, Void context)
         {
             return true;
@@ -344,51 +342,29 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitComparisonExpression(ComparisonExpression node, Void context)
-        {
-            return process(node.getLeft(), context) && process(node.getRight(), context);
-        }
-
-        @Override
         protected Boolean visitLiteral(Literal node, Void context)
         {
             return true;
         }
 
         @Override
-        protected Boolean visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        protected Boolean visitPredicated(Predicated node, Void context)
         {
-            return process(node.getValue(), context);
-        }
-
-        @Override
-        protected Boolean visitIsNullPredicate(IsNullPredicate node, Void context)
-        {
-            return process(node.getValue(), context);
-        }
-
-        @Override
-        protected Boolean visitLikePredicate(LikePredicate node, Void context)
-        {
-            return process(node.getValue(), context) && process(node.getPattern(), context);
+            if (!process(node.getValue(), context)) {
+                return false;
+            }
+            for (Node child : node.getPredicate().getChildren()) {
+                if (child instanceof Expression expression && !process(expression, context)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @Override
         protected Boolean visitInListExpression(InListExpression node, Void context)
         {
             return node.getValues().stream().allMatch(expression -> process(expression, context));
-        }
-
-        @Override
-        protected Boolean visitInPredicate(InPredicate node, Void context)
-        {
-            return process(node.getValue(), context) && process(node.getValueList(), context);
-        }
-
-        @Override
-        protected Boolean visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
-        {
-            return process(node.getValue(), context) && process(node.getSubquery(), context);
         }
 
         @Override
@@ -408,11 +384,13 @@ class AggregationAnalyzer
         {
             if (functionResolver.isAggregationFunction(session, node.getName(), accessControl)) {
                 if (node.getWindow().isEmpty()) {
-                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(node.getArguments(), session, functionResolver, accessControl);
-                    List<Expression> windowExpressions = extractWindowExpressions(node.getArguments());
+                    List<Expression> arguments = node.argumentValues();
+                    List<FunctionCall> aggregateFunctions = extractAggregateFunctions(arguments, session, functionResolver, accessControl);
+                    List<Expression> windowExpressions = extractWindowExpressions(arguments);
 
                     if (!aggregateFunctions.isEmpty()) {
-                        throw semanticException(NESTED_AGGREGATION,
+                        throw semanticException(
+                                NESTED_AGGREGATION,
                                 node,
                                 "Cannot nest aggregations inside aggregation '%s': %s",
                                 node.getName(),
@@ -420,7 +398,8 @@ class AggregationAnalyzer
                     }
 
                     if (!windowExpressions.isEmpty()) {
-                        throw semanticException(NESTED_WINDOW,
+                        throw semanticException(
+                                NESTED_WINDOW,
                                 node,
                                 "Cannot nest window functions or row pattern measures inside aggregation '%s': %s",
                                 node.getName(),
@@ -432,14 +411,14 @@ class AggregationAnalyzer
                                 .map(SortItem::getSortKey)
                                 .collect(toImmutableList());
                         if (node.isDistinct()) {
-                            List<FieldId> fieldIds = node.getArguments().stream()
+                            List<FieldId> fieldIds = arguments.stream()
                                     .map(NodeRef::of)
                                     .map(columnReferences::get)
                                     .filter(Objects::nonNull)
                                     .map(ResolvedField::getFieldId)
                                     .collect(toImmutableList());
                             for (Expression sortKey : sortKeys) {
-                                if (!node.getArguments().contains(sortKey)) {
+                                if (!arguments.contains(sortKey)) {
                                     ResolvedField field = columnReferences.get(NodeRef.of(sortKey));
                                     if (field == null || !fieldIds.contains(field.getFieldId())) {
                                         throw semanticException(
@@ -463,7 +442,7 @@ class AggregationAnalyzer
 
                     // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's arguments or filter
                     if (orderByScope.isPresent()) {
-                        node.getArguments()
+                        arguments
                                 .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
                                         argument,
                                         COLUMN_NOT_FOUND,
@@ -493,7 +472,7 @@ class AggregationAnalyzer
                 }
             }
 
-            return node.getArguments().stream().allMatch(expression -> process(expression, context));
+            return node.argumentValues().stream().allMatch(expression -> process(expression, context));
         }
 
         @Override
@@ -513,7 +492,8 @@ class AggregationAnalyzer
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE,
+                    throw semanticException(
+                            EXPRESSION_NOT_AGGREGATE,
                             expression,
                             "PARTITION BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
                             expression);
@@ -523,7 +503,8 @@ class AggregationAnalyzer
             for (SortItem sortItem : getSortItemsFromOrderBy(node.getOrderBy())) {
                 Expression expression = sortItem.getSortKey();
                 if (!process(expression, context)) {
-                    throw semanticException(EXPRESSION_NOT_AGGREGATE,
+                    throw semanticException(
+                            EXPRESSION_NOT_AGGREGATE,
                             expression,
                             "ORDER BY expression '%s' must be an aggregate expression or appear in GROUP BY clause",
                             expression);
@@ -677,7 +658,21 @@ class AggregationAnalyzer
             }
 
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
+                switch (whenClause.getMatch()) {
+                    case WhenClause.Operand operand -> {
+                        if (!process(operand.expression(), context)) {
+                            return false;
+                        }
+                    }
+                    case WhenClause.Partial partial -> {
+                        for (Node child : partial.predicate().getChildren()) {
+                            if (child instanceof Expression expression && !process(expression, context)) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                if (!process(whenClause.getResult(), context)) {
                     return false;
                 }
             }
@@ -689,7 +684,8 @@ class AggregationAnalyzer
         protected Boolean visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
             for (WhenClause whenClause : node.getWhenClauses()) {
-                if (!process(whenClause.getOperand(), context) || !process(whenClause.getResult(), context)) {
+                Expression condition = ((WhenClause.Operand) whenClause.getMatch()).expression();
+                if (!process(condition, context) || !process(whenClause.getResult(), context)) {
                     return false;
                 }
             }

@@ -190,7 +190,7 @@ public class TestCreateViewTask
                 new AllowAllAccessControl(),
                 parser,
                 analyzerFactory,
-                new ViewPropertyManager(catalogHandle -> ImmutableMap.of("boolean_property", booleanProperty("boolean_property", "Mock description", false, false))))
+                new ViewPropertyManager(_ -> ImmutableMap.of("boolean_property", booleanProperty("boolean_property", "Mock description", false, false))))
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

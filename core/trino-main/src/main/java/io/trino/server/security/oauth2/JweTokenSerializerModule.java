@@ -20,7 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.nimbusds.jose.KeyLengthException;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.client.NodeVersion;
+import io.trino.spi.NodeVersion;
 
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -53,7 +53,7 @@ public class JweTokenSerializerModule
         return new JweTokenSerializer(
                 config,
                 client,
-                config.getIssuer() + "_" + nodeVersion.getVersion(),
+                config.getIssuer() + "_" + nodeVersion.version(),
                 config.getAudience(),
                 oAuth2Config.getPrincipalField(),
                 Clock.systemUTC(),

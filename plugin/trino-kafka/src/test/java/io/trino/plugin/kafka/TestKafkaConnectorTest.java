@@ -215,7 +215,8 @@ public class TestKafkaConnectorTest
 
         insertData(rawFormatTopic, buf.array());
 
-        assertQuery("SELECT " +
+        assertQuery(
+                "SELECT " +
                         "bigint_long, bigint_int, bigint_short, bigint_byte, " +
                         "double_double, double_float, varchar_byte, " +
                         "boolean_long, boolean_int, boolean_short, boolean_byte " +
@@ -224,7 +225,8 @@ public class TestKafkaConnectorTest
                         "double_double = 123456789.123 AND double_float != 1.0 AND varchar_byte = 'abcdef' AND " +
                         "boolean_long = TRUE AND boolean_int = TRUE AND boolean_short = TRUE AND boolean_byte = TRUE",
                 "VALUES (1234567890123, 123456789, 12345, 127, 123456789.123, 123456.789, 'abcdef', TRUE, TRUE, TRUE, TRUE)");
-        assertQuery("SELECT " +
+        assertQuery(
+                "SELECT " +
                         "bigint_long, bigint_int, bigint_short, bigint_byte, " +
                         "double_double, double_float, varchar_byte, " +
                         "boolean_long, boolean_int, boolean_short, boolean_byte " +
@@ -480,12 +482,14 @@ public class TestKafkaConnectorTest
         createMessagesWithHeader(headersTopic);
 
         // Query the two messages without header and compare with empty object as JSON
-        assertQuery("SELECT _message" +
+        assertQuery(
+                "SELECT _message" +
                         " FROM default." + headersTopic +
                         " WHERE cardinality(_headers) = 0",
                 "VALUES ('1'),('2')");
 
-        assertQuery("SELECT from_utf8(value) FROM default." + headersTopic +
+        assertQuery(
+                "SELECT from_utf8(value) FROM default." + headersTopic +
                         " CROSS JOIN UNNEST(_headers['foo']) AS arr (value)" +
                         " WHERE _message = '4'",
                 "VALUES ('bar'), (null), ('baz')");

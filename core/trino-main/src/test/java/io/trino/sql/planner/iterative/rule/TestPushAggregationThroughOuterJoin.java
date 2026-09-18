@@ -221,6 +221,42 @@ public class TestPushAggregationThroughOuterJoin
     }
 
     @Test
+    public void testDoesNotFireForLeftJoinWithoutCriteria()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                LEFT,
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                p.values(p.symbol("COL2", BIGINT)),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.symbol("COL1", BIGINT)),
+                                ImmutableList.of(p.symbol("COL2", BIGINT)),
+                                Optional.empty()))
+                        .addAggregation(p.symbol("COUNT", BIGINT), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForRightJoinWithoutCriteria()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                RIGHT,
+                                p.values(p.symbol("COL2", BIGINT)),
+                                p.values(ImmutableList.of(p.symbol("COL1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.symbol("COL2", BIGINT)),
+                                ImmutableList.of(p.symbol("COL1", BIGINT)),
+                                Optional.empty()))
+                        .addAggregation(p.symbol("COUNT", BIGINT), PlanBuilder.aggregation("count", ImmutableList.of()), ImmutableList.of())
+                        .singleGroupingSet(p.symbol("COL1", BIGINT))))
+                .doesNotFire();
+    }
+
+    @Test
     public void testDoesNotFireWhenMultipleGroupingSets()
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())
@@ -290,7 +326,8 @@ public class TestPushAggregationThroughOuterJoin
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
-                        .source(p.join(LEFT,
+                        .source(p.join(
+                                LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)))),
                                 p.values(new Symbol(BIGINT, "COL2"), new Symbol(BIGINT, "COL3")),
                                 ImmutableList.of(new EquiJoinClause(new Symbol(BIGINT, "COL1"), new Symbol(BIGINT, "COL2"))),

@@ -27,7 +27,7 @@ final class TestBigQueryCaseInsensitiveMappingWithCache
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.builder()
+        return BigQueryQueryRunner.builder(BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY)
                 .setConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("bigquery.case-insensitive-name-matching", "true")
                         .put("bigquery.case-insensitive-name-matching.cache-ttl", "1m")

@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Builder for {@link Cache} and {@link LoadingCache} instances, similar to {@link CacheBuilder},
@@ -190,7 +189,7 @@ public final class EvictableCacheBuilder<K, V>
                     // Avoid overhead of EvictableCache wrapper.
                     CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                             .maximumSize(0)
-                            .expireAfterWrite(0, SECONDS);
+                            .expireAfterWrite(Duration.ZERO);
                     if (recordStats) {
                         cacheBuilder.recordStats();
                     }

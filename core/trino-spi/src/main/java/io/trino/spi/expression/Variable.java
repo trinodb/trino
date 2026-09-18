@@ -13,6 +13,8 @@
  */
 package io.trino.spi.expression;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -26,7 +28,10 @@ public class Variable
 {
     private final String name;
 
-    public Variable(String name, Type type)
+    @JsonCreator
+    public Variable(
+            @JsonProperty("name") String name,
+            @JsonProperty("type") Type type)
     {
         super(type);
         this.name = requireNonNull(name, "name is null");
@@ -36,6 +41,7 @@ public class Variable
         }
     }
 
+    @JsonProperty("name")
     public String getName()
     {
         return name;

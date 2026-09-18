@@ -14,7 +14,6 @@
 package io.trino.server.protocol.spooling;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
@@ -31,9 +30,9 @@ public sealed interface SpooledMetadataBlock
 {
     DataAttributes attributes();
 
-    static SpooledMetadataBlock forInlineData(DataAttributes attributes, byte[] data)
+    static SpooledMetadataBlock forInlineData(DataAttributes attributes, Slice data)
     {
-        return new Inlined(attributes, Slices.wrappedBuffer(data));
+        return new Inlined(attributes, data);
     }
 
     static SpooledMetadataBlock forSpooledLocation(SpooledLocation location, DataAttributes attributes)
@@ -55,7 +54,8 @@ public sealed interface SpooledMetadataBlock
     record Spooled(@Override DataAttributes attributes, Slice identifier, Optional<URI> directUri, Map<String, List<String>> headers)
             implements SpooledMetadataBlock
     {
-        public Spooled {
+        public Spooled
+        {
             requireNonNull(attributes, "attributes is null");
             requireNonNull(identifier, "identifier is null");
             requireNonNull(directUri, "directUri is null");
@@ -66,7 +66,8 @@ public sealed interface SpooledMetadataBlock
     record Inlined(@Override DataAttributes attributes, Slice data)
             implements SpooledMetadataBlock
     {
-        public Inlined {
+        public Inlined
+        {
             requireNonNull(attributes, "attributes is null");
             requireNonNull(data, "data is null");
         }

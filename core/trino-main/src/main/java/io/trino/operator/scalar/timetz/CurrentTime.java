@@ -25,16 +25,19 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
+import static io.trino.operator.scalar.timetz.CurrentTime.CURRENT_TIME_FUNCTION_NAME;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.round;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorMod;
 
-@ScalarFunction(value = "$current_time", hidden = true)
+@ScalarFunction(value = CURRENT_TIME_FUNCTION_NAME, hidden = true)
 public final class CurrentTime
 {
+    public static final String CURRENT_TIME_FUNCTION_NAME = "$current_time";
+
     private CurrentTime() {}
 
     @LiteralParameters("p")

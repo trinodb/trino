@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
@@ -39,8 +38,8 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
@@ -56,7 +55,6 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
@@ -64,10 +62,11 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.spi.type.TypeTemplates.typeVariable;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.collectArguments;
@@ -115,12 +114,12 @@ public class RowToRowCast
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
                                 TypeVariableConstraint.builder("F")
-                                        .variadicBound("row")
-                                        .castableTo(new TypeSignature("T"))
+                                        .rowType()
+                                        .castableTo(typeVariable("T"))
                                         .build())
-                        .variadicTypeParameter("T", "row")
-                        .returnType(new TypeSignature("T"))
-                        .argumentType(new TypeSignature("F"))
+                        .rowTypeParameter("T")
+                        .returnType(typeVariable("T"))
+                        .argumentType(typeVariable("F"))
                         .build())
                 .build());
     }
@@ -128,8 +127,8 @@ public class RowToRowCast
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        List<Type> toTypes = boundSignature.getReturnType().getTypeParameters();
-        List<Type> fromTypes = boundSignature.getArgumentType(0).getTypeParameters();
+        List<Type> toTypes = ((RowType) boundSignature.getReturnType()).getFieldTypes();
+        List<Type> fromTypes = ((RowType) boundSignature.getArgumentType(0)).getFieldTypes();
 
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
         for (int i = 0; i < toTypes.size(); i++) {
@@ -143,9 +142,9 @@ public class RowToRowCast
     @Override
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type fromType = boundSignature.getArgumentType(0);
-        Type toType = boundSignature.getReturnType();
-        if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
+        RowType fromType = (RowType) boundSignature.getArgumentType(0);
+        RowType toType = (RowType) boundSignature.getReturnType();
+        if (fromType.getFieldTypes().size() != toType.getFieldTypes().size()) {
             throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
@@ -157,10 +156,10 @@ public class RowToRowCast
                 methodHandle);
     }
 
-    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionDependencies functionDependencies)
+    private static Class<?> generateRowCast(RowType fromType, RowType toType, FunctionDependencies functionDependencies)
     {
-        List<Type> toTypes = toType.getTypeParameters();
-        List<Type> fromTypes = fromType.getTypeParameters();
+        List<Type> toTypes = toType.getFieldTypes();
+        List<Type> fromTypes = fromType.getFieldTypes();
 
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -170,7 +169,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                makeClassName(String.join("$", "RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -208,11 +207,9 @@ public class RowToRowCast
                 MethodHandle castMethod = getNullSafeCast(functionDependencies, fromElementType, toElementType);
                 MethodHandle writeMethod = getNullSafeWrite(toElementType);
                 MethodHandle castAndWrite = collectArguments(writeMethod, 1, castMethod);
-                body.append(invokeDynamic(
-                        BOOTSTRAP_METHOD,
-                        ImmutableList.of(binder.bind(castAndWrite).getBindingId()),
+                body.append(invoke(
+                        binder.bind(castAndWrite),
                         "castAndWriteField",
-                        castAndWrite.type(),
                         fieldBuilder,
                         session,
                         row.invoke("getRawFieldBlock", Block.class, constantInt(i)),
@@ -222,7 +219,7 @@ public class RowToRowCast
         }
 
         body.append(newInstance(SqlRow.class, constantInt(0), fieldBlocks).ret());
-        return defineClass(definition, Object.class, binder.getBindings(), RowToRowCast.class.getClassLoader());
+        return defineHiddenClass(definition, Object.class, binder.getClassData());
     }
 
     private static MethodHandle getNullSafeWrite(Type type)
@@ -250,9 +247,9 @@ public class RowToRowCast
     private static MethodHandle getNullSafeCast(FunctionDependencies functionDependencies, Type fromElementType, Type toElementType)
     {
         MethodHandle castMethod = functionDependencies.getCastImplementation(
-                fromElementType,
-                toElementType,
-                new InvocationConvention(ImmutableList.of(BLOCK_POSITION_NOT_NULL), NULLABLE_RETURN, true, false))
+                        fromElementType,
+                        toElementType,
+                        new InvocationConvention(ImmutableList.of(BLOCK_POSITION_NOT_NULL), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
 
         // normalize so cast always has a session

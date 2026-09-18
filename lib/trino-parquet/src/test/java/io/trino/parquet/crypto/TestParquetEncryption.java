@@ -15,6 +15,7 @@ package io.trino.parquet.crypto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.parquet.Column;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
@@ -62,6 +63,7 @@ import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -107,7 +109,7 @@ public final class TestParquetEncryption
             "false,false",
             "false,true",
             "true,false",
-            "true,true"
+            "true,true",
     })
     void columnOnlyFooterPlaintext(boolean checkFooterIntegrity, boolean compressed)
             throws IOException
@@ -240,7 +242,7 @@ public final class TestParquetEncryption
                             Optional.empty()))
                     .withCheckFooterIntegrity(encryptFooter)
                     .build();
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
             assertThat(metadata.getBlocks().size()).isGreaterThan(1);
         }
 
@@ -329,7 +331,7 @@ public final class TestParquetEncryption
                     .withKeyRetriever(new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.empty()))
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             // first (and only) row‑group → column‑chunk for "age"
             ColumnChunkMetadata chunk =
@@ -345,7 +347,7 @@ public final class TestParquetEncryption
             assertThat(chunk.getEncodings()).anyMatch(Encoding::usesDictionary);
 
             // 3) (optional) Trino helper: all data pages are dictionary‑encoded
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(chunk)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(chunk)).isTrue();
         }
     }
 
@@ -456,18 +458,19 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(
-                    source, Optional.empty(), Optional.empty(), Optional.of(props));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(props));
 
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                    0, 0);
+                    0,
+                    0);
 
             ColumnDescriptor id = new ColumnDescriptor(
                     new String[] {"id"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
-                    0, 0);
+                    0,
+                    0);
 
             // ——— Predicate on accessible column (age = missingAge) → dictionary-based pruning to 0 ———
             TupleDomain<ColumnDescriptor> domainAge = TupleDomain.withColumnDomains(ImmutableMap.of(age, singleValue(INTEGER, (long) missingAge)));
@@ -533,17 +536,19 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(props));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(props));
 
             ColumnDescriptor age = new ColumnDescriptor(
                     new String[] {"age"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                    0, 0);
+                    0,
+                    0);
 
             ColumnDescriptor id = new ColumnDescriptor(
                     new String[] {"id"},
                     Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
-                    0, 0);
+                    0,
+                    0);
 
             // --- Predicate on accessible column (age == missingAge) → Bloom filter should prune to 0
             TupleDomain<ColumnDescriptor> domainAge = TupleDomain.withColumnDomains(
@@ -735,7 +740,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             ColumnChunkMetadata age = metadata.getBlocks().getFirst().columns().stream()
                     .filter(context -> context.getPath().equals(AGE_PATH))
@@ -750,12 +755,12 @@ public final class TestParquetEncryption
             assertThat(id.getDictionaryPageOffset()).isGreaterThan(0);
 
             // column encodings include a dictionary encoding
-            assertThat(age.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
-            assertThat(id.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
+            assertThat(age.getEncodings()).anyMatch(Encoding::usesDictionary);
+            assertThat(id.getEncodings()).anyMatch(Encoding::usesDictionary);
 
             // (optional) every data page is dictionary-encoded
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(age)).isTrue();
-            assertThat(io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages(id)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(age)).isTrue();
+            assertThat(isOnlyDictionaryEncodingPages(id)).isTrue();
         }
     }
 
@@ -818,7 +823,7 @@ public final class TestParquetEncryption
                     .withCheckFooterIntegrity(true)
                     .build();
 
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
             ColumnChunkMetadata age = metadata.getBlocks().getFirst().columns().stream()
                     .filter(context -> context.getPath().equals(AGE_PATH))
@@ -852,13 +857,13 @@ public final class TestParquetEncryption
                 .withCheckFooterIntegrity(checkFooterIntegrity);
         aadPrefix.ifPresent(properties::withAadPrefix);
 
-        ParquetMetadata metadata = MetadataReader.readFooter(
-                source, Optional.empty(), Optional.empty(), Optional.of(properties.build()));
+        ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties.build()));
 
         ColumnDescriptor descriptor = new ColumnDescriptor(
                 new String[] {"age"},
                 Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
-                0, 0);
+                0,
+                0);
 
         Map<List<String>, ColumnDescriptor> byPath = ImmutableMap.of(
                 ImmutableList.of("age"), descriptor);
@@ -868,13 +873,19 @@ public final class TestParquetEncryption
                 domain, ImmutableList.of(descriptor), UTC);
 
         List<RowGroupInfo> groups = getFilteredRowGroups(
-                0, source.getEstimatedSize(),
-                source, metadata,
-                List.of(domain), List.of(predicate),
-                byPath, UTC, 200, ParquetReaderOptions.builder().build());
+                0,
+                source.getEstimatedSize(),
+                source,
+                metadata,
+                List.of(domain),
+                List.of(predicate),
+                byPath,
+                UTC,
+                200,
+                ParquetReaderOptions.builder().build());
 
         PrimitiveField field = new PrimitiveField(INTEGER, true, descriptor, 0);
-        io.trino.parquet.Column column = new io.trino.parquet.Column("age", field);
+        Column column = new Column("age", field);
 
         try (ParquetReader reader = new ParquetReader(
                 Optional.ofNullable(metadata.getFileMetaData().getCreatedBy()),
@@ -909,7 +920,8 @@ public final class TestParquetEncryption
      * Reads both columns and returns a map “age” → values, “id → values.
      */
     private static Map<String, List<Integer>> readTwoColumnFile(
-            File file, DecryptionKeyRetriever retriever)
+            File file,
+            DecryptionKeyRetriever retriever)
             throws IOException
     {
         ParquetDataSource source = new FileParquetDataSource(file, ParquetReaderOptions.builder().build());
@@ -917,15 +929,19 @@ public final class TestParquetEncryption
         FileDecryptionProperties properties = FileDecryptionProperties
                 .builder().withKeyRetriever(retriever).withCheckFooterIntegrity(true).build();
 
-        ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(properties));
+        ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(properties));
 
         ColumnDescriptor ageDescriptor = new ColumnDescriptor(
                 new String[] {"age"},
-                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"), 0, 0);
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"),
+                0,
+                0);
 
         ColumnDescriptor idDescriptor = new ColumnDescriptor(
                 new String[] {"id"},
-                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"), 0, 0);
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"),
+                0,
+                0);
 
         Map<List<String>, ColumnDescriptor> byPath = ImmutableMap.of(
                 ImmutableList.of("age"), ageDescriptor,
@@ -935,21 +951,30 @@ public final class TestParquetEncryption
                 TupleDomain.all(), ImmutableList.of(ageDescriptor, idDescriptor), UTC);
 
         List<RowGroupInfo> groups = getFilteredRowGroups(
-                0, source.getEstimatedSize(), source, metadata,
-                List.of(TupleDomain.all()), List.of(predicate),
-                byPath, UTC, 200, ParquetReaderOptions.builder().build());
+                0,
+                source.getEstimatedSize(),
+                source,
+                metadata,
+                List.of(TupleDomain.all()),
+                List.of(predicate),
+                byPath,
+                UTC,
+                200,
+                ParquetReaderOptions.builder().build());
 
         PrimitiveField ageField = new PrimitiveField(INTEGER, true, ageDescriptor, 0);
         PrimitiveField idField = new PrimitiveField(INTEGER, true, idDescriptor, 1);
 
-        List<io.trino.parquet.Column> columns = List.of(
-                new io.trino.parquet.Column("age", ageField),
-                new io.trino.parquet.Column("id", idField));
+        List<Column> columns = List.of(
+                new Column("age", ageField),
+                new Column("id", idField));
 
         try (ParquetReader reader = new ParquetReader(
                 Optional.ofNullable(metadata.getFileMetaData().getCreatedBy()),
                 columns,
-                false, groups, source,
+                false,
+                groups,
+                source,
                 UTC,
                 newSimpleAggregatedMemoryContext(),
                 ParquetReaderOptions.builder().build(),

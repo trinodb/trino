@@ -42,6 +42,8 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.util.Lazy;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -56,7 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.UUID;
+import java.util.SplittableRandom;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -86,8 +88,17 @@ public class SqlTask
 {
     private static final Logger log = Logger.get(SqlTask.class);
 
+    // Root PRNG used only to derive independent per-thread generators.
+    // Splitting creates statistically independent streams without contention.
+    private static final SplittableRandom RANDOM = new SplittableRandom();
+
+    // Each thread gets its own SplittableRandom instance derived from the root.
+    // This avoids synchronization, eliminates false sharing, and ensures
+    // high-throughput, thread-safe random number generation on hot paths.
+    private static final ThreadLocal<SplittableRandom> RANDOM_THREAD_LOCAL = ThreadLocal.withInitial(RANDOM::split);
+
     private final TaskId taskId;
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final URI location;
     private final String nodeId;
     private final AtomicBoolean speculative = new AtomicBoolean(false);
@@ -144,7 +155,7 @@ public class SqlTask
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskInstanceId = UUID.randomUUID().toString();
+        this.taskInstanceId = RANDOM_THREAD_LOCAL.get().nextLong();
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
@@ -161,7 +172,7 @@ public class SqlTask
                 maxBroadcastBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
-                () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
+                Lazy.from(() -> queryContext.getTaskContextByTaskId(taskId).aggregateUserMemoryContext().newLocalMemoryContext(LazyOutputBuffer.class.getSimpleName())),
                 this::notifyStatusChanged,
                 exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
@@ -265,7 +276,7 @@ public class SqlTask
         return taskStateMachine.getTaskId();
     }
 
-    public String getTaskInstanceId()
+    public long getTaskInstanceId()
     {
         return taskInstanceId;
     }
@@ -299,10 +310,10 @@ public class SqlTask
         return Optional.ofNullable(catalogs.get());
     }
 
-    public boolean setCatalogs(Set<CatalogHandle> catalogs)
+    public void setCatalogs(Set<CatalogHandle> catalogs)
     {
         requireNonNull(catalogs, "catalogs is null");
-        return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
+        this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
     }
 
     public boolean catalogsLoaded()
@@ -310,9 +321,9 @@ public class SqlTask
         return catalogsLoaded.get();
     }
 
-    public boolean setCatalogsLoaded()
+    public void setCatalogsLoaded()
     {
-        return catalogsLoaded.compareAndSet(false, true);
+        catalogsLoaded.set(true);
     }
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
@@ -356,19 +367,19 @@ public class SqlTask
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.stats();
-            queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
-            queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
-            runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
-            runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
-            writerInputDataSize = taskStats.getWriterInputDataSize();
-            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
-            writerCount = taskStats.getMaxWriterCount();
-            userMemoryReservation = taskStats.getUserMemoryReservation();
-            peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
-            revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
-            outputDataSize = taskStats.getOutputDataSize();
-            fullGcCount = taskStats.getFullGcCount();
-            fullGcTime = taskStats.getFullGcTime();
+            queuedPartitionedDrivers = taskStats.queuedPartitionedDrivers();
+            queuedPartitionedSplitsWeight = taskStats.queuedPartitionedSplitsWeight();
+            runningPartitionedDrivers = taskStats.runningPartitionedDrivers();
+            runningPartitionedSplitsWeight = taskStats.runningPartitionedSplitsWeight();
+            writerInputDataSize = taskStats.writerInputDataSize();
+            physicalWrittenDataSize = taskStats.physicalWrittenDataSize();
+            writerCount = taskStats.maxWriterCount();
+            userMemoryReservation = taskStats.userMemoryReservation();
+            peakUserMemoryReservation = taskStats.peakUserMemoryReservation();
+            revocableMemoryReservation = taskStats.revocableMemoryReservation();
+            outputDataSize = taskStats.outputDataSize();
+            fullGcCount = taskStats.fullGcCount();
+            fullGcTime = taskStats.fullGcTime();
             dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {
@@ -482,7 +493,7 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskStatus(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskStatus(), directExecutor());
     }
 
     public synchronized ListenableFuture<TaskInfo> getTaskInfo(long callersCurrentVersion)
@@ -494,13 +505,14 @@ public class SqlTask
 
         // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
         // is synchronized therefore notification for new listener won't be lost.
-        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
+        return Futures.transform(taskStatusVersionChange.createNewListener(), _ -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(
             Session session,
             Span stageSpan,
             Optional<PlanFragment> fragment,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains,
@@ -524,7 +536,7 @@ public class SqlTask
             SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
                 checkState(fragment.isPresent(), "fragment must be present");
-                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get());
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get(), tableCredentials);
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
@@ -547,7 +559,7 @@ public class SqlTask
     }
 
     @Nullable
-    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment)
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment, Map<PlanNodeId, ConnectorTableCredentials> tableCredentials)
     {
         SqlTaskExecution execution;
         synchronized (taskHolderLock) {
@@ -580,6 +592,7 @@ public class SqlTask
                     taskStateMachine,
                     outputBuffer,
                     fragment,
+                    tableCredentials,
                     this::notifyStatusChanged);
             needsPlan.set(false);
             execution.start();

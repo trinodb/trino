@@ -109,36 +109,20 @@ public class AvroSchemaConverter
 
     private Optional<Type> convert(Schema schema)
     {
-        switch (schema.getType()) {
-            case INT:
-                return Optional.of(IntegerType.INTEGER);
-            case LONG:
-                return Optional.of(BigintType.BIGINT);
-            case BOOLEAN:
-                return Optional.of(BooleanType.BOOLEAN);
-            case FLOAT:
-                return Optional.of(RealType.REAL);
-            case DOUBLE:
-                return Optional.of(DoubleType.DOUBLE);
-            case ENUM:
-            case STRING:
-                return Optional.of(VarcharType.VARCHAR);
-            case BYTES:
-            case FIXED:
-                return Optional.of(VarbinaryType.VARBINARY);
-            case UNION:
-                return convertUnion(schema);
-            case ARRAY:
-                return convertArray(schema);
-            case MAP:
-                return convertMap(schema);
-            case RECORD:
-                return convertRecord(schema);
-            case NULL:
-                // unsupported
-                break;
-        }
-        throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
+        return switch (schema.getType()) {
+            case INT -> Optional.of(IntegerType.INTEGER);
+            case LONG -> Optional.of(BigintType.BIGINT);
+            case BOOLEAN -> Optional.of(BooleanType.BOOLEAN);
+            case FLOAT -> Optional.of(RealType.REAL);
+            case DOUBLE -> Optional.of(DoubleType.DOUBLE);
+            case ENUM, STRING -> Optional.of(VarcharType.VARCHAR);
+            case BYTES, FIXED -> Optional.of(VarbinaryType.VARBINARY);
+            case UNION -> convertUnion(schema);
+            case ARRAY -> convertArray(schema);
+            case MAP -> convertMap(schema);
+            case RECORD -> convertRecord(schema);
+            case NULL -> throw new UnsupportedOperationException(format("Type %s not supported", schema.getType()));
+        };
     }
 
     private Optional<Type> convertUnion(Schema schema)
@@ -199,15 +183,11 @@ public class AvroSchemaConverter
                 .map(Optional::get)
                 .collect(toImmutableList());
         if (fields.isEmpty()) {
-            switch (emptyFieldStrategy) {
-                case IGNORE:
-                    return Optional.empty();
-                case MARK:
-                    return Optional.of(DUMMY_ROW_TYPE);
-                case FAIL:
-                    throw new IllegalStateException(format("Struct type has no valid fields for schema: '%s'", schema));
-            }
-            throw new IllegalStateException(format("Unknown emptyFieldStrategy '%s'", emptyFieldStrategy));
+            return switch (emptyFieldStrategy) {
+                case IGNORE -> Optional.empty();
+                case MARK -> Optional.of(DUMMY_ROW_TYPE);
+                case FAIL -> throw new IllegalStateException(format("Struct type has no valid fields for schema: '%s'", schema));
+            };
         }
         return Optional.of(RowType.from(fields));
     }

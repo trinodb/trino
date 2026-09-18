@@ -13,7 +13,9 @@
  */
 package io.trino.sql.ir.optimizer.rule;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -23,41 +25,58 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Between;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
-import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.Logical.Operator.AND;
 
 /**
  * Simplify IN expression with continuous range of constant test values into a BETWEEN expression. E.g,
  * <ul>
  *     <li>{@code $in(x, [1, 2, 3, 4]) -> $between(x, 1, 4)}
+ *     <li>{@code $in(x, [1, 2, 3, null]) -> $or($between(x, 1, 3), null)}
  * </ul>
  */
 public class SimplifyContinuousInValues
         implements IrOptimizerRule
 {
-    @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    private final Metadata metadata;
+
+    public SimplifyContinuousInValues(PlannerContext context)
     {
-        if (!(expression instanceof In in)) {
+        this.metadata = context.getMetadata();
+    }
+
+    @Override
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
+    {
+        if (!(expression instanceof In(Expression value, List<Expression> values))) {
             return Optional.empty();
         }
 
-        if (in.valueList().size() < 2) {
+        if (values.size() < 2) {
             return Optional.empty();
         }
 
-        Type valueType = in.value().type();
+        Type valueType = value.type();
         if (!isDirectLongComparisonValidForContinuousValues(valueType)) {
             return Optional.empty();
         }
@@ -70,7 +89,7 @@ public class SimplifyContinuousInValues
         long nonNullsCount = 0;
         long min = Long.MAX_VALUE;
         long max = Long.MIN_VALUE;
-        for (Expression testExpression : in.valueList()) {
+        for (Expression testExpression : values) {
             if (!(testExpression instanceof Constant constant)) {
                 return Optional.empty();
             }
@@ -84,16 +103,27 @@ public class SimplifyContinuousInValues
             nonNullsCount++;
         }
 
-        // If all values within a range are included, use a range filter
-        if (nonNullsCount >= 2 && areAllValuesInRangeIncluded(max, min, nonNullsCount)) {
-            Between between = new Between(in.value(), new Constant(valueType, min), new Constant(valueType, max));
-            if (nullMatch) {
-                return Optional.of(or(new IsNull(in.value()), between));
-            }
-            return Optional.of(between);
+        if (nonNullsCount < 2 || !areAllValuesInRangeIncluded(max, min, nonNullsCount)) {
+            return Optional.empty();
         }
 
-        return Optional.empty();
+        // Bind a non-trivial value once so it is evaluated exactly once across both comparisons;
+        // trivial values are used inline.
+        long lowerBound = min;
+        long upperBound = max;
+        boolean includesNull = nullMatch;
+        return Optional.of(bindIfNecessary(symbolAllocator, "range", value, operand -> {
+            Expression rangeFilter = rangeFilter(session, operand, valueType, lowerBound, upperBound);
+            // An unmatched or null operand must yield NULL when the list contains NULL.
+            return includesNull ? or(rangeFilter, NULL_BOOLEAN) : rangeFilter;
+        }));
+    }
+
+    private Expression rangeFilter(Session session, Expression value, Type valueType, long min, long max)
+    {
+        return new Logical(AND, ImmutableList.of(
+                comparison(metadata, getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, value, new Constant(valueType, min)),
+                comparison(metadata, getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, value, new Constant(valueType, max))));
     }
 
     private static boolean isDirectLongComparisonValidForContinuousValues(Type type)

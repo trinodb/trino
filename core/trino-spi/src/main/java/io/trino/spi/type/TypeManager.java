@@ -22,7 +22,7 @@ public interface TypeManager
      *
      * @throws TypeNotFoundException if not found
      */
-    Type getType(TypeSignature signature);
+    Type getType(TypeDescriptor signature);
 
     /**
      * Gets a type given it's SQL representation
@@ -39,10 +39,18 @@ public interface TypeManager
      *
      * @throws TypeNotFoundException if not found
      */
-    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    default Type getParameterizedType(String baseTypeName, List<TypeParameter> typeParameters)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
+        return getType(new TypeDescriptor(baseTypeName, typeParameters));
     }
+
+    /**
+     * Returns whether `name` is a known type base.
+     *
+     * Unlike `getType`, this returns true for parametric bases (e.g. `array`, `row`,
+     * `map`) that cannot be instantiated without parameters.
+     */
+    boolean isTypeRegistered(String name);
 
     /**
      * Gets the cache for type operators.

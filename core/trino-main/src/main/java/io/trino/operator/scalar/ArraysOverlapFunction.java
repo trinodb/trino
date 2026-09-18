@@ -29,7 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 
-@ScalarFunction("arrays_overlap")
+@ScalarFunction(value = "arrays_overlap", neverFails = true)
 @Description("Returns true if arrays have common elements")
 public final class ArraysOverlapFunction
 {
@@ -42,12 +42,16 @@ public final class ArraysOverlapFunction
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION,
-                            BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockTypeOperators.BlockPositionIsIdentical elementIdentical,
+                    convention = @Convention(arguments = {
+                            BLOCK_POSITION,
+                            BLOCK_POSITION,
+                    }, result = FAIL_ON_NULL))
+            BlockTypeOperators.BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockTypeOperators.BlockPositionHashCode elementHashCode,
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+            BlockTypeOperators.BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
     {

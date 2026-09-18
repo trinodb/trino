@@ -307,7 +307,7 @@ public final class Domain
                     }
                     return Optional.of(ValueSet.all(values.getType()));
                 },
-                allOrNone -> Optional.empty());
+                _ -> Optional.empty());
         if (simplifiedValueSet.isEmpty()) {
             return this;
         }

@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -145,10 +145,10 @@ public class TestDeltaLakeSchemaSupport
         assertThat(schema).hasSize(5);
         // asserting on the string representations, since they're more readable
         assertThat(schema.get(0).toString()).isEqualTo("ColumnMetadata{name='a', type=integer, nullable}");
-        assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(b1 integer, b2 row(b21 varchar, b22 boolean)), nullable}");
+        assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(\"b1\" integer, \"b2\" row(\"b21\" varchar, \"b22\" boolean)), nullable}");
         assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
-        assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(d1 integer)), nullable}");
-        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(e1 date, e2 timestamp(3) with time zone)), nullable}");
+        assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(\"d1\" integer)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(3) with time zone)), nullable}");
     }
 
     @Test
@@ -231,16 +231,16 @@ public class TestDeltaLakeSchemaSupport
                 Optional.empty());
 
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
-        ObjectMapper objectMapper = new ObjectMapper();
+        JsonMapper jsonMapper = new JsonMapper();
 
         List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : columnHandles) {
-            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, Optional.empty(), ImmutableMap.of());
         }
 
         String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
-        assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
+        assertThat(jsonMapper.readTree(jsonEncoding)).isEqualTo(jsonMapper.readTree(expected));
     }
 
     @Test
@@ -256,12 +256,12 @@ public class TestDeltaLakeSchemaSupport
 
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (ColumnMetadata column : schema) {
-            deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()), true, Optional.empty(), ImmutableMap.of());
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
+        JsonMapper jsonMapper = new JsonMapper();
         String jsonEncoding = serializeSchemaAsJson(deltaTable.build());
-        assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
+        assertThat(jsonMapper.readTree(jsonEncoding)).isEqualTo(jsonMapper.readTree(expected));
     }
 
     @Test

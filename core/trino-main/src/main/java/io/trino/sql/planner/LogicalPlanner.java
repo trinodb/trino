@@ -54,8 +54,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.FunctionType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -66,9 +71,11 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
@@ -89,7 +96,10 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
+import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.RefreshMaterializedViewReference;
+import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
@@ -99,6 +109,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Query;
@@ -109,6 +120,7 @@ import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
 import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.UnknownType;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -121,6 +133,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -129,11 +142,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.operator.scalar.StringFunctions.SPACE_TRIMMED_LENGTH_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -145,10 +160,12 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.cast;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -157,9 +174,6 @@ import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
-import static io.trino.sql.planner.plan.TableWriterNode.InsertReference;
-import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
@@ -179,7 +193,7 @@ public class LogicalPlanner
     private final Session session;
     private final List<PlanOptimizer> planOptimizers;
     private final PlanSanityChecker planSanityChecker;
-    private final SymbolAllocator symbolAllocator = new SymbolAllocator();
+    private final SymbolAllocator symbolAllocator = new SymbolAllocator(ImmutableList.of());
     private final Metadata metadata;
     private final PlannerContext plannerContext;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
@@ -326,13 +340,11 @@ public class LogicalPlanner
         if (!Span.fromContext(Context.current()).isRecording()) {
             return null;
         }
+        String optimizerName = (optimizer instanceof IterativeOptimizer iterative)
+                ? "Iterative:" + iterative.getName()
+                : optimizer.getClass().getSimpleName();
         SpanBuilder builder = plannerContext.getTracer().spanBuilder("optimize")
-                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizer.getClass().getSimpleName());
-        if (optimizer instanceof IterativeOptimizer iterative) {
-            builder.setAttribute(TrinoAttributes.OPTIMIZER_RULES, iterative.getRules().stream()
-                    .map(x -> x.getClass().getSimpleName())
-                    .toList());
-        }
+                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizerName);
         return scopedSpan(builder.startSpan());
     }
 
@@ -380,8 +392,8 @@ public class LogicalPlanner
         if (statement instanceof ExplainAnalyze explainAnalyze) {
             return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute tableExecute) {
-            return createTableExecutePlan(analysis, tableExecute);
+        if (statement instanceof TableExecute || statement instanceof MaterializedViewExecute) {
+            return createTableExecutePlan(analysis, statement);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -519,7 +531,7 @@ public class LogicalPlanner
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
 
-        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Map<ColumnHandle, io.trino.sql.tree.Expression> defaultColumnValues = analysis.getDefaultColumnValues(table);
@@ -543,7 +555,7 @@ public class LogicalPlanner
                 if (column.getDefaultValue().isPresent()) {
                     io.trino.sql.tree.Expression defaultExpression = defaultColumnValues.get(columnHandle);
                     expression = planBuilder.rewrite(defaultExpression);
-                    expression = noTruncationCast(metadata, expression, expression.type(), tableType);
+                    expression = noTruncationCast(metadata, plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbolAllocator, expression, expression.type(), tableType);
                 }
                 else {
                     expression = new Constant(column.getType(), null);
@@ -575,8 +587,8 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMet(metadata, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
-                node -> {
+                failIfPredicateIsNotMet(metadata, getCharVarcharCoercion(session), PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
+                _ -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
                     return Scope.builder()
@@ -588,7 +600,7 @@ public class LogicalPlanner
                 analysis.getCheckConstraints(table),
                 table,
                 plan,
-                node -> {
+                _ -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
                     return Scope.builder()
@@ -604,7 +616,9 @@ public class LogicalPlanner
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
-            RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
+            RefreshType refreshType = materializedViewRefreshWriterTarget.get().hasNonDeterministicFunctions()
+                    ? RefreshType.FULL
+                    : IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
             WriterTarget writerTarget = materializedViewRefreshWriterTarget.get().withRefreshType(refreshType);
             return createTableWriterPlan(
                     analysis,
@@ -635,24 +649,24 @@ public class LogicalPlanner
         if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
-        return noTruncationCast(metadata, fieldMapping.toSymbolReference(), queryType, tableType);
+        return noTruncationCast(metadata, plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbolAllocator, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), type);
+        return new Cast(failFunction(metadata, getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), type);
     }
 
-    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
+    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, CharVarcharCoercion charVarcharCoercion, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        Call fail = failFunction(metadata, errorCode, errorMessage);
+        Call fail = failFunction(metadata, charVarcharCoercion, errorCode, errorMessage);
         return predicate -> ifExpression(predicate, TRUE, new Cast(fail, BOOLEAN));
     }
 
-    public static Call failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
+    public static Call failFunction(Metadata metadata, CharVarcharCoercion charVarcharCoercion, ErrorCodeSupplier errorCode, String errorMessage)
     {
         Object rawValue = Slices.utf8Slice(errorMessage);
-        return BuiltinFunctionCallBuilder.resolve(metadata)
+        return BuiltinFunctionCallBuilder.resolve(metadata, charVarcharCoercion)
                 .setName("fail")
                 .addArgument(INTEGER, new Constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
                 .addArgument(new Constant(VARCHAR, rawValue))
@@ -687,11 +701,16 @@ public class LogicalPlanner
         List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
                 .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
                 .collect(toImmutableList());
+        // TODO: For time-based functions (current_date, current_timestamp) smarter freshness tracking
+        // could avoid treating the MV as stale when the time hasn't meaningfully changed. See https://github.com/trinodb/trino/issues/28731
+        boolean hasNonDeterministicFunctions = analysis.getResolvedFunctions().stream().anyMatch(function -> !function.deterministic())
+                || containsCurrentTimeFunctions(query);
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
                 ImmutableList.copyOf(analysis.getTables()),
                 tableFunctions,
+                hasNonDeterministicFunctions,
                 // this is a placeholder value - refresh type will be determined by getInsertPlan based on the plan tree
                 RefreshType.FULL);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
@@ -770,7 +789,7 @@ public class LogicalPlanner
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                     Optional.of(aggregations.getFinalAggregation()),
                     Optional.of(result.getDescriptor()));
 
@@ -791,7 +810,7 @@ public class LogicalPlanner
                         Optional.empty(),
                         Optional.empty()),
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -808,15 +827,83 @@ public class LogicalPlanner
     TODO Once BINARY and parametric VARBINARY types are supported, they should be handled here.
     TODO This workaround is insufficient to handle structural types
      */
-    public static Expression noTruncationCast(Metadata metadata, Expression expression, Type fromType, Type toType)
+    /**
+     * Casts {@code expression} from {@code fromType} to {@code toType} for a write (INSERT, UPDATE, MERGE),
+     * failing rather than silently dropping non-space characters when a character value does not fit the target
+     * length. The check recurses through {@code array}, {@code map} and {@code row} so that character types nested
+     * inside structural types are guarded the same way as top-level character columns.
+     */
+    public static Expression noTruncationCast(Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, SymbolAllocator symbolAllocator, Expression expression, Type fromType, Type toType)
     {
-        if (fromType instanceof UnknownType || (!(toType instanceof VarcharType) && !(toType instanceof CharType))) {
-            return new Cast(expression, toType);
+        if (fromType.equals(toType) || fromType instanceof UnknownType || !containsBoundedCharacterType(toType)) {
+            // Nothing can be silently truncated, so an ordinary cast suffices.
+            return cast(typeManager, charVarcharCoercion, expression, toType);
         }
+
+        if (toType instanceof CharType || toType instanceof VarcharType) {
+            return characterNoTruncationCast(metadata, typeManager, charVarcharCoercion, expression, fromType, toType);
+        }
+
+        if (fromType instanceof ArrayType fromArray && toType instanceof ArrayType toArray) {
+            Type fromElement = fromArray.getElementType();
+            Type toElement = toArray.getElementType();
+            Symbol element = symbolAllocator.newSymbol("element", fromElement);
+            Expression body = noTruncationCast(metadata, typeManager, charVarcharCoercion, symbolAllocator, element.toSymbolReference(), fromElement, toElement);
+            // transform(array, element -> guarded cast of element)
+            return BuiltinFunctionCallBuilder.resolve(metadata, charVarcharCoercion)
+                    .setName("transform")
+                    .addArgument(fromType, expression)
+                    .addArgument(new FunctionType(ImmutableList.of(fromElement), toElement), new Lambda(ImmutableList.of(element), body))
+                    .build();
+        }
+
+        if (fromType instanceof MapType fromMap && toType instanceof MapType toMap) {
+            Expression result = expression;
+            if (!fromMap.getValueType().equals(toMap.getValueType())) {
+                MapType currentType = (MapType) result.type();
+                Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
+                Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
+                Expression body = noTruncationCast(metadata, typeManager, charVarcharCoercion, symbolAllocator, value.toSymbolReference(), currentType.getValueType(), toMap.getValueType());
+                result = BuiltinFunctionCallBuilder.resolve(metadata, charVarcharCoercion)
+                        .setName("transform_values")
+                        .addArgument(currentType, result)
+                        .addArgument(new FunctionType(ImmutableList.of(currentType.getKeyType(), currentType.getValueType()), toMap.getValueType()), new Lambda(ImmutableList.of(key, value), body))
+                        .build();
+            }
+            if (!fromMap.getKeyType().equals(toMap.getKeyType())) {
+                MapType currentType = (MapType) result.type();
+                Symbol key = symbolAllocator.newSymbol("key", currentType.getKeyType());
+                Symbol value = symbolAllocator.newSymbol("value", currentType.getValueType());
+                Expression body = noTruncationCast(metadata, typeManager, charVarcharCoercion, symbolAllocator, key.toSymbolReference(), currentType.getKeyType(), toMap.getKeyType());
+                result = BuiltinFunctionCallBuilder.resolve(metadata, charVarcharCoercion)
+                        .setName("transform_keys")
+                        .addArgument(currentType, result)
+                        .addArgument(new FunctionType(ImmutableList.of(currentType.getKeyType(), currentType.getValueType()), toMap.getKeyType()), new Lambda(ImmutableList.of(key, value), body))
+                        .build();
+            }
+            return result;
+        }
+
+        if (fromType instanceof RowType fromRow && toType instanceof RowType toRow) {
+            List<Type> fromFields = fromRow.getTypeParameters();
+            List<Type> toFields = toRow.getTypeParameters();
+            ImmutableList.Builder<Expression> items = ImmutableList.builderWithExpectedSize(fromFields.size());
+            for (int i = 0; i < fromFields.size(); i++) {
+                items.add(noTruncationCast(metadata, typeManager, charVarcharCoercion, symbolAllocator, new FieldReference(expression, i), fromFields.get(i), toFields.get(i)));
+            }
+            // Rebuild the row field by field, but keep a null row null rather than turning it into a row of nulls.
+            return ifExpression(new IsNull(expression), new Constant(toType, null), new Row(items.build(), toType));
+        }
+
+        return cast(typeManager, charVarcharCoercion, expression, toType);
+    }
+
+    private static Expression characterNoTruncationCast(Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, Expression expression, Type fromType, Type toType)
+    {
         int targetLength;
         if (toType instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
-                return new Cast(expression, toType);
+                return cast(typeManager, charVarcharCoercion, expression, toType);
             }
             targetLength = varcharType.getBoundedLength();
         }
@@ -825,25 +912,46 @@ public class LogicalPlanner
         }
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
-        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction("$space_trimmed_length", fromTypes(VARCHAR));
+        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction(charVarcharCoercion, SPACE_TRIMMED_LENGTH_FUNCTION_NAME, ImmutableList.of(VARCHAR));
 
         return ifExpression(
                 // check if the trimmed value fits in the target type
-                new Comparison(
+                comparison(metadata,
+                        charVarcharCoercion,
                         GREATER_THAN_OR_EQUAL,
                         new Constant(BIGINT, (long) targetLength),
                         new Coalesce(
                                 new Call(
                                         spaceTrimmedLength,
-                                        ImmutableList.of(new Cast(expression, VARCHAR))),
+                                        ImmutableList.of(cast(typeManager, charVarcharCoercion, expression, VARCHAR))),
                                 new Constant(BIGINT, 0L))),
-                new Cast(expression, toType),
+                cast(typeManager, charVarcharCoercion, expression, toType),
                 new Cast(
-                        failFunction(metadata, INVALID_CAST_ARGUMENT, format(
+                        failFunction(metadata, charVarcharCoercion, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
                         toType));
+    }
+
+    private static boolean containsBoundedCharacterType(Type type)
+    {
+        if (type instanceof CharType) {
+            return true;
+        }
+        if (type instanceof VarcharType varcharType) {
+            return !varcharType.isUnbounded();
+        }
+        if (type instanceof ArrayType arrayType) {
+            return containsBoundedCharacterType(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsBoundedCharacterType(mapType.getKeyType()) || containsBoundedCharacterType(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getTypeParameters().stream().anyMatch(LogicalPlanner::containsBoundedCharacterType);
+        }
+        return false;
     }
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
@@ -856,7 +964,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -873,7 +981,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 planNode,
                 target,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -889,7 +997,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 mergeNode,
                 mergeNode.getTarget(),
-                symbolAllocator.newSymbol("rows", BIGINT),
+                ImmutableList.of(symbolAllocator.newSymbol("rows", BIGINT)),
                 Optional.empty(),
                 Optional.empty());
 
@@ -958,9 +1066,15 @@ public class LogicalPlanner
         return result;
     }
 
-    private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
+    private RelationPlan createTableExecutePlan(Analysis analysis, Statement statement)
     {
-        Table table = statement.getTable();
+        Optional<io.trino.sql.tree.Expression> where = switch (statement) {
+            case TableExecute tableExecute -> tableExecute.getWhere();
+            case MaterializedViewExecute materializedViewExecute -> materializedViewExecute.getWhere();
+            default -> throw new IllegalArgumentException("Unexpected statement: " + statement);
+        };
+
+        Table table = analysis.getTableExecuteTable();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
@@ -971,26 +1085,20 @@ public class LogicalPlanner
                             symbolAllocator.newSymbol("metricName", VARCHAR),
                             symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
-            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+            return new RelationPlan(node, analysis.getScope(statement), node.getOutputSymbols(), Optional.empty());
         }
 
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
-        if (statement.getWhere().isPresent()) {
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
+        if (where.isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
-            io.trino.sql.tree.Expression whereExpression = statement.getWhere().get();
+            io.trino.sql.tree.Expression whereExpression = where.get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));
         }
 
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
-
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.columns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
 
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
                 executeHandle,
@@ -998,10 +1106,26 @@ public class LogicalPlanner
                 tableName.asSchemaTableName(),
                 metadata.getInsertWriterScalingOptions(session, tableHandle));
 
+        Map<String, ColumnHandle> tableColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        Set<ColumnHandle> expectedColumnHandles = metadata.getColumnHandlesForTableExecute(session, executeHandle);
+
+        RelationType descriptor = tableScanPlan.getDescriptor();
+        List<String> columnNames = new ArrayList<>();
+        List<Symbol> symbols = new ArrayList<>();
+        List<Field> fields = List.copyOf(descriptor.getAllFields());
+        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+            Field field = fields.get(fieldIndex);
+            String fieldName = field.getName().orElseThrow();
+            ColumnHandle columnHandle = tableColumnHandles.get(fieldName);
+            verify(columnHandle != null, "No column handle for field name %s", fieldName);
+            if (expectedColumnHandles.contains(columnHandle)) {
+                columnNames.add(fieldName);
+                symbols.add(tableScanPlan.getFieldMappings().get(fieldIndex));
+            }
+        }
+        verify(expectedColumnHandles.size() == columnNames.size(), "Expected column handles %s do not match actual column names %s", expectedColumnHandles, columnNames);
+
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
-
-        List<Symbol> symbols = visibleFields(tableScanPlan);
-
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (layout.isPresent()) {
@@ -1037,6 +1161,12 @@ public class LogicalPlanner
         }
 
         verify(columnNames.size() == symbols.size(), "columnNames.size() != symbols.size(): %s and %s", columnNames, symbols);
+
+        List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
+                .add(symbolAllocator.newSymbol("metricName", VARCHAR))
+                .add(symbolAllocator.newSymbol("metricValue", BIGINT))
+                .build();
+
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
                 new TableExecuteNode(
@@ -1049,11 +1179,11 @@ public class LogicalPlanner
                         columnNames,
                         partitioningScheme),
                 tableExecuteTarget,
-                symbolAllocator.newSymbol("rows", BIGINT),
+                outputSymbols,
                 Optional.empty(),
                 Optional.empty());
 
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols(), Optional.empty());
+        return new RelationPlan(commitNode, analysis.getScope(statement), outputSymbols, Optional.empty());
     }
 
     private static class Key

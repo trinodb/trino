@@ -152,12 +152,6 @@ public class BigQueryQueryPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
@@ -285,7 +279,7 @@ public class BigQueryQueryPageSource
             type.writeSlice(output, Slices.wrappedBuffer(value.getBytesValue()));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 

@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.TupleDomain.intersect;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
@@ -94,12 +95,12 @@ public class RemoveRedundantPredicateAboveTableScan
                 session,
                 deterministicPredicate);
 
-        if (decomposedPredicate.getTupleDomain().isAll()) {
+        if (decomposedPredicate.tupleDomain().isAll()) {
             // no conjunct could be fully converted to tuple domain
             return Result.empty();
         }
 
-        TupleDomain<ColumnHandle> predicateDomain = decomposedPredicate.getTupleDomain()
+        TupleDomain<ColumnHandle> predicateDomain = decomposedPredicate.tupleDomain()
                 .transformKeys(node.getAssignments()::get);
 
         if (predicateDomain.isNone()) {
@@ -135,10 +136,11 @@ public class RemoveRedundantPredicateAboveTableScan
         Expression resultingPredicate = createResultingPredicate(
                 plannerContext,
                 session,
-                Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.getRemainingExpression()
-                domainTranslator.toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                context.getSymbolAllocator(),
+                Booleans.TRUE, // Dynamic filters are included in decomposedPredicate.remainingExpression()
+                domainTranslator.toPredicate(getCharVarcharCoercion(session), unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
-                decomposedPredicate.getRemainingExpression());
+                decomposedPredicate.remainingExpression());
 
         if (!Booleans.TRUE.equals(resultingPredicate)) {
             return Result.ofPlanNode(new FilterNode(context.getIdAllocator().getNextId(), node, resultingPredicate));
@@ -151,14 +153,14 @@ public class RemoveRedundantPredicateAboveTableScan
     {
         Map<Boolean, List<ExtractionResult>> extractedPredicates = extractConjuncts(predicate).stream()
                 .map(conjunct -> DomainTranslator.getExtractionResult(plannerContext, session, conjunct))
-                .collect(groupingBy(result -> result.getRemainingExpression().equals(Booleans.TRUE), toList()));
+                .collect(groupingBy(result -> result.remainingExpression().equals(Booleans.TRUE), toList()));
         return new ExtractionResult(
                 intersect(extractedPredicates.getOrDefault(Boolean.TRUE, ImmutableList.of()).stream()
-                        .map(ExtractionResult::getTupleDomain)
+                        .map(ExtractionResult::tupleDomain)
                         .collect(toImmutableList())),
                 combineConjuncts(
                         extractedPredicates.getOrDefault(FALSE, ImmutableList.of()).stream()
-                                .map(ExtractionResult::getRemainingExpression)
+                                .map(ExtractionResult::remainingExpression)
                                 .collect(toImmutableList())));
     }
 }

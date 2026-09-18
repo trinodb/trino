@@ -24,7 +24,26 @@ public interface ConnectorServicesProvider
 
     void ensureCatalogsLoaded(List<CatalogProperties> catalogs);
 
-    void pruneCatalogs(Set<CatalogHandle> catalogsInUse);
+    /**
+     * Returns prunable state to be passed to {@link #pruneCatalogs}.
+     */
+    PrunableState getPrunableState();
+
+    /**
+     * Prune catalogs that are no longer in use.
+     *
+     * @param prunableState obtained from {@link #getPrunableState}
+     * @param catalogsInUse catalogs in use observed between obtaining the prunable state and calling this method
+     */
+    void pruneCatalogs(PrunableState prunableState, Set<CatalogHandle> catalogsInUse);
 
     ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
+
+    interface PrunableState
+    {
+        static PrunableState empty()
+        {
+            return new PrunableState() {};
+        }
+    }
 }

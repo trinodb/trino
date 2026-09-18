@@ -34,8 +34,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,15 +70,19 @@ public final class SystemTableUtil
 
     private static List<PartitionField> filterOutDuplicates(List<PartitionField> visiblePartitionFields)
     {
-        Set<Integer> alreadyExistingFieldIds = new HashSet<>();
-        List<PartitionField> result = new ArrayList<>();
+        Map<Integer, PartitionField> result = new LinkedHashMap<>();
         for (PartitionField partitionField : visiblePartitionFields) {
-            if (!alreadyExistingFieldIds.contains(partitionField.fieldId())) {
-                alreadyExistingFieldIds.add(partitionField.fieldId());
-                result.add(partitionField);
-            }
+            // Use last occurrence of partition field in case of duplicates, except for the void placeholder that
+            // a dropped partition field can leave behind under the same field id, which reports the source type
+            // as its result type
+            result.merge(partitionField.fieldId(), partitionField, (existing, duplicate) -> {
+                if (duplicate.transform().isVoid()) {
+                    return existing;
+                }
+                return duplicate;
+            });
         }
-        return result;
+        return result.values().stream().collect(toImmutableList());
     }
 
     public static Optional<IcebergPartitionColumn> getPartitionColumnType(TypeManager typeManager, List<PartitionField> fields, Schema schema)

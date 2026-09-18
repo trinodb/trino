@@ -5,8 +5,8 @@ for clients, such as the CLI, or the JDBC and ODBC drivers. The username and
 password (or password and [security token](#security-token) concatenation) are
 validated by having the Trino coordinator perform a login to Salesforce.
 
-This allows you to enable users to authenticate to Trino via their Salesforce
-basic credentials. This can also be used to secure the {ref}`Web UI
+This allows users to authenticate to Trino with their Salesforce credentials.
+This can also be used to secure the {ref}`Web UI
 <web-ui-authentication>`.
 
 :::{note}

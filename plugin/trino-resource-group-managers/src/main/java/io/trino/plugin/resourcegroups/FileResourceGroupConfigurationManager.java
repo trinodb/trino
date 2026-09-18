@@ -21,7 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
@@ -31,7 +31,7 @@ import io.trino.spi.resourcegroups.SelectionCriteria;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,8 +43,10 @@ import static java.util.Objects.requireNonNull;
 public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
-    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+    private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(new JsonMapperProvider().get()
+            .rebuild()
+            .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .build())
             .jsonCodec(ManagerSpec.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;
@@ -88,7 +90,7 @@ public class FileResourceGroupConfigurationManager
     static ManagerSpec parseManagerSpec(FileResourceGroupConfig config)
     {
         ManagerSpec managerSpec;
-        try (InputStream stream = newInputStream(Paths.get(config.getConfigFile()))) {
+        try (InputStream stream = newInputStream(Path.of(config.getConfigFile()))) {
             managerSpec = CODEC.fromJson(stream);
         }
         catch (IOException e) {
@@ -97,7 +99,8 @@ public class FileResourceGroupConfigurationManager
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
             if (cause instanceof UnrecognizedPropertyException ex) {
-                String message = format("Unknown property at line %s:%s: %s",
+                String message = format(
+                        "Unknown property at line %s:%s: %s",
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),
                         ex.getPropertyName());

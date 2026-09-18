@@ -14,9 +14,6 @@
 package io.trino.sql.planner.assertions;
 
 import io.airlift.slice.Slice;
-import io.trino.Session;
-import io.trino.cost.StatsProvider;
-import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
@@ -60,12 +57,12 @@ public class SpatialJoinMatcher
     }
 
     @Override
-    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+    public MatchResult detailMatches(PlanNode node, MatchContext context)
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SpatialJoinNode joinNode = (SpatialJoinNode) node;
-        if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter(), filter)) {
+        if (!new ExpressionVerifier(context.symbolAliases()).process(joinNode.getFilter(), filter)) {
             return NO_MATCH;
         }
         if (!joinNode.getKdbTree().equals(kdbTree)) {
@@ -76,7 +73,7 @@ public class SpatialJoinMatcher
                 return NO_MATCH;
             }
             if (!outputSymbols.get().stream()
-                    .map(symbolAliases::get)
+                    .map(context.symbolAliases()::get)
                     .map(Symbol::from)
                     .collect(toImmutableList())
                     .equals(joinNode.getOutputSymbols())) {

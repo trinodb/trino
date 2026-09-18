@@ -95,7 +95,8 @@ public class BenchmarkDynamicFilterSourceOperator
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
-                    new DynamicFilterSourceConsumer() {
+                    new DynamicFilterSourceConsumer()
+                    {
                         @Override
                         public void addPartition(TupleDomain<DynamicFilterId> tupleDomain) {}
 

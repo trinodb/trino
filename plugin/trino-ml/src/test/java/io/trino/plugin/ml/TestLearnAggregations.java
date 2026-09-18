@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.plugin.ml.type.ClassifierParametricType;
@@ -37,10 +38,10 @@ import java.util.Random;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
+import static io.trino.spi.type.TypeDescriptor.mapType;
+import static io.trino.spi.type.TypeParameter.typeParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.sqlMapOf;
@@ -69,7 +70,7 @@ public class TestLearnAggregations
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_classifier",
-                fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
+                fromTypeDescriptors(BIGINT.getTypeDescriptor(), mapType(BIGINT.getTypeDescriptor(), DOUBLE.getTypeDescriptor())));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
@@ -78,7 +79,7 @@ public class TestLearnAggregations
     {
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 "learn_libsvm_classifier",
-                fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
+                fromTypeDescriptors(BIGINT.getTypeDescriptor(), mapType(BIGINT.getTypeDescriptor(), DOUBLE.getTypeDescriptor()), VARCHAR.getTypeDescriptor()));
         assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics()));
     }
 
@@ -86,7 +87,7 @@ public class TestLearnAggregations
     {
         aggregator.processPage(getPage());
         BlockBuilder finalOut = aggregator.getType().createBlockBuilder(null, 1);
-        aggregator.evaluate(finalOut);
+        aggregator.evaluate(finalOut, UpdateMemory.NOOP);
         Block block = finalOut.build();
         Slice slice = aggregator.getType().getSlice(block, 0);
         Model deserialized = ModelUtils.deserialize(slice);
@@ -99,7 +100,7 @@ public class TestLearnAggregations
 
     private static Page getPage()
     {
-        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeSignature()), typeParameter(DOUBLE.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeDescriptor()), typeParameter(DOUBLE.getTypeDescriptor())));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VARCHAR);
         Random rand = new Random(0);

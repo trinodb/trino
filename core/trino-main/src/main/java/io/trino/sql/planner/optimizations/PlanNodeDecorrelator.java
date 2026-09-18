@@ -25,8 +25,9 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -46,6 +47,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 
 import java.util.List;
@@ -58,7 +60,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -76,11 +78,11 @@ public class PlanNodeDecorrelator
     private final Lookup lookup;
     private final TypeCoercion typeCoercion;
 
-    public PlanNodeDecorrelator(PlannerContext plannerContext, SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, SymbolAllocator symbolAllocator, Lookup lookup)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
     }
 
     public Optional<DecorrelatedNode> decorrelateFilters(PlanNode node, List<Symbol> correlation)
@@ -471,18 +473,12 @@ public class PlanNodeDecorrelator
         {
             ImmutableMultimap.Builder<Symbol, Symbol> mapping = ImmutableMultimap.builder();
             for (Expression conjunct : correlatedConjuncts) {
-                if (!(conjunct instanceof Comparison comparison)) {
+                if (!(matchComparison(conjunct) instanceof Comparison.Equal(Reference referenceLeft, Reference referenceRight))) {
                     continue;
                 }
 
-                if (!(comparison.left() instanceof Reference
-                        && comparison.right() instanceof Reference
-                        && comparison.operator() == EQUAL)) {
-                    continue;
-                }
-
-                Symbol left = Symbol.from(comparison.left());
-                Symbol right = Symbol.from(comparison.right());
+                Symbol left = Symbol.from(referenceLeft);
+                Symbol right = Symbol.from(referenceRight);
 
                 if (correlation.contains(left) && !correlation.contains(right)) {
                     mapping.put(left, right);
@@ -501,9 +497,8 @@ public class PlanNodeDecorrelator
             ImmutableSet.Builder<Symbol> constants = ImmutableSet.builder();
 
             correlatedConjuncts.stream()
-                    .filter(Comparison.class::isInstance)
-                    .map(Comparison.class::cast)
-                    .filter(comparison -> comparison.operator() == EQUAL)
+                    .map(IrExpressions::matchComparison)
+                    .filter(comparison -> comparison instanceof Comparison.Equal)
                     .forEach(comparison -> {
                         Expression left = comparison.left();
                         Expression right = comparison.right();
@@ -533,10 +528,10 @@ public class PlanNodeDecorrelator
             if (!(expression instanceof Cast cast)) {
                 return false;
             }
-            if (!(cast.expression() instanceof Reference)) {
+            if (!(cast.expression() instanceof Reference sourceReference)) {
                 return false;
             }
-            Symbol sourceSymbol = Symbol.from(cast.expression());
+            Symbol sourceSymbol = Symbol.from(sourceReference);
 
             Type sourceType = sourceSymbol.type();
             Type targetType = cast.type();
@@ -546,8 +541,8 @@ public class PlanNodeDecorrelator
 
         private Symbol getSymbol(Expression expression)
         {
-            if (expression instanceof Reference) {
-                return Symbol.from(expression);
+            if (expression instanceof Reference reference) {
+                return Symbol.from(reference);
             }
             return Symbol.from(((Cast) expression).expression());
         }
@@ -621,29 +616,20 @@ public class PlanNodeDecorrelator
         return Sets.union(SymbolsExtractor.extractUnique(node, lookup), SymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
-    public static class DecorrelatedNode
+    public record DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
     {
-        private final List<Expression> correlatedPredicates;
-        private final PlanNode node;
-
-        public DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
+        public DecorrelatedNode
         {
-            requireNonNull(correlatedPredicates, "correlatedPredicates is null");
-            this.correlatedPredicates = ImmutableList.copyOf(correlatedPredicates);
-            this.node = requireNonNull(node, "node is null");
+            correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
+            requireNonNull(node, "node is null");
         }
 
-        public Optional<Expression> getCorrelatedPredicates()
+        public Optional<Expression> correlatedPredicate()
         {
             if (correlatedPredicates.isEmpty()) {
                 return Optional.empty();
             }
             return Optional.of(and(correlatedPredicates));
-        }
-
-        public PlanNode getNode()
-        {
-            return node;
         }
     }
 }

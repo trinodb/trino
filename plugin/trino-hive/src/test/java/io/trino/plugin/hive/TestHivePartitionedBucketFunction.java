@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.trino.metastore.HiveType;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -27,11 +28,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -39,12 +42,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.createLongRepeatBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.metastore.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.util.Collections.max;
-import static java.util.Collections.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionedBucketFunction
@@ -67,15 +67,17 @@ public class TestHivePartitionedBucketFunction
         BucketFunction hiveBucketFunction = bucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG));
         Multimap<Integer, Integer> bucketPositions = HashMultimap.create();
 
+        int[] buckets = new int[numValues];
+        hiveBucketFunction.getBuckets(bucketedColumnPage, 0, numValues, buckets);
         for (int i = 0; i < numValues; i++) {
-            int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
+            int hiveBucket = buckets[i];
             // record list of positions for each hive bucket
             bucketPositions.put(hiveBucket, i);
         }
 
         BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 100);
         // All positions of a bucket should hash to the same partitioned bucket
-        for (Map.Entry<Integer, Collection<Integer>> entry : bucketPositions.asMap().entrySet()) {
+        for (Entry<Integer, Collection<Integer>> entry : bucketPositions.asMap().entrySet()) {
             assertBucketCount(hivePartitionedBucketFunction, page, entry.getValue(), 1);
         }
 
@@ -106,8 +108,10 @@ public class TestHivePartitionedBucketFunction
         Page page = new Page(bucketColumn, partitionColumn);
         Map<Long, HashMultimap<Integer, Integer>> partitionedBucketPositions = new HashMap<>();
 
+        int[] buckets = new int[numValues];
+        hiveBucketFunction.getBuckets(bucketedColumnPage, 0, numValues, buckets);
         for (int i = 0; i < numValues; i++) {
-            int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
+            int hiveBucket = buckets[i];
             Long hivePartition = partitionValues.get(i);
             // record list of positions for each combination of hive partition and bucket
             partitionedBucketPositions.computeIfAbsent(hivePartition, _ -> HashMultimap.create())
@@ -116,8 +120,8 @@ public class TestHivePartitionedBucketFunction
 
         BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 4000);
         // All positions of a hive partition and bucket should hash to the same partitioned bucket
-        for (Map.Entry<Long, HashMultimap<Integer, Integer>> partitionEntry : partitionedBucketPositions.entrySet()) {
-            for (Map.Entry<Integer, Collection<Integer>> entry : partitionEntry.getValue().asMap().entrySet()) {
+        for (Entry<Long, HashMultimap<Integer, Integer>> partitionEntry : partitionedBucketPositions.entrySet()) {
+            for (Entry<Integer, Collection<Integer>> entry : partitionEntry.getValue().asMap().entrySet()) {
                 assertBucketCount(hivePartitionedBucketFunction, page, entry.getValue(), 1);
             }
         }
@@ -148,13 +152,11 @@ public class TestHivePartitionedBucketFunction
         Page page = new Page(bucketColumn.build(), partitionColumn.build());
 
         BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, 10, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 4000);
-        List<Integer> positions = new ArrayList<>();
-        for (int i = 0; i < 100; ++i) {
-            positions.add(hivePartitionedBucketFunction.getBucket(page, i));
-        }
+        int[] buckets = new int[100];
+        hivePartitionedBucketFunction.getBuckets(page, 0, 100, buckets);
 
-        int minPosition = min(positions);
-        int maxPosition = max(positions);
+        int minPosition = Arrays.stream(buckets).min().orElseThrow();
+        int maxPosition = Arrays.stream(buckets).max().orElseThrow();
 
         // assert that every bucket number was generated
         assertThat(maxPosition - minPosition + 1).isEqualTo(10);

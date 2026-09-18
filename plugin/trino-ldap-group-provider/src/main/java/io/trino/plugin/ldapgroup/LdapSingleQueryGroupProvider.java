@@ -75,7 +75,9 @@ public class LdapSingleQueryGroupProvider
     public Set<String> getGroups(String user)
     {
         try {
-            return ldapClient.executeLdapQuery(ldapAdminUser, ldapAdminPassword,
+            return ldapClient.executeLdapQuery(
+                    ldapAdminUser,
+                    ldapAdminPassword,
                     new LdapQuery.LdapQueryBuilder()
                             .withSearchBase(userBaseDN)
                             .withAttributes(userMemberOfAttribute)
@@ -124,7 +126,9 @@ public class LdapSingleQueryGroupProvider
         Rdn lastRelativeDomainName = groupRelativeDomainNames.getLast();
         if (!lastRelativeDomainName.getType().equalsIgnoreCase(groupsNameAttribute)) {
             log.warn("Last Relative Domain Name of group with DN [%s] has the wrong type, expecting [%s], actual [%s]. Using DN.",
-                    groupDistinguishedName, groupsNameAttribute, lastRelativeDomainName.getType());
+                    groupDistinguishedName,
+                    groupsNameAttribute,
+                    lastRelativeDomainName.getType());
             return Optional.of(groupDistinguishedName);
         }
         return Optional.of(lastRelativeDomainName.getValue().toString());

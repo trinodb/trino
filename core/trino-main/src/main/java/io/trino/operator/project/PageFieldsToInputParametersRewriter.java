@@ -14,50 +14,79 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.relational.CallExpression;
-import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.InputReferenceExpression;
-import io.trino.sql.relational.LambdaDefinitionExpression;
-import io.trino.sql.relational.RowExpression;
-import io.trino.sql.relational.RowExpressionVisitor;
-import io.trino.sql.relational.SpecialForm;
-import io.trino.sql.relational.VariableReferenceExpression;
+import com.google.common.collect.Maps;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Coalesce;
+import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrVisitor;
+import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
+import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.Symbol;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.IntStream;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.sql.relational.Expressions.field;
 
 /**
- * Rewrite input references from columns in the input page (to the filter/project node)
- * into a compact list that can be used for method parameters.
+ * Analyzes an Expression to determine which input channels (page columns) it references
+ * and creates a compact parameter mapping for bytecode generation.
+ * <p>
+ * Also tracks which channels are unconditionally evaluated (eagerly loaded) vs
+ * conditionally evaluated (lazily loaded). This distinction avoids loading and
+ * decoding columns that may not be needed — e.g., the second operand of AND
+ * is only evaluated if the first operand is true.
  */
 public final class PageFieldsToInputParametersRewriter
 {
     private PageFieldsToInputParametersRewriter() {}
 
-    public static Result rewritePageFieldsToInputParameters(RowExpression expression)
+    public static Result rewritePageFieldsToInputParameters(Expression expression, Map<Symbol, Integer> layout)
     {
-        Visitor visitor = new Visitor();
-        RowExpression rewrittenProjection = expression.accept(visitor, true);
-        InputChannels inputChannels = new InputChannels(visitor.getInputChannels(), visitor.getEagerlyLoadedChannels());
-        return new Result(rewrittenProjection, inputChannels);
+        // Collect all unique channel indices referenced by the expression,
+        // and track which are unconditionally evaluated
+        Visitor visitor = new Visitor(layout);
+        visitor.process(expression, true);
+
+        // Create compact mapping: original channel index → parameter index (0, 1, 2, ...)
+        List<Integer> inputChannels = visitor.getInputChannels();
+        Map<Integer, Integer> channelToParameter = new HashMap<>();
+        for (int i = 0; i < inputChannels.size(); i++) {
+            channelToParameter.put(inputChannels.get(i), i);
+        }
+
+        // Create compact layout: symbol → compact parameter index
+        ImmutableMap.Builder<Symbol, Integer> compactLayout = ImmutableMap.builder();
+        for (Map.Entry<Symbol, Integer> entry : layout.entrySet()) {
+            Integer parameterIndex = channelToParameter.get(entry.getValue());
+            if (parameterIndex != null) {
+                compactLayout.put(entry.getKey(), parameterIndex);
+            }
+        }
+
+        return new Result(compactLayout.buildOrThrow(), new InputChannels(inputChannels, visitor.getEagerlyLoadedChannels()));
     }
 
-    private static class Visitor
-            implements RowExpressionVisitor<RowExpression, Boolean>
+    private static final class Visitor
+            extends IrVisitor<Void, Boolean>
     {
-        private final Map<Integer, Integer> fieldToParameter = new HashMap<>();
-        private final List<Integer> inputChannels = new ArrayList<>();
+        private final Set<Integer> inputChannels = new LinkedHashSet<>();
         private final Set<Integer> eagerlyLoadedChannels = new HashSet<>();
-        private int nextParameter;
+        private Map<Symbol, Integer> layout;
+
+        private Visitor(Map<Symbol, Integer> layout)
+        {
+            this.layout = layout;
+        }
 
         public List<Integer> getInputChannels()
         {
@@ -70,102 +99,113 @@ public final class PageFieldsToInputParametersRewriter
         }
 
         @Override
-        public RowExpression visitInputReference(InputReferenceExpression reference, Boolean unconditionallyEvaluated)
+        protected Void visitReference(Reference node, Boolean unconditionallyEvaluated)
         {
-            if (unconditionallyEvaluated) {
-                eagerlyLoadedChannels.add(reference.field());
-            }
-            int parameter = getParameterForField(reference);
-            return field(parameter, reference.type());
-        }
-
-        private Integer getParameterForField(InputReferenceExpression reference)
-        {
-            return fieldToParameter.computeIfAbsent(reference.field(), field -> {
-                inputChannels.add(field);
-                return nextParameter++;
-            });
-        }
-
-        @Override
-        public RowExpression visitCall(CallExpression call, Boolean unconditionallyEvaluated)
-        {
-            boolean containsLambdaExpression = call.arguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
-            return new CallExpression(
-                    call.resolvedFunction(),
-                    call.arguments().stream()
-                            // Lambda expressions may use only some of their input references, e.g. transform(elements, x -> 1)
-                            // TODO: Currently we fallback to assuming that all the arguments are conditionally evaluated when
-                            //   a lambda expression is encountered for the sake of simplicity.
-                            .map(expression -> expression.accept(this, unconditionallyEvaluated && !containsLambdaExpression))
-                            .collect(toImmutableList()));
-        }
-
-        @Override
-        public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
-        {
-            return switch (specialForm.form()) {
-                case IF, SWITCH, BETWEEN, AND, OR, COALESCE -> {
-                    List<RowExpression> arguments = specialForm.arguments();
-                    yield new SpecialForm(
-                            specialForm.form(),
-                            specialForm.type(),
-                            IntStream.range(0, arguments.size()).boxed()
-                                    // All the arguments after the first one are assumed to be conditionally evaluated
-                                    .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
-                                    .collect(toImmutableList()),
-                            specialForm.functionDependencies());
+            Integer channel = layout.get(Symbol.from(node));
+            if (channel != null) {
+                inputChannels.add(channel);
+                if (unconditionallyEvaluated) {
+                    eagerlyLoadedChannels.add(channel);
                 }
-                case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
-                        specialForm.form(),
-                        specialForm.type(),
-                        specialForm.arguments().stream()
-                                .map(expression -> expression.accept(this, unconditionallyEvaluated))
-                                .collect(toImmutableList()),
-                        specialForm.functionDependencies());
-            };
+            }
+            return null;
         }
 
         @Override
-        public RowExpression visitConstant(ConstantExpression literal, Boolean unconditionallyEvaluated)
+        protected Void visitLogical(Logical node, Boolean unconditionallyEvaluated)
         {
-            return literal;
+            // Short-circuit: only the first term is unconditionally evaluated
+            List<Expression> terms = node.terms();
+            for (int i = 0; i < terms.size(); i++) {
+                process(terms.get(i), i == 0 && unconditionallyEvaluated);
+            }
+            return null;
         }
 
         @Override
-        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Boolean unconditionallyEvaluated)
+        protected Void visitCoalesce(Coalesce node, Boolean unconditionallyEvaluated)
         {
-            return new LambdaDefinitionExpression(
-                    lambda.arguments(),
-                    lambda.body().accept(this, unconditionallyEvaluated));
+            List<Expression> operands = node.operands();
+            for (int i = 0; i < operands.size(); i++) {
+                process(operands.get(i), i == 0 && unconditionallyEvaluated);
+            }
+            return null;
         }
 
         @Override
-        public RowExpression visitVariableReference(VariableReferenceExpression reference, Boolean unconditionallyEvaluated)
+        protected Void visitCase(Case node, Boolean unconditionallyEvaluated)
         {
-            return reference;
+            // First condition is unconditional; everything else is conditional
+            List<WhenClause> whenClauses = node.whenClauses();
+            if (!whenClauses.isEmpty()) {
+                process(whenClauses.getFirst().getOperand(), unconditionallyEvaluated);
+                process(whenClauses.getFirst().getResult(), false);
+                for (int i = 1; i < whenClauses.size(); i++) {
+                    process(whenClauses.get(i).getOperand(), false);
+                    process(whenClauses.get(i).getResult(), false);
+                }
+            }
+            process(node.defaultValue(), false);
+            return null;
+        }
+
+        @Override
+        protected Void visitMatch(Match node, Boolean unconditionallyEvaluated)
+        {
+            // Operand and first when-clause predicate body are unconditional; remaining clauses and default are conditional
+            process(node.operand(), unconditionallyEvaluated);
+            List<MatchClause> clauses = node.clauses();
+            for (int i = 0; i < clauses.size(); i++) {
+                boolean clauseUnconditional = (i == 0) && unconditionallyEvaluated;
+                MatchClause clause = clauses.get(i);
+                // A Bind around the lambda holds the outer-scope values that capture-desugaring
+                // lifted out; the lambda body references them by renamed parameter symbols, so the
+                // input channels only show up if we walk the Bind values directly.
+                if (clause.bind() != null) {
+                    clause.bind().values().forEach(value -> process(value, clauseUnconditional));
+                }
+                process(clause.lambda(), clauseUnconditional);
+                process(clause.result(), false);
+            }
+            process(node.defaultValue(), false);
+            return null;
+        }
+
+        @Override
+        protected Void visitLambda(Lambda node, Boolean unconditionallyEvaluated)
+        {
+            // Lambda parameters are locally bound — exclude them from the layout so they are not
+            // mistaken for input channel references when traversing the body
+            Map<Symbol, Integer> previousLayout = layout;
+            layout = Maps.filterKeys(layout, key -> !node.arguments().contains(key));
+            try {
+                process(node.body(), unconditionallyEvaluated);
+            }
+            finally {
+                layout = previousLayout;
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitCall(Call node, Boolean unconditionallyEvaluated)
+        {
+            for (Expression argument : node.arguments()) {
+                process(argument, unconditionallyEvaluated && !(argument instanceof Lambda));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitExpression(Expression node, Boolean unconditionallyEvaluated)
+        {
+            // All other expressions: children inherit the parent's unconditional context
+            for (Expression child : node.children()) {
+                process(child, unconditionallyEvaluated);
+            }
+            return null;
         }
     }
 
-    public static class Result
-    {
-        private final RowExpression rewrittenExpression;
-        private final InputChannels inputChannels;
-
-        public Result(RowExpression rewrittenExpression, InputChannels inputChannels)
-        {
-            this.rewrittenExpression = rewrittenExpression;
-            this.inputChannels = inputChannels;
-        }
-
-        public RowExpression getRewrittenExpression()
-        {
-            return rewrittenExpression;
-        }
-
-        public InputChannels getInputChannels()
-        {
-            return inputChannels;
-        }
-    }
+    public record Result(Map<Symbol, Integer> compactLayout, InputChannels inputChannels) {}
 }

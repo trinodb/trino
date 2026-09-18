@@ -24,6 +24,10 @@ public interface TrinoInputFile
     TrinoInputStream newStream()
             throws IOException;
 
+    /**
+     * Exact length of the file, either observed from storage or predeclared when this
+     * {@link TrinoInputFile} was created.
+     */
     long length()
             throws IOException;
 

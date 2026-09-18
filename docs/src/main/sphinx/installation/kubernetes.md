@@ -196,7 +196,7 @@ this by running the commands generated upon installation.
 4. Once you are done with your exploration, enter the `quit` command in the
    CLI.
 
-5. Kill the tunnel to the coordinator pod. The is only available while the
+5. Kill the tunnel to the coordinator pod. This is only available while the
    `kubectl` process is running, so you can just kill the `kubectl` process
    that's forwarding the port. In most cases that means pressing `CTRL` +
    `C` in the terminal where the port-forward command is running.

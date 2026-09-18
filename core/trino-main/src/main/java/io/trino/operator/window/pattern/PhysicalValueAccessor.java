@@ -13,6 +13,4 @@
  */
 package io.trino.operator.window.pattern;
 
-public interface PhysicalValueAccessor
-{
-}
+public interface PhysicalValueAccessor {}

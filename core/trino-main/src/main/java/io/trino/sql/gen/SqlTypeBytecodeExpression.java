@@ -17,15 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
 
-import java.lang.reflect.Method;
 import java.util.List;
 
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression
@@ -37,12 +35,12 @@ public class SqlTypeBytecodeExpression
         requireNonNull(type, "type is null");
 
         Binding binding = callSiteBinder.bind(type, Type.class);
-        return new SqlTypeBytecodeExpression(type, binding, BOOTSTRAP_METHOD);
+        return new SqlTypeBytecodeExpression(type, callSiteBinder.getAccessibleType(type.getJavaType()), binding);
     }
 
     private static String generateName(Type type)
     {
-        String name = type.getTypeSignature().toString();
+        String name = type.getTypeDescriptor().toString();
         if (name.length() > 20) {
             // Use type base to reduce the identifier size in generated code
             name = type.getBaseName();
@@ -51,21 +49,21 @@ public class SqlTypeBytecodeExpression
     }
 
     private final Type type;
+    private final Class<?> accessibleJavaElementType;
     private final Binding binding;
-    private final Method bootstrapMethod;
 
-    private SqlTypeBytecodeExpression(Type type, Binding binding, Method bootstrapMethod)
+    private SqlTypeBytecodeExpression(Type type, Class<?> accessibleJavaElementType, Binding binding)
     {
         super(type(Type.class));
         this.type = requireNonNull(type, "type is null");
+        this.accessibleJavaElementType = requireNonNull(accessibleJavaElementType, "accessibleJavaElementType is null");
         this.binding = requireNonNull(binding, "binding is null");
-        this.bootstrapMethod = requireNonNull(bootstrapMethod, "bootstrapMethod is null");
     }
 
     @Override
     public BytecodeNode getBytecode(MethodGenerationContext generationContext)
     {
-        return InvokeInstruction.invokeDynamic(generateName(type), binding.getType(), bootstrapMethod, binding.getBindingId());
+        return loadConstant(binding);
     }
 
     @Override
@@ -77,7 +75,7 @@ public class SqlTypeBytecodeExpression
     @Override
     protected String formatOneLine()
     {
-        return type.getTypeSignature().toString();
+        return type.getTypeDescriptor().toString();
     }
 
     public BytecodeExpression getValue(BytecodeExpression block, BytecodeExpression position)
@@ -96,7 +94,7 @@ public class SqlTypeBytecodeExpression
         if (fromJavaElementType == Slice.class) {
             return invoke("getSlice", Slice.class, block, position);
         }
-        return invoke("getObject", Object.class, block, position).cast(fromJavaElementType);
+        return invoke("getObject", Object.class, block, position).cast(accessibleJavaElementType);
     }
 
     public BytecodeExpression writeValue(BytecodeExpression blockBuilder, BytecodeExpression value)
@@ -104,13 +102,13 @@ public class SqlTypeBytecodeExpression
         Class<?> fromJavaElementType = type.getJavaType();
 
         if (fromJavaElementType == boolean.class) {
-            return invoke("writeBoolean", void.class, blockBuilder, value);
+            return invoke("writeBoolean", void.class, blockBuilder, value.cast(boolean.class));
         }
         if (fromJavaElementType == long.class) {
-            return invoke("writeLong", void.class, blockBuilder, value);
+            return invoke("writeLong", void.class, blockBuilder, value.cast(long.class));
         }
         if (fromJavaElementType == double.class) {
-            return invoke("writeDouble", void.class, blockBuilder, value);
+            return invoke("writeDouble", void.class, blockBuilder, value.cast(double.class));
         }
         if (fromJavaElementType == Slice.class) {
             return invoke("writeSlice", void.class, blockBuilder, value.cast(Slice.class));

@@ -151,12 +151,6 @@ public class ThriftIndexPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0;
-    }
-
-    @Override
     public CompletableFuture<?> isBlocked()
     {
         return statusFuture == null ? NOT_BLOCKED : statusFuture;

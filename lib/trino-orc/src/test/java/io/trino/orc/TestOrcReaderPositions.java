@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -295,6 +296,31 @@ public class TestOrcReaderPositions
     }
 
     @Test
+    public void testSelectPositionsOnLoadedBlocks()
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            createSequentialFile(tempFile.getFile(), 1000);
+
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+                SourcePage page = reader.nextPage();
+                page.selectPositions(new int[] {1, 3, 5, 7}, 0, 4);
+                Block block = page.getBlock(0);
+                assertThat(block.getPositionCount()).isEqualTo(4);
+                assertThat(BIGINT.getLong(block, 0)).isEqualTo(1);
+                assertThat(BIGINT.getLong(block, 3)).isEqualTo(7);
+
+                // select again with positions relative to the previous selection, on an already loaded block
+                page.selectPositions(new int[] {1, 2}, 0, 2);
+                block = page.getBlock(0);
+                assertThat(block.getPositionCount()).isEqualTo(2);
+                assertThat(BIGINT.getLong(block, 0)).isEqualTo(3);
+                assertThat(BIGINT.getLong(block, 1)).isEqualTo(5);
+            }
+        }
+    }
+
+    @Test
     public void testReadUserMetadata()
             throws Exception
     {
@@ -420,7 +446,7 @@ public class TestOrcReaderPositions
                 .inspector(createSettableStructObjectInspector("test", BIGINT))
                 .compress(SNAPPY);
         Writer writer = OrcFile.createWriter(new Path(file.toURI()), writerOptions);
-        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+        for (Entry<String, String> entry : metadata.entrySet()) {
             writer.addUserMetadata(entry.getKey(), ByteBuffer.wrap(entry.getValue().getBytes(UTF_8)));
         }
         writer.close();

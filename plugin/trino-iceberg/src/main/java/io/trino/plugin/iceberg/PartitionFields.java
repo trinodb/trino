@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.transforms.Transform;
+import org.apache.iceberg.transforms.Transforms;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -58,10 +61,15 @@ public final class PartitionFields
 
     public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields)
     {
+        return parsePartitionFields(schema, fields, ImmutableList.of());
+    }
+
+    public static PartitionSpec parsePartitionFields(Schema schema, List<String> fields, List<PartitionField> existingPartitionFields)
+    {
         try {
             PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
             for (String field : fields) {
-                parsePartitionFields(schema, fields, builder, field);
+                parsePartitionField(schema, fields, builder, field, includeWidthInPartitionName(field, existingPartitionFields));
             }
             return builder.build();
         }
@@ -70,11 +78,11 @@ public final class PartitionFields
         }
     }
 
-    private static void parsePartitionFields(Schema schema, List<String> fields, PartitionSpec.Builder builder, String field)
+    private static void parsePartitionField(Schema schema, List<String> fields, PartitionSpec.Builder builder, String field, boolean includeWidthInPartitionName)
     {
         for (int i = 1; i < schema.columns().size() + fields.size(); i++) {
             try {
-                parsePartitionField(builder, field, i == 1 ? "" : "_" + i);
+                parsePartitionField(builder, field, i == 1 ? "" : "_" + i, includeWidthInPartitionName);
                 return;
             }
             catch (IllegalArgumentException e) {
@@ -88,13 +96,40 @@ public final class PartitionFields
         throw new IllegalArgumentException("Cannot resolve partition field: " + field);
     }
 
-    public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix)
+    // Check if width should be included in partition field name to avoid conflicts
+    private static boolean includeWidthInPartitionName(String field, List<PartitionField> existingFields)
     {
-        boolean matched =
-                tryMatch(field, IDENTITY_PATTERN, match -> {
-                    // identity doesn't allow specifying an alias
-                    builder.identity(fromIdentifierToColumn(match.group()));
-                }) ||
+        Matcher matcher = TRUNCATE_PATTERN.matcher(field);
+        if (matcher.matches()) {
+            return isFieldNameUsedByAnotherTransform(
+                    existingFields,
+                    fromIdentifierToColumn(matcher.group(1)) + "_trunc",
+                    Transforms.truncate(parseInt(matcher.group(2))));
+        }
+        matcher = BUCKET_PATTERN.matcher(field);
+        if (matcher.matches()) {
+            return isFieldNameUsedByAnotherTransform(
+                    existingFields,
+                    fromIdentifierToColumn(matcher.group(1)) + "_bucket",
+                    Transforms.bucket(parseInt(matcher.group(2))));
+        }
+        return false;
+    }
+
+    private static boolean isFieldNameUsedByAnotherTransform(List<PartitionField> existingPartitionFields, String partitionFieldName, Transform<?, ?> transform)
+    {
+        // Check if a partition field name is already used by another transform
+        return existingPartitionFields.stream().anyMatch(
+                partitionField -> partitionField.name().equalsIgnoreCase(partitionFieldName)
+                        && !partitionField.transform().equals(transform));
+    }
+
+    public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix, boolean includeWidthInPartitionName)
+    {
+        boolean matched = tryMatch(field, IDENTITY_PATTERN, match -> {
+            // identity doesn't allow specifying an alias
+            builder.identity(fromIdentifierToColumn(match.group()));
+        }) ||
                 tryMatch(field, YEAR_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
                     builder.year(column, column + "_year" + suffix);
@@ -113,11 +148,15 @@ public final class PartitionFields
                 }) ||
                 tryMatch(field, BUCKET_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.bucket(column, parseInt(match.group(2)), column + "_bucket" + suffix);
+                    int numBuckets = parseInt(match.group(2));
+                    String newSuffix = includeWidthInPartitionName ? "_" + numBuckets + suffix : suffix;
+                    builder.bucket(column, numBuckets, column + "_bucket" + newSuffix);
                 }) ||
                 tryMatch(field, TRUNCATE_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    builder.truncate(column, parseInt(match.group(2)), column + "_trunc" + suffix);
+                    int width = parseInt(match.group(2));
+                    String newSuffix = includeWidthInPartitionName ? "_" + width + suffix : suffix;
+                    builder.truncate(column, width, column + "_trunc" + newSuffix);
                 }) ||
                 tryMatch(field, VOID_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
@@ -162,14 +201,12 @@ public final class PartitionFields
         String transform = field.transform().toString();
 
         switch (transform) {
-            case "identity":
+            case "identity" -> {
                 return name;
-            case "year":
-            case "month":
-            case "day":
-            case "hour":
-            case "void":
+            }
+            case "year", "month", "day", "hour", "void" -> {
                 return format("%s(%s)", transform, name);
+            }
         }
 
         Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);

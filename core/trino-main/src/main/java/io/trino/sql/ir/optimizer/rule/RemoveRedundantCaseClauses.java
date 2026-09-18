@@ -19,6 +19,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -35,9 +36,9 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 /**
  * Remove duplicated and redundant clauses in Case. E.g.,
  * <ul>
- *     <li>{@code Case([When(a, r1), When(b, r2), When(a, r3)], d) -> Switch([When(a, r1), When(b, r2)], d)}
- *     <li>{@code Case([When(a, r1), When(true, r2), When(a, r3)], d) -> Switch([When(a, r1)], r2)}
- *     <li>{@code Case([When(a, r1), When(false, r2), When(a, r3)], d) -> Switch([When(a, r1)], d)}
+ *     <li>{@code Case([When(a, r1), When(b, r2), When(a, r3)], d) -> Case([When(a, r1), When(b, r2)], d)}
+ *     <li>{@code Case([When(a, r1), When(true, r2), When(a, r3)], d) -> Case([When(a, r1)], r2)}
+ *     <li>{@code Case([When(a, r1), When(false, r2), When(a, r3)], d) -> Case([When(a, r1)], d)}
  *     <li>{@code Case([When(true, r)], d) -> r}
  *     <li>{@code Case([When(false, r)], d) -> d}
  * </ul>
@@ -46,7 +47,7 @@ public class RemoveRedundantCaseClauses
         implements IrOptimizerRule
 {
     @Override
-    public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
+    public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (!(expression instanceof Case(List<WhenClause> whenClauses, Expression defaultValue))) {
             return Optional.empty();

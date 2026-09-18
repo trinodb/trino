@@ -39,7 +39,8 @@ public class TestForceSingleNodeOutput
         // force gather
         assertPlanWithSession("SELECT * FROM orders", singleNodeOutput(true), false,
                 output(
-                        exchange(ExchangeNode.Scope.REMOTE, ExchangeNode.Type.GATHER,
+                        exchange(ExchangeNode.Scope.REMOTE,
+                                ExchangeNode.Type.GATHER,
                                 tableScan("orders"))));
     }
 

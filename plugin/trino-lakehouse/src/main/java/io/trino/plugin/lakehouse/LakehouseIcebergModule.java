@@ -15,10 +15,14 @@ package io.trino.plugin.lakehouse;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.parquet.cache.MemoryParquetFooterCache;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
@@ -40,11 +44,28 @@ import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
+import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
+import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
+import io.trino.plugin.iceberg.encryption.IcebergEncryptionModule;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.plugin.iceberg.procedure.AddFilesTableFromTableProcedure;
+import io.trino.plugin.iceberg.procedure.AddFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
+import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
+import io.trino.plugin.iceberg.procedure.OptimizeManifestsTableProcedure;
+import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
+import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
+import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.RollbackToSnapshotTableProcedure;
+import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
+import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.lakehouse.TableType.ICEBERG;
 
 public class LakehouseIcebergModule
         extends AbstractConfigurationAwareModule
@@ -53,6 +74,7 @@ public class LakehouseIcebergModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(IcebergConfig.class);
+        install(new IcebergEncryptionModule());
 
         binder.bind(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -63,6 +85,7 @@ public class LakehouseIcebergModule
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
+        binder.bind(DeletionVectorWriter.class).to(DefaultDeletionVectorWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
@@ -75,6 +98,20 @@ public class LakehouseIcebergModule
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
 
+        var procedures = newMapBinder(binder, TableType.class, Procedure.class).permitDuplicates();
+        procedures.addBinding(ICEBERG).toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(ICEBERG).toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
+
+        var tableProcedures = newMapBinder(binder, TableType.class, TableProcedureMetadata.class).permitDuplicates();
+        tableProcedures.addBinding(ICEBERG).toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(OptimizeManifestsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(RollbackToSnapshotTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(AddFilesTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(AddFilesTableFromTableProcedure.class).in(Scopes.SINGLETON);
+
         install(switch (buildConfigObject(MetastoreTypeConfig.class).getMetastoreType()) {
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
@@ -82,5 +119,15 @@ public class LakehouseIcebergModule
         });
 
         binder.install(new IcebergExecutorModule());
+    }
+
+    @Provides
+    @Singleton
+    public static ParquetFooterCache createParquetFooterCache(IcebergConfig config)
+    {
+        return switch (config.getParquetFooterCacheType()) {
+            case NONE -> ParquetFooterCache.noop();
+            case MEMORY -> new MemoryParquetFooterCache(config.getParquetFooterCacheMemoryMaxSize());
+        };
     }
 }

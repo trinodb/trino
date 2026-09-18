@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
@@ -65,10 +66,10 @@ public class TestThriftIndexPageSource
         final int lookupRequestsConcurrency = 2;
         final int rowsPerSplit = 1;
         List<SettableFuture<TrinoThriftPageResult>> futures = IntStream.range(0, splits)
-                .mapToObj(i -> SettableFuture.<TrinoThriftPageResult>create())
+                .mapToObj(_ -> SettableFuture.<TrinoThriftPageResult>create())
                 .collect(toImmutableList());
         List<CountDownLatch> signals = IntStream.range(0, splits)
-                .mapToObj(i -> new CountDownLatch(1))
+                .mapToObj(_ -> new CountDownLatch(1))
                 .collect(toImmutableList());
         TestingThriftService client = new TestingThriftService(rowsPerSplit, false, false)
         {
@@ -83,7 +84,7 @@ public class TestThriftIndexPageSource
         ThriftConnectorStats stats = new ThriftConnectorStats();
         long pageSizeReceived = 0;
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                (context, headers) -> client,
+                (_, _) -> client,
                 ImmutableMap.of(),
                 stats,
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
@@ -190,7 +191,7 @@ public class TestThriftIndexPageSource
     {
         TestingThriftService client = new TestingThriftService(rowsPerSplit, true, twoSplitBatches);
         ThriftIndexPageSource pageSource = new ThriftIndexPageSource(
-                (context, headers) -> client,
+                (_, _) -> client,
                 ImmutableMap.of(),
                 new ThriftConnectorStats(),
                 new ThriftIndexHandle(new SchemaTableName("default", "table1"), TupleDomain.all()),
@@ -319,7 +320,7 @@ public class TestThriftIndexPageSource
 
     private static ThriftColumnHandle column(String name, Type type)
     {
-        return new ThriftColumnHandle(name, type, null, false);
+        return new ThriftColumnHandle(name, type, Optional.empty(), false);
     }
 
     private static List<List<Integer>> generateKeys(int beginInclusive, int endExclusive)

@@ -17,12 +17,14 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -32,6 +34,9 @@ public class ExchangeAzureConfig
     private Optional<String> azureStorageEndpoint = Optional.empty();
     private DataSize azureStorageBlockSize = DataSize.of(4, MEGABYTE);
     private int maxErrorRetries = 10;
+    private int maxConnections = 500;
+    private int pendingAcquireMaxCount = 1000;
+    private Duration connectionAcquisitionTimeout = new Duration(1, TimeUnit.MINUTES);
 
     public Optional<String> getAzureStorageConnectionString()
     {
@@ -85,6 +90,47 @@ public class ExchangeAzureConfig
     public ExchangeAzureConfig setMaxErrorRetries(int maxErrorRetries)
     {
         this.maxErrorRetries = maxErrorRetries;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConnections()
+    {
+        return maxConnections;
+    }
+
+    @Config("exchange.azure.max-connections")
+    @ConfigDescription("Maximum number of concurrent HTTP connections in the Azure storage connection pool")
+    public ExchangeAzureConfig setMaxConnections(int maxConnections)
+    {
+        this.maxConnections = maxConnections;
+        return this;
+    }
+
+    @Min(1)
+    public int getPendingAcquireMaxCount()
+    {
+        return pendingAcquireMaxCount;
+    }
+
+    @Config("exchange.azure.pending-acquire-max-count")
+    @ConfigDescription("Maximum number of pending connection acquire requests in the Azure storage connection pool. Should be set to at least exchange.azure.max-connections")
+    public ExchangeAzureConfig setPendingAcquireMaxCount(int pendingAcquireMaxCount)
+    {
+        this.pendingAcquireMaxCount = pendingAcquireMaxCount;
+        return this;
+    }
+
+    public Duration getConnectionAcquisitionTimeout()
+    {
+        return connectionAcquisitionTimeout;
+    }
+
+    @Config("exchange.azure.connection-acquisition-timeout")
+    @ConfigDescription("Maximum time to wait for a connection to be acquired from the Azure storage connection pool")
+    public ExchangeAzureConfig setConnectionAcquisitionTimeout(Duration connectionAcquisitionTimeout)
+    {
+        this.connectionAcquisitionTimeout = connectionAcquisitionTimeout;
         return this;
     }
 }

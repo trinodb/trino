@@ -8,7 +8,7 @@ Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <VERSION>]
 Builds the Trino Docker image
 
 -h       Display help
--a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
+-a       Build the specified comma-separated architectures, defaults to amd64,arm64
 -p       Use the specified server package (artifact id), for example: trino-server (default), trino-server-core
 -t       Image tag name, defaults to trino
 -r       Build the specified Trino release version, downloads all required artifacts
@@ -23,12 +23,12 @@ cd "${SCRIPT_DIR}" || exit 2
 
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
-ARCHITECTURES=(amd64 arm64 ppc64le)
+ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
 TAG_PREFIX=trino
 SERVER_ARTIFACT=trino-server
 
-TEMURIN_RELEASE=$(cat "${SOURCE_DIR}/core/.temurin-release")
+TEMURIN_RELEASE=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=temurin.release -DforceStdout --raw-streams)
 TEMURIN_DOWNLOAD_URL="https://api.adoptium.net/v3/binary/version/{release_name}/linux/{arch}/jdk/hotspot/normal/eclipse?project=jdk"
 
 SKIP_TESTS=false
@@ -88,8 +88,6 @@ function temurin_download_uri() {
         echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/aarch64/" ;;
       "amd64")
         echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/x64/" ;;
-      "ppc64le")
-        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/ppc64le/" ;;
       *)
         echo "Unsupported architecture: ${ARCH}" >&2
         exit 1

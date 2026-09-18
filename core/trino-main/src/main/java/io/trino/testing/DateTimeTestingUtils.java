@@ -26,10 +26,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 
-import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static java.lang.Math.toIntExact;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -92,24 +92,6 @@ public final class DateTimeTestingUtils
         return sqlTimestampOf(precision, dateTime.getMillis());
     }
 
-    /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, DateTime dateTime)}
-     */
-    @Deprecated
-    public static SqlTimestamp sqlTimestampOf(DateTime dateTime)
-    {
-        return sqlTimestampOf(dateTime.getMillis());
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimestampOf(int precision, long millis)}
-     */
-    @Deprecated
-    public static SqlTimestamp sqlTimestampOf(long millis)
-    {
-        return sqlTimestampOf(3, millis);
-    }
-
     public static SqlTimestamp sqlTimestampOf(int precision, long millis)
     {
         return SqlTimestamp.fromMillis(precision, millis);
@@ -123,29 +105,6 @@ public final class DateTimeTestingUtils
             int nanoOfSecond)
     {
         return sqlTimeOf(precision, LocalTime.of(hour, minuteOfHour, secondOfMinute, nanoOfSecond));
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimeOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond)}
-     */
-    @Deprecated
-    public static SqlTime sqlTimeOf(
-            int hourOfDay,
-            int minuteOfHour,
-            int secondOfMinute,
-            int millisOfSecond)
-    {
-        LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond));
-        return sqlTimeOf(time);
-    }
-
-    /**
-     * @deprecated Use {@link #sqlTimeOf(int precision, LocalTime time)}
-     */
-    @Deprecated
-    public static SqlTime sqlTimeOf(LocalTime time)
-    {
-        return sqlTimeOf(3, time);
     }
 
     public static SqlTime sqlTimeOf(int precision, LocalTime time)

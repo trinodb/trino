@@ -20,6 +20,4 @@ public record PipelineStatus(
         int queuedPartitionedDrivers,
         long queuedPartitionedSplitsWeight,
         int runningPartitionedDrivers,
-        long runningPartitionedSplitsWeight)
-{
-}
+        long runningPartitionedSplitsWeight) {}

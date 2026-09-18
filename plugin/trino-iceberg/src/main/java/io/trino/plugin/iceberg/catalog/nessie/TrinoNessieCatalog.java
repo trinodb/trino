@@ -176,9 +176,15 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, List<String> filter)
     {
-        return listTables(session, namespace).stream()
+        if (filter.isEmpty()) {
+            return listTables(session, Optional.empty()).stream()
+                    .map(TableInfo::tableName)
+                    .collect(toImmutableList());
+        }
+        return filter.stream()
+                .flatMap(namespace -> listTables(session, Optional.of(namespace)).stream())
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
     }
@@ -346,7 +352,7 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "createView is not supported for Iceberg Nessie catalogs");
     }
@@ -358,7 +364,9 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName,
+    public void updateViewComment(
+            ConnectorSession session,
+            SchemaTableName schemaViewName,
             Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "updateViewComment is not supported for Iceberg Nessie catalogs");

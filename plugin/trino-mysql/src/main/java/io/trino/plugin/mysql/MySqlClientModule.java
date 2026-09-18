@@ -40,6 +40,7 @@ import java.util.Properties;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.DecimalModule.MappingToNumber.ON_BY_DEFAULT;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class MySqlClientModule
@@ -55,7 +56,7 @@ public class MySqlClientModule
         configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         bindTablePropertiesProvider(binder, MySqlTableProperties.class);
-        install(new DecimalModule());
+        install(DecimalModule.withNumberMapping(ON_BY_DEFAULT));
         install(new JdbcJoinPushdownSupportModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

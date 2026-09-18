@@ -81,19 +81,35 @@ public class JdkLdapClient
     public <T> T processLdapContext(String userName, String password, LdapContextProcessor<T> contextProcessor)
             throws NamingException
     {
-        try (CloseableContext context = createUserDirContext(userName, password)) {
-            return contextProcessor.process(context.context);
-        }
+        return withSslContext(() -> {
+            try (CloseableContext context = createUserDirContext(userName, password)) {
+                return contextProcessor.process(context.context);
+            }
+        });
     }
 
     @Override
     public <T> T executeLdapQuery(String userName, String password, LdapQuery ldapQuery, LdapSearchResultProcessor<T> resultProcessor)
             throws NamingException
     {
-        try (CloseableContext context = createUserDirContext(userName, password);
-                CloseableSearchResults search = searchContext(ldapQuery, context)) {
-            return resultProcessor.process(search.searchResults);
+        return withSslContext(() -> {
+            try (CloseableContext context = createUserDirContext(userName, password);
+                    CloseableSearchResults search = searchContext(ldapQuery, context)) {
+                return resultProcessor.process(search.searchResults);
+            }
+        });
+    }
+
+    // The SSLContext is consumed by LdapSslSocketFactory.getDefault(), which JNDI invokes on this thread
+    // whenever it opens an LDAP connection (context creation, and referral chasing during a search). Keep
+    // it bound for the whole operation so every connection JNDI opens can see it.
+    private <T> T withSslContext(ScopedValue.CallableOp<T, NamingException> operation)
+            throws NamingException
+    {
+        if (sslContext.isPresent()) {
+            return LdapSslSocketFactory.callWithSslContext(sslContext.get(), operation);
         }
+        return operation.call();
     }
 
     private static CloseableSearchResults searchContext(LdapQuery ldapQuery, CloseableContext context)
@@ -135,12 +151,11 @@ public class JdkLdapClient
                 .put(SECURITY_PRINCIPAL, userDistinguishedName)
                 .put(SECURITY_CREDENTIALS, password);
 
-        sslContext.ifPresent(context -> {
-            LdapSslSocketFactory.setSslContextForCurrentThread(context);
-
+        if (sslContext.isPresent()) {
             // see https://docs.oracle.com/javase/jndi/tutorial/ldap/security/ssl.html
+            // the SSLContext itself is bound for the current thread by withSslContext
             environment.put("java.naming.ldap.factory.socket", LdapSslSocketFactory.class.getName());
-        });
+        }
 
         return environment.buildOrThrow();
     }

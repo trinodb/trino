@@ -23,6 +23,7 @@ import io.trino.operator.Work;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -34,6 +35,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -146,10 +148,16 @@ public class DistinctWindowAccumulator
         }
         else {
             int[] selectedPositions = new int[distinctPositions];
-            int selectedIndex = 0;
-            for (int position = 0; position < positionCount; position++) {
-                if (test(distinctMask, position)) {
-                    selectedPositions[selectedIndex++] = position;
+            int selectedIndex;
+            if (distinctMask instanceof BitArrayBlock bitArrayBlock) {
+                selectedIndex = selectDistinctPositions(bitArrayBlock, selectedPositions);
+            }
+            else {
+                selectedIndex = 0;
+                for (int position = 0; position < positionCount; position++) {
+                    if (test(distinctMask, position)) {
+                        selectedPositions[selectedIndex++] = position;
+                    }
                 }
             }
             checkState(selectedIndex == selectedPositions.length, "Invalid positions in distinct mask");
@@ -165,6 +173,27 @@ public class DistinctWindowAccumulator
 
         PagesWindowIndex selectedWindowIndex = new PagesWindowIndex(pagesIndex, 0, selectedPositionsCount);
         delegate.addInput(selectedWindowIndex, 0, selectedPositionsCount - 1);
+    }
+
+    static int selectDistinctPositions(BitArrayBlock block, int[] selectedPositions)
+    {
+        int selectedIndex = 0;
+        int rawOffset = block.getRawValuesOffset();
+        long[] values = block.getRawValues();
+        long[] validity = block.getRawValueIsValid();
+        for (int position = 0; position < block.getPositionCount(); position += Long.SIZE) {
+            int positionCount = Math.min(Long.SIZE, block.getPositionCount() - position);
+            long selected = getBits(values, rawOffset, position, positionCount);
+            if (validity != null) {
+                selected &= getBits(validity, rawOffset, position, positionCount);
+            }
+            while (selected != 0) {
+                int bit = Long.numberOfTrailingZeros(selected);
+                selectedPositions[selectedIndex++] = position + bit;
+                selected &= selected - 1;
+            }
+        }
+        return selectedIndex;
     }
 
     private static boolean test(Block block, int position)

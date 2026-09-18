@@ -188,7 +188,6 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget"),
             @JsonSubTypes.Type(value = TableExecuteTarget.class, name = "TableExecuteTarget"),
     })
-
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -489,6 +488,7 @@ public class TableWriterNode
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
         private final List<String> sourceTableFunctions;
+        private final boolean hasNonDeterministicFunctions;
         private final RefreshType refreshType;
 
         public RefreshMaterializedViewReference(
@@ -496,12 +496,14 @@ public class TableWriterNode
                 TableHandle storageTableHandle,
                 List<TableHandle> sourceTableHandles,
                 List<String> sourceTableFunctions,
+                boolean hasNonDeterministicFunctions,
                 RefreshType refreshType)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
+            this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.refreshType = requireNonNull(refreshType, "refreshType is null");
         }
 
@@ -540,6 +542,11 @@ public class TableWriterNode
             return sourceTableFunctions;
         }
 
+        public boolean hasNonDeterministicFunctions()
+        {
+            return hasNonDeterministicFunctions;
+        }
+
         @Override
         public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
         {
@@ -553,7 +560,7 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference withRefreshType(RefreshType refreshType)
         {
-            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceTableFunctions, refreshType);
+            return new RefreshMaterializedViewReference(table, storageTableHandle, sourceTableHandles, sourceTableFunctions, hasNonDeterministicFunctions, refreshType);
         }
     }
 
@@ -565,6 +572,7 @@ public class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
         private final List<String> sourceTableFunctions;
+        private final boolean hasNonDeterministicFunctions;
         private final WriterScalingOptions writerScalingOptions;
 
         @JsonCreator
@@ -574,6 +582,7 @@ public class TableWriterNode
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
                 @JsonProperty("sourceTableFunctions") List<String> sourceTableFunctions,
+                @JsonProperty("hasNonDeterministicFunctions") boolean hasNonDeterministicFunctions,
                 @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
@@ -581,6 +590,7 @@ public class TableWriterNode
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
             this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
+            this.hasNonDeterministicFunctions = hasNonDeterministicFunctions;
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
         }
 
@@ -612,6 +622,12 @@ public class TableWriterNode
         public List<String> getSourceTableFunctions()
         {
             return sourceTableFunctions;
+        }
+
+        @JsonProperty
+        public boolean hasNonDeterministicFunctions()
+        {
+            return hasNonDeterministicFunctions;
         }
 
         @JsonProperty

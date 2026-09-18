@@ -58,6 +58,10 @@ public final class BigQueryUtil
                     // https://docs.cloud.google.com/bigquery/docs/reference/datatransfer/rest/v1/Code
                     statusRuntimeException.getStatus().getCode() == Status.Code.UNAVAILABLE;
         }
+        // Handle HTTP-level retryable errors (e.g. 503 Service Unavailable) from BigQuery REST API
+        if (t instanceof BigQueryException bigQueryException) {
+            return bigQueryException.isRetryable();
+        }
         return false;
     }
 
@@ -67,7 +71,7 @@ public final class BigQueryUtil
         // include a column name. eg: query => 'SELECT 1'
         String queryString = filter.map(s -> "SELECT * FROM (" + nativeQuery + ") WHERE " + s).orElse(nativeQuery);
         if (limit.isPresent()) {
-            return "SELECT * FROM (" + queryString + ") LIMIT " + limit.getAsLong();
+            return "SELECT * FROM (" + queryString + ") LIMIT " + limit.orElseThrow();
         }
         return queryString;
     }

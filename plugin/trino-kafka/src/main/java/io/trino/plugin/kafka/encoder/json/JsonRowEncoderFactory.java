@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Inject;
 import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
@@ -25,17 +25,17 @@ import static java.util.Objects.requireNonNull;
 public class JsonRowEncoderFactory
         implements RowEncoderFactory
 {
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Inject
-    public JsonRowEncoderFactory(ObjectMapper objectMapper)
+    public JsonRowEncoderFactory(JsonMapper jsonMapper)
     {
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.jsonMapper = requireNonNull(jsonMapper, "jsonMapper is null");
     }
 
     @Override
     public RowEncoder create(ConnectorSession session, RowEncoderSpec rowEncoderSpec)
     {
-        return new JsonRowEncoder(session, rowEncoderSpec.columnHandles(), objectMapper);
+        return new JsonRowEncoder(session, rowEncoderSpec.columnHandles(), jsonMapper);
     }
 }

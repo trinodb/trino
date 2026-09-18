@@ -79,7 +79,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
-import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.collect.Sets.union;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -501,7 +500,7 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getConsumedDynamicFilters(PlanNode planNode)
     {
         return extractExpressions(planNode).stream()
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
     }
@@ -904,7 +903,7 @@ public class DynamicFilterService
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
             requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.lazyDynamicFilters = lazyDynamicFilters.stream()
-                    .collect(toImmutableMap(identity(), filter -> SettableFuture.create()));
+                    .collect(toImmutableMap(identity(), _ -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
             this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
             ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
@@ -958,7 +957,7 @@ public class DynamicFilterService
                 collectionContext.collect(taskId, domain);
             });
 
-            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
+            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), _ -> ConcurrentHashMap.newKeySet()).addAll(newDynamicFilters.keySet())) {
                 updateExpectedTaskCount();
             }
         }

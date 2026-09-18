@@ -27,22 +27,47 @@ import java.lang.invoke.MethodHandle;
 import static io.trino.operator.scalar.ArrayElementAtFunction.elementAt;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
+import static java.lang.Boolean.TRUE;
 
-@ScalarFunction("array_first")
-@Description("Get the first element of an array")
 public final class ArrayFirstFunction
 {
+    private static final String NAME = "array_first";
+
     private ArrayFirstFunction() {}
 
-    @TypeParameter("E")
     @SqlNullable
     @SqlType("E")
+    @TypeParameter("E")
+    @ScalarFunction(NAME)
+    @Description("Get the first element of an array")
     public static Object arrayFirst(
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "E", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(E)") Block array)
             throws Throwable
     {
         return elementAt(readValue, array, 1);
+    }
+
+    @SqlNullable
+    @SqlType("E")
+    @TypeParameter("E")
+    @ScalarFunction(NAME)
+    @Description("Get the first element of an array matching the given predicate")
+    public static Object arrayFirstMatch(
+            @OperatorDependency(operator = READ_VALUE, argumentTypes = "E", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = NULLABLE_RETURN)) MethodHandle readValue,
+            @SqlType("array(E)") Block arrayBlock,
+            @SqlType("function(E, boolean)") ObjectToBooleanFunction function)
+            throws Throwable
+    {
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            final Object element = arrayBlock.isNull(i) ? null : readValue.invoke(arrayBlock, i);
+            Boolean ret = function.apply(element);
+            if (TRUE.equals(ret)) {
+                return element;
+            }
+        }
+        return null;
     }
 }

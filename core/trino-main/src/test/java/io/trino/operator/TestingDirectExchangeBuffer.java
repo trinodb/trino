@@ -98,7 +98,7 @@ public class TestingDirectExchangeBuffer
     {
         checkState(allTasks.contains(taskId), "task is expected to be present: %s", taskId);
         checkState(finishedTasks.add(taskId), "task is already finished: %s", taskId);
-        taskFinished.computeIfAbsent(taskId, key -> SettableFuture.create()).set(null);
+        taskFinished.computeIfAbsent(taskId, _ -> SettableFuture.create()).set(null);
     }
 
     public synchronized Set<TaskId> getFinishedTasks()
@@ -108,7 +108,7 @@ public class TestingDirectExchangeBuffer
 
     public synchronized ListenableFuture<Void> whenTaskFinished(TaskId taskId)
     {
-        return taskFinished.computeIfAbsent(taskId, key -> SettableFuture.create());
+        return taskFinished.computeIfAbsent(taskId, _ -> SettableFuture.create());
     }
 
     @Override
@@ -117,7 +117,7 @@ public class TestingDirectExchangeBuffer
         checkState(allTasks.contains(taskId), "task is expected to be present: %s", taskId);
         checkState(!finishedTasks.contains(taskId), "task is already finished: %s", taskId);
         failedTasks.put(taskId, t);
-        taskFailed.computeIfAbsent(taskId, key -> SettableFuture.create()).set(null);
+        taskFailed.computeIfAbsent(taskId, _ -> SettableFuture.create()).set(null);
     }
 
     public synchronized ListMultimap<TaskId, Throwable> getFailedTasks()
@@ -127,7 +127,7 @@ public class TestingDirectExchangeBuffer
 
     public synchronized ListenableFuture<Void> whenTaskFailed(TaskId taskId)
     {
-        return taskFailed.computeIfAbsent(taskId, key -> SettableFuture.create());
+        return taskFailed.computeIfAbsent(taskId, _ -> SettableFuture.create());
     }
 
     @Override

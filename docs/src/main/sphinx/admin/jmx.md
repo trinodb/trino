@@ -58,6 +58,8 @@ A small subset of the available metrics are described below.
 - Failed queries (user): `trino.execution:name=QueryManager:UserErrorFailures.FiveMinute.Count`
 - Execution latency (P50): `trino.execution:name=QueryManager:ExecutionTime.FiveMinutes.P50`
 - Input data rate (P90): `trino.execution:name=QueryManager:WallInputBytesRate.FiveMinutes.P90`
+- Queries waiting for resources: `trino.execution:name=QueryManager:WaitingForResourcesQueries`
+- Longest wait for resources (seconds): `trino.execution:name=QueryManager:WaitingForResourcesMaxAgeInSeconds`
 
 ## Trino tasks
 

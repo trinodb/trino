@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
-import io.trino.sql.ir.Comparison;
+import io.trino.metadata.Metadata;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -49,7 +52,7 @@ public class JoinNode
     public enum DistributionType
     {
         PARTITIONED,
-        REPLICATED
+        REPLICATED,
     }
 
     private final JoinType type;
@@ -126,7 +129,8 @@ public class JoinNode
                 checkArgument(
                         leftSymbols.contains(equiJoinClause.getLeft()) &&
                                 rightSymbols.contains(equiJoinClause.getRight()),
-                        "Equality join criteria should be normalized according to join sides: %s", equiJoinClause));
+                        "Equality join criteria should be normalized according to join sides: %s",
+                        equiJoinClause));
 
         if (distributionType.isPresent()) {
             // The implementation of full outer join only works if the data is hash partitioned.
@@ -331,9 +335,9 @@ public class JoinNode
             return right;
         }
 
-        public Comparison toExpression()
+        public Expression toExpression(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
         {
-            return new Comparison(Comparison.Operator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            return comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, left.toSymbolReference(), right.toSymbolReference());
         }
 
         public EquiJoinClause flip()

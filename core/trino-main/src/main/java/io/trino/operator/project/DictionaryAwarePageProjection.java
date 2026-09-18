@@ -110,6 +110,11 @@ public class DictionaryAwarePageProjection
         }
 
         // there is no dictionary handling or dictionary handling failed; fall back to general projection
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            // project the dictionary at translated ids so the projection reads the flat block
+            int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
+            return projection.project(session, SourcePage.create(dictionaryBlock.getDictionary()), SelectedPositions.positionsList(outputIds, 0, outputIds.length));
+        }
         return projection.project(session, SourcePage.create(block), selectedPositions);
     }
 

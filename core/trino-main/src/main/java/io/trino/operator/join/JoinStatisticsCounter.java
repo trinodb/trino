@@ -14,7 +14,6 @@
 package io.trino.operator.join;
 
 import io.trino.operator.OperatorInfo;
-import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 
 import java.util.OptionalLong;
 import java.util.function.Supplier;

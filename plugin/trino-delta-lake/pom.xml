@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -37,12 +37,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -64,6 +58,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
 
@@ -80,12 +79,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.delta</groupId>
-            <artifactId>delta-kernel-api</artifactId>
-            <version>4.0.0</version>
         </dependency>
 
         <dependency>
@@ -187,6 +180,17 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>glue</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
         </dependency>
 
         <dependency>
@@ -232,15 +236,15 @@
         </dependency>
 
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-core</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -252,7 +256,7 @@
         <dependency>
             <groupId>com.azure</groupId>
             <artifactId>azure-storage-blob</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
             <exclusions>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.dataformat</groupId>
@@ -262,56 +266,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-common</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-trace</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.projectreactor.netty</groupId>
-            <artifactId>reactor-netty-core</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-filesystem-azure</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.github.docker-java</groupId>
             <artifactId>docker-java-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -329,7 +291,43 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-common</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.projectreactor.netty</groupId>
+            <artifactId>reactor-netty-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blob-cache-alluxio</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -361,7 +359,20 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-azure</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hdfs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -471,6 +482,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
@@ -524,22 +541,17 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.antlr</groupId>
-                <artifactId>antlr4-maven-plugin</artifactId>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:s3</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <bannedDependencies>
-                            <includes combine.children="append">
-                                <!-- Legacy HDFS file system uses AWS S3 SDK v1 -->
-                                <include>com.amazonaws:*:*</include>
-                            </includes>
-                        </bannedDependencies>
-                    </rules>
-                </configuration>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
@@ -556,20 +568,11 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludes>
+                            <excludes combine.children="append">
                                 <exclude>**/TestDeltaLakeAdlsStorage.java</exclude>
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaS3AndGlueMetastoreTest.java</exclude>
+                                <exclude>**/TestDeltaLakeS3AndGlueAws.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeSharedGlueMetastoreViews.java</exclude>
-                                <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
-                                <exclude>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeRenameToWithGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</exclude>
-                                <exclude>**/TestDeltaLakeViewsGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</exclude>
-                                <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -590,17 +593,6 @@
                             <includes>
                                 <include>**/TestDeltaLakeAdlsStorage.java</include>
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
-                                <include>**/TestDeltaLakeGlueMetastore.java</include>
-                                <include>**/TestDeltaS3AndGlueMetastoreTest.java</include>
-                                <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
-                                <include>**/TestDeltaLakeSharedGlueMetastoreViews.java</include>
-                                <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
-                                <include>**/TestDeltaLakeTableWithCustomLocationUsingGlueMetastore.java</include>
-                                <include>**/TestDeltaLakeRenameToWithGlueMetastore.java</include>
-                                <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
-                                <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
-                                <include>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</include>
-                                <include>**/TestDeltaLakeGcsConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

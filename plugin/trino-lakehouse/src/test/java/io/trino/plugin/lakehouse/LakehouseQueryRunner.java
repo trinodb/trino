@@ -25,6 +25,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.io.File;
+import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -65,6 +66,12 @@ public final class LakehouseQueryRunner
         public Builder addLakehouseProperty(String key, String value)
         {
             lakehouseProperties.put(key, value);
+            return self();
+        }
+
+        public Builder addLakehouseProperties(Map<String, String> lakehouseProperties)
+        {
+            this.lakehouseProperties.putAll(lakehouseProperties);
             return self();
         }
 

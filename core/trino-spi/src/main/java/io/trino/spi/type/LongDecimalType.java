@@ -30,8 +30,8 @@ import io.trino.spi.function.ScalarOperator;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.math.BigInteger;
 import java.nio.ByteOrder;
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
@@ -39,7 +39,13 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Decimals.overflows;
+import static io.trino.spi.type.Int128Math.add;
+import static io.trino.spi.type.Int128Math.negate;
+import static io.trino.spi.type.Int128Math.powerOfTen;
+import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class LongDecimalType
@@ -48,11 +54,25 @@ final class LongDecimalType
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongDecimalType.class, lookup(), Int128.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
+    // LongDecimalType instances are not shared, so the ranges are precomputed for all the supported precisions
+    private static final Range[] RANGES = new Range[Decimals.MAX_PRECISION + 1];
+
+    static {
+        for (int precision = Decimals.MAX_SHORT_PRECISION + 1; precision <= Decimals.MAX_PRECISION; precision++) {
+            Int128 max = subtract(powerOfTen(precision), Int128.ONE);
+            RANGES[precision] = new Range(negate(max), max);
+        }
+    }
+
+    private final Range range;
+
     LongDecimalType(int precision, int scale)
     {
         super(precision, scale, Int128.class, Int128ArrayBlock.class);
         checkArgument(Decimals.MAX_SHORT_PRECISION < precision && precision <= Decimals.MAX_PRECISION, "Invalid precision: %s", precision);
         checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
+
+        range = RANGES[precision];
     }
 
     @Override
@@ -95,8 +115,10 @@ final class LongDecimalType
             return null;
         }
         Int128 value = getObject(block, position);
-        BigInteger unscaledValue = value.toBigInteger();
-        return new SqlDecimal(unscaledValue, getPrecision(), getScale());
+        if (overflows(value, getPrecision())) {
+            throw new IllegalArgumentException(format("Value out of range for DECIMAL(%s, %s): %s", getPrecision(), getScale(), value.toBigInteger()));
+        }
+        return new SqlDecimal(value.toBigInteger(), getPrecision(), getScale());
     }
 
     @Override
@@ -116,6 +138,32 @@ final class LongDecimalType
     public int getFlatFixedSize()
     {
         return INT128_BYTES;
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(range);
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        Int128 decimal = (Int128) value;
+        if (range.getMin().equals(decimal)) {
+            return Optional.empty();
+        }
+        return Optional.of(subtract(decimal, Int128.ONE));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        Int128 decimal = (Int128) value;
+        if (range.getMax().equals(decimal)) {
+            return Optional.empty();
+        }
+        return Optional.of(add(decimal, Int128.ONE));
     }
 
     @ScalarOperator(READ_VALUE)

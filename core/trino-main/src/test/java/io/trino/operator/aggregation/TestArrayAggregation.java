@@ -43,7 +43,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -171,7 +171,8 @@ public class TestArrayAggregation
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
                 new Block[] {
-                        createStringsBlock("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye")},
+                        createStringsBlock("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"),
+                },
                 varcharAgg);
         AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
         AggregationTestInput testInput = testInputBuilder.build();

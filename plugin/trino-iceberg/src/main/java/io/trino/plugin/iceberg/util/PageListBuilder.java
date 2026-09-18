@@ -17,21 +17,16 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PageListBuilder
@@ -112,23 +107,9 @@ public final class PageListBuilder
         }
     }
 
-    public void appendTimestampTzMillis(long millisUtc, TimeZoneKey timeZoneKey)
-    {
-        TIMESTAMP_TZ_MILLIS.writeLong(nextColumn(), packDateTimeWithZone(millisUtc, timeZoneKey));
-    }
-
     public void appendVarchar(String value)
     {
         VARCHAR.writeString(nextColumn(), value);
-    }
-
-    public void appendVarcharVarcharMap(Map<String, String> values)
-    {
-        MapBlockBuilder column = (MapBlockBuilder) nextColumn();
-        column.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
-            VARCHAR.writeString(keyBuilder, key);
-            VARCHAR.writeString(valueBuilder, value);
-        }));
     }
 
     public BlockBuilder nextColumn()

@@ -43,7 +43,9 @@ public class TestFlatArrayBuilder
         int size = 1024;
         FlatArrayBuilder flatArrayBuilder = new FlatArrayBuilder(BIGINT, valueReadFlat, valueWriteFlat, false);
 
-        ValueBlock valueBlock = new LongArrayBlock(size, Optional.empty(),
+        ValueBlock valueBlock = new LongArrayBlock(
+                size,
+                Optional.empty(),
                 IntStream.range(0, size).mapToLong(i -> i).toArray());
 
         for (int i = 0; i < size; i++) {
@@ -66,7 +68,9 @@ public class TestFlatArrayBuilder
         int size = 1024;
         FlatArrayBuilder flatArrayBuilder = new FlatArrayBuilder(BIGINT, valueReadFlat, valueWriteFlat, true);
 
-        ValueBlock valueBlock = new LongArrayBlock(size, Optional.empty(),
+        ValueBlock valueBlock = new LongArrayBlock(
+                size,
+                Optional.empty(),
                 IntStream.range(0, size).mapToLong(i -> i).toArray());
 
         for (int i = 0; i < size; i++) {

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import io.airlift.json.JsonCodec;
 import io.trino.client.FailureInfo;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.util.Failures;
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -50,7 +50,7 @@ public class TestFailureFunction
     @Test
     public void testFailure()
     {
-        String failure = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
+        String failure = jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
         assertTrinoExceptionThrownBy(assertions.function("fail", "json_parse('" + failure + "')")::evaluate)
                 .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("fail me");

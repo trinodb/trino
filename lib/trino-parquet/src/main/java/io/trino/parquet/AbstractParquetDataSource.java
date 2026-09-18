@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -136,7 +137,7 @@ public abstract class AbstractParquetDataSource
 
         return planChunksRead(diskRanges, memoryContext).asMap()
                 .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
+                .collect(toImmutableMap(Entry::getKey, entry -> new ChunkedInputStream(entry.getValue())));
     }
 
     @VisibleForTesting
@@ -151,7 +152,7 @@ public abstract class AbstractParquetDataSource
         // split disk ranges into "big" and "small"
         ImmutableListMultimap.Builder<K, DiskRange> smallRangesBuilder = ImmutableListMultimap.builder();
         ImmutableListMultimap.Builder<K, DiskRange> largeRangesBuilder = ImmutableListMultimap.builder();
-        for (Map.Entry<K, DiskRange> entry : diskRanges.entries()) {
+        for (Entry<K, DiskRange> entry : diskRanges.entries()) {
             if (entry.getValue().length() <= options.getMaxBufferSize().toBytes()) {
                 smallRangesBuilder.put(entry);
             }
@@ -205,7 +206,7 @@ public abstract class AbstractParquetDataSource
         for (DiskRange mergedRange : mergedRanges) {
             ReferenceCountedReader mergedRangeLoader = new ReferenceCountedReader(mergedRange, memoryContext);
 
-            for (Map.Entry<K, DiskRange> diskRangeEntry : diskRanges.entries()) {
+            for (Entry<K, DiskRange> diskRangeEntry : diskRanges.entries()) {
                 DiskRange diskRange = diskRangeEntry.getValue();
                 if (mergedRange.contains(diskRange)) {
                     mergedRangeLoader.addReference();
@@ -250,7 +251,7 @@ public abstract class AbstractParquetDataSource
         }
 
         ImmutableListMultimap.Builder<K, ChunkReader> slices = ImmutableListMultimap.builder();
-        for (Map.Entry<K, DiskRange> entry : diskRanges.entries()) {
+        for (Entry<K, DiskRange> entry : diskRanges.entries()) {
             slices.put(entry.getKey(), new ReferenceCountedReader(entry.getValue(), memoryContext));
         }
         return slices.build();

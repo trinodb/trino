@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -30,19 +31,20 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
-import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -67,6 +69,7 @@ public class TaskContext
 {
     private final QueryContext queryContext;
     private final TaskStateMachine taskStateMachine;
+    private final Map<PlanNodeId, ConnectorTableCredentials> tableCredentials;
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -115,6 +118,7 @@ public class TaskContext
     public static TaskContext createTaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -128,6 +132,7 @@ public class TaskContext
         TaskContext taskContext = new TaskContext(
                 queryContext,
                 taskStateMachine,
+                tableCredentials,
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
@@ -144,6 +149,7 @@ public class TaskContext
     private TaskContext(
             QueryContext queryContext,
             TaskStateMachine taskStateMachine,
+            Map<PlanNodeId, ConnectorTableCredentials> tableCredentials,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
@@ -155,6 +161,7 @@ public class TaskContext
             boolean cpuTimerEnabled)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        this.tableCredentials = ImmutableMap.copyOf(tableCredentials);
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -162,9 +169,6 @@ public class TaskContext
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
-
-        // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -182,6 +186,11 @@ public class TaskContext
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
+    }
+
+    public Optional<ConnectorTableCredentials> getTableCredentials(PlanNodeId planNodeId)
+    {
+        return Optional.ofNullable(tableCredentials.get(planNodeId));
     }
 
     public PipelineContext addPipelineContext(int pipelineId, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
@@ -296,14 +305,14 @@ public class TaskContext
         queryContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localMemoryContext()
+    public AggregatedMemoryContext aggregateUserMemoryContext()
     {
-        return taskMemoryContext.localUserMemoryContext();
+        return taskMemoryContext.aggregateUserMemoryContext();
     }
 
     public AggregatedMemoryContext newAggregateMemoryContext()
     {
-        return taskMemoryContext.newAggregateUserMemoryContext();
+        return aggregateUserMemoryContext().newAggregatedMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()

@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -208,7 +209,7 @@ public class BlackHoleMetadata
                     relationColumns.put(name, RelationColumnsMetadata.forTable(name, columnsMetadata.getColumns()));
                 });
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -377,8 +378,11 @@ public class BlackHoleMetadata
 
         if (((splitCount > 0) || (pagesPerSplit > 0) || (rowsPerPage > 0)) &&
                 ((splitCount == 0) || (pagesPerSplit == 0) || (rowsPerPage == 0))) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("All properties [%s, %s, %s] must be set if any are set",
-                    SPLIT_COUNT_PROPERTY, PAGES_PER_SPLIT_PROPERTY, ROWS_PER_PAGE_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format(
+                    "All properties [%s, %s, %s] must be set if any are set",
+                    SPLIT_COUNT_PROPERTY,
+                    PAGES_PER_SPLIT_PROPERTY,
+                    ROWS_PER_PAGE_PROPERTY));
         }
 
         Duration pageProcessingDelay = (Duration) tableMetadata.getProperties().get(PAGE_PROCESSING_DELAY);
@@ -443,7 +447,10 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
 
     @Override
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
@@ -475,7 +482,7 @@ public class BlackHoleMetadata
     {
         return schemaName.map(schema -> views.entrySet().stream()
                         .filter(view -> view.getKey().getSchemaName().equals(schema))
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)))
+                        .collect(toImmutableMap(Entry::getKey, Entry::getValue)))
                 .orElseGet(() -> ImmutableMap.copyOf(views));
     }
 

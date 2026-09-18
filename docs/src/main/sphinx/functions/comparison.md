@@ -77,6 +77,30 @@ Note that the value, min, and max parameters to `BETWEEN` and `NOT BETWEEN` must
 be the same type. For example, Trino produces an error if you ask it if `John`
 is between `2.3` and `35.2`.
 
+### Symmetric and asymmetric ranges
+
+By default the bounds are interpreted in order, so `value BETWEEN min AND max`
+only matches when `min <= max`. This default can be made explicit with
+`ASYMMETRIC`:
+
+```sql
+SELECT 3 BETWEEN ASYMMETRIC 2 AND 6; -- true
+SELECT 3 BETWEEN ASYMMETRIC 6 AND 2; -- false
+```
+
+With `SYMMETRIC`, the two bounds are treated as an unordered pair, so the test
+succeeds when the value lies between them in either order. `value BETWEEN
+SYMMETRIC min AND max` is equivalent to `value BETWEEN ASYMMETRIC min AND max OR
+value BETWEEN ASYMMETRIC max AND min`:
+
+```sql
+SELECT 3 BETWEEN SYMMETRIC 2 AND 6; -- true
+SELECT 3 BETWEEN SYMMETRIC 6 AND 2; -- true
+```
+
+`SYMMETRIC` can be combined with `NOT`, and follows the same `NULL` evaluation
+rules as the equivalent expanded expression.
+
 (is-null-operator)=
 ## IS NULL and IS NOT NULL
 
@@ -94,6 +118,33 @@ But any other constant does not:
 ```sql
 SELECT 3.0 IS NULL; -- false
 ```
+
+(is-boolean-test)=
+## IS TRUE, IS FALSE, and IS UNKNOWN
+
+The `IS [NOT] TRUE`, `IS [NOT] FALSE`, and `IS [NOT] UNKNOWN` operators test the
+three-valued result of a boolean expression. Unlike a direct comparison against
+`TRUE` or `FALSE`, these operators always return a non-null boolean, treating a
+`NULL` (unknown) operand as a known value. `IS UNKNOWN` is equivalent to `IS NULL`
+on a boolean operand:
+
+```sql
+SELECT (1 > 0) IS TRUE; -- true
+
+SELECT (1 > 2) IS FALSE; -- true
+
+SELECT (NULL > 0) IS UNKNOWN; -- true
+
+SELECT (NULL > 0) IS NOT TRUE; -- true
+```
+
+The following truth table demonstrates the handling of each truth value:
+
+| a       | a IS TRUE | a IS FALSE | a IS UNKNOWN | a IS NOT TRUE | a IS NOT FALSE | a IS NOT UNKNOWN |
+| ------- | --------- | ---------- | ------------ | ------------- | -------------- | ---------------- |
+| `TRUE`  | `TRUE`    | `FALSE`    | `FALSE`      | `FALSE`       | `TRUE`         | `TRUE`           |
+| `FALSE` | `FALSE`   | `TRUE`     | `FALSE`      | `TRUE`        | `FALSE`        | `TRUE`           |
+| `NULL`  | `FALSE`   | `FALSE`    | `TRUE`       | `TRUE`        | `TRUE`         | `FALSE`          |
 
 (is-distinct-operator)=
 ## IS DISTINCT FROM and IS NOT DISTINCT FROM
@@ -230,7 +281,7 @@ for each character. The following query uses two underscores and produces only
 
 ```sql
 SELECT * FROM (VALUES 'America', 'Asia', 'Africa', 'Europe', 'Australia', 'Antarctica') AS t (continent)
-WHERE continent LIKE 'A__A';
+WHERE continent LIKE 'A__a';
 ```
 
 The wildcard characters `_` and `%` must be escaped to allow you to match
@@ -296,6 +347,128 @@ WHERE regionkey IN (
 )
 ORDER by nation.name;
 ```
+
+(match-predicate)=
+## Row matching: MATCH
+
+The `MATCH` predicate tests whether a row value matches a row returned by a
+subquery:
+
+```text
+row MATCH [UNIQUE] [SIMPLE | PARTIAL | FULL] ( subquery )
+```
+
+The left-hand side is a row value and the subquery must return rows of the same
+degree. The optional match type controls how a `NULL` in the row is treated, and
+defaults to `SIMPLE`.
+
+```sql
+SELECT ROW(1, 'a') MATCH (VALUES (1, 'a'), (2, 'b')); -- true
+
+SELECT ROW(99, 'z') MATCH (VALUES (1, 'a'), (2, 'b')); -- false
+```
+
+A typical use is to keep the rows of one relation that also occur in another.
+The subquery may be correlated with the enclosing query:
+
+```sql
+SELECT a
+FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(a, b)
+WHERE ROW(a, b) MATCH (VALUES (1, 'a'), (3, 'c')); -- returns 1 and 3
+```
+
+### Match types
+
+The match type determines the result when the row on the left contains a `NULL`:
+
+:::{list-table}
+:widths: 20, 80
+:header-rows: 1
+
+* - Match type
+  - Treatment of a `NULL` field in the row
+* - `SIMPLE`
+  - The default. A row that contains any `NULL` always matches, regardless of
+    the contents of the subquery.
+* - `PARTIAL`
+  - A `NULL` field is a wildcard that matches any value in that position, while
+    the non-null fields must still equal those of a subquery row. A row whose
+    fields are all `NULL` always matches.
+* - `FULL`
+  - A row matches only if it contains no `NULL` and equals a subquery row, or if
+    all of its fields are `NULL`. A row with a mix of `NULL` and non-null fields
+    never matches.
+:::
+
+The following examples use a row with a `NULL` first field to show the
+difference between the match types:
+
+```sql
+SELECT ROW(NULL, 'a') MATCH SIMPLE  (VALUES (1, 'z')); -- true
+
+SELECT ROW(NULL, 'a') MATCH PARTIAL (VALUES (1, 'a')); -- true
+SELECT ROW(NULL, 'a') MATCH PARTIAL (VALUES (1, 'z')); -- false
+
+SELECT ROW(NULL, 'a') MATCH FULL    (VALUES (1, 'a')); -- false
+```
+
+### Unique matches
+
+Add the `UNIQUE` keyword to require that the row matches exactly one row of the
+subquery. The result is `false` when the matching row occurs more than once.
+`UNIQUE` can be combined with any match type, for example `MATCH UNIQUE PARTIAL`:
+
+```sql
+SELECT ROW(1, 'a') MATCH UNIQUE (VALUES (1, 'a'));           -- true
+SELECT ROW(1, 'a') MATCH UNIQUE (VALUES (1, 'a'), (1, 'a')); -- false
+```
+
+(unique-predicate)=
+## Uniqueness test: UNIQUE
+
+The `UNIQUE` predicate tests whether a subquery contains duplicate rows. It
+returns `true` when no two rows of the subquery are equal, and `false`
+otherwise:
+
+```text
+UNIQUE ( subquery )
+```
+
+```sql
+SELECT UNIQUE (VALUES 1, 2, 3); -- true
+
+SELECT UNIQUE (VALUES 1, 1, 2); -- false
+```
+
+A row that contains a `NULL` in any column is never counted as a duplicate, not
+even of an identical row. Only rows whose columns are all non-null can form a
+duplicate pair:
+
+```sql
+-- the two rows are identical, but each contains a NULL, so they are not duplicates
+SELECT UNIQUE (VALUES (CAST(NULL AS integer), 'a'), (CAST(NULL AS integer), 'a')); -- true
+
+-- the (1, 'b') pair is a duplicate; the NULL row is irrelevant
+SELECT UNIQUE (VALUES (CAST(NULL AS integer), 'a'), (1, 'b'), (1, 'b')); -- false
+```
+
+As a result, an empty subquery and a subquery in which every row contains a
+`NULL` both satisfy `UNIQUE`:
+
+```sql
+SELECT UNIQUE (SELECT 1 WHERE false); -- true
+```
+
+Use `NOT` to test for the presence of a duplicate:
+
+```sql
+SELECT NOT UNIQUE (VALUES 1, 1); -- true
+```
+
+:::{note}
+The subquery of a `UNIQUE` predicate cannot be correlated with the enclosing
+query.
+:::
 
 ## Examples
 

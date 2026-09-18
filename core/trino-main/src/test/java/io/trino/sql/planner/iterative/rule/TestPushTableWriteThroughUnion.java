@@ -34,7 +34,8 @@ public class TestPushTableWriteThroughUnion
         tester().assertThat(new PushTableWriteThroughUnion())
                 .on(p ->
                         p.tableWriter(
-                                ImmutableList.of(p.symbol("A", BIGINT), p.symbol("B", BIGINT)), ImmutableList.of("a", "b"),
+                                ImmutableList.of(p.symbol("A", BIGINT), p.symbol("B", BIGINT)),
+                                ImmutableList.of("a", "b"),
                                 p.union(
                                         ImmutableListMultimap.<Symbol, Symbol>builder()
                                                 .putAll(p.symbol("A", BIGINT), p.symbol("A1", BIGINT), p.symbol("B2", BIGINT))

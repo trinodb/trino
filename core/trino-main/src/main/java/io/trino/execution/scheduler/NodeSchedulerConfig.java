@@ -30,7 +30,8 @@ import static java.util.Locale.ENGLISH;
         "node-scheduler.location-aware-scheduling-enabled",
         "node-scheduler.multiple-tasks-per-node-enabled",
         "node-scheduler.max-fraction-full-nodes-per-query",
-        "node-scheduler.max-absolute-full-nodes-per-query"})
+        "node-scheduler.max-absolute-full-nodes-per-query",
+})
 public class NodeSchedulerConfig
 {
     public enum NodeSchedulerPolicy
@@ -52,7 +53,7 @@ public class NodeSchedulerConfig
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 2000;
-    private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
+    private Duration allowedNoMatchingNodePeriod = new Duration(10, TimeUnit.MINUTES);
     private Duration exhaustedNodeWaitPeriod = new Duration(2, TimeUnit.MINUTES);
 
     @NotNull

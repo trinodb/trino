@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -78,7 +77,7 @@ public class NodeTaskMap
 
     private static class NodeTasks
     {
-        private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
+        private final Set<RemoteTask> remoteTasks = ConcurrentHashMap.newKeySet();
         private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
         private final AtomicLong nodeTotalPartitionedSplitWeight = new AtomicLong();
         private final FinalizerService finalizerService;
@@ -97,13 +96,13 @@ public class NodeTaskMap
         {
             if (remoteTasks.add(task)) {
                 // Check if task state is already done before adding the listener
-                if (task.getTaskStatus().getState().isDone()) {
+                if (task.getTaskStatus().state().isDone()) {
                     remoteTasks.remove(task);
                     return;
                 }
 
                 task.addStateChangeListener(taskStatus -> {
-                    if (taskStatus.getState().isDone()) {
+                    if (taskStatus.state().isDone()) {
                         remoteTasks.remove(task);
                     }
                 });
@@ -171,7 +170,8 @@ public class NodeTaskMap
                 }
 
                 if (reportAsLeaked) {
-                    log.error("BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
+                    log.error(
+                            "BUG! %s for %s leaked with %s partitioned splits (weight: %s). Cleaning up so server can continue to function.",
                             getClass().getName(),
                             taskId,
                             leakedCount,

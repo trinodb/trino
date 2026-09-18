@@ -22,6 +22,7 @@ import io.trino.orc.stream.OrcDataReader;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -118,7 +119,7 @@ public class CachingOrcDataSource
 
         // Assumption here: all disk ranges are in the same region. Therefore, serving them in arbitrary order
         // will not result in eviction of cache that otherwise could have served any of the DiskRanges provided.
-        for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
+        for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
             Slice buffer = readFully(diskRange.offset(), diskRange.length());
             builder.put(entry.getKey(), new MemoryOrcDataReader(dataSource.getId(), buffer, buffer.length()));

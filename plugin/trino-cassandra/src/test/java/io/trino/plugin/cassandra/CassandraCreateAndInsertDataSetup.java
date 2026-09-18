@@ -15,6 +15,8 @@ package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
@@ -26,13 +28,17 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.ID_COLUMN_NAME;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // The reasons for not using CreateAndInsertDataSetup are:
 // (1) Cassandra tables must define a single PRIMARY KEY
@@ -40,19 +46,21 @@ import static java.util.stream.Collectors.joining;
 public class CassandraCreateAndInsertDataSetup
         implements DataSetup
 {
-    private static final JsonCodec<List<ExtraColumnMetadata>> LIST_EXTRA_COLUMN_METADATA_CODEC = JsonCodec.listJsonCodec(ExtraColumnMetadata.class);
+    private static final JsonCodec<List<ExtraColumnMetadata>> LIST_EXTRA_COLUMN_METADATA_CODEC = listJsonCodec(ExtraColumnMetadata.class);
 
     private final SqlExecutor sqlExecutor;
     private final String tableNamePrefix;
     private final String keyspaceName;
     private final CassandraServer cassandraServer;
+    private final QueryRunner queryRunner;
 
-    public CassandraCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, CassandraServer cassandraServer)
+    public CassandraCreateAndInsertDataSetup(SqlExecutor sqlExecutor, String tableNamePrefix, CassandraServer cassandraServer, QueryRunner queryRunner)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.tableNamePrefix = requireNonNull(tableNamePrefix, "tableNamePrefix is null");
         keyspaceName = verifyTableNamePrefixAndGetKeyspaceName(tableNamePrefix);
         this.cassandraServer = requireNonNull(cassandraServer, "cassandraServer is null");
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
     }
 
     private static String verifyTableNamePrefixAndGetKeyspaceName(String tableNamePrefix)
@@ -70,6 +78,7 @@ public class CassandraCreateAndInsertDataSetup
         try {
             insertRows(keyspaceName, tableName, inputs);
             refreshSizeEstimates(keyspaceName, tableName);
+            waitForTableVisibility(keyspaceName, tableName);
         }
         catch (Exception e) {
             closeAllSuppress(e, testTable);
@@ -99,9 +108,15 @@ public class CassandraCreateAndInsertDataSetup
         }
     }
 
+    private void waitForTableVisibility(String keyspaceName, String tableName)
+    {
+        assertEventually(new Duration(1, MINUTES), () -> assertThat(queryRunner.execute(format("SELECT * FROM %s.%s", keyspaceName, tableName)).getRowCount())
+                .isEqualTo(1));
+    }
+
     private TestTable createTestTable(List<ColumnSetup> inputs)
     {
-        return new TestTable(sqlExecutor, tableNamePrefix, tableDefinition(inputs));
+        return new CassandraTestTable(sqlExecutor, tableNamePrefix, tableDefinition(inputs));
     }
 
     private String tableDefinition(List<ColumnSetup> inputs)
@@ -117,5 +132,20 @@ public class CassandraCreateAndInsertDataSetup
         return IntStream.range(0, inputs.size())
                 .mapToObj(column -> format("col_%d %s", column, inputs.get(column).getDeclaredType().orElseThrow()))
                 .collect(joining(",", "(" + ID_COLUMN_NAME + " uuid PRIMARY KEY,", ") WITH comment=" + quoteStringLiteral(PRESTO_COMMENT_METADATA + " " + columnMetadata)));
+    }
+
+    private static class CassandraTestTable
+            extends TestTable
+    {
+        public CassandraTestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
+        {
+            super(sqlExecutor, namePrefix, tableDefinition);
+        }
+
+        @Override
+        public void close()
+        {
+            TestCassandraTable.dropTableWithRetry(sqlExecutor, name);
+        }
     }
 }

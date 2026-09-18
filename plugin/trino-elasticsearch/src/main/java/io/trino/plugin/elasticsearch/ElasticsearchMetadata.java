@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
@@ -81,8 +82,8 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.elasticsearch.client.ResponseException;
 
@@ -91,6 +92,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -109,6 +111,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -133,6 +136,8 @@ import static java.util.function.Function.identity;
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(ElasticsearchMetadata.class);
+
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
     private static final ColumnMetadata PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA = ColumnMetadata.builder()
             .setName(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME)
@@ -142,8 +147,7 @@ public class ElasticsearchMetadata
             .build();
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
-            PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(
+            PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, new ElasticsearchColumnHandle(
                     ImmutableList.of(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
                     VARCHAR,
                     new IndexMetadata.PrimitiveType("text"),
@@ -162,7 +166,7 @@ public class ElasticsearchMetadata
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
-        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
+        this.ipAddressType = typeManager.getType(new TypeDescriptor(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
     }
@@ -301,29 +305,19 @@ public class ElasticsearchMetadata
 
         IndexMetadata.Type type = field.type();
         if (type instanceof PrimitiveType primitiveType) {
-            switch (primitiveType.name()) {
-                case "float":
-                    return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
-                case "double":
-                    return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
-                case "byte":
-                    return new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
-                case "short":
-                    return new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
-                case "integer":
-                    return new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
-                case "long":
-                    return new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
-                case "text":
-                case "keyword":
-                    return new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
-                case "ip":
-                    return new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
-                case "boolean":
-                    return new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
-                case "binary":
-                    return new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
-            }
+            return switch (primitiveType.name()) {
+                case "float" -> new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
+                case "double" -> new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
+                case "byte" -> new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
+                case "short" -> new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
+                case "integer" -> new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
+                case "long" -> new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
+                case "text", "keyword" -> new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
+                case "ip" -> new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
+                case "boolean" -> new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
+                case "binary" -> new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
+                default -> null;
+            };
         }
         else if (type instanceof ScaledFloatType) {
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
@@ -466,6 +460,11 @@ public class ElasticsearchMetadata
                         if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 404) {
                             return Stream.empty();
                         }
+                        // this may happen when table contains unsupported types
+                        if (e.getErrorCode().equals(ELASTICSEARCH_INVALID_METADATA.toErrorCode())) {
+                            log.warn(e, "Failed to parse metadata of table %s during streaming table columns", name);
+                            return Stream.empty();
+                        }
                         throw e;
                     }
                 })
@@ -503,7 +502,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
 
@@ -533,7 +532,7 @@ public class ElasticsearchMetadata
         Map<ColumnHandle, Domain> supported = new HashMap<>();
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
-        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
             if (column.supportsPredicates()) {
@@ -568,8 +567,8 @@ public class ElasticsearchMetadata
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.schema()
-                                    .fields().stream()
-                                    .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
+                                .fields().stream()
+                                .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
                             newRegexes.put(columnName, likeToRegexp(slice, escape));
                             continue;
                         }
@@ -634,18 +633,16 @@ public class ElasticsearchMetadata
             }
             else {
                 switch (currentChar) {
-                    case '%':
+                    case '%' -> {
                         regex.append(escaped ? "%" : ".*");
                         escaped = false;
-                        break;
-                    case '_':
+                    }
+                    case '_' -> {
                         regex.append(escaped ? "_" : ".");
                         escaped = false;
-                        break;
-                    case '\\':
-                        regex.append("\\\\");
-                        break;
-                    default:
+                    }
+                    case '\\' -> regex.append("\\\\");
+                    default -> {
                         // escape special regex characters
                         if (REGEXP_RESERVED_CHARACTERS.contains(currentChar)) {
                             regex.append('\\');
@@ -653,6 +650,7 @@ public class ElasticsearchMetadata
 
                         regex.appendCodePoint(currentChar);
                         escaped = false;
+                    }
                 }
             }
         }
@@ -726,7 +724,7 @@ public class ElasticsearchMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<ElasticsearchColumnHandle> columns = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 

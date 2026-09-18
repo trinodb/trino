@@ -70,7 +70,7 @@ public class MemoryInputFile
         if (length.isEmpty()) {
             length = OptionalLong.of(getBlobRequired().data().length());
         }
-        return length.getAsLong();
+        return length.orElseThrow();
     }
 
     @Override

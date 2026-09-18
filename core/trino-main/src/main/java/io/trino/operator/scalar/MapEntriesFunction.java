@@ -28,7 +28,7 @@ import io.trino.spi.type.Type;
 
 import static com.google.common.base.Verify.verify;
 
-@ScalarFunction("map_entries")
+@ScalarFunction(value = "map_entries", neverFails = true)
 @Description("Construct an array of entries from a given map")
 public class MapEntriesFunction
 {
@@ -48,7 +48,7 @@ public class MapEntriesFunction
             @TypeParameter("row(K,V)") RowType rowType,
             @SqlType("map(K,V)") SqlMap sqlMap)
     {
-        verify(rowType.getTypeParameters().size() == 2);
+        verify(rowType.getFieldTypes().size() == 2);
 
         int size = sqlMap.getSize();
         int rawOffset = sqlMap.getRawOffset();

@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -99,7 +100,7 @@ public interface ConnectorMetadata
      * or is not a table (e.g. is a view, or a materialized view).
      *
      * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
-     * cannot be queried.
+     *         cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
@@ -138,6 +139,37 @@ public interface ConnectorMetadata
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
+    /**
+     * Variant of {@link #getTableHandleForExecute} used when the procedure is invoked through
+     * {@code ALTER MATERIALIZED VIEW ... EXECUTE}. The statement names a materialized view, while {@code tableHandle}
+     * is the handle of that view's storage table. Connectors that expose a different set of procedures on
+     * materialized view storage than on plain tables can override this to apply those rules, regardless of whether
+     * the storage table is also reachable by name. The default rejects the statement.
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized view procedures");
+    }
+
+    /**
+     * Returns source table columns required to execute a table procedure.
+     * <p>
+     * Connectors may override this to return the exact source-column set needed for the procedure.
+     * The default implementation returns handles for all non-hidden columns.
+     */
+    default Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        return getColumnHandles(connectorSession, tableHandle).values().stream()
+                .filter(column -> !getColumnMetadata(connectorSession, tableHandle, column).isHidden())
+                .collect(toUnmodifiableSet());
+    }
+
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         return Optional.empty();
@@ -155,8 +187,9 @@ public interface ConnectorMetadata
      * Finish table execute
      *
      * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
+     * @return procedure execution metrics that will be populated in the query output
      */
-    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    default Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without finishTableExecute()");
     }
@@ -362,12 +395,12 @@ public interface ConnectorMetadata
                 });
 
         // Collect column metadata from views. if table and view names overlap, the view wins
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
         }
 
         // if view and materialized view names overlap, the materialized view wins
-        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+        for (Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
             relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
         }
 
@@ -864,7 +897,8 @@ public interface ConnectorMetadata
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
             boolean hasForeignSourceTables,
-            boolean hasSourceTableFunctions)
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
@@ -914,8 +948,9 @@ public interface ConnectorMetadata
      * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     * @return ConnectorOutputMetadata that will be populated in the query output
      */
-    default void finishMerge(
+    default Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle mergeTableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
@@ -1405,10 +1440,6 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * </p>
-     * <p>
-     * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
-     * call returns.
-     * </p>
      *
      * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
@@ -1754,9 +1785,19 @@ public interface ConnectorMetadata
 
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     * <p>
+     * When {@code considerGracePeriod} is {@code true}, connectors may skip expensive freshness checks and return
+     * {@link MaterializedViewFreshness.Freshness#FRESH_WITHIN_GRACE_PERIOD} if the materialized view is within its
+     * configured grace period, evaluated relative to the session start time ({@link ConnectorSession#getStart()}).
      *
      * @throws MaterializedViewNotFoundException when materialized view is not found
      */
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
+    {
+        return getMaterializedViewFreshness(session, name);
+    }
+
+    @Deprecated(forRemoval = true)
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
@@ -1801,7 +1842,7 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     * performance as reading this table.
+     *         performance as reading this table.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -1816,5 +1857,29 @@ public interface ConnectorMetadata
     default WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.DISABLED;
+    }
+
+    /**
+     * Returns credentials that can be used in {@link ConnectorPageSourceProvider}.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns credentials that can be used in {@link ConnectorPageSinkProvider}.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns {@link ConnectorTableCredentials} for specified {@link ConnectorTableFunctionHandle} or {@link Optional#empty} if there are no credentials.
+     */
+    default Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
+    {
+        return Optional.empty();
     }
 }

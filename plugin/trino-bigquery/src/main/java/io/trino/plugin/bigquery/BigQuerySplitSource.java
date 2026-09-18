@@ -29,6 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -77,7 +78,8 @@ public class BigQuerySplitSource
     private List<BigQuerySplit> splits;
     private int offset;
 
-    public BigQuerySplitSource(ConnectorSession session,
+    public BigQuerySplitSource(
+            ConnectorSession session,
             BigQueryTableHandle table,
             BigQueryClientFactory bigQueryClientFactory,
             BigQueryReadClientFactory bigQueryReadClientFactory,
@@ -99,13 +101,13 @@ public class BigQuerySplitSource
     }
 
     @Override
-    public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+    public CompletableFuture<List<ConnectorSplit>> getNextBatch(int maxSize, DynamicFilterSnapshot dynamicFilterSnapshot)
     {
         if (splits == null) {
             splits = getSplits(session, table);
         }
 
-        return completedFuture(new ConnectorSplitBatch(prepareNextBatch(maxSize), isFinished()));
+        return completedFuture(prepareNextBatch(maxSize));
     }
 
     private List<ConnectorSplit> prepareNextBatch(int maxSize)
@@ -206,19 +208,19 @@ public class BigQuerySplitSource
                     .filter(column -> !projectedColumnsNames.contains(column.name()))
                     .forEach(projectedColumnHandles::add));
         }
-        ReadSession readSession = createReadSession(session, remoteTableId, ImmutableList.copyOf(projectedColumnHandles.build()), filter);
+        ReadSession readSession = createReadSession(session, type, remoteTableId, ImmutableList.copyOf(projectedColumnHandles.build()), filter);
 
         String schemaString = getSchemaAsString(readSession);
         return readSession.getStreamsList().stream()
-                .map(stream -> BigQuerySplit.forStream(stream.getName(), schemaString, columns, OptionalInt.of(stream.getSerializedSize())))
+                .map(stream -> BigQuerySplit.forStream(readSession.getTraceId(), stream.getName(), schemaString, columns, OptionalInt.of(stream.getSerializedSize())))
                 .collect(toImmutableList());
     }
 
     @VisibleForTesting
-    ReadSession createReadSession(ConnectorSession session, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
+    ReadSession createReadSession(ConnectorSession session, TableDefinition.Type type, TableId remoteTableId, List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries, getMaxParallelism(session));
-        return readSessionCreator.create(session, remoteTableId, columns, filter, workerCountSupplier.getAsInt());
+        return readSessionCreator.create(session, type, remoteTableId, columns, filter, workerCountSupplier.getAsInt());
     }
 
     private static List<String> getProjectedColumnNames(List<BigQueryColumnHandle> columns)

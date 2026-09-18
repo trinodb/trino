@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -27,7 +26,8 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -55,7 +55,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -85,7 +85,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, b, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -119,7 +119,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol1.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol1.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol1, subquerySymbol2))));
                 })
                 .matches(
@@ -153,7 +153,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, unreferenced.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, unreferenced.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(unreferenced, subquerySymbol))));
                 })
                 .matches(
@@ -187,7 +187,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, unreferenced, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .matches(
@@ -220,7 +220,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .doesNotFire();
@@ -262,7 +262,7 @@ public class TestPruneApplyColumns
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
-                                            new Comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
+                                            comparison(GREATER_THAN, subquerySymbol.toSymbolReference(), correlationSymbol.toSymbolReference()),
                                             p.values(subquerySymbol))));
                 })
                 .doesNotFire();

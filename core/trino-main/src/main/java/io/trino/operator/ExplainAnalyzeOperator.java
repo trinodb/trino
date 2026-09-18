@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -153,7 +153,7 @@ public class ExplainAnalyzeOperator
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().queryId());
         checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
         StagesInfo stagesInfo = queryInfo.getStages().get();
-        checkState(stagesInfo.getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        checkState(stagesInfo.getOutputStage().subStages().size() == 1, "Expected one sub stage of explain node");
 
         if (!hasFinalStageInfo(stagesInfo)) {
             return null;

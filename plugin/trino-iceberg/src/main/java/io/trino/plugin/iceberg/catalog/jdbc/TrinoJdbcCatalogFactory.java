@@ -15,7 +15,9 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -29,7 +31,10 @@ import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
@@ -45,10 +50,12 @@ public class TrinoJdbcCatalogFactory
     private final ForwardingFileIoFactory fileIoFactory;
     private final IcebergJdbcClient jdbcClient;
     private final String jdbcCatalogName;
+    private final IcebergJdbcCatalogConfig.SchemaVersion schemaVersion;
     private final String defaultWarehouseDir;
     private final boolean isUniqueTableLocation;
     private final Map<String, String> catalogProperties;
     private final JdbcClientPool clientPool;
+    private final Executor metadataFetchingExecutor;
 
     @Inject
     public TrinoJdbcCatalogFactory(
@@ -59,7 +66,8 @@ public class TrinoJdbcCatalogFactory
             ForwardingFileIoFactory fileIoFactory,
             IcebergJdbcClient jdbcClient,
             IcebergJdbcCatalogConfig jdbcConfig,
-            IcebergConfig icebergConfig)
+            IcebergConfig icebergConfig,
+            @ForIcebergMetadata ExecutorService metadataExecutorService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -69,18 +77,26 @@ public class TrinoJdbcCatalogFactory
         this.isUniqueTableLocation = requireNonNull(icebergConfig, "icebergConfig is null").isUniqueTableLocation();
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
+        this.schemaVersion = jdbcConfig.getSchemaVersion();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.put(URI, jdbcConfig.getConnectionUrl());
         properties.put(WAREHOUSE_LOCATION, defaultWarehouseDir);
-        properties.put(PROPERTY_PREFIX + "schema-version", jdbcConfig.getSchemaVersion().toString());
+        properties.put(PROPERTY_PREFIX + "schema-version", schemaVersion.toString());
         jdbcConfig.getConnectionUser().ifPresent(user -> properties.put(PROPERTY_PREFIX + "user", user));
         jdbcConfig.getConnectionPassword().ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
         jdbcConfig.getRetryableStatusCodes().ifPresent(codes -> properties.put("retryable_status_codes", codes));
         this.catalogProperties = properties.buildOrThrow();
 
         this.clientPool = new JdbcClientPool(jdbcConfig.getConnectionUrl(), catalogProperties);
+
+        if (icebergConfig.getMetadataParallelism() == 1) {
+            this.metadataFetchingExecutor = directExecutor();
+        }
+        else {
+            this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, icebergConfig.getMetadataParallelism());
+        }
     }
 
     @PreDestroy
@@ -93,8 +109,8 @@ public class TrinoJdbcCatalogFactory
     public TrinoCatalog create(ConnectorIdentity identity)
     {
         JdbcCatalog jdbcCatalog = new JdbcCatalog(
-                config -> fileIoFactory.create(fileSystemFactory.create(identity)),
-                config -> clientPool,
+                _ -> fileIoFactory.create(fileSystemFactory.create(identity)),
+                _ -> clientPool,
                 false);
 
         jdbcCatalog.initialize(jdbcCatalogName, catalogProperties);
@@ -108,6 +124,8 @@ public class TrinoJdbcCatalogFactory
                 fileSystemFactory,
                 fileIoFactory,
                 isUniqueTableLocation,
-                defaultWarehouseDir);
+                defaultWarehouseDir,
+                schemaVersion,
+                metadataFetchingExecutor);
     }
 }

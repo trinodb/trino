@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -36,6 +37,8 @@ import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +64,7 @@ public final class MemoryPageSourceProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
+            Optional<ConnectorTableCredentials> tableCredentials,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
@@ -206,7 +210,7 @@ public final class MemoryPageSourceProvider
 
     private static boolean positionMatchesPredicate(SourcePage page, int position, Map<Integer, Domain> domains)
     {
-        for (Map.Entry<Integer, Domain> entry : domains.entrySet()) {
+        for (Entry<Integer, Domain> entry : domains.entrySet()) {
             int channel = entry.getKey();
             Domain domain = entry.getValue();
             Object value = TypeUtils.readNativeValue(domain.getType(), page.getBlock(channel), position);

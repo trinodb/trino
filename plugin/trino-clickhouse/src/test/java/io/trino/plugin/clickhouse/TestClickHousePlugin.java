@@ -29,11 +29,11 @@ public class TestClickHousePlugin
         Plugin plugin = new ClickHousePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
-                ImmutableMap.of(
-                        "connection-url", "jdbc:clickhouse://test",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "connection-url", "jdbc:clickhouse://test",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 }

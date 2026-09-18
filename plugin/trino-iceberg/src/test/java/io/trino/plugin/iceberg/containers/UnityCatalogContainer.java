@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -44,6 +43,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static java.lang.String.format;
@@ -106,6 +106,7 @@ public class UnityCatalogContainer
 
         // QueryRunner used to create tables
         queryRunner = IcebergQueryRunner.builder()
+                .addIcebergProperty("fs.hadoop.enabled", "true")
                 .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                 .build();
     }
@@ -165,7 +166,7 @@ public class UnityCatalogContainer
                 "}";
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(uri() + "/tables"))
-                .setHeader("Content-Type", "application/json")
+                .setHeader(CONTENT_TYPE, "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
         execute(request);
@@ -175,7 +176,7 @@ public class UnityCatalogContainer
                 "SET uniform_iceberg_metadata_location = '" + metadataFilePath + "'" +
                 "WHERE name = '" + tableName + "'");
 
-        Path absoluteMetadataFilePath = Paths.get(URI.create(metadataFilePath));
+        Path absoluteMetadataFilePath = Path.of(URI.create(metadataFilePath));
         Path metadataDirectory = absoluteMetadataFilePath.getParent();
         verify(metadataDirectory.endsWith("metadata"));
         File tableDirectory = metadataDirectory.getParent().toFile();

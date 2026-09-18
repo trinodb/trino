@@ -24,6 +24,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.json.JsonCodec;
 import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
@@ -35,9 +36,9 @@ import io.trino.FeaturesConfig;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
-import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
@@ -55,6 +56,7 @@ import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.LocalMemoryManagerExporter;
 import io.trino.memory.MemoryInfo;
@@ -63,7 +65,6 @@ import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
@@ -86,6 +87,7 @@ import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.RetryPolicy;
@@ -101,15 +103,18 @@ import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.SpoolingServerModule;
 import io.trino.server.remotetask.HttpLocationFactory;
 import io.trino.simd.BlockEncodingSimdSupport;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
 import io.trino.spiller.GenericPartitioningSpillerFactory;
 import io.trino.spiller.GenericSpillerFactory;
@@ -126,7 +131,6 @@ import io.trino.split.PageSourceProviderFactory;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
-import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
@@ -134,8 +138,10 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.CompilerConfig;
+import io.trino.sql.planner.InternalConnectorExpressionEvaluator;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.PartitionFunctionProvider;
@@ -146,11 +152,11 @@ import io.trino.tracing.ForTracing;
 import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
-import io.trino.type.JsonPath2016Type;
+import io.trino.type.SqlJsonPathType;
+import io.trino.type.TypeDescriptorDeserializer;
+import io.trino.type.TypeDescriptorKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
-import io.trino.type.TypeSignatureDeserializer;
-import io.trino.type.TypeSignatureKeyDeserializer;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
 
@@ -232,8 +238,6 @@ public class ServerMainModule
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
         binder.bind(StatementAnalyzerFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, SessionTimeProvider.class)
-                .setDefault().toInstance(SessionTimeProvider.DEFAULT);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
@@ -316,12 +320,14 @@ public class ServerMainModule
         newExporter(binder).export(FlatHashStrategyCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
+        binder.bind(NullSafeHashCompiler.class).in(Scopes.SINGLETON);
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(PagesInputStreamFactory.class);
         jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ExchangeMetricsCollector.class);
 
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
 
@@ -329,9 +335,12 @@ public class ServerMainModule
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    // Bumping the default limit to allow large rows to be transferred between nodes
+                    // 64MB is chosen based on real world experience of using this value in production clusters
+                    config.setMaxResponseContentLength(DataSize.of(64, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
                     if (internalCommunicationConfig.isHttp2Enabled()) {
+                        // HTTP/2 requires fewer connections thanks to multiplexing
                         config.setMaxConnectionsPerServer(64);
                     }
                     else {
@@ -375,6 +384,7 @@ public class ServerMainModule
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorExpressionEvaluator.class).to(InternalConnectorExpressionEvaluator.class).in(Scopes.SINGLETON);
         binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);
         binder.bind(LanguageFunctionEngineManager.class).in(Scopes.SINGLETON);
 
@@ -386,12 +396,14 @@ public class ServerMainModule
         // type
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(Symbol.class).to(SymbolKeyDeserializer.class);
-        jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
-        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorDeserializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(TypeDescriptor.class).to(TypeDescriptorKeyDeserializer.class);
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
-        binder.bind(RegisterJsonPath2016Type.class).asEagerSingleton();
+        jsonCodecBinder(binder).bindJsonCodec(Expression.class);
+        jsonCodecBinder(binder).bindJsonCodec(IrJsonPath.class);
+        binder.bind(RegisterSqlJsonPathType.class).asEagerSingleton();
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
@@ -466,7 +478,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(DynamicFilterConfig.class);
 
         // dispatcher
-        // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
+        // TODO remove dispatcher from ServerMainModule, and bind dependent components only on coordinators
         newOptionalBinder(binder, DispatchManager.class);
 
         // Added for RuleStatsSystemTable
@@ -525,12 +537,12 @@ public class ServerMainModule
     }
 
     // working around circular dependency Type <-> TypeManager
-    private static class RegisterJsonPath2016Type
+    private static class RegisterSqlJsonPathType
     {
         @Inject
-        public RegisterJsonPath2016Type(BlockEncodingSerde blockEncodingSerde, TypeManager typeManager, TypeRegistry typeRegistry)
+        public RegisterSqlJsonPathType(TypeRegistry typeRegistry, JsonCodec<IrJsonPath> jsonCodec)
         {
-            typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
+            typeRegistry.addType(new SqlJsonPathType(jsonCodec));
         }
     }
 

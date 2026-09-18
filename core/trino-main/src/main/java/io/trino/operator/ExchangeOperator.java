@@ -19,12 +19,12 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeEncryptionKey;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
@@ -38,6 +38,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -97,7 +98,6 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
             if (exchangeDataSource == null) {
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
@@ -108,7 +108,7 @@ public class ExchangeOperator
                         new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
-                        memoryContext,
+                        operatorContext.localUserMemoryContext(),
                         taskContext::sourceTaskFailed,
                         retryPolicy,
                         exchangeManagerRegistry);
@@ -119,7 +119,7 @@ public class ExchangeOperator
                     operatorContext,
                     sourceId,
                     exchangeDataSource,
-                    serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
+                    serdeFactory,
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
@@ -149,30 +149,27 @@ public class ExchangeOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
     private final ExchangeDataSource exchangeDataSource;
-    private final PageDeserializer deserializer;
+    private final PagesSerdeFactory serdeFactory;
     private final NoMoreSplitsTracker noMoreSplitsTracker;
     private final int operatorInstanceId;
 
+    private PageDeserializer deserializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             ExchangeDataSource exchangeDataSource,
-            PageDeserializer deserializer,
+            PagesSerdeFactory serdeFactory,
             NoMoreSplitsTracker noMoreSplitsTracker,
             int operatorInstanceId)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.exchangeDataSource = requireNonNull(exchangeDataSource, "exchangeDataSource is null");
-        this.deserializer = requireNonNull(deserializer, "serializer is null");
+        this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.noMoreSplitsTracker = requireNonNull(noMoreSplitsTracker, "noMoreSplitsTracker is null");
         this.operatorInstanceId = operatorInstanceId;
-
-        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
-        // memory footprint of deserializer does not change over time
-        memoryContext.setBytes(deserializer.getRetainedSizeInBytes());
 
         operatorContext.setInfoSupplier(exchangeDataSource::getInfo);
     }
@@ -251,6 +248,16 @@ public class ExchangeOperator
         Slice page = exchangeDataSource.pollPage();
         if (page == null) {
             return null;
+        }
+
+        // Lazy initialization is required because the encryption key depends on whether
+        // the exchange uses external storage (spooling) or direct exchange. This is determined
+        // by LazyExchangeDataSource, which resolves the concrete exchange type only after
+        // the first split is delivered — which happens after the operator is created.
+        if (deserializer == null) {
+            Optional<Slice> effectiveKey = ExchangeEncryptionKey.keyFor(operatorContext.getSession(), exchangeDataSource);
+            deserializer = serdeFactory.createDeserializer(effectiveKey.map(Ciphers::deserializeAesEncryptionKey));
+            operatorContext.localUserMemoryContext().setBytes(deserializer.getRetainedSizeInBytes());
         }
 
         Page deserializedPage = deserializer.deserialize(page);

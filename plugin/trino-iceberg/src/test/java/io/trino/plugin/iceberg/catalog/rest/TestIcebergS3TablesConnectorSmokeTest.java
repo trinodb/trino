@@ -13,10 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
-import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -28,6 +26,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -74,9 +73,9 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
+                .addIcebergProperty("iceberg.rest-catalog.metrics-reporting-enabled", "false")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
-                .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
-                .addIcebergProperty("fs.native-s3.enabled", "true")
+                .addIcebergProperty("fs.s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
                 .addIcebergProperty("s3.aws-access-key", AWS_ACCESS_KEY_ID)
                 .addIcebergProperty("s3.aws-secret-key", AWS_SECRET_ACCESS_KEY)
@@ -87,7 +86,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
         TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
         BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
         return table.operations().current().metadataFileLocation();
@@ -101,12 +100,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Override
     protected boolean locationExists(String location)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         throw new UnsupportedOperationException();
     }
@@ -181,7 +174,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Unable to process: RenameTable endpoint is not supported for Glue Catalog");
+                .hasStackTraceContaining("RenameTable endpoint is not supported for Glue Catalog");
     }
 
     @Test
@@ -235,14 +228,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Test
     @Override // The TrinoFileSystem.deleteDirectory is unsupported
     public void testDropTableWithNonExistentTableLocation() {}
-
-    @Test
-    @Override // BaseIcebergConnectorSmokeTest.isFileSorted method is unsupported
-    public void testSortedNationTable() {}
-
-    @Test
-    @Override // The TrinoFileSystem.deleteFile is unsupported
-    public void testFileSortingWithLargerTable() {}
 
     @Test
     @Override // The procedure is unsupported in S3 Tables

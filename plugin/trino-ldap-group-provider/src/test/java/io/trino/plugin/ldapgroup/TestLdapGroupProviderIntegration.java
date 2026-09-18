@@ -244,22 +244,22 @@ public class TestLdapGroupProviderIntegration
         ExecutorService executor = Executors.newFixedThreadPool(4);
         CountDownLatch latch = new CountDownLatch(4);
 
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor).whenComplete((g, t) -> {
+        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor).whenComplete((g, _) -> {
             assertThat(g).containsAll(ImmutableSet.of("clients", "qualityAssurance", "developers"));
             latch.countDown();
         });
 
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("bobq"), executor).whenComplete((g, t) -> {
+        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("bobq"), executor).whenComplete((g, _) -> {
             assertThat(g).containsAll(ImmutableSet.of("qualityAssurance"));
             latch.countDown();
         });
 
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("johnb"), executor).whenComplete((g, t) -> {
+        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("johnb"), executor).whenComplete((g, _) -> {
             assertThat(g).containsAll(ImmutableSet.of("clients"));
             latch.countDown();
         });
 
-        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("carlp"), executor).whenComplete((g, t) -> {
+        CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("carlp"), executor).whenComplete((g, _) -> {
             assertThat(g).isEmpty();
             latch.countDown();
         });

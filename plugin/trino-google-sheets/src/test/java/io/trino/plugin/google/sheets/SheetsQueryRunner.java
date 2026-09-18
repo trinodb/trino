@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class SheetsQueryRunner
@@ -36,10 +36,9 @@ public final class SheetsQueryRunner
     static final String GOOGLE_SHEETS = "gsheets";
 
     public static Builder builder()
-            throws Exception
     {
         return new Builder()
-                .addConnectorProperty("gsheets.credentials-path", getTestCredentialsPath())
+                .addConnectorProperty("gsheets.credentials-key", requiredNonEmptySystemProperty("testing.gsheets.credentials-key"))
                 .addConnectorProperty("gsheets.max-data-cache-size", "1000")
                 .addConnectorProperty("gsheets.data-cache-ttl", "1m");
     }

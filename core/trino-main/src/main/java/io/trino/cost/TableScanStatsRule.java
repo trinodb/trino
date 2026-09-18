@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isStatisticsPrecalculationForPushdownEnabled;
@@ -61,7 +62,7 @@ public class TableScanStatsRule
 
         Map<Symbol, SymbolStatsEstimate> outputSymbolStats = new HashMap<>();
 
-        for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+        for (Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
             Symbol symbol = entry.getKey();
             Optional<ColumnStatistics> columnStatistics = Optional.ofNullable(tableStatistics.getColumnStatistics().get(entry.getValue()));
             SymbolStatsEstimate symbolStatistics = columnStatistics

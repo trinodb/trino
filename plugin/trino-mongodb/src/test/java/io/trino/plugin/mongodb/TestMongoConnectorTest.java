@@ -139,7 +139,7 @@ public class TestMongoConnectorTest
         assertThat(query("SHOW COLUMNS FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "('mixed_array_col', 'row(_pos1 bigint, _pos2 varchar, _pos3 double, _pos4 row(nested_arr array(bigint)))', '', '')");
+                        "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
 
         assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
                 .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
@@ -205,6 +205,32 @@ public class TestMongoConnectorTest
                     .matches("VALUES (VARCHAR '" + table + "', VARCHAR 'lowercase')");
             assertThat(query("SELECT * FROM " + schema + "." + table))
                     .matches("VALUES BIGINT '1'");
+        }
+        finally {
+            client.getDatabase(schema).drop();
+        }
+    }
+
+    @Test
+    void testOnlyNonLowercaseCollectionIsNotQueryable()
+    {
+        String suffix = randomNameSuffix();
+        String schema = "test_db_" + suffix;
+        String table = "test_collection_" + suffix;
+        String upperCaseTable = table.toUpperCase(ENGLISH);
+        try {
+            MongoDatabase db = client.getDatabase(schema);
+            db.createCollection(upperCaseTable);
+            db.getCollection(upperCaseTable).insertOne(new Document("uppercase", 1));
+
+            assertThat(query("SELECT table_name FROM mongodb.information_schema.tables WHERE table_schema = '" + schema + "'"))
+                    .matches("VALUES VARCHAR '" + table + "'");
+
+            assertThat(query("SELECT * FROM " + schema + "." + table)).failure()
+                    .hasMessageMatching(".*Table 'mongodb\\.%s\\.%s' does not exist".formatted(schema, table));
+
+            assertThat(db.getCollection("_schema").find(new Document("table", table)).first())
+                    .isNull();
         }
         finally {
             client.getDatabase(schema).drop();
@@ -480,17 +506,18 @@ public class TestMongoConnectorTest
                         "   (8, CAST('\0 ' AS char(3)))," +
                         "   (9, CAST('\0  ' AS char(3)))")) {
             assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = ''"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
                     .matches("VALUES 0, 1, 2, 3")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x'"))
                     .matches("VALUES 4, 5, 6")
                     .isFullyPushedDown();
-            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
-                    // The value is included because both sides of the comparison are coerced to char(3)
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0'"))
                     .matches("VALUES 7, 8, 9")
                     .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
+                    .returnsEmptyResult();
         }
     }
 
@@ -516,15 +543,17 @@ public class TestMongoConnectorTest
                 Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
             // Filter clause with 38 precision decimal value
             String predicateValue = "decimal '31415926535897932384626433832795028841'";
+            // The predicate value exceeds the column type's range, so PushPredicateIntoTableScan#pushFilterIntoTableScan
+            // replaces the table scan with a ValuesNode and there is no pushdown to verify.
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
-                    // With EQUAL operator when column type precision is less than the predicate value's precision,
-                    // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col > " + predicateValue))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col >= " + predicateValue))
                     .returnsEmptyResult();
             testPredicatePushdown(table.getName(), "col != " + predicateValue);
             testPredicatePushdown(table.getName(), "col < " + predicateValue);
-            testPredicatePushdown(table.getName(), "col > " + predicateValue);
             testPredicatePushdown(table.getName(), "col <= " + predicateValue);
-            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
 
             // Filter clause with 34 precision decimal value
             predicateValue = "decimal '3141592653589793238462643383279502'";
@@ -627,7 +656,7 @@ public class TestMongoConnectorTest
         String unknownFieldTable = "test_unknown_field" + randomNameSuffix();
         Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
         client.getDatabase("test").getCollection(unknownFieldTable).insertOne(document1);
-        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(\"key1\" varchar)', '', ''");
         assertQuery("SELECT col.key1 FROM test." + unknownFieldTable, "SELECT 'value1'");
         assertUpdate("DROP TABLE test." + unknownFieldTable);
 
@@ -718,7 +747,7 @@ public class TestMongoConnectorTest
                 .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -754,7 +783,7 @@ public class TestMongoConnectorTest
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
         assertThat(query("SELECT * FROM test." + tableName))
-                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(\"databaseName\" varchar, \"collectionName\" varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -852,7 +881,8 @@ public class TestMongoConnectorTest
         String listMapToVarcharTable = "test_list_map_to_varchar" + randomNameSuffix();
         assertUpdate("CREATE TABLE test." + listMapToVarcharTable + " (col VARCHAR)");
         client.getDatabase("test").getCollection(listMapToVarcharTable).insertOne(new Document(
-                ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
+                ImmutableMap.of("col", ImmutableList.of(
+                        new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
         assertQuery("SELECT col FROM test." + listMapToVarcharTable, "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
         assertUpdate("DROP TABLE test." + listMapToVarcharTable);
@@ -1159,7 +1189,7 @@ public class TestMongoConnectorTest
                 "Only lowercase database name is supported");
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'REGION', filter => '{}'))",
-                 "Only lowercase collection name is supported");
+                "Only lowercase collection name is supported");
 
         assertQueryFails(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{ invalid }'))",
@@ -1596,7 +1626,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1633,7 +1663,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1669,7 +1699,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.id), typeof(parent.id.id) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id %1$s)', '%1$s'".formatted(expectedType));
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" %1$s)', '%1$s'".formatted(expectedType));
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1894,7 +1924,7 @@ public class TestMongoConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Invalid database name");
+        assertThat(e).hasMessageContaining("Invalid namespace specified");
     }
 
     @Override
@@ -1918,18 +1948,28 @@ public class TestMongoConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
-            case "bigint -> integer":
-            case "decimal(5,3) -> decimal(5,2)":
-            case "time(3) -> time(6)":
-            case "time(6) -> time(3)":
-            case "timestamp(3) -> timestamp(6)":
-            case "timestamp(6) -> timestamp(3)":
-            case "timestamp(3) with time zone -> timestamp(6) with time zone":
-            case "timestamp(6) with time zone -> timestamp(3) with time zone":
-                return Optional.of(setup.asUnsupported());
+        if (setup.sourceColumnType().startsWith("char(") && setup.newColumnType().startsWith("varchar")) {
+            // MongoDB keeps the blank padding of the existing CHAR data when the column is converted to VARCHAR,
+            // whereas Trino's char-to-varchar cast (which computes the default expected value) trims trailing spaces.
+            int length = Integer.parseInt(setup.sourceColumnType().substring("char(".length(), setup.sourceColumnType().length() - 1));
+            return Optional.of(setup.withNewValueLiteral(format("rpad(%s, %s, ' ')", setup.sourceValueLiteral(), length)));
         }
-        return Optional.of(setup);
+        return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer",
+                 "bigint -> smallint",
+                 "bigint -> tinyint",
+                 "decimal(5,3) -> decimal(5,2)",
+                 "time(3) -> time(6)",
+                 "time(6) -> time(3)",
+                 "timestamp(3) -> timestamp(6)",
+                 "timestamp(6) -> timestamp(3)",
+                 "timestamp(3) with time zone -> timestamp(6) with time zone",
+                 "timestamp(6) with time zone -> timestamp(3) with time zone",
+                 "map(integer, varchar) -> map(bigint, varchar)",
+                 "map(varchar, integer) -> map(varchar, bigint)",
+                 "map(integer, row(x integer)) -> map(integer, row(\"x\" bigint))" -> Optional.of(setup.asUnsupported());
+            default -> Optional.of(setup);
+        };
     }
 
     private void assertOneNotNullResult(String query)

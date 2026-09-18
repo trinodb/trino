@@ -35,8 +35,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
     {
         int memoryPool = 12;
         Map<String, Map<String, Long>> queries = ImmutableMap.of(
-                "q_1",
-                ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
+                "q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
         assertThat(lowMemoryKiller.chooseTargetToKill(
                 toRunningQueryInfoList(queries),
@@ -83,8 +82,7 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .buildOrThrow();
 
         Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.of(
-                "q_2",
-                ImmutableMap.of(
+                "q_2", ImmutableMap.of(
                         "n1", ImmutableMap.of(1, 1L, 2, 3L),
                         "n2", ImmutableMap.of(), // no tasks reported for q_2 here even though based on per-query reservation it uses 8 here (and is biggest query)
                         "n3", ImmutableMap.of(6, 2L),

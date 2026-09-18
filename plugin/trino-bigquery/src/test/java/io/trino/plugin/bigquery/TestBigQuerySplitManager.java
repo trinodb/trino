@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -23,7 +25,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -59,7 +60,7 @@ public class TestBigQuerySplitManager
         BigQueryConnectorFactory connectorFactory = new BigQueryConnectorFactory();
         connector = connectorFactory.create(
                 "bigquery",
-                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY),
+                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY, "bigquery.view-expire-duration", "30m"),
                 new TestingConnectorContext());
         bigQueryExecutor = new BigQuerySqlExecutor();
     }
@@ -114,10 +115,11 @@ public class TestBigQuerySplitManager
     private ReadSession createReadSession(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table)
     {
         BigQuerySplitManager splitManager = (BigQuerySplitManager) connector.getSplitManager();
-        BigQuerySplitSource splitSource = (BigQuerySplitSource) splitManager.getSplits(transaction, session, table, DynamicFilter.EMPTY, Constraint.alwaysTrue());
+        BigQuerySplitSource splitSource = (BigQuerySplitSource) splitManager.getSplits(transaction, session, table, ImmutableSet.of(), Constraint.alwaysTrue());
         BigQueryTableHandle bigQueryTable = (BigQueryTableHandle) table;
         return splitSource.createReadSession(
                 session,
+                TableDefinition.Type.MATERIALIZED_VIEW,
                 bigQueryTable.asPlainTable().getRemoteTableName().toTableId(),
                 bigQueryTable.projectedColumns().orElseThrow(),
                 buildFilter(bigQueryTable.constraint()));

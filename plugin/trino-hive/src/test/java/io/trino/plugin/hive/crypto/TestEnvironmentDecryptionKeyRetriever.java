@@ -48,8 +48,10 @@ public final class TestEnvironmentDecryptionKeyRetriever
     public void mapModeUsesMetadata()
     {
         // footer: id1→k1 , id2→k2
-        String footerValue = String.join(",",
-                "id1:" + b64("k1"), "id2:" + b64("k2"));
+        String footerValue = String.join(
+                ",",
+                "id1:" + b64("k1"),
+                "id2:" + b64("k2"));
         // column: meta→ageKey
         String columnValue = "meta:" + b64("ageKey");
 

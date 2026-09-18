@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
-import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
@@ -25,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.FunctionBundle;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
@@ -36,7 +36,7 @@ import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAc
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -99,6 +99,22 @@ public abstract class AbstractTestAggregationFunction
         }
 
         testAggregation(getExpectedValueIncludingNulls(0, 0, 10), blocks);
+    }
+
+    @Test
+    public void testNonNullableDeclarationHoldsOnEmptyInput()
+    {
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
+        if (resolvedFunction.functionNullability().isReturnNullable()) {
+            // A nullable result declaration is always sound; only a non-null declaration must be verified.
+            return;
+        }
+        // A function that declares a non-nullable result must never produce NULL, even on empty input,
+        // which is the case in which aggregates most commonly return NULL.
+        TestingAggregationFunction function = functionResolution.getAggregateFunction(getFunctionName(), fromTypes(getFunctionParameterTypes()));
+        assertThat(AggregationTestUtils.aggregation(function))
+                .describedAs("%s declares a non-nullable result but returned NULL on empty input", getFunctionName())
+                .isNotNull();
     }
 
     @Test

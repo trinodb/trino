@@ -60,7 +60,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
-import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -120,19 +119,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "\\)");
     }
 
-    @Test
-    public void testHiddenPathColumn()
-    {
-        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
-            String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
-
-            assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
-
-            // Check whether the "$path" hidden column is correctly evaluated in the filter expression
-            assertQuery(format("SELECT a FROM %s WHERE \"$path\" = '%s'", table.getName(), filePath), "VALUES 1");
-        }
-    }
-
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
@@ -145,9 +131,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         ExecutorService executor = newFixedThreadPool(threads);
         List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
 
-        String[] expectedErrors = new String[] {"Failed to commit the transaction during write:",
-                "Failed to replace table due to concurrent updates:",
-                "Failed to commit during write:"};
         try (TestTable table = newTrinoTable(
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
@@ -163,7 +146,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                             return true;
                         }
                         catch (Exception e) {
-                            assertThat(e.getMessage()).containsAnyOf(expectedErrors);
+                            verifyConcurrentDeleteFailurePermissible(e);
                             return false;
                         }
                     }))
@@ -177,12 +160,25 @@ public abstract class BaseIcebergConnectorSmokeTest
             });
             List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
             assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            if (expectedValues.isEmpty()) {
+                assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            }
+            else {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            }
         }
         finally {
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
+    }
+
+    protected void verifyConcurrentDeleteFailurePermissible(Exception e)
+    {
+        assertThat(e.getMessage()).containsAnyOf(
+                "Failed to commit the transaction during write:",
+                "Failed to replace table due to concurrent updates:",
+                "Failed to commit during write:");
     }
 
     @Test
@@ -225,6 +221,18 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertThat(query("SELECT a, b  FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
                 .matches("VALUES (BIGINT '42', -385e-1)");
 
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRecreateTableWithSameName()
+    {
+        String tableName = "test_recreate_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA')");
+        assertUpdate("DROP TABLE " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'Trino' data", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Trino')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -391,7 +399,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testCreateTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
@@ -405,7 +413,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
 
@@ -526,44 +534,6 @@ public abstract class BaseIcebergConnectorSmokeTest
                 "Schema (.*) not found");
         assertThat(locationExists(tableLocation))
                 .as("location should not exist").isFalse();
-    }
-
-    @Test
-    public void testSortedNationTable()
-    {
-        Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = newTrinoTable(
-                "test_sorted_nation_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
-            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
-        }
-    }
-
-    @Test
-    public void testFileSortingWithLargerTable()
-    {
-        // Using a larger table forces buffered data to be written to disk
-        Session withSmallRowGroups = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "200")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "20kB")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "200")
-                .build();
-        try (TestTable table = newTrinoTable(
-                "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
-            assertUpdate(
-                    withSmallRowGroups,
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
-            }
-            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
-        }
     }
 
     @Test
@@ -739,8 +709,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate(session, "DROP TABLE " + tableName);
     }
 
-    protected abstract boolean isFileSorted(Location path, String sortColumnName);
-
     @Test
     public void testTableChangesFunction()
     {
@@ -848,8 +816,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         int metadataPreviousVersionCount = 5;
         String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.delete-after-commit.enabled'], ARRAY['true'])");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.previous-versions-max'], ARRAY['" + metadataPreviousVersionCount + "'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES delete_after_commit_enabled = true");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES max_previous_versions = " + metadataPreviousVersionCount);
         String tableLocation = getTableLocation(tableName);
 
         Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
@@ -887,6 +855,13 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+
+            // Specify a non-existing schema in WHERE clause
+            String nonExistingSchema = "non_existing_schema_" + randomNameSuffix();
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(nonExistingSchema)))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, nonExistingSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
         }
         finally {
             dropSchema(firstSchema);

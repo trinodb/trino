@@ -38,7 +38,7 @@ public class HiveFileIterator
     {
         IGNORED,
         RECURSE,
-        FAIL
+        FAIL,
     }
 
     private final Location location;

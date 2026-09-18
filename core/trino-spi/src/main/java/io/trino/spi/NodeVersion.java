@@ -15,9 +15,9 @@ package io.trino.spi;
 
 import static java.util.Objects.requireNonNull;
 
-public final class NodeVersion
+public record NodeVersion(String version)
 {
-    private final String version;
+    public static final NodeVersion UNKNOWN = new NodeVersion("<unknown>");
 
     public NodeVersion(String version)
     {

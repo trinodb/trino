@@ -42,7 +42,14 @@ public class SpoolingPagePartitioner
             Page currentPage = queue.removeFirst();
 
             long remainingSize = targetSize - size(currentPartition);
-            verify(remainingSize >= 0, "Current partition size %s is larger than target size %s", size(currentPartition), targetSize);
+            if (remainingSize <= 0) {
+                // averageSizePerPosition in takeFromHead is an estimate; variable-length rows can cause
+                // the first split chunk to overshoot the target, making remainingSize negative here.
+                // Emit the oversized partition and start fresh.
+                partitions.add(ImmutableList.copyOf(currentPartition));
+                currentPartition.clear();
+                remainingSize = targetSize;
+            }
 
             if (currentPage.getSizeInBytes() < remainingSize) {
                 currentPartition.add(currentPage);

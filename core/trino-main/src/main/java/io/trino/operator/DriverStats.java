@@ -27,9 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
 public class DriverStats
@@ -74,49 +72,6 @@ public class DriverStats
     private final DataSize physicalWrittenDataSize;
 
     private final List<OperatorStats> operatorStats;
-
-    public DriverStats()
-    {
-        this.createTime = Instant.now();
-        this.startTime = null;
-        this.endTime = null;
-        this.queuedTime = succinctDuration(0, MILLISECONDS);
-        this.elapsedTime = succinctDuration(0, MILLISECONDS);
-
-        this.userMemoryReservation = DataSize.ofBytes(0);
-        this.revocableMemoryReservation = DataSize.ofBytes(0);
-
-        this.spilledDataSize = DataSize.ofBytes(0);
-
-        this.totalScheduledTime = succinctDuration(0, MILLISECONDS);
-        this.totalCpuTime = succinctDuration(0, MILLISECONDS);
-        this.totalBlockedTime = succinctDuration(0, MILLISECONDS);
-        this.fullyBlocked = false;
-        this.blockedReasons = ImmutableSet.of();
-
-        this.physicalInputDataSize = DataSize.ofBytes(0);
-        this.physicalInputPositions = 0;
-        this.physicalInputReadTime = succinctDuration(0, MILLISECONDS);
-
-        this.internalNetworkInputDataSize = DataSize.ofBytes(0);
-        this.internalNetworkInputPositions = 0;
-
-        this.rawInputReadTime = succinctDuration(0, MILLISECONDS);
-
-        this.processedInputDataSize = DataSize.ofBytes(0);
-        this.processedInputPositions = 0;
-
-        this.inputBlockedTime = succinctDuration(0, MILLISECONDS);
-
-        this.outputDataSize = DataSize.ofBytes(0);
-        this.outputPositions = 0;
-
-        this.outputBlockedTime = succinctDuration(0, MILLISECONDS);
-
-        this.physicalWrittenDataSize = DataSize.ofBytes(0);
-
-        this.operatorStats = ImmutableList.of();
-    }
 
     @JsonCreator
     public DriverStats(

@@ -112,7 +112,7 @@ public class PartitionsSystemTableProvider
                 constraint -> {
                     Constraint targetConstraint = new Constraint(constraint.transformKeys(partitionColumns::get));
                     Iterable<List<Object>> records = () ->
-                            stream(partitionManager.getPartitions(metadata.getMetastore(), sourceTableHandle, targetConstraint).getPartitions())
+                            stream(partitionManager.getPartitions(metadata.getMetastore(), sourceTableHandle, targetConstraint, session).getPartitions())
                                     .map(hivePartition ->
                                             partitionColumns.stream()
                                                     .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())

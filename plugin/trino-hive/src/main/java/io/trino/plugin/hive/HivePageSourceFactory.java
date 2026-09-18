@@ -17,6 +17,8 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.connector.MemoryUsageReportingPageSource;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -25,7 +27,8 @@ import java.util.OptionalInt;
 
 public interface HivePageSourceFactory
 {
-    Optional<ConnectorPageSource> createPageSource(
+    @Deprecated
+    default Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -38,5 +41,28 @@ public interface HivePageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction);
+            AcidTransaction transaction)
+    {
+        throw new UnsupportedOperationException("This page source factory does not implement createPageSource overload not accepting MemoryContext: " + getClass());
+    }
+
+    default Optional<ConnectorPageSource> createPageSource(
+            ConnectorSession session,
+            Location path,
+            long start,
+            long length,
+            long estimatedFileSize,
+            long fileModifiedTime,
+            Schema schema,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction,
+            MemoryContext memoryContext)
+    {
+        return createPageSource(session, path, start, length, estimatedFileSize, fileModifiedTime, schema, columns, effectivePredicate, acidInfo, bucketNumber, originalFile, transaction)
+                .map(pageSource -> new MemoryUsageReportingPageSource(pageSource, memoryContext));
+    }
 }

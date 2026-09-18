@@ -16,12 +16,12 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingColumnHandle;
+import io.trino.exchange.ExchangeMetricsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.ColumnPropertyManager;
@@ -38,6 +38,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -61,11 +62,13 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -86,10 +89,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -147,7 +151,7 @@ public abstract class BaseDataDefinitionTaskTest
                 MATERIALIZED_VIEW_PROPERTY_1_NAME, longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
         materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
-        queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+        queryStateMachine = stateMachine(transactionManager, createTestingMetadataManager(), new AllowAllAccessControl(), testSession);
         metadata.createSchema(testSession, new CatalogSchemaName(TEST_CATALOG_NAME, SCHEMA), ImmutableMap.of(), new TrinoPrincipal(ROLE, "role"));
     }
 
@@ -204,7 +208,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 columns,
                 Optional.empty(),
-                Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("owner"),
                 ImmutableList.of(),
@@ -249,6 +253,7 @@ public abstract class BaseDataDefinitionTaskTest
                 metadata,
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
+                new ExchangeMetricsCollector(ImmutableList::of, Duration.ofMillis(1)),
                 Optional.empty(),
                 true,
                 Optional.empty(),
@@ -269,7 +274,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(String catalogName)
         {
-            delegate = createTestMetadataManager();
+            delegate = createTestingMetadataManager();
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
@@ -343,7 +348,7 @@ public abstract class BaseDataDefinitionTaskTest
         public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName)
         {
             return Optional.ofNullable(tables.get(tableName.asSchemaTableName()))
-                    .map(tableMetadata -> new TableHandle(
+                    .map(_ -> new TableHandle(
                             TEST_CATALOG_HANDLE,
                             new TestingTableHandle(tableName.asSchemaTableName()),
                             TestingConnectorTransactionHandle.INSTANCE));
@@ -714,9 +719,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
         {
-            return delegate.getCoercion(operatorType, fromType, toType);
+            return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
         }
 
         @Override

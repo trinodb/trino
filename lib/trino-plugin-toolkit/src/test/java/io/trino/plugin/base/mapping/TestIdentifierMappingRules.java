@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIdentifierMappingRules
@@ -38,7 +39,7 @@ public class TestIdentifierMappingRules
                 "  } ]\n" +
                 "}";
 
-        JsonCodec<IdentifierMappingRules> identifierMappingRulesJsonCodec = JsonCodec.jsonCodec(IdentifierMappingRules.class);
+        JsonCodec<IdentifierMappingRules> identifierMappingRulesJsonCodec = jsonCodec(IdentifierMappingRules.class);
         assertThat(identifierMappingRulesJsonCodec.fromJson(json))
                 .isEqualTo(new IdentifierMappingRules(
                         ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),

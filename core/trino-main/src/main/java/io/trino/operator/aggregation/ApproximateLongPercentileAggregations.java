@@ -21,6 +21,7 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -52,6 +53,7 @@ public final class ApproximateLongPercentileAggregations
         ApproximateDoublePercentileAggregations.combine(state, otherState);
     }
 
+    @SqlNullable
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState TDigestAndPercentileState state, BlockBuilder out)
     {

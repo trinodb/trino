@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -50,6 +51,51 @@ public class TestExpressions
     }
 
     @Test
+    public void testContinuousInValuesWithNull()
+    {
+        // UNNEST keeps the operand nonconstant while the IN predicate is optimized.
+        assertThat(assertions.query(
+                """
+                SELECT x, x IN (1, 2, NULL), x NOT IN (1, 2, NULL), x IN (1, 2), x NOT IN (1, 2)
+                FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, NULL, NULL, NULL, NULL),
+                            (0, NULL, NULL, false, true),
+                            (1, true, false, true, false),
+                            (2, true, false, true, false),
+                            (3, NULL, NULL, false, true)
+                        """);
+
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x) WHERE x IN (1, 2, NULL)"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x) WHERE x NOT IN (1, 2, NULL)"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testContinuousInValuesWithNullOnBoundOperand()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT x, (x + 1) IN (1, 2, NULL), (x + 1) NOT IN (1, 2, NULL)
+                FROM UNNEST(ARRAY[NULL, 0, 1, 2, 3]) t(x)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (NULL, NULL, NULL),
+                            (0, true, false),
+                            (1, true, false),
+                            (2, NULL, NULL),
+                            (3, NULL, NULL)
+                        """);
+    }
+
+    @Test
     public void testInShortCircuit()
     {
         // Because of the failing in-list item 5 / 0, the in-predicate cannot be simplified.
@@ -73,5 +119,97 @@ public class TestExpressions
     {
         // https://github.com/trinodb/trino/issues/3411
         assertThat(assertions.query("SELECT try(k) FROM (SELECT null) t(k)")).matches("VALUES null");
+    }
+
+    @Test
+    public void testTryOverLetBoundExpression()
+    {
+        // NULLIF and BETWEEN bind a non-trivial operand with a Let so it is evaluated once. Inside
+        // the lambda that TRY desugars to, that binding must not be treated as a captured symbol.
+        assertThat(assertions.query("SELECT try(nullif(trim('harsh'), ''))")).matches("VALUES CAST('harsh' AS varchar(5))");
+        assertThat(assertions.query("SELECT try(nullif(trim('  '), ''))")).matches("VALUES CAST(null AS varchar(2))");
+        assertThat(assertions.query("SELECT try(nullif(trim(x), '')) FROM (VALUES ' abc ', '   ') t(x)")).matches("VALUES CAST('abc' AS varchar(5)), null");
+
+        assertThat(assertions.query("SELECT try(trim(x) BETWEEN 'a' AND 'z') FROM (VALUES ' abc ', ' zzz ') t(x)")).matches("VALUES true, false");
+
+        // the Let-bound operand may itself fail, in which case TRY must swallow the failure
+        assertThat(assertions.query("SELECT try(nullif(x / 0, 1)) FROM (VALUES 1) t(x)")).matches("VALUES cast(null AS integer)");
+    }
+
+    @Test
+    public void testNullableNonDeterministicConditionsInFilter()
+    {
+        // The inner IF is always false or NULL, so these predicates must retain every row.
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE IF(IF(random() < 0.5, CAST(NULL AS boolean), false), false, true)"))
+                .matches("VALUES BIGINT '1000'");
+
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE CASE WHEN IF(random() < 0.5, CAST(NULL AS boolean), false) THEN false WHEN x < 0 THEN NULL ELSE true END"))
+                .matches("VALUES BIGINT '1000'");
+
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE NULLIF(true, IF(random() < 0.5, CAST(NULL AS boolean), false))"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNullableNonDeterministicConditionInProjection()
+    {
+        assertThat(assertions.query("SELECT count_if(IF(IF(random() < 0.5, CAST(NULL AS boolean), false), false, true)) FROM UNNEST(sequence(1, 1000)) t(x)"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNonDeterministicYearInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) FROM UNNEST(sequence(1, 1000)) t(x) WHERE year(date_add('year', 2 * CAST(floor(random() * 2) AS integer), DATE '2019-06-01')) IN (2019, 2021)"))
+                .matches("VALUES BIGINT '1000'");
+    }
+
+    @Test
+    public void testNonDeterministicYearIsNotDistinctFromInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) BETWEEN 4000 AND 6000 FROM UNNEST(sequence(1, 10000)) t(x) WHERE year(IF(random() < 0.5, NULL, DATE '2019-06-01')) IS NOT DISTINCT FROM 2019"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testNonDeterministicDateTruncIsNotDistinctFromInPredicate()
+    {
+        assertThat(assertions.query("SELECT count(*) BETWEEN 4000 AND 6000 FROM UNNEST(sequence(1, 10000)) t(x) WHERE date_trunc('year', IF(random() < 0.5, NULL, DATE '2019-06-01')) IS NOT DISTINCT FROM DATE '2019-01-01'"))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testNonDeterministicEqualityDisjunction()
+    {
+        // random(0, 5) draws from {0, 1, 2, 3, 4}. Each disjunct draws independently, so a row passes with
+        // probability 1 - 0.8^5 (~6723/10000). If the disjuncts are merged into a single IN predicate, this
+        // would result in an always-true predicate.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(x) WHERE random(0, 5) = 0 OR random(0, 5) = 1 OR random(0, 5) = 2 OR random(0, 5) = 3 OR random(0, 5) = 4");
+        assertThat((long) result.getOnlyValue()).isBetween(3000L, 9000L);
+    }
+
+    @Test
+    public void testNonDeterministicInListValues()
+    {
+        // Each row has high chance of passing. If the IN list was de-duplicated, only 20% of rows would pass.
+        // The OR + IN is necessary precondition to trigger NormalizeOrExpressionRewriter.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(i) WHERE mod(i, 5) = 7 OR mod(i, 5) IN (random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5), random(5))");
+        assertThat((long) result.getOnlyValue()).isBetween(9000L, 9999L);
+    }
+
+    @Test
+    public void testNonDeterministicDisjunctAmongMergedDisjuncts()
+    {
+        // mod(i, 5) is never 7 or 8, so only the non-deterministic disjunct can match, with probability 1/5.
+        // Merging the deterministic disjuncts into an IN predicate must not drop it.
+        MaterializedResult result = assertions.execute("SELECT count(*) FROM UNNEST(sequence(1, 10000)) t(i) WHERE mod(i, 5) = 7 OR mod(i, 5) = 8 OR mod(i, 5) = random(5)");
+        assertThat((long) result.getOnlyValue()).isBetween(1000L, 4000L);
+    }
+
+    @Test
+    public void testNullableIfConditionInFilter()
+    {
+        assertThat(assertions.query("SELECT x FROM UNNEST(ARRAY[true, false, NULL]) t(x) WHERE IF(x, false, true)"))
+                .matches("VALUES false, CAST(NULL AS boolean)");
     }
 }

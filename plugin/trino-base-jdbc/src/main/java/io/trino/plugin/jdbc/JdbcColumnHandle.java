@@ -15,7 +15,6 @@ package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -24,11 +23,13 @@ import io.trino.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class JdbcColumnHandle
         implements ColumnHandle
@@ -136,10 +137,12 @@ public final class JdbcColumnHandle
     @Override
     public String toString()
     {
-        return Joiner.on(":").skipNulls().join(
-                columnName,
-                columnType.getDisplayName(),
-                jdbcTypeHandle.jdbcTypeName().orElse(null));
+        return Stream.of(
+                        columnName,
+                        columnType.getDisplayName(),
+                        jdbcTypeHandle.jdbcTypeName().orElse(null))
+                .filter(Objects::nonNull)
+                .collect(joining(":"));
     }
 
     public long getRetainedSizeInBytes()

@@ -79,7 +79,5 @@ public class DatabaseEventClient
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

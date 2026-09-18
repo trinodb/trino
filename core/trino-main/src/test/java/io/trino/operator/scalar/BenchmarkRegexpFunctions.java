@@ -60,6 +60,24 @@ public class BenchmarkRegexpFunctions
         return Re2JRegexpFunctions.regexpLike(data.getSource(), data.getRe2JPattern());
     }
 
+    @Benchmark
+    public Slice benchmarkReplaceJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpReplace(data.getSource(), data.getJoniPattern(), Slices.EMPTY_SLICE);
+    }
+
+    @Benchmark
+    public long benchmarkCountJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpCount(data.getSource(), data.getJoniPattern());
+    }
+
+    @Benchmark
+    public Slice benchmarkExtractJoni(DotStarAroundData data)
+    {
+        return JoniRegexpFunctions.regexpExtract(data.getSource(), data.getJoniPattern());
+    }
+
     @State(Thread)
     public static class DotStarAroundData
     {
@@ -79,30 +97,29 @@ public class BenchmarkRegexpFunctions
             SliceOutput sliceOutput = new DynamicSliceOutput(sourceLength);
             Slice pattern;
             switch (patternString) {
-                case ".*x.*":
+                case ".*x.*" -> {
                     pattern = Slices.utf8Slice(".*x.*");
                     IntStream.generate(() -> 97).limit(sourceLength).forEach(sliceOutput::appendByte);
-                    break;
-                case ".*(x|y).*":
+                }
+                case ".*(x|y).*" -> {
                     pattern = Slices.utf8Slice(".*(x|y).*");
                     IntStream.generate(() -> 97).limit(sourceLength).forEach(sliceOutput::appendByte);
-                    break;
-                case "longdotstar":
+                }
+                case "longdotstar" -> {
                     pattern = Slices.utf8Slice(".*coolfunctionname.*");
                     ThreadLocalRandom.current().ints(97, 123).limit(sourceLength).forEach(sliceOutput::appendByte);
-                    break;
-                case "phone":
+                }
+                case "phone" -> {
                     pattern = Slices.utf8Slice("\\d{3}/\\d{3}/\\d{4}");
                     // 47: '/', 48-57: '0'-'9'
                     ThreadLocalRandom.current().ints(47, 58).limit(sourceLength).forEach(sliceOutput::appendByte);
-                    break;
-                case "literal":
+                }
+                case "literal" -> {
                     pattern = Slices.utf8Slice("literal");
                     // 97-122: 'a'-'z'
                     ThreadLocalRandom.current().ints(97, 123).limit(sourceLength).forEach(sliceOutput::appendByte);
-                    break;
-                default:
-                    throw new IllegalArgumentException("pattern: " + patternString + " not supported");
+                }
+                default -> throw new IllegalArgumentException("pattern: " + patternString + " not supported");
             }
 
             joniPattern = joniRegexp(pattern);

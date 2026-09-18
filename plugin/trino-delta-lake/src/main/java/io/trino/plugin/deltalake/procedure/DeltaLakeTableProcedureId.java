@@ -15,5 +15,5 @@ package io.trino.plugin.deltalake.procedure;
 
 public enum DeltaLakeTableProcedureId
 {
-    OPTIMIZE,
+    OPTIMIZE
 }

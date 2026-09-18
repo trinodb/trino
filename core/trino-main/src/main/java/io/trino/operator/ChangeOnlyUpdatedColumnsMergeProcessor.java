@@ -22,8 +22,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class ChangeOnlyUpdatedColumnsMergeProcessor
         implements MergeRowChangeProcessor
 {
-    private static final Block INSERT_FROM_UPDATE_BLOCK = nativeValueToBlock(TINYINT, 0L);
+    private static final Block INSERT_FROM_UPDATE_BLOCK = writeNativeValue(TINYINT, 0L);
 
     private final int rowIdChannel;
     private final int mergeRowChannel;

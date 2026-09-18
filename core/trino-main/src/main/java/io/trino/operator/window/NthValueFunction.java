@@ -14,6 +14,7 @@
 package io.trino.operator.window;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.ValueWindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 
@@ -38,10 +39,31 @@ public class NthValueFunction
         this.ignoreNulls = ignoreNulls;
     }
 
+    @SqlNullable
     @Override
-    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition)
+    public void processRow(BlockBuilder output, int frameStart, int frameEnd, int currentPosition, int excludedStart, int excludedEnd, int keptRow)
     {
         if ((frameStart < 0) || windowIndex.isNull(offsetChannel, currentPosition)) {
+            output.appendNull();
+        }
+        else if (excludedStart <= excludedEnd) {
+            // the frame has a hole punched out by an EXCLUDE clause; count surviving positions (skipping nulls
+            // when IGNORE NULLS is specified) and output the offset-th one
+            long offset = windowIndex.getLong(offsetChannel, currentPosition);
+            checkCondition(offset >= 1, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 1");
+
+            long count = 0;
+            for (int position = frameStart; position <= frameEnd; position++) {
+                boolean excluded = position >= excludedStart && position <= excludedEnd && position != keptRow;
+                if (excluded || (ignoreNulls && windowIndex.isNull(valueChannel, position))) {
+                    continue;
+                }
+                count++;
+                if (count == offset) {
+                    windowIndex.appendTo(valueChannel, position, output);
+                    return;
+                }
+            }
             output.appendNull();
         }
         else {

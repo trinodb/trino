@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,12 +141,6 @@ public class MongoPageSource
     }
 
     @Override
-    public long getMemoryUsage()
-    {
-        return 0L;
-    }
-
-    @Override
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
@@ -223,7 +218,7 @@ public class MongoPageSource
                     type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));
                 }
                 else {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getDisplayName());
                 }
             }
             else if (javaType == double.class) {
@@ -248,7 +243,7 @@ public class MongoPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getDisplayName());
             }
         }
         catch (ClassCastException ignore) {
@@ -295,7 +290,7 @@ public class MongoPageSource
             type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 
@@ -325,7 +320,7 @@ public class MongoPageSource
             }
             if (value instanceof Map<?, ?> document) {
                 ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
-                    for (Map.Entry<?, ?> entry : document.entrySet()) {
+                    for (Entry<?, ?> entry : document.entrySet()) {
                         appendTo(mapType.getKeyType(), entry.getKey(), keyBuilder);
                         appendTo(mapType.getValueType(), entry.getValue(), valueBuilder);
                     }
@@ -380,7 +375,7 @@ public class MongoPageSource
             }
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getDisplayName());
         }
 
         // not a convertible value

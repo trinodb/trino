@@ -29,7 +29,6 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.PICOSECONDS_PER_SECOND;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfDay;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMicrosToMillis;
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
@@ -38,6 +37,7 @@ import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.joda.time.DateTimeZone.UTC;
 

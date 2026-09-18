@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.system.files;
 import org.apache.iceberg.ManifestContent;
 import org.apache.iceberg.ManifestFile;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -36,7 +37,8 @@ public record TrinoManifestFile(
         Long addedRowsCount,
         Long existingRowsCount,
         Long deletedRowsCount,
-        Long firstRowId)
+        Long firstRowId,
+        ByteBuffer keyMetadata)
         implements ManifestFile
 {
     private static final long INSTANCE_SIZE = instanceSize(TrinoManifestFile.class);
@@ -69,7 +71,8 @@ public record TrinoManifestFile(
                 + sizeOf(addedRowsCount)
                 + sizeOf(existingRowsCount)
                 + sizeOf(deletedRowsCount)
-                + sizeOf(firstRowId);
+                + sizeOf(firstRowId)
+                + (keyMetadata != null ? keyMetadata.remaining() : 0);
     }
 
     public static TrinoManifestFile from(ManifestFile manifestFile)
@@ -88,6 +91,7 @@ public record TrinoManifestFile(
                 manifestFile.addedRowsCount(),
                 manifestFile.existingRowsCount(),
                 manifestFile.deletedRowsCount(),
-                manifestFile.firstRowId());
+                manifestFile.firstRowId(),
+                manifestFile.keyMetadata());
     }
 }

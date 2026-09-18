@@ -108,6 +108,7 @@ public class SetTimeZoneTask
         Object timeZoneValue = evaluateConstant(
                 expression,
                 type,
+                parameterLookup,
                 plannerContext,
                 stateMachine.getSession(),
                 accessControl);

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.OptionalDouble;
 
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryProgressStats
@@ -36,7 +37,7 @@ public class TestQueryProgressStats
                 100000,
                 false,
                 OptionalDouble.of(33.33));
-        JsonCodec<QueryProgressStats> codec = JsonCodec.jsonCodec(QueryProgressStats.class);
+        JsonCodec<QueryProgressStats> codec = jsonCodec(QueryProgressStats.class);
 
         String json = codec.toJson(expected);
         QueryProgressStats actual = codec.fromJson(json);

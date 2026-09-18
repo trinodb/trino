@@ -14,7 +14,6 @@
 package io.trino.plugin.kafka;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
@@ -33,9 +32,9 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static java.util.Locale.ENGLISH;
 
 public class KafkaConnectorModule
         extends AbstractConfigurationAwareModule
@@ -57,17 +56,13 @@ public class KafkaConnectorModule
         binder.bind(KafkaFilterManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(KafkaConfig.class);
-        bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
-        bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule());
+
+        KafkaConfig kafkaConfig = buildConfigObject(KafkaConfig.class);
+        switch (kafkaConfig.getTableDescriptionSupplier().toLowerCase(ENGLISH)) {
+            case FileTableDescriptionSupplier.NAME -> install(new FileTableDescriptionSupplierModule());
+            case ConfluentSchemaRegistryTableDescriptionSupplier.NAME -> install(new ConfluentModule());
+        }
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
-    }
-
-    public void bindTopicSchemaProviderModule(String name, Module module)
-    {
-        install(conditionalModule(
-                KafkaConfig.class,
-                kafkaConfig -> name.equalsIgnoreCase(kafkaConfig.getTableDescriptionSupplier()),
-                module));
     }
 }

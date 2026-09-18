@@ -105,6 +105,7 @@ import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
@@ -198,6 +199,7 @@ public final class StatementUtils
             .add(basicStatement(ShowBranches.class, DESCRIBE))
             // Table Procedure
             .add(basicStatement(TableExecute.class, ALTER_TABLE_EXECUTE))
+            .add(basicStatement(MaterializedViewExecute.class, ALTER_TABLE_EXECUTE))
             // DML
             .add(basicStatement(CreateTableAsSelect.class, INSERT))
             .add(basicStatement(RefreshMaterializedView.class, INSERT))
@@ -276,10 +278,10 @@ public final class StatementUtils
         // ExplainAnalyze is special because it has the type of the target query.
         // It is thus not in STATEMENT_QUERY_TYPES and must be added here.
         return Stream.concat(
-                Stream.of(ExplainAnalyze.class),
-                STATEMENT_QUERY_TYPES.entrySet().stream()
-                        .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
-                        .map(Map.Entry::getKey))
+                        Stream.of(ExplainAnalyze.class),
+                        STATEMENT_QUERY_TYPES.entrySet().stream()
+                                .filter(entry -> entry.getValue().getQueryType() != DATA_DEFINITION)
+                                .map(Map.Entry::getKey))
                 .collect(toImmutableSet());
     }
 
@@ -326,7 +328,8 @@ public final class StatementUtils
         private final QueryType queryType;
         private final Optional<Class<? extends DataDefinitionTask<T>>> taskType;
 
-        private StatementTypeInfo(Class<T> statementType,
+        private StatementTypeInfo(
+                Class<T> statementType,
                 QueryType queryType,
                 Optional<Class<? extends DataDefinitionTask<T>>> taskType)
         {

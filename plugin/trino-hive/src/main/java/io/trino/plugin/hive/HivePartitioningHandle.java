@@ -21,6 +21,7 @@ import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 
@@ -80,7 +81,7 @@ public class HivePartitioningHandle
         hasher.putInt(bucketingVersion.getVersion());
         hasher.putInt(bucketCount);
         for (HiveType hiveType : hiveTypes) {
-            hasher.putString(hiveType.toString(), java.nio.charset.StandardCharsets.UTF_8);
+            hasher.putString(hiveType.toString(), StandardCharsets.UTF_8);
         }
         return hasher.hash().asLong();
     }

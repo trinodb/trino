@@ -50,7 +50,6 @@ import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.NON_DISCRE
 import static io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker.UNKNOWN;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -90,7 +89,7 @@ public final class SortedRangeSet
         DISCRETE,
         // empty set is also considered non discrete
         NON_DISCRETE,
-        UNKNOWN
+        UNKNOWN,
     }
 
     private SortedRangeSet(Type type, boolean[] inclusive, Block sortedRanges, DiscreteSetMarker discreteSetMarker)
@@ -273,7 +272,7 @@ public final class SortedRangeSet
     private static SortedRangeSet of(Type type, Object value)
     {
         checkNotNaN(type, value);
-        Block block = nativeValueToBlock(type, value);
+        Block block = writeNativeValue(type, value);
         return new SortedRangeSet(
                 type,
                 new boolean[] {true, true},
@@ -409,7 +408,7 @@ public final class SortedRangeSet
             return false;
         }
 
-        Block valueAsBlock = nativeValueToBlock(type, value);
+        Block valueAsBlock = writeNativeValue(type, value);
         RangeView valueRange = new RangeView(
                 type,
                 comparisonOperator,
@@ -909,7 +908,7 @@ public final class SortedRangeSet
      * @param toIndex the index of the last range in sortedRangeSet (exclusive) to be searched
      * @param range the range to be searched for
      * @return index of the overlapping range, if it is contained in the SortedRangeSet otherwise, (-(insertion point) - 1).
-     * The insertion point is defined as the point at which the range would be inserted into the SortedRangeSet
+     *         The insertion point is defined as the point at which the range would be inserted into the SortedRangeSet
      */
     private static int findRangeInsertionPoint(SortedRangeSet sortedRangeSet, int fromIndex, int toIndex, RangeView range)
     {

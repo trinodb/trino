@@ -14,12 +14,20 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Row;
+
+import java.util.List;
+
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.sql.ir.IrExpressions.cast;
 
 /**
  * Transforms expressions of the form
@@ -41,14 +49,23 @@ import io.trino.sql.ir.Row;
 public class PushCastIntoRow
         extends ExpressionRewriteRuleSet
 {
-    public PushCastIntoRow()
+    public PushCastIntoRow(PlannerContext plannerContext)
     {
-        super((expression, context) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(), expression, null));
+        super((expression, context) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(plannerContext.getTypeManager(), context.getSession()), expression, null));
     }
 
     private static class Rewriter
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
+        private final TypeManager typeManager;
+        private final Session session;
+
+        public Rewriter(TypeManager typeManager, Session session)
+        {
+            this.typeManager = typeManager;
+            this.session = session;
+        }
+
         @Override
         public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -57,13 +74,13 @@ public class PushCastIntoRow
             }
 
             Expression value = treeRewriter.rewrite(node.expression(), null);
-            if (value instanceof Row(java.util.List<Expression> expressions, RowType type)) {
+            if (value instanceof Row(List<Expression> expressions, RowType _)) {
                 ImmutableList.Builder<Expression> items = ImmutableList.builder();
                 for (int i = 0; i < expressions.size(); i++) {
                     Expression fieldValue = expressions.get(i);
                     Type fieldType = castToType.getFields().get(i).getType();
                     if (!fieldValue.type().equals(fieldType)) {
-                        fieldValue = new Cast(fieldValue, fieldType);
+                        fieldValue = cast(typeManager, getCharVarcharCoercion(session), fieldValue, fieldType);
                     }
                     items.add(fieldValue);
                 }

@@ -160,7 +160,7 @@ WHERE url = 'https://github.com/trinodb/trino.git'
 (connector-metadata)=
 ## ConnectorMetadata
 
-The connector metadata interface allows Trino to get a lists of schemas,
+The connector metadata interface allows Trino to get a list of schemas,
 tables, columns, and other metadata about a particular data source.
 
 A basic read-only connector should implement the following methods:
@@ -768,9 +768,9 @@ The following example creates a SqlMap object for a `map(varchar, varchar)` colu
 ```java
 private SqlMap encodeMap(Map<String, ?> map)
 {
-    MapType mapType = typeManager.getType(TypeSignature.mapType(
-                            VARCHAR.getTypeSignature(),
-                            VARCHAR.getTypeSignature()));
+    MapType mapType = typeManager.getType(TypeDescriptor.mapType(
+                            VARCHAR.getTypeDescriptor(),
+                            VARCHAR.getTypeDescriptor()));
     MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
@@ -837,3 +837,8 @@ public CompletableFuture<?> appendPage(Page page)
     return NOT_BLOCKED;
 }
 ```
+
+:::{note}
+When packaging the connector with Trino as a new dependency, register the
+artifact in `core/trino-server/src/main/provisio/trino.xml`
+:::

@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.configuration.ThreadCountParser;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -58,7 +59,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.queue-config-file",
         "query.remote-task.max-consecutive-error-count",
         "query.remote-task.min-error-duration",
-        "retry-attempts"
+        "retry-attempts",
 })
 public class QueryManagerConfig
 {
@@ -74,38 +75,40 @@ public class QueryManagerConfig
     private int maxQueuedQueries = 5000;
 
     private boolean determinePartitionCountForWriteEnabled;
+    private boolean directTrinoClientFaultTolerantExecutionEnabled = true;
     private int maxHashPartitionCount = 100;
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
     private int maxWriterTaskCount = 100;
-    private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
+    private Duration minQueryExpireAge = new Duration(15, MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
     private int maxStageCount = 150;
     private int stageCountWarningThreshold = 50;
 
-    private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
+    private Duration clientTimeout = new Duration(5, MINUTES);
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
     private int maxStateMachineCallbackThreads = 5;
     private int maxSplitManagerCallbackThreads = 100;
 
-    private Duration remoteTaskMaxErrorDuration = new Duration(1, TimeUnit.MINUTES);
+    private Duration remoteTaskMaxErrorDuration = new Duration(1, MINUTES);
     private int remoteTaskMaxCallbackThreads = 1000;
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
-    private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
+    private Duration queryMaxPlanningTime = new Duration(10, MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
     private Optional<DataSize> queryMaxWritePhysicalSize = Optional.empty();
+    private Optional<DataSize> queryMaxOutputDataSize = Optional.empty();
     private int queryReportedRuleStatsLimit = 10;
     private int dispatcherQueryPoolSize = DISPATCHER_THREADPOOL_MAX_SIZE;
 
     private int requiredWorkers = 1;
-    private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private Duration requiredWorkersMaxWait = new Duration(5, MINUTES);
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
@@ -239,6 +242,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setDeterminePartitionCountForWriteEnabled(boolean determinePartitionCountForWriteEnabled)
     {
         this.determinePartitionCountForWriteEnabled = determinePartitionCountForWriteEnabled;
+        return this;
+    }
+
+    public boolean isDirectTrinoClientFaultTolerantExecutionEnabled()
+    {
+        return directTrinoClientFaultTolerantExecutionEnabled;
+    }
+
+    @Config("direct-trino-client.fault-tolerant-execution-enabled")
+    @ConfigDescription("Allow DirectTrinoClient to consume results of queries running under fault-tolerant execution; when disabled such queries are forced to retry_policy=NONE")
+    public QueryManagerConfig setDirectTrinoClientFaultTolerantExecutionEnabled(boolean directTrinoClientFaultTolerantExecutionEnabled)
+    {
+        this.directTrinoClientFaultTolerantExecutionEnabled = directTrinoClientFaultTolerantExecutionEnabled;
         return this;
     }
 
@@ -524,6 +540,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxWritePhysicalSize(DataSize queryMaxWritePhysicalSize)
     {
         this.queryMaxWritePhysicalSize = Optional.ofNullable(queryMaxWritePhysicalSize);
+        return this;
+    }
+
+    @NotNull
+    public Optional<@MinDataSize("1MB") DataSize> getQueryMaxOutputDataSize()
+    {
+        return queryMaxOutputDataSize;
+    }
+
+    @Config("query.max-output-data-size")
+    public QueryManagerConfig setQueryMaxOutputDataSize(DataSize queryMaxOutputDataSize)
+    {
+        this.queryMaxOutputDataSize = Optional.ofNullable(queryMaxOutputDataSize);
         return this;
     }
 

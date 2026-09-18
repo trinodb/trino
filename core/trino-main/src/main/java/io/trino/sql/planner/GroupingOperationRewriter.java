@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -37,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +53,8 @@ public final class GroupingOperationRewriter
             List<Set<Integer>> groupingSets,
             Map<NodeRef<io.trino.sql.tree.Expression>, ResolvedField> columnReferenceFields,
             Optional<Symbol> groupIdSymbol,
-            Metadata metadata)
+            Metadata metadata,
+            Session session)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -62,8 +65,8 @@ public final class GroupingOperationRewriter
         // See SQL:2011:4.16.2 and SQL:2011:6.9.10.
         if (groupingSets.size() == 1) {
             return switch (type) {
-                case BigintType unused -> new Constant(BIGINT, 0L);
-                case IntegerType unused -> new Constant(INTEGER, 0L);
+                case BigintType _ -> new Constant(BIGINT, 0L);
+                case IntegerType _ -> new Constant(INTEGER, 0L);
                 default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
             };
         }
@@ -82,19 +85,19 @@ public final class GroupingOperationRewriter
         List<Expression> groupingResults = groupingSets.stream()
                 .map(groupingSet -> calculateGrouping(groupingSet, columns))
                 .map(value -> switch (type) {
-                    case BigintType unused -> new Constant(BIGINT, value);
-                    case IntegerType unused -> new Constant(INTEGER, value);
+                    case BigintType _ -> new Constant(BIGINT, value);
+                    case IntegerType _ -> new Constant(INTEGER, value);
                     default -> throw new IllegalArgumentException("Unexpected type for GROUPING operation: " + type);
                 })
                 .collect(toImmutableList());
 
         // It is necessary to add a 1 to the groupId because the underlying array is indexed starting at 1
         return new Call(
-                metadata.resolveOperator(OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
+                metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.SUBSCRIPT, ImmutableList.of(new ArrayType(type), BIGINT)),
                 ImmutableList.of(
                         new Array(type, groupingResults),
                         new Call(
-                                metadata.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
+                                metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT)),
                                 ImmutableList.of(groupIdSymbol.get().toSymbolReference(), new Constant(BIGINT, 1L)))));
     }
 
@@ -121,12 +124,12 @@ public final class GroupingOperationRewriter
      * function.
      *
      * @param columns The column arguments with which the function was invoked
-     * converted to ordinals with respect to the base table column ordering.
+     *         converted to ordinals with respect to the base table column ordering.
      * @param groupingSet A collection containing the ordinals of the
-     * columns present in the grouping.
+     *         columns present in the grouping.
      * @return A bit set converted to decimal indicating which columns are present in
-     * the grouping. If a column is NOT present in the grouping its corresponding
-     * bit is set to 1 and to 0 if the column is present in the grouping.
+     *         the grouping. If a column is NOT present in the grouping its corresponding
+     *         bit is set to 1 and to 0 if the column is present in the grouping.
      */
     static long calculateGrouping(Set<Integer> groupingSet, List<Integer> columns)
     {

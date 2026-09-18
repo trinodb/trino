@@ -35,7 +35,7 @@ public class TestJsonUtils
     enum TestEnum
     {
         OPTION_A,
-        OPTION_B
+        OPTION_B,
     }
 
     public static class TestObject
@@ -54,12 +54,11 @@ public class TestJsonUtils
 
     @Test
     public void testTrailingContent()
-            throws IOException
     {
         // parseJson(String)
         assertThatThrownBy(() -> parseJson("{} {}}", JsonNode.class))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Found characters after the expected end of input");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessage("Could not parse JSON");
         assertThatThrownBy(() -> parseJson("{} not even a JSON here", JsonNode.class))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessage("Could not parse JSON")
@@ -67,8 +66,8 @@ public class TestJsonUtils
 
         // parseJson(byte[], Class)
         assertThatThrownBy(() -> parseJson("{} {}}".getBytes(US_ASCII), TestObject.class))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Found characters after the expected end of input");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessage("Could not parse JSON");
         assertThatThrownBy(() -> parseJson("{} not even a JSON here".getBytes(US_ASCII), TestObject.class))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessage("Could not parse JSON")

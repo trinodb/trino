@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metastore.HivePartition;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Iterator;
@@ -42,6 +43,7 @@ public class HivePartitionResult
     private final Optional<HiveTablePartitioning> tablePartitioning;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<String>> partitionNames;
+    private final ConnectorExpressionEvaluator.Prepared prepared;
 
     public HivePartitionResult(
             List<HiveColumnHandle> partitionColumns,
@@ -50,7 +52,8 @@ public class HivePartitionResult
             TupleDomain<ColumnHandle> effectivePredicate,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveTablePartitioning> tablePartitioning,
-            Optional<HiveBucketFilter> bucketFilter)
+            Optional<HiveBucketFilter> bucketFilter,
+            ConnectorExpressionEvaluator.Prepared prepared)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.partitionNames = partitionNames.map(ImmutableList::copyOf);
@@ -59,6 +62,7 @@ public class HivePartitionResult
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.tablePartitioning = requireNonNull(tablePartitioning, "tablePartitioning is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        this.prepared = requireNonNull(prepared, "prepared is null");
     }
 
     public List<HiveColumnHandle> getPartitionColumns()
@@ -94,5 +98,10 @@ public class HivePartitionResult
     public Optional<HiveBucketFilter> getBucketFilter()
     {
         return bucketFilter;
+    }
+
+    public ConnectorExpressionEvaluator.Prepared getPrepared()
+    {
+        return prepared;
     }
 }

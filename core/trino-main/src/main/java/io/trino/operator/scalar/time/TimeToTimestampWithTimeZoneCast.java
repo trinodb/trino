@@ -26,14 +26,15 @@ import java.time.ZoneId;
 
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
-import static io.trino.type.DateTimes.SECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.rescale;
-import static io.trino.type.DateTimes.round;
 import static java.lang.Math.multiplyExact;
 
+// TODO (https://github.com/trinodb/trino/issues/29896) this likely can be declared as neverFails=true
 @ScalarOperator(CAST)
 public final class TimeToTimestampWithTimeZoneCast
 {

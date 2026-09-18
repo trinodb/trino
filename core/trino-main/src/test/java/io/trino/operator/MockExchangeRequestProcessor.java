@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableListMultimap;
+import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
@@ -28,7 +29,6 @@ import io.airlift.units.DataSize;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.server.InternalHeaders;
 import io.trino.spi.Page;
 
 import java.net.URI;
@@ -43,24 +43,25 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static io.airlift.http.client.HeaderNames.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
-import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
-import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED_HEADER;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID_HEADER;
 import static io.trino.server.PagesInputStreamFactory.SERIALIZED_PAGES_MAGIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MockExchangeRequestProcessor
         implements TestingHttpClient.Processor
 {
-    private static final String TASK_INSTANCE_ID = "task-instance-id";
+    private static final long TASK_INSTANCE_ID = 0x1337;
 
     private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
@@ -101,8 +102,8 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertThat(request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE)).isNotEmpty();
-        DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
+        assertThat(request.getHeaders().get(TRINO_MAX_SIZE_HEADER)).isNotEmpty();
+        DataSize maxSize = DataSize.valueOf(request.getHeader(TRINO_MAX_SIZE_HEADER));
         assertThat(maxSize).isEqualTo(expectedMaxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
@@ -112,12 +113,12 @@ public class MockExchangeRequestProcessor
 
         byte[] bytes = new byte[0];
         HttpStatus status;
-        if (!result.getSerializedPages().isEmpty()) {
+        if (!result.serializedPages().isEmpty()) {
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(64);
             sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
-            sliceOutput.writeLong(calculateChecksum(result.getSerializedPages()));
-            sliceOutput.writeInt(result.getSerializedPages().size());
-            for (Slice page : result.getSerializedPages()) {
+            sliceOutput.writeLong(calculateChecksum(result.serializedPages()));
+            sliceOutput.writeInt(result.serializedPages().size());
+            for (Slice page : result.serializedPages()) {
                 sliceOutput.writeBytes(page);
             }
             bytes = sliceOutput.slice().getBytes();
@@ -129,13 +130,13 @@ public class MockExchangeRequestProcessor
 
         return new TestingResponse(
                 status,
-                ImmutableListMultimap.<String, String>builder()
+                ImmutableListMultimap.<HeaderName, String>builder()
                         .put(CONTENT_TYPE, TRINO_PAGES)
-                        .put(TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()))
-                        .put(TRINO_PAGE_TOKEN, String.valueOf(result.getToken()))
-                        .put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()))
-                        .put(TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete()))
-                        .put(TRINO_TASK_FAILED, "false")
+                        .put(TRINO_TASK_INSTANCE_ID_HEADER, String.valueOf(result.taskInstanceId()))
+                        .put(TRINO_PAGE_TOKEN_HEADER, String.valueOf(result.token()))
+                        .put(TRINO_PAGE_NEXT_TOKEN_HEADER, String.valueOf(result.nextToken()))
+                        .put(TRINO_BUFFER_COMPLETE_HEADER, String.valueOf(result.bufferComplete()))
+                        .put(TRINO_TASK_FAILED_HEADER, "false")
                         .build(),
                 bytes);
     }

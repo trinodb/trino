@@ -24,21 +24,21 @@ public final class QuantileDigestOperators
 {
     private QuantileDigestOperators() {}
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryDouble(@SqlType("qdigest(double)") Slice slice)
     {
         return slice;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryBigint(@SqlType("qdigest(bigint)") Slice slice)
     {
         return slice;
     }
 
-    @ScalarOperator(CAST)
+    @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
     public static Slice castToBinaryReal(@SqlType("qdigest(real)") Slice slice)
     {

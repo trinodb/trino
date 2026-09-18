@@ -21,9 +21,11 @@ import com.google.inject.Key;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.jaxrs.JsonMapper;
+import io.airlift.jaxrs.JaxRsJsonMapper;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
@@ -53,6 +55,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTaskDescriptorStorage
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.hibernate.validator.internal.util.Version", Level.WARN);
+    }
+
     private static final QueryId QUERY_1 = new QueryId("query1");
     private static final QueryId QUERY_2 = new QueryId("query2");
 
@@ -116,7 +123,7 @@ public class TestTaskDescriptorStorage
     public void testDestroy()
     {
         // disable compression to get expected memory usage
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(5, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(10, KILOBYTE), jsonCodec(TaskDescriptor.class), jsonCodec(Split.class));
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(5, KILOBYTE), DataSize.of(10, KILOBYTE), DataSize.of(10, KILOBYTE), jsonCodec(TaskDescriptor.class));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
@@ -358,16 +365,17 @@ public class TestTaskDescriptorStorage
                 new JsonModule(),
                 new HandleJsonModule(),
                 binder -> {
-                    binder.bind(JsonMapper.class).in(Singleton.class);
+                    binder.bind(JaxRsJsonMapper.class).in(Singleton.class);
                     jsonCodecBinder(binder).bindJsonCodec(TaskDescriptor.class);
                     jsonCodecBinder(binder).bindJsonCodec(Split.class);
                 });
 
-        Injector injector = app.initialize();
-        JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
-        JsonCodec<Split> splitJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() { }));
+        Injector injector = app
+                .doNotInitializeLogging()
+                .initialize();
+        JsonCodec<TaskDescriptor> taskDescriptorJsonCodec = injector.getInstance(Key.get(new TypeLiteral<>() {}));
 
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(maxMemory, compressingHighWaterMark, compressingLowWaterMark, taskDescriptorJsonCodec, splitJsonCodec);
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(maxMemory, compressingHighWaterMark, compressingLowWaterMark, taskDescriptorJsonCodec);
         return manager;
     }
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ComparisonChain;
@@ -244,7 +244,7 @@ public final class AcidTables
 
         Map<String, String> metadata;
         try (var in = file.newStream()) {
-            metadata = new ObjectMapper().readValue(in, new TypeReference<>() {});
+            metadata = new JsonMapper().readValue(in, new TypeReference<>() {});
         }
         catch (IOException e) {
             throw new IOException("Failed to read %s: %s".formatted(file.location(), e.getMessage()), e);

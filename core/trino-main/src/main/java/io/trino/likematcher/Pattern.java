@@ -16,7 +16,9 @@ package io.trino.likematcher;
 import static com.google.common.base.Preconditions.checkArgument;
 
 sealed interface Pattern
-        permits Pattern.Any, Pattern.Literal, Pattern.ZeroOrMore
+        permits Pattern.Any,
+                Pattern.Literal,
+                Pattern.ZeroOrMore
 {
     record Literal(String value)
             implements Pattern

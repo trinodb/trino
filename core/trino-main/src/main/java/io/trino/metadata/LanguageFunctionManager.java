@@ -46,9 +46,10 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
-import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.analyzer.TypeDescriptorTranslator;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.routine.SqlRoutineAnalysis;
 import io.trino.sql.routine.SqlRoutineAnalyzer;
@@ -77,12 +78,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.PropertyUtil.evaluateProperties;
 import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.TypeTemplates.toTypeDescriptor;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -234,7 +237,7 @@ public class LanguageFunctionManager
 
     public static boolean isInlineFunction(CatalogSchemaFunctionName functionName)
     {
-        return functionName.getCatalogName().equals(GlobalSystemConnector.NAME) && functionName.getSchemaName().equals(QUERY_LOCAL_SCHEMA);
+        return functionName.catalogName().equals(GlobalSystemConnector.NAME) && functionName.schemaName().equals(QUERY_LOCAL_SCHEMA);
     }
 
     public static boolean isTrinoSqlLanguageFunction(FunctionId functionId)
@@ -254,7 +257,7 @@ public class LanguageFunctionManager
     {
         return parameters.stream()
                 .map(ParameterDeclaration::getType)
-                .map(TypeSignatureTranslator::toTypeSignature)
+                .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(typeManager::getType)
                 .map(Type::getTypeId)
                 .map(TypeId::getId)
@@ -372,7 +375,7 @@ public class LanguageFunctionManager
             }
 
             IrRoutine routine = data.irRoutine().orElseThrow();
-            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager).compile(routine);
+            SpecializedSqlScalarFunction function = new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(data.charVarcharCoercion(), routine);
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
@@ -430,7 +433,7 @@ public class LanguageFunctionManager
                 Set<String> names = implementations.stream()
                         .map(function -> function.getFunctionMetadata().getCanonicalName())
                         .collect(toImmutableSet());
-                if (!names.isEmpty() && !names.equals(Set.of(name.getFunctionName()))) {
+                if (!names.isEmpty() && !names.equals(Set.of(name.functionName()))) {
                     throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Catalog %s returned functions named %s when listing functions named %s".formatted(catalogHandle.getCatalogName(), names, name));
                 }
 
@@ -503,7 +506,7 @@ public class LanguageFunctionManager
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
                 if (!engineFunction) {
-                    new SqlRoutineCompiler(functionManager).compile(routine);
+                    new SqlRoutineCompiler(functionManager, plannerContext.getMetadata(), typeManager).compile(getCharVarcharCoercion(session), routine);
                 }
             }
 
@@ -514,7 +517,7 @@ public class LanguageFunctionManager
                 }
 
                 if (engineFunction) {
-                    data = LanguageFunctionData.ofDefinition(analyzeEngineFunction(functionContext(accessControl)));
+                    data = LanguageFunctionData.ofDefinition(analyzeEngineFunction(functionContext(accessControl)), getCharVarcharCoercion(session));
                     resolvedFunctionId = functionMetadata.getFunctionId();
                     return;
                 }
@@ -531,7 +534,7 @@ public class LanguageFunctionManager
 
                 SqlRoutineAnalysis analysis = analyzeSqlFunction(functionContext(accessControl));
                 routine = planner.planSqlFunction(session, analysis);
-                data = LanguageFunctionData.ofIrRoutine(routine);
+                data = LanguageFunctionData.ofIrRoutine(routine, getCharVarcharCoercion(session));
 
                 Hasher hasher = Hashing.sha256().newHasher();
                 SqlRoutineHash.hash(routine, hasher, blockEncodingSerde);
@@ -565,9 +568,10 @@ public class LanguageFunctionManager
 
             private LanguageFunctionDefinition engineFunctionDefinition(FunctionContext context)
             {
-                Type returnType = typeManager.getType(functionMetadata.getSignature().getReturnType());
+                Type returnType = typeManager.getType(toTypeDescriptor(functionMetadata.getSignature().getReturnType()));
 
                 List<Type> argumentTypes = functionMetadata.getSignature().getArgumentTypes().stream()
+                        .map(TypeTemplates::toTypeDescriptor)
                         .map(typeManager::getType)
                         .collect(toImmutableList());
 

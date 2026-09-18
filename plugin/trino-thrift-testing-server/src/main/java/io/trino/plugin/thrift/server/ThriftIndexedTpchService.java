@@ -94,9 +94,9 @@ public class ThriftIndexedTpchService
     protected ConnectorPageSource createLookupPageSource(SplitInfo splitInfo, List<String> outputColumnNames)
     {
         IndexedTable indexedTable = indexedData.getIndexedTable(
-                splitInfo.getTableName(),
-                schemaNameToScaleFactor(splitInfo.getSchemaName()),
-                ImmutableSet.copyOf(splitInfo.getLookupColumnNames()))
+                        splitInfo.getTableName(),
+                        schemaNameToScaleFactor(splitInfo.getSchemaName()),
+                        ImmutableSet.copyOf(splitInfo.getLookupColumnNames()))
                 .orElseThrow(() -> new IllegalArgumentException(format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
         RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);

@@ -17,10 +17,13 @@ import com.google.cloud.bigquery.FieldValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
+import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -50,9 +53,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -81,6 +84,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
+    private static final RetryPolicy<Object> BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(BaseBigQueryConnectorTest::isTransientBigQueryFailure)
+            .withDelay(java.time.Duration.ofSeconds(10))
+            .withMaxAttempts(3)
+            .build();
+
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
     private String bigQueryConnectionId;
@@ -100,22 +109,62 @@ public abstract class BaseBigQueryConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DEFAULT_COLUMN_VALUE,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    @Override // BigQuery connector exposes location property
+    public void testShowCreateSchema()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                .isEqualTo(
+                        """
+                        CREATE SCHEMA %s.%s
+                        WITH (
+                           location = 'US'
+                        )""".formatted(getSession().getCatalog().orElseThrow(), schemaName));
+    }
+
+    @Test
+    public void testCreateSchemaWithLocation()
+    {
+        String schemaName = "test_schema_with_location_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 'us-east1')");
+            assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
+                    .contains("location = 'us-east1'");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
+    }
+
+    @Test
+    public void testCreateSchemaWithInvalidLocation()
+    {
+        String schemaName = "test_schema_with_invalid_location_" + randomNameSuffix();
+        try {
+            assertQueryFails("CREATE SCHEMA " + schemaName + " WITH (location = 'invalid-location')", "Failed to create schema.*");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test
@@ -145,6 +194,36 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDeleteWithVarcharPredicate);
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testDelete);
+    }
+
+    @Test
+    @Override
+    public void testRowLevelDelete()
+    {
+        // there is a brief delay before newly written data becomes visible in the BigQuery connector
+        // https://github.com/trinodb/trino/issues/20894
+        Failsafe.with(RetryPolicy.builder().withMaxAttempts(3).build())
+                .run(super::testRowLevelDelete);
     }
 
     @Test
@@ -255,6 +334,15 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    @Override
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)
+                .hasMessage("Unsupported column type: char(5)")
+                .hasStackTraceContaining("SQL: CREATE TABLE test_char_to_varchar_cast");
+    }
+
+    @Test
     public void testEmptyProjectionTable()
     {
         testEmptyProjection(
@@ -344,6 +432,11 @@ public abstract class BaseBigQueryConnectorTest
         }
         return Optional.of(dataMappingTestSetup);
     }
+
+    @Test
+    @Disabled // Type mapping is tested by BaseBigQueryTypeMapping. Disable this test to avoid the API rate limit.
+    @Override
+    public void testDataMappingSmokeTest() {}
 
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
@@ -636,7 +729,8 @@ public abstract class BaseBigQueryConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("""
+                .isEqualTo(
+                        """
                         CREATE TABLE bigquery.tpch.orders (
                            orderkey bigint NOT NULL,
                            custkey bigint NOT NULL,
@@ -824,8 +918,8 @@ public abstract class BaseBigQueryConnectorTest
 
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + objectExternalTable +
-                       " WITH CONNECTION `" + bigQueryConnectionId + "`" +
-                       " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+                    " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                    " OPTIONS (object_metadata = 'SIMPLE', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
             assertQuery("SELECT table_type FROM information_schema.tables WHERE table_schema = 'test' AND table_name = '" + objectExternalTable + "'", "VALUES 'BASE TABLE'");
 
             assertThat(query("SELECT uri FROM test." + objectExternalTable)).succeeds();
@@ -842,10 +936,11 @@ public abstract class BaseBigQueryConnectorTest
 
     private long getTableReferenceCountInJob(String tableName)
     {
-        return bigQuerySqlExecutor.executeQuery("""
-                         SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
-                             SELECT * FROM UNNEST(referenced_tables) AS referenced_table
-                                 WHERE referenced_table.table_id = '%s')
+        return bigQuerySqlExecutor.executeQuery(
+                        """
+                        SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                            SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                                WHERE referenced_table.table_id = '%s')
                         """.formatted(tableName)).streamValues()
                 .map(List::getFirst)
                 .map(FieldValue::getLongValue)
@@ -893,7 +988,7 @@ public abstract class BaseBigQueryConnectorTest
                 )\
                 """.formatted(expectedLabel);
 
-        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
+        assertEventually(new Duration(1, MINUTES), () -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
                 .singleElement()
                 .matches(statement -> statement.contains(expectedView)));
@@ -1423,14 +1518,16 @@ public abstract class BaseBigQueryConnectorTest
         return anyNot(
                 LimitNode.class,
                 node(
-                        AggregationNode.class, anyTree(node(
+                        AggregationNode.class,
+                        anyTree(node(
                                 AggregationNode.class,
-                                tableScan(table -> {
-                                    BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
-                                    return actualTableHandle.limit().equals(limit);
-                                },
-                                TupleDomain.all(),
-                                ImmutableMap.of())))));
+                                tableScan(
+                                        table -> {
+                                            BigQueryTableHandle actualTableHandle = (BigQueryTableHandle) table;
+                                            return actualTableHandle.limit().equals(limit);
+                                        },
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())))));
     }
 
     private void assertLimitPushdownReadsLessData(Session session, String tableName)
@@ -1537,6 +1634,13 @@ public abstract class BaseBigQueryConnectorTest
 
     private void onBigQuery(@Language("SQL") String sql)
     {
-        bigQuerySqlExecutor.execute(sql);
+        Failsafe.with(BIGQUERY_TRANSIENT_FAILURE_RETRY_POLICY)
+                .run(() -> bigQuerySqlExecutor.execute(sql));
+    }
+
+    private static boolean isTransientBigQueryFailure(Throwable throwable)
+    {
+        return getCausalChain(throwable).stream().anyMatch(cause ->
+                nullToEmpty(cause.getMessage()).contains("Visibility check was unavailable"));
     }
 }

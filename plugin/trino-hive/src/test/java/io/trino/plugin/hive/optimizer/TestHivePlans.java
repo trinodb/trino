@@ -24,11 +24,11 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.TestingHiveConnectorFactory;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.PrincipalType;
-import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
-import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -49,18 +49,22 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.SystemSessionProperties.ALLOW_UNSAFE_PUSHDOWN;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
-import static io.trino.sql.ir.Comparison.Operator.EQUAL;
-import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
+import static io.trino.sql.ir.TestingIr.comparison;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -88,7 +92,7 @@ public class TestHivePlans
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction LIKE = FUNCTIONS.resolveFunction("$like", fromTypes(createVarcharType(5), LIKE_PATTERN));
     private static final ResolvedFunction SUBSTRING = FUNCTIONS.resolveFunction("substring", fromTypes(createVarcharType(5), BIGINT));
-    private static final ResolvedFunction MODULUS_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULUS, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MODULO_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MODULO, ImmutableList.of(INTEGER, INTEGER));
 
     private File baseDir;
 
@@ -208,7 +212,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -228,13 +232,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(NOT_EQUAL, new Reference(createVarcharType(5), "L_STR_COL"), new Constant(createVarcharType(5), Slices.utf8Slice("three"))),
+                                                        comparison(NOT_EQUAL, new Reference(createVarcharType(5), "L_STR_COL"), new Constant(createVarcharType(5), Slices.utf8Slice("three"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -254,13 +258,13 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
+                                                        comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -277,16 +281,16 @@ public class TestHivePlans
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("L_INT_PART", "R_INT_COL")
-                                .filter(new Comparison(EQUAL, new Call(MODULUS_INTEGER, ImmutableList.of(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))
                                 .left(
                                         exchange(REMOTE, REPARTITION,
-                                                any(
+                                                filter(
+                                                        comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "L_INT_PART"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L), new Constant(INTEGER, 4L)),
+                                                                new Logical(AND, ImmutableList.of(new In(new Reference(INTEGER, "R_INT_COL"), ImmutableList.of(new Constant(INTEGER, 2L), new Constant(INTEGER, 4L))), comparison(EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)))),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -309,7 +313,7 @@ public class TestHivePlans
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         filter(
-                                                                new Between(new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
+                                                                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(HIVE_SESSION), emptySymbolAllocator(), new Reference(INTEGER, "R_INT_COL"), new Constant(INTEGER, 1L), new Constant(INTEGER, 5L)),
                                                                 tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -328,8 +332,66 @@ public class TestHivePlans
                                                 tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))
                                 .right(
                                         exchange(LOCAL,
-                                                exchange(REMOTE, REPLICATE,
+                                                exchange(REMOTE,
+                                                        REPLICATE,
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col"))))))));
+    }
+
+    @Test
+    public void testUnsafePushdownPreservesConjunctOrder()
+    {
+        // Unsafe pushdown places may-fail conjuncts below the join in their written position.
+        Session unsafePushdown = Session.builder(noJoinReordering())
+                .setSystemProperty(ALLOW_UNSAFE_PUSHDOWN, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT l.str_col FROM table_unpartitioned l JOIN table_unpartitioned r ON l.int_col = r.int_col " +
+                        "WHERE l.int_col % l.int_col >= 0 AND l.str_col LIKE '%t%'",
+                unsafePushdown,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_COL", "R_INT_COL")
+                                .left(
+                                        exchange(REMOTE, REPARTITION,
+                                                filter(
+                                                        new Logical(AND, ImmutableList.of(
+                                                                comparison(GREATER_THAN_OR_EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "L_INT_COL"), new Reference(INTEGER, "L_INT_COL"))), new Constant(INTEGER, 0L)),
+                                                                new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("%t%", Optional.empty())))))),
+                                                        tableScan("table_unpartitioned", Map.of("L_STR_COL", "str_col", "L_INT_COL", "int_col")))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION,
+                                                        filter(
+                                                                comparison(GREATER_THAN_OR_EQUAL, new Call(MODULO_INTEGER, ImmutableList.of(new Reference(INTEGER, "R_INT_COL"), new Reference(INTEGER, "R_INT_COL"))), new Constant(INTEGER, 0L)),
+                                                                tableScan("table_unpartitioned", Map.of("R_INT_COL", "int_col")))))))));
+    }
+
+    @Test
+    public void testUnsafePushdownMayFailEqualityJoinsInference()
+    {
+        // A may-fail equality feeds equality inference, so the left filter holds a derived equality.
+        Session unsafePushdown = Session.builder(noJoinReordering())
+                .setSystemProperty(ALLOW_UNSAFE_PUSHDOWN, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT l.str_col FROM table_unpartitioned l JOIN table_unpartitioned r ON l.int_col = r.int_col " +
+                        "WHERE CAST(l.str_col AS integer) = r.int_col AND l.str_col LIKE '%t%'",
+                unsafePushdown,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_INT_COL", "R_INT_COL")
+                                .left(
+                                        exchange(REMOTE, REPARTITION,
+                                                filter(
+                                                        new Logical(AND, ImmutableList.of(
+                                                                comparison(EQUAL, new Cast(new Reference(createVarcharType(5), "L_STR_COL"), INTEGER), new Reference(INTEGER, "L_INT_COL")),
+                                                                new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("%t%", Optional.empty())))))),
+                                                        tableScan("table_unpartitioned", Map.of("L_STR_COL", "str_col", "L_INT_COL", "int_col")))))
+                                .right(
+                                        exchange(LOCAL,
+                                                exchange(REMOTE,
+                                                        REPARTITION,
+                                                        tableScan("table_unpartitioned", Map.of("R_INT_COL", "int_col"))))))));
     }
 
     // Disable join ordering so that expected plans are well defined.

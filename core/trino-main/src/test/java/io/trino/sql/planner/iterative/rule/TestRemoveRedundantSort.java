@@ -32,8 +32,7 @@ public class TestRemoveRedundantSort
     {
         tester().assertThat(new RemoveRedundantSort())
                 .on(p ->
-                        p.sort(
-                                ImmutableList.of(p.symbol("c")),
+                        p.sort(ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .globalGrouping()
@@ -48,8 +47,7 @@ public class TestRemoveRedundantSort
     {
         tester().assertThat(new RemoveRedundantSort())
                 .on(p ->
-                        p.sort(
-                                ImmutableList.of(p.symbol("c")),
+                        p.sort(ImmutableList.of(p.symbol("c")),
                                 p.values(p.symbol("foo"))))
                 .matches(node(ValuesNode.class));
     }
@@ -59,8 +57,7 @@ public class TestRemoveRedundantSort
     {
         tester().assertThat(new RemoveRedundantSort())
                 .on(p ->
-                        p.sort(
-                                ImmutableList.of(p.symbol("c")),
+                        p.sort(ImmutableList.of(p.symbol("c")),
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), aggregation("count", ImmutableList.of(new Reference(BIGINT, "foo"))), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))

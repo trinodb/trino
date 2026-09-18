@@ -174,8 +174,7 @@ public class NodeStateManager
                 }
             }
 
-            case INACTIVE, DRAINED, INVALID, GONE ->
-                    throw new IllegalArgumentException("Cannot transition state to internal state " + state);
+            case INACTIVE, DRAINED, INVALID, GONE -> throw new IllegalArgumentException("Cannot transition state to internal state " + state);
         }
 
         throw new IllegalStateException(format("Invalid state transition from %s to %s", currState, state));
@@ -284,9 +283,9 @@ public class NodeStateManager
         final CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
         for (TaskInfo taskInfo : activeTasks) {
-            sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().getTaskId(), newState -> {
+            sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().taskId(), newState -> {
                 if (newState.isDone()) {
-                    log.info("Task %s has finished", taskInfo.taskStatus().getTaskId());
+                    log.info("Task %s has finished", taskInfo.taskStatus().taskId());
                     countDownLatch.countDown();
                 }
             });
@@ -311,7 +310,7 @@ public class NodeStateManager
     {
         return taskInfoSupplier.get()
                 .stream()
-                .filter(taskInfo -> !taskInfo.taskStatus().getState().isDone())
+                .filter(taskInfo -> !taskInfo.taskStatus().state().isDone())
                 .collect(toImmutableList());
     }
 

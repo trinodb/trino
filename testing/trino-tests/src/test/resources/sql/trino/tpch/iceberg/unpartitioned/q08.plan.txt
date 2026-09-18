@@ -17,7 +17,7 @@ remote exchange (GATHER, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [orderkey])
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (partkey_5::EQUAL, suppkey_6::EQUAL)
+                                                                dynamic filter (suppkey_6::EQUAL, partkey_5::EQUAL)
                                                                     scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])

@@ -67,7 +67,7 @@ final class ColumnarTestUtils
             Slice[] expectedValues = (Slice[]) expectedValue;
             for (int fieldIndex = 0; fieldIndex < fieldBlocks.size(); fieldIndex++) {
                 Block fieldBlock = fieldBlocks.get(fieldIndex);
-                Type fieldType = rowType.getTypeParameters().get(fieldIndex);
+                Type fieldType = rowType.getFields().get(fieldIndex).getType();
                 assertBlockPosition(fieldType, fieldBlock, rawIndex, expectedValues[fieldIndex]);
             }
         }

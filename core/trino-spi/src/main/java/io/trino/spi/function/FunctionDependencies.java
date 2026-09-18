@@ -14,13 +14,13 @@
 package io.trino.spi.function;
 
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeDescriptor;
 
 import java.util.List;
 
 public interface FunctionDependencies
 {
-    Type getType(TypeSignature typeSignature);
+    Type getType(TypeDescriptor typeDescriptor);
 
     FunctionNullability getFunctionNullability(CatalogSchemaFunctionName name, List<Type> parameterTypes);
 
@@ -30,13 +30,13 @@ public interface FunctionDependencies
 
     ScalarFunctionImplementation getScalarFunctionImplementation(CatalogSchemaFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementationSignature(CatalogSchemaFunctionName name, List<TypeDescriptor> parameterTypes, InvocationConvention invocationConvention);
 
     ScalarFunctionImplementation getOperatorImplementation(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeDescriptor> parameterTypes, InvocationConvention invocationConvention);
 
     ScalarFunctionImplementation getCastImplementation(Type fromType, Type toType, InvocationConvention invocationConvention);
 
-    ScalarFunctionImplementation getCastImplementationSignature(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getCastImplementationSignature(TypeDescriptor fromType, TypeDescriptor toType, InvocationConvention invocationConvention);
 }

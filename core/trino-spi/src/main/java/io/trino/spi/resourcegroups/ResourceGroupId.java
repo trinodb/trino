@@ -16,14 +16,18 @@ package io.trino.spi.resourcegroups;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public final class ResourceGroupId
 {
@@ -58,6 +62,15 @@ public final class ResourceGroupId
             }
         }
         this.segments = segments;
+    }
+
+    // this is needed by JAX-RS, see: org.glassfish.jersey.internal.util.ReflectionHelper
+    public static ResourceGroupId valueOf(String value)
+    {
+        return new ResourceGroupId(
+                Arrays.stream(value.split("/"))
+                        .map(part -> URLDecoder.decode(part, UTF_8))
+                        .collect(toUnmodifiableList()));
     }
 
     public String getLastSegment()

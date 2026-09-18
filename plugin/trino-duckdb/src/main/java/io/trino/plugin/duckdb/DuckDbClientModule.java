@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.duckdb.DuckDBDriver;
 
@@ -34,6 +35,7 @@ import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.duckdb.DuckDBDriver.DUCKDB_USER_AGENT_PROPERTY;
 
 public final class DuckDbClientModule
         extends AbstractConfigurationAwareModule
@@ -49,15 +51,20 @@ public final class DuckDbClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory connectionFactory(
+            BaseJdbcConfig config,
+            CredentialProvider credentialProvider,
+            OpenTelemetry openTelemetry,
+            NodeVersion nodeVersion)
     {
         Properties connectionProperties = new Properties();
-        return DriverConnectionFactory.builder(
+        connectionProperties.setProperty(DUCKDB_USER_AGENT_PROPERTY, "trino/" + nodeVersion.toString());
+        return new DuplicatingConnectionFactory(credentialProvider, DriverConnectionFactory.builder(
                         new DuckDBDriver(),
                         config.getConnectionUrl(),
                         credentialProvider)
                 .setConnectionProperties(connectionProperties)
                 .setOpenTelemetry(openTelemetry)
-                .build();
+                .build());
     }
 }

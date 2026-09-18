@@ -58,7 +58,7 @@ final class TestArrayBlockBuilder
         assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
-    //TODO we should systematically test Block::getRetainedSizeInBytes()
+    // TODO we should systematically test Block::getRetainedSizeInBytes()
     @Test
     public void testRetainedSizeInBytes()
     {
@@ -79,7 +79,7 @@ final class TestArrayBlockBuilder
         ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
         blockBuilder.buildEntry(elementBuilder -> {
             BIGINT.writeLong(elementBuilder, 45);
-            assertThatThrownBy(() -> blockBuilder.buildEntry(ignore -> {}))
+            assertThatThrownBy(() -> blockBuilder.buildEntry(_ -> {}))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Expected current entry to be closed but was opened");
         });

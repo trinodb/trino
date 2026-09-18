@@ -19,7 +19,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ProjectNode;
 
-import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static io.trino.sql.planner.plan.Patterns.project;
@@ -51,7 +51,7 @@ public class ProjectStatsRule
         PlanNodeStatsEstimate.Builder calculatedStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(sourceStats.getOutputRowCount());
 
-        for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
+        for (Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
             calculatedStats.addSymbolStatistics(entry.getKey(), scalarStatsCalculator.calculate(entry.getValue(), sourceStats, context.session()));
         }
         return Optional.of(calculatedStats.build());

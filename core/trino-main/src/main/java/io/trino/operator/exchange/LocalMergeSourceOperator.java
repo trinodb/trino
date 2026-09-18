@@ -80,7 +80,7 @@ public class LocalMergeSourceOperator
             PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, orderings);
             List<LocalExchangeSource> sources = IntStream.range(0, localExchange.getBufferCount())
                     .boxed()
-                    .map(index -> localExchange.getNextSource())
+                    .map(_ -> localExchange.getNextSource())
                     .collect(toImmutableList());
             return new LocalMergeSourceOperator(operatorContext, sources, types, comparator);
         }

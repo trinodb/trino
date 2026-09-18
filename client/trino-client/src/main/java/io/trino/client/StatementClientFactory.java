@@ -28,6 +28,11 @@ public final class StatementClientFactory
         return new StatementClientV1(httpCallFactory, segmentHttpCallFactory, session, query, Optional.empty());
     }
 
+    public static StatementClient newStatementClient(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    {
+        return new StatementClientV1(httpCallFactory, segmentHttpCallFactory, session, query, clientCapabilities);
+    }
+
     public static StatementClient newStatementClient(OkHttpClient httpClient, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         return new StatementClientV1((Call.Factory) httpClient, segmentHttpCallFactory, session, query, clientCapabilities);

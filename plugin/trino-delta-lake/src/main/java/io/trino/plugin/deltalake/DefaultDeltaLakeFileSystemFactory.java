@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
-import io.trino.plugin.deltalake.metastore.VendedCredentialsProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -31,36 +28,38 @@ public class DefaultDeltaLakeFileSystemFactory
         implements DeltaLakeFileSystemFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final VendedCredentialsProvider vendedCredentialsProvider;
+    private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
 
     @Inject
-    public DefaultDeltaLakeFileSystemFactory(TrinoFileSystemFactory fileSystemFactory, VendedCredentialsProvider vendedCredentialsProvider)
+    public DefaultDeltaLakeFileSystemFactory(TrinoFileSystemFactory fileSystemFactory, DeltaLakeTableCredentialsProvider tableCredentialsProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.vendedCredentialsProvider = requireNonNull(vendedCredentialsProvider, "vendedCredentialsProvider is null");
+        this.tableCredentialsProvider = requireNonNull(tableCredentialsProvider, "tableCredentialsProvider is null");
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorSession session, VendedCredentialsHandle vendedCredentialsHandle)
+    public TrinoFileSystem create(ConnectorSession session, Optional<DeltaLakeTableCredentials> tableCredentials)
     {
-        requireNonNull(vendedCredentialsHandle, "vendedCredentialsHandle is null");
-
-        Optional<FileSystemCredentials> freshCredentials = vendedCredentialsProvider.getFreshCredentials(vendedCredentialsHandle).vendedCredentials();
-
         ConnectorIdentity identity = session.getIdentity();
-        ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
-                .withGroups(identity.getGroups())
-                .withPrincipal(identity.getPrincipal())
-                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
-                .withConnectorRole(identity.getConnectorRole())
-                .withExtraCredentials(freshCredentials.map(FileSystemCredentials::asExtraCredentials).orElse(ImmutableMap.of()))
-                .build();
-        return fileSystemFactory.create(identityWithExtraCredentials);
+        if (tableCredentials.isPresent()) {
+            // Do not include original credentials as they should not be used in vended mode
+            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+                    .withGroups(identity.getGroups())
+                    .withPrincipal(identity.getPrincipal())
+                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                    .withConnectorRole(identity.getConnectorRole())
+                    .withExtraCredentials(tableCredentials.get().fileSystemCredentials().asExtraCredentials())
+                    .build();
+            return fileSystemFactory.create(identityWithExtraCredentials);
+        }
+
+        return fileSystemFactory.create(identity);
     }
 
     @Override
     public TrinoFileSystem create(ConnectorSession session, String tableLocation)
     {
-        return create(session, VendedCredentialsHandle.empty(tableLocation));
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(tableLocation));
+        return create(session, tableCredentials);
     }
 }

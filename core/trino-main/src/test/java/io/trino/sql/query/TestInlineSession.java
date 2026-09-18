@@ -54,6 +54,7 @@ public class TestInlineSession
         QueryRunner runner = new StandaloneQueryRunner(session);
         MockConnectorPlugin mockConnectorPlugin = new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withSessionProperty(stringProperty("catalog_property", "Test catalog property", "", false))
+                .withSessionProperty(stringProperty("other_catalog_property", "Other test catalog property", "", false))
                 .build());
 
         runner.installPlugin(mockConnectorPlugin);
@@ -81,6 +82,9 @@ public class TestInlineSession
         assertThat(assertions.query("WITH SESSION time_zone_id = 'Europe/Warsaw' SELECT current_timezone()"))
                 .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
 
+        assertThat(assertions.query("EXECUTE IMMEDIATE 'WITH SESSION time_zone_id = ? SELECT current_timezone()' USING 'Europe/Warsaw'"))
+                .matches("VALUES CAST('Europe/Warsaw' AS varchar)");
+
         Session session = assertions.sessionBuilder()
                 .setSystemProperty("time_zone_id", "America/Los_Angeles")
                 .build();
@@ -92,7 +96,8 @@ public class TestInlineSession
     @Test
     public void testInlineSessionAndSqlFunctions()
     {
-        assertThat(assertions.query("""
+        assertThat(assertions.query(
+                """
                 WITH
                   SESSION time_zone_id = 'Europe/Warsaw'
                 WITH
@@ -120,6 +125,20 @@ public class TestInlineSession
 
         assertThat(assertions.execute("WITH SESSION mock.catalog_property = CAST(true AS varchar) SELECT 1").getSession().getCatalogProperties("mock"))
                 .isEqualTo(Map.of("catalog_property", "true"));
+    }
+
+    @Test
+    void testExistingCatalogSessionProperties()
+    {
+        Session session = assertions.sessionBuilder()
+                .setCatalogSessionProperty(MOCK_CATALOG, "catalog_property", "false")
+                .build();
+
+        assertThat(assertions.execute(session, "WITH SESSION mock.catalog_property = 'true' SELECT 1").getSession().getCatalogProperties("mock"))
+                .isEqualTo(Map.of("catalog_property", "true"));
+
+        assertThat(assertions.execute(session, "WITH SESSION mock.other_catalog_property = 'true' SELECT 1").getSession().getCatalogProperties("mock"))
+                .isEqualTo(Map.of("catalog_property", "false", "other_catalog_property", "true"));
     }
 
     @Test

@@ -32,7 +32,7 @@ public final class GroupingSets
     {
         EXPLICIT,
         ROLLUP,
-        CUBE
+        CUBE,
     }
 
     private final Type type;

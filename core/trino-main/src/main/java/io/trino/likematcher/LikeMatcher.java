@@ -72,7 +72,7 @@ public class LikeMatcher
                     minSize += length;
                     maxSize += length;
                 }
-                case Pattern.ZeroOrMore zeroOrMore -> {
+                case Pattern.ZeroOrMore _ -> {
                     unbounded = true;
                 }
                 case Any any -> {
@@ -163,7 +163,7 @@ public class LikeMatcher
             return false;
         }
 
-        if (maxSize.isPresent() && length > maxSize.getAsInt()) {
+        if (maxSize.isPresent() && length > maxSize.orElseThrow()) {
             return false;
         }
 

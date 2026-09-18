@@ -32,7 +32,9 @@ import static java.lang.String.format;
         @JsonSubTypes.Type(value = SortingProperty.class, name = "sorting"),
 })
 public sealed interface LocalProperty<E>
-        permits GroupingProperty, SortingProperty, ConstantProperty
+        permits ConstantProperty,
+                GroupingProperty,
+                SortingProperty
 {
     <T> Optional<LocalProperty<T>> translate(Function<E, Optional<T>> translator);
 

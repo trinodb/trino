@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.metadata.MetadataUtil.createTargetQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -67,7 +68,9 @@ public class RenameViewTask
             throw semanticException(
                     TABLE_NOT_FOUND,
                     statement,
-                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME TO ...?", viewName, viewName);
+                    "View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME TO ...?",
+                    viewName,
+                    viewName);
         }
 
         if (!metadata.isView(session, viewName)) {
@@ -75,13 +78,15 @@ public class RenameViewTask
                 throw semanticException(
                         TABLE_NOT_FOUND,
                         statement,
-                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?", viewName, viewName);
+                        "View '%s' does not exist, but a table with that name exists. Did you mean ALTER TABLE %s RENAME TO ...?",
+                        viewName,
+                        viewName);
             }
 
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        QualifiedObjectName target = createTargetQualifiedObjectName(viewName, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }

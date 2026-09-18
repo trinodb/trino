@@ -31,6 +31,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
@@ -795,6 +796,7 @@ public class TestTrinoDatabaseMetaData
                             "c_date date, " +
                             "c_decimal_8_2 decimal(8,2), " +
                             "c_decimal_38_0 decimal(38,0), " +
+                            "c_number number, " +
                             "c_array array<bigint>, " +
                             "c_color color" +
                             ")")).isEqualTo(0);
@@ -839,10 +841,29 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.DATE, 14L, null, null, null, DateType.DATE);
                 assertColumnSpec(rs, Types.DECIMAL, 8L, 10L, 2L, null, createDecimalType(8, 2));
                 assertColumnSpec(rs, Types.DECIMAL, 38L, 10L, 0L, null, createDecimalType(38, 0));
+                assertColumnSpec(rs, Types.OTHER, 201L, 10L, null, null, NumberType.NUMBER);
                 assertColumnSpec(rs, Types.ARRAY, null, null, null, null, new ArrayType(BigintType.BIGINT));
                 assertColumnSpec(rs, Types.JAVA_OBJECT, null, null, null, null, ColorType.COLOR);
                 assertThat(rs.next()).isFalse();
             }
+
+            ImmutableMap.Builder<String, Integer> fromDatabaseMetaData = ImmutableMap.builder();
+            try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
+                while (rs.next()) {
+                    fromDatabaseMetaData.put(rs.getString("COLUMN_NAME"), rs.getInt("DATA_TYPE"));
+                }
+            }
+
+            ImmutableMap.Builder<String, Integer> fromResultSetMetaData = ImmutableMap.builder();
+            try (ResultSet rs = statement.executeQuery("SELECT * FROM test_get_columns_table")) {
+                ResultSetMetaData metaData = rs.getMetaData();
+                for (int column = 1; column <= metaData.getColumnCount(); column++) {
+                    fromResultSetMetaData.put(metaData.getColumnName(column), metaData.getColumnType(column));
+                }
+            }
+
+            assertThat(fromDatabaseMetaData.buildOrThrow())
+                    .containsExactlyInAnyOrderEntriesOf(fromResultSetMetaData.buildOrThrow());
         }
     }
 
@@ -1756,10 +1777,10 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 Stream.concat(
-                        IntStream.range(0, 100)
-                                .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar")),
-                        IntStream.range(0, 2)
-                                .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
+                                IntStream.range(0, 100)
+                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar")),
+                                IntStream.range(0, 2)
+                                        .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
@@ -1779,12 +1800,12 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 Stream.concat(
-                        IntStream.range(0, 1000).boxed()
-                                .flatMap(tableIndex ->
-                                        IntStream.range(0, 100)
-                                                .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar"))),
-                        IntStream.range(0, 2)
-                                .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
+                                IntStream.range(0, 1000).boxed()
+                                        .flatMap(tableIndex ->
+                                                IntStream.range(0, 100)
+                                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar"))),
+                                IntStream.range(0, 2)
+                                        .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.listSchemaNames", 4)
@@ -1798,12 +1819,12 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(null, null, "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 Stream.concat(
-                        IntStream.rangeClosed(1, 2).boxed()
-                                .flatMap(schemaIndex ->
-                                        IntStream.range(0, 100)
-                                                .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar"))),
-                        IntStream.range(0, 2)
-                                .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
+                                IntStream.rangeClosed(1, 2).boxed()
+                                        .flatMap(schemaIndex ->
+                                                IntStream.range(0, 100)
+                                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar"))),
+                                IntStream.range(0, 2)
+                                        .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.listSchemaNames", 5)
@@ -1834,10 +1855,10 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(null, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 Stream.concat(
-                        IntStream.range(0, 100)
-                                .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar")),
-                        IntStream.range(0, 2)
-                                .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
+                                IntStream.range(0, 100)
+                                        .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar")),
+                                IntStream.range(0, 2)
+                                        .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)

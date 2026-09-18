@@ -26,9 +26,9 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import io.trino.client.NodeVersion;
 import io.trino.server.StartupStatus;
 import io.trino.server.security.SecurityConfig;
+import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -169,6 +169,7 @@ class TestAnnounceNodeInventory
                 .add(new AnnounceNodeInventoryModule())
                 .add(binder -> {
                     configBinder(binder).bindConfig(SecurityConfig.class);
+                    binder.bind(NodeVersion.class).toInstance(new NodeVersion("test-version"));
                     binder.bind(InternalNode.class).toInstance(new InternalNode(
                             "test-node-id",
                             URI.create("https://example.com:1234"),

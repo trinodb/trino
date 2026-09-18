@@ -14,10 +14,11 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BitBuffer;
 import io.trino.parquet.reader.flat.BitPackingUtils;
 
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
-import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpack8FromByte;
+import static io.trino.spi.block.Bitmap.clearBits;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -25,13 +26,13 @@ public class BooleanPlainValueDecoders
 {
     private BooleanPlainValueDecoders() {}
 
-    public static ValueDecoder<byte[]> createBooleanPlainValueDecoder(boolean vectorizedDecodingEnabled)
+    public static ValueDecoder<BitBuffer> createBooleanPlainValueDecoder(boolean vectorizedDecodingEnabled)
     {
-        return vectorizedDecodingEnabled ? new VectorBooleanPlainValueDecoder() : new BooleanPlainValueDecoder();
+        return new BooleanPlainValueDecoder();
     }
 
     private abstract static class AbstractBooleanPlainValueDecoder
-            implements ValueDecoder<byte[]>
+            implements ValueDecoder<BitBuffer>
     {
         protected SimpleSliceInputStream input;
         // Number of unread bits in the current byte
@@ -69,12 +70,14 @@ public class BooleanPlainValueDecoders
             extends AbstractBooleanPlainValueDecoder
     {
         @Override
-        public void read(byte[] values, int offset, int length)
+        public void read(BitBuffer values, int offset, int length)
         {
+            long[] rawValues = values.getValues();
+            clearBits(rawValues, 0, offset, length);
             if (alreadyReadBits != 0) { // Use partially unpacked byte
                 int bitsRemaining = Byte.SIZE - alreadyReadBits;
                 int chunkSize = min(bitsRemaining, length);
-                unpack(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
+                unpack(rawValues, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
                 alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
                 if (length == chunkSize) {
                     return;
@@ -84,10 +87,16 @@ public class BooleanPlainValueDecoders
             }
 
             // Read full bytes
+            while (length >= Long.SIZE) {
+                BitPackingUtils.unpack(rawValues, offset, input.readLong());
+                offset += Long.SIZE;
+                length -= Long.SIZE;
+            }
+
             int bytesToRead = length / Byte.SIZE;
             while (bytesToRead > 0) {
                 byte packedByte = input.readByte();
-                BitPackingUtils.unpack8FromByte(values, offset, packedByte);
+                BitPackingUtils.unpack(rawValues, offset, packedByte);
                 bytesToRead--;
                 offset += Byte.SIZE;
             }
@@ -96,46 +105,7 @@ public class BooleanPlainValueDecoders
             alreadyReadBits = length % Byte.SIZE;
             if (alreadyReadBits != 0) {
                 partiallyReadByte = input.readByte();
-                unpack(values, offset, partiallyReadByte, 0, alreadyReadBits);
-            }
-        }
-    }
-
-    private static final class VectorBooleanPlainValueDecoder
-            extends AbstractBooleanPlainValueDecoder
-    {
-        @Override
-        public void read(byte[] values, int offset, int length)
-        {
-            if (alreadyReadBits != 0) { // Use partially unpacked byte
-                int bitsRemaining = Byte.SIZE - alreadyReadBits;
-                int chunkSize = min(bitsRemaining, length);
-                unpack(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
-                alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
-                if (length == chunkSize) {
-                    return;
-                }
-                offset += chunkSize;
-                length -= chunkSize;
-            }
-
-            // Read full bytes
-            int bytesToRead = length / Byte.SIZE;
-            byte[] inputArray = input.getByteArray();
-            int inputOffset = input.getByteArrayOffset();
-            int inputBytesRead = 0;
-            while (inputBytesRead < bytesToRead) {
-                vectorUnpack8FromByte(values, offset, inputArray[inputOffset + inputBytesRead]);
-                offset += Byte.SIZE;
-                inputBytesRead++;
-            }
-            input.skip(inputBytesRead);
-
-            // Partially read the last byte
-            alreadyReadBits = length % Byte.SIZE;
-            if (alreadyReadBits != 0) {
-                partiallyReadByte = input.readByte();
-                unpack(values, offset, partiallyReadByte, 0, alreadyReadBits);
+                unpack(rawValues, offset, partiallyReadByte, 0, alreadyReadBits);
             }
         }
     }

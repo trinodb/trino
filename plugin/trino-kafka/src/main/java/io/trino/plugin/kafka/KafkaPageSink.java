@@ -30,9 +30,12 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -70,34 +73,35 @@ public class KafkaPageSink
     private static class ProducerCallback
             implements Callback
     {
-        private long errorCount;
-        private long writtenBytes;
-
-        public ProducerCallback()
-        {
-            this.errorCount = 0;
-            this.writtenBytes = 0;
-        }
+        private final AtomicLong errorCount = new AtomicLong();
+        private final AtomicLong writtenBytes = new AtomicLong();
+        private final AtomicReference<Exception> firstException = new AtomicReference<>();
 
         @Override
         public void onCompletion(RecordMetadata recordMetadata, Exception e)
         {
             if (e != null) {
-                errorCount++;
+                errorCount.incrementAndGet();
+                firstException.compareAndSet(null, e);
             }
             else {
-                writtenBytes += recordMetadata.serializedValueSize() + recordMetadata.serializedKeySize();
+                writtenBytes.addAndGet(max(recordMetadata.serializedValueSize(), 0) + max(recordMetadata.serializedKeySize(), 0));
             }
         }
 
         public long getErrorCount()
         {
-            return errorCount;
+            return errorCount.get();
         }
 
         public long getWrittenBytes()
         {
-            return writtenBytes;
+            return writtenBytes.get();
+        }
+
+        public Exception getFirstException()
+        {
+            return firstException.get();
         }
     }
 
@@ -146,15 +150,15 @@ public class KafkaPageSink
             throw new UncheckedIOException("Failed to close row encoders", e);
         }
 
+        if (producerCallback.getErrorCount() > 0) {
+            throw new TrinoException(KAFKA_PRODUCER_ERROR, format("%d producer record(s) failed to send", producerCallback.getErrorCount()), producerCallback.getFirstException());
+        }
+
         checkArgument(
                 producerCallback.getWrittenBytes() == expectedWrittenBytes,
                 "Actual written bytes: '%s' not equal to expected written bytes: '%s'",
                 producerCallback.getWrittenBytes(),
                 expectedWrittenBytes);
-
-        if (producerCallback.getErrorCount() > 0) {
-            throw new TrinoException(KAFKA_PRODUCER_ERROR, format("%d producer record(s) failed to send", producerCallback.getErrorCount()));
-        }
 
         return completedFuture(ImmutableList.of());
     }

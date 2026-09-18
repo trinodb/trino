@@ -15,6 +15,5 @@ package io.trino.plugin.hive;
 
 public enum WriterKind
 {
-    DELETE,
-    INSERT;
+    DELETE, INSERT,
 }

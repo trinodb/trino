@@ -54,6 +54,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -71,6 +72,7 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -122,15 +124,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -157,7 +155,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
     private final BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView;
-    private final Optional<BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness>> getMaterializedViewFreshness;
+    private final BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
@@ -183,6 +181,7 @@ public class MockConnector
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Function<SchemaTableName, Metrics> metrics;
+    private final Function<SchemaTableName, Metrics> splitSourceMetrics;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<ConnectorTableFunction> tableFunctions;
@@ -213,7 +212,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
             BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
-            Optional<BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness>> getMaterializedViewFreshness,
+            BiFunction<ConnectorSession, SchemaTableName, MaterializedViewFreshness> getMaterializedViewFreshness,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
@@ -239,6 +238,7 @@ public class MockConnector
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Function<SchemaTableName, Metrics> metrics,
+            Function<SchemaTableName, Metrics> splitSourceMetrics,
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
@@ -294,6 +294,7 @@ public class MockConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.metrics = requireNonNull(metrics, "metrics is null");
+        this.splitSourceMetrics = requireNonNull(splitSourceMetrics, "splitSourceMetrics is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.tableProcedures = requireNonNull(tableProcedures, "tableProcedures is null");
         this.tableFunctions = requireNonNull(tableFunctions, "tableFunctions is null");
@@ -351,10 +352,18 @@ public class MockConnector
                     ConnectorTransactionHandle transaction,
                     ConnectorSession session,
                     ConnectorTableHandle table,
-                    DynamicFilter dynamicFilter,
+                    Set<ColumnHandle> dynamicFilterColumns,
                     Constraint constraint)
             {
-                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT);
+                SchemaTableName tableName = ((MockConnectorTableHandle) table).getTableName();
+                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT)
+                {
+                    @Override
+                    public Metrics getMetrics()
+                    {
+                        return splitSourceMetrics.apply(tableName);
+                    }
+                };
             }
 
             @Override
@@ -725,7 +734,8 @@ public class MockConnector
                 ConnectorMaterializedViewDefinition definition,
                 Map<String, Object> properties,
                 boolean replace,
-                boolean ignoreExisting) {}
+                boolean ignoreExisting)
+        {}
 
         @Override
         public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
@@ -747,17 +757,9 @@ public class MockConnector
         }
 
         @Override
-        public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName)
+        public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName, boolean considerGracePeriod)
         {
-            if (getMaterializedViewFreshness.isPresent()) {
-                MaterializedViewFreshness freshness = getMaterializedViewFreshness.get().apply(session, viewName);
-                verifyNotNull(freshness, "freshness is null");
-                return freshness;
-            }
-            // TODO: make getMaterializedViewFreshness required instead of Optional, and remove the fallback logic below
-            ConnectorMaterializedViewDefinition view = getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName);
-            checkArgument(view != null, "Materialized view %s does not exist", viewName);
-            return new MaterializedViewFreshness(view.getStorageTable().isPresent() ? FRESH : STALE, Optional.empty());
+            return getMaterializedViewFreshness.apply(session, viewName);
         }
 
         @Override
@@ -782,7 +784,7 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
+        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
         {
             return Optional.empty();
         }
@@ -891,7 +893,10 @@ public class MockConnector
         }
 
         @Override
-        public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
+        public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        {
+            return Optional.empty();
+        }
 
         @Override
         public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
@@ -913,7 +918,10 @@ public class MockConnector
         }
 
         @Override
-        public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState) {}
+        public Map<String, Long> finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+        {
+            return ImmutableMap.of();
+        }
 
         @Override
         public Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
@@ -926,7 +934,7 @@ public class MockConnector
         {
             // assume that functions are in every schema
             return functions.stream()
-                    .filter(function -> function.getNames().contains(name.getFunctionName()))
+                    .filter(function -> function.getNames().contains(name.functionName()))
                     .collect(toImmutableList());
         }
 
@@ -1054,19 +1062,35 @@ public class MockConnector
             implements ConnectorPageSinkProvider
     {
         @Override
-        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
+        public ConnectorPageSink createPageSink(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorOutputTableHandle outputTableHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorPageSinkId pageSinkId)
         {
             return new MockPageSink();
         }
 
         @Override
-        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
+        public ConnectorPageSink createPageSink(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorInsertTableHandle insertTableHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorPageSinkId pageSinkId)
         {
             return new MockPageSink();
         }
 
         @Override
-        public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
+        public ConnectorMergeSink createMergeSink(
+                ConnectorTransactionHandle transactionHandle,
+                ConnectorSession session,
+                ConnectorMergeTableHandle mergeHandle,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                ConnectorPageSinkId pageSinkId,
+                MemoryContext memoryContext)
         {
             return new MockPageSink();
         }
@@ -1104,7 +1128,14 @@ public class MockConnector
             implements ConnectorPageSourceProvider
     {
         @Override
-        public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+        public ConnectorPageSource createPageSource(
+                ConnectorTransactionHandle transaction,
+                ConnectorSession session,
+                ConnectorSplit split,
+                ConnectorTableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<ColumnHandle> columns,
+                DynamicFilter dynamicFilter)
         {
             MockConnectorTableHandle handle = (MockConnectorTableHandle) table;
             SchemaTableName tableName = handle.getTableName();

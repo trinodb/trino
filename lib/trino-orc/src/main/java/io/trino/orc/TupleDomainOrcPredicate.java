@@ -46,7 +46,6 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
@@ -235,7 +234,7 @@ public class TupleDomainOrcPredicate
             return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescale(value, decimalType).unscaledValue()));
         }
         else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
+            return Domain.create(ValueSet.all(type), hasNullValue);
         }
         else if (type instanceof VarcharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics());

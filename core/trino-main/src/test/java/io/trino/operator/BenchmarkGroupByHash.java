@@ -70,7 +70,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPages(MultiChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.getCacheHashValue(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(TYPE_OPERATORS), NOOP);
+        GroupByHash groupByHash = new FlatGroupByHash(data.getTypes(), data.getCacheHashValue(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(TYPE_OPERATORS, new NullSafeHashCompiler(TYPE_OPERATORS)), NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
         return groupByHash;
     }
@@ -242,7 +242,7 @@ public class BenchmarkGroupByHash
         @Setup
         public void setup(MultiChannelBenchmarkData data)
         {
-            prefilledHash = new FlatGroupByHash(data.getTypes(), data.getCacheHashValue(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
+            prefilledHash = new FlatGroupByHash(data.getTypes(), data.getCacheHashValue(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())), NOOP);
             addInputPagesToHash(prefilledHash, data.getPages());
 
             groupIdsByPhysicalOrder = new int[prefilledHash.getGroupCount()];

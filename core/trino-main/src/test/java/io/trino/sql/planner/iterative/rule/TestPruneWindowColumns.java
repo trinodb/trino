@@ -41,7 +41,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -50,6 +50,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -71,7 +72,8 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol(UNKNOWN, "endValue1")),
-            Optional.of(new Symbol(UNKNOWN, "orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
+            NO_OTHERS);
 
     private static final WindowNode.Frame FRAME2 = new WindowNode.Frame(
             RANGE,
@@ -80,7 +82,8 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol(UNKNOWN, "endValue2")),
-            Optional.of(new Symbol(UNKNOWN, "orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
+            NO_OTHERS);
 
     @Test
     public void testWindowNotNeeded()
@@ -97,7 +100,8 @@ public class TestPruneWindowColumns
     public void testOneFunctionNotNeeded()
     {
         tester().assertThat(new PruneWindowColumns())
-                .on(p -> buildProjectedWindow(p,
+                .on(p -> buildProjectedWindow(
+                        p,
                         symbol -> symbol.name().equals("output2") || symbol.name().equals("unused"),
                         alwaysTrue()))
                 .matches(
@@ -206,8 +210,7 @@ public class TestPruneWindowColumns
                                         ImmutableList.of(orderKey),
                                         ImmutableMap.of(orderKey, ASC_NULLS_FIRST)))),
                         ImmutableMap.of(
-                                output1,
-                                new WindowNode.Function(
+                                output1, new WindowNode.Function(
                                         MIN_FUNCTION,
                                         ImmutableList.of(input1.toSymbolReference()),
                                         Optional.of(new OrderingScheme(List.of(aggOrderInput1), Map.of(aggOrderInput1, ASC_NULLS_FIRST))),
@@ -218,11 +221,11 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(orderKey)),
+                                                Optional.of(orderKey),
+                                                NO_OTHERS),
                                         false,
                                         false),
-                                output2,
-                                new WindowNode.Function(
+                                output2, new WindowNode.Function(
                                         MIN_FUNCTION,
                                         ImmutableList.of(input2.toSymbolReference()),
                                         Optional.of(new OrderingScheme(List.of(aggOrderInput2), Map.of(aggOrderInput2, ASC_NULLS_FIRST))),
@@ -233,7 +236,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(orderKey)),
+                                                Optional.of(orderKey),
+                                                NO_OTHERS),
                                         false,
                                         false)),
                         p.values(

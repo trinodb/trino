@@ -14,16 +14,17 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.IsNull;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.NullIf;
-import io.trino.sql.ir.Switch;
+import io.trino.sql.ir.Match;
+import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
@@ -33,8 +34,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
@@ -74,12 +78,14 @@ public class SimplifyFilterPredicate
 
         boolean simplified = false;
         for (Expression conjunct : conjuncts) {
-            Optional<Expression> simplifiedConjunct = switch (conjunct) {
-                case NullIf expression -> Optional.of(Logical.and(expression.first(), isFalseOrNullPredicate(expression.second())));
-                case Case expression -> simplify(expression);
-                case Switch expression -> simplify(expression);
-                case null, default -> Optional.empty();
-            };
+            IrExpressions.NullIf nullIf = IrExpressions.matchNullIf(conjunct);
+            Optional<Expression> simplifiedConjunct = nullIf != null ?
+                    Optional.of((Expression) Logical.and(nullIf.first(), isFalseOrNullPredicate(context.getSession(), nullIf.second()))) :
+                    switch (conjunct) {
+                        case Case expression -> simplify(context.getSession(), expression);
+                        case Match expression -> simplify(expression);
+                        case null, default -> Optional.empty();
+                    };
 
             if (simplifiedConjunct.isPresent()) {
                 simplified = true;
@@ -103,13 +109,13 @@ public class SimplifyFilterPredicate
                 predicate));
     }
 
-    private Optional<Expression> simplify(Expression condition, Expression trueValue, Expression falseValue)
+    private Optional<Expression> simplify(Session session, Expression condition, Expression trueValue, Expression falseValue)
     {
         if (trueValue.equals(TRUE) && isNotTrue(falseValue)) {
             return Optional.of(condition);
         }
         if (isNotTrue(trueValue) && falseValue.equals(TRUE)) {
-            return Optional.of(isFalseOrNullPredicate(condition));
+            return Optional.of(isFalseOrNullPredicate(session, condition));
         }
         if (falseValue.equals(trueValue) && isDeterministic(trueValue)) {
             return Optional.of(trueValue);
@@ -126,11 +132,12 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private Optional<Expression> simplify(Case caseExpression)
+    private Optional<Expression> simplify(Session session, Case caseExpression)
     {
         if (caseExpression.whenClauses().size() == 1) {
             // if-like expression
             return simplify(
+                    session,
                     caseExpression.whenClauses().getFirst().getOperand(),
                     caseExpression.whenClauses().getFirst().getResult(),
                     caseExpression.defaultValue());
@@ -164,7 +171,7 @@ public class SimplifyFilterPredicate
                 Expression operand = whenClause.getOperand();
                 Expression result = whenClause.getResult();
                 if (isNotTrue(result)) {
-                    builder.add(isFalseOrNullPredicate(operand));
+                    builder.add(isFalseOrNullPredicate(session, operand));
                 }
                 else {
                     builder.add(operand);
@@ -175,7 +182,7 @@ public class SimplifyFilterPredicate
         // all results not true, and default true
         if (notTrueResultsCount == results.size() && caseExpression.defaultValue().equals(TRUE)) {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-            operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
+            operands.forEach(operand -> builder.add(isFalseOrNullPredicate(session, operand)));
             return Optional.of(combineConjuncts(builder.build()));
         }
         // skip clauses with not true conditions
@@ -201,7 +208,7 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(Switch caseExpression)
+    private static Optional<Expression> simplify(Match caseExpression)
     {
         Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
 
@@ -209,8 +216,8 @@ public class SimplifyFilterPredicate
             return defaultValue;
         }
 
-        List<Expression> results = caseExpression.whenClauses().stream()
-                .map(WhenClause::getResult)
+        List<Expression> results = caseExpression.clauses().stream()
+                .map(MatchClause::result)
                 .collect(toImmutableList());
         if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.get().equals(TRUE)) {
             return Optional.of(TRUE);
@@ -227,8 +234,8 @@ public class SimplifyFilterPredicate
                 expression instanceof Constant literal && literal.value() == null;
     }
 
-    private Expression isFalseOrNullPredicate(Expression expression)
+    private Expression isFalseOrNullPredicate(Session session, Expression expression)
     {
-        return Logical.or(new IsNull(expression), not(metadata, expression));
+        return not(metadata, getCharVarcharCoercion(session), comparison(metadata, getCharVarcharCoercion(session), IDENTICAL, expression, TRUE));
     }
 }

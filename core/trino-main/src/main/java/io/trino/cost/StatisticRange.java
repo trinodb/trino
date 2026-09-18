@@ -32,8 +32,10 @@ public class StatisticRange
 {
     private static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
     private static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
+    private static final double DENSITY_HEURISTIC_THRESHOLD = 1e-3;
 
     // TODO unify field and method names with SymbolStatsEstimate
+
     /**
      * {@code NaN} represents empty range ({@code high} must be {@code NaN} too)
      */
@@ -122,7 +124,17 @@ public class StatisticRange
         if (isInfinite(length()) && isFinite(lengthOfIntersect)) {
             return INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
         }
+
         if (lengthOfIntersect > 0) {
+            double thisDensity = this.distinctValues / length();
+
+            // Sparse columns can produce near-zero uniform overlap due to large ranges,
+            // leading to incorrect join ordering. Use NDV-based heuristic instead.
+            if (!isNaN(thisDensity)
+                    && lengthOfIntersect != length()
+                    && thisDensity < DENSITY_HEURISTIC_THRESHOLD) {
+                return minExcludeNaN(other.distinctValues / this.distinctValues, 1);
+            }
             return lengthOfIntersect / length();
         }
 
@@ -137,7 +149,8 @@ public class StatisticRange
         double overlapDistinctValuesRight = overlapPercentOfRight * other.distinctValues;
         double minInputDistinctValues = minExcludeNaN(this.distinctValues, other.distinctValues);
 
-        return minExcludeNaN(minInputDistinctValues,
+        return minExcludeNaN(
+                minInputDistinctValues,
                 maxExcludeNaN(overlapDistinctValuesLeft, overlapDistinctValuesRight));
     }
 

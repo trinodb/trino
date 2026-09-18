@@ -58,7 +58,7 @@ final class ShortTimestampType
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
     private final Range range;
 
-    public ShortTimestampType(int precision)
+    ShortTimestampType(int precision)
     {
         super(precision, long.class, LongArrayBlock.class);
 

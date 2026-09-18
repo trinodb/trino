@@ -263,52 +263,32 @@ public final class HiveWriteUtils
 
     private static boolean isWritableType(TypeInfo typeInfo)
     {
-        switch (typeInfo.getCategory()) {
-            case PRIMITIVE:
+        return switch (typeInfo.getCategory()) {
+            case PRIMITIVE -> {
                 PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();
-                return isWritablePrimitiveType(primitiveCategory);
-            case MAP:
+                yield isWritablePrimitiveType(primitiveCategory);
+            }
+            case MAP -> {
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                return isWritableType(mapTypeInfo.getMapKeyTypeInfo()) && isWritableType(mapTypeInfo.getMapValueTypeInfo());
-            case LIST:
+                yield isWritableType(mapTypeInfo.getMapKeyTypeInfo()) && isWritableType(mapTypeInfo.getMapValueTypeInfo());
+            }
+            case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                return isWritableType(listTypeInfo.getListElementTypeInfo());
-            case STRUCT:
+                yield isWritableType(listTypeInfo.getListElementTypeInfo());
+            }
+            case STRUCT -> {
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-                return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
-            case UNION:
-                // unsupported for writing
-        }
-        return false;
+                yield structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
+            }
+            case UNION -> false;
+        };
     }
 
     private static boolean isWritablePrimitiveType(PrimitiveCategory primitiveCategory)
     {
-        switch (primitiveCategory) {
-            case BOOLEAN:
-            case LONG:
-            case INT:
-            case SHORT:
-            case BYTE:
-            case FLOAT:
-            case DOUBLE:
-            case STRING:
-            case DATE:
-            case TIMESTAMP:
-            case BINARY:
-            case DECIMAL:
-            case VARCHAR:
-            case CHAR:
-                return true;
-            case VOID:
-            case TIMESTAMPLOCALTZ:
-            case INTERVAL_YEAR_MONTH:
-            case INTERVAL_DAY_TIME:
-            case VARIANT:
-            case UNKNOWN:
-                // unsupported for writing
-                break;
-        }
-        return false;
+        return switch (primitiveCategory) {
+            case BOOLEAN, LONG, INT, SHORT, BYTE, FLOAT, DOUBLE, STRING, DATE, TIMESTAMP, BINARY, DECIMAL, VARCHAR, CHAR -> true;
+            case VOID, TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME, VARIANT, UNKNOWN -> false;
+        };
     }
 }

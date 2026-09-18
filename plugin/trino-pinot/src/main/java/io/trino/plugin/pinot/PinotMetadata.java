@@ -64,12 +64,12 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -117,11 +117,10 @@ public class PinotMetadata
             PinotTypeConverter typeConverter)
     {
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
-        long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
         this.pinotTableSchemaCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                        .refreshAfterWrite(pinotConfig.getMetadataCacheExpiry().toJavaTime()),
                 asyncReloading(new CacheLoader<>()
                 {
                     @Override
@@ -262,13 +261,14 @@ public class PinotMetadata
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
-        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
             return Optional.empty();
         }
         Optional<DynamicTable> dynamicTable = handle.query();
         if (dynamicTable.isPresent() &&
-                (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().getAsLong() > limit)) {
-            dynamicTable = Optional.of(new DynamicTable(dynamicTable.get().tableName(),
+                (dynamicTable.get().limit().isEmpty() || dynamicTable.get().limit().orElseThrow() > limit)) {
+            dynamicTable = Optional.of(new DynamicTable(
+                    dynamicTable.get().tableName(),
                     dynamicTable.get().suffix(),
                     dynamicTable.get().projections(),
                     dynamicTable.get().filter(),
@@ -309,7 +309,7 @@ public class PinotMetadata
 
             Map<ColumnHandle, Domain> supported = new HashMap<>();
             Map<ColumnHandle, Domain> unsupported = new HashMap<>();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 Type columnType = ((PinotColumnHandle) entry.getKey()).getDataType();
                 if (columnType instanceof ArrayType) {
                     // Pinot does not support array literals
@@ -526,12 +526,14 @@ public class PinotMetadata
         checkState(aggregateColumn.isAggregate() && aggregateColumn.getPushedDownAggregateFunctionName().isPresent() && aggregateColumn.getPushedDownAggregateFunctionArgument().isPresent(), "Column is not a pushed down aggregate column");
         PinotColumnHandle selection = projectionsMap.get(aggregateColumn.getPushedDownAggregateFunctionArgument().get());
         if (selection != null && selection.isAliased()) {
-            AggregateExpression pushedDownAggregateExpression = new AggregateExpression(aggregateColumn.getPushedDownAggregateFunctionName().get(),
+            AggregateExpression pushedDownAggregateExpression = new AggregateExpression(
+                    aggregateColumn.getPushedDownAggregateFunctionName().get(),
                     aggregateColumn.getPushedDownAggregateFunctionArgument().get(),
                     aggregateColumn.isReturnNullOnEmptyGroup());
             AggregateExpression newPushedDownAggregateExpression = replaceIdentifier(pushedDownAggregateExpression, selection);
 
-            return new PinotColumnHandle(pushedDownAggregateExpression.fieldName(),
+            return new PinotColumnHandle(
+                    pushedDownAggregateExpression.fieldName(),
                     aggregateColumn.getDataType(),
                     newPushedDownAggregateExpression.expression(),
                     true,

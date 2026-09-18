@@ -27,6 +27,9 @@ import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition.After;
+import io.trino.spi.connector.ColumnPosition.First;
+import io.trino.spi.connector.ColumnPosition.Last;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -61,7 +64,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -119,7 +122,7 @@ public class AddColumnTask
         ColumnPosition position = statement.getPosition().orElse(new ColumnPosition.Last());
         Type type;
         try {
-            type = plannerContext.getTypeManager().getType(toTypeSignature(element.getType()));
+            type = plannerContext.getTypeManager().getType(toTypeDescriptor(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
@@ -263,9 +266,9 @@ public class AddColumnTask
     private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)
     {
         return switch (columnPosition) {
-            case ColumnPosition.First _ -> new io.trino.spi.connector.ColumnPosition.First();
-            case ColumnPosition.After after -> new io.trino.spi.connector.ColumnPosition.After(after.column().getValue().toLowerCase(ENGLISH));
-            case ColumnPosition.Last _ -> new io.trino.spi.connector.ColumnPosition.Last();
+            case ColumnPosition.First _ -> new First();
+            case ColumnPosition.After after -> new After(after.column().getValue().toLowerCase(ENGLISH));
+            case ColumnPosition.Last _ -> new Last();
         };
     }
 }

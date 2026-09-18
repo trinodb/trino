@@ -79,11 +79,11 @@ public class TestByteArrayBlock
     public void testCompactBlock()
     {
         byte[] byteArray = {(byte) 0, (byte) 0, (byte) 1, (byte) 2, (byte) 3, (byte) 4};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        long[] valueIsValid = {0b111101};
 
         testCompactBlock(new ByteArrayBlock(0, Optional.empty(), new byte[0]));
-        testCompactBlock(new ByteArrayBlock(byteArray.length, Optional.of(valueIsNull), byteArray));
-        testNotCompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsNull), byteArray));
+        testCompactBlock(new ByteArrayBlock(byteArray.length, Optional.of(valueIsValid), byteArray));
+        testNotCompactBlock(new ByteArrayBlock(byteArray.length - 1, Optional.of(valueIsValid), byteArray));
     }
 
     private void assertFixedWithValues(Byte[] expectedValues)

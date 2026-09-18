@@ -35,6 +35,7 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.function.FunctionId;
+import io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -78,7 +79,6 @@ import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
-import static io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -363,7 +363,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
-                    .filter(value -> node.isUseConnectorNodePartitioning())
+                    .filter(_ -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::partitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 

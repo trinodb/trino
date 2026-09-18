@@ -18,7 +18,6 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.SwitchModule.switchModule;
 
 public class GcsFileSystemModule
         extends AbstractConfigurationAwareModule
@@ -30,13 +29,10 @@ public class GcsFileSystemModule
         binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
         binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
 
-        install(switchModule(
-                GcsFileSystemConfig.class,
-                GcsFileSystemConfig::getAuthType,
-                type -> switch (type) {
-                    case ACCESS_TOKEN -> _ -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
-                    case SERVICE_ACCOUNT -> new GcsServiceAccountModule();
-                    case APPLICATION_DEFAULT -> _ -> binder.bind(GcsAuth.class).to(ApplicationDefaultAuth.class).in(Scopes.SINGLETON);
-                }));
+        switch (buildConfigObject(GcsFileSystemConfig.class).getAuthType()) {
+            case ACCESS_TOKEN -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
+            case SERVICE_ACCOUNT -> install(new GcsServiceAccountModule());
+            case APPLICATION_DEFAULT -> binder.bind(GcsAuth.class).to(ApplicationDefaultAuth.class).in(Scopes.SINGLETON);
+        }
     }
 }

@@ -42,6 +42,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.block.Bitmap.wordsForBits;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
@@ -124,13 +125,14 @@ public class ByteColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
-            int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
+            long[] valueIsValid = new long[wordsForBits(nextBatchSize)];
+            int nonNullCount = presentStream.getSetBits(nextBatchSize, valueIsValid);
+            int nullCount = nextBatchSize - nonNullCount;
             if (nullCount == 0) {
                 block = readNonNullBlock();
             }
             else if (nullCount != nextBatchSize) {
-                block = readNullBlock(isNull, nextBatchSize - nullCount);
+                block = readNullBlock(valueIsValid, nonNullCount);
             }
             else {
                 block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
@@ -158,7 +160,7 @@ public class ByteColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(long[] valueIsValid, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -170,12 +172,12 @@ public class ByteColumnReader
 
         dataStream.next(nonNullValueTemp, nonNullCount);
 
-        byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, isNull);
+        byte[] result = ReaderUtils.unpackByteNulls(nonNullValueTemp, valueIsValid, nextBatchSize);
         if (type == TINYINT) {
-            return new ByteArrayBlock(nextBatchSize, Optional.of(isNull), result);
+            return new ByteArrayBlock(nextBatchSize, Optional.of(valueIsValid), result);
         }
         if (type == INTEGER) {
-            return new IntArrayBlock(nextBatchSize, Optional.of(isNull), convertToIntArray(result));
+            return new IntArrayBlock(nextBatchSize, Optional.of(valueIsValid), convertToIntArray(result));
         }
         throw new VerifyError("Unsupported type " + type);
     }

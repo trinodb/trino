@@ -100,7 +100,7 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:trino://localhost:8080?SSL=2", "Connection property SSL value is invalid: 2");
         assertInvalid("jdbc:trino://localhost:8080?SSL=abc", "Connection property SSL value is invalid: abc");
 
-        //invalid ssl verification mode
+        // invalid ssl verification mode
         assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=0", "Connection property SSLVerification value is invalid: 0");
         assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=abc", "Connection property SSLVerification value is invalid: abc");
 
@@ -185,7 +185,8 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
 
         // cannot set mutually exclusive properties for non-conforming clients to true
-        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
+        assertInvalid(
+                "jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
                 "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 

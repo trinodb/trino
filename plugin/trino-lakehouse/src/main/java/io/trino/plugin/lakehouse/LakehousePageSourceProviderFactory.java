@@ -22,9 +22,21 @@ import io.trino.plugin.hudi.HudiPageSourceProvider;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableHandle;
+import io.trino.plugin.iceberg.system.files.FilesTableSplit;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.MemoryContext;
+
+import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,20 +62,47 @@ public class LakehousePageSourceProviderFactory
     }
 
     @Override
-    public ConnectorPageSourceProvider createPageSourceProvider()
+    public ConnectorPageSourceProvider createPageSourceProvider(MemoryContext sharedMemoryContext)
     {
-        return (transaction, session, split, table, columns, dynamicFilter) ->
-                forHandle(table).createPageSource(transaction, session, split, table, columns, dynamicFilter);
+        // createPageSourceProvider is called for each scan within a query
+        // we hold on to ConnectorPageSourceProvider instance to allow IcebergPageSourceProvider to reuse equality deletes between splits of the same scan
+        return new ConnectorPageSourceProvider()
+        {
+            private volatile ConnectorPageSourceProvider delegate;
+
+            @Override
+            public ConnectorPageSource createPageSource(
+                    ConnectorTransactionHandle transaction,
+                    ConnectorSession session,
+                    ConnectorSplit split,
+                    ConnectorTableHandle table,
+                    Optional<ConnectorTableCredentials> tableCredentials,
+                    List<ColumnHandle> columns,
+                    DynamicFilter dynamicFilter,
+                    MemoryContext memoryContext)
+            {
+                if (delegate == null) {
+                    synchronized (this) {
+                        if (delegate == null) {
+                            delegate = forHandle(split, table, sharedMemoryContext);
+                        }
+                    }
+                }
+                return delegate.createPageSource(transaction, session, split, table, tableCredentials, columns, dynamicFilter, memoryContext);
+            }
+        };
     }
 
-    private ConnectorPageSourceProvider forHandle(ConnectorTableHandle handle)
+    private ConnectorPageSourceProvider forHandle(ConnectorSplit split, ConnectorTableHandle handle, MemoryContext sharedMemoryContext)
     {
+        if (split instanceof FilesTableSplit || handle instanceof IcebergTableHandle) {
+            return icebergPageSourceProviderFactory.createPageSourceProvider(sharedMemoryContext);
+        }
         return switch (handle) {
             case HiveTableHandle _ -> hivePageSourceProvider;
-            case IcebergTableHandle _ -> icebergPageSourceProviderFactory.createPageSourceProvider();
             case DeltaLakeTableHandle _ -> deltaLakePageSourceProvider;
             case HudiTableHandle _ -> hudiPageSourceProvider;
-            default -> throw new UnsupportedOperationException("Unsupported table handle " + handle.getClass());
+            default -> throw new UnsupportedOperationException("Unsupported table handle " + handle.getClass() + " with split " + split.getClass());
         };
     }
 }

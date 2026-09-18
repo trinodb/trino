@@ -196,7 +196,7 @@ public class InMemoryHashAggregationBuilder
             return;
         }
 
-        full = sizeInMemory > maxPartialMemory.getAsLong();
+        full = sizeInMemory > maxPartialMemory.orElseThrow();
     }
 
     /**
@@ -230,7 +230,7 @@ public class InMemoryHashAggregationBuilder
     {
         groupByHash.startReleasingOutput();
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
-            groupedAggregator.prepareFinal();
+            groupedAggregator.prepareFinal(updateMemory);
         }
         // Always update the current memory usage after calling GroupedAggregator#prepareFinal(), since it can increase
         // memory consumption significantly in some situations. This also captures any memory usage reduction the

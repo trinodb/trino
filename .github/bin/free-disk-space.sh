@@ -35,11 +35,11 @@ function free_up_disk_space_ubuntu()
 }
 
 echo "Disk space usage before cleaning:"
-df -k .
+df -h .
 
 echo "::group::Clearing up disk usage"
 time free_up_disk_space_ubuntu
 echo "::endgroup::"
 
 echo "Disk space usage after cleaning:"
-df -k .
+df -h .

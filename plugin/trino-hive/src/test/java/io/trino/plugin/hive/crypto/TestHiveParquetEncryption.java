@@ -28,6 +28,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.column.Encoding;
 import org.apache.parquet.crypto.ColumnEncryptionProperties;
 import org.apache.parquet.crypto.FileEncryptionProperties;
 import org.apache.parquet.crypto.ParquetCipher;
@@ -90,6 +91,7 @@ public class TestHiveParquetEncryption
         // Bind retriever that knows ONLY the footer key + age column key
         return HiveQueryRunner.builder()
                 .setHiveProperties(properties)
+                .addHiveProperty("fs.hadoop.enabled", "true")
                 .setDecryptionKeyRetriever(new TestingParquetEncryptionModule(FOOTER_KEY, Optional.of(COLUMN_KEY_AGE), Optional.empty()))
                 .build();
     }
@@ -105,7 +107,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_age(age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));
@@ -128,7 +131,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table with both columns
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_two(id INT, age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));
@@ -158,7 +162,8 @@ public class TestHiveParquetEncryption
 
         // 2) create external table
         String location = Location.of(String.valueOf(dataDir.toUri())).toString();
-        assertUpdate("""
+        assertUpdate(
+                """
                 CREATE TABLE enc_dict2(id INT, age INT)
                 WITH (external_location = '%s', format = 'PARQUET')
                 """.formatted(location));
@@ -282,7 +287,7 @@ public class TestHiveParquetEncryption
                     .withKeyRetriever(new TestHiveParquetEncryption.TestingParquetEncryptionModule(
                             FOOTER_KEY, Optional.of(COLUMN_KEY_AGE), Optional.of(COLUMN_KEY_ID)))
                     .build();
-            ParquetMetadata metadata = MetadataReader.readFooter(source, Optional.empty(), Optional.empty(), Optional.of(dec));
+            ParquetMetadata metadata = MetadataReader.readFooter(source, ParquetReaderOptions.defaultOptions(), Optional.empty(), Optional.of(dec));
 
             ColumnChunkMetadata ageChunk = metadata.getBlocks().getFirst().columns().stream()
                     .filter(column -> column.getPath().equals(AGE_PATH))
@@ -293,8 +298,8 @@ public class TestHiveParquetEncryption
 
             assertThat(ageChunk.getDictionaryPageOffset()).isGreaterThan(0);
             assertThat(idChunk.getDictionaryPageOffset()).isGreaterThan(0);
-            assertThat(ageChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
-            assertThat(idChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
+            assertThat(ageChunk.getEncodings()).anyMatch(Encoding::usesDictionary);
+            assertThat(idChunk.getEncodings()).anyMatch(Encoding::usesDictionary);
         }
     }
 

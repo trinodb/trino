@@ -39,9 +39,9 @@ public class Int128ColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, long[] values)
+    public Block createNullableBlock(long[] valueIsValid, long[] values)
     {
-        return new Int128ArrayBlock(values.length / 2, Optional.of(nulls), values);
+        return new Int128ArrayBlock(values.length / 2, Optional.of(valueIsValid), values);
     }
 
     @Override
@@ -49,6 +49,12 @@ public class Int128ColumnAdapter
     {
         destination[destinationIndex * 2] = source[sourceIndex * 2];
         destination[(destinationIndex * 2) + 1] = source[(sourceIndex * 2) + 1];
+    }
+
+    @Override
+    public void copyValues(long[] source, int sourceIndex, long[] destination, int destinationIndex, int length)
+    {
+        System.arraycopy(source, sourceIndex * 2, destination, destinationIndex * 2, length * 2);
     }
 
     @Override

@@ -44,8 +44,7 @@ public class PartitioningScheme
 
     public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout)
     {
-        this(
-                partitioning,
+        this(partitioning,
                 outputLayout,
                 false,
                 Optional.empty(),
@@ -68,7 +67,9 @@ public class PartitioningScheme
 
         Set<Symbol> columns = partitioning.getColumns();
         checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(columns),
-                "Output layout (%s) don't include all partition columns (%s)", outputLayout, columns);
+                "Output layout (%s) don't include all partition columns (%s)",
+                outputLayout,
+                columns);
 
         checkArgument(!replicateNullsAndAny || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
         this.replicateNullsAndAny = replicateNullsAndAny;
@@ -76,7 +77,7 @@ public class PartitioningScheme
         this.bucketCount = bucketCount;
         checkArgument(bucketCount.isEmpty() || !(partitioning.getHandle().getConnectorHandle() instanceof SystemPartitioningHandle),
                 "Bucket count cannot be set on a system partitioning handle");
-        checkArgument(bucketToPartition.isEmpty() || bucketCount.isEmpty() || bucketToPartition.get().length == bucketCount.getAsInt(),
+        checkArgument(bucketToPartition.isEmpty() || bucketCount.isEmpty() || bucketToPartition.get().length == bucketCount.orElseThrow(),
                 "bucketToPartition length does not match bucketCount");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         checkArgument(

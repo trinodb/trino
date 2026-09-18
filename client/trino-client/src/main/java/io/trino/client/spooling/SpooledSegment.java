@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class SpooledSegment
         extends Segment
@@ -44,7 +44,7 @@ public final class SpooledSegment
         super(metadata);
         this.dataUri = requireNonNull(dataUri, "dataUri is null");
         this.ackUri = requireNonNull(ackUri, "ackUri is null");
-        this.headers = firstNonNull(headers, ImmutableMap.of());
+        this.headers = requireNonNullElse(headers, ImmutableMap.of());
     }
 
     @JsonProperty("uri")

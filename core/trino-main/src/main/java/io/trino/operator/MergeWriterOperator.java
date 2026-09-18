@@ -18,11 +18,13 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.type.Type;
 import io.trino.split.PageSinkId;
 import io.trino.split.PageSinkManager;
@@ -31,6 +33,7 @@ import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -55,17 +58,19 @@ public class MergeWriterOperator
         private final PlanNodeId planNodeId;
         private final PageSinkManager pageSinkManager;
         private final MergeTarget target;
+        private final Optional<ConnectorTableCredentials> tableCredentials;
         private final Session session;
         private final Function<Page, Page> pagePreprocessor;
 
         private boolean closed;
 
-        public MergeWriterOperatorFactory(int operatorId, PlanNodeId planNodeId, PageSinkManager pageSinkManager, MergeTarget target, Session session, Function<Page, Page> pagePreprocessor)
+        public MergeWriterOperatorFactory(int operatorId, PlanNodeId planNodeId, PageSinkManager pageSinkManager, MergeTarget target, Optional<ConnectorTableCredentials> tableCredentials, Session session, Function<Page, Page> pagePreprocessor)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
             this.target = requireNonNull(target, "target is null");
+            this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.session = requireNonNull(session, "session is null");
             this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         }
@@ -75,8 +80,9 @@ public class MergeWriterOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MergeWriterOperator.class.getSimpleName());
-            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), PageSinkId.fromTaskId(driverContext.getTaskId()));
-            return new MergeWriterOperator(context, mergeSink, pagePreprocessor);
+            LocalMemoryContext mergeSinkMemoryContext = context.newLocalUserMemoryContext(MergeWriterOperator.class.getSimpleName());
+            ConnectorMergeSink mergeSink = pageSinkManager.createMergeSink(session, target.getMergeHandle().orElseThrow(), tableCredentials, PageSinkId.fromTaskId(driverContext.getTaskId()), mergeSinkMemoryContext::setBytes);
+            return new MergeWriterOperator(context, mergeSink, pagePreprocessor, mergeSinkMemoryContext);
         }
 
         @Override
@@ -88,7 +94,7 @@ public class MergeWriterOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MergeWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, session, pagePreprocessor);
+            return new MergeWriterOperatorFactory(operatorId, planNodeId, pageSinkManager, target, tableCredentials, session, pagePreprocessor);
         }
     }
 
@@ -100,6 +106,7 @@ public class MergeWriterOperator
     private final OperatorContext operatorContext;
     private State state = State.RUNNING;
     private final ConnectorMergeSink mergeSink;
+    private final LocalMemoryContext mergeSinkMemoryContext;
     private final Function<Page, Page> pagePreprocessor;
     private ListenableFuture<Collection<Slice>> finishFuture;
     private ListenableFuture<Void> blockedFutureView;
@@ -107,11 +114,12 @@ public class MergeWriterOperator
     private long writtenBytes;
     private boolean closed;
 
-    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor)
+    public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor, LocalMemoryContext mergeSinkMemoryContext)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.mergeSink = requireNonNull(mergeSink, "mergeSink is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+        this.mergeSinkMemoryContext = requireNonNull(mergeSinkMemoryContext, "mergeSinkMemoryContext is null");
     }
 
     @Override
@@ -202,7 +210,7 @@ public class MergeWriterOperator
 
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        return Futures.transform(future, v -> null, directExecutor());
+        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override
@@ -229,6 +237,7 @@ public class MergeWriterOperator
             if (finishFuture != null) {
                 finishFuture.cancel(true);
             }
+            mergeSinkMemoryContext.close();
         }
     }
 }

@@ -27,18 +27,16 @@ public class WebUiModule
     protected void setup(Binder binder)
     {
         jaxrsBinder(binder).bind(WebUiStaticResource.class);
+        jaxrsBinder(binder).bind(WebUiLegacyStaticResource.class);
 
         configBinder(binder).bindConfig(WebUiConfig.class);
 
         if (buildConfigObject(WebUiConfig.class).isEnabled()) {
-            install(new WebUiAuthenticationModule());
+            install(new WebUiFrontendModule());
+            install(new WebUiLegacyAuthenticationModule());
             jaxrsBinder(binder).bind(ClusterResource.class);
             jaxrsBinder(binder).bind(ClusterStatsResource.class);
             jaxrsBinder(binder).bind(UiQueryResource.class);
-
-            if (buildConfigObject(WebUiConfig.class).isPreviewEnabled()) {
-                install(new WebUiPreviewModule());
-            }
         }
         else {
             binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);

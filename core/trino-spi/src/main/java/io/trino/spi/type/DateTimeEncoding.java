@@ -24,11 +24,25 @@ public final class DateTimeEncoding
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;
 
-    private static long pack(long millisUtc, short timeZoneKey)
+    /**
+     * Every {@code timestamp with time zone} value is stored with the time zone packed into the low bits of the epoch
+     * millis, so millis that do not survive the shift cannot be represented, regardless of the declared precision.
+     */
+    static boolean isValidMillisUtc(long millisUtc)
     {
-        if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
+        return millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT == millisUtc;
+    }
+
+    static void checkMillisUtcInRange(long millisUtc)
+    {
+        if (!isValidMillisUtc(millisUtc)) {
             throw new IllegalArgumentException("Millis overflow: " + millisUtc);
         }
+    }
+
+    private static long pack(long millisUtc, short timeZoneKey)
+    {
+        checkMillisUtcInRange(millisUtc);
 
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
@@ -72,8 +86,13 @@ public final class DateTimeEncoding
         return pack(newMillsUtc, (short) (dateTimeWithTimeZone & TIME_ZONE_MASK));
     }
 
+    /**
+     * @throws io.trino.spi.TrinoException when {@code offsetMinutes} is outside the range supported by {@code time with time zone}
+     */
     public static long packTimeWithTimeZone(long nanos, int offsetMinutes)
     {
+        // validate offset is supported
+        getTimeZoneKeyForOffset(offsetMinutes);
         // offset is encoded as a 2s complement 11-bit number
         return (nanos << 11) | (offsetMinutes & 0b111_1111_1111);
     }

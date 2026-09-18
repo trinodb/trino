@@ -16,7 +16,6 @@ package io.trino.client;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.type.StandardTypes;
 import org.junit.jupiter.api.Test;
 
@@ -29,9 +28,7 @@ public class TestClientTypeSignature
     public static final JsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
-        CLIENT_TYPE_SIGNATURE_CODEC = codecFactory.jsonCodec(ClientTypeSignature.class);
+        CLIENT_TYPE_SIGNATURE_CODEC = new JsonCodecFactory().jsonCodec(ClientTypeSignature.class);
     }
 
     @Test

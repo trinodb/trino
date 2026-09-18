@@ -18,6 +18,12 @@ import java.util.Optional;
 public abstract class Relation
         extends Node
 {
+    protected Relation(NodeLocation location)
+    {
+        super(location);
+    }
+
+    @Deprecated
     protected Relation(Optional<NodeLocation> location)
     {
         super(location);

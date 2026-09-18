@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>480-SNAPSHOT</version>
+        <version>484-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,8 @@
 
     <properties>
         <project.build.targetJdk>11</project.build.targetJdk>
+        <airstyle.rewriteUnusedLambdaParameters>false</airstyle.rewriteUnusedLambdaParameters>
+        <checkstyle.violation.ignore>UnusedLambdaParameterShouldBeUnnamed,UseEnhancedSwitch</checkstyle.violation.ignore>
     </properties>
 
     <dependencies>
@@ -93,19 +95,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>aircompressor-v3</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver3</artifactId>
             <scope>test</scope>
@@ -119,6 +108,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>aircompressor-v3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
             <scope>test</scope>
         </dependency>
@@ -126,6 +121,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -186,6 +187,18 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -73,6 +73,6 @@ public class PropertiesSystemTableProvider
                 .collect(toImmutableList());
         Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.copyOf(sortedTableParameters.values()));
 
-        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), constraint -> new InMemoryRecordSet(types, propertyValues).cursor()));
+        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), _ -> new InMemoryRecordSet(types, propertyValues).cursor()));
     }
 }

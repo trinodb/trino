@@ -48,7 +48,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.LocalDateTime;
@@ -107,7 +106,7 @@ import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoColumnProperties;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveTypeUtil.typeSupported;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -569,7 +568,7 @@ public final class HiveUtil
             if (!typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
-            columns.add(createBaseColumn(field.getName(), -1, hiveType, typeManager.getType(getTypeSignature(hiveType)), PARTITION_KEY, field.getComment()));
+            columns.add(createBaseColumn(field.getName(), -1, hiveType, typeManager.getType(getTypeDescriptor(hiveType)), PARTITION_KEY, field.getComment()));
         }
 
         return columns.build();
@@ -583,10 +582,9 @@ public final class HiveUtil
         }
     }
 
-    @Nullable
-    public static String columnExtraInfo(boolean partitionKey)
+    public static Optional<String> columnExtraInfo(boolean partitionKey)
     {
-        return partitionKey ? "partition key" : null;
+        return partitionKey ? Optional.of("partition key") : Optional.empty();
     }
 
     public static NullableValue getPrefilledColumnValue(
@@ -606,7 +604,7 @@ public final class HiveUtil
             columnValue = path;
         }
         else if (isBucketColumnHandle(columnHandle)) {
-            columnValue = String.valueOf(bucketNumber.getAsInt());
+            columnValue = String.valueOf(bucketNumber.orElseThrow());
         }
         else if (isFileSizeColumnHandle(columnHandle)) {
             columnValue = String.valueOf(fileSize);
@@ -825,7 +823,8 @@ public final class HiveUtil
         table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
         List<String> allColumnNames = columnNames.build();
         if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
-            throw new TrinoException(HIVE_INVALID_METADATA,
+            throw new TrinoException(
+                    HIVE_INVALID_METADATA,
                     format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
         }
 
@@ -846,7 +845,7 @@ public final class HiveUtil
                 .setName(handle.getName())
                 .setType(handle.getType())
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
-                .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
+                .setExtraInfo(columnExtraInfo(handle.isPartitionKey()))
                 .setHidden(handle.isHidden())
                 .setProperties(getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
                 .build();

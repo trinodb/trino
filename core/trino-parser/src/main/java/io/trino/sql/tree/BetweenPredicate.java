@@ -13,35 +13,56 @@
  */
 package io.trino.sql.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class BetweenPredicate
-        extends Expression
+/// SQL spec `<between predicate part 2> ::= [NOT] BETWEEN [ASYMMETRIC | SYMMETRIC] <row value predicand> AND <row value predicand>`.
+/// The `negated` flag captures the in-place `NOT BETWEEN` form; outer
+/// `NOT (x BETWEEN ...)` stays as a [NotExpression] wrapping a non-negated
+/// `BetweenPredicate`. The `symmetry` is the optional `ASYMMETRIC` / `SYMMETRIC`
+/// keyword exactly as written: empty when neither was given (the default,
+/// semantically `ASYMMETRIC`), so the predicate round-trips through the formatter.
+/// `SYMMETRIC` treats the bounds as an unordered pair — the predicate holds when the
+/// value lies between them in either order; the `ASYMMETRIC` form is `x >= min AND x <= max`.
+public final class BetweenPredicate
+        extends Predicate
 {
-    private final Expression value;
+    public enum Symmetry
+    {
+        ASYMMETRIC,
+        SYMMETRIC,
+    }
+
+    private final boolean negated;
+    private final Optional<Symmetry> symmetry;
     private final Expression min;
     private final Expression max;
 
-    public BetweenPredicate(NodeLocation location, Expression value, Expression min, Expression max)
+    public BetweenPredicate(NodeLocation location, boolean negated, Optional<Symmetry> symmetry, Expression min, Expression max)
     {
         super(location);
-        requireNonNull(value, "value is null");
-        requireNonNull(min, "min is null");
-        requireNonNull(max, "max is null");
-
-        this.value = value;
-        this.min = min;
-        this.max = max;
+        this.negated = negated;
+        this.symmetry = requireNonNull(symmetry, "symmetry is null");
+        this.min = requireNonNull(min, "min is null");
+        this.max = requireNonNull(max, "max is null");
     }
 
-    public Expression getValue()
+    public boolean isNegated()
     {
-        return value;
+        return negated;
+    }
+
+    public Optional<Symmetry> getSymmetry()
+    {
+        return symmetry;
+    }
+
+    public boolean isSymmetric()
+    {
+        return symmetry.map(value -> value == Symmetry.SYMMETRIC).orElse(false);
     }
 
     public Expression getMin()
@@ -55,42 +76,44 @@ public class BetweenPredicate
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    public List<? extends Node> getChildren()
+    {
+        return List.of(min, max);
+    }
+
+    @Override
+    protected <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
         return visitor.visitBetweenPredicate(this, context);
     }
 
     @Override
-    public List<Node> getChildren()
+    public boolean shallowEquals(Node other)
     {
-        return ImmutableList.of(value, min, max);
+        return sameClass(this, other)
+                && negated == ((BetweenPredicate) other).negated
+                && symmetry.equals(((BetweenPredicate) other).symmetry);
     }
 
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BetweenPredicate that = (BetweenPredicate) o;
-        return Objects.equals(value, that.value) &&
-                Objects.equals(min, that.min) &&
-                Objects.equals(max, that.max);
+        return o instanceof BetweenPredicate that
+                && negated == that.negated
+                && symmetry.equals(that.symmetry)
+                && min.equals(that.min)
+                && max.equals(that.max);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, min, max);
+        return Objects.hash(negated, symmetry, min, max);
     }
 
     @Override
-    public boolean shallowEquals(Node other)
+    public String toString()
     {
-        return sameClass(this, other);
+        return (negated ? "NOT BETWEEN " : "BETWEEN ") + symmetry.map(value -> value + " ").orElse("") + min + " AND " + max;
     }
 }

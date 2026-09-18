@@ -26,9 +26,9 @@ import java.util.OptionalDouble;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
 import static io.trino.plugin.hive.util.Statistics.createHiveColumnStatistics;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,23 +40,23 @@ public class TestStatistics
         HiveColumnStatistics statistics;
 
         statistics = createRealColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-2391f)),
-                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(42f))));
+                MIN_VALUE, writeNativeValue(REAL, (long) floatToIntBits(-2391f)),
+                MAX_VALUE, writeNativeValue(REAL, (long) floatToIntBits(42f))));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-2391d), OptionalDouble.of(42)));
 
         statistics = createRealColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NEGATIVE_INFINITY)),
-                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.POSITIVE_INFINITY))));
+                MIN_VALUE, writeNativeValue(REAL, (long) floatToIntBits(Float.NEGATIVE_INFINITY)),
+                MAX_VALUE, writeNativeValue(REAL, (long) floatToIntBits(Float.POSITIVE_INFINITY))));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
 
         statistics = createRealColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NaN)),
-                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(Float.NaN))));
+                MIN_VALUE, writeNativeValue(REAL, (long) floatToIntBits(Float.NaN)),
+                MAX_VALUE, writeNativeValue(REAL, (long) floatToIntBits(Float.NaN))));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
 
         statistics = createRealColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-15f)),
-                MAX_VALUE, nativeValueToBlock(REAL, (long) floatToIntBits(-0f))));
+                MIN_VALUE, writeNativeValue(REAL, (long) floatToIntBits(-15f)),
+                MAX_VALUE, writeNativeValue(REAL, (long) floatToIntBits(-0f))));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
     }
 
@@ -71,23 +71,23 @@ public class TestStatistics
         HiveColumnStatistics statistics;
 
         statistics = createDoubleColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(DOUBLE, -2391d),
-                MAX_VALUE, nativeValueToBlock(DOUBLE, 42d)));
+                MIN_VALUE, writeNativeValue(DOUBLE, -2391d),
+                MAX_VALUE, writeNativeValue(DOUBLE, 42d)));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-2391d), OptionalDouble.of(42)));
 
         statistics = createDoubleColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(DOUBLE, Double.NEGATIVE_INFINITY),
-                MAX_VALUE, nativeValueToBlock(DOUBLE, Double.POSITIVE_INFINITY)));
+                MIN_VALUE, writeNativeValue(DOUBLE, Double.NEGATIVE_INFINITY),
+                MAX_VALUE, writeNativeValue(DOUBLE, Double.POSITIVE_INFINITY)));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
 
         statistics = createDoubleColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(DOUBLE, Double.NaN),
-                MAX_VALUE, nativeValueToBlock(DOUBLE, Double.NaN)));
+                MIN_VALUE, writeNativeValue(DOUBLE, Double.NaN),
+                MAX_VALUE, writeNativeValue(DOUBLE, Double.NaN)));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()));
 
         statistics = createDoubleColumnStatistics(ImmutableMap.of(
-                MIN_VALUE, nativeValueToBlock(DOUBLE, -15d),
-                MAX_VALUE, nativeValueToBlock(DOUBLE, -0d)));
+                MIN_VALUE, writeNativeValue(DOUBLE, -15d),
+                MAX_VALUE, writeNativeValue(DOUBLE, -0d)));
         assertThat(statistics.getDoubleStatistics().get()).isEqualTo(new DoubleStatistics(OptionalDouble.of(-15d), OptionalDouble.of(-0d))); // TODO should we distinguish between -0 and 0?
     }
 

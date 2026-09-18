@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
-import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -26,11 +25,12 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.TestMetadataManager;
+import io.trino.metadata.TestingMetadataManager;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -108,15 +108,14 @@ public class TestAccessControlManager
         Identity identity = Identity.forUser(USER_NAME).withPrincipal(PRINCIPAL).build();
         QualifiedObjectName tableName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table");
 
-        assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new ReadOnlySystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
             accessControlManager.checkCanSetSystemSessionProperty(identity, queryId, "property");
             accessControlManager.checkCanSetCatalogSessionProperty(securityContext, TEST_CATALOG_NAME, "property");
             accessControlManager.checkCanShowSchemas(securityContext, TEST_CATALOG_NAME);
             accessControlManager.checkCanShowTables(securityContext, new CatalogSchemaName(TEST_CATALOG_NAME, "schema"));
-            accessControlManager.checkCanSelectFromColumns(securityContext, tableName, ImmutableSet.of("column"));
-            accessControlManager.checkCanCreateViewWithSelectFromColumns(securityContext, tableName, ImmutableSet.of("column"));
+            accessControlManager.checkCanSelectFromColumns(securityContext, tableName, Optional.empty(), ImmutableSet.of("column"));
+            accessControlManager.checkCanCreateViewWithSelectFromColumns(securityContext, tableName, Optional.empty(), ImmutableSet.of("column"));
             Set<String> catalogs = ImmutableSet.of(TEST_CATALOG_NAME);
             assertThat(accessControlManager.filterCatalogs(securityContext, catalogs)).isEqualTo(catalogs);
             Set<String> schemas = ImmutableSet.of("schema");
@@ -124,7 +123,7 @@ public class TestAccessControlManager
             Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
             assertThat(accessControlManager.filterTables(securityContext, TEST_CATALOG_NAME, tableNames)).isEqualTo(tableNames);
 
-            assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(securityContext, tableName))
+            assertThatThrownBy(() -> accessControlManager.checkCanInsertIntoTable(securityContext, tableName, Optional.empty()))
                     .isInstanceOf(AccessDeniedException.class)
                     .hasMessage("Access Denied: Cannot insert into table test_catalog.schema.table");
         });
@@ -134,14 +133,14 @@ public class TestAccessControlManager
     public void testNoCatalogAccessControl()
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
+        Metadata metadata = TestingMetadataManager.builder().withTransactionManager(transactionManager).build();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         accessControlManager.setSystemAccessControls(ImmutableList.of(new TestSystemAccessControl()));
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), Optional.empty(), ImmutableSet.of("column"));
                 });
     }
 
@@ -150,7 +149,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new DenyConnectorAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), ImmutableSet.of("column")))
+                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), Optional.empty(), ImmutableSet.of("column")))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot select from columns [column] in table or view schema.table"));
     }
@@ -160,7 +159,7 @@ public class TestAccessControlManager
     {
         assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
-                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column")))
+                        () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName("secured_catalog", "schema", "table"), Optional.empty(), ImmutableSet.of("column")))
                         .isInstanceOf(AccessDeniedException.class)
                         .hasMessage("Access Denied: Cannot select from table secured_catalog.schema.table"));
     }
@@ -272,8 +271,7 @@ public class TestAccessControlManager
     public void testDenyExecuteFunctionBySystemAccessControl()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new TestSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isFalse();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isFalse();
         });
@@ -283,8 +281,7 @@ public class TestAccessControlManager
     public void testAllowExecuteFunction()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isTrue();
         });
@@ -294,8 +291,7 @@ public class TestAccessControlManager
     public void testAllowExecuteTableFunction()
     {
         QualifiedObjectName functionName = new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "executed_function");
-        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
-        {
+        assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) -> {
             assertThat(accessControlManager.canExecuteFunction(securityContext, functionName)).isTrue();
             assertThat(accessControlManager.canCreateViewWithExecuteFunction(securityContext, functionName)).isTrue();
         });
@@ -449,7 +445,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+        public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns)
         {
             if (table.getCatalogName().equals("secured_catalog")) {
                 denySelectTable(table.toString());

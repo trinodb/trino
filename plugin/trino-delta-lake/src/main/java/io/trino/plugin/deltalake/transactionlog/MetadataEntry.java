@@ -183,7 +183,7 @@ public class MetadataEntry
         changeDataFeedEnabled.ifPresent(enabled -> configurationMapBuilder.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(enabled)));
         configurationMapBuilder.put(DELETION_VECTORS_CONFIGURATION_KEY, Boolean.toString(deletionVectorsEnabled));
         switch (columnMappingMode) {
-            case NONE -> { /* do nothing */ }
+            case NONE -> {}
             case ID, NAME -> {
                 configurationMapBuilder.put(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, columnMappingMode.name().toLowerCase(ENGLISH));
                 configurationMapBuilder.put(MAX_COLUMN_ID_CONFIGURATION_KEY, String.valueOf(maxFieldId.orElseThrow()));
@@ -223,8 +223,16 @@ public class MetadataEntry
     @Override
     public String toString()
     {
-        return format("MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
-                id, name, description, format, schemaString, partitionColumns, configuration, createdTime);
+        return format(
+                "MetadataEntry{id=%s, name=%s, description=%s, format=%s, schemaString=%s, partitionColumns=%s, configuration=%s, createdTime=%d}",
+                id,
+                name,
+                description,
+                format,
+                schemaString,
+                partitionColumns,
+                configuration,
+                createdTime);
     }
 
     public long getRetainedSizeInBytes()
@@ -260,7 +268,6 @@ public class MetadataEntry
         private String schemaString;
         private List<String> partitionColumns = ImmutableList.of();
         private Map<String, String> configuration;
-        private long createdTime;
 
         private Builder() {}
 
@@ -274,7 +281,6 @@ public class MetadataEntry
             schemaString = metadataEntry.schemaString;
             partitionColumns = ImmutableList.copyOf(metadataEntry.partitionColumns);
             configuration = ImmutableMap.copyOf(metadataEntry.configuration);
-            createdTime = metadataEntry.createdTime;
         }
 
         public Builder setId(String id)
@@ -307,15 +313,9 @@ public class MetadataEntry
             return this;
         }
 
-        public Builder setCreatedTime(long createdTime)
-        {
-            this.createdTime = createdTime;
-            return this;
-        }
-
         public MetadataEntry build()
         {
-            return new MetadataEntry(id, name, description.orElse(null), format, schemaString, partitionColumns, configuration, createdTime);
+            return new MetadataEntry(id, name, description.orElse(null), format, schemaString, partitionColumns, configuration, System.currentTimeMillis());
         }
     }
 

@@ -20,7 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -31,6 +33,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -81,6 +84,20 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(ADD, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '6-3' YEAR TO MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' MONTH * 2000000000",
+                "INTERVAL '1' MONTH * 2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month addition overflow: 2000000000 + 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                ADD,
+                "INTERVAL '1' MONTH * (-2000000000)",
+                "INTERVAL '1' MONTH * (-2000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month addition overflow: -2000000000 + -2000000000");
     }
 
     @Test
@@ -94,6 +111,20 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(SUBTRACT, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '-5-9' YEAR TO MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' MONTH * (-2000000000)",
+                "INTERVAL '1' MONTH * 2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month subtraction overflow: -2000000000 - 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                SUBTRACT,
+                "INTERVAL '1' MONTH * 2000000000",
+                "INTERVAL '1' MONTH * (-2000000000)")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month subtraction overflow: 2000000000 - -2000000000");
     }
 
     @Test
@@ -128,6 +159,14 @@ public class TestIntervalYearMonth
 
         assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' YEAR")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "INTERVAL '2' MONTH", "2000000000")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month multiplication overflow: 2 * 2000000000");
+
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "2000000000", "INTERVAL '2' MONTH")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month multiplication overflow: 2000000000 * 2");
     }
 
     @Test
@@ -166,6 +205,12 @@ public class TestIntervalYearMonth
 
         assertThat(assertions.operator(NEGATION, "INTERVAL '6' YEAR"))
                 .matches("INTERVAL '-72' MONTH");
+
+        assertTrinoExceptionThrownBy(assertions.operator(
+                NEGATION,
+                "INTERVAL '1' MONTH * (-2147483647) - INTERVAL '1' MONTH")::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("interval year to month negation overflow: -2147483648");
     }
 
     @Test
@@ -393,6 +438,16 @@ public class TestIntervalYearMonth
                 .binding("a", "INTERVAL '30' MONTH"))
                 .hasType(VARCHAR)
                 .isEqualTo("2-6");
+
+        assertThat(assertions.expression("CAST(a AS varchar(5))")
+                .binding("a", "INTERVAL '124' YEAR"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("124-0");
+
+        assertTrinoExceptionThrownBy(assertions.expression("CAST(a AS varchar(4))")
+                .binding("a", "INTERVAL '124' YEAR")::evaluate)
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Cannot cast '124-0' to varchar(4)");
     }
 
     @Test

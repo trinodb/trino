@@ -50,7 +50,7 @@ public class TestTableScanStatsRule
                             ImmutableList.of(a, b, c, d, e, unknown),
                             ImmutableMap.of(a, columnA, b, columnB, c, columnC, d, columnD, e, columnE, unknown, unknownColumn));
                 })
-                .withTableStatisticsProvider(tableHandle -> TableStatistics.builder()
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
                         .setRowCount(Estimate.of(33))
                         .setColumnStatistics(
                                 columnA,
@@ -107,7 +107,7 @@ public class TestTableScanStatsRule
                             ImmutableList.of(column),
                             ImmutableMap.of(column, columnHandle));
                 })
-                .withTableStatisticsProvider(tableHandle -> TableStatistics.builder()
+                .withTableStatisticsProvider(_ -> TableStatistics.builder()
                         .setRowCount(Estimate.zero())
                         .setColumnStatistics(
                                 columnHandle,

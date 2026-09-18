@@ -35,9 +35,11 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.SqlNumber;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -45,6 +47,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -77,6 +80,7 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.HALF_UP;
+import static java.util.Objects.requireNonNullElse;
 
 final class TrinoTypes
 {
@@ -169,6 +173,7 @@ final class TrinoTypes
             case StandardTypes.JSON -> TrinoType.JSON;
             case StandardTypes.UUID -> TrinoType.UUID;
             case StandardTypes.IPADDRESS -> TrinoType.IPADDRESS;
+            case StandardTypes.NUMBER -> TrinoType.NUMBER;
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
         };
     }
@@ -200,6 +205,15 @@ final class TrinoTypes
                         ? Decimals.toString((long) value, decimalType.getScale())
                         : Decimals.toString((Int128) value, decimalType.getScale());
                 writeVariableSlice(utf8Slice(decimalString), output);
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) value;
+                String stringValue = switch (number.toBigDecimal()) {
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> bigDecimal.toString();
+                    case TrinoNumber.Infinity(boolean negative) -> negative ? "-Infinity" : "+Infinity";
+                    case TrinoNumber.NotANumber() -> "NaN";
+                };
+                writeVariableSlice(utf8Slice(stringValue), output);
             }
             case TimeWithTimeZoneType timeType -> {
                 if (timeType.isShort()) {
@@ -282,6 +296,15 @@ final class TrinoTypes
                         ? Decimals.toString(decimalType.getLong(block, position), decimalType.getScale())
                         : Decimals.toString((Int128) decimalType.getObject(block, position), decimalType.getScale());
                 writeVariableSlice(utf8Slice(decimalString), output);
+            }
+            case NumberType numberType -> {
+                SqlNumber value = (SqlNumber) numberType.getObjectValue(block, position);
+                String stringValue = switch (value.value()) {
+                    case TrinoNumber.BigDecimalValue(BigDecimal bigDecimal) -> bigDecimal.toString();
+                    case TrinoNumber.Infinity(boolean negative) -> negative ? "-Infinity" : "+Infinity";
+                    case TrinoNumber.NotANumber() -> "NaN";
+                };
+                writeVariableSlice(utf8Slice(stringValue), output);
             }
             case DateType dateType -> output.writeInt(dateType.getInt(block, position));
             case TimeType timeType -> output.writeLong(picosToMicros(timeType.getLong(block, position)));
@@ -381,9 +404,27 @@ final class TrinoTypes
             case MapType mapType -> binaryMapToJava(mapType, input);
             case DecimalType decimalType -> {
                 BigDecimal decimal = new BigDecimal(input.readSlice(input.readInt()).toStringUtf8());
-                yield decimalType.isShort()
-                        ? encodeShortScaledValue(decimal, decimalType.getScale(), HALF_UP)
-                        : encodeScaledValue(decimal, decimalType.getScale(), HALF_UP);
+                try {
+                    yield decimalType.isShort()
+                            ? encodeShortScaledValue(decimal, decimalType.getScale(), HALF_UP)
+                            : encodeScaledValue(decimal, decimalType.getScale(), HALF_UP);
+                }
+                catch (ArithmeticException e) {
+                    throw new TrinoException(
+                            FUNCTION_IMPLEMENTATION_ERROR,
+                            "Function result cannot be converted to %s: %s".formatted(decimalType.getDisplayName(), requireNonNullElse(e.getMessage(), e)),
+                            e);
+                }
+            }
+            case NumberType _ -> {
+                String stringUtf8 = input.readSlice(input.readInt()).toStringUtf8();
+                TrinoNumber.AsBigDecimal number = switch (stringUtf8) {
+                    case "NaN" -> new TrinoNumber.NotANumber();
+                    case "+Infinity" -> new TrinoNumber.Infinity(false);
+                    case "-Infinity" -> new TrinoNumber.Infinity(true);
+                    default -> new TrinoNumber.BigDecimalValue(new BigDecimal(stringUtf8));
+                };
+                yield TrinoNumber.from(number);
             }
             case TimeType timeType -> {
                 long micros = roundMicros(input.readLong(), timeType.getPrecision()) % MICROSECONDS_PER_DAY;

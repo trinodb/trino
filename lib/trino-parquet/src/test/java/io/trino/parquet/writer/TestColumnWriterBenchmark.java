@@ -16,13 +16,10 @@ package io.trino.parquet.writer;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-
 final class TestColumnWriterBenchmark
 {
     @Test
     void testLongColumnWriterBenchmark()
-            throws IOException
     {
         for (int bitWidth = 1; bitWidth <= 64; bitWidth += 4) {
             for (AbstractColumnWriterBenchmark.BloomFilterType bloomFilterType : AbstractColumnWriterBenchmark.BloomFilterType.values()) {
@@ -40,7 +37,6 @@ final class TestColumnWriterBenchmark
 
     @Test
     void testBinaryColumnWriterBenchmark()
-            throws IOException
     {
         for (BenchmarkBinaryColumnWriter.FieldType fieldType : BenchmarkBinaryColumnWriter.FieldType.values()) {
             for (BenchmarkBinaryColumnWriter.PositionLength positionLength : BenchmarkBinaryColumnWriter.PositionLength.values()) {

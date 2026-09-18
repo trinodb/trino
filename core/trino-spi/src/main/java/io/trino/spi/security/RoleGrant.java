@@ -13,9 +13,6 @@
  */
 package io.trino.spi.security;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
@@ -27,27 +24,23 @@ public class RoleGrant
     private final String roleName;
     private final boolean grantable;
 
-    @JsonCreator
-    public RoleGrant(@JsonProperty("grantee") TrinoPrincipal grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
+    public RoleGrant(TrinoPrincipal grantee, String roleName, boolean grantable)
     {
         this.grantee = requireNonNull(grantee, "grantee is null");
         this.roleName = roleName.toLowerCase(ENGLISH);
         this.grantable = grantable;
     }
 
-    @JsonProperty
     public String getRoleName()
     {
         return roleName;
     }
 
-    @JsonProperty
     public TrinoPrincipal getGrantee()
     {
         return grantee;
     }
 
-    @JsonProperty
     public boolean isGrantable()
     {
         return grantable;

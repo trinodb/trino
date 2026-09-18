@@ -25,6 +25,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.util.Lazy;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
@@ -36,7 +37,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,10 +49,10 @@ public class LazyOutputBuffer
         implements OutputBuffer
 {
     private final OutputBufferStateMachine stateMachine;
-    private final String taskInstanceId;
+    private final long taskInstanceId;
     private final DataSize maxBufferSize;
     private final DataSize maxBroadcastBufferSize;
-    private final Supplier<LocalMemoryContext> memoryContextSupplier;
+    private final Lazy<LocalMemoryContext> memoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -69,15 +69,15 @@ public class LazyOutputBuffer
 
     public LazyOutputBuffer(
             TaskId taskId,
-            String taskInstanceId,
+            long taskInstanceId,
             Executor executor,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
-            Supplier<LocalMemoryContext> memoryContextSupplier,
+            Lazy<LocalMemoryContext> memoryContextSupplier,
             Runnable notifyStatusChanged,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
-        this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.taskInstanceId = taskInstanceId;
         this.executor = requireNonNull(executor, "executor is null");
         stateMachine = new OutputBufferStateMachine(taskId, executor);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -86,6 +86,13 @@ public class LazyOutputBuffer
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+    }
+
+    @Override
+    public boolean usesExternalStorage()
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        return outputBuffer.usesExternalStorage();
     }
 
     @Override

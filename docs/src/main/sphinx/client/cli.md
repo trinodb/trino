@@ -209,6 +209,15 @@ mode:
   - Specifies the name of the application or source connecting to Trino.
     Defaults to `trino-cli`. The value can be used as input for
     [](/admin/resource-groups).
+* - `--theme=<theme>`
+  - Selects the color theme for styled output. Options are `AUTO`, `DARK`,
+    `LIGHT`, `NONE`, `SOLARIZED_DARK`, `SOLARIZED_LIGHT`, `DRACULA`, `NORD`, or
+    `GRUVBOX_DARK`. Defaults to `AUTO`, which uses `DARK` for an interactive
+    terminal and disables color for a non-interactive terminal or when the
+    `NO_COLOR` environment variable is set. An explicit value other than `AUTO`
+    always applies, even when `NO_COLOR` is set. Use `NONE` to disable color.
+    The named schemes use 24-bit color, which is approximated on terminals
+    without truecolor support.
 * - `--timezone`
   - Sets the time zone for the session using the [time zone name](
     <https://wikipedia.org/wiki/List_of_tz_database_time_zones>). Defaults to

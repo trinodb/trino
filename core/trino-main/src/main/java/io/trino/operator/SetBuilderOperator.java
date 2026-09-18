@@ -139,7 +139,8 @@ public class SetBuilderOperator
         // Set builder has a single channel which goes in channel 0, if hash is present, add a hashBlock to channel 1
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
-                requireNonNull(typeOperators, "typeOperators is null"), operatorContext.localUserMemoryContext());
+                requireNonNull(typeOperators, "typeOperators is null"),
+                operatorContext.localUserMemoryContext());
     }
 
     @Override

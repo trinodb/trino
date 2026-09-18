@@ -122,14 +122,18 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testDuplicatedRowCreateTable()
     {
-        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, a integer)",
                 "line 1:31: Column name 'a' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
 
-        assertQueryFails("CREATE TABLE test (a integer, A integer)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, A integer)",
                 "line 1:31: Column name 'A' specified more than once");
-        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
+        assertQueryFails(
+                "CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
@@ -288,6 +292,46 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testInsertWithCoercionIntoNestedCharacterType()
+    {
+        String tableName = "test_insert_nested_char_coercion_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "array_column array(char(3)), " +
+                "map_column map(char(3), char(3)), " +
+                "row_column row(field char(3)))");
+
+        // varchar values are assignable to character types nested in array, map and row, trimming/padding to the target length
+        assertUpdate("INSERT INTO " + tableName + " VALUES (" +
+                "ARRAY[VARCHAR 'aa     ', NULL], " +
+                "MAP(ARRAY[VARCHAR 'k'], ARRAY[VARCHAR 'v     ']), " +
+                "CAST(ROW(VARCHAR 'r') AS row(field varchar)))", 1);
+        // a null structural value stays null rather than becoming a structure of null fields
+        assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, NULL, NULL)", 1);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "(ARRAY[CAST('aa' AS char(3)), NULL], MAP(ARRAY[CAST('k' AS char(3))], ARRAY[CAST('v' AS char(3))]), CAST(ROW('r') AS row(field char(3)))), " +
+                        "(NULL, NULL, NULL)");
+
+        // the no-truncation guard recurses into character types nested in array, map and row, covering every branch:
+        // the array element, the map value (transform_values), the map key (transform_keys) and the row field
+        assertQueryFails("INSERT INTO " + tableName + " (array_column) VALUES (ARRAY['abcd'])",
+                "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
+        assertQueryFails("INSERT INTO " + tableName + " (map_column) VALUES (MAP(ARRAY['k'], ARRAY['abcd']))",
+                "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
+        assertQueryFails("INSERT INTO " + tableName + " (map_column) VALUES (MAP(ARRAY['abcd'], ARRAY['k']))",
+                "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
+        // the row field is exercised via a full-table INSERT: a single-column VALUES of a one-field row would flatten to
+        // the field type, so the other (non-truncating) columns are supplied to keep the row value a row
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (ARRAY[VARCHAR 'a'], MAP(ARRAY[VARCHAR 'k'], ARRAY[VARCHAR 'v']), CAST(ROW('abcd') AS row(field varchar(4))))",
+                "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateTableAsTable()
     {
         // Ensure CTA works when the table exposes hidden fields
@@ -383,7 +427,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Timeout(30)
     public void testSelectiveLimit()
     {
-        assertQuery("" +
+        assertQuery(
+                "" +
                         "SELECT * FROM (" +
                         "   (SELECT orderkey AS a FROM tpch.sf10000.orders WHERE orderkey=-1)" +
                         " UNION ALL SELECT * FROM (values -1) AS t(a))" +

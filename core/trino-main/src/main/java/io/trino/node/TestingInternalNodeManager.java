@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
-import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
+import io.trino.spi.NodeVersion;
 
 import java.net.URI;
 import java.util.ArrayList;

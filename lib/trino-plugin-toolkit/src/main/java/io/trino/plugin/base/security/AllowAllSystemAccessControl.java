@@ -204,17 +204,33 @@ public class AllowAllSystemAccessControl
     public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns) {}
+
+    @Deprecated
+    @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
+    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch) {}
+
+    @Deprecated
+    @Override
     public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
+    @Override
+    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch) {}
+
+    @Deprecated
     @Override
     public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
     public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
+    @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Optional<String> branch, Set<String> updatedColumnNames) {}
+
+    @Deprecated
     @Override
     public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames) {}
 
@@ -233,6 +249,10 @@ public class AllowAllSystemAccessControl
     @Override
     public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view) {}
 
+    @Override
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Optional<String> branch, Set<String> columns) {}
+
+    @Deprecated
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 

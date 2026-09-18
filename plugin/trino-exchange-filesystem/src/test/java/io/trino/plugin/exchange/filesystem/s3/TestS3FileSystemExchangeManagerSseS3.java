@@ -16,27 +16,27 @@ package io.trino.plugin.exchange.filesystem.s3;
 import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.spi.exchange.ExchangeManager;
 import org.junit.jupiter.api.AfterAll;
 
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerPropertiesWithSseS3;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.S3;
 import static java.util.UUID.randomUUID;
 
 public class TestS3FileSystemExchangeManagerSseS3
         extends AbstractTestExchangeManager
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     @Override
     protected ExchangeManager createExchangeManager()
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomUUID(), true);
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomUUID(), S3);
+        storage.start();
 
         return new FileSystemExchangeManagerFactory().create(
-                getExchangeManagerPropertiesWithSseS3(minioStorage),
+                storage.getExchangeManagerProperties(),
                 new TestExchangeManagerContext());
     }
 
@@ -44,6 +44,7 @@ public class TestS3FileSystemExchangeManagerSseS3
     public void cleanUp()
             throws Exception
     {
-        closeAll(minioStorage);
+        closeAll(storage);
+        storage = null;
     }
 }

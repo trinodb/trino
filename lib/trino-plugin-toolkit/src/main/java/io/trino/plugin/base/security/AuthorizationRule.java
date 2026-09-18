@@ -22,10 +22,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class AuthorizationRule
 {
@@ -51,7 +51,7 @@ public class AuthorizationRule
         this.originalRolePattern = requireNonNull(originalRolePattern, "originalRolePattern is null");
         this.newUserPattern = requireNonNull(newUserPattern, "newUserPattern is null");
         this.newRolePattern = requireNonNull(newRolePattern, "newRolePattern is null");
-        this.allow = firstNonNull(allow, TRUE);
+        this.allow = requireNonNullElse(allow, TRUE);
     }
 
     public Optional<Boolean> match(String user, Set<String> groups, Set<String> roles, TrinoPrincipal newPrincipal)
@@ -68,8 +68,8 @@ public class AuthorizationRule
     private boolean matches(TrinoPrincipal newPrincipal)
     {
         return switch (newPrincipal.getType()) {
-            case USER -> newUserPattern.map(regex -> regex.matcher(newPrincipal.getName()).matches()).orElse(false);
-            case ROLE -> newRolePattern.map(regex -> regex.matcher(newPrincipal.getName()).matches()).orElse(false);
+            case USER -> newUserPattern.map(regex -> regex.matcher(newPrincipal.getPrincipalName()).matches()).orElse(false);
+            case ROLE -> newRolePattern.map(regex -> regex.matcher(newPrincipal.getPrincipalName()).matches()).orElse(false);
         };
     }
 

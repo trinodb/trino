@@ -26,6 +26,7 @@ import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.DecimalType;
@@ -129,6 +130,7 @@ public final class DecimalAverageAggregation
         state.addLong(otherState.getLong()); // row counter
     }
 
+    @SqlNullable
     @OutputFunction("decimal(p,s)")
     public static void outputDecimal(
             @TypeParameter("decimal(p,s)") Type type,
@@ -158,7 +160,7 @@ public final class DecimalAverageAggregation
         long overflow = state.getOverflow();
         if (overflow != 0) {
             BigDecimal sum = new BigDecimal(Int128.valueOf(decimal[offset], decimal[offset + 1]).toBigInteger(), type.getScale());
-            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
+            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow)), type.getScale()));
 
             BigDecimal count = BigDecimal.valueOf(state.getLong());
             return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), HALF_UP), type.getScale());
