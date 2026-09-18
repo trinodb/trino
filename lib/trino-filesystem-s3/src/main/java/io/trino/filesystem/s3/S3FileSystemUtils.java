@@ -19,6 +19,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -34,12 +35,12 @@ final class S3FileSystemUtils
 {
     private S3FileSystemUtils() {}
 
-    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client)
+    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client, SdkHttpClient httpClient)
     {
-        return createS3PreSigner(config, s3Client, Optional.empty());
+        return createS3PreSigner(config, s3Client, Optional.empty(), httpClient);
     }
 
-    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client, Optional<S3SecurityMappingResult> mapping)
+    public static S3Presigner createS3PreSigner(S3FileSystemConfig config, S3Client s3Client, Optional<S3SecurityMappingResult> mapping, SdkHttpClient httpClient)
     {
         Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
@@ -79,7 +80,7 @@ final class S3FileSystemUtils
                             .roleArn(iamRole.orElseThrow())
                             .roleSessionName(roleSessionName)
                             .externalId(externalId))
-                    .stsClient(createStsClient(config, credentialsProvider))
+                    .stsClient(createStsClient(config, credentialsProvider, httpClient))
                     .asyncCredentialUpdateEnabled(true)
                     .build());
             case DEFAULT -> {
@@ -90,7 +91,7 @@ final class S3FileSystemUtils
                                     .roleArn(iamRole.get())
                                     .roleSessionName(roleSessionName)
                                     .externalId(externalId))
-                            .stsClient(createStsClient(config, credentialsProvider))
+                            .stsClient(createStsClient(config, credentialsProvider, httpClient))
                             .asyncCredentialUpdateEnabled(true)
                             .build());
                 }
@@ -103,9 +104,10 @@ final class S3FileSystemUtils
         return s3.build();
     }
 
-    static StsClient createStsClient(S3FileSystemConfig config, Optional<AwsCredentialsProvider> credentialsProvider)
+    static StsClient createStsClient(S3FileSystemConfig config, Optional<AwsCredentialsProvider> credentialsProvider, SdkHttpClient httpClient)
     {
         StsClientBuilder sts = StsClient.builder();
+        sts.httpClient(httpClient);
         Optional.ofNullable(config.getStsEndpoint()).map(URI::create).ifPresent(sts::endpointOverride);
         Optional.ofNullable(config.getStsRegion())
                 .or(() -> Optional.ofNullable(config.getRegion()))

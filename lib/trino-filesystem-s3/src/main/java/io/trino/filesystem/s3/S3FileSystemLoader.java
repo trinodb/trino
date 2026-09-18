@@ -157,7 +157,7 @@ final class S3FileSystemLoader
         try {
             return clientResources.get(mapping, () -> {
                 S3Client client = clientFactory.create(mapping);
-                return new S3ClientResources(client, createS3PreSigner(config, client, mapping));
+                return new S3ClientResources(client, createS3PreSigner(config, client, mapping, httpClient));
             });
         }
         catch (ExecutionException e) {
@@ -232,6 +232,11 @@ final class S3FileSystemLoader
         return context;
     }
 
+    SdkHttpClient httpClient()
+    {
+        return httpClient;
+    }
+
     Executor uploadExecutor()
     {
         return uploadExecutor;
@@ -295,7 +300,7 @@ final class S3FileSystemLoader
                                         .roleArn(iamRole.get())
                                         .roleSessionName(roleSessionName)
                                         .externalId(externalId))
-                                .stsClient(createStsClient(config, credentialsProvider))
+                                .stsClient(createStsClient(config, credentialsProvider, httpClient))
                                 .asyncCredentialUpdateEnabled(true)
                                 .build());
                     }
