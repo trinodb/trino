@@ -642,6 +642,27 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testDropTablePreservesDataWhenGcDisabled()
+            throws Exception
+    {
+        String tableName = "test_drop_table_gc_disabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id integer) WITH (gc_enabled = false)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1), (2)", 2);
+
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location tableDataPath = tableLocation.appendPath("data");
+        FileIterator dataFilesBeforeDrop = fileSystem.listFiles(tableDataPath);
+        assertThat(dataFilesBeforeDrop.hasNext()).isTrue();
+        Location dataFile = dataFilesBeforeDrop.next().location();
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.newInputFile(dataFile).exists())
+                .describedAs("Data files should be preserved when gc.enabled = false at DROP time")
+                .isTrue();
+    }
+
+    @Test
     public void testDropTableWithNonExistentTableLocation()
             throws Exception
     {

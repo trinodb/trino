@@ -423,6 +423,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testDropTablePreservesDataWhenGcDisabled()
+    {
+        testFailsDueToReadOnlyCatalog(super::testDropTablePreservesDataWhenGcDisabled);
+    }
+
+    @Test
+    @Override
     public void testDropTableWithMissingDataFile()
     {
         testFailsDueToReadOnlyCatalog(super::testDropTableWithMissingDataFile);

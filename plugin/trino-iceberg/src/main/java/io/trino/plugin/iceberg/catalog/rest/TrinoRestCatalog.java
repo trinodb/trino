@@ -106,6 +106,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_
 import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -542,17 +543,20 @@ public class TrinoRestCatalog
     private void purgeBigLakeTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = loadTable(session, schemaTableName);
+        TableMetadata metadata = table.operations().current();
         unregisterTable(session, schemaTableName);
         try {
             // Explicitly remove data like TrinoGlueCatalog.dropTable since BigLake doesn't delete its data and metadata
-            dropTableData(table.io(), table.operations().current());
+            dropTableData(table.io(), metadata);
         }
         catch (RuntimeException e) {
             // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), schemaTableName, table.location());
+        if (isGcEnabled(metadata)) {
+            deleteTableDirectory(fileSystemFactory.create(session.getIdentity(), IcebergTableCredentials.forFileIO(table.io())), schemaTableName, table.location());
+        }
     }
 
     private static void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)

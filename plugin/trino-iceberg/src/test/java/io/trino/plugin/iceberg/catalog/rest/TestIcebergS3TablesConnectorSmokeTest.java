@@ -226,6 +226,10 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testDropTableWithMissingDataFile() {}
 
     @Test
+    @Override // The TrinoFileSystem.listFiles is unsupported
+    public void testDropTablePreservesDataWhenGcDisabled() {}
+
+    @Test
     @Override // The TrinoFileSystem.deleteDirectory is unsupported
     public void testDropTableWithNonExistentTableLocation() {}
 

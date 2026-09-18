@@ -458,6 +458,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testDropTablePreservesDataWhenGcDisabled()
+    {
+        assertThatThrownBy(super::testDropTablePreservesDataWhenGcDisabled)
+                .hasMessageMatching("Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Test
+    @Override
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
