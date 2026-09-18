@@ -82,5 +82,20 @@
         "privileges": [
         ]
       }
+    ],
+    "table_procedures": [
+        {
+            "user": "bob",
+            "procedure": "some_table_procedure",
+            "privileges": [
+                "EXECUTE"
+            ]
+        },
+        {
+            "user": "charlie",
+            "procedure": "some_table_procedure",
+            "privileges": [
+            ]
+        }
     ]
 }
