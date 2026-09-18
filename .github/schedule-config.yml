@@ -31,7 +31,11 @@
 - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
 - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
 - { modules: plugin/trino-bigquery }
-- { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
+- {
+    modules: plugin/trino-bigquery,
+    profile: cloud-tests-2,
+    when: { impacted: false },
+  }
 - { modules: plugin/trino-cassandra }
 - { modules: plugin/trino-clickhouse }
 - { modules: plugin/trino-delta-lake }
