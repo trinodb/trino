@@ -543,6 +543,38 @@ public class TestDeltaLakeBasic
         }
     }
 
+    @Test
+    void testCreateOrReplaceWithDeletionVectors()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_deletion_vectors", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(getEntriesFromJson(2, getTableLocation(table.getName()) + "/_delta_log"))
+                    .filteredOn(entry -> entry.getAdd() != null)
+                    .anySatisfy(entry -> assertThat(entry.getAdd().getDeletionVector()).isPresent());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int)");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
+    void testCreateOrReplaceAsSelectWithDeletionVectors()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_as_select_deletion_vectors", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(getEntriesFromJson(2, getTableLocation(table.getName()) + "/_delta_log"))
+                    .filteredOn(entry -> entry.getAdd() != null)
+                    .anySatisfy(entry -> assertThat(entry.getAdd().getDeletionVector()).isPresent());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 4 x", 1);
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 4");
+        }
+    }
+
     @Test // regression test for https://github.com/trinodb/trino/issues/24121
     void testPartitionValuesParsedCheckpoint()
             throws Exception
