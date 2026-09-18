@@ -10187,6 +10187,10 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])) AS SELECT 1 as c1",
                 "\\QIllegal keys in extra_properties: [not_allowed_property]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_gc_enabled_via_extra_properties WITH (extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [gc.enabled]");
     }
 
     @Test
@@ -10202,6 +10206,27 @@ public abstract class BaseIcebergConnectorTest
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['not_allowed_property'], ARRAY['foo'])",
                     "\\QIllegal keys in extra_properties: [not_allowed_property]");
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])",
+                    "\\QIllegal keys in extra_properties: [gc.enabled]");
+        }
+    }
+
+    @Test
+    public void testGcEnabled()
+    {
+        try (TestTable table = newTrinoTable("test_gc_enabled_", "(x integer) WITH (gc_enabled = false)")) {
+            assertThat(getTableProperties(table.getName())).containsEntry("gc.enabled", "false");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("gc_enabled = false");
+        }
+
+        try (TestTable table = newTrinoTable("test_gc_enabled_alter_", "(x integer)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES gc_enabled = false");
+            assertThat(getTableProperties(table.getName())).containsEntry("gc.enabled", "false");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES gc_enabled = true");
+            assertThat(getTableProperties(table.getName())).containsEntry("gc.enabled", "true");
         }
     }
 
