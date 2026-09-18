@@ -69,9 +69,10 @@ final class InputReferenceCompiler
                 callType = Object.class;
             }
 
-            Variable inputBlock = scope.createTempVariable(Block.class);
-            Variable valueBlock = scope.createTempVariable(ValueBlock.class);
-            Variable valuePosition = scope.createTempVariable(int.class);
+            // Temps are written immediately before every read, so all input references can share the same slots
+            Variable inputBlock = scope.getOrCreateTempVariable(Block.class);
+            Variable valueBlock = scope.getOrCreateTempVariable(ValueBlock.class);
+            Variable valuePosition = scope.getOrCreateTempVariable(int.class);
 
             IfStatement ifStatement = new IfStatement();
             ifStatement.condition(valueBlock.invoke("isNull", boolean.class, valuePosition));
@@ -102,6 +103,10 @@ final class InputReferenceCompiler
             this.valuePosition = valuePosition;
             this.body = loadValueBlockAndPosition()
                     .append(ifStatement);
+
+            scope.releaseTempVariableForReuse(inputBlock);
+            scope.releaseTempVariableForReuse(valueBlock);
+            scope.releaseTempVariableForReuse(valuePosition);
         }
 
         @Override
