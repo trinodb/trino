@@ -118,7 +118,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthoriza
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -178,9 +177,8 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
-        if (!hasPermission(RangerTrinoResource.forUser(userName), principal, null, IMPERSONATE, "SetUser")) {
-            denySetUser(principal, userName);
-        }
+        // Skip because this method doesn't work in Ranger with Kerberos: https://github.com/trinodb/trino/issues/29342
+        // It's safe to skip because impersonation itself is checked by checkCanImpersonateUser().
     }
 
     @Override

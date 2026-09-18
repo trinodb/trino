@@ -38,6 +38,7 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeTemplate;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -96,18 +97,20 @@ public class SignatureBinder
 
     private final Metadata metadata;
     private final TypeManager typeManager;
+    private final CharVarcharCoercion charVarcharCoercion;
     private final TypeCoercion typeCoercion;
     private final Signature declaredSignature;
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
     // this could use the function resolver instead of Metadata, but Metadata caches coercion resolution
-    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion, boolean legacyVarcharToCharCoercion)
+    SignatureBinder(Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion, CharVarcharCoercion charVarcharCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.typeCoercion = new TypeCoercion(typeManager::getType, legacyVarcharToCharCoercion);
+        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
+        this.typeCoercion = new TypeCoercion(typeManager::getType, charVarcharCoercion);
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 
@@ -658,7 +661,7 @@ public class SignatureBinder
             }
         }
         try {
-            metadata.getCoercion(fromType, toType);
+            metadata.getCoercion(charVarcharCoercion, fromType, toType);
             return true;
         }
         catch (TrinoException e) {

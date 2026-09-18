@@ -50,6 +50,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
+import static java.lang.Math.toIntExact;
 
 public final class JsonFunctions
 {
@@ -76,9 +77,9 @@ public final class JsonFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JsonPathType.NAME)
-    public static JsonPath castCharToJsonPath(@LiteralParameter("x") Long charLength, @SqlType("char(x)") Slice pattern)
+    public static JsonPath castCharToJsonPath(@LiteralParameter("x") long charLength, @SqlType("char(x)") Slice pattern)
     {
-        return new JsonPath(padSpaces(pattern, charLength.intValue()).toStringUtf8());
+        return new JsonPath(padSpaces(pattern, toIntExact(charLength)).toStringUtf8());
     }
 
     @ScalarFunction("is_json_scalar")

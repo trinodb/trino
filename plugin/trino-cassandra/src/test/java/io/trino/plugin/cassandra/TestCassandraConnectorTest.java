@@ -1895,6 +1895,15 @@ public class TestCassandraConnectorTest
                 "VALUES ('CANADA', 'AMERICA')");
     }
 
+    @Test
+    @Override
+    public void testCharToVarcharCastCoercionAcrossPushdown()
+    {
+        assertThatThrownBy(super::testCharToVarcharCastCoercionAcrossPushdown)
+                .hasMessage("Unsupported type: char(5)")
+                .hasStackTraceContaining("SQL: CREATE TABLE test_char_to_varchar_cast");
+    }
+
     private void assertSelect(String tableName)
     {
         String sql = "SELECT " +

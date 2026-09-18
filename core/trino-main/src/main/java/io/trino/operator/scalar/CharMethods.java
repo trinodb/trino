@@ -51,7 +51,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         return StringFunctions.charSubstring(x, utf8, start);
     }
@@ -61,7 +61,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         return StringFunctions.charSubstr(x, utf8, start, length);
     }

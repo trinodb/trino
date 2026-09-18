@@ -142,6 +142,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("region_104_lts", "databricks104/region"),
             new ResourceTable("region_113_lts", "databricks113/region"),
             new ResourceTable("region_122_lts", "databricks122/region"),
+            new ResourceTable("region_133_lts", "databricks133/region"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
@@ -274,6 +275,14 @@ public class TestDeltaLakeBasic
     void testDatabricks122()
     {
         assertThat(query("SELECT * FROM region_122_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks133()
+    {
+        assertThat(query("SELECT * FROM region_133_lts"))
                 .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
                 .matches("SELECT * FROM tpch.tiny.region");
     }
@@ -1810,6 +1819,7 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM uniform_hudi", "VALUES (123)");
         assertQueryFails("INSERT INTO uniform_hudi VALUES (456)", "\\QUnsupported universal formats: [hudi]");
         assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, 'uniform_hudi', '7d')", "\\QUnsupported universal formats: [hudi]");
+        assertQueryFails("DROP TABLE uniform_hudi", "\\QUnsupported universal formats: [hudi]");
     }
 
     /**
@@ -1820,6 +1830,7 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v1", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("DROP TABLE uniform_iceberg_v1", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -1830,6 +1841,7 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
+        assertQueryFails("DROP TABLE uniform_iceberg_v2", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -2256,6 +2268,28 @@ public class TestDeltaLakeBasic
                     .hasMessage("No temporal version history at or before %s".formatted(Instant.ofEpochMilli(1738242898530L - 1L)));
             assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242898530L, executorService, 1)).isEqualTo(2);
             assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242905942L, executorService, 1)).isEqualTo(3);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    /**
+     * @see deltalake.multipart_checkpoint
+     */
+    @Test
+    public void testTemporalTimeTravelUtilParallelSearchWithPartialFinalRange()
+            throws Exception
+    {
+        String tableName = "test_time_travel_util_parallel_partial_range_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        try (ExecutorService executorService = Executors.newCachedThreadPool()) {
+            // Version 5's commit timestamp
+            long version5CommitTimeMillis = Instant.parse("2023-10-16T06:53:09.907Z").toEpochMilli();
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), version5CommitTimeMillis, executorService, 5)).isEqualTo(5);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

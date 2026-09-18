@@ -399,7 +399,7 @@ public class TestAnnotationEngineForScalars
         @SqlType(StandardTypes.BIGINT)
         @LiteralParameters("x")
         public static long fun(
-                @LiteralParameter("x") Long literalParam,
+                @LiteralParameter("x") long literalParam,
                 @SqlType("varchar(x)") Slice val)
         {
             return literalParam;

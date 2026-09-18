@@ -341,7 +341,11 @@ public final class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        if (compareUpdate && !actualResults.getUpdateType().equals(Optional.of("ALTER TABLE EXECUTE"))) {
+        // ALTER TABLE EXECUTE and ALTER MATERIALIZED VIEW EXECUTE both return procedure metrics as rows
+        // (metric_name, metric_value), not a single scalar update count, so they are compared as ordinary rows below.
+        boolean isTableExecute = actualResults.getUpdateType().equals(Optional.of("ALTER TABLE EXECUTE")) ||
+                actualResults.getUpdateType().equals(Optional.of("ALTER MATERIALIZED VIEW EXECUTE"));
+        if (compareUpdate && !isTableExecute) {
             if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query " + queryId + ": \n" + actual);
             }

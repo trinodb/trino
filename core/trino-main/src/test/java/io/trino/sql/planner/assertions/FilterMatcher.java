@@ -50,7 +50,7 @@ final class FilterMatcher
         ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
 
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
-        return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), predicate));
+        return new MatchResult(verifier.process(combineConjuncts(extractResult.staticConjuncts()), predicate));
     }
 
     @Override

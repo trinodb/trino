@@ -25,7 +25,6 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
-import static io.trino.geospatial.GeometryUtils.safeUnion;
 import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
@@ -52,7 +51,7 @@ public final class ConvexHullAggregation
         else {
             int srid = validateAndGetSrid(state.getGeometry(), geometry);
             if (!geometry.isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), geometry).convexHull();
+                Geometry result = convexHullOf(state.getGeometry(), geometry.convexHull());
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
@@ -73,7 +72,7 @@ public final class ConvexHullAggregation
         else if (otherState.getGeometry() != null) {
             int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
             if (!otherState.getGeometry().isEmpty()) {
-                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
+                Geometry result = convexHullOf(state.getGeometry(), otherState.getGeometry());
                 result.setSRID(srid);
                 state.setGeometry(result);
             }
@@ -81,6 +80,15 @@ public final class ConvexHullAggregation
                 updateGeometrySrid(state, srid);
             }
         }
+    }
+
+    /**
+     * Hull of two hulls, which equals the hull of their inputs. Taking it over the coordinates
+     * avoids an overlay, so no input is ever repaired and the result is independent of input order.
+     */
+    private static Geometry convexHullOf(Geometry left, Geometry right)
+    {
+        return left.getFactory().createGeometryCollection(new Geometry[] {left, right}).convexHull();
     }
 
     private static void updateGeometrySrid(GeometryState state, int srid)

@@ -51,6 +51,7 @@ import org.apache.parquet.internal.column.columnindex.BinaryTruncator;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.ColumnOrder.ColumnOrderName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.BsonLogicalTypeAnnotation;
@@ -70,6 +71,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnot
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.apache.parquet.schema.Types;
 
 import java.util.Arrays;
 import java.util.List;
@@ -239,13 +241,18 @@ public final class ParquetMetadataConverter
         if (!isMinMaxStatsSupported(type)) {
             return null;
         }
+        // Without nan counts, parquet 1.18+ conservatively keeps all pages when filtering
+        // floating point columns, so forward them for files that carry them
         return ColumnIndexBuilder.build(
                 type,
                 fromParquetBoundaryOrder(parquetColumnIndex.getBoundary_order()),
                 parquetColumnIndex.getNull_pages(),
                 parquetColumnIndex.getNull_counts(),
+                parquetColumnIndex.getNan_counts(),
                 parquetColumnIndex.getMin_values(),
-                parquetColumnIndex.getMax_values());
+                parquetColumnIndex.getMax_values(),
+                null,
+                null);
     }
 
     public static org.apache.parquet.internal.column.columnindex.OffsetIndex fromParquetOffsetIndex(OffsetIndex parquetOffsetIndex)
@@ -262,7 +269,9 @@ public final class ParquetMetadataConverter
         if (isGeospatialLogicalType(type.getLogicalTypeAnnotation())) {
             return false;
         }
-        return type.columnOrder().getColumnOrderName() == ColumnOrderName.TYPE_DEFINED_ORDER;
+        // IEEE 754 total order is the parquet 1.18+ default for floating point columns, see toTypeDefinedOrder
+        return type.columnOrder().getColumnOrderName() == ColumnOrderName.TYPE_DEFINED_ORDER
+                || type.columnOrder().getColumnOrderName() == ColumnOrderName.IEEE_754_TOTAL_ORDER;
     }
 
     public static Statistics toParquetStatistics(org.apache.parquet.column.statistics.Statistics<?> stats, int truncateLength)
@@ -270,7 +279,10 @@ public final class ParquetMetadataConverter
         Statistics formatStats = new Statistics();
         if (!stats.isEmpty() && withinLimit(stats, truncateLength)) {
             formatStats.setNull_count(stats.getNumNulls());
-            if (stats.hasNonNullValue()) {
+            if (stats.isNanCountSet()) {
+                formatStats.setNan_count(stats.getNanCount());
+            }
+            if (stats.hasNonNullValue() && !mayContainNaN(stats)) {
                 byte[] min;
                 byte[] max;
                 boolean isMinValueExact = true;
@@ -323,15 +335,60 @@ public final class ParquetMetadataConverter
         return formatStats;
     }
 
+    /// Floating point min/max is omitted from footers when the column may contain NaN, see [#toTypeDefinedOrder(PrimitiveType)]
+    private static boolean mayContainNaN(org.apache.parquet.column.statistics.Statistics<?> stats)
+    {
+        return isFloatingPointType(stats.type()) && (!stats.isNanCountSet() || stats.getNanCount() > 0);
+    }
+
+    private static boolean isFloatingPointType(PrimitiveType type)
+    {
+        PrimitiveTypeName typeName = type.getPrimitiveTypeName();
+        return typeName == PrimitiveTypeName.DOUBLE || typeName == PrimitiveTypeName.FLOAT;
+    }
+
+    /// Returns the given type with the type-defined column order for floating point types.
+    ///
+    /// Parquet 1.18+ defaults floating point columns to the IEEE 754 total order, which changes how
+    /// statistics are computed and interpreted: NaN values are included in min/max (with NaN presence
+    /// conveyed through the new nan_count field) instead of invalidating the statistics, and
+    /// -0.0/+0.0 are not normalized. Parquet 1.17 writers instead let NaN poison the max value,
+    /// which made readers discard the statistics, so NaN presence implied no usable bounds.
+    ///
+    /// Trino and the table formats it writes to (Delta Lake, Iceberg) treat NaN as larger than any
+    /// other value, so NaN-excluding bounds would cause incorrect pruning in readers unaware of
+    /// nan_count. Trino also does not declare column orders in file footers, and its consumers
+    /// (e.g. the Delta Lake writer) rely on the legacy behavior where NaN min/max values mark the
+    /// statistics as invalid. Both writing and interpreting statistics must therefore keep using
+    /// the type-defined order, and footers must omit floating point min/max whenever the column
+    /// may contain NaN.
+    public static PrimitiveType toTypeDefinedOrder(PrimitiveType type)
+    {
+        if (!isFloatingPointType(type) || type.columnOrder().getColumnOrderName() == ColumnOrderName.TYPE_DEFINED_ORDER) {
+            return type;
+        }
+        Types.PrimitiveBuilder<PrimitiveType> builder = Types.primitive(type.getPrimitiveTypeName(), type.getRepetition())
+                .columnOrder(ColumnOrder.typeDefined());
+        if (type.getLogicalTypeAnnotation() != null) {
+            builder = builder.as(type.getLogicalTypeAnnotation());
+        }
+        if (type.getId() != null) {
+            builder = builder.id(type.getId().intValue());
+        }
+        return builder.named(type.getName());
+    }
+
     public static org.apache.parquet.column.statistics.Statistics<?> fromParquetStatistics(String createdBy, Statistics statistics, PrimitiveType type)
     {
         org.apache.parquet.column.statistics.Statistics.Builder statsBuilder =
-                org.apache.parquet.column.statistics.Statistics.getBuilderForReading(type);
+                org.apache.parquet.column.statistics.Statistics.getBuilderForReading(toTypeDefinedOrder(type));
         if (statistics != null) {
             if (statistics.isSetMin_value() && statistics.isSetMax_value()) {
                 byte[] min = statistics.min_value.array();
                 byte[] max = statistics.max_value.array();
-                if (isMinMaxStatsSupported(type) || minMaxStatsAreExactSingleValue(type, min, max)) {
+                // NaN-excluding bounds cannot be used for pruning, see toTypeDefinedOrder
+                boolean containsNaN = isFloatingPointType(type) && statistics.isSetNan_count() && statistics.getNan_count() > 0;
+                if (!containsNaN && (isMinMaxStatsSupported(type) || minMaxStatsAreExactSingleValue(type, min, max))) {
                     statsBuilder.withMin(min);
                     statsBuilder.withMax(max);
                 }

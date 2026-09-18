@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
@@ -90,7 +91,7 @@ public class PushdownFilterIntoWindow
         WindowNode windowNode = captures.get(childCapture);
 
         DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
         Optional<RankingType> rankingType = toTopNRankingType(windowNode);
 
@@ -120,8 +121,8 @@ public class PushdownFilterIntoWindow
         // Remove the row number domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                extractionResult.remainingExpression(),
+                domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {
             return Result.ofPlanNode(newSource);

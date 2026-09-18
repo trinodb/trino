@@ -61,6 +61,8 @@ public abstract class BaseLakehouseConnectorSmokeTest
                 .addLakehouseProperty("s3.region", FLOCI_REGION)
                 .addLakehouseProperty("s3.path-style-access", "true")
                 .addLakehouseProperty("s3.streaming.part-size", "5MB")
+                // Hive tests here use transactional (ACID) tables and assert the storage format; keep ORC as the default
+                .addLakehouseProperty("hive.storage-format", "ORC")
                 .build();
     }
 

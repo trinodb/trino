@@ -21,6 +21,8 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.TestingSourcePage;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
@@ -40,7 +42,9 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -48,6 +52,7 @@ import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.trino.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.operator.project.PageProcessor.MIN_PAGE_SIZE_IN_BYTES;
+import static io.trino.operator.project.SelectedPositions.positionsList;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -119,6 +124,166 @@ public class TestPageProcessor
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         Page outputPage = getOnlyElement(outputPages).orElseThrow();
         assertPageEquals(ImmutableList.of(BIGINT), outputPage, new Page(createLongSequenceBlock(25, 75)));
+    }
+
+    @Test
+    public void testFilterPushesSelectionIntoLazySourcePage()
+    {
+        int[] selectedPositions = {1, 3, 5};
+        PageFilter filter = new PageFilter()
+        {
+            @Override
+            public boolean isDeterministic()
+            {
+                return true;
+            }
+
+            @Override
+            public InputChannels getInputChannels()
+            {
+                return new InputChannels(0);
+            }
+
+            @Override
+            public SelectedPositions filter(ConnectorSession session, SourcePage page)
+            {
+                page.getBlock(0);
+                return positionsList(selectedPositions, 0, selectedPositions.length);
+            }
+        };
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new PageFilterEvaluator(filter)),
+                Optional.empty(),
+                ImmutableList.of(new InputPageProjection(1)),
+                OptionalInt.of(MAX_BATCH_SIZE));
+
+        TestingSourcePage inputPage = new TestingSourcePage(10, createLongSequenceBlock(0, 10), createLongSequenceBlock(100, 110))
+        {
+            @Override
+            public boolean trySelectPositions(int[] positions, int offset, int size)
+            {
+                int[] retainedPositions = Arrays.copyOfRange(positions, offset, offset + size);
+                selectPositions(retainedPositions, 0, size);
+                return true;
+            }
+
+            @Override
+            public void selectPositions(int[] positions, int offset, int size)
+            {
+                assertThat(wasLoaded(0)).isTrue();
+                assertThat(wasLoaded(1)).isFalse();
+                super.selectPositions(positions, offset, size);
+            }
+        };
+
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+        Page outputPage = getOnlyElement(ImmutableList.copyOf(output)).orElseThrow();
+        Arrays.fill(selectedPositions, 0);
+        assertPageEquals(ImmutableList.of(BIGINT), outputPage, new Page(createLongSequenceBlock(101, 106).copyPositions(new int[] {0, 2, 4}, 0, 3)));
+        assertThat(inputPage.getPositionCount()).isEqualTo(3);
+        assertThat(inputPage.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testInputChannelsSelectsLoadedBlocks()
+    {
+        SourcePage page = new InputChannels(1).getInputChannels(
+                new TestingSourcePage(10, createLongSequenceBlock(0, 10), createLongSequenceBlock(100, 110)));
+        page.getBlock(0);
+
+        int[] positions = {1, 3, 5};
+        page.selectPositions(positions, 0, positions.length);
+
+        assertPageEquals(
+                ImmutableList.of(BIGINT),
+                page.getPage(),
+                new Page(createLongSequenceBlock(100, 110).copyPositions(positions, 0, positions.length)));
+    }
+
+    @Test
+    public void testFilterPushesRangeSelectionIntoLazySourcePage()
+    {
+        PageFilter filter = new PageFilter()
+        {
+            @Override
+            public boolean isDeterministic()
+            {
+                return true;
+            }
+
+            @Override
+            public InputChannels getInputChannels()
+            {
+                return new InputChannels(0);
+            }
+
+            @Override
+            public SelectedPositions filter(ConnectorSession session, SourcePage page)
+            {
+                page.getBlock(0);
+                return positionsRange(2, 3);
+            }
+        };
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new PageFilterEvaluator(filter)),
+                Optional.empty(),
+                ImmutableList.of(new InputPageProjection(1)),
+                OptionalInt.of(MAX_BATCH_SIZE));
+
+        TestingSourcePage inputPage = new TestingSourcePage(10, createLongSequenceBlock(0, 10), createLongSequenceBlock(100, 110))
+        {
+            @Override
+            public boolean trySelectPositions(int[] positions, int offset, int size)
+            {
+                int[] retainedPositions = Arrays.copyOfRange(positions, offset, offset + size);
+                selectPositions(retainedPositions, 0, size);
+                return true;
+            }
+        };
+
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+        Page outputPage = getOnlyElement(ImmutableList.copyOf(output)).orElseThrow();
+        assertPageEquals(ImmutableList.of(BIGINT), outputPage, new Page(createLongSequenceBlock(102, 105)));
+        assertThat(inputPage.getPositionCount()).isEqualTo(3);
+    }
+
+    @Test
+    public void testFilterUsesEngineSelectionWhenSourceRejectsPushdown()
+    {
+        PageFilter filter = new PageFilter()
+        {
+            @Override
+            public boolean isDeterministic()
+            {
+                return true;
+            }
+
+            @Override
+            public InputChannels getInputChannels()
+            {
+                return new InputChannels(0);
+            }
+
+            @Override
+            public SelectedPositions filter(ConnectorSession session, SourcePage page)
+            {
+                page.getBlock(0);
+                return positionsList(new int[] {1, 3, 5}, 0, 3);
+            }
+        };
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new PageFilterEvaluator(filter)),
+                Optional.empty(),
+                ImmutableList.of(new InputPageProjection(1)),
+                OptionalInt.of(MAX_BATCH_SIZE));
+
+        TestingSourcePage inputPage = new TestingSourcePage(10, createLongSequenceBlock(0, 10), createLongSequenceBlock(100, 110));
+
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+        Page outputPage = getOnlyElement(ImmutableList.copyOf(output)).orElseThrow();
+        assertPageEquals(ImmutableList.of(BIGINT), outputPage, new Page(createLongSequenceBlock(101, 106).copyPositions(new int[] {0, 2, 4}, 0, 3)));
+        assertThat(outputPage.getBlock(0)).isInstanceOf(LongArrayBlock.class);
+        assertThat(inputPage.getPositionCount()).isEqualTo(10);
     }
 
     @Test
@@ -423,6 +588,22 @@ public class TestPageProcessor
         Optional<Page> page = output.next();
         assertThat(page).isPresent();
         assertThat(page.get().getPositionCount()).isEqualTo(rows);
+        assertThat(output.hasNext()).isFalse();
+    }
+
+    @Test
+    public void testIdentityProjectionPreservesDictionaryEncoding()
+    {
+        PageProcessor pageProcessor = new PageProcessor(
+                Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsList(new int[] {0, 3, 5, 7}, 0, 4)))),
+                ImmutableList.of(new InputPageProjection(1)));
+
+        SourcePage inputPage = SourcePage.create(new Page(createLongSequenceBlock(0, 100), createLongDictionaryBlock(0, 100, 10)));
+        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
+
+        Page page = output.next().orElseThrow();
+        assertThat(page.getBlock(0)).isInstanceOf(DictionaryBlock.class);
+        assertPageEquals(ImmutableList.of(BIGINT), page, new Page(createLongsBlock(0L, 3L, 5L, 7L)));
         assertThat(output.hasNext()).isFalse();
     }
 

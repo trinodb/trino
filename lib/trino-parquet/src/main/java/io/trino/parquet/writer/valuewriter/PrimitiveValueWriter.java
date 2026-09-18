@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
+import io.trino.parquet.ParquetMetadataConverter;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -30,13 +31,22 @@ public abstract class PrimitiveValueWriter
 {
     private Statistics<?> statistics;
     private final PrimitiveType parquetType;
+    // Type with the column order under which statistics are computed, see ParquetMetadataConverter#toTypeDefinedOrder
+    private final PrimitiveType statisticsType;
     private final ValuesWriter valuesWriter;
 
     public PrimitiveValueWriter(PrimitiveType parquetType, ValuesWriter valuesWriter)
     {
         this.parquetType = requireNonNull(parquetType, "parquetType is null");
+        this.statisticsType = ParquetMetadataConverter.toTypeDefinedOrder(parquetType);
         this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
-        this.statistics = Statistics.createStats(parquetType);
+        this.statistics = Statistics.createStats(statisticsType);
+    }
+
+    /// Creates statistics computed with the type-defined column order semantics, see ParquetMetadataConverter#toTypeDefinedOrder
+    public static Statistics<?> createStatistics(PrimitiveType type)
+    {
+        return Statistics.createStats(ParquetMetadataConverter.toTypeDefinedOrder(type));
     }
 
     ValuesWriter getValuesWriter()
@@ -81,7 +91,7 @@ public abstract class PrimitiveValueWriter
     public void reset()
     {
         valuesWriter.reset();
-        this.statistics = Statistics.createStats(parquetType);
+        this.statistics = Statistics.createStats(statisticsType);
     }
 
     @Override

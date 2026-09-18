@@ -46,7 +46,7 @@ public final class JoinCondition
         LESS_THAN_OR_EQUAL("<=", StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME),
         GREATER_THAN(">", StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME),
         GREATER_THAN_OR_EQUAL(">=", StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME),
-        IDENTICAL("≡", StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME),
+        IDENTICAL("IS NOT DISTINCT FROM", StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME),
         /**/;
 
         private static final Map<FunctionName, Operator> byFunctionName = Stream.of(values())

@@ -156,6 +156,14 @@ public final class MemoryUsageReportingPageSource
         }
 
         @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            boolean selected = sourcePage.trySelectPositions(positions, offset, size);
+            memoryContext.setBytes(pageSource.getMemoryUsage());
+            return selected;
+        }
+
+        @Override
         public Page getColumns(int[] channels)
         {
             Page page = sourcePage.getColumns(channels);

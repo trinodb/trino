@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -67,11 +68,11 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        return transformRecursive(0, whenClauses, defaultValue)
+        return transformRecursive(session, 0, whenClauses, defaultValue)
                 .or(() -> Optional.<Expression>of(FALSE));
     }
 
-    private Optional<Expression> transformRecursive(int start, List<WhenClause> clauses, Expression defaultExpression)
+    private Optional<Expression> transformRecursive(Session session, int start, List<WhenClause> clauses, Expression defaultExpression)
     {
         // An expression such as:
         // CASE
@@ -101,13 +102,13 @@ public class SimplifyRedundantCase
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, getCharVarcharCoercion(session), IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(IrExpressions.comparison(metadata, ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
-            transformRecursive(end + 1, clauses, defaultExpression).ifPresent(terms::add);
+            terms.add(IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            transformRecursive(session, end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(
                     ImmutableList.<Expression>builder()

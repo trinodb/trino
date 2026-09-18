@@ -121,6 +121,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -299,6 +300,11 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.DEPENDS_ON_TABLE_FUNCTIONS;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.TRINO_QUERY_START_TIME;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
@@ -338,6 +344,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getFormatVersion;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getProperty;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
@@ -496,12 +503,16 @@ public class IcebergMetadata
 
     public static final int GET_METADATA_BATCH_SIZE = 1000;
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
-
-    private static final String DEPENDS_ON_TABLES = "dependsOnTables";
-    private static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
-    private static final String DEPENDS_ON_NON_DETERMINISTIC_FUNCTIONS = "dependsOnNonDeterministicFunctions";
-    // Value should be ISO-8601 formatted time instant
-    private static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
+    // Any procedure added here that commits a NEW snapshot must call
+    // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies on its SnapshotUpdate before
+    // committing, otherwise the materialized view's dependency summary is dropped and the next refresh is
+    // demoted from incremental to full.
+    private static final Set<IcebergTableProcedureId> MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES = Sets.immutableEnumSet(
+            OPTIMIZE,
+            OPTIMIZE_MANIFESTS,
+            EXPIRE_SNAPSHOTS,
+            REMOVE_ORPHAN_FILES,
+            DROP_EXTENDED_STATS);
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -894,7 +905,7 @@ public class IcebergMetadata
         SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), name);
         try {
             return getMaterializedView(session, baseName)
-                    .flatMap(_ -> catalog.getMaterializedViewStorageTable(session, baseName))
+                    .map(definition -> loadMaterializedViewStorageTable(session, baseName, definition))
                     .or(() -> Optional.of(catalog.loadTable(session, baseName)));
         }
         catch (TableNotFoundException e) {
@@ -904,6 +915,24 @@ public class IcebergMetadata
             // avoid dealing with non Iceberg tables
             return Optional.empty();
         }
+    }
+
+    private BaseTable loadMaterializedViewStorageTable(ConnectorSession session, SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition definition)
+    {
+        SchemaTableName storageTableName = getMaterializedViewStorageTableName(materializedViewName, definition);
+        // With iceberg.materialized-views.hide-storage-table disabled the storage table is a regular, separately-named Iceberg table.
+        if (!isMaterializedViewStorage(storageTableName.getTableName())) {
+            return catalog.loadTable(session, storageTableName);
+        }
+        return catalog.getMaterializedViewStorageTable(session, materializedViewName)
+                .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Storage table metadata not found for materialized view " + materializedViewName));
+    }
+
+    private static SchemaTableName getMaterializedViewStorageTableName(SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
+    {
+        return materializedViewDefinition.getStorageTable()
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
     }
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
@@ -1658,16 +1687,12 @@ public class IcebergMetadata
         if (!sortOrder.isSorted()) {
             return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
         }
-        Set<Integer> baseColumnFieldIds = schema.columns().stream()
-                .map(Types.NestedField::fieldId)
-                .collect(toImmutableSet());
-
         ImmutableList.Builder<TrinoSortField> sortFields = ImmutableList.builder();
         for (SortField sortField : sortOrder.fields()) {
             if (!sortField.transform().isIdentity()) {
                 continue;
             }
-            if (!baseColumnFieldIds.contains(sortField.sourceId())) {
+            if (schema.accessorForField(sortField.sourceId()) == null) {
                 continue;
             }
 
@@ -1763,7 +1788,41 @@ public class IcebergMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
+        return internalGetTableHandleForExecute(
+                session,
+                accessControl,
+                (IcebergTableHandle) connectorTableHandle,
+                procedureName,
+                executeProperties,
+                false);
+    }
+
+    @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle connectorTableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        return internalGetTableHandleForExecute(
+                session,
+                accessControl,
+                (IcebergTableHandle) connectorTableHandle,
+                procedureName,
+                executeProperties,
+                true);
+    }
+
+    private Optional<ConnectorTableExecuteHandle> internalGetTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            IcebergTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            boolean isMaterializedViewExecute)
+    {
         checkArgument(tableHandle.getTableType() == DATA, "Cannot execute table procedure %s on non-DATA table: %s", procedureName, tableHandle.getTableType());
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
         if (tableHandle.getSnapshotId().isPresent() && (tableHandle.getSnapshotId().orElseThrow() != icebergTable.currentSnapshot().snapshotId())) {
@@ -1776,6 +1835,11 @@ public class IcebergMetadata
         }
         catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Unknown procedure '" + procedureName + "'");
+        }
+
+        boolean isExecutedOnMaterializedViewStorageTable = isMaterializedViewStorage(tableHandle.getSchemaTableName().getTableName()) || isMaterializedViewExecute;
+        if (isExecutedOnMaterializedViewStorageTable && !MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES.contains(procedureId)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table procedure %s is not supported on a materialized view storage table".formatted(procedureName));
         }
 
         return switch (procedureId) {
@@ -2191,6 +2255,7 @@ public class IcebergMetadata
         rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.scanManifestsWith(icebergScanExecutor);
+        carryForwardMaterializedViewDependencies(rewriteFiles);
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -2533,18 +2598,14 @@ public class IcebergMetadata
         UpdateProperties updateProperties = transaction.updateProperties();
 
         if (properties.containsKey(EXTRA_PROPERTIES_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            Map<String, String> extraProperties = (Map<String, String>) properties.get(EXTRA_PROPERTIES_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The extra_properties property cannot be empty"));
+            Map<String, String> extraProperties = getProperty(properties, EXTRA_PROPERTIES_PROPERTY);
             verifyExtraProperties(properties.keySet(), extraProperties, allowedExtraProperties);
             extraProperties.forEach(updateProperties::set);
         }
 
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            @SuppressWarnings("unchecked")
-            List<String> parquetBloomFilterColumns = (List<String>) properties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The parquet_bloom_filter_columns property cannot be empty"));
+            List<String> parquetBloomFilterColumns = getProperty(properties, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
             validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
 
             Set<String> existingParquetBloomFilterColumns = icebergTable.properties().keySet().stream()
@@ -2558,9 +2619,7 @@ public class IcebergMetadata
 
         if (properties.containsKey(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            @SuppressWarnings("unchecked")
-            List<String> orcBloomFilterColumns = (List<String>) properties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The orc_bloom_filter_columns property cannot be empty"));
+            List<String> orcBloomFilterColumns = getProperty(properties, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
             if (orcBloomFilterColumns.isEmpty()) {
                 updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
             }
@@ -2574,15 +2633,13 @@ public class IcebergMetadata
         IcebergFileFormat newFileFormat = oldFileFormat;
 
         if (properties.containsKey(FILE_FORMAT_PROPERTY)) {
-            newFileFormat = (IcebergFileFormat) properties.get(FILE_FORMAT_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The format property cannot be empty"));
+            newFileFormat = getProperty(properties, FILE_FORMAT_PROPERTY);
             updateProperties.defaultFormat(newFileFormat.toIceberg());
         }
 
         if (properties.containsKey(FORMAT_VERSION_PROPERTY)) {
             // UpdateProperties#commit will trigger any necessary metadata updates required for the new spec version
-            int formatVersion = (int) properties.get(FORMAT_VERSION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The format_version property cannot be empty"));
+            int formatVersion = getProperty(properties, FORMAT_VERSION_PROPERTY);
             updateProperties.set(FORMAT_VERSION, Integer.toString(formatVersion));
         }
 
@@ -2595,44 +2652,37 @@ public class IcebergMetadata
         propertiesForCompression.forEach(updateProperties::set);
 
         if (properties.containsKey(MAX_COMMIT_RETRY)) {
-            int maxCommitRetry = (int) properties.get(MAX_COMMIT_RETRY)
-                    .orElseThrow(() -> new IllegalArgumentException("The max_commit_retry property cannot be empty"));
+            int maxCommitRetry = getProperty(properties, MAX_COMMIT_RETRY);
             updateProperties.set(COMMIT_NUM_RETRIES, Integer.toString(maxCommitRetry));
         }
 
         if (properties.containsKey(DELETE_AFTER_COMMIT_ENABLED)) {
-            boolean deleteAfterCommitEnabled = (boolean) properties.get(DELETE_AFTER_COMMIT_ENABLED)
-                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(DELETE_AFTER_COMMIT_ENABLED)));
+            boolean deleteAfterCommitEnabled = getProperty(properties, DELETE_AFTER_COMMIT_ENABLED);
             updateProperties.set(METADATA_DELETE_AFTER_COMMIT_ENABLED, Boolean.toString(deleteAfterCommitEnabled));
         }
 
         if (properties.containsKey(MAX_PREVIOUS_VERSIONS)) {
-            int maxPreviousVersions = (int) properties.get(MAX_PREVIOUS_VERSIONS)
-                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(MAX_PREVIOUS_VERSIONS)));
+            int maxPreviousVersions = getProperty(properties, MAX_PREVIOUS_VERSIONS);
             updateProperties.set(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(maxPreviousVersions));
         }
 
         if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {
-            boolean objectStoreEnabled = (boolean) properties.get(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The object_store_enabled property cannot be empty"));
+            boolean objectStoreEnabled = getProperty(properties, OBJECT_STORE_LAYOUT_ENABLED_PROPERTY);
             updateProperties.set(OBJECT_STORE_ENABLED, Boolean.toString(objectStoreEnabled));
         }
 
         if (properties.containsKey(DATA_LOCATION_PROPERTY)) {
-            String dataLocation = (String) properties.get(DATA_LOCATION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The data_location property cannot be empty"));
+            String dataLocation = getProperty(properties, DATA_LOCATION_PROPERTY);
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 
         if (properties.containsKey(TARGET_MAX_FILE_SIZE)) {
-            DataSize targetMaxFileSize = (DataSize) properties.get(TARGET_MAX_FILE_SIZE)
-                    .orElseThrow(() -> new IllegalArgumentException("The target_max_file_size property cannot be empty"));
+            DataSize targetMaxFileSize = getProperty(properties, TARGET_MAX_FILE_SIZE);
             updateProperties.set(WRITE_TARGET_FILE_SIZE_BYTES, Long.toString(targetMaxFileSize.toBytes()));
         }
 
         if (properties.containsKey(PARQUET_WRITER_ROW_GROUP_SIZE)) {
-            DataSize rowGroupSize = (DataSize) properties.get(PARQUET_WRITER_ROW_GROUP_SIZE)
-                    .orElseThrow(() -> new IllegalArgumentException("The parquet_writer_row_group_size property cannot be empty"));
+            DataSize rowGroupSize = getProperty(properties, PARQUET_WRITER_ROW_GROUP_SIZE);
             updateProperties.set(PARQUET_ROW_GROUP_SIZE_BYTES, Long.toString(rowGroupSize.toBytes()));
         }
 
@@ -2644,16 +2694,12 @@ public class IcebergMetadata
         }
 
         if (properties.containsKey(PARTITIONING_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            List<String> partitionColumns = (List<String>) properties.get(PARTITIONING_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The partitioning property cannot be empty"));
+            List<String> partitionColumns = getProperty(properties, PARTITIONING_PROPERTY);
             updatePartitioning(icebergTable, transaction, partitionColumns);
         }
 
         if (properties.containsKey(SORTED_BY_PROPERTY)) {
-            @SuppressWarnings("unchecked")
-            List<String> sortColumns = (List<String>) properties.get(SORTED_BY_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The sorted_by property cannot be empty"));
+            List<String> sortColumns = getProperty(properties, SORTED_BY_PROPERTY);
             ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
             parseSortFields(replaceSortOrder, sortColumns);
             try {
@@ -3297,11 +3343,11 @@ public class IcebergMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
-        finishWrite(session, handle, fragments);
+        return finishWrite(session, handle, fragments);
     }
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
@@ -3326,14 +3372,14 @@ public class IcebergMetadata
         }
     }
 
-    private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments)
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments)
     {
         Table icebergTable = transaction.table();
 
         if (fragments.isEmpty()) {
             // Avoid recording "empty" write operation
             transaction = null;
-            return;
+            return Optional.empty();
         }
 
         RowDelta rowDelta = transaction.newRowDelta();
@@ -3348,7 +3394,6 @@ public class IcebergMetadata
 
         // Ensure a row that is updated by this commit was not deleted by a separate commit
         rowDelta.validateDeletedFiles();
-        rowDelta.validateNoConflictingDeleteFiles();
         rowDelta.scanManifestsWith(icebergScanExecutor);
 
         int formatVersion = table.getFormatVersion();
@@ -3358,6 +3403,7 @@ public class IcebergMetadata
         ImmutableList.Builder<String> referencedDataFiles = ImmutableList.builder();
         List<DeletionVectorInfo> deletionVectorInfos = new ArrayList<>();
         boolean hasDeleteTasks = false;
+        boolean hasDataTasks = false;
 
         // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
         for (Slice fragment : fragments) {
@@ -3366,6 +3412,7 @@ public class IcebergMetadata
             domainCollector.add(task, partitionSpec);
             switch (task.content()) {
                 case DATA -> {
+                    hasDataTasks = true;
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                             .withPath(task.path())
                             .withFormat(task.fileFormat().toIceberg())
@@ -3432,13 +3479,29 @@ public class IcebergMetadata
             rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
         }
 
+        // dropped (fully-deleted) files must be excluded below: Iceberg rejects removing a data file
+        // that validateDataFilesExist() also checks for in the same commit
+        Set<String> fullyDeletedDataFiles = deletionVectorInfos.isEmpty()
+                ? ImmutableSet.of()
+                : deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
+
         if (hasDeleteTasks) {
-            rowDelta.validateDataFilesExist(referencedDataFiles.build());
+            rowDelta.validateDataFilesExist(referencedDataFiles.build().stream()
+                    .filter(path -> !fullyDeletedDataFiles.contains(path))
+                    .collect(toImmutableList()));
         }
-        if (!deletionVectorInfos.isEmpty()) {
-            deletionVectorWriter.writeDeletionVectors(session, icebergTable, table, deletionVectorInfos, rowDelta);
+        if (hasDataTasks) {
+            // Iceberg requires this for UPDATE and MERGE only. Deleting a row that a concurrent commit also deleted is idempotent.
+            // A commit writing data files is an UPDATE or a MERGE, a commit writing only position deletes is a DELETE.
+            rowDelta.validateNoConflictingDeleteFiles();
         }
         commitUpdateAndTransaction(rowDelta, session, transaction, "write");
+
+        Map<String, String> summary = icebergTable.currentSnapshot().summary();
+        if (summary == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new IcebergCommitMetadata(summary));
     }
 
     /**
@@ -3504,6 +3567,15 @@ public class IcebergMetadata
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         catalog.renameView(session, source, target);
+    }
+
+    @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        if (getView(session, viewName).isEmpty()) {
+            throw new ViewNotFoundException(viewName);
+        }
+        catalog.createView(session, viewName, viewDefinition, catalog.getViewProperties(session, viewName), true);
     }
 
     @Override
@@ -4164,9 +4236,7 @@ public class IcebergMetadata
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
 
-        SchemaTableName storageTableName = materializedViewDefinition.get().getStorageTable()
-                .map(CatalogSchemaTableName::getSchemaTableName)
-                .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
+        SchemaTableName storageTableName = getMaterializedViewStorageTableName(materializedViewName, materializedViewDefinition.get());
 
         Table icebergTable = catalog.loadTable(session, storageTableName);
         Optional<Snapshot> currentSnapshot = Optional.ofNullable(icebergTable.currentSnapshot());

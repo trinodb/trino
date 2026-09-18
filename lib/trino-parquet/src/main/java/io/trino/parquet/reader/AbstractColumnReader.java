@@ -84,10 +84,23 @@ public abstract class AbstractColumnReader<BufferType>
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
             log.debug("field %s, readDictionaryPage %s", field, dictionaryPage);
-            dictionaryDecoder = dictionaryDecoderProvider.create(dictionaryPage, isNonNull());
-            produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
+            try {
+                dictionaryDecoder = dictionaryDecoderProvider.create(dictionaryPage, isNonNull());
+                produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
+            }
+            finally {
+                pageReader.releaseCurrentPage();
+            }
         }
         this.rowRanges = createRowRangesIterator(rowRanges);
+    }
+
+    @Override
+    public void close()
+    {
+        if (pageReader != null) {
+            pageReader.close();
+        }
     }
 
     protected abstract boolean isNonNull();

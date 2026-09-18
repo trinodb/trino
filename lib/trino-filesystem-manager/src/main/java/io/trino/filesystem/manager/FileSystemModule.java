@@ -31,7 +31,6 @@ import io.trino.filesystem.cache.CacheSplitAffinityProvider;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.cache.NoopSplitAffinityProvider;
 import io.trino.filesystem.cache.SplitAffinityProvider;
-import io.trino.filesystem.cache.TieredBlobCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.local.LocalFileSystemConfig;
@@ -41,6 +40,7 @@ import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.connector.ConnectorContext;
@@ -53,6 +53,7 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.cache.CacheCapability.CAN_EXCEED_HEAP_SIZE;
 import static io.trino.spi.cache.CacheCapability.LOW_LATENCY;
 import static java.util.Objects.requireNonNull;
@@ -135,31 +136,20 @@ public class FileSystemModule
     @Singleton
     Optional<BlobCache> createBlobCache(FileSystemConfig config)
     {
-        Optional<BlobCache> metadataCache = Optional.empty();
+        if (config.isCacheEnabled()) {
+            // The operator explicitly enabled caching for this catalog, so every node must have a
+            // manager providing it. The data cache also serves coordinator metadata reads.
+            return Optional.of(context.getCacheFactory().createBlobCache(DATA_CACHE_REQUIREMENTS)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "fs.cache.enabled is set for catalog %s but no loaded blob cache manager provides %s: configure one via cache-manager.config-files".formatted(
+                                    catalogName, DATA_CACHE_REQUIREMENTS.capabilities()))));
+        }
         if (coordinatorFileCaching && isCoordinator) {
             // Metadata caching is an engine default, not an operator opt-in: degrade quietly
             // when no manager provides it
-            metadataCache = context.getCacheFactory().createBlobCache(METADATA_CACHE_REQUIREMENTS);
+            return context.getCacheFactory().createBlobCache(METADATA_CACHE_REQUIREMENTS);
         }
-
-        if (!config.isCacheEnabled()) {
-            return metadataCache;
-        }
-
-        // The operator explicitly enabled caching for this catalog, so every node must have a
-        // manager providing it
-        BlobCache dataCache = context.getCacheFactory().createBlobCache(DATA_CACHE_REQUIREMENTS)
-                .orElseThrow(() -> new IllegalStateException(
-                        "fs.cache.enabled is set for catalog %s but no loaded blob cache manager provides %s: configure one via cache-manager.config-files".formatted(
-                                catalogName, DATA_CACHE_REQUIREMENTS.capabilities())));
-
-        if (metadataCache.isEmpty()) {
-            return Optional.of(dataCache);
-        }
-        // The coordinator plans over small metadata files, which the data cache holds as well
-        // but without the latency a hit in the metadata cache guarantees, so keep that tier in
-        // front of it rather than letting data caching displace it
-        return Optional.of(new TieredBlobCache(metadataCache.orElseThrow(), dataCache));
+        return Optional.empty();
     }
 
     @Provides
@@ -177,7 +167,7 @@ public class FileSystemModule
         Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
                 .map(factories::get)
                 .or(() -> hdfsFactory)
-                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Unsupported file system scheme %s for location: %s. Supported schemes: %s".formatted(location.scheme().orElse("(none)"), location, factories.keySet())));
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);

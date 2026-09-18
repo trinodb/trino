@@ -64,7 +64,7 @@ public class TrinoWorkerContainer
 
     public TrinoWorkerContainer(String imageName)
     {
-        super(DockerImageName.parse(imageName));
+        super(DockerImageName.parse(imageName).asCompatibleSubstituteFor(DEFAULT_IMAGE));
         withExposedPorts(HTTP_PORT);
         waitingFor(Wait.forHttp("/v1/info")
                 .forPort(HTTP_PORT)

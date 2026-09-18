@@ -213,7 +213,7 @@ public final class EncryptedFileTestUtils
             DataFile plaintextFile = writer.toDataFile();
 
             return DataFiles.builder(table.spec())
-                    .withPath(plaintextFile.path().toString())
+                    .withPath(plaintextFile.location())
                     .withFileSizeInBytes(plaintextFile.fileSizeInBytes())
                     .withRecordCount(plaintextFile.recordCount())
                     .withFormat(plaintextFile.format())

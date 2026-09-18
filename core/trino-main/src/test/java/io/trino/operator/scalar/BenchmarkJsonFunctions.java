@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
 import static io.trino.operator.scalar.json.JsonQueryFunction.JSON_QUERY_FUNCTION_NAME;
@@ -204,7 +205,7 @@ public class BenchmarkJsonFunctions
                             new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 
@@ -223,7 +224,7 @@ public class BenchmarkJsonFunctions
                     new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
                     .get();
         }
 
@@ -254,7 +255,7 @@ public class BenchmarkJsonFunctions
                             new Constant(TINYINT, 0L))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonQueryProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 
@@ -273,7 +274,7 @@ public class BenchmarkJsonFunctions
                     new Constant(JSON_PATH, new JsonPath(pathString.toString()))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonExtractScalarProjection, ImmutableMap.of(new Symbol(boundedVarcharType, "$col_0"), 0))
                     .get();
         }
 

@@ -317,6 +317,37 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testUsePreparedStatement()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+            assertThat(connection.getSchema()).isEqualTo("default");
+
+            // change schema via a prepared statement (regression: USE could not be prepared)
+            try (PreparedStatement statement = connection.prepareStatement("USE fruit")) {
+                statement.execute();
+            }
+
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+            assertThat(connection.getSchema()).isEqualTo("fruit");
+
+            // change catalog and schema via a prepared statement
+            try (PreparedStatement statement = connection.prepareStatement("USE system.runtime")) {
+                statement.execute();
+            }
+
+            assertThat(connection.getCatalog()).isEqualTo("system");
+            assertThat(connection.getSchema()).isEqualTo("runtime");
+
+            // subsequent statements resolve against the schema set by the prepared USE
+            assertThat(listTables(connection)).contains("nodes");
+            assertThat(listTables(connection)).contains("queries");
+            assertThat(listTables(connection)).contains("tasks");
+        }
+    }
+
+    @Test
     public void testSession()
             throws SQLException
     {

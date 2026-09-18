@@ -28,7 +28,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -64,7 +64,7 @@ public class TestingPostgreSqlServer
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
-    private static final String LOG_PREFIX_REGEXP = "^([-:0-9. ]+UTC \\[[0-9]+\\] )";
+    private static final Pattern LOG_LINE_PATTERN = Pattern.compile("^[-:0-9. ]+UTC \\[([0-9]+)\\] (.*)$");
     private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>";
     private static final String LOG_CANCELLATION_EVENT = "ERROR:  canceling statement due to user request";
 
@@ -106,32 +106,37 @@ public class TestingPostgreSqlServer
     private class RemoteDatabaseEventLogConsumer
             implements Consumer<OutputFrame>
     {
-        private boolean cancellationHit;
+        private final PostgreSqlLogParser logParser = new PostgreSqlLogParser();
 
         @Override
         public void accept(OutputFrame outputFrame)
         {
-            if (tracingEvents.isEmpty()) {
-                return;
-            }
-
-            buildEvent(outputFrame)
+            logParser.parse(outputFrame.getUtf8StringWithoutLineEnding())
                     .ifPresent(remoteDatabaseEvent -> tracingEvents.forEach(tracingEvent -> tracingEvent.accept(remoteDatabaseEvent)));
         }
+    }
 
-        private Optional<RemoteDatabaseEvent> buildEvent(OutputFrame outputFrame)
+    static class PostgreSqlLogParser
+    {
+        private final Set<String> cancelledBackendProcessIds = new HashSet<>();
+
+        public Optional<RemoteDatabaseEvent> parse(String logEntry)
         {
-            String logLine = outputFrame.getUtf8StringWithoutLineEnding().replaceAll(LOG_PREFIX_REGEXP, "");
-
-            if (cancellationHit) {
-                cancellationHit = false;
-                if (logLine.startsWith(LOG_CANCELLED_STATEMENT_PREFIX)) {
-                    return Optional.of(new RemoteDatabaseEvent(logLine.substring(LOG_CANCELLED_STATEMENT_PREFIX.length()), CANCELLED));
-                }
+            Matcher logLineMatcher = LOG_LINE_PATTERN.matcher(logEntry);
+            if (!logLineMatcher.matches()) {
+                return Optional.empty();
             }
 
+            String backendProcessId = logLineMatcher.group(1);
+            String logLine = logLineMatcher.group(2);
+
             if (logLine.equals(LOG_CANCELLATION_EVENT)) {
-                cancellationHit = true;
+                cancelledBackendProcessIds.add(backendProcessId);
+                return Optional.empty();
+            }
+
+            if (logLine.startsWith(LOG_CANCELLED_STATEMENT_PREFIX) && cancelledBackendProcessIds.remove(backendProcessId)) {
+                return Optional.of(new RemoteDatabaseEvent(logLine.substring(LOG_CANCELLED_STATEMENT_PREFIX.length()), CANCELLED));
             }
 
             if (logLine.startsWith(LOG_RUNNING_STATEMENT_PREFIX)) {
@@ -181,28 +186,11 @@ public class TestingPostgreSqlServer
 
     protected List<RemoteDatabaseEvent> getRemoteDatabaseEvents()
     {
-        List<String> logs = getLogs();
-        Iterator<String> logsIterator = logs.iterator();
-        ImmutableList.Builder<RemoteDatabaseEvent> events = ImmutableList.builder();
-        while (logsIterator.hasNext()) {
-            String logLine = logsIterator.next().replaceAll(LOG_PREFIX_REGEXP, "");
-            if (logLine.startsWith(LOG_RUNNING_STATEMENT_PREFIX)) {
-                Matcher matcher = SQL_QUERY_FIND_PATTERN.matcher(logLine.substring(LOG_RUNNING_STATEMENT_PREFIX.length()));
-                if (matcher.find()) {
-                    String sqlStatement = matcher.group(2);
-                    events.add(new RemoteDatabaseEvent(sqlStatement, RUNNING));
-                }
-            }
-            if (logLine.equals(LOG_CANCELLATION_EVENT)) {
-                // next line must be present
-                String cancelledStatementLogLine = logsIterator.next().replaceAll(LOG_PREFIX_REGEXP, "");
-                if (cancelledStatementLogLine.startsWith(LOG_CANCELLED_STATEMENT_PREFIX)) {
-                    events.add(new RemoteDatabaseEvent(cancelledStatementLogLine.substring(LOG_CANCELLED_STATEMENT_PREFIX.length()), CANCELLED));
-                }
-            }
-            // ignore unsupported log lines
-        }
-        return events.build();
+        PostgreSqlLogParser logParser = new PostgreSqlLogParser();
+        return getLogs().stream()
+                .map(logParser::parse)
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
     }
 
     private List<String> getLogs()

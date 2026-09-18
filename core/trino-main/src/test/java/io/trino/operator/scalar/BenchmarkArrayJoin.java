@@ -44,6 +44,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -91,7 +92,7 @@ public class BenchmarkArrayJoin
                     new Constant(VARCHAR, Slices.wrappedBuffer(",".getBytes(UTF_8)))));
 
             pageProcessor = functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(new ArrayType(BIGINT), "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), projections, ImmutableMap.of(new Symbol(new ArrayType(BIGINT), "$col_0"), 0))
                     .get();
 
             page = new Page(createChannel(POSITIONS, ARRAY_SIZE));

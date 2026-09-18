@@ -37,6 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -251,19 +252,13 @@ public final class IrUtils
      */
     private static List<Expression> removeDuplicates(List<Expression> expressions)
     {
-        Set<Expression> seen = new HashSet<>();
-
+        Set<Expression> seenDeterministic = new HashSet<>();
         ImmutableList.Builder<Expression> result = ImmutableList.builder();
         for (Expression expression : expressions) {
-            if (!DeterminismEvaluator.isDeterministic(expression)) {
+            if (!isDeterministic(expression) || seenDeterministic.add(expression)) {
                 result.add(expression);
-            }
-            else if (!seen.contains(expression)) {
-                result.add(expression);
-                seen.add(expression);
             }
         }
-
         return result.build();
     }
 

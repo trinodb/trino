@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -29,5 +30,5 @@ public interface Accumulator
 
     void evaluateIntermediate(BlockBuilder blockBuilder);
 
-    void evaluateFinal(BlockBuilder blockBuilder);
+    void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory);
 }

@@ -84,6 +84,25 @@ public class TestBitArrayBlock
         testNotCompactBlock(new BitArrayBlock(5, Optional.of(new long[2]), new long[2]));
     }
 
+    @Test
+    public void testCopyRegion()
+    {
+        // 64 positions occupy one word, so every prefix compacts to the same word count as the whole block
+        long[] values = {0xF0F0_F0F0_F0F0_F0F0L};
+        long[] valueIsValid = {0xFF00_FF00_FF00_FF00L};
+        BitArrayBlock block = new BitArrayBlock(64, Optional.of(valueIsValid), values);
+        assertThat(block.copyRegion(0, 64)).isSameAs(block);
+        for (int length : new int[] {1, 10, 63}) {
+            assertBlockCopy(block, length);
+        }
+
+        BitArrayBlock withoutNulls = new BitArrayBlock(64, Optional.empty(), values);
+        assertThat(withoutNulls.copyRegion(0, 64)).isSameAs(withoutNulls);
+        assertBlockCopy(withoutNulls, 10);
+
+        assertBlockCopy(new BitArrayBlock(3, Optional.empty(), new long[] {0b101}), 2);
+    }
+
     private void assertFixedWithValues(Boolean[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(expectedValues).build();
@@ -129,5 +148,18 @@ public class TestBitArrayBlock
 
         assertThat(block.isNull(position)).isFalse();
         assertThat(((BitArrayBlock) block).getBoolean(position)).isEqualTo(expectedValue);
+    }
+
+    private static void assertBlockCopy(BitArrayBlock block, int length)
+    {
+        BitArrayBlock copy = block.copyRegion(0, length);
+        assertThat(copy).isNotSameAs(block);
+        assertThat(copy.getPositionCount()).isEqualTo(length);
+        for (int position = 0; position < length; position++) {
+            assertThat(copy.isNull(position)).isEqualTo(block.isNull(position));
+            if (!block.isNull(position)) {
+                assertThat(copy.getBoolean(position)).isEqualTo(block.getBoolean(position));
+            }
+        }
     }
 }

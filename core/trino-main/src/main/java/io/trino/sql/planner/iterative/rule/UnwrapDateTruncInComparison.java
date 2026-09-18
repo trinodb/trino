@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +49,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -63,6 +65,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -108,7 +111,8 @@ public class UnwrapDateTruncInComparison
         return (expression, context) -> unwrapDateTrunc(context.getSession(), plannerContext, context.getSymbolAllocator(), expression);
     }
 
-    private static Expression unwrapDateTrunc(
+    @VisibleForTesting
+    static Expression unwrapDateTrunc(
             Session session,
             PlannerContext plannerContext,
             SymbolAllocator symbolAllocator,
@@ -223,8 +227,8 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield falseIfNotNull(argument);
                     }
-                    yield between(
-                            plannerContext.getMetadata(),
+                    yield between(plannerContext.getMetadata(),
+                            getCharVarcharCoercion(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -234,8 +238,9 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield trueIfNotNull(argument);
                     }
-                    yield not(plannerContext.getMetadata(), between(
+                    yield not(plannerContext.getMetadata(), getCharVarcharCoercion(session), between(
                             plannerContext.getMetadata(),
+                            getCharVarcharCoercion(session),
                             symbolAllocator,
                             argument,
                             new Constant(rightType, rangeLow),
@@ -245,39 +250,39 @@ public class UnwrapDateTruncInComparison
                     if (!rightValueAtRangeLow) {
                         yield FALSE;
                     }
-                    yield and(
-                            not(plannerContext.getMetadata(), new IsNull(argument)),
-                            between(
-                                    plannerContext.getMetadata(),
+                    yield bindIfNecessary(symbolAllocator, "operand", argument, operand -> and(
+                            not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(operand)),
+                            between(plannerContext.getMetadata(),
+                                    getCharVarcharCoercion(session),
                                     symbolAllocator,
-                                    argument,
+                                    operand,
                                     new Constant(rightType, rangeLow),
-                                    new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit))));
+                                    new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)))));
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), LESS_THAN, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case LESS_THAN_OR_EQUAL -> {
-                    yield comparison(plannerContext.getMetadata(), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), LESS_THAN_OR_EQUAL, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN -> {
-                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield comparison(plannerContext.getMetadata(), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
+                        yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN_OR_EQUAL, argument, new Constant(rightType, rangeLow));
                     }
-                    yield comparison(plannerContext.getMetadata(), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), GREATER_THAN, argument, new Constant(rightType, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
             });
         }
 
         public Expression trueIfNotNull(Expression argument)
         {
-            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
+            return or(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)), new Constant(BOOLEAN, null));
         }
 
         private Object calculateRangeEndInclusive(Object rangeStart, Type type, SupportedUnit rangeUnit)

@@ -140,8 +140,7 @@ public class BridgingHiveMetastore
     @Override
     public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        io.trino.hive.thrift.metastore.Table metastoreTable = toMetastoreApiTable(table);
-        partitionUpdates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, mode, update));
+        delegate.updatePartitionStatistics(toMetastoreApiTable(table), mode, partitionUpdates);
     }
 
     @Override

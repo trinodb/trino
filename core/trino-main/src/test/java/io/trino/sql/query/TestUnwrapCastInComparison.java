@@ -24,12 +24,16 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -85,6 +89,7 @@ public class TestUnwrapCastInComparison
             }
             for (String toType : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
                 validateBetweenBounds(fromType, from, toType);
+                validateInLists(fromType, from, toType, asList(Byte.MIN_VALUE - 1, Byte.MIN_VALUE, 0, 1, Byte.MAX_VALUE, Byte.MAX_VALUE + 1));
             }
         }
     }
@@ -120,6 +125,7 @@ public class TestUnwrapCastInComparison
             }
             for (String toType : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
                 validateBetweenBounds(fromType, from, toType);
+                validateInLists(fromType, from, toType, asList(Short.MIN_VALUE - 1, Short.MIN_VALUE, 0, 1, Short.MAX_VALUE, Short.MAX_VALUE + 1));
             }
         }
     }
@@ -138,7 +144,7 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
 
-                for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
@@ -149,11 +155,12 @@ public class TestUnwrapCastInComparison
             for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 0.9, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                 validateBetween(fromType, from, "DOUBLE", to, to);
             }
-            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                 validateBetween(fromType, from, "REAL", to, to);
             }
             for (String toType : asList("BIGINT", "DOUBLE", "REAL")) {
                 validateBetweenBounds(fromType, from, toType);
+                validateInLists(fromType, from, toType, asList(Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L));
             }
         }
     }
@@ -164,23 +171,24 @@ public class TestUnwrapCastInComparison
         for (Number from : asList(null, Long.MIN_VALUE, 0, 1, Long.MAX_VALUE)) {
             String fromType = "BIGINT";
             for (String operator : COMPARISON_OPERATORS) {
-                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 53) + 1, 0, 0.1, 0.9, 1, (1L << 53) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
 
-                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
 
-            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 53) + 1, 0, 0.1, 0.9, 1, (1L << 53) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                 validateBetween(fromType, from, "DOUBLE", to, to);
             }
-            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, (-1L << 23) + 1, 0, 0.1, 0.9, 1, (1L << 23) - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                 validateBetween(fromType, from, "REAL", to, to);
             }
             for (String toType : asList("DOUBLE", "REAL")) {
                 validateBetweenBounds(fromType, from, toType);
+                validateInLists(fromType, from, toType, asList(Long.MIN_VALUE, (-1L << 23) + 1, 0, 0.1, 1, (1L << 23) - 1, Long.MAX_VALUE));
             }
         }
     }
@@ -201,6 +209,7 @@ public class TestUnwrapCastInComparison
                 validateBetween(fromType, from, toType, to, to);
             }
             validateBetweenBounds(fromType, from, toType);
+            validateInLists(fromType, from, toType, toLiteral(toType, asList(Double.NEGATIVE_INFINITY, 0, 0.1, (double) Float.MAX_VALUE, Double.POSITIVE_INFINITY, Double.NaN)));
         }
     }
 
@@ -286,6 +295,36 @@ public class TestUnwrapCastInComparison
         }
         for (String to : asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
             validateBetween("VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to, to);
+        }
+    }
+
+    @Test
+    public void testVarcharToChar()
+    {
+        Session legacyCoercion = Session.builder(assertions.getDefaultSession())
+                .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+                .build();
+
+        List<String> values = asList(null, "''", "'ab'", "'ab '", "'ab' || chr(0)", "'abc'");
+        // VARCHAR(2) is shorter than the char, VARCHAR(3) matches it, VARCHAR(5) makes the cast truncate
+        for (String fromType : asList("VARCHAR(2)", "VARCHAR(3)", "VARCHAR(5)")) {
+            // the column value must survive the cast to fromType, since the expected value is derived by casting it
+            // to the target type directly
+            List<String> sourceValues = fromType.equals("VARCHAR(2)")
+                    ? asList(null, "''", "'a'", "'ab'", "'a '", "'a' || chr(0)")
+                    : values;
+            for (String from : sourceValues) {
+                for (String operator : COMPARISON_OPERATORS) {
+                    for (String to : values) {
+                        validate(operator, fromType, from, "CHAR(3)", to);
+                        validate(legacyCoercion, operator, fromType, from, "CHAR(3)", to);
+                    }
+                }
+                for (String to : values) {
+                    validateBetween(fromType, from, "CHAR(3)", to, to);
+                    validateBetween(legacyCoercion, fromType, from, "CHAR(3)", to, to);
+                }
+            }
         }
     }
 
@@ -582,6 +621,60 @@ public class TestUnwrapCastInComparison
                 .isTrue();
     }
 
+    /// Exercises the pool on its own and with a null appended, so that lists both with and without a null
+    /// item are covered at every length, and then every pair drawn from the pool and a null. A pair is the
+    /// shortest list that reaches the IN rewrite at all -- a single-item IN is desugared into a comparison --
+    /// and pairs cover the lists where both items are kept, where one is dropped, and where both are.
+    private void validateInLists(String fromType, Object fromValue, String toType, List<?> toValues)
+    {
+        List<Object> withNull = new ArrayList<>(toValues);
+        withNull.add(null);
+
+        validateIn(fromType, fromValue, toType, toValues);
+        validateIn(fromType, fromValue, toType, withNull);
+        for (Object first : withNull) {
+            for (Object second : withNull) {
+                validateIn(fromType, fromValue, toType, asList(first, second));
+            }
+        }
+    }
+
+    private void validateIn(String fromType, Object fromValue, String toType, List<?> toValues)
+    {
+        validateIn(assertions.getDefaultSession(), fromType, fromValue, toType, toValues);
+    }
+
+    private void validateIn(Session session, String fromType, Object fromValue, String toType, List<?> toValues)
+    {
+        // A list whose items cover a continuous range is collapsed into a BETWEEN before the cast in an IN is
+        // unwrapped, so the pools above are kept sparse.
+        String list = toValues.stream()
+                .map(toValue -> format("CAST(%s AS %s)", toValue, toType))
+                .collect(joining(", "));
+
+        String query = format(
+                "SELECT (CAST(v AS %s) IN (%s)) " +
+                        "IS NOT DISTINCT FROM " +
+                        "(CAST(%s AS %s) IN (%s)) " +
+                        "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
+                toType,
+                list,
+                fromValue,
+                toType,
+                list,
+                fromValue,
+                fromType);
+
+        boolean result = (boolean) assertions.execute(session, query)
+                .getMaterializedRows()
+                .get(0)
+                .getField(0);
+
+        assertThat(result)
+                .as("Query evaluated to false: " + query)
+                .isTrue();
+    }
+
     private void validateBetweenBounds(String fromType, Object fromValue, String toType)
     {
         // distinct, reversed, and single-null endpoints exercise independent endpoint rewriting and BETWEEN three-valued logic
@@ -602,18 +695,26 @@ public class TestUnwrapCastInComparison
                 "1981-06-22 23:59:59.999",
                 "1981-06-23 00:00:00.000",
                 "1981-06-23 00:00:00.001")) {
+            String fromLiteral = from == null ? "NULL" : format("TIMESTAMP '%s'", from);
             for (String operator : COMPARISON_OPERATORS) {
                 for (String to : asList(
                         null,
                         "1981-06-21",
                         "1981-06-22",
                         "1981-06-23")) {
-                    String fromLiteral = from == null ? "NULL" : format("TIMESTAMP '%s'", from);
                     String toLiteral = to == null ? "NULL" : format("DATE '%s'", to);
                     validate(operator, "timestamp(3)", fromLiteral, "date", toLiteral);
                     validateWithDateFunction(operator, "timestamp(3)", fromLiteral, toLiteral);
                 }
             }
+
+            // Each item unwraps to a range rather than an equality, so the IN becomes a disjunction.
+            validateInLists("timestamp(3)", fromLiteral, "date", asList("DATE '1981-06-20'", "DATE '1981-06-22'", "DATE '1981-06-24'"));
+
+            // Longer than the rule expands into a disjunction, so the IN is left alone.
+            validateIn("timestamp(3)", fromLiteral, "date", IntStream.rangeClosed(1, 11)
+                    .mapToObj(day -> format("DATE '1981-06-%02d'", 2 * day - 1))
+                    .collect(toImmutableList()));
         }
     }
 

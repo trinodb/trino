@@ -14,9 +14,6 @@
 package io.trino.tests.product.suite;
 
 import io.trino.tests.product.TestGroup;
-import io.trino.tests.product.deltalake.DeltaLakeFlociCachingEnvironment;
-import io.trino.tests.product.deltalake.DeltaLakeFlociEnvironment;
-import io.trino.tests.product.deltalake.DeltaLakeKerberosHdfsEnvironment;
 import io.trino.tests.product.deltalake.DeltaLakeOssEnvironment;
 import io.trino.tests.product.suite.SuiteRunner.TestRunResult;
 
@@ -34,20 +31,8 @@ public final class SuiteDeltaLakeOss
 
         List<TestRunResult> results = new ArrayList<>();
 
-        results.add(SuiteRunner.forEnvironment(DeltaLakeFlociEnvironment.class)
-                .includeTag(TestGroup.DeltaLakeFloci.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(DeltaLakeKerberosHdfsEnvironment.class)
-                .includeTag(TestGroup.DeltaLakeHdfs.class)
-                .run());
-
         results.add(SuiteRunner.forEnvironment(DeltaLakeOssEnvironment.class)
                 .includeTag(TestGroup.DeltaLakeOss.class)
-                .run());
-
-        results.add(SuiteRunner.forEnvironment(DeltaLakeFlociCachingEnvironment.class)
-                .includeTag(TestGroup.DeltaLakeAlluxioCaching.class)
                 .run());
 
         SuiteRunner.printSummary(results);

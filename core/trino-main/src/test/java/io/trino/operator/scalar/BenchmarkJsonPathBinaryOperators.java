@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jsonpath.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARCHAR_TO_JSON;
@@ -174,7 +175,7 @@ public class BenchmarkJsonPathBinaryOperators
                             new Lambda(ImmutableList.of(), constantNull(VARCHAR)))));
 
             return functionResolution.getExpressionCompiler()
-                    .compilePageProcessor(Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
+                    .compilePageProcessor(TEST_SESSION, Optional.empty(), jsonValueProjection, ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0))
                     .get();
         }
 

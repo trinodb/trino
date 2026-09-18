@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.ExceededCpuLimitException;
+import io.trino.ExceededOutputLimitException;
 import io.trino.ExceededScanLimitException;
 import io.trino.ExceededWriteLimitException;
 import io.trino.Session;
@@ -42,6 +43,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,6 +81,7 @@ public class QueryManager
     private final Duration maxQueryCpuTime;
     private final Optional<DataSize> maxQueryScanPhysicalBytes;
     private final Optional<DataSize> maxQueryWritePhysicalSize;
+    private final Optional<DataSize> maxQueryOutputDataSize;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
@@ -95,6 +98,7 @@ public class QueryManager
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
         this.maxQueryWritePhysicalSize = queryManagerConfig.getQueryMaxWritePhysicalSize();
+        this.maxQueryOutputDataSize = queryManagerConfig.getQueryMaxOutputDataSize();
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
@@ -136,6 +140,13 @@ public class QueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query write bytes limits");
+            }
+
+            try {
+                enforceOutputDataSizeLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query output data size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -264,6 +275,11 @@ public class QueryManager
     public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getQueryPlan();
+    }
+
+    public Optional<Map<String, Long>> getCallResult(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId).callResult();
     }
 
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
@@ -449,5 +465,16 @@ public class QueryManager
                 }
             });
         }
+    }
+
+    private void enforceOutputDataSizeLimits()
+    {
+        maxQueryOutputDataSize.ifPresent(outputLimit -> {
+            for (QueryExecution query : queryTracker.getAllQueries()) {
+                if (query.getQueryInfo().getQueryStats().getOutputDataSize().compareTo(outputLimit) > 0) {
+                    query.fail(new ExceededOutputLimitException(outputLimit));
+                }
+            }
+        });
     }
 }

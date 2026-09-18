@@ -111,6 +111,7 @@ public class IcebergConfig
     private boolean equalityDeletesBlocksHashEnabled = true;
     private ParquetFooterCacheType parquetFooterCacheType = NONE;
     private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
+    private int domainCompactionThreshold = 1000;
 
     public CatalogType getCatalogType()
     {
@@ -754,6 +755,20 @@ public class IcebergConfig
     public IcebergConfig setParquetFooterCacheMemoryMaxSize(DataSize parquetFooterCacheMemoryMaxSize)
     {
         this.parquetFooterCacheMemoryMaxSize = parquetFooterCacheMemoryMaxSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getDomainCompactionThreshold()
+    {
+        return domainCompactionThreshold;
+    }
+
+    @Config("iceberg.domain-compaction-threshold")
+    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
+    public IcebergConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    {
+        this.domainCompactionThreshold = domainCompactionThreshold;
         return this;
     }
 }

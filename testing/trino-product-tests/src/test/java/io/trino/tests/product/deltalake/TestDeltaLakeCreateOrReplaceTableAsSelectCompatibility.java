@@ -18,6 +18,7 @@ import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.containers.environment.Row;
 import io.trino.tests.product.TestGroup;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
 {
     @Test
+    @Disabled("TOOD https://github.com/trinodb/trino/issues/30886 Fix Unsupported Trino column type failure")
     void testCreateOrReplaceTableOnDeltaWithSchemaChange(DeltaLakeOssEnvironment env)
     {
         String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();

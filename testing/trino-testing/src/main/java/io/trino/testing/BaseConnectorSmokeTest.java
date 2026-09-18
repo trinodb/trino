@@ -561,7 +561,7 @@ public abstract class BaseConnectorSmokeTest
     public void testView()
     {
         if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
-            assertQueryFails("CREATE VIEW nation_v AS SELECT * FROM nation", "This connector does not support creating views");
+            assertQueryFails("CREATE VIEW nation_v_" + randomNameSuffix() + " AS SELECT * FROM nation", "This connector does not support creating views");
             return;
         }
 

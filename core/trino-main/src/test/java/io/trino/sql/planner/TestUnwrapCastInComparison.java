@@ -26,6 +26,7 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
@@ -37,10 +38,13 @@ import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -159,6 +163,37 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testVarcharToCharCast()
+    {
+        // CAST(varchar AS char) = char literal: the varchar column is compared after truncating and trimming, so the
+        // comparison unwraps to a varchar equality when the literal is the only varchar value that casts to it.
+
+        // literal as long as the source varchar: no room for padding, so it is the only such value
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Reference(createVarcharType(3), "a"), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
+
+        // wider char (does not truncate): still unwraps
+        testUnwrap("varchar(3)", "CAST(a AS char(10)) = CHAR 'abc'", comparison(EQUAL, new Reference(createVarcharType(3), "a"), new Constant(createVarcharType(3), Slices.utf8Slice("abc"))));
+
+        // shorter literal: 'ab' and 'ab ' both cast to CHAR 'ab', so it must NOT be unwrapped
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'ab'", comparison(EQUAL, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("ab"))));
+
+        // char values are stored trimmed, so a literal with trailing spaces is the shorter literal above
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) = CHAR 'ab '", comparison(EQUAL, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("ab"))));
+
+        // literal longer than the source varchar: the cast never lengthens, so the equality is unsatisfiable
+        testUnwrap("varchar(2)", "CAST(a AS char(3)) = CHAR 'abc'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(createVarcharType(2), "a")), new Constant(BOOLEAN, null))));
+
+        // truncating cast (char shorter than varchar) is not injective on the source, so it must NOT be unwrapped
+        testUnwrap("varchar(5)", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Cast(new Reference(createVarcharType(5), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // unbounded source is equally not injective
+        testUnwrap("varchar", "CAST(a AS char(3)) = CHAR 'abc'", comparison(EQUAL, new Cast(new Reference(VARCHAR, "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+
+        // ordering comparisons are not order-preserving across PAD SPACE / NO PAD, so they must NOT be unwrapped
+        testUnwrap("varchar(3)", "CAST(a AS char(3)) < CHAR 'abc'", comparison(LESS_THAN, new Cast(new Reference(createVarcharType(3), "a"), createCharType(3)), new Constant(createCharType(3), Slices.utf8Slice("abc"))));
+    }
+
+    @Test
     public void testNotEquals()
     {
         // representable
@@ -204,7 +239,7 @@ public class TestUnwrapCastInComparison
 
     private Expression not(Expression value)
     {
-        return IrExpressions.not(FUNCTIONS.getMetadata(), value);
+        return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
     }
 
     @Test
@@ -908,7 +943,88 @@ public class TestUnwrapCastInComparison
                 TEST_SESSION,
                 FUNCTIONS.getPlannerContext(),
                 symbolAllocator,
-                IrExpressions.between(FUNCTIONS.getMetadata(), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
+                IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
+    }
+
+    @Test
+    public void testIn()
+    {
+        // widening cast: the list unwraps onto the source type
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
+        testUnwrap("bigint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(BIGINT, "a"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 3L))));
+
+        // an item no source value can match contributes nothing to the disjunction and drops out of the list
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '2.5', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '40000')", comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
+        // no item can match: false for a non-null source
+        testUnwrap("smallint", "a IN (DOUBLE '40000', DOUBLE '50000')", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
+
+        // a null item stays in the list, as a null of the source type
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3', NULL)", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L), new Constant(SMALLINT, null))));
+        // the only item the source could match drops out, leaving the null: the predicate is null for every source value
+        testUnwrap("smallint", "a IN (DOUBLE '40000', NULL)", new Constant(BOOLEAN, null));
+
+        // CAST(timestamp AS date) items unwrap to ranges rather than equalities, so the IN becomes a disjunction
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) IN (DATE '1981-06-22', DATE '1981-07-23')", new Logical(OR, ImmutableList.of(
+                new Logical(AND, ImmutableList.of(
+                        comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))),
+                        comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))),
+                new Logical(AND, ImmutableList.of(
+                        comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-23 00:00:00.000"))),
+                        comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-24 00:00:00.000"))))))));
+
+        // narrowing cast is not unwrapped
+        testUnwrap("integer", "CAST(a AS smallint) IN (SMALLINT '1', SMALLINT '3')", new In(new Cast(new Reference(INTEGER, "a"), SMALLINT), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
+    }
+
+    @Test
+    public void testInOverNonTrivialSource()
+    {
+        // A rebuilt IN references the source exactly once, just as the original does, so the cast is unwrapped
+        // however expensive or non-deterministic the source is.
+        Expression real = new Cast(new Call(RANDOM, ImmutableList.of()), REAL);
+        In equalities = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0)));
+        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), equalities))
+                .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, toReal(3.0f)))));
+
+        // A null item keeps its place in the list, so it does not push the rewrite onto the disjunction path.
+        In withNull = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null)));
+        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), withNull))
+                .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, null))));
+
+        // Items that unwrap to ranges make the result a disjunction, which references the source once per item.
+        // A non-deterministic source would then be evaluated once per item and the items would no longer test a
+        // single value, so the IN is left alone.
+        ResolvedFunction fromUnixtime = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
+        Expression timestamp = new Cast(new Call(fromUnixtime, ImmutableList.of(new Call(RANDOM, ImmutableList.of()))), createTimestampType(6));
+        In ranges = new In(new Cast(timestamp, DATE), ImmutableList.of(date("1981-06-22"), date("1981-07-23")));
+        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), ranges)).isEqualTo(ranges);
+    }
+
+    @Test
+    public void testInListTooLongToExpand()
+    {
+        // Items that unwrap to ranges cannot stay an IN list, so the predicate becomes a disjunction with a
+        // range per item. A list longer than UnwrapCastInComparison.MAX_EXPANDED_IN_LIST_SIZE is left alone.
+        Cast source = new Cast(new Reference(createTimestampType(3), "a"), DATE);
+        List<Expression> dates = IntStream.rangeClosed(1, 11)
+                .mapToObj(day -> date("1981-06-%02d".formatted(day)))
+                .collect(toImmutableList());
+
+        In atLimit = new In(source, dates.subList(0, 10));
+        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), atLimit))
+                .isInstanceOfSatisfying(Logical.class, disjunction -> {
+                    assertThat(disjunction.operator()).isEqualTo(OR);
+                    assertThat(disjunction.terms()).hasSize(10);
+                });
+
+        In tooLong = new In(source, dates);
+        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), tooLong)).isEqualTo(tooLong);
+    }
+
+    private static Expression date(String value)
+    {
+        return new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice(value)));
     }
 
     private void testRemoveFilter(String inputType, String inputPredicate)

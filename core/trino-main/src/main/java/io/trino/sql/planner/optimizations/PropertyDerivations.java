@@ -753,7 +753,7 @@ public final class PropertyDerivations
                     node.getPredicate());
 
             Map<Symbol, NullableValue> constants = new HashMap<>(properties.getConstants());
-            constants.putAll(extractFixedValues(decomposedPredicate.getTupleDomain()).orElse(ImmutableMap.of()));
+            constants.putAll(extractFixedValues(decomposedPredicate.tupleDomain()).orElse(ImmutableMap.of()));
 
             return ActualProperties.builderFrom(properties)
                     .constants(constants)
@@ -781,8 +781,8 @@ public final class PropertyDerivations
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 Expression value = optimizer.process(expression, session, symbolAllocator, ImmutableMap.of()).orElse(expression);
 
-                if (value instanceof Reference) {
-                    Symbol symbol = Symbol.from(value);
+                if (value instanceof Reference reference) {
+                    Symbol symbol = Symbol.from(reference);
                     NullableValue existingConstantValue = constants.get(symbol);
                     if (existingConstantValue != null) {
                         constants.put(assignment.getKey(), new NullableValue(type, value));
@@ -915,8 +915,8 @@ public final class PropertyDerivations
         {
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();
             for (Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-                if (assignment.getValue() instanceof Reference) {
-                    inputToOutput.put(Symbol.from(assignment.getValue()), assignment.getKey());
+                if (assignment.getValue() instanceof Reference reference) {
+                    inputToOutput.put(Symbol.from(reference), assignment.getKey());
                 }
             }
             return inputToOutput;

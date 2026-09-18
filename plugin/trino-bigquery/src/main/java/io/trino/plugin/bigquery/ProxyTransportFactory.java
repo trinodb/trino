@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.api.client.http.apache.v2.ApacheHttpTransport;
+import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.inject.Inject;
 import io.grpc.HttpConnectProxiedSocketAddress;
@@ -128,6 +129,7 @@ public interface ProxyTransportFactory
             HttpClient client = httpClientBuilder.build(); // TODO: close http client on catalog deregistration
             return HttpTransportOptions.newBuilder()
                     .setHttpTransportFactory(() -> new ApacheHttpTransport(client))
+                    .setReadTimeout(BigQueryOptions.getDefaultHttpTransportOptions().getReadTimeout())
                     .build();
         }
 

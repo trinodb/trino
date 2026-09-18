@@ -55,6 +55,7 @@ import io.trino.hive.thrift.metastore.PrincipalType;
 import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.Role;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
+import io.trino.hive.thrift.metastore.SetPartitionsStatsRequest;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TableStatsRequest;
@@ -87,6 +88,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.GRANT;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.REVOKE;
@@ -122,6 +124,7 @@ public class ThriftHiveMetastoreClient
     private final AtomicInteger chosenTableParamAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
+    private final AtomicInteger chosenSetPartitionsColumnStatisticsAlternative;
     private final Optional<String> catalogName;
 
     public ThriftHiveMetastoreClient(
@@ -132,7 +135,8 @@ public class ThriftHiveMetastoreClient
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenTableParamAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
-            AtomicInteger chosenAlterPartitionsAlternative)
+            AtomicInteger chosenAlterPartitionsAlternative,
+            AtomicInteger chosenSetPartitionsColumnStatisticsAlternative)
             throws TTransportException
     {
         this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
@@ -142,6 +146,7 @@ public class ThriftHiveMetastoreClient
         this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+        this.chosenSetPartitionsColumnStatisticsAlternative = requireNonNull(chosenSetPartitionsColumnStatisticsAlternative, "chosenSetPartitionsColumnStatisticsAlternative is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
 
         connect();
@@ -316,15 +321,12 @@ public class ThriftHiveMetastoreClient
     public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
+        catalogName.ifPresent(statisticsDescription::setCatName);
         setColumnStatistics(
                 format("table %s.%s", databaseName, tableName),
-                statistics,
-                stats -> {
-                    ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
-                    catalogName.ifPresent(statisticsDescription::setCatName);
-                    ColumnStatistics request = new ColumnStatistics(statisticsDescription, stats);
-                    client.updateTableColumnStatistics(request);
-                });
+                ImmutableList.of(new ColumnStatistics(statisticsDescription, statistics)),
+                stats -> client.updateTableColumnStatistics(getOnlyElement(stats)));
     }
 
     @Override
@@ -349,14 +351,40 @@ public class ThriftHiveMetastoreClient
     {
         setColumnStatistics(
                 format("partition of table %s.%s", databaseName, tableName),
-                statistics,
-                stats -> {
-                    ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
-                    catalogName.ifPresent(statisticsDescription::setCatName);
-                    statisticsDescription.setPartName(partitionName);
-                    ColumnStatistics request = new ColumnStatistics(statisticsDescription, stats);
-                    client.updatePartitionColumnStatistics(request);
-                });
+                ImmutableList.of(createPartitionColumnStatistics(databaseName, tableName, partitionName, statistics)),
+                stats -> client.updatePartitionColumnStatistics(getOnlyElement(stats)));
+    }
+
+    @Override
+    public void setPartitionsColumnStatistics(String databaseName, String tableName, Map<String, List<ColumnStatisticsObj>> partitionStatistics)
+            throws TException
+    {
+        setColumnStatistics(
+                format("partitions of table %s.%s", databaseName, tableName),
+                partitionStatistics.entrySet().stream()
+                        .map(entry -> createPartitionColumnStatistics(databaseName, tableName, entry.getKey(), entry.getValue()))
+                        .collect(toImmutableList()),
+                stats -> alternativeCall(
+                        exception -> !isUnknownMethodExceptionalResponse(exception),
+                        chosenSetPartitionsColumnStatisticsAlternative,
+                        () -> {
+                            client.setAggrStatsFor(new SetPartitionsStatsRequest(stats));
+                            return null;
+                        },
+                        () -> {
+                            for (ColumnStatistics partitionColumnStatistics : stats) {
+                                client.updatePartitionColumnStatistics(partitionColumnStatistics);
+                            }
+                            return null;
+                        }));
+    }
+
+    private ColumnStatistics createPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    {
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+        catalogName.ifPresent(statisticsDescription::setCatName);
+        statisticsDescription.setPartName(partitionName);
+        return new ColumnStatistics(statisticsDescription, statistics);
     }
 
     @Override
@@ -366,18 +394,22 @@ public class ThriftHiveMetastoreClient
         client.deletePartitionColumnStatistics(prependCatalogToDbName(catalogName, databaseName), tableName, partitionName, columnName);
     }
 
-    private void setColumnStatistics(String objectName, List<ColumnStatisticsObj> statistics, UnaryCall<List<ColumnStatisticsObj>> saveColumnStatistics)
+    private void setColumnStatistics(String objectName, List<ColumnStatistics> statistics, UnaryCall<List<ColumnStatistics>> saveColumnStatistics)
             throws TException
     {
-        boolean containsDateStatistics = statistics.stream().anyMatch(stats -> stats.getStatsData().isSetDateStats());
+        boolean containsDateStatistics = statistics.stream()
+                .flatMap(stats -> stats.getStatsObj().stream())
+                .anyMatch(stats -> stats.getStatsData().isSetDateStats());
 
         DateStatisticsSupport dateStatisticsSupported = this.metastoreSupportsDateStatistics.isSupported();
         if (containsDateStatistics && dateStatisticsSupported == NOT_SUPPORTED) {
             log.debug("Skipping date statistics for %s because metastore does not support them", objectName);
-            statistics = statistics.stream()
-                    .filter(stats -> !stats.getStatsData().isSetDateStats())
-                    .collect(toImmutableList());
+            statistics = filterColumnStatistics(statistics, stats -> !stats.getStatsData().isSetDateStats());
             containsDateStatistics = false;
+        }
+
+        if (statistics.isEmpty()) {
+            return;
         }
 
         if (!containsDateStatistics || dateStatisticsSupported == SUPPORTED) {
@@ -385,13 +417,8 @@ public class ThriftHiveMetastoreClient
             return;
         }
 
-        List<ColumnStatisticsObj> statisticsExceptDate = statistics.stream()
-                .filter(stats -> !stats.getStatsData().isSetDateStats())
-                .collect(toImmutableList());
-
-        List<ColumnStatisticsObj> dateStatistics = statistics.stream()
-                .filter(stats -> stats.getStatsData().isSetDateStats())
-                .collect(toImmutableList());
+        List<ColumnStatistics> statisticsExceptDate = filterColumnStatistics(statistics, stats -> !stats.getStatsData().isSetDateStats());
+        List<ColumnStatistics> dateStatistics = filterColumnStatistics(statistics, stats -> stats.getStatsData().isSetDateStats());
 
         verify(!dateStatistics.isEmpty() && dateStatisticsSupported == UNKNOWN);
 
@@ -412,6 +439,19 @@ public class ThriftHiveMetastoreClient
             return;
         }
         this.metastoreSupportsDateStatistics.succeeded();
+    }
+
+    // drops objects left without any column statistics
+    private static List<ColumnStatistics> filterColumnStatistics(List<ColumnStatistics> statistics, Predicate<ColumnStatisticsObj> filter)
+    {
+        return statistics.stream()
+                .map(stats -> new ColumnStatistics(
+                        stats.getStatsDesc(),
+                        stats.getStatsObj().stream()
+                                .filter(filter)
+                                .collect(toImmutableList())))
+                .filter(stats -> !stats.getStatsObj().isEmpty())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -702,6 +742,13 @@ public class ThriftHiveMetastoreClient
         request.setTxnIds(transactionIds);
         AllocateTableWriteIdsResponse response = client.allocateTableWriteIds(request);
         return response.getTxnToWriteIds();
+    }
+
+    @Override
+    public void alterPartitions(String databaseName, String tableName, List<Partition> partitions)
+            throws TException
+    {
+        client.alterPartitions(prependCatalogToDbName(catalogName, databaseName), tableName, partitions);
     }
 
     @Override

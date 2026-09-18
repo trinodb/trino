@@ -29,6 +29,7 @@ import io.trino.sql.planner.SymbolAllocator;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST_FUNCTION_NAME;
 import static io.trino.sql.ir.IrExpressions.cast;
@@ -62,11 +63,11 @@ public class SimplifyRedundantTryCast
 
         Expression value = call.arguments().getFirst();
         Type targetType = call.type();
-        ResolvedFunction coercion = metadata.getCoercion(value.type(), targetType);
+        ResolvedFunction coercion = metadata.getCoercion(getCharVarcharCoercion(session), value.type(), targetType);
         if (!coercion.neverFails()) {
             return Optional.empty();
         }
 
-        return Optional.of(cast(typeManager, value, targetType));
+        return Optional.of(cast(typeManager, getCharVarcharCoercion(session), value, targetType));
     }
 }

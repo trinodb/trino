@@ -214,7 +214,7 @@ public final class StringFunctions
     @SqlType("char(x)")
     public static Slice charReverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
-        return SliceUtf8.reverse(padSpaces(slice, (int) x));
+        return trimTrailingSpaces(SliceUtf8.reverse(padSpaces(slice, (int) x)));
     }
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
@@ -964,7 +964,6 @@ public final class StringFunctions
         return Chars.padSpaces(slice, toIntExact(x));
     }
 
-    // TODO: implement N arguments char concat
     @Description("Concatenates given character strings")
     // Given CHAR type max length, if the result type is valid, allocation cannot fail.
     @ScalarFunction(neverFails = true)

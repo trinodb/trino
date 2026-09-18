@@ -51,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -122,7 +123,7 @@ public class BenchmarkArrayTransform
             }
 
             List<Expression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layoutBuilder.buildOrThrow()).get();
             pageBuilder = new PageBuilder(projections.stream().map(Expression::type).collect(Collectors.toList()));
             page = new Page(blocks);
         }

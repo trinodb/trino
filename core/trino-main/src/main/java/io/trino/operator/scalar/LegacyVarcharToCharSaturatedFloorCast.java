@@ -20,6 +20,7 @@ import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.type.CharVarcharCoercion;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
@@ -30,7 +31,7 @@ import static java.lang.Math.toIntExact;
 
 /**
  * Legacy saturated floor cast from {@code VARCHAR} to {@code CHAR}, matching
- * {@link LegacyCharToVarcharCast} which re-pads values with spaces to their declared {@code CHAR}
+ * {@link CharVarcharCoercion#LEGACY} which re-pads values with spaces to their declared {@code CHAR}
  * length when casting back. The legacy space-padded coercion is monotone in both directions, so a
  * saturated floor cast exists; it is registered only when the
  * {@code deprecated.legacy-varchar-to-char-coercion} configuration property is set. The default

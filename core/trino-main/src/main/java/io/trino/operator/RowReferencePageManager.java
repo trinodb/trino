@@ -233,12 +233,17 @@ public final class RowReferencePageManager
     private final class PageAccounting
     {
         private static final int COMPACTION_MIN_FILL_MULTIPLIER = 2;
+        // Copy a page once when its backing arrays retain over 12.5% and at least 4 KB more than the data they hold;
+        // block builders size their arrays from the previous page, so retained pages commonly carry unused capacity
+        private static final int COMPACTION_MAX_SLACK_DIVISOR = 8;
+        private static final long COMPACTION_MIN_SLACK_BYTES = 4 * 1024;
 
         private final int pageId;
         private Page page;
         private long[] rowIds;
         // Start off locked to give the caller time to declare which rows to reference
         private boolean lockedPage = true;
+        private boolean compacted;
         private int activePositions;
 
         public PageAccounting(int pageId, Page page)
@@ -310,7 +315,20 @@ public final class RowReferencePageManager
         public boolean isCompactionEligible()
         {
             // Compaction is only allowed if the page is unlocked
-            return !lockedPage && activePositions * COMPACTION_MIN_FILL_MULTIPLIER < page.getPositionCount();
+            if (lockedPage) {
+                return false;
+            }
+            return activePositions * COMPACTION_MIN_FILL_MULTIPLIER < page.getPositionCount() || hasExcessRetainedBytes();
+        }
+
+        private boolean hasExcessRetainedBytes()
+        {
+            if (compacted) {
+                return false;
+            }
+            long sizeInBytes = page.getSizeInBytes();
+            long slackBytes = page.getRetainedSizeInBytes() - sizeInBytes;
+            return slackBytes > Math.max(sizeInBytes / COMPACTION_MAX_SLACK_DIVISOR, COMPACTION_MIN_SLACK_BYTES);
         }
 
         public void compact()
@@ -318,6 +336,10 @@ public final class RowReferencePageManager
             checkState(!lockedPage, "Should not attempt compaction when page is locked");
 
             if (activePositions == page.getPositionCount()) {
+                if (hasExcessRetainedBytes()) {
+                    page.compact();
+                    compacted = true;
+                }
                 return;
             }
 
@@ -338,11 +360,12 @@ public final class RowReferencePageManager
             // Compact page
             page = page.copyPositions(positionsToKeep, 0, positionsToKeep.length);
             rowIds = newRowIds;
+            compacted = true;
         }
 
         public long sizeOf()
         {
-            return PAGE_ACCOUNTING_INSTANCE_SIZE + page.getSizeInBytes() + SizeOf.sizeOf(rowIds);
+            return PAGE_ACCOUNTING_INSTANCE_SIZE + page.getRetainedSizeInBytes() + SizeOf.sizeOf(rowIds);
         }
     }
 

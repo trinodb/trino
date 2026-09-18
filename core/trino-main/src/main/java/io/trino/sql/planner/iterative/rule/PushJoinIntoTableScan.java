@@ -49,6 +49,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
@@ -113,7 +114,7 @@ public class PushJoinIntoTableScan
         Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getValue));
 
-        Expression effectiveFilter = getEffectiveFilter(joinNode);
+        Expression effectiveFilter = getEffectiveFilter(context.getSession(), joinNode);
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
                 context.getSession(),
                 effectiveFilter,
@@ -241,9 +242,9 @@ public class PushJoinIntoTableScan
         return constraint.transformKeys(columnMapping::get);
     }
 
-    public Expression getEffectiveFilter(JoinNode node)
+    public Expression getEffectiveFilter(Session session, JoinNode node)
     {
-        Expression effectiveFilter = and(node.getCriteria().stream().map(clause -> clause.toExpression(plannerContext.getMetadata())).collect(toImmutableList()));
+        Expression effectiveFilter = and(node.getCriteria().stream().map(clause -> clause.toExpression(plannerContext.getMetadata(), getCharVarcharCoercion(session))).collect(toImmutableList()));
         if (node.getFilter().isPresent()) {
             effectiveFilter = and(effectiveFilter, node.getFilter().get());
         }

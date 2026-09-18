@@ -15,7 +15,9 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
@@ -23,6 +25,7 @@ import java.util.Optional;
 public class GoogleSecurityConfig
 {
     private String projectId;
+    private String jsonKey;
     private String jsonKeyFilePath;
 
     @NotNull
@@ -39,8 +42,21 @@ public class GoogleSecurityConfig
         return this;
     }
 
-    // Duplicated from GcsFileSystemConfig. When absent, Application Default Credentials (ADC) are used,
-    // which enables GKE Workload Identity and environment-based credential sources.
+    @NotNull
+    public Optional<String> getJsonKey()
+    {
+        return Optional.ofNullable(jsonKey);
+    }
+
+    @Config("gcs.json-key")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Google Cloud service account key in JSON format")
+    public GoogleSecurityConfig setJsonKey(String jsonKey)
+    {
+        this.jsonKey = jsonKey;
+        return this;
+    }
+
     public Optional<@FileExists String> getJsonKeyFilePath()
     {
         return Optional.ofNullable(jsonKeyFilePath);
@@ -52,5 +68,13 @@ public class GoogleSecurityConfig
     {
         this.jsonKeyFilePath = jsonKeyFilePath;
         return this;
+    }
+
+    // Duplicated from GcsServiceAccountAuthConfig. When absent, Application Default Credentials (ADC) are used,
+    // which enables GKE Workload Identity and environment-based credential sources.
+    @AssertTrue(message = "gcs.json-key and gcs.json-key-file-path cannot be set at the same time")
+    public boolean isAuthMethodValid()
+    {
+        return !(jsonKey != null && jsonKeyFilePath != null);
     }
 }

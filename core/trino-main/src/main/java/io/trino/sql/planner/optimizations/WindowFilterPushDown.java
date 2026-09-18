@@ -42,6 +42,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -87,8 +88,8 @@ public class WindowFilterPushDown
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
-            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("row_number", ImmutableList.of()).functionId();
-            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction("rank", ImmutableList.of()).functionId();
+            rowNumberFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of()).functionId();
+            rankFunctionId = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(session), "rank", ImmutableList.of()).functionId();
             this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         }
 
@@ -153,7 +154,7 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate()).tupleDomain();
 
             if (source instanceof RowNumberNode) {
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
@@ -188,7 +189,7 @@ public class WindowFilterPushDown
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rankingSymbol, int upperBound)
         {
             ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, filterNode.getPredicate());
-            TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
             if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
@@ -197,8 +198,8 @@ public class WindowFilterPushDown
             // Remove the ranking domain because it is absorbed into the node
             TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = combineConjuncts(
-                    extractionResult.getRemainingExpression(),
-                    domainTranslator.toPredicate(newTupleDomain));
+                    extractionResult.remainingExpression(),
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
             if (newPredicate.equals(Booleans.TRUE)) {
                 return source;

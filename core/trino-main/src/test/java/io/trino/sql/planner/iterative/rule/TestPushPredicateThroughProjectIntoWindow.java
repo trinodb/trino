@@ -35,10 +35,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -295,7 +296,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rowNumberFunction()
     {
         return new Function(
-                tester().getMetadata().resolveBuiltinFunction("row_number", fromTypes()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "row_number", ImmutableList.of()),
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,
@@ -306,7 +307,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rankFunction()
     {
         return new Function(
-                tester().getMetadata().resolveBuiltinFunction("rank", fromTypes()),
+                tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "rank", ImmutableList.of()),
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,

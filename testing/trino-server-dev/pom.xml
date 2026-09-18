@@ -18,19 +18,13 @@
              restricted to the development server and are not shipped in the tarball.
              Keep dep.maven.version in sync with maven-model in the root pom. -->
         <dep.maven.version>3.9.16</dep.maven.version>
-        <dep.maven-resolver.version>2.0.21</dep.maven-resolver.version>
+        <dep.maven-resolver.version>2.0.22</dep.maven-resolver.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -41,6 +35,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

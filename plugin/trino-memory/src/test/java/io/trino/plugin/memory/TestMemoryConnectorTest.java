@@ -609,6 +609,51 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    void testDistinctAggregationsOverBetweenOnExpression()
+    {
+        // Splitting distinct aggregations over a BETWEEN expression must remap the Let binder with its body.
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_distinct_over_between",
+                "AS SELECT * FROM (VALUES (1, 10, 'abc'), (2, 20, 'abd'), (3, 30, 'zzz')) x(orderkey, partkey, comment)")) {
+            assertThat(query(
+                    session,
+                    "SELECT count(DISTINCT orderkey), count(DISTINCT partkey) FROM " + table.getName() +
+                            " WHERE substring(comment, 1, 3) BETWEEN 'a' AND 'b'"))
+                    .matches("VALUES (BIGINT '2', BIGINT '2')");
+        }
+    }
+
+    @Test
+    void testDistinctAggregationsOverNondeterministicSource()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable(
+                "test_distinct_over_nondeterministic",
+                "AS SELECT x % 10 k, x a, x b FROM UNNEST(sequence(1, 10000)) t(x)")) {
+            assertThat(query(
+                    session,
+                    "SELECT count(*), count_if(ca <> cb) FROM (" +
+                            "SELECT k, count(DISTINCT a) ca, count(DISTINCT b) cb FROM " + table.getName() +
+                            " WHERE random() < 0.5 GROUP BY k)"))
+                    .matches("VALUES (BIGINT '10', BIGINT '0')");
+
+            assertThat(query(
+                    session,
+                    "SELECT count_if(ca <> cb) FROM (" +
+                            "SELECT g, count(DISTINCT a) ca, count(DISTINCT b) cb FROM (" +
+                            "SELECT k + CAST(floor(random() * 2) AS bigint) g, a, b FROM " + table.getName() + ") GROUP BY g)"))
+                    .matches("VALUES BIGINT '0'");
+        }
+    }
+
+    @Test
     void testInsertAfterTruncate()
     {
         try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 x")) {

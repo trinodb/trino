@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
@@ -25,7 +25,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestIcebergQueryFailureRecoveryTest
         extends BaseIcebergFailureRecoveryTest
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     protected TestIcebergQueryFailureRecoveryTest()
     {
@@ -50,13 +50,13 @@ public class TestIcebergQueryFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        this.minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
-        minioStorage.start();
+        storage = closeAfterClass(new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE));
+        storage.start();
 
         return IcebergQueryRunner.builder()
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
@@ -66,6 +66,6 @@ public class TestIcebergQueryFailureRecoveryTest
     public void destroy()
             throws Exception
     {
-        minioStorage = null; // closed by closeAfterClass
+        storage = null; // closed by closeAfterClass
     }
 }

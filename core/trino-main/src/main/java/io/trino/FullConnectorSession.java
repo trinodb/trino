@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.type.CharVarcharCoercion;
 
 import java.time.Instant;
 import java.util.Locale;
@@ -39,6 +40,7 @@ public class FullConnectorSession
     private final CatalogHandle catalogHandle;
     private final String catalogName;
     private final SessionPropertyManager sessionPropertyManager;
+    private final CharVarcharCoercion charVarcharCoercion;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
@@ -48,6 +50,7 @@ public class FullConnectorSession
         this.catalogHandle = null;
         this.catalogName = null;
         this.sessionPropertyManager = null;
+        this.charVarcharCoercion = SystemSessionProperties.getCharVarcharCoercion(session);
     }
 
     public FullConnectorSession(
@@ -64,11 +67,17 @@ public class FullConnectorSession
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.charVarcharCoercion = SystemSessionProperties.getCharVarcharCoercion(session);
     }
 
     public Session getSession()
     {
         return session;
+    }
+
+    public CharVarcharCoercion getCharVarcharCoercion()
+    {
+        return charVarcharCoercion;
     }
 
     @Override

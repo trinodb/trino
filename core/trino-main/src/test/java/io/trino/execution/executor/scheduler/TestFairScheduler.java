@@ -13,6 +13,7 @@
  */
 package io.trino.execution.executor.scheduler;
 
+import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -23,14 +24,119 @@ import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFairScheduler
 {
+    @Test
+    @Timeout(30)
+    public void testSubmitDoesNotBlockOtherOperations()
+            throws Exception
+    {
+        // Creating the thread that runs a task is slow on a loaded worker. Simulate that and verify
+        // that it does not hold up group management or the submission of unrelated tasks.
+        AtomicBoolean stallNextThread = new AtomicBoolean();
+        CountDownLatch threadCreationStarted = new CountDownLatch(1);
+        CountDownLatch releaseThreadCreation = new CountDownLatch(1);
+
+        ThreadFactory threadFactory = runnable -> {
+            if (stallNextThread.compareAndSet(true, false)) {
+                threadCreationStarted.countDown();
+                awaitUninterruptibly(releaseThreadCreation);
+            }
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
+        scheduler.start();
+        ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
+        try {
+            Group group = scheduler.createGroup("G1");
+
+            stallNextThread.set(true);
+            Future<?> stalled = submitter.submit(() -> scheduler.submit(group, 1, _ -> {}));
+            threadCreationStarted.await();
+
+            // these must not wait for the stalled thread creation to complete
+            Group other = scheduler.createGroup("G2");
+            scheduler.submit(other, 1, _ -> {}).get();
+            scheduler.removeGroup(other);
+
+            releaseThreadCreation.countDown();
+            stalled.get();
+        }
+        finally {
+            releaseThreadCreation.countDown();
+            submitter.shutdownNow();
+            scheduler.close();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testCloseDoesNotWaitForThreadCreation()
+            throws Exception
+    {
+        CountDownLatch threadCreationStarted = new CountDownLatch(1);
+        CountDownLatch releaseThreadCreation = new CountDownLatch(1);
+        ThreadFactory threadFactory = runnable -> {
+            threadCreationStarted.countDown();
+            awaitUninterruptibly(releaseThreadCreation);
+            Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
+            return thread;
+        };
+
+        FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
+        scheduler.start();
+        Group group = scheduler.createGroup("G");
+        ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
+        try {
+            Future<?> submit = executor.submit(() -> scheduler.submit(group, 1, _ -> {}));
+            threadCreationStarted.await();
+
+            // Shutdown is safe without waiting for the submit call to finish creating its thread.
+            scheduler.close();
+
+            releaseThreadCreation.countDown();
+            assertThatThrownBy(submit::get)
+                    .isInstanceOf(ExecutionException.class)
+                    .cause()
+                    .isInstanceOf(RejectedExecutionException.class);
+        }
+        finally {
+            releaseThreadCreation.countDown();
+            executor.shutdownNow();
+            scheduler.close();
+        }
+    }
+
+    @Test
+    public void testSubmitAfterClose()
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(1);
+        Group group = scheduler.createGroup("G");
+        scheduler.close();
+
+        assertThatThrownBy(() -> scheduler.submit(group, 1, _ -> {}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Already closed");
+    }
+
     @Test
     public void testBasic()
             throws ExecutionException, InterruptedException

@@ -37,6 +37,7 @@ import io.trino.spi.spool.SpoolingManager;
 import io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator;
 import io.trino.spooling.filesystem.encryption.ExceptionMappingInputStream;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -133,8 +134,15 @@ public class FileSystemSpoolingManager
             inputFile = fileSystem.newInputFile(storageLocation);
         }
 
-        checkFileExists(inputFile);
-        return new ExceptionMappingInputStream(inputFile.newStream());
+        // Avoid an eager existence check (e.g. a HEAD request): open the stream directly and let a
+        // missing segment surface as FileNotFoundException, either here or on first read, which
+        // ExceptionMappingInputStream translates to the same "not found or expired" error.
+        try {
+            return new ExceptionMappingInputStream(inputFile.newStream());
+        }
+        catch (FileNotFoundException e) {
+            throw new IOException("Segment not found or expired", e);
+        }
     }
 
     @Override
@@ -247,14 +255,6 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         if (handle.expirationTime().isBefore(Instant.now())) {
-            throw new IOException("Segment not found or expired");
-        }
-    }
-
-    private static void checkFileExists(TrinoInputFile inputFile)
-            throws IOException
-    {
-        if (!inputFile.exists()) {
             throw new IOException("Segment not found or expired");
         }
     }

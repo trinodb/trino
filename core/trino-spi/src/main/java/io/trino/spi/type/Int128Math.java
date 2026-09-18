@@ -189,6 +189,13 @@ public final class Int128Math
         }
     }
 
+    public static Int128 add(Int128 left, Int128 right)
+    {
+        long[] result = new long[2];
+        add(left.getHigh(), left.getLow(), right.getHigh(), right.getLow(), result, 0);
+        return Int128.valueOf(result);
+    }
+
     public static long addWithOverflow(long leftHigh, long leftLow, long rightHigh, long rightLow, long[] decimal, int offset)
     {
         long low = leftLow + rightLow;

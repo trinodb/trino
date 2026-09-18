@@ -29,15 +29,17 @@ import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -50,6 +52,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_WITH_UNMATCHED;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
@@ -62,10 +65,12 @@ import static io.trino.type.UnknownType.UNKNOWN;
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+
     @Test
     public void testRemovePatternRecognitionNode()
     {
-        ResolvedFunction rank = createTestingMetadataManager().resolveBuiltinFunction("rank", ImmutableList.of());
+        ResolvedFunction rank = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "rank", ImmutableList.of());
 
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -88,7 +93,7 @@ public class TestPrunePattenRecognitionColumns
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -111,7 +116,7 @@ public class TestPrunePattenRecognitionColumns
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol(UNKNOWN, "a"))))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -125,7 +130,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", ImmutableList.of(BIGINT));
 
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -140,7 +145,7 @@ public class TestPrunePattenRecognitionColumns
                                                 new LogicalIndexPointer(ImmutableSet.of(new IrLabel("X")), true, true, 0, 0),
                                                 new Symbol(BIGINT, "a"))))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS))
                                 .skipTo(NEXT)
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
@@ -165,7 +170,8 @@ public class TestPrunePattenRecognitionColumns
                                                         Optional.empty(),
                                                         UNBOUNDED_FOLLOWING,
                                                         Optional.empty(),
-                                                        Optional.empty()))
+                                                        Optional.empty(),
+                                                        NO_OTHERS))
                                                 .skipTo(NEXT)
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(new IrLabel("X"), TRUE),
@@ -177,7 +183,7 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
-        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction("lag", fromTypes(BIGINT));
+        ResolvedFunction lag = createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "lag", ImmutableList.of(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 ROWS,
                 CURRENT_ROW,
@@ -185,7 +191,8 @@ public class TestPrunePattenRecognitionColumns
                 Optional.empty(),
                 UNBOUNDED_FOLLOWING,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                NO_OTHERS);
 
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
         tester().assertThat(new PrunePattenRecognitionColumns())
@@ -255,7 +262,7 @@ public class TestPrunePattenRecognitionColumns
                                                 values("a", "b")))));
 
         // inputs "a", "b" are used as aggregation arguments
-        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction("max_by", fromTypes(BIGINT, BIGINT));
+        ResolvedFunction maxBy = tester().getMetadata().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "max_by", ImmutableList.of(BIGINT, BIGINT));
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
@@ -379,7 +386,7 @@ public class TestPrunePattenRecognitionColumns
                         p.patternRecognition(builder -> builder
                                 .addMeasure(p.symbol("measure"), new Constant(INTEGER, 1L))
                                 .rowsPerMatch(WINDOW)
-                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty()))
+                                .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), FOLLOWING, Optional.of(p.symbol("a")), Optional.empty(), NO_OTHERS))
                                 .pattern(new IrLabel("X"))
                                 .addVariableDefinition(new IrLabel("X"), TRUE)
                                 .source(p.values(p.symbol("a"), p.symbol("b"))))))
@@ -397,7 +404,8 @@ public class TestPrunePattenRecognitionColumns
                                                         Optional.empty(),
                                                         FOLLOWING,
                                                         Optional.of(new Symbol(UNKNOWN, "a")),
-                                                        Optional.empty()))
+                                                        Optional.empty(),
+                                                        NO_OTHERS))
                                                 .pattern(new IrLabel("X"))
                                                 .addVariableDefinition(new IrLabel("X"), TRUE),
                                         strictProject(

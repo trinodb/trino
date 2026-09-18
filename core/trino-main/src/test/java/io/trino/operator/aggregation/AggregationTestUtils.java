@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationMetrics;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -104,7 +105,7 @@ public final class AggregationTestUtils
     public static Block getIntermediateBlock(Type intermediateType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder);
+        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
         return blockBuilder.build();
     }
 
@@ -118,7 +119,7 @@ public final class AggregationTestUtils
     public static Block getFinalBlock(Type finalType, Aggregator aggregator)
     {
         BlockBuilder blockBuilder = finalType.createBlockBuilder(null, 1000);
-        aggregator.evaluate(blockBuilder);
+        aggregator.evaluate(blockBuilder, UpdateMemory.NOOP);
         return blockBuilder.build();
     }
 

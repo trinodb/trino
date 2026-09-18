@@ -25,6 +25,7 @@ import static io.trino.spi.type.DecimalConversions.MAX_EXACT_FLOAT;
 import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.longDecimalToReal;
 import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
+import static io.trino.spi.type.DecimalConversions.shortDecimalToReal;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,6 +65,25 @@ class TestDecimalConversions
     }
 
     @Test
+    void testShortDecimalToReal()
+    {
+        BigInteger shortDecimalBound = BigInteger.TEN.pow(MAX_SHORT_PRECISION);
+        for (BigInteger unscaledValue : testValues()) {
+            if (unscaledValue.abs().compareTo(shortDecimalBound) >= 0) {
+                // does not fit in a short decimal
+                continue;
+            }
+            long unscaled = unscaledValue.longValueExact();
+            for (int scale = 0; scale <= MAX_SHORT_PRECISION; scale++) {
+                long tenToScale = BigInteger.TEN.pow(scale).longValueExact();
+                assertThat(Float.intBitsToFloat(toIntExact(shortDecimalToReal(unscaled, tenToScale))))
+                        .as("shortDecimalToReal(%s, scale=%d)", unscaled, scale)
+                        .isEqualTo(new BigDecimal(unscaledValue, scale).floatValue());
+            }
+        }
+    }
+
+    @Test
     void testLongDecimalToReal()
     {
         for (BigInteger unscaledValue : testValues()) {
@@ -92,6 +112,28 @@ class TestDecimalConversions
                 values.add(cutoff.add(BigInteger.valueOf(delta)).negate());
             }
         }
+
+        values.add(new BigInteger("9007199791611905"));
+        values.add(new BigInteger("9007199791611905").negate());
+
+        // Well below 2^53 but still double-rounds when narrowing to real at high scale (e.g. scale 14):
+        // (float) ((double) 391462049447 / 1e14) lands one ULP off the correctly rounded float.
+        values.add(new BigInteger("391462049447"));
+        values.add(new BigInteger("391462049447").negate());
+
+        // Above 2^53 near a float midpoint at scale 2, resolved through BigDecimal
+        values.add(new BigInteger("960000084148223999"));
+        values.add(new BigInteger("960000084148223999").negate());
+
+        // Exact float midpoints at scale 1 (8388608.5 and 8388609.5), where the tie resolves down and up to even
+        values.add(new BigInteger("83886085"));
+        values.add(new BigInteger("83886085").negate());
+        values.add(new BigInteger("83886095"));
+        values.add(new BigInteger("83886095").negate());
+
+        // Within the midpoint margin at scale 14 but not a midpoint, so the double divide already rounds correctly
+        values.add(new BigInteger("300315360073"));
+        values.add(new BigInteger("300315360073").negate());
 
         values.add(new BigInteger("12345678901234567890"));
         values.add(new BigInteger("12345678901234567890").negate());

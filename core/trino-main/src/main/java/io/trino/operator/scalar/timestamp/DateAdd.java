@@ -26,10 +26,12 @@ import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.getMicrosOfMilli;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
+import static java.lang.Math.addExact;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
@@ -55,9 +57,12 @@ public final class DateAdd
                 epochMillis = round(epochMillis, (int) (3 - precision));
             }
 
-            return scaleEpochMillisToMicros(epochMillis) + microsOfMilli;
+            return addExact(scaleEpochMillisToMicros(epochMillis), microsOfMilli);
         }
-        catch (IllegalArgumentException | ArithmeticException e) {
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+        }
+        catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage());
         }
     }

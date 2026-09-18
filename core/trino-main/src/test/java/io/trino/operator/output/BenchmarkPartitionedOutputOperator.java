@@ -123,7 +123,7 @@ public class BenchmarkPartitionedOutputOperator
     {
         PartitionedOutputOperator operator = data.createPartitionedOutputOperator();
         for (int i = 0; i < data.getPageCount(); i++) {
-            operator.addInput(data.getDataPage());
+            operator.addInput(data.getDataPage(i));
         }
         operator.finish();
     }
@@ -164,7 +164,7 @@ public class BenchmarkPartitionedOutputOperator
 
         private List<Type> types;
         private int pageCount;
-        private Page dataPage;
+        private List<Page> dataPages;
         private Blackhole blackhole;
 
         public enum TestType
@@ -250,6 +250,8 @@ public class BenchmarkPartitionedOutputOperator
             ARRAY_BIGINT(new ArrayType(BigintType.BIGINT), 1000),
             // Flat array of VARCHAR data channel, flat BIGINT partition channel.
             ARRAY_VARCHAR(new ArrayType(VarcharType.VARCHAR), 1000),
+            // Dictionary array of VARCHAR data channel, flat BIGINT partition channel, input switches to a new dictionary 8 times.
+            DICTIONARY_ARRAY_VARCHAR_ROTATING(new ArrayType(VarcharType.VARCHAR), 1000, PageTestUtils::createRandomDictionaryPage, 8),
             // Flat array of array of BIGINT data channel, flat BIGINT partition channel.
             ARRAY_ARRAY_BIGINT(new ArrayType(new ArrayType(BigintType.BIGINT)), 1000),
             // Flat map<BIGINT, BIGINT> data channel, flat BIGINT partition channel.
@@ -290,6 +292,7 @@ public class BenchmarkPartitionedOutputOperator
 
             private final Type type;
             private final int pageCount;
+            private final int distinctPageCount;
 
             private final PageGenerator pageGenerator;
 
@@ -300,14 +303,25 @@ public class BenchmarkPartitionedOutputOperator
 
             TestType(Type type, int pageCount, PageGenerator pageGenerator)
             {
+                this(type, pageCount, pageGenerator, 1);
+            }
+
+            TestType(Type type, int pageCount, PageGenerator pageGenerator, int distinctPageCount)
+            {
                 this.type = requireNonNull(type, "type is null");
                 this.pageCount = pageCount;
+                this.distinctPageCount = distinctPageCount;
                 this.pageGenerator = requireNonNull(pageGenerator, "pageGenerator is null");
             }
 
             public PageGenerator getPageGenerator()
             {
                 return pageGenerator;
+            }
+
+            public int getDistinctPageCount()
+            {
+                return distinctPageCount;
             }
 
             public int getPageCount()
@@ -360,9 +374,10 @@ public class BenchmarkPartitionedOutputOperator
             this.type = requireNonNull(type, "type is null");
         }
 
-        public Page getDataPage()
+        public Page getDataPage(int index)
         {
-            return dataPage;
+            // each input page is used for a contiguous run of the benchmark iteration
+            return dataPages.get(index * dataPages.size() / pageCount);
         }
 
         @Setup
@@ -378,7 +393,9 @@ public class BenchmarkPartitionedOutputOperator
             // and in case of unit test it will be null
             this.blackhole = blackhole;
             types = type.getTypes(channelCount);
-            dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
+            dataPages = IntStream.range(0, type.getDistinctPageCount())
+                    .mapToObj(_ -> type.getPageGenerator().createPage(types, positionCount, nullRate))
+                    .collect(toImmutableList());
             pageCount = type.getPageCount();
             types = ImmutableList.<Type>builder()
                     .addAll(types)

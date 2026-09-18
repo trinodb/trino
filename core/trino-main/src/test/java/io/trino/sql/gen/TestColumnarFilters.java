@@ -60,6 +60,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
+import io.trino.type.CharVarcharCoercion;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -72,6 +73,8 @@ import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.Stream;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -106,6 +109,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarFilters
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final Random RANDOM = new Random(5376453765L);
     private static final long CONSTANT = 64992484L;
     private static final int ROW_NUM_CHANNEL = 0;
@@ -244,6 +248,11 @@ public class TestColumnarFilters
         Expression falseFilter = new Constant(BOOLEAN, false);
         assertThatColumnarFilterEvaluationIsSupported(falseFilter);
         verifyFilter(inputPages, falseFilter);
+
+        // WHERE NULL
+        Expression nullFilter = constantNull(BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(nullFilter);
+        verifyFilter(inputPages, nullFilter);
     }
 
     @ParameterizedTest
@@ -392,6 +401,26 @@ public class TestColumnarFilters
 
     @ParameterizedTest
     @MethodSource("inputProviders")
+    public void testLogicalWithNull(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+        Expression range = between(
+                new Reference(INTEGER, COL_INT_A),
+                new Constant(INTEGER, CONSTANT - 5),
+                new Constant(INTEGER, CONSTANT + 5));
+        for (Logical.Operator operator : List.of(Logical.Operator.AND, Logical.Operator.OR)) {
+            Expression filter = new Logical(operator, ImmutableList.of(range, constantNull(BOOLEAN)));
+            assertThatColumnarFilterEvaluationIsSupported(filter);
+            verifyFilter(inputPages, filter);
+
+            Expression notFilter = createNotExpression(filter);
+            assertThatColumnarFilterEvaluationIsNotSupported(notFilter);
+            verifyFilter(inputPages, notFilter);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testAnd(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -437,7 +466,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(andFilter, layout, COMPILER, true, false).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, andFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct returned no positions
@@ -469,7 +498,7 @@ public class TestColumnarFilters
                 100,
                 createLongSequenceBlock(0, 100),
                 createLongSequenceBlock(0, 100));
-        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(orFilter, layout, COMPILER, true, false).orElseThrow().get();
+        FilterEvaluator filterEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, orFilter, layout, COMPILER, true, false).orElseThrow().get();
         filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), testingPage);
 
         // col_b (channel 1) should not have been loaded because the first conjunct selected all rows
@@ -666,6 +695,7 @@ public class TestColumnarFilters
     private static List<Page> processFilter(List<Page> inputPages, boolean columnarEvaluationEnabled, boolean filterReorderingEnabled, Expression filter)
     {
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         columnarEvaluationEnabled,
                         filterReorderingEnabled,
                         Optional.of(filter),
@@ -969,12 +999,12 @@ public class TestColumnarFilters
 
     private static void assertThatColumnarFilterEvaluationIsSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
+        assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
     }
 
     private static void assertThatColumnarFilterEvaluationIsNotSupported(Expression filterExpression)
     {
-        assertThat(createColumnarFilterEvaluator(filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
+        assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
     }
 
     @ScalarFunction("custom_is_distinct_from")

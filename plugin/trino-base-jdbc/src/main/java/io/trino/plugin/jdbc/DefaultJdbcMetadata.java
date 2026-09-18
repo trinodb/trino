@@ -1352,7 +1352,7 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void finishMerge(
+    public Optional<ConnectorOutputMetadata> finishMerge(
             ConnectorSession session,
             ConnectorMergeTableHandle tableHandle,
             List<ConnectorTableHandle> sourceTableHandles,
@@ -1362,6 +1362,7 @@ public class DefaultJdbcMetadata
         JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
 
         jdbcClient.finishMerge(session, handle, getSuccessfulPageSinkIds(fragments));
+        return Optional.empty();
     }
 
     @Override

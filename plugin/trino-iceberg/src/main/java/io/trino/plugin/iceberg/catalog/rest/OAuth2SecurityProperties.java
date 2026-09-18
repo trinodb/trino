@@ -28,12 +28,12 @@ public class OAuth2SecurityProperties
     private final Map<String, String> securityProperties;
 
     @Inject
-    public OAuth2SecurityProperties(OAuth2SecurityConfig securityConfig)
+    public OAuth2SecurityProperties(OAuth2SecurityConfig securityConfig, IcebergRestCatalogConfig catalogConfig)
     {
         requireNonNull(securityConfig, "securityConfig is null");
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
-        propertiesBuilder.put(AuthProperties.AUTH_TYPE, AuthProperties.AUTH_TYPE_OAUTH2);
+        propertiesBuilder.put(AuthProperties.AUTH_TYPE, resolveAuthType(catalogConfig));
         securityConfig.getCredential().ifPresent(
                 credential -> {
                     propertiesBuilder.put(OAuth2Properties.CREDENTIAL, credential);
@@ -54,5 +54,13 @@ public class OAuth2SecurityProperties
     public Map<String, String> get()
     {
         return securityProperties;
+    }
+
+    private static String resolveAuthType(IcebergRestCatalogConfig catalogConfig)
+    {
+        return switch (catalogConfig.getSessionType()) {
+            case NONE -> SharedSessionOAuth2Manager.class.getName();
+            case USER -> AuthProperties.AUTH_TYPE_OAUTH2;
+        };
     }
 }

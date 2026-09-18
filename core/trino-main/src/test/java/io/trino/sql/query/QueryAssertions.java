@@ -82,6 +82,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.ir.IrExpressions.mayFail;
@@ -1001,7 +1002,7 @@ public class QueryAssertions
         public ExpressionAssert neverFails()
         {
             Expression expression = outermostExpression();
-            assertThat(mayFail(runner.getPlannerContext(), expression))
+            assertThat(mayFail(runner.getPlannerContext(), getCharVarcharCoercion(session), expression))
                     .as("Expression %s may fail", expression)
                     .isFalse();
             return this;
@@ -1014,7 +1015,7 @@ public class QueryAssertions
         public ExpressionAssert couldFail()
         {
             Expression expression = outermostExpression();
-            assertThat(mayFail(runner.getPlannerContext(), expression))
+            assertThat(mayFail(runner.getPlannerContext(), getCharVarcharCoercion(session), expression))
                     .as("Expression %s may fail", expression)
                     .isTrue();
             return this;

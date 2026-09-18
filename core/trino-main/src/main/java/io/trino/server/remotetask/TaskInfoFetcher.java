@@ -65,6 +65,7 @@ public class TaskInfoFetcher
     private static final SpoolingOutputStats.Snapshot ALREADY_RETRIEVED_MARKER = new SpoolingOutputStats.Snapshot(Slices.EMPTY_SLICE, 0);
 
     private final TaskId taskId;
+    private final AtomicLong expectedTaskInstanceId = new AtomicLong();
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final StateMachine<TaskInfo> taskInfo;
@@ -118,6 +119,7 @@ public class TaskInfoFetcher
         requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.taskStatus().taskId();
+        this.expectedTaskInstanceId.set(initialTask.taskStatus().taskInstanceId());
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
@@ -256,7 +258,33 @@ public class TaskInfoFetcher
 
     synchronized void updateTaskInfo(TaskInfo newTaskInfo)
     {
+        updateTaskInfo(newTaskInfo, isTaskInstanceMismatch(newTaskInfo));
+    }
+
+    private synchronized void updateTaskInfo(TaskInfo newTaskInfo, boolean taskInstanceMismatch)
+    {
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
+
+        if (taskInstanceMismatch) {
+            // Defer until TaskStatusFetcher (running in loop) detects the mismatch and marks the task done (FAILED) locally.
+            // Finalizing now would use task info from the restarted worker's task instance.
+            if (!localTaskStatus.state().isDone()) {
+                log.debug(
+                        "Task %s received TaskInfo with mismatched instance id (expected %s, observed %s) but local status is %s; deferring finalization",
+                        taskId,
+                        expectedTaskInstanceId.get(),
+                        newTaskInfo.taskStatus().taskInstanceId(),
+                        localTaskStatus.state());
+                return;
+            }
+            log.warn(
+                    "Task %s received a TaskInfo from a different task instance (expected %s, observed %s); worker at %s likely restarted. Finalizing task info locally.",
+                    taskId,
+                    expectedTaskInstanceId.get(),
+                    newTaskInfo.taskStatus().taskInstanceId(),
+                    newTaskInfo.taskStatus().self());
+            newTaskInfo = getTaskInfo().withTaskStatus(localTaskStatus);
+        }
         TaskStatus newRemoteTaskStatus = newTaskInfo.taskStatus();
 
         if (!newRemoteTaskStatus.taskId().equals(taskId)) {
@@ -321,8 +349,11 @@ public class TaskInfoFetcher
                 lastUpdateNanos.set(System.nanoTime());
 
                 updateStats(requestStartNanos);
-                errorTracker.requestSucceeded();
-                updateTaskInfo(newValue);
+                boolean taskInstanceMismatch = isTaskInstanceMismatch(newValue);
+                if (!taskInstanceMismatch) {
+                    errorTracker.requestSucceeded();
+                }
+                updateTaskInfo(newValue, taskInstanceMismatch);
             }
             finally {
                 cleanupRequest();
@@ -362,6 +393,29 @@ public class TaskInfoFetcher
                 cleanupRequest();
             }
         }
+    }
+
+    /**
+     * Checks whether the given {@code TaskInfo} was produced by a different task instance
+     * than the one this fetcher was created for. This happens when a worker container
+     * restarts at the same address: the replacement JVM creates a new task on demand
+     * ({@code SqlTaskManager#getTask}) with a different {@code taskInstanceId}.
+     *
+     * <p>The first non-zero instance id observed is latched as the expected value; any
+     * later response carrying a different non-zero instance id is a mismatch.
+     */
+    boolean isTaskInstanceMismatch(TaskInfo newTaskInfo)
+    {
+        long remoteInstanceId = newTaskInfo.taskStatus().taskInstanceId();
+        if (remoteInstanceId == 0) {
+            return false;
+        }
+        long expected = expectedTaskInstanceId.get();
+        if (expected == 0) {
+            expectedTaskInstanceId.compareAndSet(0, remoteInstanceId);
+            return false;
+        }
+        return expected != remoteInstanceId;
     }
 
     private synchronized void cleanupRequest()

@@ -26,6 +26,9 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
+import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
@@ -34,7 +37,9 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
@@ -80,6 +85,7 @@ import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
 import static io.trino.operator.SpillMetrics.SPILL_DATA_SIZE;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -307,6 +313,76 @@ public class TestHashAggregationOperator
             toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
             assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes()).isEqualTo(0);
             assertThat(operator.getOperatorContext().getOperatorStats().getRevocableMemoryReservation().toBytes()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testDistinctOrderedAggregationMemoryReservation()
+            throws Exception
+    {
+        TestingAggregationFunction arrayAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
+        AccumulatorFactory distinctOrderedFactory = new OrderedAccumulatorFactory(
+                arrayAgg.getDistinctFactory(),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(0),
+                ImmutableList.of(ASC_NULLS_LAST),
+                new PagesIndex.TestingFactory(false));
+        AggregatorFactory aggregatorFactory = new AggregatorFactory(
+                distinctOrderedFactory,
+                SINGLE,
+                arrayAgg.getIntermediateType(),
+                arrayAgg.getFinalType(),
+                ImmutableList.of(0),
+                OptionalInt.empty(),
+                false, // spillable
+                ImmutableList.of());
+
+        // a single group with all values distinct
+        int positionsPerPage = 100_000;
+        int pageCount = 4;
+        List<Page> input = new ArrayList<>();
+        for (int page = 0; page < pageCount; page++) {
+            long[] values = new long[positionsPerPage];
+            for (int i = 0; i < positionsPerPage; i++) {
+                values[i] = ((long) page * positionsPerPage) + i;
+            }
+            input.add(new Page(
+                    new LongArrayBlock(positionsPerPage, Optional.empty(), values),
+                    RunLengthEncodedBlock.create(BIGINT, 0L, positionsPerPage)));
+        }
+
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(64, Unit.MEGABYTE))
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+
+        HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BIGINT),
+                Ints.asList(1),
+                ImmutableList.of(),
+                SINGLE,
+                true,
+                ImmutableList.of(aggregatorFactory),
+                OptionalInt.empty(),
+                100_000,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                false,
+                succinctBytes(0),
+                succinctBytes(0),
+                new DummySpillerFactory(),
+                hashStrategyCompiler,
+                Optional.empty());
+
+        // while prepareFinal replays the buffered rows into the distinct hash, the buffered values,
+        // the pages index addresses and the hash entries must all be reserved at the same time
+        long rows = (long) pageCount * positionsPerPage;
+        long expectedPeak = rows * Long.BYTES + rows * Long.BYTES + rows * 2 * Long.BYTES;
+        try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            toPages(operator, input.iterator());
+            assertThat(operator.getOperatorContext().getOperatorStats().getPeakUserMemoryReservation().toBytes())
+                    .isGreaterThan(expectedPeak);
         }
     }
 

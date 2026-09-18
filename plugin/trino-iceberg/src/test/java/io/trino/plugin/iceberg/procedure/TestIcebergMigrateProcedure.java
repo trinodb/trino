@@ -94,7 +94,8 @@ public class TestIcebergMigrateProcedure
         assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL", 1);
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
-        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+        assertThat(query("CALL iceberg.system.migrate('tpch', '" + tableName + "')"))
+                .matches("VALUES (VARCHAR 'added_data_files_count', BIGINT '2')");
 
         assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
                 .contains("format = '%s'".formatted(fileFormat));

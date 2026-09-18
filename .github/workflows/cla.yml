@@ -1,7 +1,12 @@
 name: CLA
 
 on:
-  pull_request_target:
+  # Safe despite the read-write token: no code from the PR is checked out or executed.
+  # The checkout below is pinned to github.workflow_sha, the commit this workflow file was
+  # loaded from. For pull_request_target and issue_comment events workflows are loaded from
+  # a branch of the base repository (the PR base branch or the default branch respectively),
+  # so that commit is never the PR head.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, reopened, synchronize, ready_for_review]
   issue_comment:
     types: [created]

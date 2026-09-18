@@ -19,13 +19,16 @@ import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
-import io.trino.exchange.DirectExchangeInput;
+import io.trino.exchange.ExchangeDataSource;
+import io.trino.exchange.ExchangeEncryptionKey;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.SessionContext;
@@ -36,9 +39,9 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
+import io.trino.util.Ciphers;
 import org.intellij.lang.annotations.Language;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -46,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.SystemSessionProperties.DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
@@ -62,31 +66,39 @@ public class DirectTrinoClient
     private final DispatchManager dispatchManager;
     private final QueryManager queryManager;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
     private final long heartBeatIntervalMillis;
     private final RetryPolicy configuredRetryPolicy;
+    private final boolean faultTolerantExecutionEnabledByDefault;
 
     public DirectTrinoClient(
             DispatchManager dispatchManager,
             QueryManager queryManager,
             QueryManagerConfig queryManagerConfig,
             DirectExchangeClientSupplier directExchangeClientSupplier,
+            ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.heartBeatIntervalMillis = queryManagerConfig.getClientTimeout().toMillis() / 2;
         this.configuredRetryPolicy = queryManagerConfig.getRetryPolicy();
+        this.faultTolerantExecutionEnabledByDefault = queryManagerConfig.isDirectTrinoClientFaultTolerantExecutionEnabled();
     }
 
     public DispatchQuery execute(SessionContext sessionContext, @Language("SQL") String sql, QueryResultsListener queryResultsListener)
     {
-        // DirectExchangeClient does not support TASK retry policy, override to NONE
-        String sessionRetryPolicy = sessionContext.getSystemProperties().get(RETRY_POLICY);
-        if (configuredRetryPolicy == TASK || TASK.name().equalsIgnoreCase(sessionRetryPolicy)) {
-            sessionContext = sessionContext.withSystemProperty(RETRY_POLICY, NONE.name());
+        // When fault-tolerant execution support is opted out of, fall back to the legacy behavior of forcing
+        // retry_policy=NONE, because DirectExchangeClient cannot consume the spooling exchange used under TASK retry.
+        if (!isFaultTolerantExecutionEnabled(sessionContext)) {
+            String sessionRetryPolicy = sessionContext.getSystemProperties().get(RETRY_POLICY);
+            if (configuredRetryPolicy == TASK || TASK.name().equalsIgnoreCase(sessionRetryPolicy)) {
+                sessionContext = sessionContext.withSystemProperty(RETRY_POLICY, NONE.name());
+            }
         }
 
         // create the query and wait for it to be dispatched
@@ -98,39 +110,45 @@ public class DirectTrinoClient
             return dispatchQuery;
         }
 
-        // read all output data
-        try (DirectExchangeClient exchangeClient = createExchangeClient(dispatchQuery)) {
+        // read all output data. LazyExchangeDataSource transparently handles both streaming
+        // (NONE/QUERY retry policy) and spooling (TASK retry policy / fault-tolerant execution) exchanges,
+        // so this works regardless of the retry policy the query ends up running under.
+        try (ExchangeDataSource exchangeDataSource = createExchangeDataSource(dispatchQuery)) {
             queryManager.setOutputInfoListener(queryId, outputInfo -> {
-                // the listener is executed concurrently, so the call back must be synchronized to avoid a race between adding locations and setting no more locations
+                // the listener is executed concurrently, so the call back must be synchronized to avoid a race between adding inputs and setting no more inputs
                 synchronized (this) {
                     queryResultsListener.setOutputColumns(outputInfo.getColumnNames(), outputInfo.getColumnTypes());
 
-                    outputInfo.drainInputs(input -> {
-                        DirectExchangeInput exchangeInput = (DirectExchangeInput) input;
-                        exchangeClient.addLocation(exchangeInput.getTaskId(), URI.create(exchangeInput.getLocation()));
-                    });
+                    outputInfo.drainInputs(exchangeDataSource::addInput);
                     if (outputInfo.isNoMoreInputs()) {
-                        exchangeClient.noMoreLocations();
+                        exchangeDataSource.noMoreInputs();
                     }
                 }
             });
 
-            PageDeserializer pageDeserializer = createExchangePagesSerdeFactory(blockEncodingSerde, dispatchQuery.getSession()).createDeserializer(Optional.empty());
+            PagesSerdeFactory serdeFactory = createExchangePagesSerdeFactory(blockEncodingSerde, dispatchQuery.getSession());
+            // The deserializer is created lazily because the encryption key depends on whether the exchange
+            // uses external storage (spooling) or direct exchange, which is only known once the first input arrives.
+            PageDeserializer pageDeserializer = null;
             for (QueryState state = queryManager.getQueryState(queryId);
                     (state != FAILED) &&
-                            !exchangeClient.isFinished() &&
+                            !exchangeDataSource.isFinished() &&
                             !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getStages().isEmpty());
                     state = queryManager.getQueryState(queryId)) {
-                for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
+                for (Slice serializedPage = exchangeDataSource.pollPage(); serializedPage != null; serializedPage = exchangeDataSource.pollPage()) {
                     // record heartbeat for each page to avoid query timeout during large result sets
                     dispatchQuery.recordHeartbeat();
+                    if (pageDeserializer == null) {
+                        Optional<Slice> encryptionKey = ExchangeEncryptionKey.keyFor(dispatchQuery.getSession(), exchangeDataSource);
+                        pageDeserializer = serdeFactory.createDeserializer(encryptionKey.map(Ciphers::deserializeAesEncryptionKey));
+                    }
                     Page page = pageDeserializer.deserialize(serializedPage);
                     queryResultsListener.consumeOutputPage(page);
                 }
 
                 ListenableFuture<Object> anyCompleteFuture = whenAnyComplete(ImmutableList.of(
                         queryManager.getStateChange(queryId, state),
-                        exchangeClient.isBlocked()));
+                        exchangeDataSource.isBlocked()));
                 getQueryFutureWithHeartbeats(anyCompleteFuture, dispatchQuery);
             }
         }
@@ -144,15 +162,28 @@ public class DirectTrinoClient
         return dispatchQuery;
     }
 
-    private DirectExchangeClient createExchangeClient(DispatchQuery dispatchQuery)
+    private boolean isFaultTolerantExecutionEnabled(SessionContext sessionContext)
     {
-        return directExchangeClientSupplier.get(
+        // The session is not built yet at this point, so read the raw property the client set (if any),
+        // falling back to the configured default. This mirrors how the legacy retry_policy override was resolved.
+        String override = sessionContext.getSystemProperties().get(DIRECT_TRINO_CLIENT_FAULT_TOLERANT_EXECUTION_ENABLED);
+        if (override != null) {
+            return Boolean.parseBoolean(override);
+        }
+        return faultTolerantExecutionEnabledByDefault;
+    }
+
+    private ExchangeDataSource createExchangeDataSource(DispatchQuery dispatchQuery)
+    {
+        return new LazyExchangeDataSource(
                 dispatchQuery.getQueryId(),
                 new ExchangeId("direct-exchange-query-results"),
                 Span.current(),
+                directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "Query"),
                 queryManager::outputTaskFailed,
-                getRetryPolicy(dispatchQuery.getSession()));
+                getRetryPolicy(dispatchQuery.getSession()),
+                exchangeManagerRegistry);
     }
 
     private void getQueryFutureWithHeartbeats(ListenableFuture<Object> anyCompleteFuture, DispatchQuery dispatchQuery)

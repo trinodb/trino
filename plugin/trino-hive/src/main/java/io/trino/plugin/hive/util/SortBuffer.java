@@ -79,11 +79,11 @@ public class SortBuffer
                 ((((long) rowCount) + page.getPositionCount()) <= Integer.MAX_VALUE);
     }
 
-    public void add(Page page)
+    public void add(Page page, long retainedSizeInBytes)
     {
         checkState(canAdd(page), "page buffer is full");
         pages.add(page);
-        usedMemoryBytes += page.getRetainedSizeInBytes();
+        usedMemoryBytes += retainedSizeInBytes;
         rowCount = addExact(rowCount, page.getPositionCount());
     }
 
@@ -104,6 +104,11 @@ public class SortBuffer
         Iterator<Page> sortedPages = pageSorter.sort(types, pages, sortFields, sortOrders, rowCount);
         sortedPages.forEachRemaining(consumer);
 
+        clear();
+    }
+
+    public void clear()
+    {
         pages.clear();
         rowCount = 0;
         usedMemoryBytes = 0;

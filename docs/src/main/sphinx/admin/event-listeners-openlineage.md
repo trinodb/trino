@@ -30,7 +30,7 @@ not limited to) Spark, Airflow, Flink.
     - Run Event Time
 *
     - Query Id
-    - Job Facet Name (default, can be overriden)
+    - Job Facet Name (default, can be overridden)
 *
     - `trino:// + {openlineage-event-listener.trino.uri.getHost()} + ":" + {openlineage-event-listener.trino.uri.getPort()}`
     - Job Facet Namespace (default, can be overridden)

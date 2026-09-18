@@ -60,8 +60,7 @@ public class SigV4AwsProperties
         ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .put("rest.auth.type", "sigv4")
                 .put(REST_SIGNING_NAME, sigV4Config.getSigningName())
-                .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"))
-                .put("rest-metrics-reporting-enabled", "false");
+                .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"));
 
         if (s3Config.getIamRole() != null) {
             builder
@@ -76,11 +75,13 @@ public class SigV4AwsProperties
             Optional.ofNullable(s3Config.getAwsSecretKey()).ifPresent(secretAccessKey -> builder.put(CLIENT_CREDENTIAL_AWS_SECRET_ACCESS_KEY, secretAccessKey));
             Optional.ofNullable(s3Config.getStsEndpoint()).ifPresent(endpoint -> builder.put(CLIENT_CREDENTIAL_AWS_STS_ENDPOINT, endpoint));
         }
-        else {
+        else if (s3Config.getAwsAccessKey() != null || s3Config.getAwsSecretKey() != null) {
             builder
                     .put(REST_ACCESS_KEY_ID, requireNonNull(s3Config.getAwsAccessKey(), "s3.aws-access-key is null"))
                     .put(REST_SECRET_ACCESS_KEY, requireNonNull(s3Config.getAwsSecretKey(), "s3.aws-secret-key is null"));
         }
+        // when neither an IAM role nor static keys are configured, the Iceberg REST client
+        // signs requests with credentials from the AWS default credentials provider chain
 
         properties = builder.buildOrThrow();
     }

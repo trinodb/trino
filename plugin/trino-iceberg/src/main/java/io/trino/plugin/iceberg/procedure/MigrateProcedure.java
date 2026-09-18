@@ -162,17 +162,17 @@ public class MigrateProcedure
                 MIGRATE.bindTo(this));
     }
 
-    public void migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> migrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         // this line guarantees that classLoader that we stored in the field will be used inside try/catch
         // as we captured reference to PluginClassLoader during initialization of this class
         // we can use it now to correctly execute the procedure
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doMigrate(session, schemaName, tableName, recursiveDirectory);
+            return doMigrate(session, schemaName, tableName, recursiveDirectory);
         }
     }
 
-    public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
+    public Map<String, Long> doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
         TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
@@ -251,6 +251,10 @@ public class MigrateProcedure
 
             transaction.commitTransaction();
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
+
+            return ImmutableMap.<String, Long>builder()
+                    .put("added_data_files_count", (long) dataFiles.size())
+                    .buildOrThrow();
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to migrate table", e);
