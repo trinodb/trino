@@ -654,6 +654,31 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    void testDistinctAggregationsOverSampledTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("distinct_aggregations_strategy", "split_to_subqueries")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_distinct_over_sample", "(a bigint, b bigint)")) {
+            for (int i = 0; i < 20; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT " + (1L << i) + ", " + (1L << i) + " FROM UNNEST(sequence(1, 10))", 10);
+            }
+
+            assertThat(query(
+                    session,
+                    "SELECT count_if(sa IS DISTINCT FROM sb) FROM (" +
+                            "SELECT sum(DISTINCT a) sa, sum(DISTINCT b) sb FROM " + table.getName() + " TABLESAMPLE SYSTEM (50))"))
+                    .matches("VALUES BIGINT '0'");
+
+            assertExplain(
+                    session,
+                    "EXPLAIN SELECT sum(DISTINCT a), sum(DISTINCT b) FROM " + table.getName(),
+                    "(?s)TableScan.*TableScan");
+        }
+    }
+
+    @Test
     void testInsertAfterTruncate()
     {
         try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 x")) {
