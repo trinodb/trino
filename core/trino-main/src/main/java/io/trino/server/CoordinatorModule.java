@@ -338,7 +338,7 @@ public class CoordinatorModule
         binder.bind(CostComparator.class).in(Scopes.SINGLETON);
 
         // dynamic filtering service
-        binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
+        binder.bind(LegacyDynamicFilterService.class).in(Scopes.SINGLETON);
 
         // language functions
         binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);

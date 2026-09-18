@@ -85,7 +85,7 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -232,7 +232,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final ExchangeMetricsCollector exchangeMetricsCollector;
     private final NodeAllocatorService nodeAllocatorService;
     private final InternalNodeManager nodeManager;
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
     private final TaskExecutionStats taskExecutionStats;
     private final Optional<AdaptivePlanner> adaptivePlanner;
     private final StageExecutionStats stageExecutionStats;
@@ -265,7 +265,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             ExchangeMetricsCollector exchangeMetricsCollector,
             NodeAllocatorService nodeAllocatorService,
             InternalNodeManager nodeManager,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TaskExecutionStats taskExecutionStats,
             AdaptivePlanner adaptivePlanner,
             StageExecutionStats stageExecutionStats,
@@ -759,7 +759,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final StageRegistry stageRegistry;
         private final TaskExecutionStats taskExecutionStats;
         private final StageExecutionStats stageExecutionStats;
-        private final DynamicFilterService dynamicFilterService;
+        private final LegacyDynamicFilterService dynamicFilterService;
         private final int maxPartitionCount;
         private final boolean stageEstimationForEagerParentEnabled;
 
@@ -815,7 +815,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 StageRegistry stageRegistry,
                 TaskExecutionStats taskExecutionStats,
                 StageExecutionStats stageExecutionStats,
-                DynamicFilterService dynamicFilterService,
+                LegacyDynamicFilterService dynamicFilterService,
                 SchedulingDelayer schedulingDelayer,
                 SubPlan plan,
                 int maxPartitionCount,
@@ -2066,7 +2066,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final boolean eager;
         private boolean speculative;
 
-        private final DynamicFilterService dynamicFilterService;
+        private final LegacyDynamicFilterService dynamicFilterService;
         private final long[] outputDataSize;
         private long outputRowCount;
 
@@ -2106,7 +2106,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 int schedulingPriority,
                 boolean eager,
                 boolean speculative,
-                DynamicFilterService dynamicFilterService)
+                LegacyDynamicFilterService dynamicFilterService)
         {
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
             this.taskFailures = requireNonNull(taskFailures, "taskFailures is null");

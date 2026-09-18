@@ -24,8 +24,8 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
-import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -70,8 +70,8 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
-import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
-import static io.trino.server.DynamicFilterService.getSourceStageInnerLazyDynamicFilters;
+import static io.trino.server.LegacyDynamicFilterService.getOutboundDynamicFilters;
+import static io.trino.server.LegacyDynamicFilterService.getSourceStageInnerLazyDynamicFilters;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.none;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -93,7 +93,7 @@ import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDynamicFilterService
+public class TestLegacyDynamicFilterService
 {
     private static final Session session = TestingSession.testSessionBuilder()
             .build();
@@ -101,7 +101,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterSummaryCompletion()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
@@ -152,7 +152,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         DynamicFilterId filterId3 = new DynamicFilterId("df3");
@@ -329,7 +329,7 @@ public class TestDynamicFilterService
     @Test
     public void testShortCircuitOnAllTupleDomain()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -371,7 +371,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterCoercion()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -410,7 +410,7 @@ public class TestDynamicFilterService
     @Test
     public void testReplicatedDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -472,7 +472,7 @@ public class TestDynamicFilterService
     @Test
     public void testStageCannotScheduleMoreTasks()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -518,7 +518,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterCancellation()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId = new DynamicFilterId("df");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -543,7 +543,7 @@ public class TestDynamicFilterService
                 ImmutableMap.of(filterId, singleValue(INTEGER, 1L)));
         assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.all());
 
-        // DynamicFilter future cancellation should not affect DynamicFilterService
+        // DynamicFilter future cancellation should not affect LegacyDynamicFilterService
         CompletableFuture<?> isBlocked = dynamicFilter.isBlocked();
         assertThat(isBlocked.isDone()).isFalse();
         assertThat(isBlocked.cancel(false)).isFalse();
@@ -562,7 +562,7 @@ public class TestDynamicFilterService
     @Test
     public void testIsAwaitable()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
@@ -595,7 +595,7 @@ public class TestDynamicFilterService
     @Test
     public void testMultipleColumnMapping()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
         Symbol symbol1 = symbolAllocator.newSymbol("DF_SYMBOL1", INTEGER);
@@ -642,7 +642,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterConsumer()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         Set<DynamicFilterId> dynamicFilters = ImmutableSet.of(filterId1, filterId2);
@@ -695,7 +695,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterConsumerCallbackCount()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         Set<DynamicFilterId> dynamicFilters = ImmutableSet.of(filterId1, filterId2);
@@ -778,7 +778,7 @@ public class TestDynamicFilterService
     @Test
     public void testMultipleQueryAttempts()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
@@ -833,7 +833,7 @@ public class TestDynamicFilterService
         DataSize sizeLimit = DataSize.of(1, KILOBYTE);
         DynamicFilterConfig config = new DynamicFilterConfig();
         config.setMaxSizePerFilter(sizeLimit);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeOperators(),
@@ -917,7 +917,7 @@ public class TestDynamicFilterService
     @Test
     public void testCollectMoreThanOnceForTheSameTask()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         QueryId query = new QueryId("query");
         StageId stage = new StageId(query, 0);
         DynamicFilterId filter = new DynamicFilterId("filter");
@@ -953,7 +953,7 @@ public class TestDynamicFilterService
     @Test
     public void testMultipleTaskAttempts()
     {
-        DynamicFilterService dynamicFilterService = createDynamicFilterService();
+        LegacyDynamicFilterService dynamicFilterService = createDynamicFilterService();
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
@@ -996,9 +996,9 @@ public class TestDynamicFilterService
                 getSimplifiedDomainString(1L, 6L, 3, INTEGER))));
     }
 
-    private static DynamicFilterService createDynamicFilterService()
+    private static LegacyDynamicFilterService createDynamicFilterService()
     {
-        return new DynamicFilterService(
+        return new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeOperators(),

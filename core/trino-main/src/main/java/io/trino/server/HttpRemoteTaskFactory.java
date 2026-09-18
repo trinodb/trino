@@ -81,7 +81,7 @@ public class HttpRemoteTaskFactory
     private final ScheduledExecutorService errorScheduledExecutor;
     private final Tracer tracer;
     private final RemoteTaskStats stats;
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -96,7 +96,7 @@ public class HttpRemoteTaskFactory
             JsonCodec<FailTaskRequest> failTaskRequestCoded,
             Tracer tracer,
             RemoteTaskStats stats,
-            DynamicFilterService dynamicFilterService)
+            LegacyDynamicFilterService dynamicFilterService)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;

@@ -22,7 +22,7 @@ import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.node.InternalNode;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -50,7 +50,7 @@ public class MultiSourcePartitionedScheduler
     private final StageExecution stageExecution;
     private final Queue<SourceScheduler> partitionedSourceSchedulers;
     private final Map<InternalNode, RemoteTask> scheduledTasks = new HashMap<>();
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final PartitionIdAllocator partitionIdAllocator = new PartitionIdAllocator();
 
@@ -59,7 +59,7 @@ public class MultiSourcePartitionedScheduler
             Map<PlanNodeId, SplitSource> partitionedSplitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {

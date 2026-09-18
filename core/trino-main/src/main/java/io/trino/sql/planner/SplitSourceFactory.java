@@ -22,7 +22,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.expression.ConnectorExpressions;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -95,11 +95,11 @@ public class SplitSourceFactory
     private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitManager splitManager;
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
     private final JsonCodec<Expression> serializer;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, DynamicFilterService dynamicFilterService, JsonCodec<Expression> serializer)
+    public SplitSourceFactory(SplitManager splitManager, LegacyDynamicFilterService dynamicFilterService, JsonCodec<Expression> serializer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");

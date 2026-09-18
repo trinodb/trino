@@ -30,7 +30,7 @@ import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.TaskLifecycleListener;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.TypeOperators;
@@ -63,7 +63,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPhasedExecutionSchedule
 {
-    private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
+    private final LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
             createTestingMetadataManager(),
             createTestingFunctionManager(),
             new TypeOperators(),

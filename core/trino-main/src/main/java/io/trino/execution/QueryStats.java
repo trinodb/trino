@@ -23,7 +23,7 @@ import io.trino.operator.BlockedReason;
 import io.trino.operator.MergeWriterOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
-import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;

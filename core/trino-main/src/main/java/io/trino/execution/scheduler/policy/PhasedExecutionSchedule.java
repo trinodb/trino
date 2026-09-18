@@ -26,7 +26,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.StageExecution.State;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -92,7 +92,7 @@ public class PhasedExecutionSchedule
     private final List<PlanFragmentId> sortedFragments = new ArrayList<>();
     private final Map<PlanFragmentId, StageExecution> stagesByFragmentId;
     private final Set<StageExecution> schedulingStages = new LinkedHashSet<>();
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
 
     /**
      * Set by {@link PhasedExecutionSchedule#init(Collection)} method.
@@ -102,14 +102,14 @@ public class PhasedExecutionSchedule
     @GuardedBy("this")
     private SettableFuture<Void> rescheduleFuture = SettableFuture.create();
 
-    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages, DynamicFilterService dynamicFilterService)
+    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages, LegacyDynamicFilterService dynamicFilterService)
     {
         PhasedExecutionSchedule schedule = new PhasedExecutionSchedule(stages, dynamicFilterService);
         schedule.init(stages);
         return schedule;
     }
 
-    private PhasedExecutionSchedule(Collection<StageExecution> stages, DynamicFilterService dynamicFilterService)
+    private PhasedExecutionSchedule(Collection<StageExecution> stages, LegacyDynamicFilterService dynamicFilterService)
     {
         fragmentDependency = GraphBuilder.directed().build();
         fragmentTopology = GraphBuilder.directed().build();

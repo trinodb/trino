@@ -61,8 +61,8 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
-import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
@@ -241,7 +241,7 @@ public final class HttpRemoteTask
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             Tracer tracer,
             RemoteTaskStats stats,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory)
     {

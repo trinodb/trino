@@ -23,7 +23,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.operator.RetryPolicy;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
-import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;

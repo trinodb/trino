@@ -38,7 +38,7 @@ import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.RetryPolicy;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
@@ -383,7 +383,7 @@ public class TestMultiSourcePartitionedScheduler
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
                 TEST_SESSION,
@@ -439,7 +439,7 @@ public class TestMultiSourcePartitionedScheduler
                 ImmutableMap.of(TABLE_SCAN_1_NODE_ID, createFixedSplitSource(200), TABLE_SCAN_2_NODE_ID, createFixedSplitSource(200)),
                 createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager),
                 stage,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> true,
                 200);
         // the queues of 3 running nodes should be full
@@ -490,7 +490,7 @@ public class TestMultiSourcePartitionedScheduler
                 splitSources,
                 splitPlacementPolicy,
                 stage,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new LegacyDynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
                 () -> false,
                 splitBatchSize);
     }
@@ -499,7 +499,7 @@ public class TestMultiSourcePartitionedScheduler
             Map<PlanNodeId, ConnectorSplitSource> splitSources,
             SplitPlacementPolicy splitPlacementPolicy,
             StageExecution stage,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             BooleanSupplier anySourceTaskBlocked,
             int splitBatchSize)
     {
