@@ -33,36 +33,81 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Future.State.SUCCESS;
 
 public class DeleteManager
 {
     private final TypeManager typeManager;
     private final Optional<BlocksHashFactory> blocksHashFactory;
     private final Runnable memoryUsageReporter;
+    private final Executor executor;
     private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
-    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory, Runnable memoryUsageReporter)
+    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory, Runnable memoryUsageReporter, Executor executor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.memoryUsageReporter = requireNonNull(memoryUsageReporter, "memoryUsageReporter is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
-    public Optional<PageFilter> getDeletePageFilter(
+    /**
+     * Starts loading the delete files that apply to the split and returns a future of the page filter that
+     * removes the deleted rows. All failures are reported through the future instead of throwing inline.
+     * Position deletes and deletion vectors are read using {@code positionDeletePageSourceProvider}
+     * Equality delete reads are deduped and shared across splits, are read using {@code equalityDeletePageSourceProvider}
+     */
+    public ListenableFuture<Optional<PageFilter>> createDeletePageFilter(
             String dataFilePath,
-            OptionalLong dataSequenceNumber,
+            OptionalLong equalityDeleteSequenceNumber,
+            List<DeleteFile> deleteFiles,
+            List<IcebergColumnHandle> readColumns,
+            Schema tableSchema,
+            OptionalLong startRowPosition,
+            OptionalLong endRowPosition,
+            DeletionVectorReader deletionVectorReader,
+            DeletePageSourceProvider positionDeletePageSourceProvider,
+            DeletePageSourceProvider equalityDeletePageSourceProvider,
+            MemoryContext memoryContext)
+    {
+        ListenableFuture<Optional<PageFilter>> pageFilter = Futures.submitAsync(
+                () -> startLoad(
+                        dataFilePath,
+                        equalityDeleteSequenceNumber,
+                        deleteFiles,
+                        readColumns,
+                        tableSchema,
+                        startRowPosition,
+                        endRowPosition,
+                        deletionVectorReader,
+                        positionDeletePageSourceProvider,
+                        equalityDeletePageSourceProvider,
+                        memoryContext),
+                directExecutor());
+
+        return Futures.catching(pageFilter, Exception.class, e -> {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(ICEBERG_BAD_DATA, "Failed to load delete files for " + dataFilePath, e);
+        }, directExecutor());
+    }
+
+    private ListenableFuture<Optional<PageFilter>> startLoad(
+            String dataFilePath,
+            OptionalLong equalityDeleteSequenceNumber,
             List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
             Schema tableSchema,
@@ -70,10 +115,11 @@ public class DeleteManager
             OptionalLong endRowPosition,
             DeletionVectorReader deletionVectorReader,
             DeletePageSourceProvider deletePageSourceProvider,
+            DeletePageSourceProvider equalityDeletePageSourceProvider,
             MemoryContext memoryContext)
     {
         if (deleteFiles.isEmpty()) {
-            return Optional.empty();
+            return immediateFuture(Optional.empty());
         }
 
         Optional<DeleteFile> deletionVectorFile = Optional.empty();
@@ -97,21 +143,60 @@ public class DeleteManager
             }
         }
 
-        // by spec "Readers can safely ignore position delete files if there is a DV for a data file"
-        Optional<DeletionVector> deletionVector = deletionVectorFile
-                .map(deletionVectorReader::read)
-                .or(() -> PositionDeleteReader.readPositionDeletes(
-                        dataFilePath,
-                        positionDeleteFiles,
-                        startRowPosition,
-                        endRowPosition,
-                        deletePageSourceProvider,
-                        typeManager,
-                        memoryContext));
-        // the vector is retained by the page filter until the page source memory context is closed
-        deletionVector.ifPresent(vector -> memoryContext.setBytes(vector.retainedSizeInBytes()));
+        // fail before reading any delete file when the manifest is missing information required to apply equality deletes
+        if (!equalityDeleteFiles.isEmpty() && equalityDeleteSequenceNumber.isEmpty()) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath);
+        }
 
-        Optional<PageFilter> positionDeletes = deletionVector
+        ListenableFuture<Optional<DeletionVector>> deletionVectorFuture = readDeletionVector(deletionVectorFile, deletionVectorReader);
+        // by spec "Readers can safely ignore position delete files if there is a DV for a data file"
+        List<DeleteFile> positionDeleteFilesToRead = deletionVectorFile.isPresent() ? ImmutableList.of() : positionDeleteFiles;
+        ListenableFuture<Optional<DeletionVector>> positionDeleteFuture = PositionDeleteReader.readPositionDeletes(
+                dataFilePath,
+                positionDeleteFilesToRead,
+                startRowPosition,
+                endRowPosition,
+                deletePageSourceProvider,
+                typeManager,
+                executor,
+                memoryContext);
+        ListenableFuture<List<DeleteFilter>> equalityDeleteFuture = createEqualityDeleteFilters(equalityDeleteFiles, tableSchema, equalityDeletePageSourceProvider);
+
+        return Futures.whenAllSucceed(deletionVectorFuture, positionDeleteFuture, equalityDeleteFuture)
+                .call(
+                        () -> createPageFilter(
+                                readColumns,
+                                getDone(deletionVectorFuture),
+                                getDone(positionDeleteFuture),
+                                getDone(equalityDeleteFuture),
+                                equalityDeleteSequenceNumber,
+                                memoryContext),
+                        directExecutor());
+    }
+
+    private ListenableFuture<Optional<DeletionVector>> readDeletionVector(Optional<DeleteFile> deletionVectorFile, DeletionVectorReader deletionVectorReader)
+    {
+        if (deletionVectorFile.isEmpty()) {
+            return immediateFuture(Optional.empty());
+        }
+        DeleteFile deleteFile = deletionVectorFile.get();
+        return Futures.submit(() -> Optional.of(deletionVectorReader.read(deleteFile)), executor);
+    }
+
+    private static Optional<PageFilter> createPageFilter(
+            List<IcebergColumnHandle> readColumns,
+            Optional<DeletionVector> deletionVector,
+            Optional<DeletionVector> positionDeleteVector,
+            List<DeleteFilter> equalityDeleteFilters,
+            OptionalLong equalityDeleteSequenceNumber,
+            MemoryContext memoryContext)
+    {
+        // a DV supersedes position delete files, so at most one of the two is present
+        Optional<DeletionVector> deletedPositions = deletionVector.or(() -> positionDeleteVector);
+        // the vector is retained by the page filter until the page source memory context is closed
+        deletedPositions.ifPresent(vector -> memoryContext.setBytes(vector.retainedSizeInBytes()));
+
+        Optional<PageFilter> positionDeletes = deletedPositions
                 .map(vector -> {
                     int filePositionChannel = IntStream.range(0, readColumns.size())
                             .filter(i -> readColumns.get(i).isRowPositionColumn())
@@ -125,11 +210,9 @@ public class DeleteManager
 
         ImmutableList.Builder<PageFilter> deleteFiltersBuilder = ImmutableList.builder();
         positionDeletes.ifPresent(deleteFiltersBuilder::add);
-        if (!equalityDeleteFiles.isEmpty()) {
-            long splitDataSequenceNumber = dataSequenceNumber.orElseThrow(() ->
-                    new TrinoException(ICEBERG_BAD_DATA, "Cannot apply equality deletes: Iceberg manifest is missing dataSequenceNumber for " + dataFilePath));
-            createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider)
-                    .stream()
+        if (!equalityDeleteFilters.isEmpty()) {
+            long splitDataSequenceNumber = equalityDeleteSequenceNumber.orElseThrow();
+            equalityDeleteFilters.stream()
                     .map(filter -> filter.createPageFilter(readColumns, splitDataSequenceNumber))
                     .forEach(deleteFiltersBuilder::add);
         }
@@ -149,10 +232,10 @@ public class DeleteManager
         DeletionVector read(DeleteFile deleteFile);
     }
 
-    private List<DeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private ListenableFuture<List<DeleteFilter>> createEqualityDeleteFilters(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
-            return List.of();
+            return immediateFuture(ImmutableList.of());
         }
 
         // The equality delete files can be loaded in parallel. There may be multiple split threads attempting to load the
@@ -172,35 +255,22 @@ public class DeleteManager
                     List<Type> deleteTypes = deleteColumns.stream()
                             .map(IcebergColumnHandle::getType)
                             .collect(toImmutableList());
-                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get());
+                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get(), executor);
                 }
-                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns));
+                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), executor);
             });
             deleteFilters.add(builder);
 
             ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);
-            if (loadFuture.state() != SUCCESS) {
-                pendingLoads.add(loadFuture);
-            }
-            // loads that win the race run synchronously in this thread, so this reports each loaded file as it completes
-            memoryUsageReporter.run();
+            loadFuture.addListener(memoryUsageReporter, directExecutor());
+            pendingLoads.add(loadFuture);
         }
 
-        // Wait loads happening in other threads
-        try {
-            Futures.allAsList(pendingLoads).get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        catch (ExecutionException e) {
-            // Since execution can happen on another thread, it is not safe to unwrap the exception
-            throw new TrinoException(ICEBERG_BAD_DATA, "Failed to load equality deletes", e);
-        }
-
-        return deleteFilters.stream()
-                .map(EqualityDeleteFilterBuilder::build)
-                .toList();
+        return Futures.transform(
+                Futures.allAsList(pendingLoads),
+                _ -> deleteFilters.stream()
+                        .map(EqualityDeleteFilterBuilder::build)
+                        .toList(),
+                directExecutor());
     }
 }

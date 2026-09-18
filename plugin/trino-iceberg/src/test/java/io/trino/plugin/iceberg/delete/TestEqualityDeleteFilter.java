@@ -506,7 +506,7 @@ class TestEqualityDeleteFilter
 
     private static EqualityDeleteFilterBuilder newBuilder(Schema schema, List<Type> columnTypes)
     {
-        return FlatEqualityDeleteFilter.builder(schema, columnTypes, BLOCKS_HASH_FACTORY);
+        return FlatEqualityDeleteFilter.builder(schema, columnTypes, BLOCKS_HASH_FACTORY, MoreExecutors.directExecutor());
     }
 
     private static void loadDeleteFile(

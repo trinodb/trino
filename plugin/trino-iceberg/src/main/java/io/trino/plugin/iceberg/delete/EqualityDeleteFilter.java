@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.TrinoException;
@@ -34,11 +32,13 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.SizeOf.INTEGER_INSTANCE_SIZE;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
@@ -85,9 +85,9 @@ public final class EqualityDeleteFilter
         });
     }
 
-    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema)
+    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema, Executor executor)
     {
-        return new Builder(deleteSchema);
+        return new Builder(deleteSchema, executor);
     }
 
     @ThreadSafe
@@ -102,13 +102,14 @@ public final class EqualityDeleteFilter
 
         private final Schema deleteSchema;
         private final Map<StructLikeWrapper, DataSequenceNumber> deletedRows;
-        private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
+        private final ReferenceCountedLoader loader;
         private final LongAdder estimatedSizeInBytes = new LongAdder();
 
-        private Builder(Schema deleteSchema)
+        private Builder(Schema deleteSchema, Executor executor)
         {
             this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
             this.deletedRows = new ConcurrentHashMap<>();
+            this.loader = new ReferenceCountedLoader(executor);
         }
 
         @Override
@@ -116,12 +117,8 @@ public final class EqualityDeleteFilter
         {
             verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
 
-            // ensure only one thread loads the file
-            ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
-                    deleteFile.path(),
-                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
-            futureTask.run();
-            return Futures.nonCancellationPropagating(futureTask);
+            // a load is only dropped before it starts, so deletedRows never holds a partially read delete file
+            return loader.load(deleteFile.path(), () -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider));
         }
 
         private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
@@ -137,6 +134,7 @@ public final class EqualityDeleteFilter
                 long positionsCount = 0;
                 AtomicInteger addedRowsCount = new AtomicInteger();
                 while (!pageSource.isFinished()) {
+                    getFutureValue(pageSource.isBlocked());
                     SourcePage page = pageSource.getNextSourcePage();
                     if (page == null) {
                         continue;
