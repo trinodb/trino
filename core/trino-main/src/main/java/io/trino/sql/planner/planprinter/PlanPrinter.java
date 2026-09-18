@@ -41,7 +41,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
-import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFilterDomainStats;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.FunctionName;

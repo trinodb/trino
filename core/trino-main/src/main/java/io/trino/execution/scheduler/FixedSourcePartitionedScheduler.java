@@ -22,7 +22,7 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -62,7 +62,7 @@ public class FixedSourcePartitionedScheduler
             BucketNodeMap bucketNodeMap,
             int splitBatchSize,
             NodeSelector nodeSelector,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager)
     {
         requireNonNull(stageExecution, "stageExecution is null");

@@ -101,7 +101,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class DynamicFilterService
+public class LegacyDynamicFilterService
 {
     private final Metadata metadata;
     private final FunctionManager functionManager;
@@ -110,7 +110,7 @@ public class DynamicFilterService
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, DynamicFilterConfig dynamicFilterConfig)
+    public LegacyDynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, DynamicFilterConfig dynamicFilterConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");

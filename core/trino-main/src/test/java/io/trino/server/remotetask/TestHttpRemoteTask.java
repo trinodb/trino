@@ -60,9 +60,9 @@ import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
 import io.trino.server.HttpRemoteTaskFactory;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.server.TaskUpdateRequest;
 import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.ErrorCode;
@@ -284,7 +284,7 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeManager(),
@@ -342,7 +342,7 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeManager(),
@@ -394,7 +394,7 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeManager(),
@@ -473,7 +473,7 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(
+        LegacyDynamicFilterService dynamicFilterService = new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeManager(),
@@ -702,28 +702,28 @@ public class TestHttpRemoteTask
         return createHttpRemoteTaskFactory(testingTaskResource, createDynamicFilterService());
     }
 
-    private static DynamicFilterService createDynamicFilterService()
+    private static LegacyDynamicFilterService createDynamicFilterService()
     {
-        return new DynamicFilterService(
+        return new LegacyDynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
                 PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
     }
 
-    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, LegacyDynamicFilterService dynamicFilterService)
     {
         return createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService, new QueryManagerConfig());
     }
 
-    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService, QueryManagerConfig config)
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, LegacyDynamicFilterService dynamicFilterService, QueryManagerConfig config)
     {
         return createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService, config, TASK_MANAGER_CONFIG);
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(
             TestingTaskResource testingTaskResource,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             QueryManagerConfig config,
             TaskManagerConfig taskManagerConfig)
     {

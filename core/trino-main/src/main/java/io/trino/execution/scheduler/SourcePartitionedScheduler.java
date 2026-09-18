@@ -24,7 +24,7 @@ import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.split.EmptySplit;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
@@ -87,7 +87,7 @@ public class SourcePartitionedScheduler
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
-    private final DynamicFilterService dynamicFilterService;
+    private final LegacyDynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final BooleanSupplier anySourceTaskBlocked;
     private final PartitionIdAllocator partitionIdAllocator;
@@ -104,7 +104,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked,
             PartitionIdAllocator partitionIdAllocator,
@@ -142,7 +142,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked)
     {
@@ -193,7 +193,7 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            DynamicFilterService dynamicFilterService,
+            LegacyDynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
             BooleanSupplier anySourceTaskBlocked,
             PartitionIdAllocator partitionIdAllocator,

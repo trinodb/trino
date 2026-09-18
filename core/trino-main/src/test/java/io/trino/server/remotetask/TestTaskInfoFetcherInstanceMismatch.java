@@ -31,7 +31,7 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
-import io.trino.server.DynamicFilterService;
+import io.trino.server.LegacyDynamicFilterService;
 import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -262,7 +262,7 @@ public class TestTaskInfoFetcherInstanceMismatch
                 new Duration(10, SECONDS),
                 executor,
                 new RemoteTaskStats(),
-                new DynamicFilterService(
+                new LegacyDynamicFilterService(
                         createTestingMetadataManager(),
                         PLANNER_CONTEXT.getFunctionManager(),
                         PLANNER_CONTEXT.getTypeManager(),

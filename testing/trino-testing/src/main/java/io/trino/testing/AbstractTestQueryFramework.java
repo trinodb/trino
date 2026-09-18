@@ -41,7 +41,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.DynamicFilterService.DynamicFiltersStats;
+import io.trino.server.LegacyDynamicFilterService.DynamicFiltersStats;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
