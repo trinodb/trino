@@ -73,6 +73,9 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 snowflakeCatalogConfig.getUri(),
                 snowflakeCatalogConfig.getUser(),
                 snowflakeCatalogConfig.getPassword(),
+                snowflakeCatalogConfig.getPrivateKey(),
+                snowflakeCatalogConfig.getPrivateKeyFile(),
+                snowflakeCatalogConfig.getPrivateKeyPassphrase(),
                 snowflakeCatalogConfig.getRole());
         this.snowflakeDatabase = snowflakeCatalogConfig.getDatabase();
         this.snowflakeConnectionPool = new JdbcClientPool(snowflakeCatalogConfig.getUri().toString(), snowflakeDriverProperties);
@@ -98,7 +101,14 @@ public class TrinoIcebergSnowflakeCatalogFactory
         return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, fileIoFactory, tableOperationsProvider, snowflakeDatabase);
     }
 
-    public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, Optional<String> snowflakeRole)
+    public static Map<String, String> getSnowflakeDriverProperties(
+            URI snowflakeUri,
+            String snowflakeUser,
+            Optional<String> snowflakePassword,
+            Optional<String> snowflakePrivateKey,
+            Optional<String> snowflakePrivateKeyFile,
+            Optional<String> snowflakePrivateKeyPassphrase,
+            Optional<String> snowflakeRole)
     {
         // Below property values are copied from https://github.com/apache/iceberg/blob/apache-iceberg-1.5.0/snowflake/src/main/java/org/apache/iceberg/snowflake/SnowflakeCatalog.java#L122-L129
 
@@ -110,13 +120,16 @@ public class TrinoIcebergSnowflakeCatalogFactory
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties
                 .put(PROPERTY_PREFIX + "user", snowflakeUser)
-                .put(PROPERTY_PREFIX + "password", snowflakePassword)
                 .put("uri", snowflakeUri.toString())
                 .put(PROPERTY_PREFIX + "JDBC_QUERY_RESULT_FORMAT", "JSON")
                 // Populate application identifier in jdbc client
                 .put(PROPERTY_PREFIX + JDBC_APPLICATION_PROPERTY, uniqueAppIdentifier)
                 // Adds application identifier to the user agent header of the JDBC requests.
                 .put(PROPERTY_PREFIX + JDBC_USER_AGENT_SUFFIX_PROPERTY, userAgentSuffix);
+        snowflakePassword.ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
+        snowflakePrivateKey.ifPresent(key -> properties.put(PROPERTY_PREFIX + "private_key_base64", key));
+        snowflakePrivateKeyFile.ifPresent(file -> properties.put(PROPERTY_PREFIX + "private_key_file", file));
+        snowflakePrivateKeyPassphrase.ifPresent(passphrase -> properties.put(PROPERTY_PREFIX + "private_key_pwd", passphrase));
         snowflakeRole.ifPresent(role -> properties.put(PROPERTY_PREFIX + "role", role));
 
         return properties.buildOrThrow();
