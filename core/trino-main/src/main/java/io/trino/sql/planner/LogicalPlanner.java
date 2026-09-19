@@ -50,6 +50,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
@@ -355,6 +356,22 @@ public class LogicalPlanner
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
+        }
+        if (statement instanceof CreateTableAsSelect) {
+            Analysis.Create create = analysis.getCreate().orElseThrow();
+            if (!create.isCreateTableAsSelectWithData()) {
+                // WITH NO DATA is a pure DDL operation: create the empty table via createTable() and
+                // never invoke the data-write path (beginCreateTable). This lets connectors that support
+                // creating table structures but not writing data (e.g. Iceberg-over-Snowflake, #3172)
+                // handle WITH NO DATA, and subjects the statement to the same validations as CREATE TABLE.
+                QualifiedObjectName destination = create.getDestination().orElseThrow();
+                ConnectorTableMetadata tableMetadata = create.getMetadata().orElseThrow();
+                SaveMode saveMode = create.isReplace() ? SaveMode.REPLACE : SaveMode.FAIL;
+                metadata.createTable(session, destination.catalogName(), tableMetadata, saveMode);
+                Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
+                PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
+                return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
+            }
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
