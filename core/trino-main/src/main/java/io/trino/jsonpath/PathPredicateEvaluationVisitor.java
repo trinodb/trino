@@ -50,7 +50,6 @@ import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.EQUAL;
 import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTextTypedValue;
 import static io.trino.jsonpath.ir.SqlJsonLiteralConverter.getTypedValue;
-import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isCharacterStringType;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
@@ -505,12 +504,16 @@ class PathPredicateEvaluationVisitor
         return scalars.build();
     }
 
-    private static Slice getText(Object object)
+    private Slice getText(Object object)
     {
         if (object instanceof TypedValue typedValue) {
-            if (isCharacterStringType(typedValue.getType())) {
-                if (typedValue.getType() instanceof CharType charType) {
-                    return padSpaces((Slice) typedValue.getObjectValue(), charType);
+            Type type = typedValue.getType();
+            if (isCharacterStringType(type)) {
+                if (type instanceof CharType) {
+                    // Convert through the engine's registered char -> varchar cast rather than
+                    // padding here, so the path language sees the same text as every other
+                    // conversion — including when the legacy padding coercion is enabled.
+                    return (Slice) invoker.invoke(resolver.getVarcharCoercion(type), ImmutableList.of(typedValue.getObjectValue()));
                 }
                 return (Slice) typedValue.getObjectValue();
             }
