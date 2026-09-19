@@ -160,6 +160,10 @@ public abstract class BaseIcebergSystemTables
                         "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
+                        "('position_delete_record_count', 'bigint', '', '')," +
+                        "('position_delete_file_count', 'bigint', '', '')," +
+                        "('equality_delete_record_count', 'bigint', '', '')," +
+                        "('equality_delete_file_count', 'bigint', '', '')," +
                         "('data', 'row(\"_bigint\" row(\"min\" bigint, \"max\" bigint, \"null_count\" bigint, \"nan_count\" bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
@@ -174,9 +178,49 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1)).isEqualTo(2L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(8)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(8)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(8)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
+    }
+
+    @Test
+    public void testPartitionsTableWithDeleteFiles()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_partitions_delete_files_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = testTable.getName();
+            Table icebergTable = loadTable(tableName);
+
+            assertThat(query("SELECT sum(record_count), sum(file_count) FROM \"" + tableName + "$partitions\""))
+                    .matches("VALUES (BIGINT '25', BIGINT '5')");
+
+            // Write a position delete file
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+            // Write an equality delete file
+            writeEqualityDeleteForTable(
+                    icebergTable,
+                    fileSystemFactory,
+                    Optional.of(icebergTable.spec()),
+                    Optional.of(new PartitionData(new Long[] {2L})),
+                    ImmutableMap.of("regionkey", 2L),
+                    Optional.empty());
+
+            // The $files table reports the delete files, but $partitions must keep aggregating data files only
+            assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content != " + FileContent.DATA.id()))
+                    .matches("VALUES BIGINT '2'");
+            assertThat(query("SELECT sum(record_count), sum(file_count) FROM \"" + tableName + "$partitions\""))
+                    .matches("VALUES (BIGINT '25', BIGINT '5')");
+            assertThat(query("SELECT sum(total_size) FROM \"" + tableName + "$partitions\""))
+                    .matches("SELECT sum(file_size_in_bytes) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.DATA.id());
+
+            // Delete files are reported in their own columns instead
+            assertThat(query("SELECT sum(position_delete_record_count), sum(position_delete_file_count), sum(equality_delete_record_count), sum(equality_delete_file_count) " +
+                    "FROM \"" + tableName + "$partitions\""))
+                    .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')");
+            assertThat(query("SELECT position_delete_file_count, equality_delete_file_count FROM \"" + tableName + "$partitions\" WHERE partition.regionkey = 2"))
+                    .matches("VALUES (BIGINT '0', BIGINT '1')");
+        }
     }
 
     @Test
@@ -197,22 +241,22 @@ public abstract class BaseIcebergSystemTables
         assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(1)).isEqualTo(3L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(8)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 1L, 1L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.1d, 1.1d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 1.2f, 1.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(8)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
                 new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(8)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
-        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(8)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
                 new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
@@ -273,7 +317,7 @@ public abstract class BaseIcebergSystemTables
         assertThat(resultAfterDrop.getRowCount()).isEqualTo(3);
         Map<LocalDate, MaterializedRow> rowsByPartitionAfterDrop = resultAfterDrop.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
-        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(
+        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(8)).isEqualTo(new MaterializedRow(
                 DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
     }
