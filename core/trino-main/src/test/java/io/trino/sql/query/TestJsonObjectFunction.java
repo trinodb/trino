@@ -174,6 +174,44 @@ public class TestJsonObjectFunction
                 "SELECT json_object('key' : 1e0)"))
                 .matches("VALUES VARCHAR '{\"key\":1.0}'");
 
+        // number is rendered as a JSON number, like other numeric types
+        assertThat(assertions.query(
+                "SELECT json_object('key' : NUMBER '1.2')"))
+                .matches("VALUES VARCHAR '{\"key\":1.2}'");
+
+        // number has no precision limit
+        assertThat(assertions.query(
+                "SELECT json_object('key' : NUMBER '123456789012345678901234567890.5')"))
+                .matches("VALUES VARCHAR '{\"key\":123456789012345678901234567890.5}'");
+
+        // number strips trailing zeros, so the magnitude is held with a negative scale.
+        // it is still rendered as digits rather than in scientific notation
+        assertThat(assertions.query(
+                "SELECT json_object('key' : NUMBER '10')"))
+                .matches("VALUES VARCHAR '{\"key\":10}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : NUMBER '12345678901234567890')"))
+                .matches("VALUES VARCHAR '{\"key\":12345678901234567890}'");
+
+        // a magnitude too large for the digit form keeps the compact scientific form
+        assertThat(assertions.query(
+                "SELECT json_object('key' : NUMBER '1e308')"))
+                .matches("VALUES VARCHAR '{\"key\":1E+308}'");
+
+        // JSON cannot represent NaN or infinity, so they are rendered as strings
+        assertThat(assertions.query(
+                "SELECT json_object('key' : CAST(nan() AS number))"))
+                .matches("VALUES VARCHAR '{\"key\":\"NaN\"}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : CAST(infinity() AS number))"))
+                .matches("VALUES VARCHAR '{\"key\":\"+Infinity\"}'");
+
+        assertThat(assertions.query(
+                "SELECT json_object('key' : CAST(-infinity() AS number))"))
+                .matches("VALUES VARCHAR '{\"key\":\"-Infinity\"}'");
+
         // uuid can be cast to varchar
         assertThat(assertions.query(
                 "SELECT json_object('key' : UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')"))
@@ -194,14 +232,14 @@ public class TestJsonObjectFunction
     @Test
     public void testNumberValue()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number is cast to varchar, so it is rendered as a JSON string instead of a JSON number
+        // a number is rendered as a JSON number, like other numeric types
         assertThat(assertions.query(
                 "SELECT json_object('key' : CAST(1 AS number))"))
-                .matches("VALUES VARCHAR '{\"key\":\"1\"}'");
+                .matches("VALUES VARCHAR '{\"key\":1}'");
 
         assertThat(assertions.query(
                 "SELECT json_object('key' : CAST(1.5 AS number))"))
-                .matches("VALUES VARCHAR '{\"key\":\"1.5\"}'");
+                .matches("VALUES VARCHAR '{\"key\":1.5}'");
     }
 
     @Test
