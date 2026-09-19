@@ -87,6 +87,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-matching</artifactId>
         </dependency>
 

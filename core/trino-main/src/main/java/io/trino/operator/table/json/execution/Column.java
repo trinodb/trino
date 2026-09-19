@@ -13,12 +13,12 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.json.Json;
 import io.trino.spi.Page;
 
 public interface Column
 {
-    Object evaluate(long sequentialNumber, JsonNode item, Page input, int position);
+    Object evaluate(long sequentialNumber, Json item, Page input, int position);
 
     int getOutputIndex();
 }

@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -258,16 +259,18 @@ public final class VariantOperators
     @SqlNullable
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.JSON)
-    public static Slice castToJson(@SqlType(StandardTypes.VARIANT) Variant value)
+    public static Json castToJson(@SqlType(StandardTypes.VARIANT) Variant value)
     {
-        return VariantUtil.asJson(value);
+        // asJson renders the variant to canonical JSON text, so wrap it as raw text rather than
+        // decoding it as the typed-item encoding.
+        return Json.unchecked(VariantUtil.asJson(value));
     }
 
     private static final VariantWriter JSON_VARIANT_WRITER = VariantWriter.create(JsonType.JSON);
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.VARIANT)
-    public static Variant castFromJson(@SqlType(StandardTypes.JSON) Slice value)
+    public static Variant castFromJson(@SqlType(StandardTypes.JSON) Json value)
     {
         return JSON_VARIANT_WRITER.write(value);
     }
