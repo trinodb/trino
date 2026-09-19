@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.Locations;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeTableCredentials;
@@ -44,6 +44,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
+import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.DATA_FILE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -153,7 +154,7 @@ public class TableChangesSplitSource
             String entryPath,
             Map<String, Optional<String>> canonicalPartitionValues)
     {
-        String path = Locations.appendPath(tableLocation, entryPath);
+        String path = buildSplitPath(Location.of(tableLocation), entryPath).toString();
         return new TableChangesSplit(
                 path,
                 length,
