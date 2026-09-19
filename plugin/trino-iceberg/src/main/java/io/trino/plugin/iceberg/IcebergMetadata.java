@@ -333,6 +333,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DELETE_AFTER_COMMIT
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.GC_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
@@ -452,6 +453,7 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.GC_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP;
@@ -486,6 +488,7 @@ public class IcebergMetadata
             .add(COMPRESSION_CODEC)
             .add(MAX_COMMIT_RETRY)
             .add(DELETE_AFTER_COMMIT_ENABLED)
+            .add(GC_ENABLED_PROPERTY)
             .add(MAX_PREVIOUS_VERSIONS)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
@@ -2661,6 +2664,12 @@ public class IcebergMetadata
         if (properties.containsKey(DELETE_AFTER_COMMIT_ENABLED)) {
             boolean deleteAfterCommitEnabled = getProperty(properties, DELETE_AFTER_COMMIT_ENABLED);
             updateProperties.set(METADATA_DELETE_AFTER_COMMIT_ENABLED, Boolean.toString(deleteAfterCommitEnabled));
+        }
+
+        if (properties.containsKey(GC_ENABLED_PROPERTY)) {
+            boolean gcEnabled = (boolean) properties.get(GC_ENABLED_PROPERTY)
+                    .orElseThrow(() -> new IllegalArgumentException("The %s property cannot be empty".formatted(GC_ENABLED_PROPERTY)));
+            updateProperties.set(GC_ENABLED, Boolean.toString(gcEnabled));
         }
 
         if (properties.containsKey(MAX_PREVIOUS_VERSIONS)) {
