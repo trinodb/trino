@@ -879,8 +879,9 @@ public final class StringFunctions
                 distance++;
             }
 
-            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
-            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
+            // a valid code point is non-negative (NUL is the valid code point 0); an invalid sequence is encoded as a negative length
+            leftPosition += codePointLeft >= 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
+            rightPosition += codePointRight >= 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
         }
 
         checkCondition(
