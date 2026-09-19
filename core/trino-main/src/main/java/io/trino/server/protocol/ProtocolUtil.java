@@ -28,6 +28,7 @@ import io.trino.client.Warning;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
@@ -80,9 +81,19 @@ public final class ProtocolUtil
 
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
     {
+        return createColumn(Optional.empty(), Optional.empty(), Optional.empty(), name, Optional.empty(), false, false, true, false, type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+    }
+
+    public static Column createColumn(ColumnInfo columnInfo, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    {
+        return createColumn(columnInfo.getCatalogName(), columnInfo.getSchemaName(), columnInfo.getTableName(), columnInfo.getName(), columnInfo.getLabel(), columnInfo.isAutoIncrement(), false, columnInfo.isNullable(), columnInfo.isReadOnly(), type, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
+    }
+
+    private static Column createColumn(Optional<String> catalog, Optional<String> schema, Optional<String> table, String name, Optional<String> label, boolean autoIncrement, boolean caseSensitive, boolean nullable, boolean readOnly, Type type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)
+    {
         String formatted = formatType(TypeDescriptorTranslator.toSqlType(type), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
+        return new Column(catalog, schema, table, name, label, autoIncrement, caseSensitive, nullable, readOnly, formatted, toClientTypeSignature(type.getTypeDescriptor(), supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary)

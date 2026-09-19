@@ -108,7 +108,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.sql.ResultSetMetaData.columnNoNulls;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -296,19 +296,25 @@ public abstract class BaseJdbcClient
         for (int column = 1; column <= metadata.getColumnCount(); column++) {
             // Use getColumnLabel method because query pass-through table function may contain column aliases
             String name = metadata.getColumnLabel(column);
-            JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
-                    metadata.getColumnType(column),
-                    Optional.ofNullable(metadata.getColumnTypeName(column)),
-                    Optional.of(metadata.getPrecision(column)),
-                    Optional.of(metadata.getScale(column)),
-                    Optional.empty(), // TODO support arrays
-                    Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+            JdbcTypeHandle jdbcTypeHandle = getColumnTypeHandle(metadata, column);
             Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                     .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                     .getType();
             columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
         }
         return columns.build();
+    }
+
+    protected JdbcTypeHandle getColumnTypeHandle(ResultSetMetaData metadata, int column)
+            throws SQLException
+    {
+        return new JdbcTypeHandle(
+                metadata.getColumnType(column),
+                Optional.ofNullable(metadata.getColumnTypeName(column)),
+                Optional.of(metadata.getPrecision(column)),
+                Optional.of(metadata.getScale(column)),
+                Optional.empty(), // TODO support arrays
+                Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
     }
 
     @Override
@@ -326,25 +332,25 @@ public abstract class BaseJdbcClient
                 }
                 allColumns++;
                 String columnName = resultSet.getString("COLUMN_NAME");
-                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                        getInteger(resultSet, "COLUMN_SIZE"),
-                        getInteger(resultSet, "DECIMAL_DIGITS"),
-                        Optional.empty(),
-                        Optional.ofNullable(caseSensitivityMapping.get(columnName)));
+                JdbcTypeHandle typeHandle = getColumnTypeHandle(resultSet, Optional.ofNullable(caseSensitivityMapping.get(columnName)));
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
+                boolean readOnly = "YES".equals(resultSet.getString("IS_GENERATEDCOLUMN"));
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                Optional<String> defaultValue = getColumnDefaultValue(resultSet, typeHandle);
                 // skip unsupported column types
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
                         .setColumnName(columnName)
                         .setJdbcTypeHandle(typeHandle)
                         .setColumnType(mapping.getType())
+                        .setAutoIncrement(autoIncrement)
                         .setNullable(nullable)
+                        .setReadOnly(readOnly)
                         .setComment(comment)
+                        .setDefaultValue(defaultValue)
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -365,6 +371,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet, JdbcTypeHandle typeHandle)
+            throws SQLException
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -462,22 +474,19 @@ public abstract class BaseJdbcClient
                         }
 
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                                getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
-                                Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                                getInteger(resultSet, "COLUMN_SIZE"),
-                                getInteger(resultSet, "DECIMAL_DIGITS"),
-                                // arrayDimensions
-                                Optional.<Integer>empty(),
-                                // This code doesn't do getCaseSensitivityForColumns. However, this does not impact the ColumnMetadata returned.
-                                Optional.<CaseSensitivity>empty());
+                        // This code doesn't do getCaseSensitivityForColumns. However, this does not impact the ColumnMetadata returned.
+                        JdbcTypeHandle typeHandle = getColumnTypeHandle(resultSet, Optional.empty());
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
+                        boolean readOnly = "YES".equals(resultSet.getString("IS_GENERATEDCOLUMN"));
                         Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                         toColumnMapping(session, connection, typeHandle).ifPresent(columnMapping -> {
                             currentTableColumns.add(ColumnMetadata.builder()
                                     .setName(columnName)
                                     .setType(columnMapping.getType())
+                                    .setAutoIncrement(autoIncrement)
                                     .setNullable(nullable)
+                                    .setReadOnly(readOnly)
                                     .setComment(comment)
                                     .build());
                         });
@@ -525,6 +534,19 @@ public abstract class BaseJdbcClient
             currentTableColumns = null;
             return currentTableMetadata;
         }
+    }
+
+    protected JdbcTypeHandle getColumnTypeHandle(ResultSet resultSet, Optional<CaseSensitivity> caseSensitivity)
+            throws SQLException
+    {
+        return new JdbcTypeHandle(
+                getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                getInteger(resultSet, "COLUMN_SIZE"),
+                getInteger(resultSet, "DECIMAL_DIGITS"),
+                // arrayDimensions
+                Optional.<Integer>empty(),
+                caseSensitivity);
     }
 
     private static void cleanupSuppressing(Throwable inflight, CheckedRunnable cleanup)
