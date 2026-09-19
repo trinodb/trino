@@ -22,7 +22,7 @@ import io.trino.spi.type.TypeOperators;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 
 public final class DeltaLakeTypes
 {
@@ -31,8 +31,8 @@ public final class DeltaLakeTypes
     public static Type toParquetType(TypeOperators typeOperators, Type type)
     {
         if (type instanceof TimestampWithTimeZoneType timestamp) {
-            verify(timestamp.getPrecision() == 3, "Unsupported type: %s", type);
-            return TIMESTAMP_MILLIS;
+            verify(timestamp.getPrecision() == 6, "Unsupported type: %s", type);
+            return TIMESTAMP_TZ_MICROS;
         }
         if (type instanceof ArrayType arrayType) {
             return new ArrayType(toParquetType(typeOperators, arrayType.getElementType()));

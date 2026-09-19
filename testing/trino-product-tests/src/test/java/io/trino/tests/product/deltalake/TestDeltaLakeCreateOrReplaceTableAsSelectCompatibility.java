@@ -48,7 +48,7 @@ class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         env.executeTrinoUpdate("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
-            List<Row> expectedRows = performInsert(env::executeSparkUpdate, tableName, 12);
+            List<Row> expectedRows = performInsert(env::executeSparkUpdate, tableName, 12, "000000");
 
             assertTransactionLogVersion(env, tableName, 12);
             env.executeSparkUpdate("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
@@ -67,7 +67,7 @@ class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         env.executeTrinoUpdate("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
-            List<Row> expectedRows = performInsert(env::executeSparkUpdate, tableName, 12);
+            List<Row> expectedRows = performInsert(env::executeSparkUpdate, tableName, 12, "000");
 
             assertTransactionLogVersion(env, tableName, 12);
             env.executeTrinoUpdate("CREATE OR REPLACE TABLE delta.default." + tableName + " AS SELECT CAST(ts AS TIMESTAMP(6)) as ts FROM delta.default." + tableName);
@@ -86,7 +86,7 @@ class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         env.executeTrinoUpdate("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
-            List<Row> expectedRows = performInsert(env::executeTrinoUpdate, "delta.default." + tableName, 12);
+            List<Row> expectedRows = performInsert(env::executeTrinoUpdate, "delta.default." + tableName, 12, "000");
 
             env.executeTrinoUpdate("CREATE OR REPLACE TABLE delta.default." + tableName + " AS SELECT CAST(ts AS TIMESTAMP(6)) as ts FROM delta.default." + tableName);
             assertThat(env.executeSpark("SELECT date_format(ts, \"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\") FROM default." + tableName)).containsOnly(expectedRows);
@@ -104,13 +104,13 @@ class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
                 "with (location = 's3://" + env.getBucketName() + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
             ImmutableList.Builder<Row> expected = ImmutableList.builder();
-            expected.addAll(performInsert(env::executeSparkUpdate, tableName, 9));
+            expected.addAll(performInsert(env::executeSparkUpdate, tableName, 9, "000000"));
 
             env.executeSparkUpdate("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT CAST(ts AS TIMESTAMP) FROM " + tableName);
             assertLastEntryIsCheckpointed(env, tableName);
 
             env.executeSparkUpdate("INSERT INTO " + tableName + " VALUES \"1960-01-01 01:02:03\", \"1961-01-01 01:02:03\", \"1962-01-01 01:02:03\"");
-            expected.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
+            expected.add(row("1960-01-01T01:02:03.000000Z"), row("1961-01-01T01:02:03.000000Z"), row("1962-01-01T01:02:03.000000Z"));
             assertTransactionLogVersion(env, tableName, 11);
 
             assertThat(env.executeTrino("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
@@ -138,13 +138,16 @@ class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         }
     }
 
-    private static List<Row> performInsert(Consumer<String> sqlExecutor, String tableName, int numberOfRows)
+    private static List<Row> performInsert(Consumer<String> sqlExecutor, String tableName, int numberOfRows, String fractionalSeconds)
     {
         ImmutableList.Builder<Row> expectedRowBuilder = ImmutableList.builder();
         // Write to the table until a checkpoint file is written
         for (int i = 0; i < numberOfRows; i++) {
             sqlExecutor.accept("INSERT INTO " + tableName + " VALUES '1960-01-01 01:02:03', '1961-01-01 01:02:03', '1962-01-01 01:02:03'");
-            expectedRowBuilder.add(row("1960-01-01T01:02:03.000Z"), row("1961-01-01T01:02:03.000Z"), row("1962-01-01T01:02:03.000Z"));
+            expectedRowBuilder.add(
+                    row("1960-01-01T01:02:03." + fractionalSeconds + "Z"),
+                    row("1961-01-01T01:02:03." + fractionalSeconds + "Z"),
+                    row("1962-01-01T01:02:03." + fractionalSeconds + "Z"));
         }
         return expectedRowBuilder.build();
     }
