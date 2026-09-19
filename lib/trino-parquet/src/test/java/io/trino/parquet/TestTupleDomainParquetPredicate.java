@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.DictionaryDescriptor;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate.BloomFilterHasher;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -40,15 +41,21 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.internal.column.columnindex.BoundaryOrder;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
@@ -58,9 +65,12 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.log.Level.ERROR;
@@ -69,6 +79,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
+import static io.trino.parquet.predicate.TupleDomainParquetPredicate.bloomFilterHasher;
 import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
@@ -79,6 +90,7 @@ import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -93,8 +105,11 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
@@ -104,7 +119,10 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.dateType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
@@ -251,7 +269,7 @@ public class TestTupleDomainParquetPredicate
     public void testShortDecimalWithInt64()
             throws Exception
     {
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, "ShortDecimalColumn");
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(INT64, decimalType(2, 5), "ShortDecimalColumn");
         Type type = createDecimalType(5, 2);
         assertThat(getDomain(columnDescriptor, type, 0, null, ID, UTC)).isEqualTo(all(type));
 
@@ -263,7 +281,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int64 ShortDecimalColumn\": [min: 100, max: 10, num_nulls: 0] [testFile]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int64 ShortDecimalColumn (DECIMAL(5,2))\": [min: 100, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -326,7 +344,7 @@ public class TestTupleDomainParquetPredicate
     public void testLongDecimal()
             throws Exception
     {
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, "LongDecimalColumn");
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, decimalType(5, 20), "LongDecimalColumn");
         DecimalType type = createDecimalType(20, 5);
         BigInteger maximum = new BigInteger("12345678901234512345");
 
@@ -343,14 +361,14 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumn\": [min: 0x00000000000000000000000000000064, max: 0x0000000000000000000000000000000A, num_nulls: 0] [testFile]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumn (DECIMAL(20,5))\": [min: 0x00000000000000000000000000000064, max: 0x0000000000000000000000000000000A, num_nulls: 0] [testFile]");
     }
 
     @Test
     public void testLongDecimalWithNoScale()
             throws Exception
     {
-        ColumnDescriptor columnDescriptor = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, "LongDecimalColumnWithNoScale");
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, decimalType(0, 20), "LongDecimalColumnWithNoScale");
         DecimalType type = createDecimalType(20, 0);
         Int128 zero = Int128.ZERO;
         Int128 hundred = Int128.valueOf(100L);
@@ -362,7 +380,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumnWithNoScale\": [min: 0x00000000000000000000000000000064, max: 0x0000000000000000000000000000000A, num_nulls: 0] [testFile]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumnWithNoScale (DECIMAL(20,0))\": [min: 0x00000000000000000000000000000064, max: 0x0000000000000000000000000000000A, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -456,6 +474,159 @@ public class TestTupleDomainParquetPredicate
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required binary StringColumn\": [min: 0x7461636F, max: 0x6170706C65, num_nulls: 0] [testFile]");
     }
 
+    /**
+     * The reader cuts a bounded varchar down to its length, so the bounds it can be held to are not the stored ones.
+     * The stored maximum still bounds it, since a prefix never sorts above the value it was cut from, while the
+     * minimum is cut back to the longest prefix of itself that nothing readable sorts below.
+     */
+    @Test
+    public void testBoundedVarcharStatistics()
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor column = createColumnDescriptor(BINARY, stringType(), "StringColumn");
+
+        VarcharType threeCodePoints = createVarcharType(3);
+        assertThat(getDomain(column, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(threeCodePoints, utf8Slice("app"), true, utf8Slice("taco"), true)), false));
+        // "tacos" sits inside the stored bounds and is read back as "tac", which the range still admits
+        assertThat(getDomain(column, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC).includesNullableValue(utf8Slice("tac")))
+                .isTrue();
+
+        // the cut is by code point and not by byte, and it keeps the leading byte of the code point it cuts at, so
+        // 中国 bounds at E4 rather than at 中
+        VarcharType oneCodePoint = createVarcharType(1);
+        assertThat(getDomain(column, oneCodePoint, 10, stringColumnStats("中国", "美利坚"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(oneCodePoint, Slices.wrappedBuffer((byte) 0xE4), true, utf8Slice("美利坚"), true)), false));
+
+        // C3 C3 A9 sorts above the minimum, can sit in the same row group, and is read back as C3, which a minimum
+        // cut to a whole code point would have put outside the range
+        Slice codePointMinimum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xA9);
+        Slice codePointMaximum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xC3, (byte) 0xA9);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(codePointMinimum, codePointMaximum), ID, UTC)
+                .includesNullableValue(Slices.wrappedBuffer((byte) 0xC3)))
+                .isTrue();
+
+        // the STRING annotation does not promise the bytes are UTF-8, and the cut no longer needs it to, since it
+        // stops at the leading byte rather than scanning past it
+        Slice invalidMinimum = Slices.wrappedBuffer((byte) 0xC7, (byte) 0x8F, (byte) 0x91, (byte) 0x4F, (byte) 0x85);
+        Slice invalidMaximum = Slices.wrappedBuffer((byte) 0xC7, (byte) 0xC8, (byte) 0x93, (byte) 0x0A);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(invalidMinimum, invalidMaximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(oneCodePoint, Slices.wrappedBuffer((byte) 0xC7), true, invalidMaximum, true)), false));
+
+        // 42 C0 C9 C2 41 lies between these bounds and is read back as 42, which a minimum cut to 42 AA A3 81 would
+        // have put outside the range
+        Slice shortenedMinimum = Slices.wrappedBuffer((byte) 0x42, (byte) 0xAA, (byte) 0xA3, (byte) 0x81);
+        Slice shortenedMaximum = Slices.wrappedBuffer((byte) 0xC3, (byte) 0xC4, (byte) 0x97, (byte) 0x41);
+        assertThat(getDomain(column, oneCodePoint, 10, binaryColumnStats(shortenedMinimum, shortenedMaximum), ID, UTC)
+                .includesNullableValue(Slices.wrappedBuffer((byte) 0x42)))
+                .isTrue();
+
+        // the minimum is guarded where it is used, so an unannotated column is bounded exactly the same way
+        ColumnDescriptor unannotated = createColumnDescriptor(BINARY, "StringColumn");
+        assertThat(getDomain(unannotated, threeCodePoints, 10, stringColumnStats("apple", "taco"), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(threeCodePoints, utf8Slice("app"), true, utf8Slice("taco"), true)), false));
+    }
+
+    /**
+     * The reason the minimum is cut at all: no value the reader can produce out of a row group sorts below the low
+     * bound built from that row group's minimum, and the bounds never come out inverted. Swept over every byte string
+     * the interesting UTF-8 shapes can spell, rather than over the cases review happened to think of.
+     */
+    @Test
+    public void testBoundedVarcharLowerBoundHoldsForEveryReadableValue()
+    {
+        ColumnDescriptor column = createColumnDescriptor(BINARY, stringType(), "StringColumn");
+        List<byte[]> storedValues = byteStringsUpToLength(4);
+        ImmutableList.Builder<String> violations = ImmutableList.builder();
+
+        for (int boundedLength = 1; boundedLength <= 3; boundedLength++) {
+            VarcharType varcharType = createVarcharType(boundedLength);
+            for (byte[] minimum : storedValues) {
+                for (byte[] stored : storedValues) {
+                    if (Arrays.compareUnsigned(minimum, stored) > 0) {
+                        continue;
+                    }
+                    Slice readValue = truncateToLength(Slices.wrappedBuffer(stored), varcharType);
+                    Domain domain;
+                    try {
+                        domain = getDomain(column, varcharType, 10, binaryColumnStats(Slices.wrappedBuffer(minimum), Slices.wrappedBuffer(stored)), ID, UTC);
+                    }
+                    catch (ParquetCorruptionException _) {
+                        violations.add(describeBound(boundedLength, minimum, stored, "builds an inverted range"));
+                        continue;
+                    }
+                    if (!domain.includesNullableValue(readValue)) {
+                        violations.add(describeBound(boundedLength, minimum, stored, "excludes " + HexFormat.of().formatHex(readValue.getBytes())));
+                    }
+                }
+            }
+        }
+
+        assertThat(violations.build()).isEmpty();
+    }
+
+    private static String describeBound(int boundedLength, byte[] minimum, byte[] stored, String failure)
+    {
+        return "varchar(%s) over [%s, %s] %s".formatted(boundedLength, HexFormat.of().formatHex(minimum), HexFormat.of().formatHex(stored), failure);
+    }
+
+    /**
+     * Every byte string up to {@code maxLength} bytes long over an ASCII byte, a UTF-8 continuation byte, and the
+     * leading bytes of a two and a three byte code point, which is every shape the cut can behave differently on.
+     */
+    private static List<byte[]> byteStringsUpToLength(int maxLength)
+    {
+        byte[] alphabet = {(byte) 0x41, (byte) 0x80, (byte) 0xC3, (byte) 0xE4};
+        ImmutableList.Builder<byte[]> allValues = ImmutableList.builder();
+        List<byte[]> shorterValues = ImmutableList.of(new byte[0]);
+        for (int length = 1; length <= maxLength; length++) {
+            ImmutableList.Builder<byte[]> currentValues = ImmutableList.builder();
+            for (byte[] prefix : shorterValues) {
+                for (byte symbol : alphabet) {
+                    byte[] value = Arrays.copyOf(prefix, length);
+                    value[length - 1] = symbol;
+                    currentValues.add(value);
+                }
+            }
+            shorterValues = currentValues.build();
+            allValues.addAll(shorterValues);
+        }
+        return allValues.build();
+    }
+
+    /**
+     * The uuid values reach the bloom filter through the same branch as varchar and varbinary, wrapped in a
+     * {@link Binary} over the buffer of the slice rather than over a copy of its bytes. parquet-mr hashes the two
+     * identically, including for a slice held at an offset inside a larger buffer.
+     */
+    @Test
+    public void testUuidBloomFilterHashesTheStoredBytes()
+    {
+        PrimitiveType uuidColumn = createColumnDescriptor(FIXED_LEN_BYTE_ARRAY, uuidType(), "UuidColumn").getPrimitiveType();
+        byte[] uuidBytes = new byte[16];
+        for (int i = 0; i < uuidBytes.length; i++) {
+            uuidBytes[i] = (byte) (7 * i + 1);
+        }
+        BloomFilter bloomFilter = new BlockSplitBloomFilter(1024, 1024);
+        bloomFilter.insertHash(bloomFilter.hash(Binary.fromConstantByteArray(uuidBytes)));
+
+        byte[] backingBuffer = new byte[uuidBytes.length + 8];
+        System.arraycopy(uuidBytes, 0, backingBuffer, 5, uuidBytes.length);
+        Slice heldAtAnOffset = Slices.wrappedBuffer(backingBuffer, 5, uuidBytes.length);
+
+        BloomFilterHasher hasher = bloomFilterHasher(UUID, uuidColumn).orElseThrow();
+        assertThat(bloomFilter.findHash(hasher.hash(bloomFilter, heldAtAnOffset))).isTrue();
+    }
+
+    private static BinaryStatistics binaryColumnStats(Slice minimum, Slice maximum)
+    {
+        return (BinaryStatistics) Statistics.getBuilderForReading(Types.optional(BINARY).named("StringColumn"))
+                .withMin(minimum.getBytes())
+                .withMax(maximum.getBytes())
+                .withNumNulls(0)
+                .build();
+    }
+
     private static BinaryStatistics stringColumnStats(String minimum, String maximum)
     {
         return (BinaryStatistics) Statistics.getBuilderForReading(Types.optional(BINARY).named("StringColumn"))
@@ -495,6 +666,197 @@ public class TestTupleDomainParquetPredicate
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, UTC))
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required float FloatColumn\": [min: 40.3, max: 4.3, num_nulls: 0] [testFile]");
+    }
+
+    @Test
+    public void testDoubleWithFloatColumn()
+            throws Exception
+    {
+        // A column widened from real to double keeps its physical float statistics in every file written before the
+        // change, and ColumnReaderFactory widens the column itself, so those bounds are what the reader will produce
+        ColumnDescriptor columnDescriptor = createColumnDescriptor(FLOAT, "FloatColumn");
+
+        float minimum = 4.3f;
+        float maximum = 40.3f;
+
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(minimum, maximum), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        assertThat(getDomain(DOUBLE, floatDictionaryDescriptor(minimum)))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) minimum, true)), true));
+
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(FLOAT).named("test_float"),
+                BoundaryOrder.UNORDERED,
+                asList(false),
+                asList(0L),
+                toFloatByteBufferList(minimum),
+                toFloatByteBufferList(maximum));
+        assertThat(getDomain(DOUBLE, 200, columnIndex, ID, columnDescriptor, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(DOUBLE, (double) minimum, true, (double) maximum, true)), false));
+
+        // a NaN bound is as unusable here as it is on a physical double column
+        assertThat(getDomain(columnDescriptor, DOUBLE, 10, floatColumnStats(NaN, NaN), ID, UTC)).isEqualTo(notNull(DOUBLE));
+    }
+
+    @Test
+    public void testDictionaryTypeMismatchLeavesDomainUnnarrowed()
+            throws Exception
+    {
+        // Schema evolution makes the type in the table schema disagree with the physical type the file was written
+        // with. A dictionary is decoded from the physical type just as the row group statistics are, so the same guard
+        // has to stop it, leaving the domain alone rather than letting a ClassCastException escape
+        assertThat(getDomain(createUnboundedVarcharType(), floatDictionaryDescriptor(1.0f)))
+                .isEqualTo(all(createUnboundedVarcharType()));
+
+        assertThat(getDomain(BOOLEAN, doubleDictionaryDescriptor(1, 2)))
+                .isEqualTo(all(BOOLEAN));
+    }
+
+    /**
+     * Statistics are decoded as the physical type of the column in the file, while the domain being narrowed carries
+     * the type from the table schema. The two agree only where the reader agrees, which is what
+     * {@link io.trino.parquet.reader.ColumnReaderFactory#isSupported} decides, minus the conversions which do not
+     * preserve the stored value.
+     */
+    @ParameterizedTest
+    @MethodSource("statisticsTypeCombinations")
+    public void testStatisticsAreUsedOnlyWhereTheReaderAgrees(PrimitiveTypeName physicalType, LogicalTypeAnnotation annotation, Type type, boolean narrows)
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor column = createColumnDescriptor(physicalType, annotation, "TestColumn");
+
+        Domain domain = getDomain(column, type, 10, statisticsFor(physicalType), ID, UTC);
+
+        if (narrows) {
+            assertThat(domain).isNotEqualTo(notNull(type));
+        }
+        else {
+            assertThat(domain).isEqualTo(notNull(type));
+        }
+    }
+
+    private static Stream<Arguments> statisticsTypeCombinations()
+    {
+        return Stream.of(
+                // the reader produces these values unchanged, so the bounds are the reader's own
+                Arguments.of(PrimitiveTypeName.BOOLEAN, null, BOOLEAN, true),
+                Arguments.of(INT32, null, INTEGER, true),
+                Arguments.of(INT32, null, BIGINT, true),
+                Arguments.of(INT64, null, INTEGER, true),
+                Arguments.of(INT64, null, BIGINT, true),
+                Arguments.of(INT32, dateType(), DATE, true),
+                Arguments.of(FLOAT, null, REAL, true),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, DOUBLE, true),
+                Arguments.of(BINARY, null, createUnboundedVarcharType(), true),
+                // the reader cuts a bounded varchar down to its length and the low bound is cut with it, which is
+                // guarded where the bound is built rather than here
+                Arguments.of(BINARY, stringType(), createVarcharType(3), true),
+                Arguments.of(BINARY, null, createVarcharType(3), true),
+                Arguments.of(BINARY, decimalType(2, 10), createDecimalType(10, 2), true),
+                Arguments.of(INT96, null, createTimestampType(3), true),
+                // ColumnReaderFactory reads a fixed length byte array verbatim for an unbounded varchar, and both byte
+                // array physical types hold the statistics as raw bytes
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, null, createUnboundedVarcharType(), true),
+                // the reader widens a float column to double, so its bounds are usable as double bounds
+                Arguments.of(FLOAT, null, DOUBLE, true),
+
+                // the reader refuses the column outright
+                Arguments.of(INT32, null, BOOLEAN, false),
+                Arguments.of(FLOAT, null, BIGINT, false),
+                Arguments.of(BINARY, null, INTEGER, false),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, REAL, false),
+                Arguments.of(INT32, null, DOUBLE, false),
+                Arguments.of(INT64, null, DOUBLE, false),
+                Arguments.of(FLOAT, null, createUnboundedVarcharType(), false),
+                Arguments.of(INT32, null, createUnboundedVarcharType(), false),
+                Arguments.of(FLOAT, null, createDecimalType(5, 2), false),
+                Arguments.of(INT32, null, createTimestampType(3), false),
+                // a decimal annotated byte array holds a number in its bytes, which the reader refuses to hand back
+                // as text or as raw bytes, whichever of the two widths it is stored in
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), createUnboundedVarcharType(), false),
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false),
+                Arguments.of(BINARY, decimalType(2, 10), VARBINARY, false),
+                // an integral column annotated as a decimal with a scale is rescaled by the reader, not read as an integer
+                Arguments.of(INT64, decimalType(2, 18), BIGINT, false),
+                // a decimal needs its annotation to know the scale, so an unannotated column is not a decimal at all
+                Arguments.of(BINARY, null, createDecimalType(10, 2), false),
+
+                // the reader reads these, but getDomain has no branch for the type, so the bounds go unused either way
+                Arguments.of(BINARY, null, VARBINARY, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, uuidType(), UUID, false),
+
+                // the reader accepts the column but does not produce the stored value
+                Arguments.of(BINARY, null, createCharType(3), false),
+                Arguments.of(BINARY, stringType(), createCharType(3), false),
+                // RealType is an integer type, so the reader takes a real over an integral column and reinterprets
+                // the stored integer as float bits
+                Arguments.of(INT32, null, REAL, false),
+                Arguments.of(INT64, null, REAL, false),
+                Arguments.of(BINARY, decimalType(0, 9), REAL, false),
+
+                // the reader reads a zero scale short decimal as an integer, but a byte array holds its statistics as
+                // two's complement bytes rather than as a number
+                Arguments.of(BINARY, decimalType(0, 9), INTEGER, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(0, 9), BIGINT, false));
+    }
+
+    /**
+     * A bloom filter is built by hashing each value at the physical width of the column, so it can only be consulted
+     * where the predicate value hashes to the same thing the writer hashed.
+     */
+    @ParameterizedTest
+    @MethodSource("bloomFilterTypeCombinations")
+    public void testBloomFilterIsConsultedOnlyAtTheHashedWidth(PrimitiveTypeName physicalType, LogicalTypeAnnotation annotation, Type type, boolean consulted)
+    {
+        PrimitiveType parquetType = createColumnDescriptor(physicalType, annotation, "TestColumn").getPrimitiveType();
+
+        assertThat(bloomFilterHasher(type, parquetType)).matches(hasher -> hasher.isPresent() == consulted);
+    }
+
+    private static Stream<Arguments> bloomFilterTypeCombinations()
+    {
+        return Stream.of(
+                Arguments.of(INT32, null, INTEGER, true),
+                Arguments.of(INT32, null, TINYINT, true),
+                Arguments.of(INT32, dateType(), DATE, true),
+                Arguments.of(INT64, null, BIGINT, true),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, DOUBLE, true),
+                Arguments.of(FLOAT, null, REAL, true),
+                Arguments.of(BINARY, null, createUnboundedVarcharType(), true),
+                Arguments.of(BINARY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, null, VARBINARY, true),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, uuidType(), UUID, true),
+
+                // hashed at a different width, so a lookup would miss every value which is present
+                Arguments.of(INT32, null, BIGINT, false),
+                Arguments.of(INT64, null, INTEGER, false),
+                // note the contrast with the statistics above: the bounds widen exactly, but a hash does not
+                Arguments.of(FLOAT, null, DOUBLE, false),
+                Arguments.of(PrimitiveTypeName.DOUBLE, null, REAL, false),
+
+                // ColumnReaderFactory refuses a decimal annotated fixed length byte array for these, so the filter
+                // holds bytes the reader never produces
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), VARBINARY, false),
+                Arguments.of(FIXED_LEN_BYTE_ARRAY, decimalType(2, 20), UUID, false),
+
+                // the reader does not hand these bytes back unchanged, whatever their statistics can be narrowed to
+                Arguments.of(BINARY, null, createVarcharType(3), false),
+                Arguments.of(BINARY, stringType(), createVarcharType(3), false),
+                Arguments.of(BINARY, decimalType(2, 10), createUnboundedVarcharType(), false));
+    }
+
+    private static Statistics<?> statisticsFor(PrimitiveTypeName physicalType)
+    {
+        return switch (physicalType) {
+            case PrimitiveTypeName.BOOLEAN -> booleanColumnStats(true, true);
+            case INT32 -> intColumnStats(0, 100);
+            case INT64 -> longColumnStats(0, 100);
+            case FLOAT -> floatColumnStats(1.0f, 2.0f);
+            case PrimitiveTypeName.DOUBLE -> doubleColumnStats(1, 2);
+            case BINARY, FIXED_LEN_BYTE_ARRAY -> stringColumnStats("aa", "bb");
+            case INT96 -> timestampColumnStats(LocalDateTime.of(2026, 1, 1, 1, 1), LocalDateTime.of(2026, 1, 1, 1, 1));
+        };
     }
 
     @Test
@@ -637,7 +999,7 @@ public class TestTupleDomainParquetPredicate
     {
         String value = "Test";
         ColumnDescriptor column = createColumnDescriptor(BINARY, "VarcharColumn");
-        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), utf8Slice(value));
+        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createUnboundedVarcharType(), utf8Slice(value));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         PrimitiveType type = column.getPrimitiveType();
         Statistics<?> stats = Statistics.getBuilderForReading(type)
@@ -647,6 +1009,32 @@ public class TestTupleDomainParquetPredicate
                 .build();
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
+
+        // "Test" is read back as "Te" through a varchar(2), and the bounds are truncated with it, so a predicate on
+        // "Te" keeps the row group while one on "Ta" eliminates it
+        ColumnDescriptor utf8Column = createColumnDescriptor(BINARY, stringType(), "VarcharColumn");
+        Statistics<?> utf8Stats = Statistics.getBuilderForReading(utf8Column.getPrimitiveType())
+                .withMin(value.getBytes(UTF_8))
+                .withMax(value.getBytes(UTF_8))
+                .withNumNulls(1L)
+                .build();
+        Map<ColumnDescriptor, Long> utf8ValueCounts = ImmutableMap.of(utf8Column, 2L);
+        Map<ColumnDescriptor, Statistics<?>> utf8Statistics = ImmutableMap.of(utf8Column, utf8Stats);
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(utf8Column, createVarcharType(2), utf8Slice("Te")), singletonList(utf8Column), UTC)
+                .getIndexLookupCandidates(utf8ValueCounts, utf8Statistics, ID))
+                .isEqualTo(Optional.of(ImmutableList.of(utf8Column)));
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(utf8Column, createVarcharType(2), utf8Slice("Ta")), singletonList(utf8Column), UTC)
+                .getIndexLookupCandidates(utf8ValueCounts, utf8Statistics, ID))
+                .isEmpty();
+
+        // the low bound is guarded where it is built rather than by the annotation, so an unannotated column is held
+        // to the same bounds
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(column, createVarcharType(2), utf8Slice("Te")), singletonList(column), UTC)
+                .getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
+                .isEqualTo(Optional.of(ImmutableList.of(column)));
+        assertThat(new TupleDomainParquetPredicate(getEffectivePredicate(column, createVarcharType(2), utf8Slice("Ta")), singletonList(column), UTC)
+                .getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
+                .isEmpty();
     }
 
     @Test
@@ -692,14 +1080,14 @@ public class TestTupleDomainParquetPredicate
     public void testVarcharMatchesWithDictionaryDescriptor()
     {
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
-        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createVarcharType(255), EMPTY_SLICE);
+        TupleDomain<ColumnDescriptor> effectivePredicate = getEffectivePredicate(column, createUnboundedVarcharType(), EMPTY_SLICE);
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page)))).isTrue();
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isTrue();
 
         effectivePredicate = withColumnDomains(ImmutableMap.of(
-                column, singleValue(createVarcharType(255), Slices.utf8Slice("abc"), true)));
+                column, singleValue(createUnboundedVarcharType(), Slices.utf8Slice("abc"), true)));
         parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, true, Optional.of(page)))).isTrue();
         assertThat(parquetPredicate.matches(new DictionaryDescriptor(column, false, Optional.of(page)))).isFalse();
@@ -939,6 +1327,15 @@ public class TestTupleDomainParquetPredicate
         return new LongTimestamp(
                 start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
                 toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
+    }
+
+    private static List<ByteBuffer> toFloatByteBufferList(Float... values)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>(values.length);
+        for (Float value : values) {
+            buffers.add(ByteBuffer.wrap(BytesUtils.intToBytes(Float.floatToIntBits(value))));
+        }
+        return buffers;
     }
 
     private static List<ByteBuffer> toByteBufferList(Long... values)
