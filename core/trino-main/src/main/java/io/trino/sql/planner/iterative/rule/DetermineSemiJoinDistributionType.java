@@ -22,6 +22,10 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
@@ -67,12 +71,25 @@ public class DetermineSemiJoinDistributionType
     @Override
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
+        // Hash partitioning uses IS NOT DISTINCT FROM. A row/array/map with a null field
+        // hashes differently from a value it compares as unknown under SQL '=', so the
+        // probe never sees that comparison on the worker that owns the probe. Broadcast
+        // the build side so three-valued IN can be applied locally.
+        if (requiresReplicatedIn(semiJoinNode.getSourceJoinSymbol().type())) {
+            return Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
+        }
+
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
         return switch (joinDistributionType) {
             case AUTOMATIC -> Result.ofPlanNode(getCostBasedDistributionType(semiJoinNode, context));
             case PARTITIONED -> Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
             case BROADCAST -> Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
         };
+    }
+
+    private static boolean requiresReplicatedIn(Type type)
+    {
+        return type instanceof RowType || type instanceof ArrayType || type instanceof MapType;
     }
 
     private PlanNode getCostBasedDistributionType(SemiJoinNode node, Context context)

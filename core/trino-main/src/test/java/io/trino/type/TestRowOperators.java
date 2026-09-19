@@ -789,6 +789,55 @@ public class TestRowOperators
     }
 
     @Test
+    public void testInPredicate()
+    {
+        // https://github.com/trinodb/trino/issues/7798
+        // ROW(1, 2) = ROW(1, null) is unknown, so IN is unknown unless another element is equal.
+
+        assertThat(assertions.query("SELECT ROW(1, 2) IN ((1, null))"))
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.query("SELECT ROW(1, 2) IN (ROW(1, null))"))
+                .matches("VALUES CAST(NULL AS boolean)");
+
+        assertThat(assertions.expression("a IN ((1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "ROW(1, 2)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN ((1, 3))")
+                .binding("a", "ROW(1, 2)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN ((1, 2), (1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN ((1, 3), (1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "CAST(null AS ROW(integer, integer))"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, null))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+    }
+
+    @Test
     public void testRowHashOperator()
     {
         assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));

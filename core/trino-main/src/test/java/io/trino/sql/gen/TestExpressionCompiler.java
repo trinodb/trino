@@ -2314,6 +2314,42 @@ public class TestExpressionCompiler
                 .binding("a", "ROW(1, null)"))
                 .isNull(BOOLEAN);
 
+        // https://github.com/trinodb/trino/issues/7798
+        assertThat(assertions.expression("a IN ((1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN (ROW(1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "ROW(1, 2)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN ((1, 3))")
+                .binding("a", "ROW(1, 2)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a IN ((1, 2), (1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a IN ((1, 3), (1, null))")
+                .binding("a", "ROW(1, 2)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "ROW(1, null)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("a IN ((1, 2))")
+                .binding("a", "CAST(null AS ROW(integer, integer))"))
+                .isNull(BOOLEAN);
+
         assertThat(assertions.expression("a IN (ROW(2, null))")
                 .binding("a", "ROW(1, null)"))
                 .hasType(BOOLEAN)
