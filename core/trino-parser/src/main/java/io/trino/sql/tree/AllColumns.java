@@ -27,37 +27,51 @@ public class AllColumns
 {
     private final List<Identifier> aliases;
     private final Optional<Expression> target;
+    private final List<QualifiedName> excludedColumns;
 
     @Deprecated
     public AllColumns()
     {
-        this(Optional.empty(), Optional.empty(), ImmutableList.of());
+        this(Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of());
     }
 
     @Deprecated
     public AllColumns(Expression target, List<Identifier> aliases)
     {
-        this(Optional.empty(), Optional.of(target), aliases);
+        this(Optional.empty(), Optional.of(target), aliases, ImmutableList.of());
     }
 
     @Deprecated
     public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases)
     {
+        this(location, target, aliases, ImmutableList.of());
+    }
+
+    @Deprecated
+    public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases, List<QualifiedName> excludedColumns)
+    {
         super(location);
         this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
         this.target = requireNonNull(target, "target is null");
+        this.excludedColumns = ImmutableList.copyOf(excludedColumns);
     }
 
     public AllColumns(NodeLocation location)
     {
-        this(location, Optional.empty(), ImmutableList.of());
+        this(location, Optional.empty(), ImmutableList.of(), ImmutableList.of());
     }
 
     public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases)
     {
+        this(location, target, aliases, ImmutableList.of());
+    }
+
+    public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases, List<QualifiedName> excludedColumns)
+    {
         super(location);
         this.aliases = ImmutableList.copyOf(aliases);
         this.target = requireNonNull(target, "target is null");
+        this.excludedColumns = ImmutableList.copyOf(excludedColumns);
     }
 
     public List<Identifier> getAliases()
@@ -68,6 +82,11 @@ public class AllColumns
     public Optional<Expression> getTarget()
     {
         return target;
+    }
+
+    public List<QualifiedName> getExcludedColumns()
+    {
+        return excludedColumns;
     }
 
     @Override
@@ -95,13 +114,14 @@ public class AllColumns
 
         AllColumns other = (AllColumns) o;
         return Objects.equals(aliases, other.aliases) &&
-                Objects.equals(target, other.target);
+                Objects.equals(target, other.target) &&
+                Objects.equals(excludedColumns, other.excludedColumns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(aliases, target);
+        return Objects.hash(aliases, target, excludedColumns);
     }
 
     @Override
@@ -111,6 +131,12 @@ public class AllColumns
 
         target.ifPresent(value -> builder.append(value).append("."));
         builder.append("*");
+
+        if (!excludedColumns.isEmpty()) {
+            builder.append(" (EXCLUDE (");
+            Joiner.on(", ").appendTo(builder, excludedColumns);
+            builder.append("))");
+        }
 
         if (!aliases.isEmpty()) {
             builder.append(" (");
@@ -128,6 +154,8 @@ public class AllColumns
             return false;
         }
 
-        return aliases.equals(((AllColumns) other).aliases);
+        AllColumns otherAllColumns = (AllColumns) other;
+        return aliases.equals(otherAllColumns.aliases) &&
+                excludedColumns.equals(otherAllColumns.excludedColumns);
     }
 }
