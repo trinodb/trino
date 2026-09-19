@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.redis.util.CodecSupplier;
+import io.trino.plugin.redis.util.RedisCluster;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.plugin.redis.util.RedisTestUtils;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -56,13 +57,20 @@ public final class RedisQueryRunner
         return new Builder(redisServer);
     }
 
+    public static Builder builder(RedisCluster redisCluster)
+    {
+        return new Builder(redisCluster);
+    }
+
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private final RedisServer redisServer;
+        private RedisServer redisServer;
+        private RedisCluster redisCluster;
         private final Map<String, String> connectorProperties = new HashMap<>();
         private String dataFormat;
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private boolean clusterMode;
 
         private Builder(RedisServer redisServer)
         {
@@ -71,6 +79,15 @@ public final class RedisQueryRunner
                     .setSchema(TPCH_SCHEMA)
                     .build());
             this.redisServer = requireNonNull(redisServer, "redisServer is null");
+        }
+
+        private Builder(RedisCluster redisCluster)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("redis")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
+            this.redisCluster = requireNonNull(redisCluster, "redisCluster is null");
         }
 
         @CanIgnoreReturnValue
@@ -94,6 +111,13 @@ public final class RedisQueryRunner
             return this;
         }
 
+        @CanIgnoreReturnValue
+        public Builder setClusterMode(boolean clusterMode)
+        {
+            this.clusterMode = clusterMode;
+            return this;
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -105,17 +129,29 @@ public final class RedisQueryRunner
 
                 Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getPlannerContext().getTypeManager(), initialTables, dataFormat);
 
-                installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
+                if (redisCluster != null) {
+                    installRedisPlugin(redisCluster, queryRunner, tableDescriptions, connectorProperties);
+                }
+                else {
+                    installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
+                }
 
                 TestingTrinoClient trinoClient = queryRunner.getClient();
 
                 log.info("Loading data...");
                 long startTime = System.nanoTime();
                 for (TpchTable<?> table : initialTables) {
-                    loadTpchTable(redisServer, trinoClient, table, dataFormat);
+                    if (redisCluster != null) {
+                        loadTpchTable(redisCluster, trinoClient, table, dataFormat, clusterMode);
+                    }
+                    else {
+                        loadTpchTable(redisServer, trinoClient, table, dataFormat, clusterMode);
+                    }
                 }
                 log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-                redisServer.closeClient();
+                if (redisServer != null) {
+                    redisServer.closeClient();
+                }
                 return queryRunner;
             }
             catch (Throwable e) {
@@ -125,7 +161,7 @@ public final class RedisQueryRunner
         }
     }
 
-    private static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, TpchTable<?> table, String dataFormat)
+    private static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, TpchTable<?> table, String dataFormat, boolean clusterMode)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
@@ -134,7 +170,22 @@ public final class RedisQueryRunner
                 trinoClient,
                 redisTableName(table),
                 new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
-                dataFormat);
+                dataFormat,
+                clusterMode);
+        log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private static void loadTpchTable(RedisCluster redisCluster, TestingTrinoClient trinoClient, TpchTable<?> table, String dataFormat, boolean clusterMode)
+    {
+        long start = System.nanoTime();
+        log.info("Running import for %s", table.getTableName());
+        RedisTestUtils.loadTpchTable(
+                redisCluster,
+                trinoClient,
+                redisTableName(table),
+                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
+                dataFormat,
+                clusterMode);
         log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

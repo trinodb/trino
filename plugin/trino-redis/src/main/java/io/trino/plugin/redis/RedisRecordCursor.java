@@ -21,6 +21,8 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
 import io.trino.plugin.redis.decoder.RedisRowDecoder;
+import io.trino.spi.HostAddress;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.Domain;
@@ -33,12 +35,14 @@ import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.RedisClient;
+import redis.clients.jedis.exceptions.JedisConnectionException;
 import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -63,6 +68,7 @@ public class RedisRecordCursor
 {
     private static final Logger log = Logger.get(RedisRecordCursor.class);
     private static final String EMPTY_STRING = "";
+    private static final int MAX_REDIRECTION_RETRIES = 5;
 
     private final RowDecoder keyDecoder;
     private final RowDecoder valueDecoder;
@@ -71,11 +77,13 @@ public class RedisRecordCursor
     private final List<RedisColumnHandle> columnHandles;
 
     private final RedisClient client;
+    private final RedisClientManager clientManager;
     private final ScanParams scanParams;
     private final int maxKeysPerFetch;
     private final char keyDelimiter;
     private final boolean isKeyPrefixSchemaTable;
     private final int scanCount;
+    private final boolean clusterEnabled;
 
     private ScanResult<String> redisCursor;
     private List<String> keys;
@@ -102,15 +110,21 @@ public class RedisRecordCursor
         this.split = split;
         this.columnHandles = columnHandles;
 
+        this.clientManager = clientManager;
         this.client = clientManager.getClient(split.getNodes().get(0));
         this.keyDelimiter = clientManager.getRedisKeyDelimiter();
         this.isKeyPrefixSchemaTable = clientManager.isKeyPrefixSchemaTable();
         this.scanCount = clientManager.getRedisScanCount();
+        this.clusterEnabled = clientManager.isClusterEnabled();
         this.scanParams = setScanParams();
         this.maxKeysPerFetch = clientManager.getRedisMaxKeysPerFetch();
         this.currentRowGroup = new LinkedList<>();
 
-        if (split.getConstraint().isAll()) {
+        if (split.getClusterKeysOptional().isPresent()) {
+            // Predicate-routed split: keys are pre-assigned to this primary by slot
+            keys = new ArrayList<>(split.getClusterKeysOptional().get());
+        }
+        else if (split.getConstraint().isAll()) {
             fetchKeys();
         }
         else {
@@ -209,6 +223,8 @@ public class RedisRecordCursor
             String keyString = currentKeys.get(i);
             Object object = hashValues.get(i);
             if (object instanceof JedisDataException jedisDataException) {
+                // Redirections should have been handled in fetchData with retry.
+                // If we get here, it's a non-redirection error.
                 throw jedisDataException;
             }
             Map<String, String> hashValueMap = (Map<String, String>) object;
@@ -318,6 +334,11 @@ public class RedisRecordCursor
     @Override
     public void close() {}
 
+    private static boolean isRedirectionError(JedisDataException exception)
+    {
+        return RedisClientManager.isRedirectionError(exception);
+    }
+
     private ScanParams setScanParams()
     {
         if (split.getKeyDataType() == RedisDataType.STRING) {
@@ -408,16 +429,321 @@ public class RedisRecordCursor
         hashValues = null;
 
         switch (split.getValueDataType()) {
-            case STRING -> stringValues = client.mget(currentKeys.toArray(new String[0]));
+            case STRING -> {
+                if (clusterEnabled) {
+                    stringValues = fetchStringValuesCluster(currentKeys);
+                }
+                else {
+                    stringValues = client.mget(currentKeys.toArray(new String[0]));
+                }
+            }
             case HASH -> {
-                try (Pipeline pipeline = client.pipelined()) {
-                    for (String key : currentKeys) {
-                        pipeline.hgetAll(key);
-                    }
-                    hashValues = pipeline.syncAndReturnAll();
+                if (clusterEnabled) {
+                    hashValues = fetchHashValuesCluster(currentKeys);
+                }
+                else {
+                    hashValues = fetchHashValuesStandalone(currentKeys);
                 }
             }
             default -> log.warn("Redis value of type %s is unsupported", split.getValueDataType());
+        }
+    }
+
+    /**
+     * Fetches string values from a cluster primary with MOVED/ASK retry and
+     * primary-failover handling.  When the split's primary becomes unreachable,
+     * the topology is refreshed and keys are resolved to the new primary.
+     */
+    private static List<String> toArrayList(String[] results)
+    {
+        // List.of rejects null elements, but Redis GET may legitimately return null.
+        return new ArrayList<>(Arrays.asList(results));
+    }
+
+    private List<String> fetchStringValuesCluster(List<String> currentKeys)
+    {
+        String[] results = new String[currentKeys.size()];
+        List<Integer> pendingIndices = new ArrayList<>();
+        List<String> pendingKeys = new ArrayList<>();
+        for (int i = 0; i < currentKeys.size(); i++) {
+            pendingIndices.add(i);
+            pendingKeys.add(currentKeys.get(i));
+        }
+
+        for (int attempt = 0; attempt < MAX_REDIRECTION_RETRIES && !pendingKeys.isEmpty(); attempt++) {
+            List<Object> replies;
+            try {
+                try (Pipeline pipeline = client.pipelined()) {
+                    for (String key : pendingKeys) {
+                        pipeline.get(key);
+                    }
+                    replies = pipeline.syncAndReturnAll();
+                }
+            }
+            catch (JedisConnectionException e) {
+                if (!clusterEnabled) {
+                    throw e;
+                }
+                log.warn(e, "Redis cluster primary unreachable for split %s; refreshing topology", split.getNodes());
+                List<Integer> nextPendingIndices = new ArrayList<>();
+                List<String> nextPendingKeys = resolveKeysAfterConnectionFailure(pendingKeys, pendingIndices, results, RedisClient::get, nextPendingIndices);
+                if (nextPendingKeys.isEmpty()) {
+                    break;
+                }
+                pendingIndices = nextPendingIndices;
+                pendingKeys = nextPendingKeys;
+                continue;
+            }
+
+            List<Integer> nextPendingIndices = new ArrayList<>();
+            List<String> nextPendingKeys = new ArrayList<>();
+
+            for (int i = 0; i < replies.size(); i++) {
+                int originalIndex = pendingIndices.get(i);
+                String key = pendingKeys.get(i);
+                Object reply = replies.get(i);
+
+                if (reply instanceof JedisDataException jedisDataException) {
+                    if (isRedirectionError(jedisDataException)) {
+                        HostAddress target = RedisClientManager.parseRedirectionTarget(jedisDataException);
+                        if (target == null) {
+                            throw new TrinoException(
+                                    GENERIC_INTERNAL_ERROR,
+                                    "Malformed cluster redirection error for key " + key + ": " + jedisDataException.getMessage());
+                        }
+                        // Retry on the target node
+                        try {
+                            String value;
+                            if (RedisClientManager.isAskRedirection(jedisDataException)) {
+                                // ASK: slot is migrating, must send ASKING before command
+                                value = clientManager.askAndGet(target, key);
+                            }
+                            else {
+                                // MOVED: topology changed, retry with normal GET on target
+                                RedisClient targetClient = clientManager.getClient(target);
+                                value = targetClient.get(key);
+                            }
+                            results[originalIndex] = value;
+                        }
+                        catch (JedisDataException retryException) {
+                            if (RedisClientManager.isAskRedirection(retryException)) {
+                                // MOVED target returned ASK — slot is migrating, follow ASK
+                                HostAddress askTarget = RedisClientManager.parseRedirectionTarget(retryException);
+                                if (askTarget != null) {
+                                    results[originalIndex] = clientManager.askAndGet(askTarget, key);
+                                }
+                                else {
+                                    throw new TrinoException(
+                                            GENERIC_INTERNAL_ERROR,
+                                            "Malformed ASK redirection from MOVED target for key " + key + ": " + retryException.getMessage());
+                                }
+                            }
+                            else if (isRedirectionError(retryException)) {
+                                // Still redirected after retry — queue for next attempt
+                                nextPendingIndices.add(originalIndex);
+                                nextPendingKeys.add(key);
+                            }
+                            else {
+                                throw retryException;
+                            }
+                        }
+                        // On MOVED, refresh the cached topology
+                        if (RedisClientManager.isMovedRedirection(jedisDataException)) {
+                            log.info("MOVED redirect for key %s, refreshing cluster topology", key);
+                            clientManager.refreshTopology();
+                        }
+                    }
+                    else {
+                        throw jedisDataException;
+                    }
+                }
+                else {
+                    results[originalIndex] = (String) reply;
+                }
+            }
+
+            pendingIndices = nextPendingIndices;
+            pendingKeys = nextPendingKeys;
+        }
+
+        if (!pendingKeys.isEmpty()) {
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Exhausted " + MAX_REDIRECTION_RETRIES + " retries for cluster redirection(s) on keys: " + pendingKeys);
+        }
+
+        return toArrayList(results);
+    }
+
+    /**
+     * Fetches hash values from a cluster primary with MOVED/ASK retry and
+     * primary-failover handling.
+     */
+    private List<Object> fetchHashValuesCluster(List<String> currentKeys)
+    {
+        Object[] results = new Object[currentKeys.size()];
+        List<Integer> pendingIndices = new ArrayList<>();
+        List<String> pendingKeys = new ArrayList<>();
+        for (int i = 0; i < currentKeys.size(); i++) {
+            pendingIndices.add(i);
+            pendingKeys.add(currentKeys.get(i));
+        }
+
+        for (int attempt = 0; attempt < MAX_REDIRECTION_RETRIES && !pendingKeys.isEmpty(); attempt++) {
+            List<Object> replies;
+            try {
+                try (Pipeline pipeline = client.pipelined()) {
+                    for (String key : pendingKeys) {
+                        pipeline.hgetAll(key);
+                    }
+                    replies = pipeline.syncAndReturnAll();
+                }
+            }
+            catch (JedisConnectionException e) {
+                if (!clusterEnabled) {
+                    throw e;
+                }
+                log.warn(e, "Redis cluster primary unreachable for hash split %s; refreshing topology", split.getNodes());
+                List<Integer> nextPendingIndices = new ArrayList<>();
+                List<String> nextPendingKeys = resolveKeysAfterConnectionFailure(pendingKeys, pendingIndices, results, RedisClient::hgetAll, nextPendingIndices);
+                if (nextPendingKeys.isEmpty()) {
+                    break;
+                }
+                pendingIndices = nextPendingIndices;
+                pendingKeys = nextPendingKeys;
+                continue;
+            }
+
+            List<Integer> nextPendingIndices = new ArrayList<>();
+            List<String> nextPendingKeys = new ArrayList<>();
+
+            for (int i = 0; i < replies.size(); i++) {
+                int originalIndex = pendingIndices.get(i);
+                String key = pendingKeys.get(i);
+                Object reply = replies.get(i);
+
+                if (reply instanceof JedisDataException jedisDataException) {
+                    if (isRedirectionError(jedisDataException)) {
+                        HostAddress target = RedisClientManager.parseRedirectionTarget(jedisDataException);
+                        if (target == null) {
+                            throw new TrinoException(
+                                    GENERIC_INTERNAL_ERROR,
+                                    "Malformed cluster redirection error for key " + key + ": " + jedisDataException.getMessage());
+                        }
+                        try {
+                            Map<String, String> value;
+                            if (RedisClientManager.isAskRedirection(jedisDataException)) {
+                                // ASK: slot is migrating, must send ASKING before command
+                                value = clientManager.askAndGetAll(target, key);
+                            }
+                            else {
+                                // MOVED: topology changed, retry with normal HGETALL on target
+                                RedisClient targetClient = clientManager.getClient(target);
+                                value = targetClient.hgetAll(key);
+                            }
+                            results[originalIndex] = value;
+                        }
+                        catch (JedisDataException retryException) {
+                            if (RedisClientManager.isAskRedirection(retryException)) {
+                                // MOVED target returned ASK — slot is migrating, follow ASK
+                                HostAddress askTarget = RedisClientManager.parseRedirectionTarget(retryException);
+                                if (askTarget != null) {
+                                    results[originalIndex] = clientManager.askAndGetAll(askTarget, key);
+                                }
+                                else {
+                                    throw new TrinoException(
+                                            GENERIC_INTERNAL_ERROR,
+                                            "Malformed ASK redirection from MOVED target for hash key " + key + ": " + retryException.getMessage());
+                                }
+                            }
+                            else if (isRedirectionError(retryException)) {
+                                nextPendingIndices.add(originalIndex);
+                                nextPendingKeys.add(key);
+                            }
+                            else {
+                                throw retryException;
+                            }
+                        }
+                        if (RedisClientManager.isMovedRedirection(jedisDataException)) {
+                            log.info("MOVED redirect for hash key %s, refreshing cluster topology", key);
+                            clientManager.refreshTopology();
+                        }
+                    }
+                    else {
+                        throw jedisDataException;
+                    }
+                }
+                else {
+                    results[originalIndex] = reply;
+                }
+            }
+
+            pendingIndices = nextPendingIndices;
+            pendingKeys = nextPendingKeys;
+        }
+
+        if (!pendingKeys.isEmpty()) {
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Exhausted " + MAX_REDIRECTION_RETRIES + " retries for cluster redirection(s) on hash keys: " + pendingKeys);
+        }
+
+        return new ArrayList<>(Arrays.asList(results));
+    }
+
+    private List<String> resolveKeysAfterConnectionFailure(
+            List<String> pendingKeys,
+            List<Integer> pendingIndices,
+            Object[] results,
+            KeyFetcher fetcher,
+            List<Integer> nextPendingIndices)
+    {
+        clientManager.refreshTopology();
+        if (split.getClusterKeysOptional().isEmpty()) {
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Redis cluster primary became unreachable during scan");
+        }
+
+        List<String> nextPendingKeys = new ArrayList<>();
+        for (int i = 0; i < pendingKeys.size(); i++) {
+            String key = pendingKeys.get(i);
+            int originalIndex = pendingIndices.get(i);
+            try {
+                RedisClient primaryClient = clientManager.getClientForKey(key);
+                Object value = fetcher.fetch(primaryClient, key);
+                results[originalIndex] = value;
+            }
+            catch (JedisDataException dataException) {
+                if (isRedirectionError(dataException)) {
+                    nextPendingIndices.add(originalIndex);
+                    nextPendingKeys.add(key);
+                }
+                else {
+                    throw dataException;
+                }
+            }
+            catch (JedisConnectionException e) {
+                nextPendingIndices.add(originalIndex);
+                nextPendingKeys.add(key);
+            }
+        }
+        return nextPendingKeys;
+    }
+
+    @FunctionalInterface
+    private interface KeyFetcher
+    {
+        Object fetch(RedisClient client, String key);
+    }
+
+    private List<Object> fetchHashValuesStandalone(List<String> currentKeys)
+    {
+        try (Pipeline pipeline = client.pipelined()) {
+            for (String key : currentKeys) {
+                pipeline.hgetAll(key);
+            }
+            return pipeline.syncAndReturnAll();
         }
     }
 }
