@@ -20,6 +20,8 @@ import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PageWithPositionComparator;
+import io.trino.operator.RuntimeConstraintRequest;
+import io.trino.operator.RuntimeConstraintWiringContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -28,6 +30,7 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -89,6 +92,12 @@ public class LocalMergeSourceOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(RuntimeConstraintRequest request, Consumer<RuntimeConstraintRequest> input, RuntimeConstraintWiringContext context)
+        {
+            context.bindLocalSource(localExchange, request);
         }
 
         @Override

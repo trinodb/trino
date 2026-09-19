@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -60,6 +61,7 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDist
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
+import static io.trino.SystemSessionProperties.isRuntimeConstraintPropagationEnabled;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -128,6 +130,18 @@ public class EventDrivenTaskSourceFactory
             SplitSourceMetricsRecorder metricsRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
+        return create(session, stageSpan, fragment, sourceExchanges, sourcePartitioningScheme, metricsRecorder, () -> outputDataSizeEstimates);
+    }
+
+    public EventDrivenTaskSource create(
+            Session session,
+            Span stageSpan,
+            PlanFragment fragment,
+            Map<PlanFragmentId, Exchange> sourceExchanges,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
+            SplitSourceMetricsRecorder metricsRecorder,
+            Supplier<Map<PlanNodeId, OutputDataSizeEstimate>> outputDataSizeEstimates)
+    {
         ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             for (PlanFragmentId sourceFragment : remoteSource.getSourceFragmentIds()) {
@@ -153,13 +167,14 @@ public class EventDrivenTaskSourceFactory
                 splitBatchSize,
                 standardSplitSizeInBytes,
                 sourcePartitioningScheme,
-                metricsRecorder);
+                metricsRecorder,
+                isRuntimeConstraintPropagationEnabled(session));
     }
 
     private SplitAssigner createSplitAssigner(
             Session session,
             PlanFragment fragment,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
+            Supplier<Map<PlanNodeId, OutputDataSizeEstimate>> outputDataSizeEstimates,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             long standardSplitSizeInBytes,
             int maxArbitraryDistributionTaskSplitCount)

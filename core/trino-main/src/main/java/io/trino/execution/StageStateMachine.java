@@ -707,6 +707,7 @@ public class StageStateMachine
     {
         // Group each unique pipelineId + operatorId combination into lists
         Long2ObjectOpenHashMap<List<OperatorStats>> pipelineAndOperatorToStats = new Long2ObjectOpenHashMap<>(maxTaskOperatorSummaries);
+        Long2ObjectOpenHashMap<List<OperatorStats>> finishedOperatorSummaries = new Long2ObjectOpenHashMap<>();
         // Expect to have one operator stats entry for each taskInfo
         int taskInfoCount = taskInfos.size();
         LongFunction<List<OperatorStats>> statsListCreator = _ -> new ArrayList<>(taskInfoCount);
@@ -718,15 +719,25 @@ public class StageStateMachine
                     // Place the operatorId into the low bits of the combined key
                     long combinedKey = pipelineKeyMask | Integer.toUnsignedLong(operator.getOperatorId());
                     pipelineAndOperatorToStats.computeIfAbsent(combinedKey, statsListCreator).add(operator);
+                    if (taskInfo.taskStatus().state() == TaskState.FINISHED) {
+                        finishedOperatorSummaries.computeIfAbsent(combinedKey, _ -> new ArrayList<>()).add(operator);
+                    }
                 }
             }
         }
         // Merge the list of operator stats from each pipelineId + operatorId into a single entry
         ImmutableList.Builder<OperatorStats> operatorStatsBuilder = ImmutableList.builderWithExpectedSize(pipelineAndOperatorToStats.size());
-        for (List<OperatorStats> operators : pipelineAndOperatorToStats.values()) {
+        for (var entry : pipelineAndOperatorToStats.long2ObjectEntrySet()) {
+            List<OperatorStats> operators = entry.getValue();
             OperatorStats stats = operators.get(0);
             if (operators.size() > 1) {
                 stats = stats.add(operators.subList(1, operators.size()));
+                List<OperatorStats> finishedOperators = finishedOperatorSummaries.get(entry.getLongKey());
+                // Opaque operator information cannot be merged, but a single successful
+                // attempt owns its result (for example, table commit metadata).
+                if (stats.getInfo() == null && finishedOperators != null && finishedOperators.size() == 1) {
+                    stats = stats.withInfo(finishedOperators.getFirst().getInfo());
+                }
             }
             operatorStatsBuilder.add(stats);
         }

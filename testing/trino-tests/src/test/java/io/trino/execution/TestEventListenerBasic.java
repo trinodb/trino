@@ -990,6 +990,27 @@ public class TestEventListenerBasic
     }
 
     @Test
+    public void testRuntimeConstraintStatistics()
+            throws Exception
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("legacy_dynamic_filtering", "false")
+                .build();
+        QueryCompletedEvent event = queries.runQueryAndWaitForEvents(
+                        "SELECT count(*) FROM lineitem JOIN supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                        session)
+                .getQueryEvents()
+                .getQueryCompletedEvent();
+
+        assertThat(event.getStatistics().getDynamicFilterDomainStatistics())
+                .singleElement()
+                .satisfies(statistics -> {
+                    assertThat(statistics.dynamicFilterId()).startsWith("join_");
+                    assertThat(statistics.collectionDuration()).isPresent();
+                });
+    }
+
+    @Test
     public void testOutputColumnsForSelect()
             throws Exception
     {

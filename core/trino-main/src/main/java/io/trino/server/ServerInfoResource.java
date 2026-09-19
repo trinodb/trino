@@ -34,6 +34,7 @@ import java.util.Optional;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.sql.planner.runtimeconstraint.RuntimeConstraintProtocol.CURRENT_FORMAT_VERSION;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN;
 import static java.lang.String.format;
@@ -85,7 +86,8 @@ public class ServerInfoResource
                 coordinator,
                 queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
                 starting,
-                nanosSince(startTime));
+                nanosSince(startTime),
+                CURRENT_FORMAT_VERSION);
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

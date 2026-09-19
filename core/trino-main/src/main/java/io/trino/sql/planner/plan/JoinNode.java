@@ -70,6 +70,23 @@ public class JoinNode
     // stats and cost used for join reordering
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
 
+    public JoinNode(
+            PlanNodeId id,
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            boolean maySkipOutputDuplicates,
+            Optional<Expression> filter,
+            Optional<DistributionType> distributionType,
+            Optional<Boolean> spillable,
+            Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost)
+    {
+        this(id, type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, distributionType, spillable, ImmutableMap.of(), reorderJoinStatsAndCost);
+    }
+
     @JsonCreator
     public JoinNode(
             @JsonProperty("id") PlanNodeId id,

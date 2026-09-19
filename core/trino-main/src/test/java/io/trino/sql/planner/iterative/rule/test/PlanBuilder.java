@@ -1415,4 +1415,51 @@ public class PlanBuilder
     {
         return symbolsByName.values();
     }
+
+    public JoinNode join(
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter,
+            Optional<JoinNode.DistributionType> distributionType)
+    {
+        return join(idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                filter,
+                distributionType);
+    }
+
+    public JoinNode join(
+            PlanNodeId id,
+            JoinType type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter,
+            Optional<JoinNode.DistributionType> distributionType)
+    {
+        return new JoinNode(
+                id,
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                false,
+                filter,
+                distributionType,
+                Optional.empty(),
+                Optional.empty());
+    }
 }

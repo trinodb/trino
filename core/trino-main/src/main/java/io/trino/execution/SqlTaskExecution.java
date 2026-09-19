@@ -40,6 +40,7 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
 
@@ -60,6 +61,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,6 +88,7 @@ public class SqlTaskExecution
     private final Span taskSpan;
     private final TaskContext taskContext;
     private final OutputBuffer outputBuffer;
+    private final Supplier<RuntimeConstraintWiringReport> runtimeConstraintWiringReport;
 
     private final TaskHandle taskHandle;
     private final TaskExecutor taskExecutor;
@@ -128,6 +131,7 @@ public class SqlTaskExecution
         this.taskSpan = requireNonNull(taskSpan, "taskSpan is null");
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+        this.runtimeConstraintWiringReport = localExecutionPlan::getRuntimeConstraintWiringReport;
 
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -245,6 +249,11 @@ public class SqlTaskExecution
     public TaskContext getTaskContext()
     {
         return taskContext;
+    }
+
+    public RuntimeConstraintWiringReport getRuntimeConstraintWiringReport()
+    {
+        return runtimeConstraintWiringReport.get();
     }
 
     public void addSplitAssignments(List<SplitAssignment> splitAssignments)

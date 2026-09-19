@@ -30,13 +30,13 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
+import io.trino.sql.planner.assertions.ColumnHandleMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
 import org.elasticsearch.client.Request;
@@ -60,7 +60,6 @@ import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
@@ -228,31 +227,30 @@ final class TestElasticsearchProjectionPushdownPlans
                 anyTree(
                         project(
                                 ImmutableMap.of(
-                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), 0)),
-                                        "expr_0", expression(new Reference(RowType.anonymousRow(INTEGER), "expr_0")),
-                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), 1))),
+                                        "expr_0_x", expression(new FieldReference(new Reference(column0Handle.type(), "expr_0"), 0)),
+                                        "expr_0", expression(new Reference(column0Handle.type(), "expr_0")),
+                                        "expr_0_y", expression(new FieldReference(new Reference(column0Handle.type(), "expr_0"), 1))),
                                 PlanMatchPattern.join(INNER, builder -> builder
                                         .equiCriteria("t_expr_1", "s_expr_1")
                                         .left(
-                                                anyTree(
-                                                        tableScan(
-                                                                table -> {
-                                                                    ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
-                                                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
-                                                                    Set<ElasticsearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
-                                                                    TupleDomain<ElasticsearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                                    return actualTableHandle.columns().equals(expectedProjections)
-                                                                            && constraint.equals(expectedConstraint);
-                                                                },
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)))))
+                                                tableScan(
+                                                        table -> {
+                                                            ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
+                                                            TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
+                                                            TupleDomain<ElasticsearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
+                                                                    ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                            return constraint.equals(expectedConstraint);
+                                                        },
+                                                        TupleDomain.all(),
+                                                        ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))).withExactAssignedOutputs(ImmutableList.of(
+                                                        new ColumnHandleMatcher(equalTo(column0Handle)),
+                                                        new ColumnHandleMatcher(equalTo(column1Handle)))))
                                         .right(
                                                 anyTree(
                                                         tableScan(
-                                                                equalTo(elasticsearchTableHandle.withColumns(Set.of(column1Handle))),
+                                                                table -> table.equals(elasticsearchTableHandle.withColumns(((ElasticsearchTableHandle) table).columns())),
                                                                 TupleDomain.all(),
-                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle))).withExactAssignedOutputs(ImmutableList.of(new ColumnHandleMatcher(equalTo(column1Handle))))))))));
         deleteIndex(tableName);
     }
 

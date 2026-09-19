@@ -35,7 +35,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -46,8 +45,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 
 public class TestPredicatePushdown
         extends AbstractPredicatePushdownTest
@@ -78,13 +77,9 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
-                                                filter(
-                                                        comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
-                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
-                                                        tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
+                                                filter(comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))), tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
@@ -103,13 +98,9 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("t_k", "u_k")
-                                .addDynamicFilter("DF", "u_k")
                                 .left(
                                         project(
-                                                filter(
-                                                        comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))),
-                                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "t_k")),
-                                                        tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
+                                                filter(comparison(EQUAL, new Constant(createVarcharType(4), Slices.utf8Slice("x")), new Cast(new Reference(createVarcharType(4), "t_v"), createVarcharType(4))), tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))))
                                 .right(
                                         anyTree(
                                                 project(
@@ -135,9 +126,7 @@ public class TestPredicatePushdown
                 anyTree(
                         join(INNER, builder -> builder
                                 .equiCriteria("o_custkey", "c_custkey")
-                                .left(
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey"))))
+                                .left(tableScan("orders", ImmutableMap.of("o_orderdate", "orderdate", "o_custkey", "custkey")))
                                 .right(
                                         anyTree(
                                                 filter(
@@ -156,12 +145,10 @@ public class TestPredicatePushdown
                         join(INNER, builder -> builder
                                 .equiCriteria("o_custkey", "c_custkey")
                                 .left(
-                                        join(INNER,
+                                        join(LEFT,
                                                 leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("l_orderkey", "o_orderkey")
-                                                        .left(
-                                                                anyTree(
-                                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))
+                                                        .left(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey")))
                                                         .right(
                                                                 anyTree(
                                                                         tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))))
@@ -181,12 +168,8 @@ public class TestPredicatePushdown
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                dynamicFilter("DF"),
-                                filter(
-                                        TRUE,
-                                        dynamicFilters -> dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY")),
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey"))),
+                                tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey")),
                                 node(ExchangeNode.class,
                                         filter(
                                                 comparison(EQUAL, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Cast(new Call(RANDOM, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),

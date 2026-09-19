@@ -41,19 +41,27 @@ public class InternalNode
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final int runtimeConstraintVersion;
     private final long longHashCode;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    {
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, 0);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, int runtimeConstraintVersion)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.runtimeConstraintVersion = runtimeConstraintVersion;
         this.longHashCode = new XxHash64(coordinator ? 1 : 0)
                 .update(nodeIdentifier.getBytes(UTF_8))
                 .update(internalUri.toString().getBytes(UTF_8))
                 .update(nodeVersion.version().getBytes(UTF_8))
+                .update(Integer.toString(runtimeConstraintVersion).getBytes(UTF_8))
                 .hash();
     }
 
@@ -107,6 +115,11 @@ public class InternalNode
         return nodeVersion;
     }
 
+    public int getRuntimeConstraintVersion()
+    {
+        return runtimeConstraintVersion;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -118,6 +131,7 @@ public class InternalNode
         }
         InternalNode o = (InternalNode) obj;
         return coordinator == o.coordinator &&
+                runtimeConstraintVersion == o.runtimeConstraintVersion &&
                 Objects.equals(nodeIdentifier, o.nodeIdentifier) &&
                 Objects.equals(internalUri, o.internalUri) &&
                 Objects.equals(nodeVersion, o.nodeVersion);
@@ -142,6 +156,7 @@ public class InternalNode
                 .add("internalUri", internalUri)
                 .add("nodeVersion", nodeVersion)
                 .add("coordinator", coordinator)
+                .add("runtimeConstraintVersion", runtimeConstraintVersion)
                 .toString();
     }
 }

@@ -53,6 +53,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -72,14 +73,17 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.StagesInfo.getAllStages;
@@ -711,25 +715,35 @@ public abstract class AbstractTestQueryFramework
     protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, QualifiedObjectName catalogSchemaTableName)
     {
         DistributedQueryRunner runner = getDistributedQueryRunner();
-        Plan plan = runner.getQueryPlan(queryId);
-        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
-                .where(node -> {
-                    if (!(node instanceof ProjectNode projectNode)) {
-                        return false;
-                    }
-                    if (!(projectNode.getSource() instanceof FilterNode filterNode)) {
-                        return false;
-                    }
-                    if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
-                        return false;
-                    }
-                    CatalogSchemaTableName tableName = getTableName(tableScanNode.getTable());
-                    return tableName.equals(catalogSchemaTableName.asCatalogSchemaTableName());
-                })
-                .findOnlyElement()
-                .getId();
+        Set<PlanNodeId> candidateNodeIds = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId)
+                .getStages().orElseThrow().getStages().stream()
+                .map(stage -> stage.plan())
+                .filter(Objects::nonNull)
+                .flatMap(fragment -> PlanNodeSearcher.searchFrom(fragment.getRoot())
+                        .where(node -> getScanFilterAndProjectTableScan(node)
+                                .map(tableScanNode -> getTableName(tableScanNode.getTable()).equals(catalogSchemaTableName.asCatalogSchemaTableName()))
+                                .orElse(false))
+                        .findAll().stream())
+                .map(PlanNode::getId)
+                .collect(toImmutableSet());
 
-        return extractOperatorStatsForNodeId(queryId, nodeId, "ScanFilterAndProjectOperator");
+        return runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId)
+                .getQueryStats().getOperatorSummaries().stream()
+                .filter(summary -> candidateNodeIds.contains(summary.getPlanNodeId()))
+                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .collect(MoreCollectors.onlyElement());
+    }
+
+    protected static Optional<TableScanNode> getScanFilterAndProjectTableScan(PlanNode node)
+    {
+        PlanNode source = node;
+        if (source instanceof ProjectNode projectNode) {
+            source = projectNode.getSource();
+        }
+        if (source instanceof FilterNode filterNode) {
+            source = filterNode.getSource();
+        }
+        return source instanceof TableScanNode tableScanNode ? Optional.of(tableScanNode) : Optional.empty();
     }
 
     protected OperatorStats extractOperatorStatsForNodeId(QueryId queryId, PlanNodeId nodeId, String operatorType)

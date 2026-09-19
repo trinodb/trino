@@ -31,6 +31,7 @@ public class TestDynamicFilterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
+                .setLegacyDynamicFiltering(false)
                 .setEnableDynamicFiltering(true)
                 .setEnableDynamicRowFiltering(true)
                 .setDynamicRowFilterSelectivityThreshold(0.7)
@@ -49,6 +50,7 @@ public class TestDynamicFilterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("legacy-dynamic-filtering", "true")
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-dynamic-row-filtering", "false")
                 .put("dynamic-row-filtering.selectivity-threshold", "0.8")
@@ -64,6 +66,7 @@ public class TestDynamicFilterConfig
                 .buildOrThrow();
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
+                .setLegacyDynamicFiltering(true)
                 .setEnableDynamicFiltering(false)
                 .setEnableDynamicRowFiltering(false)
                 .setDynamicRowFilterSelectivityThreshold(0.8)

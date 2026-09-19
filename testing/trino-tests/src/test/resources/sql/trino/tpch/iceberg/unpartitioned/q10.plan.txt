@@ -8,14 +8,12 @@ local exchange (GATHER, SINGLE, [])
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [custkey_5])
-                                        dynamic filter (nationkey::EQUAL, custkey_5::EQUAL)
-                                            scan customer
+                                        scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [custkey])
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey])
-                                                    dynamic filter (orderkey::EQUAL)
-                                                        scan lineitem
+                                                    scan lineitem
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [orderkey_0])
                                                         scan orders

@@ -33,6 +33,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
+import io.trino.operator.join.RuntimeConstraintComparison;
 import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -40,9 +41,12 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionRewriter;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -54,6 +58,8 @@ import org.weakref.jmx.Nested;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
@@ -67,15 +73,26 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.IrExpressions.matchComparison;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
 public class JoinFilterFunctionCompiler
 {
+    private static final Set<ComparisonOperator> SUPPORTED_RUNTIME_CONSTRAINT_COMPARISONS = Set.of(EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL);
     private final FunctionManager functionManager;
     private final Metadata metadata;
     private final TypeManager typeManager;
@@ -115,7 +132,78 @@ public class JoinFilterFunctionCompiler
     private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
     {
         Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(filterExpression, layout, leftBlocksSize, charVarcharCoercion);
-        return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
+        return new IsolatedJoinFilterFunctionFactory(
+                internalJoinFilterFunction,
+                extractRuntimeConstraintComparisons(filterExpression, layout, leftBlocksSize));
+    }
+
+    private static List<RuntimeConstraintComparison> extractRuntimeConstraintComparisons(Expression filter, Map<Symbol, Integer> layout, int buildChannelCount)
+    {
+        ImmutableList.Builder<RuntimeConstraintComparison> comparisons = ImmutableList.builder();
+        for (Expression conjunct : extractConjuncts(filter)) {
+            Comparison comparison = matchComparison(conjunct);
+            if (comparison == null) {
+                continue;
+            }
+            ComparisonOperator operator = comparison.operator();
+            boolean nullAllowed = operator == IDENTICAL;
+            if (nullAllowed) {
+                if (comparison.left().type().equals(REAL) || comparison.right().type().equals(REAL) || comparison.left().type().equals(DOUBLE) || comparison.right().type().equals(DOUBLE)) {
+                    continue;
+                }
+                operator = EQUAL;
+            }
+            else if (!SUPPORTED_RUNTIME_CONSTRAINT_COMPARISONS.contains(operator)) {
+                continue;
+            }
+
+            Optional<Reference> leftBuild = buildReference(comparison.left(), layout, buildChannelCount);
+            Optional<Reference> rightBuild = buildReference(comparison.right(), layout, buildChannelCount);
+            Optional<Reference> leftProbe = probeReference(comparison.left(), layout, buildChannelCount);
+            Optional<Reference> rightProbe = probeReference(comparison.right(), layout, buildChannelCount);
+            Reference build;
+            Reference probe;
+            if (leftBuild.isPresent() && rightProbe.isPresent()) {
+                build = leftBuild.orElseThrow();
+                probe = rightProbe.orElseThrow();
+                operator = operator.flip();
+            }
+            else if (rightBuild.isPresent() && leftProbe.isPresent()) {
+                build = rightBuild.orElseThrow();
+                probe = leftProbe.orElseThrow();
+            }
+            else {
+                continue;
+            }
+            comparisons.add(new RuntimeConstraintComparison(
+                    layout.get(Symbol.from(build)),
+                    layout.get(Symbol.from(probe)) - buildChannelCount,
+                    operator,
+                    nullAllowed,
+                    probe.type()));
+        }
+        return comparisons.build();
+    }
+
+    private static Optional<Reference> buildReference(Expression expression, Map<Symbol, Integer> layout, int buildChannelCount)
+    {
+        if (expression instanceof Reference reference && layout.get(Symbol.from(reference)) < buildChannelCount) {
+            return Optional.of(reference);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Reference> probeReference(Expression expression, Map<Symbol, Integer> layout, int buildChannelCount)
+    {
+        Reference reference = switch (expression) {
+            case Reference value -> value;
+            case Cast(Reference value, _, _) -> value;
+            default -> null;
+        };
+        if (reference != null && layout.get(Symbol.from(reference)) >= buildChannelCount) {
+            return Optional.of(reference);
+        }
+        return Optional.empty();
     }
 
     private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(Expression filterExpression, Map<Symbol, Integer> layout, int leftBlocksSize, CharVarcharCoercion charVarcharCoercion)
@@ -249,6 +337,11 @@ public class JoinFilterFunctionCompiler
     public interface JoinFilterFunctionFactory
     {
         JoinFilterFunction create(ConnectorSession session, LongArrayList addresses, List<Page> pages);
+
+        default List<RuntimeConstraintComparison> getRuntimeConstraintComparisons()
+        {
+            return ImmutableList.of();
+        }
     }
 
     private static BiFunction<Reference, Scope, BytecodeNode> fieldReferenceCompiler(
@@ -321,9 +414,13 @@ public class JoinFilterFunctionCompiler
     {
         private final Constructor<? extends InternalJoinFilterFunction> internalJoinFilterFunctionConstructor;
         private final Constructor<? extends JoinFilterFunction> isolatedJoinFilterFunctionConstructor;
+        private final List<RuntimeConstraintComparison> runtimeConstraintComparisons;
 
-        public IsolatedJoinFilterFunctionFactory(Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction)
+        public IsolatedJoinFilterFunctionFactory(
+                Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction,
+                List<RuntimeConstraintComparison> runtimeConstraintComparisons)
         {
+            this.runtimeConstraintComparisons = ImmutableList.copyOf(requireNonNull(runtimeConstraintComparisons, "runtimeConstraintComparisons is null"));
             try {
                 internalJoinFilterFunctionConstructor = internalJoinFilterFunction
                         .getConstructor(ConnectorSession.class);
@@ -349,6 +446,12 @@ public class JoinFilterFunctionCompiler
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        @Override
+        public List<RuntimeConstraintComparison> getRuntimeConstraintComparisons()
+        {
+            return runtimeConstraintComparisons;
         }
     }
 }

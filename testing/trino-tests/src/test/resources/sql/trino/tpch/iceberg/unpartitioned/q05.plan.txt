@@ -9,24 +9,20 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [suppkey, nationkey])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [orderkey_5])
-                                            dynamic filter (suppkey::EQUAL, orderkey_5::EQUAL)
-                                                scan lineitem
+                                            scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [orderkey])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, [custkey_0])
-                                                        dynamic filter (custkey_0::EQUAL)
-                                                            scan orders
+                                                        scan orders
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [custkey])
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (nationkey::EQUAL, nationkey::EQUAL)
-                                                                    scan customer
+                                                                scan customer
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (nationkey_20::EQUAL, regionkey::EQUAL)
-                                                                                scan nation
+                                                                            scan nation
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     scan region

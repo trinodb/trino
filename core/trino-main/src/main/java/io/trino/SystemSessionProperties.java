@@ -143,6 +143,7 @@ public final class SystemSessionProperties
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
+    public static final String LEGACY_DYNAMIC_FILTERING = "legacy_dynamic_filtering";
     public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
@@ -685,6 +686,11 @@ public final class SystemSessionProperties
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
+                        false),
+                booleanProperty(
+                        LEGACY_DYNAMIC_FILTERING,
+                        "Use the legacy planner-driven dynamic filtering implementation",
+                        dynamicFilterConfig.isLegacyDynamicFiltering(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
@@ -1667,6 +1673,16 @@ public final class SystemSessionProperties
     public static boolean isEnableDynamicFiltering(Session session)
     {
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
+    }
+
+    public static boolean isLegacyDynamicFiltering(Session session)
+    {
+        return session.getSystemProperty(LEGACY_DYNAMIC_FILTERING, Boolean.class);
+    }
+
+    public static boolean isRuntimeConstraintPropagationEnabled(Session session)
+    {
+        return isEnableDynamicFiltering(session) && !isLegacyDynamicFiltering(session);
     }
 
     public static boolean isEnableDynamicRowFiltering(Session session)

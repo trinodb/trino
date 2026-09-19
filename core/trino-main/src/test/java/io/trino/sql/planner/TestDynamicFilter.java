@@ -89,6 +89,7 @@ public class TestDynamicFilter
     {
         super(ImmutableMap.of(
                 ENABLE_DYNAMIC_FILTERING, "true",
+                "legacy_dynamic_filtering", "true",
                 JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name(),
                 JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name()));
     }

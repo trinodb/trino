@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -39,6 +38,11 @@ interface SplitAssigner
 {
     // marker source partition id for data which is not hash distributed
     int SINGLE_SOURCE_PARTITION_ID = 0;
+
+    default AssignmentResult startWiring(PlanNodeId planNodeId)
+    {
+        return AssignmentResult.builder().build();
+    }
 
     AssignmentResult assign(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits);
 
@@ -57,12 +61,22 @@ interface SplitAssigner
             PlanNodeId planNodeId,
             boolean readyForScheduling,
             ListMultimap<Integer, Split> splits, // sourcePartition -> splits
-            boolean noMoreSplits)
+            boolean noMoreSplits,
+            boolean wiringOnly)
     {
+        public PartitionUpdate(
+                int partitionId,
+                PlanNodeId planNodeId,
+                boolean readyForScheduling,
+                ListMultimap<Integer, Split> splits,
+                boolean noMoreSplits)
+        {
+            this(partitionId, planNodeId, readyForScheduling, splits, noMoreSplits, false);
+        }
+
         public PartitionUpdate
         {
             requireNonNull(planNodeId, "planNodeId is null");
-            checkArgument(!(readyForScheduling && splits.isEmpty()), "partition update with empty splits marked as ready for scheduling");
             splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
         }
 
@@ -77,6 +91,7 @@ interface SplitAssigner
                             Map.Entry::getKey,
                             entry -> entry.getValue().size())))
                     .add("noMoreSplits", noMoreSplits)
+                    .add("wiringOnly", wiringOnly)
                     .toString();
         }
     }

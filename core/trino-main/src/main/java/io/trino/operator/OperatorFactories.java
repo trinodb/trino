@@ -21,6 +21,7 @@ import io.trino.operator.join.spilling.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
+import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -45,6 +46,20 @@ public final class OperatorFactories
             List<Integer> probeJoinChannel,
             Optional<List<Integer>> probeOutputChannelsOptional)
     {
+        return join(joinType, operatorId, planNodeId, lookupSourceFactory, hasFilter, probeTypes, probeJoinChannel, probeOutputChannelsOptional, Optional.empty());
+    }
+
+    public static OperatorFactory join(
+            JoinOperatorType joinType,
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends PartitionedLookupSourceFactory> lookupSourceFactory,
+            boolean hasFilter,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            Optional<List<Integer>> probeOutputChannelsOptional,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
+    {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
                 .map(probeTypes::get)
@@ -58,7 +73,11 @@ public final class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, hasFilter)));
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, hasFilter),
+                probeJoinChannel,
+                filterFunctionFactory.stream()
+                        .flatMap(factory -> factory.getRuntimeConstraintComparisons().stream())
+                        .toList()));
     }
 
     public static OperatorFactory spillingJoin(
@@ -72,6 +91,22 @@ public final class OperatorFactories
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
             NullSafeHashCompiler hashCompiler)
+    {
+        return spillingJoin(joinType, operatorId, planNodeId, lookupSourceFactory, probeTypes, probeJoinChannel, probeOutputChannelsOptional, totalOperatorsCount, partitioningSpillerFactory, hashCompiler, Optional.empty());
+    }
+
+    public static OperatorFactory spillingJoin(
+            JoinOperatorType joinType,
+            int operatorId,
+            PlanNodeId planNodeId,
+            JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            List<Type> probeTypes,
+            List<Integer> probeJoinChannel,
+            Optional<List<Integer>> probeOutputChannelsOptional,
+            OptionalInt totalOperatorsCount,
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            NullSafeHashCompiler hashCompiler,
+            Optional<JoinFilterFunctionFactory> filterFunctionFactory)
     {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
@@ -90,7 +125,10 @@ public final class OperatorFactories
                 hashCompiler,
                 totalOperatorsCount,
                 probeJoinChannel,
-                partitioningSpillerFactory));
+                partitioningSpillerFactory,
+                filterFunctionFactory.stream()
+                        .flatMap(factory -> factory.getRuntimeConstraintComparisons().stream())
+                        .toList()));
     }
 
     private static List<Integer> rangeList(int endExclusive)

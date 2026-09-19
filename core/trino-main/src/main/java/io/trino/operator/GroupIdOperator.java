@@ -24,6 +24,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -93,6 +95,35 @@ public class GroupIdOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> mapInputChannel(channel).isPresent())) {
+                context.stop(this, request);
+                return;
+            }
+            input.accept(request.mapChannels(channel -> mapInputChannel(channel).orElseThrow()));
+        }
+
+        private OptionalInt mapInputChannel(int outputChannel)
+        {
+            if (outputChannel >= outputTypes.size() - 1) {
+                return OptionalInt.empty();
+            }
+            Integer inputChannel = null;
+            for (Map<Integer, Integer> mapping : groupingSetMappings) {
+                Integer mapped = mapping.get(outputChannel);
+                if (mapped == null || (inputChannel != null && !inputChannel.equals(mapped))) {
+                    return OptionalInt.empty();
+                }
+                inputChannel = mapped;
+            }
+            return OptionalInt.of(requireNonNull(inputChannel, "grouping set mapping is missing"));
         }
 
         @Override

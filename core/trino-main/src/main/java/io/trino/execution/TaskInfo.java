@@ -19,6 +19,7 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.operator.TaskStats;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport;
 
 import java.net.URI;
 import java.time.Instant;
@@ -39,8 +40,21 @@ public record TaskInfo(
         TaskStats stats,
         // filled in on coordinator
         Optional<DataSize> estimatedMemory,
-        boolean needsPlan)
+        boolean needsPlan,
+        RuntimeConstraintWiringReport runtimeConstraintWiringReport)
 {
+    public TaskInfo(
+            TaskStatus taskStatus,
+            Instant lastHeartbeat,
+            OutputBufferInfo outputBuffers,
+            Set<PlanNodeId> noMoreSplits,
+            TaskStats stats,
+            Optional<DataSize> estimatedMemory,
+            boolean needsPlan)
+    {
+        this(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan, RuntimeConstraintWiringReport.EMPTY);
+    }
+
     public TaskInfo
     {
         requireNonNull(taskStatus, "taskStatus is null");
@@ -49,19 +63,20 @@ public record TaskInfo(
         requireNonNull(noMoreSplits, "noMoreSplits is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(estimatedMemory, "estimatedMemory is null");
+        requireNonNull(runtimeConstraintWiringReport, "runtimeConstraintWiringReport is null");
     }
 
     public TaskInfo summarize()
     {
         if (taskStatus.state().isDone()) {
-            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarizeFinal(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan);
+            return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarizeFinal(), noMoreSplits, stats.summarizeFinal(), estimatedMemory, needsPlan, runtimeConstraintWiringReport);
         }
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), estimatedMemory, needsPlan, runtimeConstraintWiringReport);
     }
 
     public TaskInfo pruneSpoolingOutputStats()
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneSpoolingOutputStats(), noMoreSplits, stats, estimatedMemory, needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.pruneSpoolingOutputStats(), noMoreSplits, stats, estimatedMemory, needsPlan, runtimeConstraintWiringReport);
     }
 
     @Override
@@ -99,11 +114,11 @@ public record TaskInfo(
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan);
+        return new TaskInfo(newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, estimatedMemory, needsPlan, runtimeConstraintWiringReport);
     }
 
     public TaskInfo withEstimatedMemory(DataSize estimatedMemory)
     {
-        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, Optional.of(estimatedMemory), needsPlan);
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, Optional.of(estimatedMemory), needsPlan, runtimeConstraintWiringReport);
     }
 }

@@ -32,6 +32,7 @@ import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -39,6 +40,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,6 +64,7 @@ public class ExchangeOperator
         private final RetryPolicy retryPolicy;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final List<Type> types;
+        private final List<PlanFragmentId> sourceFragmentIds;
         private ExchangeDataSource exchangeDataSource;
         private boolean closed;
 
@@ -77,6 +80,19 @@ public class ExchangeOperator
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 List<Type> types)
         {
+            this(operatorId, sourceId, directExchangeClientSupplier, serdeFactory, retryPolicy, exchangeManagerRegistry, types, ImmutableList.of());
+        }
+
+        public ExchangeOperatorFactory(
+                int operatorId,
+                PlanNodeId sourceId,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
+                PagesSerdeFactory serdeFactory,
+                RetryPolicy retryPolicy,
+                ExchangeManagerRegistry exchangeManagerRegistry,
+                List<Type> types,
+                List<PlanFragmentId> sourceFragmentIds)
+        {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
@@ -84,6 +100,7 @@ public class ExchangeOperator
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.sourceFragmentIds = ImmutableList.copyOf(requireNonNull(sourceFragmentIds, "sourceFragmentIds is null"));
         }
 
         @Override
@@ -131,6 +148,19 @@ public class ExchangeOperator
                         () -> "ExchangeOperator(%s); taskId=%s; operatorId=%s".formatted(sourceId, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
             }
             return exchangeOperator;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < types.size()) || sourceFragmentIds.isEmpty()) {
+                context.stop(this, request);
+                return;
+            }
+            context.bindRemoteSource(sourceFragmentIds, request);
         }
 
         @Override

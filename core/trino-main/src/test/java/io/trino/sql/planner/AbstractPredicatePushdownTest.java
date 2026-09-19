@@ -46,7 +46,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
@@ -65,8 +64,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
-import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 
@@ -84,12 +81,9 @@ public abstract class AbstractPredicatePushdownTest
     private static final ResolvedFunction SUBTRACT_INTEGER = FUNCTIONS.resolveOperator(OperatorType.SUBTRACT, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
 
-    private final boolean enableDynamicFiltering;
-
     protected AbstractPredicatePushdownTest(boolean enableDynamicFiltering)
     {
         super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enableDynamicFiltering)));
-        this.enableDynamicFiltering = enableDynamicFiltering;
     }
 
     @Test
@@ -106,22 +100,11 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
                                 anyTree(
-                                        filter(
-                                                comparison(EQUAL, new Reference(INTEGER, "LINE_NUMBER"), new Constant(INTEGER, 2L)),
-                                                dynamicFilters -> {
-                                                    if (enableDynamicFiltering) {
-                                                        dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                                    }
-                                                    else {
-                                                        dynamicFilters.noConsumers();
-                                                    }
-                                                },
-                                                tableScan("lineitem", ImmutableMap.of(
-                                                        "LINE_ORDER_KEY", "orderkey",
-                                                        "LINE_NUMBER", "linenumber",
-                                                        "LINE_QUANTITY", "quantity")))),
+                                        filter(comparison(EQUAL, new Reference(INTEGER, "LINE_NUMBER"), new Constant(INTEGER, 2L)), tableScan("lineitem", ImmutableMap.of(
+                                                "LINE_ORDER_KEY", "orderkey",
+                                                "LINE_NUMBER", "linenumber",
+                                                "LINE_QUANTITY", "quantity")))),
                                 anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 
@@ -134,19 +117,8 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
-                                filter(
-                                        comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)),
-                                        dynamicFilters -> {
-                                            if (enableDynamicFiltering) {
-                                                dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                            }
-                                            else {
-                                                dynamicFilters.noConsumers();
-                                            }
-                                        },
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey"))),
+                                filter(comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Cast(new Call(RANDOM_INTEGER, ImmutableList.of(new Constant(INTEGER, 5L))), BIGINT)), tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class, // NO filter here
                                         tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
 
@@ -172,19 +144,9 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
-                                filter(comparison(GREATER_THAN, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)),
-                                        dynamicFilters -> {
-                                            if (enableDynamicFiltering) {
-                                                dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                            }
-                                            else {
-                                                dynamicFilters.noConsumers();
-                                            }
-                                        },
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey",
-                                                "LINE_QUANTITY", "quantity"))),
+                                filter(comparison(GREATER_THAN, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)), tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey",
+                                        "LINE_QUANTITY", "quantity"))),
                                 anyTree(
                                         filter(
                                                 comparison(GREATER_THAN, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Constant(BIGINT, 2L)),
@@ -200,20 +162,9 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
-                                filter(
-                                        comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)),
-                                        dynamicFilters -> {
-                                            if (enableDynamicFiltering) {
-                                                dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                            }
-                                            else {
-                                                dynamicFilters.noConsumers();
-                                            }
-                                        },
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey",
-                                                "LINE_QUANTITY", "quantity"))),
+                                filter(comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)), tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey",
+                                        "LINE_QUANTITY", "quantity"))),
                                 anyTree(
                                         filter(
                                                 comparison(EQUAL, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Constant(BIGINT, 2L)),
@@ -248,20 +199,9 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
-                                filter(
-                                        comparison(GREATER_THAN, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)),
-                                        dynamicFilters -> {
-                                            if (enableDynamicFiltering) {
-                                                dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                            }
-                                            else {
-                                                dynamicFilters.noConsumers();
-                                            }
-                                        },
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey",
-                                                "LINE_QUANTITY", "quantity"))),
+                                filter(comparison(GREATER_THAN, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)), tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey",
+                                        "LINE_QUANTITY", "quantity"))),
                                 anyTree(
                                         filter(
                                                 comparison(GREATER_THAN, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Constant(BIGINT, 2L)),
@@ -277,20 +217,9 @@ public abstract class AbstractPredicatePushdownTest
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
                                 "SEMI_JOIN_RESULT",
-                                enableDynamicFiltering ? dynamicFilter("DF") : noDynamicFilter(),
-                                filter(
-                                        comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)),
-                                        dynamicFilters -> {
-                                            if (enableDynamicFiltering) {
-                                                dynamicFilters.addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "LINE_ORDER_KEY"));
-                                            }
-                                            else {
-                                                dynamicFilters.noConsumers();
-                                            }
-                                        },
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey",
-                                                "LINE_QUANTITY", "quantity"))),
+                                filter(comparison(EQUAL, new Reference(BIGINT, "LINE_ORDER_KEY"), new Constant(BIGINT, 2L)), tableScan("lineitem", ImmutableMap.of(
+                                        "LINE_ORDER_KEY", "orderkey",
+                                        "LINE_QUANTITY", "quantity"))),
                                 anyTree(
                                         filter(
                                                 comparison(EQUAL, new Reference(BIGINT, "ORDERS_ORDER_KEY"), new Constant(BIGINT, 2L)),
@@ -642,7 +571,7 @@ public abstract class AbstractPredicatePushdownTest
                 "SELECT * FROM orders JOIN nation ON orderstatus = CAST(nation.name AS varchar(1))",
                 anyTree(
                         node(JoinNode.class,
-                                enableDynamicFiltering ? filter(TRUE, ordersTableScan) : ordersTableScan,
+                                ordersTableScan,
                                 anyTree(
                                         filter(
                                                 new In(new Cast(new Reference(VARCHAR, "NAME"), createVarcharType(1)), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("F")), new Constant(createVarcharType(1), Slices.utf8Slice("O")), new Constant(createVarcharType(1), Slices.utf8Slice("P")))),

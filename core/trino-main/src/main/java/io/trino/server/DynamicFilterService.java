@@ -12,19 +12,10 @@
  * limitations under the License.
  */
 package io.trino.server;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
-import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -34,475 +25,374 @@ import io.trino.execution.TaskId;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
-import io.trino.operator.join.JoinUtils;
+import io.trino.operator.RuntimeConstraintRequest;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.DynamicFilterId;
-import io.trino.sql.planner.plan.DynamicFilterSourceNode;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.SemiJoinNode;
-import org.roaringbitmap.RoaringBitmap;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintDynamicFilter;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintHub;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintSnapshot;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintSubscription;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintSubscriptions;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintTransform;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintWiringReport;
+import jakarta.inject.Inject;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
-import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.difference;
-import static com.google.common.collect.Sets.intersection;
-import static com.google.common.collect.Sets.union;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.spi.connector.DynamicFilter.EMPTY;
-import static io.trino.spi.predicate.Domain.union;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
-import static io.trino.sql.DynamicFilters.extractSourceSymbols;
-import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
-import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
-import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static java.lang.String.format;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.SystemSessionProperties.isLegacyDynamicFiltering;
+import static io.trino.sql.planner.runtimeconstraint.RuntimeConstraintPublicationState.CLOSED;
+import static io.trino.sql.planner.runtimeconstraint.RuntimeConstraintPublicationState.DISABLED;
 import static java.util.Objects.requireNonNull;
 
-@ThreadSafe
 public class DynamicFilterService
 {
+    private final LegacyDynamicFilterService legacy;
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
     private final DataSize maxSizePerFilter;
-    private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
+    private final Map<QueryId, RuntimeConstraintState> runtimeConstraintStates = new ConcurrentHashMap<>();
+    private final Set<QueryId> wiringEnabledQueries = ConcurrentHashMap.newKeySet();
 
     @Inject
     public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
     {
+        this.legacy = new LegacyDynamicFilterService(metadata, functionManager, typeOperators, dynamicFilterConfig);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.maxSizePerFilter = dynamicFilterConfig.getMaxSizePerFilter();
+        this.maxSizePerFilter = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null").getMaxSizePerFilter();
     }
 
     public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
     {
-        Set<DynamicFilterId> dynamicFilters = getProducedDynamicFilters(queryPlan);
-        Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(queryPlan);
-
-        Set<DynamicFilterId> lazyDynamicFilters = fragmentedPlan.getAllFragments().stream()
-                .flatMap(plan -> getLazyDynamicFilters(plan).stream())
-                .collect(toImmutableSet());
-
-        // register query only if it contains dynamic filters
-        if (!dynamicFilters.isEmpty()) {
-            registerQuery(
-                    session.getQueryId(),
-                    session,
-                    dynamicFilters,
-                    lazyDynamicFilters,
-                    replicatedDynamicFilters);
+        if (isLegacyDynamicFiltering(session)) {
+            legacy.registerQuery(session, queryPlan, fragmentedPlan);
+            return;
         }
+        registerQuery(session, fragmentedPlan);
     }
 
-    @VisibleForTesting
-    public void registerQuery(
-            QueryId queryId,
-            Session session,
-            Set<DynamicFilterId> dynamicFilters,
-            Set<DynamicFilterId> lazyDynamicFilters,
-            Set<DynamicFilterId> replicatedDynamicFilters)
+    public void registerQuery(Session session, SubPlan fragmentedPlan)
     {
-        dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
-                session,
-                dynamicFilters,
-                lazyDynamicFilters,
-                replicatedDynamicFilters,
-                maxSizePerFilter,
-                0));
+        if (isEnableDynamicFiltering(session)) {
+            wiringEnabledQueries.add(session.getQueryId());
+        }
+        RuntimeConstraintState state = RuntimeConstraintState.create(
+                fragmentedPlan,
+                maxSizePerFilter.toBytes(),
+                getRetryPolicy(session) == RetryPolicy.TASK,
+                new RuntimeConstraintTransform.Context(metadata, functionManager, typeOperators, session));
+        RuntimeConstraintState existing = runtimeConstraintStates.putIfAbsent(session.getQueryId(), state);
+        if (existing != null) {
+            state.close();
+            checkState(existing.hub().getGeneration() == 0, "Query %s runtime constraint generation is already registered", session.getQueryId());
+        }
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // dynamic filtering is not enabled
+        if (!runtimeConstraintStates.containsKey(queryId)) {
+            legacy.registerQueryRetry(queryId, attemptId);
             return;
         }
-        checkState(
-                attemptId == context.getAttemptId() + 1,
-                "Query %s retry attempt %s was already registered",
-                queryId,
-                attemptId);
-        dynamicFilterContexts.put(queryId, context.createContextForQueryRetry(attemptId));
+        runtimeConstraintStates.computeIfPresent(queryId, (_, state) -> {
+            RuntimeConstraintState replacement = state.forQueryRetry(attemptId);
+            state.close();
+            return replacement;
+        });
     }
 
     public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed or dynamic filtering is not enabled
+        if (!runtimeConstraintStates.containsKey(queryId)) {
+            return legacy.getDynamicFilteringStats(queryId);
+        }
+        RuntimeConstraintState state = runtimeConstraintStates.get(queryId);
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub == null) {
             return DynamicFiltersStats.EMPTY;
         }
 
-        int lazyFilters = context.getLazyDynamicFilters().size();
-        int replicatedFilters = context.getReplicatedDynamicFilters().size();
-        int totalDynamicFilters = context.getTotalDynamicFilters();
-
-        List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
-                .map(entry -> {
-                    DynamicFilterId dynamicFilterId = entry.getKey();
-                    return new DynamicFilterDomainStats(
-                            dynamicFilterId,
-                            // use small limit for readability
-                            entry.getValue().toString(2),
-                            context.getDynamicFilterCollectionDuration(dynamicFilterId));
-                })
-                .collect(toImmutableList());
+        List<RuntimeConstraintHub.ConstraintStatistics> statistics = hub.getStatistics();
+        ImmutableList.Builder<DynamicFilterDomainStats> domainStatistics = ImmutableList.builder();
+        int completed = 0;
+        for (RuntimeConstraintHub.ConstraintStatistics constraint : statistics) {
+            if (constraint.summary().isEmpty()) {
+                continue;
+            }
+            completed++;
+            domainStatistics.add(new DynamicFilterDomainStats(
+                    new DynamicFilterId(constraint.constraintId().toString()),
+                    constraint.summary().orElseThrow().toString(2),
+                    constraint.collectionDuration()));
+        }
         return new DynamicFiltersStats(
-                dynamicFilterDomainStats,
-                lazyFilters,
-                replicatedFilters,
-                totalDynamicFilters,
-                dynamicFilterDomainStats.size());
+                domainStatistics.build(),
+                (int) statistics.stream().filter(RuntimeConstraintHub.ConstraintStatistics::lazy).count(),
+                (int) statistics.stream().filter(RuntimeConstraintHub.ConstraintStatistics::replicated).count(),
+                statistics.size(),
+                completed);
     }
 
     public void removeQuery(QueryId queryId)
     {
-        dynamicFilterContexts.remove(queryId);
+        legacy.removeQuery(queryId);
+        wiringEnabledQueries.remove(queryId);
+        RuntimeConstraintState state = runtimeConstraintStates.remove(queryId);
+        if (state != null) {
+            state.close();
+        }
     }
 
-    /**
-     * Dynamic filters are collected in same stage as the join operator in pipelined execution. This can result in deadlock
-     * for source stage joins and connectors that wait for dynamic filters before generating splits
-     * (probe splits might be blocked on dynamic filters which require at least one probe task in order to be collected).
-     * To overcome this issue an initial task is created for source stages running broadcast join operator.
-     * This task allows for dynamic filters collection without any probe side splits being scheduled.
-     */
+    public DynamicFilter createDynamicFilter(QueryId queryId, List<DynamicFilters.Descriptor> descriptors, Map<Symbol, ColumnHandle> columns)
+    {
+        return legacy.createDynamicFilter(queryId, descriptors, columns);
+    }
+
+    public void registerDynamicFilterConsumer(QueryId queryId, int attemptId, Set<DynamicFilterId> ids, Consumer<Map<DynamicFilterId, Domain>> consumer)
+    {
+        legacy.registerDynamicFilterConsumer(queryId, attemptId, ids, consumer);
+    }
+
+    public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> domains)
+    {
+        legacy.addTaskDynamicFilters(taskId, domains);
+    }
+
+    public long getRuntimeConstraintGeneration(QueryId queryId)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(requireNonNull(queryId, "queryId is null"));
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        return hub == null ? 0 : hub.getGeneration();
+    }
+
+    @VisibleForTesting
+    Optional<RuntimeConstraintHub> getRuntimeConstraintHub(QueryId queryId)
+    {
+        return Optional.ofNullable(runtimeConstraintStates.get(queryId)).map(RuntimeConstraintState::hub);
+    }
+
     public boolean isCollectingTaskNeeded(QueryId queryId, PlanFragment plan)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed or not registered (e.g. dynamic filtering is disabled)
-            return false;
+        if (!runtimeConstraintStates.containsKey(queryId)) {
+            return legacy.isCollectingTaskNeeded(queryId, plan);
         }
+        RuntimeConstraintState state = runtimeConstraintStates.get(queryId);
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        return hub != null && hub.isCollectingTaskNeeded(plan.getId());
+    }
 
-        // dynamic filters are collected by additional task only for non-fixed source stage
-        return plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
+    public boolean isRuntimeConstraintWiringEnabled(QueryId queryId)
+    {
+        return wiringEnabledQueries.contains(queryId);
     }
 
     public boolean isStageSchedulingNeededToCollectDynamicFilters(QueryId queryId, PlanFragment plan)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed or not registered (e.g. dynamic filtering is disabled)
-            return false;
+        if (!runtimeConstraintStates.containsKey(queryId)) {
+            return legacy.isStageSchedulingNeededToCollectDynamicFilters(queryId, plan);
         }
-
-        // stage scheduling is not needed to collect dynamic filters for non-fixed source stage, because
-        // for such stage collecting task is created
-        return !plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
+        RuntimeConstraintState state = runtimeConstraintStates.get(queryId);
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        return hub != null && hub.isStageSchedulingNeeded(plan.getId());
     }
 
-    /**
-     * Join build source tasks might become blocked waiting for join stage to collect build data.
-     * In such case dynamic filters must be unblocked (and probe split generation resumed) for
-     * source stage containing joins to allow build source tasks to flush data and complete.
-     */
     public void unblockStageDynamicFilters(QueryId queryId, int attemptId, PlanFragment plan)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null || attemptId < context.getAttemptId()) {
-            // query has been removed or not registered (e.g. dynamic filtering is disabled)
-            // or a newer attempt has already been triggered
+        if (!runtimeConstraintStates.containsKey(queryId)) {
+            legacy.unblockStageDynamicFilters(queryId, attemptId, plan);
             return;
         }
-        checkState(!context.isTaskRetriesEnabled(), "unblockStageDynamicFilters is not required for task retry mode");
-        checkState(
-                attemptId == context.getAttemptId(),
-                "Query %s retry attempt %s has not been registered with dynamic filter service",
-                queryId,
-                attemptId);
-        getSourceStageInnerLazyDynamicFilters(plan).forEach(filter ->
-                requireNonNull(context.getLazyDynamicFilters().get(filter), "Future not found").set(null));
+        RuntimeConstraintState state = runtimeConstraintStates.get(queryId);
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub != null && hub.acceptsTaskAttempt(attemptId)) {
+            hub.unblockStageDynamicFilters(plan.getId());
+        }
     }
 
-    public DynamicFilter createDynamicFilter(
+    public CompletableFuture<DynamicFilter> discoverRuntimeConstraintDynamicFilter(
+            Session session,
+            PlanNodeId scanId,
+            List<ColumnHandle> columns)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(session.getQueryId());
+        if (state == null) {
+            return CompletableFuture.completedFuture(DynamicFilter.EMPTY);
+        }
+        return state.discovery().get(scanId).thenApply(bindings -> {
+            if (bindings.isEmpty()) {
+                return DynamicFilter.EMPTY;
+            }
+            return RuntimeConstraintDynamicFilter.create(state.subscriptions(), bindings, columns);
+        });
+    }
+
+    public void addTaskRuntimeConstraintWiring(TaskId taskId, RuntimeConstraintWiringReport report)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        if (state == null || !state.hub().acceptsTaskAttempt(taskId.attemptId())) {
+            return;
+        }
+        // Source registration can replay buffered contributions and publish a final domain.
+        // Disable incomplete collection before any source in this report can publish.
+        state.broker().reject(state.coordinator().resolveFragmentId(taskId), report.rejectedOutputRequests());
+        state.broker().addTaskSources(taskId, report.sources());
+        report.sources().forEach(source -> state.hub().registerSource(taskId, source));
+        report.scans().forEach(scan -> state.hub().registerConsumers(scan.bindings()));
+        Set<RuntimeConstraintId> roots = new LinkedHashSet<>();
+        report.subscriptions().forEach(subscription -> roots.add(subscription.constraintId()));
+        report.subscriptionInputs().forEach(input -> roots.add(input.constraintId()));
+        report.scans().forEach(scan -> scan.bindings().forEach(binding -> roots.add(binding.constraintId())));
+        for (RuntimeConstraintId root : roots) {
+            state.hub().registerConsumer(root);
+            state.subscriptions().registerInput(new RuntimeConstraintSubscription.Input(root, root), () -> state.hub().waitForUpdate(root, 0));
+        }
+        report.subscriptions().forEach(state.subscriptions()::register);
+        RuntimeConstraintWiringReport resolved = new RuntimeConstraintWiringReport(
+                report.scans().stream()
+                        .map(scan -> new RuntimeConstraintWiringReport.ScanWiring(scan.scanId(), scan.bindings().stream()
+                                .map(binding -> state.subscriptions().registerBinding("scan " + scan.scanId(), binding))
+                                .toList()))
+                        .toList(),
+                report.sources(),
+                report.remoteRequests(),
+                report.appliedOutputRequests(),
+                report.rejectedOutputRequests(),
+                report.subscriptions(),
+                report.subscriptionInputs());
+        state.coordinator().accept(taskId, resolved)
+                .forEach(scan -> state.discovery().complete(scan.scanId(), scan.bindings()));
+    }
+
+    public void registerTaskRuntimeConstraintWiring(
+            TaskId taskId,
+            PlanFragmentId fragmentId,
+            Consumer<List<RuntimeConstraintRequest>> consumer)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        if (state != null && state.hub().acceptsTaskAttempt(taskId.attemptId())) {
+            state.broker().register(taskId, fragmentId, consumer);
+        }
+    }
+
+    public void unregisterTaskRuntimeConstraintWiring(TaskId taskId, PlanFragmentId fragmentId)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        if (state != null) {
+            state.broker().unregister(taskId, fragmentId);
+        }
+    }
+
+    public void taskRuntimeConstraintWiringFinished(TaskId taskId, PlanFragmentId fragmentId, boolean successful)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        if (state != null && state.hub().acceptsTaskAttempt(taskId.attemptId()) && state.broker().taskFinished(taskId, fragmentId, successful)) {
+            state.coordinator().requestsChanged()
+                    .forEach(scan -> state.discovery().complete(scan.scanId(), scan.bindings()));
+        }
+    }
+
+    public void addTaskRuntimeConstraintContributions(TaskId taskId, RuntimeConstraintContributionBatch contributions)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub != null) {
+            hub.acceptContributions(taskId, contributions.withGeneration(hub.getGeneration()));
+        }
+    }
+
+    public void taskFinished(TaskId taskId, boolean successful, long finalContributionSequence)
+    {
+        RuntimeConstraintState state = runtimeConstraintStates.get(taskId.queryId());
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub != null) {
+            hub.taskFinished(taskId, successful, finalContributionSequence);
+        }
+    }
+
+    public void registerRuntimeConstraintConsumer(
             QueryId queryId,
-            List<DynamicFilters.Descriptor> dynamicFilterDescriptors,
-            Map<Symbol, ColumnHandle> columnHandles)
+            int attemptId,
+            long generation,
+            Set<RuntimeConstraintId> constraintIds,
+            Consumer<List<RuntimeConstraintSnapshot>> consumer)
     {
-        Multimap<DynamicFilterId, DynamicFilters.Descriptor> symbolsMap = extractSourceSymbols(dynamicFilterDescriptors);
-        Set<DynamicFilterId> dynamicFilters = ImmutableSet.copyOf(symbolsMap.keySet());
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed
-            return EMPTY;
-        }
-
-        List<ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
-                .map(context.getLazyDynamicFilters()::get)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-        AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
-
-        Set<ColumnHandle> columnsCovered = symbolsMap.values().stream()
-                .map(DynamicFilters.Descriptor::getInput)
-                .map(Symbol::from)
-                .map(probeSymbol -> requireNonNull(columnHandles.get(probeSymbol), () -> "Missing probe column for " + probeSymbol))
-                .collect(toImmutableSet());
-
-        return new DynamicFilter()
-        {
-            @Override
-            public Set<ColumnHandle> getColumnsCovered()
-            {
-                return columnsCovered;
-            }
-
-            @Override
-            public CompletableFuture<?> isBlocked()
-            {
-                // wait for any of the requested dynamic filter domains to be completed
-                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.stream()
-                        .filter(future -> !future.isDone())
-                        .collect(toImmutableList());
-
-                if (undoneFutures.isEmpty()) {
-                    return NOT_BLOCKED;
-                }
-
-                return unmodifiableFuture(toCompletableFuture(whenAnyComplete(undoneFutures)));
-            }
-
-            @Override
-            public boolean isComplete()
-            {
-                return dynamicFilters.stream()
-                        .allMatch(filterId -> context.getDynamicFilterSummary(filterId).isPresent());
-            }
-
-            @Override
-            public boolean isAwaitable()
-            {
-                return lazyDynamicFilterFutures.stream()
-                        .anyMatch(future -> !future.isDone());
-            }
-
-            @Override
-            public TupleDomain<ColumnHandle> getCurrentPredicate()
-            {
-                ImmutableMap.Builder<DynamicFilterId, Domain> completedFiltersBuilder = ImmutableMap.builder();
-                for (DynamicFilterId filterId : dynamicFilters) {
-                    Optional<Domain> summary = context.getDynamicFilterSummary(filterId);
-                    summary.ifPresent(domain -> completedFiltersBuilder.put(filterId, domain));
-                }
-                Map<DynamicFilterId, Domain> completedDynamicFilters = completedFiltersBuilder.buildOrThrow();
-
-                CurrentDynamicFilter currentFilter = currentDynamicFilter.get();
-                if (currentFilter.getCompletedDynamicFiltersCount() >= completedDynamicFilters.size()) {
-                    // return current dynamic filter as it's more complete
-                    return currentFilter.getDynamicFilter();
-                }
-
-                TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
-                        completedDynamicFilters.entrySet().stream()
-                                .map(filter -> translateSummaryToTupleDomain(context.getSession(), filter.getKey(), filter.getValue(), symbolsMap, columnHandles))
-                                .collect(toImmutableList()));
-
-                // It could happen that two threads update currentDynamicFilter concurrently.
-                // In such case, currentDynamicFilter might be set to dynamic filter with less domains.
-                // However, this isn't an issue since in the next getCurrentPredicate() call currentDynamicFilter
-                // will be updated again with most accurate dynamic filter.
-                currentDynamicFilter.set(new CurrentDynamicFilter(completedDynamicFilters.size(), dynamicFilter));
-                return dynamicFilter;
-            }
-        };
-    }
-
-    public void registerDynamicFilterConsumer(QueryId queryId, int attemptId, Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
-    {
-        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null || attemptId < context.getAttemptId()) {
-            // query has been removed or not registered (e.g. dynamic filtering is disabled)
-            // or a newer attempt has already been triggered
+        requireNonNull(constraintIds, "constraintIds is null");
+        requireNonNull(consumer, "consumer is null");
+        RuntimeConstraintState state = runtimeConstraintStates.get(queryId);
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub == null || !hub.acceptsTaskAttempt(attemptId)) {
+            consumer.accept(constraintIds.stream()
+                    .map(constraintId -> RuntimeConstraintSnapshot.terminal(constraintId, generation, 1, CLOSED))
+                    .collect(toImmutableList()));
             return;
         }
-        checkState(
-                context.isTaskRetriesEnabled() || attemptId == context.getAttemptId(),
-                "Query %s retry attempt %s has not been registered with dynamic filter service",
-                queryId,
-                attemptId);
-        context.addDynamicFilterConsumer(dynamicFilterIds, consumer);
-    }
-
-    public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
-    {
-        DynamicFilterContext context = dynamicFilterContexts.get(taskId.queryId());
-        int taskAttemptId = taskId.attemptId();
-        if (context == null || taskAttemptId < context.getAttemptId()) {
-            // query has been removed or dynamic filters are from a previous query attempt
-            return;
+        for (RuntimeConstraintId constraintId : constraintIds) {
+            state.subscriptions().waitForUpdate(constraintId, 0)
+                    .whenComplete((snapshot, failure) -> consumer.accept(ImmutableList.of(failure == null
+                            ? snapshot.withGeneration(generation)
+                            : RuntimeConstraintSnapshot.terminal(constraintId, generation, 1, DISABLED))));
         }
-        checkState(
-                context.isTaskRetriesEnabled() || taskAttemptId == context.getAttemptId(),
-                "Query %s retry attempt %s has not been registered with dynamic filter service",
-                taskId.queryId(),
-                taskAttemptId);
-        context.addTaskDynamicFilters(taskId, newDynamicFilters);
     }
 
     public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, int numberOfTasks)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(stageId.queryId());
-        if (context == null || attemptId < context.getAttemptId()) {
-            // query has been removed or not registered (e.g. dynamic filtering is disabled)
-            // or a newer attempt has already been triggered
+        if (!runtimeConstraintStates.containsKey(stageId.queryId())) {
+            legacy.stageCannotScheduleMoreTasks(stageId, attemptId, numberOfTasks);
             return;
         }
-        checkState(
-                attemptId == context.getAttemptId(),
-                "Stage %s retry attempt %s has not been registered with dynamic filter service",
-                stageId,
-                attemptId);
-        context.stageCannotScheduleMoreTasks(stageId, numberOfTasks);
+        stageCannotScheduleMoreTasks(stageId, attemptId, IntStream.range(0, numberOfTasks).boxed().collect(toImmutableSet()));
     }
 
-    public static Set<DynamicFilterId> getOutboundDynamicFilters(PlanFragment plan)
+    public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, Set<Integer> logicalPartitionIds)
     {
-        // dynamic filters which are consumed by the given stage but produced by a different stage
-        return ImmutableSet.copyOf(difference(
-                getConsumedDynamicFilters(plan.getRoot()),
-                getProducedDynamicFilters(plan.getRoot())));
-    }
-
-    @VisibleForTesting
-    Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
-    {
-        return dynamicFilterContexts.get(queryId).getDynamicFilterSummary(filterId);
-    }
-
-    private TupleDomain<ColumnHandle> translateSummaryToTupleDomain(
-            Session session,
-            DynamicFilterId filterId,
-            Domain summary,
-            Multimap<DynamicFilterId, DynamicFilters.Descriptor> descriptorMultimap,
-            Map<Symbol, ColumnHandle> columnHandles)
-    {
-        Collection<DynamicFilters.Descriptor> descriptors = descriptorMultimap.get(filterId);
-        return TupleDomain.withColumnDomains(descriptors.stream()
-                .collect(toImmutableMap(
-                        descriptor -> {
-                            Symbol probeSymbol = Symbol.from(descriptor.getInput());
-                            return requireNonNull(columnHandles.get(probeSymbol), () -> format("Missing probe column for %s", probeSymbol));
-                        },
-                        descriptor -> {
-                            Symbol symbol = Symbol.from(descriptor.getInput());
-                            Type targetType = symbol.type();
-                            Domain updatedSummary = descriptor.applyComparison(summary);
-                            if (!updatedSummary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);
-                            }
-                            return updatedSummary;
-                        },
-                        Domain::intersect)));
-    }
-
-    private static Set<DynamicFilterId> getLazyDynamicFilters(PlanFragment plan)
-    {
-        // To prevent deadlock dynamic filter can be lazy only when:
-        // 1. it's consumed by different stage from where it's produced
-        // 2. or it's produced by replicated join in source stage. In such case an extra
-        //    task is created that will collect dynamic filter and prevent deadlock.
-        Set<DynamicFilterId> interStageDynamicFilters = difference(getProducedDynamicFilters(plan.getRoot()), getConsumedDynamicFilters(plan.getRoot()));
-        return ImmutableSet.copyOf(union(interStageDynamicFilters, getSourceStageInnerLazyDynamicFilters(plan)));
-    }
-
-    @VisibleForTesting
-    static Set<DynamicFilterId> getSourceStageInnerLazyDynamicFilters(PlanFragment plan)
-    {
-        if (!plan.getPartitioning().equals(SOURCE_DISTRIBUTION)) {
-            // Only non-fixed source stages can have (replicated) lazy dynamic filters that are
-            // produced and consumed within stage. This is because for such stages an extra
-            // dynamic filtering collecting task can be added.
-            return ImmutableSet.of();
+        if (!runtimeConstraintStates.containsKey(stageId.queryId())) {
+            legacy.stageCannotScheduleMoreTasks(stageId, attemptId, logicalPartitionIds.size());
+            return;
         }
-
-        PlanNode planNode = plan.getRoot();
-        Set<DynamicFilterId> innerStageDynamicFilters = intersection(getProducedDynamicFilters(planNode), getConsumedDynamicFilters(planNode));
-        Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(planNode);
-        return ImmutableSet.copyOf(intersection(innerStageDynamicFilters, replicatedDynamicFilters));
-    }
-
-    private static Set<DynamicFilterId> getReplicatedDynamicFilters(PlanNode planNode)
-    {
-        return PlanNodeSearcher.searchFrom(planNode)
-                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class)
-                .findAll().stream()
-                .filter(JoinUtils::isBuildSideReplicated)
-                .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
-                .collect(toImmutableSet());
-    }
-
-    private static Set<DynamicFilterId> getProducedDynamicFilters(PlanNode planNode)
-    {
-        return PlanNodeSearcher.searchFrom(planNode)
-                .whereIsInstanceOfAny(JoinNode.class, SemiJoinNode.class, DynamicFilterSourceNode.class)
-                .findAll().stream()
-                .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
-                .collect(toImmutableSet());
-    }
-
-    private static Set<DynamicFilterId> getDynamicFiltersProducedInPlanNode(PlanNode planNode)
-    {
-        if (planNode instanceof JoinNode joinNode) {
-            return joinNode.getDynamicFilters().keySet();
+        RuntimeConstraintState state = runtimeConstraintStates.get(stageId.queryId());
+        RuntimeConstraintHub hub = state == null ? null : state.hub();
+        if (hub != null && hub.acceptsTaskAttempt(attemptId)) {
+            PlanFragmentId fragmentId = state.coordinator().resolveFragmentId(stageId);
+            Set<Integer> partitions = requireNonNull(logicalPartitionIds, "logicalPartitionIds is null");
+            if (state.broker().noMoreTasks(fragmentId, partitions)) {
+                state.coordinator().requestsChanged()
+                        .forEach(scan -> state.discovery().complete(scan.scanId(), scan.bindings()));
+            }
+            hub.sealProducerStage(fragmentId, partitions);
         }
-        if (planNode instanceof SemiJoinNode semiJoinNode) {
-            return semiJoinNode.getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
-        }
-        if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
-            return dynamicFilterSourceNode.getDynamicFilters().keySet();
-        }
-        throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode nor SemiJoinNode");
-    }
-
-    private static Set<DynamicFilterId> getConsumedDynamicFilters(PlanNode planNode)
-    {
-        return extractExpressions(planNode).stream()
-                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
-                .map(DynamicFilters.Descriptor::getId)
-                .collect(toImmutableSet());
     }
 
     public static class DynamicFiltersStats
@@ -584,6 +474,398 @@ public class DynamicFilterService
         }
     }
 
+    private record RuntimeConstraintState(
+            SubPlan fragmentedPlan,
+            RuntimeConstraintHub hub,
+            ScanDiscovery discovery,
+            RuntimeConstraintWiringBroker broker,
+            RuntimeConstraintWiringCoordinator coordinator,
+            RuntimeConstraintSubscriptions subscriptions,
+            RuntimeConstraintTransform.Context transformationContext,
+            long maxSubscriptionBytes)
+            implements AutoCloseable
+    {
+        private static RuntimeConstraintState create(SubPlan fragmentedPlan, long maxRetainedBytes, boolean taskRetriesEnabled, RuntimeConstraintTransform.Context context)
+        {
+            RuntimeConstraintHub hub = new RuntimeConstraintHub(0, maxRetainedBytes, taskRetriesEnabled, true);
+            return create(fragmentedPlan, hub, maxRetainedBytes, context);
+        }
+
+        private static RuntimeConstraintState create(SubPlan fragmentedPlan, RuntimeConstraintHub hub, long maxRetainedBytes, RuntimeConstraintTransform.Context context)
+        {
+            RuntimeConstraintWiringBroker broker = new RuntimeConstraintWiringBroker(hub);
+            return new RuntimeConstraintState(
+                    fragmentedPlan,
+                    hub,
+                    new ScanDiscovery(),
+                    broker,
+                    new RuntimeConstraintWiringCoordinator(fragmentedPlan, broker, hub),
+                    new RuntimeConstraintSubscriptions(hub.getGeneration(), maxRetainedBytes, context, _ -> true, hub::waitForInitialUnblock),
+                    context,
+                    maxRetainedBytes);
+        }
+
+        private RuntimeConstraintState forQueryRetry(int attemptId)
+        {
+            return create(fragmentedPlan, hub.forQueryRetry(attemptId), maxSubscriptionBytes, transformationContext);
+        }
+
+        @Override
+        public void close()
+        {
+            discovery.close();
+            subscriptions.close();
+            hub.close();
+        }
+    }
+
+    private static final class RuntimeConstraintWiringBroker
+    {
+        private final RuntimeConstraintHub hub;
+        private final Map<PlanFragmentId, Set<RuntimeConstraintRequest>> requests = new HashMap<>();
+        private final Map<PlanFragmentId, Map<TaskId, Consumer<List<RuntimeConstraintRequest>>>> consumers = new HashMap<>();
+        private final Map<PlanFragmentId, Set<Integer>> expectedPartitions = new HashMap<>();
+        private final Map<PlanFragmentId, Set<Integer>> successfulPartitions = new HashMap<>();
+        private final Map<TaskId, Set<RuntimeConstraintId>> taskSources = new HashMap<>();
+        private final Map<PlanFragmentId, Map<RuntimeConstraintId, Set<Integer>>> successfulSourcePartitions = new HashMap<>();
+        private final Set<PlanFragmentId> retiringFragments = new HashSet<>();
+        private final Set<PlanFragmentId> finishedFragments = new HashSet<>();
+
+        private RuntimeConstraintWiringBroker(RuntimeConstraintHub hub)
+        {
+            this.hub = requireNonNull(hub, "hub is null");
+        }
+
+        public void add(PlanFragmentId fragmentId, RuntimeConstraintRequest request)
+        {
+            List<Consumer<List<RuntimeConstraintRequest>>> listeners;
+            boolean rejected;
+            synchronized (this) {
+                if (retiringFragments.contains(fragmentId) || finishedFragments.contains(fragmentId)) {
+                    rejected = request.isCollection() && !hasCompleteCollectionCoverage(fragmentId, request.constraintId());
+                    listeners = ImmutableList.of();
+                }
+                else {
+                    if (!requests.computeIfAbsent(fragmentId, _ -> new HashSet<>()).add(request)) {
+                        return;
+                    }
+                    listeners = ImmutableList.copyOf(consumers.getOrDefault(fragmentId, Map.of()).values());
+                    rejected = false;
+                }
+            }
+            if (rejected) {
+                hub.disableIfPending(request.constraintId());
+                return;
+            }
+            listeners.forEach(listener -> listener.accept(ImmutableList.of(request)));
+        }
+
+        public synchronized void addTaskSources(TaskId taskId, List<RuntimeConstraintWiringReport.Source> sources)
+        {
+            Set<RuntimeConstraintId> sourceConstraints = sources.stream()
+                    .flatMap(source -> source.constraintIds().stream())
+                    .collect(toImmutableSet());
+            if (!sourceConstraints.isEmpty()) {
+                taskSources.computeIfAbsent(taskId, _ -> new HashSet<>()).addAll(sourceConstraints);
+            }
+        }
+
+        public void register(TaskId taskId, PlanFragmentId fragmentId, Consumer<List<RuntimeConstraintRequest>> consumer)
+        {
+            List<RuntimeConstraintRequest> pending;
+            synchronized (this) {
+                consumers.computeIfAbsent(fragmentId, _ -> new HashMap<>()).put(taskId, consumer);
+                pending = ImmutableList.copyOf(requests.getOrDefault(fragmentId, Set.of()));
+            }
+            if (!pending.isEmpty()) {
+                consumer.accept(pending);
+            }
+        }
+
+        public synchronized void unregister(TaskId taskId, PlanFragmentId fragmentId)
+        {
+            unregisterLocked(taskId, fragmentId);
+        }
+
+        private void unregisterLocked(TaskId taskId, PlanFragmentId fragmentId)
+        {
+            Map<TaskId, Consumer<List<RuntimeConstraintRequest>>> fragmentConsumers = consumers.get(fragmentId);
+            if (fragmentConsumers != null) {
+                fragmentConsumers.remove(taskId);
+            }
+        }
+
+        public boolean noMoreTasks(PlanFragmentId fragmentId, Set<Integer> logicalPartitionIds)
+        {
+            synchronized (this) {
+                expectedPartitions.put(fragmentId, Set.copyOf(logicalPartitionIds));
+            }
+            return finishFragmentIfComplete(fragmentId);
+        }
+
+        public boolean taskFinished(TaskId taskId, PlanFragmentId fragmentId, boolean successful)
+        {
+            synchronized (this) {
+                unregisterLocked(taskId, fragmentId);
+                if (successful) {
+                    successfulPartitions.computeIfAbsent(fragmentId, _ -> new HashSet<>()).add(taskId.partitionId());
+                    for (RuntimeConstraintId constraintId : taskSources.getOrDefault(taskId, Set.of())) {
+                        successfulSourcePartitions
+                                .computeIfAbsent(fragmentId, _ -> new HashMap<>())
+                                .computeIfAbsent(constraintId, _ -> new HashSet<>())
+                                .add(taskId.partitionId());
+                    }
+                }
+                taskSources.remove(taskId);
+            }
+            return finishFragmentIfComplete(fragmentId);
+        }
+
+        private boolean finishFragmentIfComplete(PlanFragmentId fragmentId)
+        {
+            Set<RuntimeConstraintRequest> removed;
+            Set<RuntimeConstraintId> incompleteCollections;
+            synchronized (this) {
+                Set<Integer> expected = expectedPartitions.get(fragmentId);
+                if (expected == null ||
+                        !successfulPartitions.getOrDefault(fragmentId, Set.of()).containsAll(expected) ||
+                        finishedFragments.contains(fragmentId) ||
+                        !retiringFragments.add(fragmentId)) {
+                    return false;
+                }
+                removed = Set.copyOf(requests.getOrDefault(fragmentId, Set.of()));
+                incompleteCollections = removed.stream()
+                        .filter(RuntimeConstraintRequest::isCollection)
+                        .map(RuntimeConstraintRequest::constraintId)
+                        .filter(constraintId -> !hasCompleteCollectionCoverage(fragmentId, constraintId))
+                        .collect(toImmutableSet());
+            }
+
+            incompleteCollections.forEach(hub::disableIfPending);
+            synchronized (this) {
+                requests.remove(fragmentId);
+                retiringFragments.remove(fragmentId);
+                finishedFragments.add(fragmentId);
+            }
+            return !removed.isEmpty();
+        }
+
+        private boolean hasCompleteCollectionCoverage(PlanFragmentId fragmentId, RuntimeConstraintId constraintId)
+        {
+            Set<Integer> expected = expectedPartitions.get(fragmentId);
+            return expected != null && successfulSourcePartitions
+                    .getOrDefault(fragmentId, Map.of())
+                    .getOrDefault(constraintId, Set.of())
+                    .containsAll(expected);
+        }
+
+        public boolean reject(PlanFragmentId fragmentId, List<RuntimeConstraintRequest> rejectedRequests)
+        {
+            Set<RuntimeConstraintId> rejected = requireNonNull(rejectedRequests, "rejectedRequests is null").stream()
+                    .filter(RuntimeConstraintRequest::isCollection)
+                    .map(RuntimeConstraintRequest::constraintId)
+                    .collect(toImmutableSet());
+            if (rejected.isEmpty()) {
+                return false;
+            }
+            rejected.forEach(hub::disableIfPending);
+            synchronized (this) {
+                Set<RuntimeConstraintRequest> requestsForFragment = requests.get(fragmentId);
+                if (requestsForFragment != null) {
+                    requestsForFragment.removeIf(request -> rejected.contains(request.constraintId()));
+                }
+            }
+            return true;
+        }
+
+        public synchronized Set<RuntimeConstraintRequest> getRequests(PlanFragmentId fragmentId)
+        {
+            return Set.copyOf(requests.getOrDefault(fragmentId, Set.of()));
+        }
+
+        public synchronized Set<PlanFragmentId> getRequestedFragments(RuntimeConstraintId constraintId)
+        {
+            return requests.entrySet().stream()
+                    .filter(entry -> entry.getValue().stream().anyMatch(request -> request.constraintId().equals(constraintId)))
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableSet());
+        }
+    }
+
+    private static final class RuntimeConstraintWiringCoordinator
+    {
+        private final Set<PlanFragmentId> expectedFragments;
+        private final Map<PlanFragmentId, Set<PlanFragmentId>> prerequisites;
+        private final RuntimeConstraintWiringBroker broker;
+        private final RuntimeConstraintHub hub;
+        private final Map<PlanFragmentId, RuntimeConstraintWiringReport> reports = new HashMap<>();
+        private final Set<PlanNodeId> completedScans = new HashSet<>();
+        private final Set<RuntimeConstraintId> completedSourceRegistrations = new HashSet<>();
+
+        private RuntimeConstraintWiringCoordinator(SubPlan fragmentedPlan, RuntimeConstraintWiringBroker broker, RuntimeConstraintHub hub)
+        {
+            requireNonNull(fragmentedPlan, "fragmentedPlan is null");
+            Map<PlanFragmentId, Set<PlanFragmentId>> prerequisites = new HashMap<>();
+            collectPrerequisites(fragmentedPlan, Set.of(), prerequisites, hub.getQueryAttempt() > 0);
+            this.prerequisites = Map.copyOf(prerequisites);
+            this.expectedFragments = this.prerequisites.keySet();
+            this.broker = requireNonNull(broker, "broker is null");
+            this.hub = requireNonNull(hub, "hub is null");
+        }
+
+        private static void collectPrerequisites(
+                SubPlan plan,
+                Set<PlanFragmentId> ancestors,
+                Map<PlanFragmentId, Set<PlanFragmentId>> prerequisites,
+                boolean queryRetry)
+        {
+            Set<PlanFragmentId> path = new HashSet<>(ancestors);
+            // Coordinator-only tasks survive a query retry. Their old-generation constraints are closed,
+            // and they cannot initialize wiring for the replacement distributed tasks.
+            if (!queryRetry || !plan.getFragment().getPartitioning().isCoordinatorOnly()) {
+                path.add(plan.getFragment().getId());
+                prerequisites.put(plan.getFragment().getId(), Set.copyOf(path));
+            }
+            plan.getChildren().forEach(child -> collectPrerequisites(child, path, prerequisites, queryRetry));
+        }
+
+        public List<RuntimeConstraintWiringReport.ScanWiring> accept(TaskId taskId, RuntimeConstraintWiringReport report)
+        {
+            report.remoteRequests().forEach(request -> request.sourceFragmentIds().forEach(
+                    sourceFragmentId -> broker.add(sourceFragmentId, request.request())));
+            WiringUpdate update;
+            synchronized (this) {
+                reports.merge(resolveFragmentId(taskId), report, RuntimeConstraintWiringCoordinator::mergeReports);
+                update = evaluateLocked();
+            }
+            return complete(update);
+        }
+
+        private static RuntimeConstraintWiringReport mergeReports(RuntimeConstraintWiringReport first, RuntimeConstraintWiringReport second)
+        {
+            Map<PlanNodeId, Set<RuntimeConstraintWiringReport.Binding>> scanBindings = new LinkedHashMap<>();
+            first.scans().forEach(scan -> scanBindings.computeIfAbsent(scan.scanId(), _ -> new LinkedHashSet<>()).addAll(scan.bindings()));
+            second.scans().forEach(scan -> scanBindings.computeIfAbsent(scan.scanId(), _ -> new LinkedHashSet<>()).addAll(scan.bindings()));
+
+            return new RuntimeConstraintWiringReport(
+                    scanBindings.entrySet().stream()
+                            .map(entry -> new RuntimeConstraintWiringReport.ScanWiring(entry.getKey(), ImmutableList.copyOf(entry.getValue())))
+                            .toList(),
+                    union(first.sources(), second.sources()),
+                    union(first.remoteRequests(), second.remoteRequests()),
+                    union(first.appliedOutputRequests(), second.appliedOutputRequests()),
+                    union(first.rejectedOutputRequests(), second.rejectedOutputRequests()),
+                    union(first.subscriptions(), second.subscriptions()),
+                    union(first.subscriptionInputs(), second.subscriptionInputs()));
+        }
+
+        private static <T> List<T> union(List<T> first, List<T> second)
+        {
+            Set<T> values = new LinkedHashSet<>(first);
+            values.addAll(second);
+            return ImmutableList.copyOf(values);
+        }
+
+        public List<RuntimeConstraintWiringReport.ScanWiring> requestsChanged()
+        {
+            WiringUpdate update;
+            synchronized (this) {
+                update = evaluateLocked();
+            }
+            return complete(update);
+        }
+
+        private WiringUpdate evaluateLocked()
+        {
+            List<PlanFragmentId> readyFragments = expectedFragments.stream()
+                    .filter(expectedFragment -> reports.keySet().containsAll(prerequisites.get(expectedFragment)))
+                    .filter(expectedFragment -> prerequisites.get(expectedFragment).stream().allMatch(requiredFragment ->
+                            reportFor(requiredFragment).appliedOutputRequests().containsAll(broker.getRequests(requiredFragment))))
+                    .toList();
+            List<RuntimeConstraintWiringReport.ScanWiring> readyScans = readyFragments.stream()
+                    .flatMap(readyFragment -> reportFor(readyFragment).scans().stream())
+                    .filter(scan -> !completedScans.contains(scan.scanId()))
+                    .toList();
+            readyScans.forEach(scan -> completedScans.add(scan.scanId()));
+            return new WiringUpdate(readyScans, findCompletedSourceRegistrations());
+        }
+
+        private List<RuntimeConstraintWiringReport.ScanWiring> complete(WiringUpdate update)
+        {
+            update.sourceRegistrations().forEach(registration -> hub.completeSourceRegistration(registration.constraintIds(), registration.sourceFragments()));
+            return update.readyScans();
+        }
+
+        private List<SourceRegistration> findCompletedSourceRegistrations()
+        {
+            Map<RuntimeConstraintId, Set<PlanFragmentId>> sourceFragments = new HashMap<>();
+            reports.forEach((sourceFragment, sourceReport) -> sourceReport.sources().forEach(source -> source.constraintIds().forEach(constraintId ->
+                    sourceFragments.computeIfAbsent(constraintId, _ -> new HashSet<>()).add(sourceFragment))));
+            ImmutableList.Builder<SourceRegistration> completed = ImmutableList.builder();
+            sourceFragments.forEach((constraintId, fragments) -> {
+                if (completedSourceRegistrations.contains(constraintId)) {
+                    return;
+                }
+                Set<PlanFragmentId> requestedFragments = broker.getRequestedFragments(constraintId);
+                boolean routingComplete = requestedFragments.stream().allMatch(requestedFragment -> {
+                    RuntimeConstraintWiringReport requestedReport = reports.get(requestedFragment);
+                    return requestedReport != null && requestedReport.appliedOutputRequests().containsAll(broker.getRequests(requestedFragment));
+                });
+                if (routingComplete) {
+                    completedSourceRegistrations.add(constraintId);
+                    completed.add(new SourceRegistration(Set.of(constraintId), Set.copyOf(fragments)));
+                }
+            });
+            return completed.build();
+        }
+
+        private record SourceRegistration(Set<RuntimeConstraintId> constraintIds, Set<PlanFragmentId> sourceFragments) {}
+
+        private record WiringUpdate(List<RuntimeConstraintWiringReport.ScanWiring> readyScans, List<SourceRegistration> sourceRegistrations) {}
+
+        private RuntimeConstraintWiringReport reportFor(PlanFragmentId fragmentId)
+        {
+            return requireNonNull(reports.get(fragmentId), "fragment wiring report is missing");
+        }
+
+        private PlanFragmentId resolveFragmentId(TaskId taskId)
+        {
+            return resolveFragmentId(taskId.stageId());
+        }
+
+        private PlanFragmentId resolveFragmentId(StageId stageId)
+        {
+            PlanFragmentId stageFragmentId = new PlanFragmentId(Integer.toString(stageId.id()));
+            if (expectedFragments.contains(stageFragmentId)) {
+                return stageFragmentId;
+            }
+            if (expectedFragments.size() == 1) {
+                return expectedFragments.iterator().next();
+            }
+            throw new IllegalArgumentException("stage does not identify a plan fragment: " + stageId);
+        }
+    }
+
+    private static final class ScanDiscovery
+    {
+        private final Map<PlanNodeId, CompletableFuture<List<RuntimeConstraintWiringReport.Binding>>> scans = new ConcurrentHashMap<>();
+
+        public CompletableFuture<List<RuntimeConstraintWiringReport.Binding>> get(PlanNodeId scanId)
+        {
+            return scans.computeIfAbsent(scanId, _ -> new CompletableFuture<>());
+        }
+
+        public void complete(PlanNodeId scanId, List<RuntimeConstraintWiringReport.Binding> bindings)
+        {
+            get(scanId).complete(ImmutableList.copyOf(bindings));
+        }
+
+        public void close()
+        {
+            scans.values().forEach(future -> future.complete(ImmutableList.of()));
+        }
+    }
+
     public static class DynamicFilterDomainStats
     {
         private final DynamicFilterId dynamicFilterId;
@@ -653,399 +935,6 @@ public class DynamicFilterService
                     .add("simplifiedDomain", simplifiedDomain)
                     .add("collectionDuration", collectionDuration)
                     .toString();
-        }
-    }
-
-    private static class DynamicFilterCollectionContext
-    {
-        private final boolean replicated;
-        private final long domainSizeLimitInBytes;
-        @GuardedBy("collectedTasks")
-        private final RoaringBitmap collectedTasks = new RoaringBitmap();
-        private final Queue<Domain> summaryDomains = new ConcurrentLinkedQueue<>();
-        private final AtomicLong summaryDomainsRetainedSizeInBytes = new AtomicLong();
-
-        @GuardedBy("this")
-        private volatile Integer expectedTaskCount;
-        @GuardedBy("this")
-        private int collectedTaskCount;
-
-        private final long start = System.nanoTime();
-        private final AtomicReference<Duration> collectionDuration = new AtomicReference<>();
-        // modifications @GuardedBy("this")
-        private volatile boolean collected;
-        private final SettableFuture<Domain> collectedDomainsFuture = SettableFuture.create();
-
-        private DynamicFilterCollectionContext(boolean replicated, long domainSizeLimitInBytes)
-        {
-            this.replicated = replicated;
-            this.domainSizeLimitInBytes = domainSizeLimitInBytes;
-        }
-
-        public void collect(TaskId taskId, Domain domain)
-        {
-            if (collected) {
-                return;
-            }
-
-            if (replicated) {
-                collectReplicated(domain);
-            }
-            else {
-                collectPartitioned(taskId, domain);
-            }
-        }
-
-        private void collectReplicated(Domain domain)
-        {
-            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
-                domain = domain.simplify(1);
-            }
-            if (domain.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
-                domain = Domain.all(domain.getType());
-            }
-            Domain result;
-            synchronized (this) {
-                if (collected) {
-                    return;
-                }
-                collectedTaskCount++;
-                collected = true;
-                result = domain;
-            }
-            collectionDuration.set(Duration.succinctNanos(System.nanoTime() - start));
-            collectedDomainsFuture.set(result);
-        }
-
-        private void collectPartitioned(TaskId taskId, Domain domain)
-        {
-            synchronized (collectedTasks) {
-                if (!collectedTasks.checkedAdd(taskId.partitionId())) {
-                    return;
-                }
-            }
-
-            summaryDomainsRetainedSizeInBytes.addAndGet(domain.getRetainedSizeInBytes());
-            summaryDomains.add(domain);
-            unionSummaryDomainsIfNecessary(false);
-
-            Domain result;
-            synchronized (this) {
-                if (collected) {
-                    clearSummaryDomains();
-                    return;
-                }
-                collectedTaskCount++;
-                boolean allPartitionsCollected = expectedTaskCount != null && expectedTaskCount == collectedTaskCount;
-                if (allPartitionsCollected) {
-                    // run final compaction as previous concurrent compactions may have left more than a single domain
-                    unionSummaryDomainsIfNecessary(true);
-                }
-
-                boolean sizeLimitExceeded = false;
-                Domain allDomain = null;
-                Domain summary = summaryDomains.poll();
-                // summary can be null as another concurrent summary compaction may be running
-                if (summary != null) {
-                    long summarySize = summary.getRetainedSizeInBytes();
-                    if (summarySize > domainSizeLimitInBytes) {
-                        sizeLimitExceeded = true;
-                        allDomain = Domain.all(summary.getType());
-                        summaryDomainsRetainedSizeInBytes.addAndGet(-summarySize);
-                    }
-                    else {
-                        summaryDomains.add(summary);
-                    }
-                }
-
-                boolean collectionFinished = sizeLimitExceeded || domain.isAll() || allPartitionsCollected;
-                if (!collectionFinished) {
-                    return;
-                }
-                collected = true;
-                if (sizeLimitExceeded) {
-                    result = allDomain;
-                }
-                else if (domain.isAll()) {
-                    clearSummaryDomains();
-                    result = domain;
-                }
-                else {
-                    verify(allPartitionsCollected, "allPartitionsCollected is expected to be true");
-                    int summaryDomainsCount = summaryDomains.size();
-                    verify(summaryDomainsCount == 1, "summaryDomainsCount is expected to be equal to 1, got: %s", summaryDomainsCount);
-                    result = summaryDomains.poll();
-                    verify(result != null);
-                    long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-result.getRetainedSizeInBytes());
-                    verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
-                }
-            }
-
-            collectionDuration.set(Duration.succinctNanos(System.nanoTime() - start));
-            collectedDomainsFuture.set(result);
-        }
-
-        private void unionSummaryDomainsIfNecessary(boolean force)
-        {
-            if (summaryDomainsRetainedSizeInBytes.get() < domainSizeLimitInBytes && !force) {
-                return;
-            }
-
-            List<Domain> domains = new ArrayList<>();
-            long domainsRetainedSizeInBytes = 0;
-            while (true) {
-                Domain domain = summaryDomains.poll();
-                if (domain == null) {
-                    break;
-                }
-                domains.add(domain);
-                domainsRetainedSizeInBytes += domain.getRetainedSizeInBytes();
-            }
-
-            if (domains.isEmpty()) {
-                return;
-            }
-
-            Domain union = union(domains);
-            // Avoid large unions with domains that exceed size limit
-            if ((summaryDomainsRetainedSizeInBytes.get() - domainsRetainedSizeInBytes + union.getRetainedSizeInBytes()) > domainSizeLimitInBytes) {
-                union = union.simplify(1);
-            }
-            summaryDomainsRetainedSizeInBytes.addAndGet(union.getRetainedSizeInBytes() - domainsRetainedSizeInBytes);
-            long currentSize = summaryDomainsRetainedSizeInBytes.get();
-            verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
-            summaryDomains.add(union);
-        }
-
-        private void clearSummaryDomains()
-        {
-            long domainsRetainedSizeInBytes = 0;
-            while (true) {
-                Domain domain = summaryDomains.poll();
-                if (domain == null) {
-                    break;
-                }
-                domainsRetainedSizeInBytes += domain.getRetainedSizeInBytes();
-            }
-            summaryDomainsRetainedSizeInBytes.addAndGet(-domainsRetainedSizeInBytes);
-            long currentSize = summaryDomainsRetainedSizeInBytes.get();
-            verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
-        }
-
-        public void setExpectedTaskCount(int count)
-        {
-            if (collected || expectedTaskCount != null) {
-                return;
-            }
-            checkArgument(count > 0, "count is expected to be greater than zero: %s", count);
-
-            Domain result;
-            synchronized (this) {
-                if (collected || expectedTaskCount != null) {
-                    return;
-                }
-                expectedTaskCount = count;
-                verify(collectedTaskCount <= expectedTaskCount,
-                        "collectedTaskCount is expected to be less than or equal to %s, got: %s",
-                        expectedTaskCount,
-                        collectedTaskCount);
-                if (collectedTaskCount != expectedTaskCount) {
-                    return;
-                }
-                // run union one more time
-                unionSummaryDomainsIfNecessary(true);
-
-                verify(summaryDomains.size() == 1);
-                result = summaryDomains.poll();
-                verify(result != null);
-                long currentSize = summaryDomainsRetainedSizeInBytes.addAndGet(-result.getRetainedSizeInBytes());
-                verify(currentSize == 0, "currentSize is expected to be zero: %s", currentSize);
-            }
-
-            collectionDuration.set(Duration.succinctNanos(System.nanoTime() - start));
-            collectedDomainsFuture.set(result);
-        }
-
-        public ListenableFuture<Domain> getCollectedDomainFuture()
-        {
-            return collectedDomainsFuture;
-        }
-
-        public Optional<Duration> getCollectionDuration()
-        {
-            return Optional.ofNullable(collectionDuration.get());
-        }
-    }
-
-    private static class DynamicFilterContext
-    {
-        private final Session session;
-        private final Set<DynamicFilterId> dynamicFilters;
-        private final Set<DynamicFilterId> replicatedDynamicFilters;
-        private final DataSize dynamicFilterSizeLimit;
-        private final Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters;
-        private final Map<DynamicFilterId, DynamicFilterCollectionContext> dynamicFilterCollectionContexts;
-
-        private final Map<StageId, Set<DynamicFilterId>> stageDynamicFilters = new ConcurrentHashMap<>();
-        private final Map<StageId, Integer> stageNumberOfTasks = new ConcurrentHashMap<>();
-
-        private final int attemptId;
-
-        private DynamicFilterContext(
-                Session session,
-                Set<DynamicFilterId> dynamicFilters,
-                Set<DynamicFilterId> lazyDynamicFilters,
-                Set<DynamicFilterId> replicatedDynamicFilters,
-                DataSize dynamicFilterSizeLimit,
-                int attemptId)
-        {
-            this.session = requireNonNull(session, "session is null");
-            this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
-            requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
-            this.lazyDynamicFilters = lazyDynamicFilters.stream()
-                    .collect(toImmutableMap(identity(), _ -> SettableFuture.create()));
-            this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
-            this.dynamicFilterSizeLimit = requireNonNull(dynamicFilterSizeLimit, "dynamicFilterSizeLimit is null");
-            ImmutableMap.Builder<DynamicFilterId, DynamicFilterCollectionContext> collectionContexts = ImmutableMap.builder();
-            for (DynamicFilterId dynamicFilterId : dynamicFilters) {
-                DynamicFilterCollectionContext collectionContext = new DynamicFilterCollectionContext(replicatedDynamicFilters.contains(dynamicFilterId), dynamicFilterSizeLimit.toBytes());
-                collectionContexts.put(dynamicFilterId, collectionContext);
-                SettableFuture<Void> lazyDynamicFilterFuture = this.lazyDynamicFilters.get(dynamicFilterId);
-                if (lazyDynamicFilterFuture != null) {
-                    collectionContext.getCollectedDomainFuture().addListener(() -> lazyDynamicFilterFuture.set(null), directExecutor());
-                }
-            }
-            dynamicFilterCollectionContexts = collectionContexts.buildOrThrow();
-            this.attemptId = attemptId;
-        }
-
-        DynamicFilterContext createContextForQueryRetry(int attemptId)
-        {
-            return new DynamicFilterContext(
-                    session,
-                    dynamicFilters,
-                    lazyDynamicFilters.keySet(),
-                    replicatedDynamicFilters,
-                    dynamicFilterSizeLimit,
-                    attemptId);
-        }
-
-        void addDynamicFilterConsumer(Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
-        {
-            for (DynamicFilterId dynamicFilterId : dynamicFilterIds) {
-                DynamicFilterCollectionContext collectionContext = dynamicFilterCollectionContexts.get(dynamicFilterId);
-                verify(collectionContext != null, "collectionContext is missing for %s", dynamicFilterId);
-                addSuccessCallback(collectionContext.getCollectedDomainFuture(), domain -> consumer.accept(ImmutableMap.of(dynamicFilterId, domain)));
-            }
-        }
-
-        public Session getSession()
-        {
-            return session;
-        }
-
-        private int getTotalDynamicFilters()
-        {
-            return dynamicFilters.size();
-        }
-
-        private void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
-        {
-            newDynamicFilters.forEach((dynamicFilterId, domain) -> {
-                DynamicFilterCollectionContext collectionContext = dynamicFilterCollectionContexts.get(dynamicFilterId);
-                verify(collectionContext != null, "collectionContext is missing for %s", dynamicFilterId);
-                collectionContext.collect(taskId, domain);
-            });
-
-            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), _ -> ConcurrentHashMap.newKeySet()).addAll(newDynamicFilters.keySet())) {
-                updateExpectedTaskCount();
-            }
-        }
-
-        private void stageCannotScheduleMoreTasks(StageId stageId, int numberOfTasks)
-        {
-            if (stageNumberOfTasks.put(stageId, numberOfTasks) == null) {
-                updateExpectedTaskCount();
-            }
-        }
-
-        private void updateExpectedTaskCount()
-        {
-            stageNumberOfTasks.forEach((stage, taskCount) -> {
-                Set<DynamicFilterId> filtersIds = stageDynamicFilters.get(stage);
-                if (filtersIds != null) {
-                    for (DynamicFilterId filterId : filtersIds) {
-                        DynamicFilterCollectionContext collectionContext = dynamicFilterCollectionContexts.get(filterId);
-                        verify(collectionContext != null, "collectionContext is missing for %s", filterId);
-                        collectionContext.setExpectedTaskCount(taskCount);
-                    }
-                }
-            });
-        }
-
-        private Map<DynamicFilterId, Domain> getDynamicFilterSummaries()
-        {
-            return dynamicFilterCollectionContexts.entrySet().stream()
-                    .filter(entry -> entry.getValue().getCollectedDomainFuture().isDone())
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> getFutureValue(entry.getValue().getCollectedDomainFuture())));
-        }
-
-        private Optional<Domain> getDynamicFilterSummary(DynamicFilterId filterId)
-        {
-            DynamicFilterCollectionContext context = dynamicFilterCollectionContexts.get(filterId);
-            if (context == null || !context.getCollectedDomainFuture().isDone()) {
-                return Optional.empty();
-            }
-            return Optional.of(getFutureValue(context.getCollectedDomainFuture()));
-        }
-
-        private Map<DynamicFilterId, SettableFuture<Void>> getLazyDynamicFilters()
-        {
-            return lazyDynamicFilters;
-        }
-
-        private Set<DynamicFilterId> getReplicatedDynamicFilters()
-        {
-            return replicatedDynamicFilters;
-        }
-
-        private Optional<Duration> getDynamicFilterCollectionDuration(DynamicFilterId dynamicFilterId)
-        {
-            DynamicFilterCollectionContext collectionContext = dynamicFilterCollectionContexts.get(dynamicFilterId);
-            verify(collectionContext != null, "collectionContext is missing for %s", dynamicFilterId);
-            return collectionContext.getCollectionDuration();
-        }
-
-        private int getAttemptId()
-        {
-            return attemptId;
-        }
-
-        private boolean isTaskRetriesEnabled()
-        {
-            return getRetryPolicy(session) == RetryPolicy.TASK;
-        }
-    }
-
-    private static class CurrentDynamicFilter
-    {
-        private final int completedDynamicFiltersCount;
-        private final TupleDomain<ColumnHandle> dynamicFilter;
-
-        private CurrentDynamicFilter(int completedDynamicFiltersCount, TupleDomain<ColumnHandle> dynamicFilter)
-        {
-            this.completedDynamicFiltersCount = completedDynamicFiltersCount;
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-        }
-
-        private int getCompletedDynamicFiltersCount()
-        {
-            return completedDynamicFiltersCount;
-        }
-
-        private TupleDomain<ColumnHandle> getDynamicFilter()
-        {
-            return dynamicFilter;
         }
     }
 }

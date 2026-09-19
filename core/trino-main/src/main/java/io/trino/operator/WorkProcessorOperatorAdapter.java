@@ -19,7 +19,9 @@ import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -73,6 +75,27 @@ public class WorkProcessorOperatorAdapter
         public OperatorFactory duplicate()
         {
             return new Factory(operatorFactory.duplicate());
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            operatorFactory.propagateRuntimeConstraint(request, input, context);
+        }
+
+        @Override
+        public List<RuntimeConstraintRequest> getInputRuntimeConstraints()
+        {
+            return operatorFactory.getInputRuntimeConstraints();
+        }
+
+        @Override
+        public void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context)
+        {
+            operatorFactory.completeRuntimeConstraintWiring(context);
         }
 
         @Override

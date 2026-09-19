@@ -58,7 +58,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
-import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -204,10 +203,9 @@ public class TestHivePlans
                         join(INNER, builder -> builder
                                 .equiCriteria("L_INT_PART", "R_INT_COL")
                                 .left(
-                                        exchange(REMOTE, REPARTITION,
-                                                filter(
-                                                        TRUE,
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
@@ -305,10 +303,9 @@ public class TestHivePlans
                         join(INNER, builder -> builder
                                 .equiCriteria("L_INT_PART", "R_INT_COL")
                                 .left(
-                                        exchange(REMOTE, REPARTITION,
-                                                filter(
-                                                        TRUE,
-                                                        tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
+                                        exchange(REMOTE,
+                                                REPARTITION,
+                                                tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
@@ -326,10 +323,7 @@ public class TestHivePlans
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("L_INT_PART", "R_INT_COL")
-                                .left(
-                                        filter(
-                                                TRUE,
-                                                tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))
+                                .left(tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))
                                 .right(
                                         exchange(LOCAL,
                                                 exchange(REMOTE,

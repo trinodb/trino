@@ -32,6 +32,23 @@ public class TestSingleDistributionSplitAssigner
     private static final PlanNodeId PLAN_NODE_2 = new PlanNodeId("plan-node-2");
 
     @Test
+    public void testStartWiringMarksEmptySchedulingUpdate()
+    {
+        SplitAssigner splitAssigner = new SingleDistributionSplitAssigner(Optional.empty(), ImmutableSet.of(PLAN_NODE_1));
+
+        assertThat(splitAssigner.startWiring(PLAN_NODE_1).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> {
+                    assertThat(update.readyForScheduling()).isTrue();
+                    assertThat(update.splits().isEmpty()).isTrue();
+                    assertThat(update.wiringOnly()).isTrue();
+                });
+        assertThat(splitAssigner.assign(PLAN_NODE_1, ImmutableListMultimap.of(0, createSplit(1)), false).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> assertThat(update.wiringOnly()).isFalse());
+    }
+
+    @Test
     public void testNoSources()
     {
         Optional<HostAddress> hostRequirement = Optional.of(HostAddress.fromParts("localhost", 8080));

@@ -40,6 +40,7 @@ public class DriverFactory
     @GuardedBy("this")
     private volatile boolean noMoreDrivers;
     private volatile List<OperatorFactory> operatorFactories;
+    private final List<OperatorFactory> runtimeConstraintOperatorFactories;
 
     public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
@@ -47,6 +48,7 @@ public class DriverFactory
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
         this.operatorFactories = ImmutableList.copyOf(requireNonNull(operatorFactories, "operatorFactories is null"));
+        this.runtimeConstraintOperatorFactories = this.operatorFactories;
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
         this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
 
@@ -87,6 +89,57 @@ public class DriverFactory
     public OptionalInt getDriverInstances()
     {
         return driverInstances;
+    }
+
+    public void initializeRuntimeConstraints(RuntimeConstraintWiringContext context)
+    {
+        requireNonNull(context, "context is null");
+        runtimeConstraintOperatorFactories.getLast().registerRuntimeConstraintInput(requests -> propagateRuntimeConstraints(requests, context), context);
+        if (!context.isEnabled()) {
+            runtimeConstraintOperatorFactories.stream()
+                    .filter(SourceOperatorFactory.class::isInstance)
+                    .forEach(operatorFactory -> operatorFactory.completeRuntimeConstraintWiring(context));
+            return;
+        }
+        List<RuntimeConstraintRequest> pending = ImmutableList.of();
+        for (int index = runtimeConstraintOperatorFactories.size() - 1; index >= 0; index--) {
+            OperatorFactory operatorFactory = runtimeConstraintOperatorFactories.get(index);
+            ImmutableList.Builder<RuntimeConstraintRequest> inputRequests = ImmutableList.builder();
+            String owner = pipelineId + ":" + index + ":" + operatorFactory.getClass().getSimpleName();
+            pending.forEach(request -> operatorFactory.propagateRuntimeConstraint(context.enterOperator(owner, request), inputRequests::add, context));
+            inputRequests.addAll(operatorFactory.getInputRuntimeConstraints(context));
+            operatorFactory.completeRuntimeConstraintWiring(context);
+            pending = inputRequests.build();
+        }
+        pending.forEach(request -> context.stop(runtimeConstraintOperatorFactories.getFirst(), request));
+    }
+
+    public synchronized boolean propagateRuntimeConstraints(List<RuntimeConstraintRequest> requests, RuntimeConstraintWiringContext context)
+    {
+        requireNonNull(requests, "requests is null");
+        requireNonNull(context, "context is null");
+        boolean applied = true;
+        List<RuntimeConstraintRequest> pending = ImmutableList.copyOf(requests);
+        if (noMoreDrivers && !(runtimeConstraintOperatorFactories.getLast() instanceof RuntimeConstraintOutputOperatorFactory)) {
+            List<RuntimeConstraintRequest> collectionRequests = requests.stream()
+                    .filter(RuntimeConstraintRequest::isCollection)
+                    .toList();
+            collectionRequests.forEach(request -> context.stop("closed " + DriverFactory.class.getSimpleName(), request));
+            pending = requests.stream()
+                    .filter(request -> !request.isCollection())
+                    .toList();
+            applied = collectionRequests.isEmpty();
+        }
+        for (int index = runtimeConstraintOperatorFactories.size() - 1; index >= 0; index--) {
+            OperatorFactory operatorFactory = runtimeConstraintOperatorFactories.get(index);
+            ImmutableList.Builder<RuntimeConstraintRequest> inputRequests = ImmutableList.builder();
+            String owner = pipelineId + ":" + index + ":" + operatorFactory.getClass().getSimpleName();
+            pending.forEach(request -> operatorFactory.propagateRuntimeConstraint(context.enterOperator(owner, request), inputRequests::add, context));
+            operatorFactory.completeRuntimeConstraintWiring(context);
+            pending = inputRequests.build();
+        }
+        pending.forEach(request -> context.stop(runtimeConstraintOperatorFactories.getFirst(), request));
+        return applied;
     }
 
     @Nullable

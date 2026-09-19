@@ -22,7 +22,9 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.operator.DriverContext;
 import io.trino.operator.PipelineContext;
+import io.trino.operator.TableFinishInfo;
 import io.trino.operator.TaskStats;
 import io.trino.operator.TestingOperatorContext;
 import io.trino.spi.QueryId;
@@ -264,6 +266,35 @@ public class TestStageStateMachine
         assertThat(stats.getRunningPercentage()).isEmpty();
         assertThat(stats.getProgressPercentage()).isEmpty();
         assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
+    }
+
+    @Test
+    public void testSuccessfulCommitInfoSurvivesAbortedInitialization()
+    {
+        try (ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1)) {
+            DriverContext initialization = TestingOperatorContext.createDriverContext(executor).getPipelineContext().addDriverContext();
+            DriverContext execution = TestingOperatorContext.createDriverContext(executor).getPipelineContext().addDriverContext();
+            TableFinishInfo emptyInfo = new TableFinishInfo(Optional.empty(), new Duration(0, MILLISECONDS), new Duration(0, MILLISECONDS));
+            TableFinishInfo committedInfo = new TableFinishInfo(Optional.of(() -> ImmutableMap.of("added-records", "25")), new Duration(1, MILLISECONDS), new Duration(1, MILLISECONDS));
+            initialization.addOperatorContext(0, new PlanNodeId("finish"), "TableFinish").setInfoSupplier(() -> emptyInfo);
+            execution.addOperatorContext(0, new PlanNodeId("finish"), "TableFinish").setInfoSupplier(() -> committedInfo);
+            TaskInfo initialTask = TaskInfo.createInitialTask(new TaskId(STAGE_ID, 0, 0), URI.create(""), "0", true, Optional.empty(), taskStats(ImmutableList.of(initialization.getPipelineContext())));
+            TaskInfo dataTask = TaskInfo.createInitialTask(new TaskId(STAGE_ID, 0, 1), URI.create(""), "0", false, Optional.empty(), taskStats(ImmutableList.of(execution.getPipelineContext())));
+            TaskInfo aborted = initialTask.withTaskStatus(TaskStatus.failWith(initialTask.taskStatus(), TaskState.ABORTED, ImmutableList.of()));
+            TaskInfo finished = dataTask.withTaskStatus(TaskStatus.failWith(dataTask.taskStatus(), TaskState.FINISHED, ImmutableList.of()));
+
+            for (List<TaskInfo> tasks : ImmutableList.of(ImmutableList.of(aborted, finished), ImmutableList.of(finished, aborted))) {
+                var operators = createStageStateMachine().getStageInfo(() -> tasks).stageStats().getOperatorSummaries();
+                assertThat(operators).hasSize(1);
+                assertThat(operators.getFirst().getInfo()).isSameAs(committedInfo);
+                assertThat(operators.getFirst().getTotalDrivers()).isEqualTo(2);
+            }
+
+            // There is no unique result when more than one task succeeds.
+            TaskInfo anotherFinished = initialTask.withTaskStatus(TaskStatus.failWith(initialTask.taskStatus(), TaskState.FINISHED, ImmutableList.of()));
+            var operators = createStageStateMachine().getStageInfo(() -> ImmutableList.of(anotherFinished, finished)).stageStats().getOperatorSummaries();
+            assertThat(operators.getFirst().getInfo()).isNull();
+        }
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)

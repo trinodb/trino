@@ -434,7 +434,7 @@ public class TestMemoryConnectorTest
         assertUpdate("INSERT INTO build_nan VALUES 1, NULL, nan()", 3);
 
         Session session = noJoinReordering(BROADCAST);
-        assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", session, 3, 5, 3);
+        assertNoRuntimeConstraint("SELECT * FROM probe_nan p JOIN build_nan b ON p.v IS NOT DISTINCT FROM b.v", session, 3, 5, 3);
         assertDynamicFiltering("SELECT * FROM probe_nan p JOIN build_nan b ON p.v = b.v", session, 1, 1, 3);
     }
 
@@ -474,10 +474,30 @@ public class TestMemoryConnectorTest
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
+        assertDynamicFiltering(selectQuery, session, expectedRowCount, true, expectedOperatorRowsRead);
+    }
+
+    private void assertNoRuntimeConstraint(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
+    {
+        assertDynamicFiltering(selectQuery, session, expectedRowCount, false, expectedOperatorRowsRead);
+    }
+
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, boolean graphExpected, int... expectedOperatorRowsRead)
+    {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(session, selectQuery);
 
         assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
         assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
+        if (graphExpected) {
+            assertThat(getDynamicFilteringStats(result.queryId()).getTotalDynamicFilters())
+                    .as("runtime constraints for %s", selectQuery)
+                    .isGreaterThan(0);
+        }
+        else {
+            assertThat(getDynamicFilteringStats(result.queryId()).getTotalDynamicFilters())
+                    .as("runtime constraints for unsupported query %s", selectQuery)
+                    .isZero();
+        }
     }
 
     private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)

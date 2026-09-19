@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package io.trino.operator;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +39,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintUpdateBatch;
 
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -109,11 +111,8 @@ public class TaskContext
 
     private final MemoryTrackingContext taskMemoryContext;
     private final DynamicFiltersCollector dynamicFiltersCollector;
-
-    // The collector is shared for dynamic filters collected from coordinator
-    // as well as from local build-side of replicated joins. It is also shared
-    // with multiple table scans (e.g. co-located joins).
     private final LocalDynamicFiltersCollector localDynamicFiltersCollector;
+    private final TaskRuntimeConstraintManager runtimeConstraintManager;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -171,6 +170,11 @@ public class TaskContext
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
+        this.runtimeConstraintManager = new TaskRuntimeConstraintManager(
+                taskStateMachine.getTaskId(),
+                getRetryPolicy(session) == RetryPolicy.QUERY ? taskStateMachine.getTaskId().attemptId() : 0,
+                taskMemoryContext.aggregateUserMemoryContext().newLocalMemoryContext(TaskRuntimeConstraintManager.class.getSimpleName()),
+                notifyStatusChanged);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
     }
@@ -232,6 +236,7 @@ public class TaskContext
             terminatingStartTime.compareAndSet(null, Instant.now());
         }
         else if (newState.isDone()) {
+            runtimeConstraintManager.taskFinished();
             Instant now = Instant.now();
             long majorGcCount = gcMonitor.getMajorGcCount();
             long majorGcTime = gcMonitor.getMajorGcTime().roundTo(NANOSECONDS);
@@ -449,6 +454,41 @@ public class TaskContext
     public VersionedDynamicFilterDomains getCurrentDynamicFilterDomains()
     {
         return dynamicFiltersCollector.getCurrentDynamicFilterDomains();
+    }
+
+    public long getRuntimeConstraintContributionsSequence()
+    {
+        return runtimeConstraintManager.getContributionSequence();
+    }
+
+    public long getRuntimeConstraintUpdateAcknowledgement()
+    {
+        return runtimeConstraintManager.getUpdateAcknowledgement();
+    }
+
+    public RuntimeConstraintContributionBatch acknowledgeAndGetRuntimeConstraintContributions(long acknowledgedSequence)
+    {
+        return runtimeConstraintManager.acknowledgeContributionsAndGetBatch(acknowledgedSequence);
+    }
+
+    public void acknowledgeRuntimeConstraintContributions(long acknowledgedSequence)
+    {
+        runtimeConstraintManager.acknowledgeContributions(acknowledgedSequence);
+    }
+
+    public void addRuntimeConstraintUpdates(RuntimeConstraintUpdateBatch updates)
+    {
+        runtimeConstraintManager.applyUpdates(updates);
+    }
+
+    public TaskRuntimeConstraintManager getRuntimeConstraintManager()
+    {
+        return runtimeConstraintManager;
+    }
+
+    public void addRuntimeConstraintWiringRequests(List<RuntimeConstraintRequest> requests)
+    {
+        runtimeConstraintManager.addRuntimeConstraintWiringRequests(requests);
     }
 
     public TaskStats getTaskStats()
