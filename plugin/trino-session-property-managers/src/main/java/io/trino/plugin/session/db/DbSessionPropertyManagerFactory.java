@@ -52,6 +52,8 @@ public class DbSessionPropertyManagerFactory
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
+            injector.getInstance(FlywayMigration.class).migrate();
+
             return injector.getInstance(DbSessionPropertyManager.class);
         }
         catch (Exception e) {
