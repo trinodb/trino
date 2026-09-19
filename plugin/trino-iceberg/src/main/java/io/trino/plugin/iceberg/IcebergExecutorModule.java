@@ -42,6 +42,7 @@ public class IcebergExecutorModule
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergPlanning.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergDeleteLoading.class));
     }
 
     @Singleton
@@ -102,5 +103,18 @@ public class IcebergExecutorModule
         return newFixedThreadPool(
                 config.getFileDeleteThreads(),
                 daemonThreadsNamed("iceberg-file-delete-" + catalogName + "-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergDeleteLoading
+    public ExecutorService createDeleteLoadingExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getDeleteLoadingThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getDeleteLoadingThreads(),
+                daemonThreadsNamed("iceberg-delete-loading-" + catalogName + "-%s"));
     }
 }

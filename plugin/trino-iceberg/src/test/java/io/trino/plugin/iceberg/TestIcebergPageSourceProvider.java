@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -294,7 +295,8 @@ class TestIcebergPageSourceProvider
                 Optional.of(blocksHashFactory),
                 ENCRYPTION_MANAGER_FACTORY,
                 memoryContext,
-                new IcebergConfig().getDomainCompactionThreshold());
+                new IcebergConfig().getDomainCompactionThreshold(),
+                newDirectExecutorService());
     }
 
     private static class TestingParquetFooterCache
