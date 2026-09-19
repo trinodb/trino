@@ -64,18 +64,21 @@ final class TestOpaBatchAccessControlFiltering
                         {
                             "user": {
                                 "user": "user-one",
+                                "principal": "user-one",
                                 "groups": []
                             }
                         },
                         {
                             "user": {
                                 "user": "user-two",
+                                "principal": "user-two",
                                 "groups": []
                             }
                         },
                         {
                             "user": {
                                 "user": "user-three",
+                                "principal": "user-three",
                                 "groups": []
                             }
                         }
