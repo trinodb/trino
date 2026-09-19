@@ -911,14 +911,14 @@ public abstract class BaseJdbcClient
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
         // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
-        ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
+        ImmutableList.Builder<String> columnDefinitions = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
 
         for (ColumnMetadata column : columns) {
             String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
             verifyColumnName(connection.getMetaData(), columnName);
             columnNames.add(columnName);
             columnTypes.add(column.getType());
-            columnList.add(getColumnDefinitionSql(session, column, columnName));
+            columnDefinitions.add(getColumnDefinitionSql(session, column, columnName));
         }
 
         Optional<String> pageSinkIdColumnName = Optional.empty();
@@ -926,11 +926,11 @@ public abstract class BaseJdbcClient
             String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, pageSinkIdColumn.get().getName());
             pageSinkIdColumnName = Optional.of(columnName);
             verifyColumnName(connection.getMetaData(), columnName);
-            columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
+            columnDefinitions.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
         }
 
         RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
-        for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+        for (String sql : createTableSqls(remoteTableName, columnNames.build(), columnDefinitions.build(), tableMetadata)) {
             execute(session, connection, sql);
         }
 
@@ -943,13 +943,13 @@ public abstract class BaseJdbcClient
                 pageSinkIdColumnName);
     }
 
-    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columnNames, List<String> columnDefinitions, ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        return ImmutableList.of(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columnDefinitions)));
     }
 
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
