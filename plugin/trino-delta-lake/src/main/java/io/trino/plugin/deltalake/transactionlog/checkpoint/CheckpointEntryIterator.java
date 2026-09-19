@@ -545,7 +545,7 @@ public class CheckpointEntryIterator
             Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
                     .map(row -> parseStatisticsFromParquet(row, addParsedStatsFieldType.orElseThrow()));
             Optional<String> stats = Optional.empty();
-            if (parsedStats.isEmpty()) {
+            if (parsedStats.isEmpty() || deletionVector.isPresent()) {
                 stats = Optional.ofNullable(addReader.getString("stats"));
             }
 

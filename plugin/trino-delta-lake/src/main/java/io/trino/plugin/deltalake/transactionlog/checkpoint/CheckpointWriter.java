@@ -353,7 +353,8 @@ public class CheckpointWriter
                         parquetFileStatistics.getNumRecords(),
                         parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
                         parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
+                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)),
+                        parquetFileStatistics.getTightBounds());
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
             else {

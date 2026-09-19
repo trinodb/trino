@@ -31,6 +31,7 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -444,13 +445,14 @@ public class DeltaLakeMergeSink
         writtenBytes += deletionVectorEntry.sizeInBytes();
 
         try {
+            DeltaLakeJsonFileStatistics statistics = readStatistics(parquetMetadata, dataColumns, rowCount);
             DataFileInfo newFileInfo = new DataFileInfo(
                     sourceReferencePath,
                     length,
                     lastModified.toEpochMilli(),
                     DATA,
                     deletion.partitionValues,
-                    readStatistics(parquetMetadata, dataColumns, rowCount),
+                    new DeltaLakeJsonFileStatistics(statistics.getNumRecords(), statistics.getMinValues(), statistics.getMaxValues(), statistics.getNullCount(), Optional.of(false)),
                     Optional.of(deletionVectorEntry));
             DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
