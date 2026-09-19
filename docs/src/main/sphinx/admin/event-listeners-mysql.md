@@ -54,8 +54,9 @@ If another event listener is already configured, add the new value
 After this configuration and successful start of the Trino cluster, the table
 `trino_queries` is created in the MySQL database. From then on, any query
 processing event is captured by the event listener and a new row is inserted
-into the table. The table includes many columns, such as query identifier, query
-string, user, catalog, and others with information about the query processing.
+into the table. The table includes many columns, such as query identifier,
+query creation time, query string, user, catalog, and others with information
+about the query processing.
 
 ### Configuration properties
 
