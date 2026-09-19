@@ -579,6 +579,13 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
+The REST catalog supports [view management](sql-view-management)
+using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
+
+The REST catalog does not support [materialized view management](sql-materialized-view-management).
+
+#### Databricks Unity Catalog
+
 `iceberg.security` must be `read_only` when connecting to Databricks Unity catalog
 using an Iceberg REST catalog:
 
@@ -590,6 +597,8 @@ iceberg.security=read_only
 iceberg.rest-catalog.security=OAUTH2
 iceberg.rest-catalog.oauth2.token=***
 ```
+
+#### BigLake metastore
 
 `iceberg.rest-catalog.security` must be `GOOGLE` when connecting to BigLake metastore
 using an Iceberg REST catalog.
@@ -612,11 +621,6 @@ gcs.json-key-file-path=/path/to/gcs_keyfile.json
 Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
 (ADC) are used, which supports GKE Workload Identity and other
 environment-based credential sources.
-
-The REST catalog supports [view management](sql-view-management) 
-using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
-
-The REST catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
 ### JDBC catalog
