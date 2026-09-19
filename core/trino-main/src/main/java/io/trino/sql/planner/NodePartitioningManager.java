@@ -27,6 +27,7 @@ import io.trino.execution.scheduler.NodeSelector;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -51,11 +52,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
+import static io.trino.execution.scheduler.NodeScheduler.noNodesAvailable;
 import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
-import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -114,11 +116,12 @@ public class NodePartitioningManager
             checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
             if (connectorBucketNodeMap.hasFixedMapping()) {
+                checkNodeGroupSupported(session, partitioningHandle);
                 bucketToNode = getFixedMapping(connectorBucketNodeMap);
                 verify(bucketToNode.size() == connectorBucketNodeMap.getBucketCount(), "Fixed mapping size does not match bucket count");
             }
             else {
-                List<InternalNode> allNodes = getAllNodes(session);
+                List<InternalNode> allNodes = schedulableNodes(session);
                 bucketToNode = bucketToNodeCache.computeIfAbsent(
                         connectorBucketNodeMap.getBucketCount(),
                         bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), allNodes.subList(0, Math.min(allNodes.size(), partitionCount)), bucketCount));
@@ -169,7 +172,9 @@ public class NodePartitioningManager
             }
             default -> throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
         };
-        checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
+        if (nodes.isEmpty()) {
+            throw noNodesAvailable(session.getNodeGroup());
+        }
         return nodes;
     }
 
@@ -202,11 +207,12 @@ public class NodePartitioningManager
         ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle, bucketCount);
 
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
+            checkNodeGroupSupported(session, partitioningHandle);
             return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
         long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
-        List<InternalNode> nodes = getAllNodes(session);
+        List<InternalNode> nodes = schedulableNodes(session);
         nodes = nodes.subList(0, Math.min(nodes.size(), partitionCount));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
@@ -252,6 +258,32 @@ public class NodePartitioningManager
     private List<InternalNode> getAllNodes(Session session)
     {
         return nodeScheduler.createNodeSelector(session).allNodes();
+    }
+
+    /**
+     * Nodes the query may be scheduled on, failing rather than letting an empty node group surface later
+     * as a bucket mapping covering no node.
+     */
+    private List<InternalNode> schedulableNodes(Session session)
+    {
+        List<InternalNode> nodes = getAllNodes(session);
+        if (nodes.isEmpty()) {
+            throw noNodesAvailable(session.getNodeGroup());
+        }
+        return nodes;
+    }
+
+    /**
+     * A connector pins buckets from the cluster-wide node list, so the query would escape its node group.
+     */
+    private static void checkNodeGroupSupported(Session session, PartitioningHandle partitioningHandle)
+    {
+        if (session.getNodeGroup().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "Catalog '%s' assigns partitions to specific nodes, which is not supported for a query restricted to node group '%s'",
+                    requiredCatalogHandle(partitioningHandle).getCatalogName(),
+                    session.getNodeGroup().get()));
+        }
     }
 
     private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)
