@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
@@ -44,6 +45,7 @@ public class ConnectorContextInstance
     private final BlocksHashFactory blocksHashFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final ConnectorCacheFactory cacheFactory;
+    private final CredentialResolver credentialResolver;
 
     public ConnectorContextInstance(
             OpenTelemetry openTelemetry,
@@ -57,7 +59,8 @@ public class ConnectorContextInstance
             FunctionBundleFactory functionBundleFactory,
             BlocksHashFactory blocksHashFactory,
             ConnectorExpressionEvaluator evaluator,
-            ConnectorCacheFactory cacheFactory)
+            ConnectorCacheFactory cacheFactory,
+            CredentialResolver credentialResolver)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -71,6 +74,7 @@ public class ConnectorContextInstance
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.cacheFactory = requireNonNull(cacheFactory, "cacheFactory is null");
+        this.credentialResolver = requireNonNull(credentialResolver, "credentialResolver is null");
     }
 
     @Override
@@ -143,5 +147,11 @@ public class ConnectorContextInstance
     public ConnectorCacheFactory getCacheFactory()
     {
         return cacheFactory;
+    }
+
+    @Override
+    public CredentialResolver getCredentialResolver()
+    {
+        return credentialResolver;
     }
 }

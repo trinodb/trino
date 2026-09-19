@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.transaction.TransactionManager;
@@ -80,6 +81,7 @@ public class DefaultCatalogFactory
     private final SecretsResolver secretsResolver;
     private final ConnectorExpressionEvaluator evaluator;
     private final CacheManagerRegistry cacheManagerRegistry;
+    private final CredentialResolver credentialResolver;
 
     @Inject
     public DefaultCatalogFactory(
@@ -98,7 +100,8 @@ public class DefaultCatalogFactory
             OptimizerConfig optimizerConfig,
             SecretsResolver secretsResolver,
             ConnectorExpressionEvaluator evaluator,
-            CacheManagerRegistry cacheManagerRegistry)
+            CacheManagerRegistry cacheManagerRegistry,
+            CredentialResolver credentialResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -116,6 +119,7 @@ public class DefaultCatalogFactory
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.evaluator = requireNonNull(evaluator, "evaluator is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.credentialResolver = requireNonNull(credentialResolver, "credentialResolver is null");
     }
 
     @Override
@@ -211,7 +215,8 @@ public class DefaultCatalogFactory
                 new InternalFunctionBundleFactory(),
                 blocksHashFactory,
                 evaluator,
-                cacheManagerRegistry.createConnectorCacheFactory(catalogName));
+                cacheManagerRegistry.createConnectorCacheFactory(catalogName),
+                credentialResolver);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName
