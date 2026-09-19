@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.OptionalInt;
 
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
@@ -101,6 +102,12 @@ public class WorkProcessorSourceOperatorAdapter
         }
 
         return pages.getBlockedFuture();
+    }
+
+    @Override
+    public OptionalInt getBlockedProducerPipeline()
+    {
+        return pages.isBlocked() ? pages.getBlockedProducerPipeline() : OptionalInt.empty();
     }
 
     @Override

@@ -21,6 +21,7 @@ import jakarta.annotation.Nullable;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -46,6 +47,14 @@ public interface WorkProcessor<T>
      */
     ListenableFuture<Void> getBlockedFuture();
 
+    /// @return the producer pipeline this processor is currently blocked on (see
+    ///         [Operator#getBlockedProducerPipeline()]), if known. Propagated up the WorkProcessor chain so
+    ///         the operator adapter can surface it to the scheduler.
+    default OptionalInt getBlockedProducerPipeline()
+    {
+        return OptionalInt.empty();
+    }
+
     /**
      * @return true if the processor is finished. No more results are expected.
      */
@@ -68,7 +77,14 @@ public interface WorkProcessor<T>
 
     default WorkProcessor<T> blocking(Supplier<ListenableFuture<Void>> futureSupplier)
     {
-        return WorkProcessorUtils.blocking(this, futureSupplier);
+        return WorkProcessorUtils.blocking(this, futureSupplier, OptionalInt.empty());
+    }
+
+    /// Like [#blocking(Supplier)], but records the producer pipeline the block is waiting on so the
+    /// scheduler can donate priority to it.
+    default WorkProcessor<T> blocking(Supplier<ListenableFuture<Void>> futureSupplier, OptionalInt blockedProducerPipeline)
+    {
+        return WorkProcessorUtils.blocking(this, futureSupplier, blockedProducerPipeline);
     }
 
     default WorkProcessor<T> withProcessEntryMonitor(Runnable monitor)
@@ -207,9 +223,9 @@ public interface WorkProcessor<T>
     @Immutable
     final class TransformationState<T>
     {
-        private static final TransformationState<?> NEEDS_MORE_DATA_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, null, null);
-        private static final TransformationState<?> YIELD_STATE = new TransformationState<>(Type.YIELD, false, null, null);
-        private static final TransformationState<?> FINISHED_STATE = new TransformationState<>(Type.FINISHED, false, null, null);
+        private static final TransformationState<?> NEEDS_MORE_DATA_STATE = new TransformationState<>(Type.NEEDS_MORE_DATA, true, null, null, OptionalInt.empty());
+        private static final TransformationState<?> YIELD_STATE = new TransformationState<>(Type.YIELD, false, null, null, OptionalInt.empty());
+        private static final TransformationState<?> FINISHED_STATE = new TransformationState<>(Type.FINISHED, false, null, null, OptionalInt.empty());
 
         enum Type
         {
@@ -226,13 +242,15 @@ public interface WorkProcessor<T>
         private final T result;
         @Nullable
         private final ListenableFuture<Void> blocked;
+        private final OptionalInt blockedProducerPipeline;
 
-        private TransformationState(Type type, boolean needsMoreData, @Nullable T result, @Nullable ListenableFuture<Void> blocked)
+        private TransformationState(Type type, boolean needsMoreData, @Nullable T result, @Nullable ListenableFuture<Void> blocked, OptionalInt blockedProducerPipeline)
         {
             this.type = requireNonNull(type, "type is null");
             this.needsMoreData = needsMoreData;
             this.result = result;
             this.blocked = blocked;
+            this.blockedProducerPipeline = requireNonNull(blockedProducerPipeline, "blockedProducerPipeline is null");
         }
 
         /**
@@ -252,7 +270,13 @@ public interface WorkProcessor<T>
          */
         public static <T> TransformationState<T> blocked(ListenableFuture<Void> blocked)
         {
-            return new TransformationState<>(Type.BLOCKED, false, null, requireNonNull(blocked, "blocked is null"));
+            return blocked(blocked, OptionalInt.empty());
+        }
+
+        /// Signals that transformation is blocked waiting on `blockedProducerPipeline`.
+        public static <T> TransformationState<T> blocked(ListenableFuture<Void> blocked, OptionalInt blockedProducerPipeline)
+        {
+            return new TransformationState<>(Type.BLOCKED, false, null, requireNonNull(blocked, "blocked is null"), blockedProducerPipeline);
         }
 
         /**
@@ -280,7 +304,7 @@ public interface WorkProcessor<T>
          */
         public static <T> TransformationState<T> ofResult(T result, boolean needsMoreData)
         {
-            return new TransformationState<>(Type.RESULT, needsMoreData, requireNonNull(result, "result is null"), null);
+            return new TransformationState<>(Type.RESULT, needsMoreData, requireNonNull(result, "result is null"), null, OptionalInt.empty());
         }
 
         /**
@@ -313,13 +337,18 @@ public interface WorkProcessor<T>
         {
             return blocked;
         }
+
+        OptionalInt getBlockedProducerPipeline()
+        {
+            return blockedProducerPipeline;
+        }
     }
 
     @Immutable
     final class ProcessState<T>
     {
-        private static final ProcessState<?> YIELD_STATE = new ProcessState<>(Type.YIELD, null, null);
-        private static final ProcessState<?> FINISHED_STATE = new ProcessState<>(Type.FINISHED, null, null);
+        private static final ProcessState<?> YIELD_STATE = new ProcessState<>(Type.YIELD, null, null, OptionalInt.empty());
+        private static final ProcessState<?> FINISHED_STATE = new ProcessState<>(Type.FINISHED, null, null, OptionalInt.empty());
 
         public enum Type
         {
@@ -334,12 +363,16 @@ public interface WorkProcessor<T>
         private final T result;
         @Nullable
         private final ListenableFuture<Void> blocked;
+        // When blocked, the producer pipeline this block is waiting on, if known. Propagated so the
+        // scheduler can donate priority to it.
+        private final OptionalInt blockedProducerPipeline;
 
-        private ProcessState(Type type, @Nullable T result, @Nullable ListenableFuture<Void> blocked)
+        private ProcessState(Type type, @Nullable T result, @Nullable ListenableFuture<Void> blocked, OptionalInt blockedProducerPipeline)
         {
             this.type = requireNonNull(type, "type is null");
             this.result = result;
             this.blocked = blocked;
+            this.blockedProducerPipeline = requireNonNull(blockedProducerPipeline, "blockedProducerPipeline is null");
         }
 
         /**
@@ -347,7 +380,13 @@ public interface WorkProcessor<T>
          */
         public static <T> ProcessState<T> blocked(ListenableFuture<Void> blocked)
         {
-            return new ProcessState<>(Type.BLOCKED, null, requireNonNull(blocked, "blocked is null"));
+            return blocked(blocked, OptionalInt.empty());
+        }
+
+        /// Signals that process is blocked waiting on `blockedProducerPipeline`.
+        public static <T> ProcessState<T> blocked(ListenableFuture<Void> blocked, OptionalInt blockedProducerPipeline)
+        {
+            return new ProcessState<>(Type.BLOCKED, null, requireNonNull(blocked, "blocked is null"), blockedProducerPipeline);
         }
 
         /**
@@ -364,7 +403,7 @@ public interface WorkProcessor<T>
          */
         public static <T> ProcessState<T> ofResult(T result)
         {
-            return new ProcessState<>(Type.RESULT, requireNonNull(result, "result is null"), null);
+            return new ProcessState<>(Type.RESULT, requireNonNull(result, "result is null"), null, OptionalInt.empty());
         }
 
         /**
@@ -391,6 +430,11 @@ public interface WorkProcessor<T>
         public ListenableFuture<Void> getBlocked()
         {
             return blocked;
+        }
+
+        public OptionalInt getBlockedProducerPipeline()
+        {
+            return blockedProducerPipeline;
         }
     }
 }

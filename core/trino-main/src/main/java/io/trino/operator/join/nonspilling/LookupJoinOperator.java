@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -58,7 +59,8 @@ public class LookupJoinOperator
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
             OperatorContext operatorContext,
-            WorkProcessor<Page> sourcePages)
+            WorkProcessor<Page> sourcePages,
+            OptionalInt buildPipeline)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
         lookupSourceFuture = lookupSourceFactory.createLookupSource();
@@ -70,11 +72,12 @@ public class LookupJoinOperator
                 outputSingleMatch,
                 joinProbeFactory,
                 lookupSourceFuture,
-                statisticsCounter);
+                statisticsCounter,
+                buildPipeline);
         WorkProcessor<Page> pages = sourcePages.transform(sourcePagesJoiner);
         if (waitForBuild) {
             // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceFuture, _ -> null, directExecutor()));
+            pages = pages.blocking(() -> transform(lookupSourceFuture, _ -> null, directExecutor()), buildPipeline);
         }
         this.pages = pages;
     }

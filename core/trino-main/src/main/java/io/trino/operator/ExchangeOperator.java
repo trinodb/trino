@@ -18,8 +18,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
 import io.trino.connector.CatalogHandle;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeEncryptionKey;
+import io.trino.exchange.ExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.TaskId;
@@ -37,6 +39,7 @@ import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,6 +48,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
@@ -153,6 +157,10 @@ public class ExchangeOperator
     private final NoMoreSplitsTracker noMoreSplitsTracker;
     private final int operatorInstanceId;
 
+    // Producer tasks of this operator's direct-exchange inputs; may repeat if one feeds several
+    // splits, which is harmless — a blocked consumer's donation deduplicates them by scheduling group.
+    private final List<TaskId> producerTasks = new ArrayList<>();
+
     private PageDeserializer deserializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
@@ -187,7 +195,21 @@ public class ExchangeOperator
         checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeDataSource.addInput(remoteSplit.getExchangeInput());
+        ExchangeInput input = remoteSplit.getExchangeInput();
+        if (input instanceof DirectExchangeInput directInput) {
+            // Remember the producer task so a blocked consumer can donate priority to it when it is
+            // co-located on this worker.
+            producerTasks.add(directInput.getTaskId());
+        }
+        exchangeDataSource.addInput(input);
+    }
+
+    @Override
+    public List<TaskId> getBlockedProducerTasks()
+    {
+        // A live view: read on the driver thread (the same thread as addSplit) and snapshotted by the
+        // caller, so no copy is made here on the block hot path.
+        return unmodifiableList(producerTasks);
     }
 
     @Override
