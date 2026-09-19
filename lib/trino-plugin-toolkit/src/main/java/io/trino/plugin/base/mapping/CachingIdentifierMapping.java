@@ -34,7 +34,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_EXTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -108,7 +108,7 @@ public final class CachingIdentifierMapping
             throw e;
         }
         catch (RuntimeException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote schema name: " + requireNonNullElse(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_EXTERNAL_ERROR, "Failed to find remote schema name: " + requireNonNullElse(e.getMessage(), e), e);
         }
 
         return identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaName);
@@ -140,7 +140,7 @@ public final class CachingIdentifierMapping
             throw e;
         }
         catch (RuntimeException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote table name: " + requireNonNullElse(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_EXTERNAL_ERROR, "Failed to find remote table name: " + requireNonNullElse(e.getMessage(), e), e);
         }
 
         return identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, tableName);
