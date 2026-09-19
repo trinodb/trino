@@ -228,6 +228,13 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException
+    {
+        stats.getExecute().wrap(() -> delegate().execute(session, connection, query));
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
@@ -430,6 +437,13 @@ public final class StatisticsAwareJdbcClient
             throws SQLException
     {
         return stats.getGetConnection().wrap(() -> delegate().getConnection(session));
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
+            throws SQLException
+    {
+        return stats.getGetConnection().wrap(() -> delegate().getConnection(session, readOnly));
     }
 
     @Override
