@@ -680,10 +680,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.createView(session, viewName, definition, viewProperties, replace);
+            delegate.createView(session, viewName, definition, viewProperties, saveMode);
         }
     }
 
