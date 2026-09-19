@@ -789,6 +789,256 @@ public class TestRowOperators
     }
 
     @Test
+    public void testRowIsNull()
+    {
+        assertThat(assertions.query("SELECT (null, null) IS NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) IS NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT ROW(CAST(null AS integer), CAST(null AS varchar), CAST(null AS double)) IS NULL"))
+                .matches("VALUES true");
+
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "ROW(CAST(null AS integer), CAST(null AS integer))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "CAST(ROW(null, null) AS ROW(x integer, y integer))"))
+                .isEqualTo(true);
+
+        assertThat(assertions.query("SELECT (null, null) IS NOT NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (1, null) IS NOT NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (null, 1) IS NOT NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (1, 2) IS NOT NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(null AS ROW(integer, integer)) IS NOT NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT NOT ((1, null) IS NULL)"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query("SELECT CAST(ROW(null) AS ROW(a integer)) IS NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(ROW(null) AS ROW(a integer)) IS NOT NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT NOT (CAST(ROW(null) AS ROW(a integer)) IS NULL)"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT CAST(ROW(1) AS ROW(a integer)) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT CAST(ROW(1) AS ROW(a integer)) IS NOT NULL"))
+                .matches("VALUES true");
+
+        assertThat(assertions.query("SELECT CAST(ROW(null, null) AS ROW(a integer, b MAP(integer, integer))) IS NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(ROW(null, ARRAY[null]) AS ROW(a integer, b ARRAY(integer))) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT CAST(ROW(null, ARRAY[null]) AS ROW(a integer, b ARRAY(integer))) IS NOT NULL"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query("SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) IS DISTINCT FROM NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(null AS ROW(a integer, b integer)) IS DISTINCT FROM NULL"))
+                .matches("VALUES false");
+    }
+
+    @Test
+    public void testRowIsNullMixedFields()
+    {
+        assertThat(assertions.query("SELECT (1, null) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (null, 1) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT (1, 2) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "ROW(1, CAST(null AS integer))"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "ROW(CAST(null AS integer), 2)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.query("SELECT CAST(null AS ROW(integer, integer)) IS NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.expression("a IS NULL")
+                .binding("a", "CAST(null AS ROW(integer, integer))"))
+                .isEqualTo(true);
+
+        assertThat(assertions.query("SELECT ROW(CAST(ROW(null, null) AS ROW(integer, integer))) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT ROW(CAST(ROW(null, null) AS ROW(integer, integer))) IS NOT NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(ROW(1, ROW(null, null)) AS ROW(a integer, b ROW(integer, integer))) IS NOT NULL"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST(ROW(null, ROW(null, null)) AS ROW(a integer, b ROW(integer, integer))) IS NULL"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT CAST(ROW(null, ROW(null, null)) AS ROW(a integer, b ROW(integer, integer))) IS NOT NULL"))
+                .matches("VALUES false");
+
+        assertThat(assertions.query(
+                """
+                SELECT ROW(r) IS NOT NULL
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("VALUES true");
+        assertThat(assertions.query(
+                """
+                SELECT r IS NOT DISTINCT FROM NULL
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("VALUES false");
+        assertThat(assertions.query(
+                """
+                SELECT r IS DISTINCT FROM NULL
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("VALUES true");
+        assertThat(assertions.query(
+                """
+                SELECT CAST(r AS ROW(x integer, y integer)) IS DISTINCT FROM NULL
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("VALUES true");
+
+        assertThat(assertions.query(
+                """
+                SELECT CASE WHEN x THEN CAST(ROW(null, null) AS ROW(a integer, b integer))
+                            ELSE CAST(ROW(1, 2) AS ROW(a integer, b integer)) END IS NULL
+                FROM (VALUES true) t(x)
+                """))
+                .matches("VALUES true");
+        assertThat(assertions.query(
+                """
+                SELECT COALESCE(r, CAST(ROW(null, null) AS ROW(a integer, b integer))) IS NULL
+                FROM (SELECT CAST(null AS ROW(a integer, b integer)) AS r)
+                """))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testRowIsNullFilter()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NULL
+                """))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(1, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NULL
+                """))
+                .matches("VALUES BIGINT '0'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NOT NULL
+                """))
+                .matches("VALUES BIGINT '0'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(1, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NOT NULL
+                """))
+                .matches("VALUES BIGINT '0'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NOT NULL
+                """))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(null AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NULL
+                """))
+                .matches("VALUES BIGINT '1'");
+        assertThat(assertions.query(
+                """
+                SELECT count(*) FROM (
+                    SELECT CAST(ROW(CAST(ROW(null, null) AS ROW(integer, integer))) AS ROW(r ROW(integer, integer))) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                WHERE r IS NULL
+                """))
+                .matches("VALUES BIGINT '0'");
+    }
+
+    @Test
+    public void testRowCoalesce()
+    {
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(null) AS ROW(integer)), ROW(1))"))
+                .matches("SELECT CAST(ROW(1) AS ROW(integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(1) AS ROW(integer)), ROW(2))"))
+                .matches("SELECT CAST(ROW(1) AS ROW(integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(integer, integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(ROW(1, null) AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(integer, integer))");
+        assertThat(assertions.query("SELECT COALESCE(CAST(null AS ROW(integer, integer)), ROW(1, 2))"))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(integer, integer))");
+        assertThat(assertions.query(
+                "SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), CAST(ROW(1, null) AS ROW(integer, integer)), ROW(9, 9))"))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(integer, integer))");
+        assertThat(assertions.query(
+                "SELECT COALESCE(CAST(ROW(null, null) AS ROW(integer, integer)), CAST(NULL AS ROW(integer, integer)))"))
+                .matches("SELECT CAST(NULL AS ROW(integer, integer))");
+
+        assertThat(assertions.query(
+                """
+                SELECT COALESCE(r, CAST(ROW(1, 2) AS ROW(a integer, b integer)))
+                FROM (
+                    SELECT CAST(ROW(null, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("SELECT CAST(ROW(1, 2) AS ROW(a integer, b integer))");
+        assertThat(assertions.query(
+                """
+                SELECT COALESCE(r, CAST(ROW(1, 2) AS ROW(a integer, b integer)))
+                FROM (
+                    SELECT CAST(ROW(1, null) AS ROW(a integer, b integer)) AS r
+                    FROM (VALUES 1) t(x)
+                    WHERE random() >= 0)
+                """))
+                .matches("SELECT CAST(ROW(1, null) AS ROW(a integer, b integer))");
+        assertThat(assertions.expression("COALESCE(a, ROW(1, 2))")
+                .binding("a", "CAST(ROW(null, null) AS ROW(integer, integer))"))
+                .isEqualTo(ImmutableList.of(1, 2));
+    }
+
+    @Test
     public void testRowHashOperator()
     {
         assertRowHashOperator("ROW(1, 2)", ImmutableList.of(INTEGER, INTEGER), ImmutableList.of(1, 2));
