@@ -97,6 +97,7 @@ public class DelegatingRestSessionCatalog
     public static class Builder
     {
         private Catalog delegate;
+        private RESTCatalogAdapter adapter;
 
         public Builder delegate(Catalog delegate)
         {
@@ -104,11 +105,17 @@ public class DelegatingRestSessionCatalog
             return this;
         }
 
+        public Builder adapter(RESTCatalogAdapter adapter)
+        {
+            this.adapter = adapter;
+            return this;
+        }
+
         public DelegatingRestSessionCatalog build()
         {
             requireNonNull(delegate, "Delegate must be set");
 
-            return new DelegatingRestSessionCatalog(new RESTCatalogAdapter(delegate), delegate);
+            return new DelegatingRestSessionCatalog(adapter != null ? adapter : new RESTCatalogAdapter(delegate), delegate);
         }
     }
 }
