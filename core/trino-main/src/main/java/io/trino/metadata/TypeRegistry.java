@@ -100,6 +100,7 @@ import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.type.MapParametricType.MAP;
+import static io.trino.type.MultisetParametricType.MULTISET;
 import static io.trino.type.RowParametricType.ROW;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -163,6 +164,7 @@ public final class TypeRegistry
         addParametricType(DecimalParametricType.DECIMAL);
         addParametricType(ROW);
         addParametricType(ARRAY);
+        addParametricType(MULTISET);
         addParametricType(MAP);
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);

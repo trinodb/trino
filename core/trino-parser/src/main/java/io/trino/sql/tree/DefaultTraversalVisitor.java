@@ -77,6 +77,41 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitMultisetConstructor(MultisetConstructor node, C context)
+    {
+        for (Expression expression : node.getValues()) {
+            process(expression, context);
+        }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitMultisetSetOperation(MultisetSetOperation node, C context)
+    {
+        process(node.getLeft(), context);
+        process(node.getRight(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitSubmultisetPredicate(SubmultisetPredicate node, C context)
+    {
+        process(node.getRight(), context);
+
+        return null;
+    }
+
+    @Override
+    protected Void visitMemberPredicate(MemberPredicate node, C context)
+    {
+        process(node.getRight(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitSubscriptExpression(SubscriptExpression node, C context)
     {
         process(node.getBase(), context);

@@ -26,6 +26,7 @@ public class TestSqlKeywords
     {
         assertThat(SqlKeywords.sqlKeywords().stream().sorted().collect(toImmutableSet()))
                 .isEqualTo(ImmutableSet.of(
+                        "A",
                         "ABSENT",
                         "ADD",
                         "ADMIN",
@@ -187,9 +188,11 @@ public class TestSqlKeywords
                         "MATCH_RECOGNIZE",
                         "MATERIALIZED",
                         "MEASURES",
+                        "MEMBER",
                         "MERGE",
                         "MINUTE",
                         "MONTH",
+                        "MULTISET",
                         "NATURAL",
                         "NEAREST",
                         "NESTED",
@@ -286,6 +289,7 @@ public class TestSqlKeywords
                         "START",
                         "STATS",
                         "STRING",
+                        "SUBMULTISET",
                         "SUBSET",
                         "SUBSTRING",
                         "SYMMETRIC",
