@@ -32,6 +32,7 @@ public class QuerySpecification
     private final Optional<GroupBy> groupBy;
     private final Optional<Expression> having;
     private final List<WindowDefinition> windows;
+    private final Optional<Expression> qualify;
     private final Optional<OrderBy> orderBy;
     private final Optional<Offset> offset;
     private final Optional<Node> limit;
@@ -43,11 +44,12 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             List<WindowDefinition> windows,
+            Optional<Expression> qualify,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.empty(), select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        this(Optional.empty(), select, from, where, groupBy, having, windows, qualify, orderBy, offset, limit);
     }
 
     public QuerySpecification(
@@ -58,11 +60,12 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             List<WindowDefinition> windows,
+            Optional<Expression> qualify,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
     {
-        this(Optional.of(location), select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        this(Optional.of(location), select, from, where, groupBy, having, windows, qualify, orderBy, offset, limit);
     }
 
     private QuerySpecification(
@@ -73,6 +76,7 @@ public class QuerySpecification
             Optional<GroupBy> groupBy,
             Optional<Expression> having,
             List<WindowDefinition> windows,
+            Optional<Expression> qualify,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
             Optional<Node> limit)
@@ -84,6 +88,7 @@ public class QuerySpecification
         requireNonNull(groupBy, "groupBy is null");
         requireNonNull(having, "having is null");
         requireNonNull(windows, "windows is null");
+        requireNonNull(qualify, "qualify is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(offset, "offset is null");
         requireNonNull(limit, "limit is null");
@@ -99,6 +104,7 @@ public class QuerySpecification
         this.groupBy = groupBy;
         this.having = having;
         this.windows = windows;
+        this.qualify = qualify;
         this.orderBy = orderBy;
         this.offset = offset;
         this.limit = limit;
@@ -134,6 +140,11 @@ public class QuerySpecification
         return windows;
     }
 
+    public Optional<Expression> getQualify()
+    {
+        return qualify;
+    }
+
     public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
@@ -165,6 +176,7 @@ public class QuerySpecification
                 .addAll(groupBy.stream().toList())
                 .addAll(having.stream().toList())
                 .addAll(windows)
+                .addAll(qualify.stream().toList())
                 .addAll(orderBy.stream().toList())
                 .addAll(offset.stream().toList())
                 .addAll(limit.stream().toList())
@@ -181,6 +193,7 @@ public class QuerySpecification
                 .add("groupBy", groupBy.orElse(null))
                 .add("having", having.orElse(null))
                 .add("windows", windows)
+                .add("qualify", qualify.orElse(null))
                 .add("orderBy", orderBy.orElse(null))
                 .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
@@ -205,6 +218,7 @@ public class QuerySpecification
                 Objects.equals(groupBy, o.groupBy) &&
                 Objects.equals(having, o.having) &&
                 Objects.equals(windows, o.windows) &&
+                Objects.equals(qualify, o.qualify) &&
                 Objects.equals(orderBy, o.orderBy) &&
                 Objects.equals(offset, o.offset) &&
                 Objects.equals(limit, o.limit);
@@ -213,7 +227,7 @@ public class QuerySpecification
     @Override
     public int hashCode()
     {
-        return Objects.hash(select, from, where, groupBy, having, windows, orderBy, offset, limit);
+        return Objects.hash(select, from, where, groupBy, having, windows, qualify, orderBy, offset, limit);
     }
 
     @Override
