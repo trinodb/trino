@@ -597,6 +597,29 @@ measure to ensure that files are retained as expected. The minimum value for
 this property is `0s`. There is a minimum retention session property as well,
 `vacuum_min_retention`.
 
+### Transaction log expiration
+
+After writing a checkpoint, Trino automatically removes expired transaction JSON
+files and classic checkpoints. It reads `delta.logRetentionDuration` from the
+table's Delta metadata, with a default of `interval 30 days`. The expiration
+cutoff is rounded down to midnight UTC. Setting `delta.enableExpiredLogCleanup`
+to `false` in the Delta metadata disables cleanup. These Delta properties are
+not exposed as Trino table properties.
+
+Cleanup preserves a complete checkpoint and the transaction files needed to
+replay retained versions. It supports single-file and multipart classic
+checkpoints. It also removes expired version checksum files named with exactly
+20 digits followed by `.crc`. Other checksum files, including local dot-CRC and
+checkpoint CRC files, are left untouched. Cleanup skips tables with unsupported
+layouts or features, including v2 checkpoints, sidecars, checkpoint protection,
+and coordinated commits. Cleanup failures are logged and do not fail an already
+committed write.
+
+Expired history is unavailable for time travel and change data feed consumers.
+Choose a log retention period that covers their required history. Log expiration
+does not delete data files or prune checkpoint tombstones, and is separate from
+the `VACUUM` procedure.
+
 (delta-lake-data-management)=
 ### Data management
 
