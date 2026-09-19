@@ -44,7 +44,8 @@ public class TestOracleConfig
                 .setConnectionPoolMaxSize(30)
                 .setInactiveConnectionTimeout(new Duration(20, MINUTES))
                 .setConnectionPoolWaitDuration(new Duration(3, SECONDS))
-                .setFetchSize(null));
+                .setFetchSize(null)
+                .setSpatialColumnMapping(SpatialColumnMapping.VARCHAR));
     }
 
     @Test
@@ -61,6 +62,7 @@ public class TestOracleConfig
                 .put("oracle.connection-pool.inactive-timeout", "30s")
                 .put("oracle.connection-pool.wait-duration", "10s")
                 .put("oracle.fetch-size", "2000")
+                .put("oracle.spatial-column-mapping", "GEOMETRY")
                 .buildOrThrow();
 
         OracleConfig expected = new OracleConfig()
@@ -73,7 +75,8 @@ public class TestOracleConfig
                 .setConnectionPoolMaxSize(20)
                 .setInactiveConnectionTimeout(new Duration(30, SECONDS))
                 .setConnectionPoolWaitDuration(new Duration(10, SECONDS))
-                .setFetchSize(2000);
+                .setFetchSize(2000)
+                .setSpatialColumnMapping(SpatialColumnMapping.GEOMETRY);
 
         assertFullMapping(properties, expected);
     }
