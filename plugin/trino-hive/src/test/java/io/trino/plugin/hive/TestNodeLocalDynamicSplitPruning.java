@@ -68,7 +68,8 @@ class TestNodeLocalDynamicSplitPruning
             INTEGER,
             Optional.empty(),
             REGULAR,
-            Optional.empty());
+            Optional.empty(),
+            true);
     private static final HiveColumnHandle PARTITION_HIVE_COLUMN_HANDLE = new HiveColumnHandle(
             PARTITION_COLUMN.getName(),
             0,
@@ -76,7 +77,8 @@ class TestNodeLocalDynamicSplitPruning
             INTEGER,
             Optional.empty(),
             PARTITION_KEY,
-            Optional.empty());
+            Optional.empty(),
+            true);
 
     @Test
     void testDynamicBucketPruning()
