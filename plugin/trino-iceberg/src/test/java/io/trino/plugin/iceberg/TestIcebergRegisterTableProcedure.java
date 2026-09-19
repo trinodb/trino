@@ -19,9 +19,12 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -56,6 +59,7 @@ import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -66,12 +70,14 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.Files.localInput;
+import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergRegisterTableProcedure
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
+    private TrinoCatalog catalog;
     private File metastoreDir;
     private TrinoFileSystem fileSystem;
     private Path dataDir;
@@ -103,7 +109,9 @@ public class TestIcebergRegisterTableProcedure
     @BeforeAll
     public void initFileSystem()
     {
-        fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
+        TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
+        fileSystem = fileSystemFactory.create(SESSION);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
     }
 
     @AfterAll
@@ -434,7 +442,7 @@ public class TestIcebergRegisterTableProcedure
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + nonExistedMetadataFileName + "')",
                 ".*Invalid metadata file location: .*");
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
-                ".*Failed checking table location: .*");
+                ".*Failed checking metadata location: .*");
     }
 
     @Test
@@ -558,6 +566,32 @@ public class TestIcebergRegisterTableProcedure
                 "CALL system.register_table(CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
                 "Cannot create table .*",
                 privilege(tableName, CREATE_TABLE));
+    }
+
+    @Test
+    void testWriteMetadataLocation()
+    {
+        String table = "test_write_metadata_location" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+        String tableLocation = catalog.defaultTableLocation(IcebergTestUtils.SESSION, schemaTableName);
+        String writeMetadataLocation = tableLocation + "/write_metadata_location"; // Avoid the default /metadata directory
+
+        catalog.newCreateTableTransaction(
+                        IcebergTestUtils.SESSION,
+                        schemaTableName,
+                        new Schema(Types.NestedField.optional(1, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(IcebergTestUtils.SESSION, schemaTableName)),
+                        ImmutableMap.of(WRITE_METADATA_LOCATION, writeMetadataLocation))
+                .commitTransaction();
+
+        String registeredTableName = "registered_table_" + randomNameSuffix();
+
+        assertUpdate("CALL system.register_table(schema_name=>CURRENT_SCHEMA, table_name=>'%s', table_location=>'%s', metadata_location=>'%s')".formatted(registeredTableName, tableLocation, writeMetadataLocation));
+        assertQueryReturnsEmptyResult("TABLE " + registeredTableName);
+
+        assertUpdate("DROP TABLE " + registeredTableName);
     }
 
     private String getTableLocation(String tableName)

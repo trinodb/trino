@@ -66,11 +66,12 @@ public class RegisterTableProcedure
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String TABLE_LOCATION = "TABLE_LOCATION";
     private static final String METADATA_FILE_NAME = "METADATA_FILE_NAME";
+    private static final String METADATA_LOCATION = "METADATA_LOCATION";
     private static final Pattern S3_SCHEMA_PATTERN = Pattern.compile("^s3[an]://");
 
     static {
         try {
-            REGISTER_TABLE = lookup().unreflect(RegisterTableProcedure.class.getMethod("registerTable", ConnectorAccessControl.class, ConnectorSession.class, String.class, String.class, String.class, String.class));
+            REGISTER_TABLE = lookup().unreflect(RegisterTableProcedure.class.getMethod("registerTable", ConnectorAccessControl.class, ConnectorSession.class, String.class, String.class, String.class, String.class, String.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -105,7 +106,8 @@ public class RegisterTableProcedure
                         new Procedure.Argument(SCHEMA_NAME, VARCHAR),
                         new Procedure.Argument(TABLE_NAME, VARCHAR),
                         new Procedure.Argument(TABLE_LOCATION, VARCHAR),
-                        new Procedure.Argument(METADATA_FILE_NAME, VARCHAR, false, null)),
+                        new Procedure.Argument(METADATA_FILE_NAME, VARCHAR, false, null),
+                        new Procedure.Argument(METADATA_LOCATION, VARCHAR, false, null)),
                 REGISTER_TABLE.bindTo(this));
     }
 
@@ -115,7 +117,8 @@ public class RegisterTableProcedure
             String schemaName,
             String tableName,
             String tableLocation,
-            String metadataFileName)
+            String metadataFileName,
+            String metadataLocation)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doRegisterTable(
@@ -124,6 +127,7 @@ public class RegisterTableProcedure
                     schemaName,
                     tableName,
                     tableLocation,
+                    Optional.ofNullable(metadataLocation),
                     Optional.ofNullable(metadataFileName));
         }
     }
@@ -134,6 +138,7 @@ public class RegisterTableProcedure
             String schemaName,
             String tableName,
             String tableLocation,
+            Optional<String> metadataLocation,
             Optional<String> metadataFileName)
     {
         if (!registerTableProcedureEnabled) {
@@ -152,15 +157,15 @@ public class RegisterTableProcedure
         }
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(clientSession);
-        String metadataLocation = getMetadataLocation(fileSystem, tableLocation, metadataFileName);
-        validateMetadataLocation(fileSystem, Location.of(metadataLocation));
+        String metadataFilePath = getMetadataLocation(fileSystem, metadataLocation.orElse(format("%s/%s", stripTrailingSlash(tableLocation), METADATA_FOLDER_NAME)), metadataFileName);
+        validateMetadataLocation(fileSystem, Location.of(metadataFilePath));
         TableMetadata tableMetadata;
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
-            tableMetadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(clientSession)), metadataLocation);
+            tableMetadata = TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(clientSession)), metadataFilePath);
         }
         catch (RuntimeException e) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file: " + metadataLocation, e);
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file: " + metadataFilePath, e);
         }
 
         if (!locationEquivalent(tableLocation, tableMetadata.location())) {
@@ -168,7 +173,7 @@ public class RegisterTableProcedure
                     ICEBERG_INVALID_METADATA,
                     """
                     Table metadata file [%s] declares table location as [%s] which differs from location provided [%s]. \
-                    Iceberg table can only be registered with the same location it was created with.""".formatted(metadataLocation, tableMetadata.location(), tableLocation));
+                    Iceberg table can only be registered with the same location it was created with.""".formatted(metadataFilePath, tableMetadata.location(), tableLocation));
         }
 
         catalog.registerTable(clientSession, schemaTableName, tableMetadata);
@@ -188,8 +193,8 @@ public class RegisterTableProcedure
     private static String getMetadataLocation(TrinoFileSystem fileSystem, String location, Optional<String> metadataFileName)
     {
         return metadataFileName
-                .map(fileName -> format("%s/%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME, fileName))
-                .orElseGet(() -> getLatestMetadataLocation(fileSystem, location));
+                .map(fileName -> format("%s/%s", stripTrailingSlash(location), fileName))
+                .orElseGet(() -> getLatestMetadataLocation(fileSystem, stripTrailingSlash(location)));
     }
 
     private static void validateMetadataLocation(TrinoFileSystem fileSystem, Location location)
