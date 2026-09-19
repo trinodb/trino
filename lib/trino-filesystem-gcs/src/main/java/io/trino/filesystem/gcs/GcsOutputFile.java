@@ -44,15 +44,18 @@ public class GcsOutputFile
     private final GcsLocation location;
     private final Storage storage;
     private final long writeBlockSizeBytes;
+    private final Optional<String> sseKmsKeyName;
     private final Optional<EncryptionKey> key;
 
-    public GcsOutputFile(GcsLocation location, Storage storage, long writeBlockSizeBytes, Optional<EncryptionKey> key)
+    public GcsOutputFile(GcsLocation location, Storage storage, long writeBlockSizeBytes, Optional<String> sseKmsKeyName, Optional<EncryptionKey> key)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         checkArgument(writeBlockSizeBytes >= 0, "writeBlockSizeBytes is negative");
         this.writeBlockSizeBytes = writeBlockSizeBytes;
+        this.sseKmsKeyName = requireNonNull(sseKmsKeyName, "sseKmsKeyName is null");
         this.key = requireNonNull(key, "key is null");
+        checkArgument(sseKmsKeyName.isEmpty() || key.isEmpty(), "KMS key and customer-supplied encryption key cannot both be set");
     }
 
     @Override
@@ -120,6 +123,7 @@ public class GcsOutputFile
         if (doesNotExist) {
             options.add(BlobWriteOption.doesNotExist());
         }
+        sseKmsKeyName.ifPresent(keyName -> options.add(BlobWriteOption.kmsKeyName(keyName)));
         key.ifPresent(encryption -> options.add(BlobWriteOption.encryptionKey(encodedKey(encryption))));
         return options.build().toArray(new BlobWriteOption[0]);
     }
@@ -130,6 +134,7 @@ public class GcsOutputFile
         if (doesNotExist) {
             options.add(BlobTargetOption.doesNotExist());
         }
+        sseKmsKeyName.ifPresent(keyName -> options.add(BlobTargetOption.kmsKeyName(keyName)));
         key.ifPresent(encryption -> options.add(BlobTargetOption.encryptionKey(encodedKey(encryption))));
         return options.build().toArray(new BlobTargetOption[0]);
     }
