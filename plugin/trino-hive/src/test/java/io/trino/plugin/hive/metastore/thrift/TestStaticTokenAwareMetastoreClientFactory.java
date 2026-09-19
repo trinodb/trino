@@ -62,7 +62,7 @@ public class TestStaticTokenAwareMetastoreClientFactory
             throws TException
     {
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.of(DEFAULT_CLIENT)));
-        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), DEFAULT_CLIENT);
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty(), _ -> {}), DEFAULT_CLIENT);
     }
 
     @Test
@@ -70,7 +70,7 @@ public class TestStaticTokenAwareMetastoreClientFactory
             throws TException
     {
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.of(FALLBACK_CLIENT)));
-        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty(), _ -> {}), FALLBACK_CLIENT);
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestStaticTokenAwareMetastoreClientFactory
             throws TException
     {
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK_WITH_USER, ImmutableMap.of(DEFAULT_URI, Optional.empty(), FALLBACK_URI, Optional.empty(), FALLBACK2_URI, Optional.of(FALLBACK_CLIENT)));
-        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        assertEqualHiveClient(clientFactory.createMetastoreClient(Optional.empty(), _ -> {}), FALLBACK_CLIENT);
     }
 
     @Test
@@ -108,12 +108,12 @@ public class TestStaticTokenAwareMetastoreClientFactory
     {
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS);
 
-        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
 
         assertGetTableException(metastoreClient1);
 
-        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         assertGetTableException(metastoreClient2);
@@ -125,20 +125,20 @@ public class TestStaticTokenAwareMetastoreClientFactory
     {
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS);
 
-        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
 
         for (int i = 0; i < 20; ++i) {
             assertGetTableException(metastoreClient1);
         }
 
-        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         assertGetTableException(metastoreClient2);
 
         // Still get FALLBACK_CLIENT because DEFAULT_CLIENT failed more times before and therefore longer backoff
-        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
     }
 
@@ -150,17 +150,17 @@ public class TestStaticTokenAwareMetastoreClientFactory
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
         assertGetTableException(metastoreClient1);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
 
         // even after backoff for DEFAULT_CLIENT passes we should stick to client which we saw working correctly most recently
         ticker.increment(StaticTokenAwareMetastoreClientFactory.Backoff.MAX_BACKOFF, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
     }
 
@@ -172,17 +172,17 @@ public class TestStaticTokenAwareMetastoreClientFactory
         TokenAwareMetastoreClientFactory clientFactory = createMetastoreClientFactory(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient1 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
         assertGetTableException(metastoreClient1);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient2 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
         assertGetTableException(metastoreClient2);
 
         ticker.increment(10, NANOSECONDS);
-        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty());
+        ThriftMetastoreClient metastoreClient3 = clientFactory.createMetastoreClient(Optional.empty(), _ -> {});
         assertEqualHiveClient(metastoreClient3, DEFAULT_CLIENT);
     }
 
@@ -196,12 +196,12 @@ public class TestStaticTokenAwareMetastoreClientFactory
         StaticTokenAwareMetastoreClientFactory metastoreClientFactory = new StaticTokenAwareMetastoreClientFactory(
                 config, new ThriftMetastoreAuthenticationConfig(), clientFactory, new TestingTicker());
 
-        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty(), _ -> {}), FALLBACK_CLIENT);
         assertThat(clientFactory.connectionAttempts()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(
                 URI.create(DEFAULT_URI), 1,
                 URI.create(FALLBACK_URI), 1));
         clientFactory.resetConnectionAttempts();
-        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty()), FALLBACK_CLIENT);
+        assertEqualHiveClient(metastoreClientFactory.createMetastoreClient(Optional.empty(), _ -> {}), FALLBACK_CLIENT);
         // The previous connection failure on DEFAULT_URI is not attempted first again on the second call
         assertThat(clientFactory.connectionAttempts()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.of(
                 URI.create(FALLBACK_URI), 1));
@@ -216,7 +216,7 @@ public class TestStaticTokenAwareMetastoreClientFactory
 
     private static void assertCreateClientFails(TokenAwareMetastoreClientFactory clientFactory, String message)
     {
-        assertThatThrownBy(() -> clientFactory.createMetastoreClient(Optional.empty()))
+        assertThatThrownBy(() -> clientFactory.createMetastoreClient(Optional.empty(), _ -> {}))
                 .hasCauseInstanceOf(TException.class)
                 .hasMessage(message);
     }
@@ -267,11 +267,11 @@ public class TestStaticTokenAwareMetastoreClientFactory
         }
 
         @Override
-        public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+        public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
                 throws TTransportException
         {
             attempts.merge(uri, 1, Integer::sum);
-            return delegate.create(uri, delegationToken);
+            return delegate.create(uri, delegationToken, _ -> {});
         }
 
         public void resetConnectionAttempts()
