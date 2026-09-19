@@ -32,6 +32,7 @@ import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
+import io.trino.security.credential.CredentialProviderRegistry;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -51,6 +52,7 @@ import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.credential.CredentialProviderFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.trino.spi.spool.SpoolingManagerFactory;
 import io.trino.spi.type.ParametricType;
@@ -115,6 +117,7 @@ public class PluginManager
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final CacheManagerRegistry cacheManagerRegistry;
+    private final CredentialProviderRegistry credentialProviderRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
@@ -141,7 +144,8 @@ public class PluginManager
             HandleResolver handleResolver,
             ExchangeManagerRegistry exchangeManagerRegistry,
             SpoolingManagerRegistry spoolingManagerRegistry,
-            CacheManagerRegistry cacheManagerRegistry)
+            CacheManagerRegistry cacheManagerRegistry,
+            CredentialProviderRegistry credentialProviderRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
@@ -162,6 +166,7 @@ public class PluginManager
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.credentialProviderRegistry = requireNonNull(credentialProviderRegistry, "credentialProviderRegistry is null");
     }
 
     @Override
@@ -313,6 +318,11 @@ public class PluginManager
         for (BlobCacheManagerFactory factory : plugin.getBlobCacheManagerFactories()) {
             log.info("Registering blob cache manager %s", factory.getName());
             cacheManagerRegistry.addBlobCacheManagerFactory(factory);
+        }
+
+        for (CredentialProviderFactory factory : plugin.getCredentialProviderFactories()) {
+            log.info("Registering credential provider %s", factory.getFactoryName());
+            credentialProviderRegistry.addCredentialProviderFactory(factory);
         }
     }
 

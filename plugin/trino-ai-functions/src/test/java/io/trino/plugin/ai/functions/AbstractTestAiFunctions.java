@@ -58,10 +58,13 @@ public abstract class AbstractTestAiFunctions
         assertions = new QueryAssertions(testSessionBuilder()
                 .setPath(SqlPath.buildPath("ai.ai", Optional.empty()))
                 .build());
+        initCredentials();
         assertions.addPlugin(new AiPlugin());
         assertions.getQueryRunner().createCatalog("ai", "ai", getProperties(
                 HostAndPort.fromParts("localhost", hoverfly.getHoverflyConfig().getProxyPort())));
     }
+
+    protected abstract void initCredentials();
 
     @AfterAll
     public void teardown()
