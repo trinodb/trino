@@ -19,7 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.gcs.GcsFileSystemConfig;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsServiceAccountAuth;
+import io.trino.filesystem.gcs.GcsServiceAccountAuthConfig;
+import io.trino.filesystem.gcs.GcsStorageFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -32,7 +36,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Base64;
 
-import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -69,8 +72,10 @@ final class TestIcebergBigLakeVendedCredentials
                 .addIcebergProperty("iceberg.rest-catalog.vended-credentials-enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("fs.gcs.enabled", "true")
-                // Used for REST catalog (GOOGLE security) authentication; not used for table data access
-                .addIcebergProperty("gcs.json-key", gcsJson.toString())
+                // Table data access uses vended per-table credentials, so no static GCS file system credentials are configured
+                .addIcebergProperty("gcs.auth-type", "APPLICATION_DEFAULT")
+                // Used for REST catalog (GOOGLE security) authentication
+                .addIcebergProperty("iceberg.rest-catalog.google-json-key", gcsJson.toString())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(SCHEMA)
                         .withSchemaProperties(ImmutableMap.of("location", "'gs://%s/%s'".formatted(GCP_CREDENTIALS_VENDING_STORAGE_BUCKET, SCHEMA)))
@@ -80,8 +85,12 @@ final class TestIcebergBigLakeVendedCredentials
 
     @BeforeAll
     void initFileSystem()
+            throws Exception
     {
-        fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(SESSION);
+        String jsonKey = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).toString();
+        GcsFileSystemConfig config = new GcsFileSystemConfig();
+        GcsServiceAccountAuth auth = new GcsServiceAccountAuth(new GcsServiceAccountAuthConfig().setJsonKey(jsonKey));
+        fileSystem = new GcsFileSystemFactory(config, new GcsStorageFactory(config, auth)).create(SESSION);
     }
 
     @AfterAll
