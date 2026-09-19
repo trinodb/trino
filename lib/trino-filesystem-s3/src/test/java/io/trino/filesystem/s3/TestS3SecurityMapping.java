@@ -51,7 +51,7 @@ public class TestS3SecurityMapping
                 .setSseCustomerKeyCredentialName(CUSTOMER_KEY_CREDENTIAL_NAME)
                 .setColonReplacement("#");
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new DefaultS3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
 
         // matches prefix -- mapping provides credentials
         assertMapping(
@@ -297,6 +297,20 @@ public class TestS3SecurityMapping
                 credentials("AKIAxxxaccess", "iXbXxxxsecret")
                         .withRegion("us-west-2"));
 
+        // matches prefix -- mapping provides credentials and enables cross-region access
+        assertMapping(
+                provider,
+                path("s3://crossregionbucket/bar"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withCrossRegionAccessEnabled(true));
+
+        // matches prefix -- mapping provides credentials and enables path-style access
+        assertMapping(
+                provider,
+                path("s3://pathstylebucket/bar"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withPathStyleAccess(true));
+
         // matches role session name
         assertMapping(
                 provider,
@@ -311,7 +325,7 @@ public class TestS3SecurityMapping
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(getResourceFile("security-mapping-with-fallback-to-cluster-default.json"));
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new DefaultS3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
 
         // matches prefix -- uses the role from the mapping
         assertMapping(
@@ -329,7 +343,7 @@ public class TestS3SecurityMapping
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(getResourceFile("security-mapping-without-fallback.json"));
 
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        var provider = new DefaultS3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
 
         // matches prefix - return role from the mapping
         assertMapping(
@@ -520,6 +534,8 @@ public class TestS3SecurityMapping
             assertThat(actual.sseCustomerKey()).isEqualTo(expected.sseCustomerKey());
             assertThat(actual.endpoint()).isEqualTo(expected.endpoint());
             assertThat(actual.region()).isEqualTo(expected.region());
+            assertThat(actual.crossRegionAccessEnabled()).isEqualTo(expected.crossRegionAccessEnabled());
+            assertThat(actual.pathStyleAccess()).isEqualTo(expected.pathStyleAccess());
         });
     }
 
@@ -620,6 +636,8 @@ public class TestS3SecurityMapping
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
 
@@ -629,6 +647,8 @@ public class TestS3SecurityMapping
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(role),
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -644,6 +664,8 @@ public class TestS3SecurityMapping
         private final Optional<String> sseCustomerKey;
         private final Optional<String> endpoint;
         private final Optional<String> region;
+        private final Optional<Boolean> crossRegionAccessEnabled;
+        private final Optional<Boolean> pathStyleAccess;
 
         private MappingResult(
                 Optional<String> accessKey,
@@ -653,7 +675,9 @@ public class TestS3SecurityMapping
                 Optional<String> kmsKeyId,
                 Optional<String> sseCustomerKey,
                 Optional<String> endpoint,
-                Optional<String> region)
+                Optional<String> region,
+                Optional<Boolean> crossRegionAccessEnabled,
+                Optional<Boolean> pathStyleAccess)
         {
             this.accessKey = requireNonNull(accessKey, "accessKey is null");
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -663,31 +687,43 @@ public class TestS3SecurityMapping
             this.endpoint = requireNonNull(endpoint, "endpoint is null");
             this.roleSessionName = requireNonNull(roleSessionName, "roleSessionName is null");
             this.region = requireNonNull(region, "region is null");
+            this.crossRegionAccessEnabled = requireNonNull(crossRegionAccessEnabled, "crossRegionAccessEnabled is null");
+            this.pathStyleAccess = requireNonNull(pathStyleAccess, "pathStyleAccess is null");
         }
 
         public MappingResult withEndpoint(String endpoint)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, Optional.of(endpoint), region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, Optional.of(endpoint), region, crossRegionAccessEnabled, pathStyleAccess);
         }
 
         public MappingResult withKmsKeyId(String kmsKeyId)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.of(kmsKeyId), Optional.empty(), endpoint, region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.of(kmsKeyId), Optional.empty(), endpoint, region, crossRegionAccessEnabled, pathStyleAccess);
         }
 
         public MappingResult withSseCustomerKey(String customerKey)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.empty(), Optional.of(customerKey), endpoint, region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.empty(), Optional.of(customerKey), endpoint, region, crossRegionAccessEnabled, pathStyleAccess);
         }
 
         public MappingResult withRegion(String region)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, Optional.of(region));
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, Optional.of(region), crossRegionAccessEnabled, pathStyleAccess);
+        }
+
+        public MappingResult withCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
+        {
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, region, Optional.of(crossRegionAccessEnabled), pathStyleAccess);
+        }
+
+        public MappingResult withPathStyleAccess(boolean pathStyleAccess)
+        {
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, region, crossRegionAccessEnabled, Optional.of(pathStyleAccess));
         }
 
         public MappingResult withRoleSessionName(String roleSessionName)
         {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.of(roleSessionName), kmsKeyId, sseCustomerKey, Optional.empty(), region);
+            return new MappingResult(accessKey, secretKey, iamRole, Optional.of(roleSessionName), kmsKeyId, sseCustomerKey, Optional.empty(), region, crossRegionAccessEnabled, pathStyleAccess);
         }
 
         public Optional<String> accessKey()
@@ -728,6 +764,16 @@ public class TestS3SecurityMapping
         public Optional<String> region()
         {
             return region;
+        }
+
+        public Optional<Boolean> crossRegionAccessEnabled()
+        {
+            return crossRegionAccessEnabled;
+        }
+
+        public Optional<Boolean> pathStyleAccess()
+        {
+            return pathStyleAccess;
         }
     }
 }
