@@ -233,6 +233,9 @@ to the following table:
 * - `DateTime[(timezone)]`
   - `TIMESTAMP(0) [WITH TIME ZONE]`
   -
+* - `DateTime64(p[, timezone])`
+  - `TIMESTAMP(p) [WITH TIME ZONE]`
+  - `p` must be in the range `0` to `9`
 * - `IPv4`
   - `IPADDRESS`
   -
@@ -304,6 +307,10 @@ to the following table:
 * - `TIMESTAMP(0)`
   - `DateTime`
   -
+* - `TIMESTAMP(p)`
+  - `DateTime64(p)`
+  - `p` must be in the range `0` to `9`. Higher precision is rounded to `9`
+    during table creation.
 * - `UUID`
   - `UUID`
   -
