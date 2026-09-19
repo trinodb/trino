@@ -5,6 +5,8 @@ on:
   merge_group:
   repository_dispatch:
     types: [test-with-secrets-command]
+  schedule:
+    - cron: '0 0 * * *'
 
 # Default for all jobs; jobs that need more declare their own permissions block, which fully replaces this one.
 permissions:
