@@ -316,11 +316,11 @@ public class GcsFileSystemConfig
         return customerEncryptionKey == null;
     }
 
-    @AssertTrue(message = "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER")
+    @AssertTrue(message = "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when set, and can only be set when gcs.sse.type=CUSTOMER")
     public boolean isCustomerDecryptionKeyConfigValid()
     {
         if (sseType == GcsSseType.CUSTOMER) {
-            return isValidCustomerKey(customerDecryptionKey);
+            return customerDecryptionKey == null || isValidCustomerKey(customerDecryptionKey);
         }
         return customerDecryptionKey == null;
     }

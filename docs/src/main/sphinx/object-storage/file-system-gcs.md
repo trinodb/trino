@@ -91,10 +91,11 @@ until all objects are re-encrypted.
     to encrypt objects written to Google Cloud Storage when `gcs.sse.type` is
     set to `CUSTOMER`.
 * - `gcs.customer-decryption-key`
-  - The 256-bit, Base64-encoded AES-256 customer-supplied encryption key used
-    to decrypt objects read from Google Cloud Storage when `gcs.sse.type` is set
-    to `CUSTOMER`. Typically set to the same value as
-    `gcs.customer-encryption-key` unless rotating keys.
+  - An optional, additional 256-bit, Base64-encoded AES-256 customer-supplied
+    encryption key used to decrypt objects read from Google Cloud Storage when
+    `gcs.sse.type` is set to `CUSTOMER`. Set this to the previous encryption key
+    during key rotation. The key from `gcs.customer-encryption-key` is always
+    also used for decryption.
 :::
 
 ## Authentication

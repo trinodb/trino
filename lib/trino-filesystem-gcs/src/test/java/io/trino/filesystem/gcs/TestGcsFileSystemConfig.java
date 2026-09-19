@@ -143,6 +143,9 @@ public class TestGcsFileSystemConfig
                 .setSseKmsKeyName("kmsKeyName"));
         assertValidates(new GcsFileSystemConfig()
                 .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(ENCRYPTION_KEY));
+        assertValidates(new GcsFileSystemConfig()
+                .setSseType(CUSTOMER)
                 .setCustomerEncryptionKey(ENCRYPTION_KEY)
                 .setCustomerDecryptionKey(DECRYPTION_KEY));
 
@@ -156,14 +159,7 @@ public class TestGcsFileSystemConfig
                 new GcsFileSystemConfig()
                         .setCustomerDecryptionKey(DECRYPTION_KEY),
                 "customerDecryptionKeyConfigValid",
-                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
-                AssertTrue.class);
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setSseType(CUSTOMER)
-                        .setCustomerEncryptionKey(ENCRYPTION_KEY),
-                "customerDecryptionKeyConfigValid",
-                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
+                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when set, and can only be set when gcs.sse.type=CUSTOMER",
                 AssertTrue.class);
         assertFailsValidation(
                 new GcsFileSystemConfig()
@@ -186,7 +182,7 @@ public class TestGcsFileSystemConfig
                         .setCustomerEncryptionKey(ENCRYPTION_KEY)
                         .setCustomerDecryptionKey(Base64.getEncoder().encodeToString(new byte[31])),
                 "customerDecryptionKeyConfigValid",
-                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
+                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when set, and can only be set when gcs.sse.type=CUSTOMER",
                 AssertTrue.class);
         assertFailsValidation(
                 new GcsFileSystemConfig()
