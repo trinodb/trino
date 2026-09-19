@@ -48,6 +48,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -597,6 +598,81 @@ public class TestTupleDomainParquetPredicate
         long maxValue = toEpochWithPrecision(maxTime, parquetPrecision);
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, minValue), ID, UTC)).isEqualTo(singleValue(timestampType, baseDomainValue));
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(timestampType, baseDomainValue, true, maxDomainValue, true)), false));
+    }
+
+    // For INT64 timestamps that are adjusted-to-UTC, ColumnReaderFactory shifts the decoded instant into the
+    // configured/session time zone to produce the zoneless TIMESTAMP value. The statistics-derived Domain must
+    // apply the same shift, otherwise predicate pushdown compares unshifted on-disk min/max against a shifted
+    // literal domain and wrongly prunes row groups/pages whenever the configured time zone is not UTC.
+    @Test
+    public void testTimestampInt64AdjustedToUtcUsesConfiguredTimeZoneForStatistics()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone singapore = DateTimeZone.forID("Asia/Singapore"); // UTC+8, no DST transitions
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        // On-disk min/max: true UTC instants 2024-01-01T00:04:50Z .. 2024-01-01T00:05:40Z (adjusted-to-UTC = true).
+        LocalDateTime utcInstant = LocalDateTime.of(2024, 1, 1, 0, 4, 50);
+        long minValue = toEpochWithPrecision(utcInstant, 6);
+        long maxValue = minValue + 50 * MICROSECONDS_PER_MILLISECOND;
+
+        // Expected Trino TIMESTAMP wall-clock value once shifted into Asia/Singapore (UTC+8): 08:04:50 .. 08:05:40.
+        // This must match what ColumnReaderFactory produces for the corresponding data values.
+        LocalDateTime expectedWallClock = utcInstant.plusHours(8);
+        long expectedMinDomainValue = toEpochWithPrecision(expectedWallClock, 6);
+        long expectedMaxDomainValue = expectedMinDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, singapore))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, expectedMinDomainValue, true, expectedMaxDomainValue, true)), false));
+
+        // Sanity check: with a UTC configured zone there is no shift, so the stats domain equals the raw on-disk values.
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, minValue, true, maxValue, true)), false));
+    }
+
+    // Naive endpoint-only conversion is not safe for adjusted-to-UTC timestamps in a zone with variable offsets
+    // (e.g. DST), since local wall-clock time is not a monotonic function of the underlying UTC instant across an
+    // offset transition. A "fall back" transition makes local time run backwards for an hour, so when a row group's
+    // physical min/max UTC range straddles such a transition, the true set of materialized wall-clock values is NOT
+    // simply [convert(min), convert(max)] -- it can include values earlier than convert(min), or the converted
+    // endpoints can even coincide or reverse. Detect this case and fall back to an unbounded domain rather than
+    // risk wrongly pruning matching rows.
+    @Test
+    public void testTimestampInt64AdjustedToUtcAcrossDstFallbackTransitionIsUnbounded()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone newYork = DateTimeZone.forID("America/New_York"); // observes DST, unlike Asia/Singapore above
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        // Find an actual fall-back transition (offset decreases, e.g. EDT -> EST) rather than hardcoding a date.
+        long searchFrom = LocalDateTime.of(2024, 1, 1, 0, 0).toEpochSecond(ZoneOffset.UTC) * 1000;
+        long transitionMillis = newYork.nextTransition(searchFrom);
+        while (newYork.getOffset(transitionMillis) >= newYork.getOffset(transitionMillis - 1)) {
+            transitionMillis = newYork.nextTransition(transitionMillis);
+        }
+
+        // Physical range straddling the transition: 30 minutes before .. 30 minutes after.
+        long minValue = (transitionMillis - Duration.ofMinutes(30).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        long maxValue = (transitionMillis + Duration.ofMinutes(30).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.all(timestampType), false));
+
+        // Negative control: a physical range well away from any transition still gets a precise range, not "all",
+        // so pruning is not needlessly disabled outside the narrow transition window.
+        long farFromTransitionMin = (transitionMillis + Duration.ofDays(60).toMillis()) * (long) MICROSECONDS_PER_MILLISECOND;
+        long farFromTransitionMax = farFromTransitionMin + 50 * MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(farFromTransitionMin, farFromTransitionMax), ID, newYork))
+                .isNotEqualTo(create(ValueSet.all(timestampType), false));
     }
 
     private static long toEpochWithPrecision(LocalDateTime time, int precision)
