@@ -103,6 +103,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.isInstantPreservingAtTimeZone;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
@@ -526,6 +527,12 @@ public final class DomainTranslator
 
                 return visitExpression(originalExpression, complement);
             }
+            if (expression instanceof Call call && isInstantPreservingAtTimeZone(call)) {
+                Optional<ExtractionResult> result = createAtTimeZoneComparisonExtractionResult(normalized, complement, originalExpression);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
             return visitExpression(originalExpression, complement);
         }
 
@@ -572,6 +579,46 @@ public final class DomainTranslator
             return Optional.of(new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(entry.getKey(), domain.complement())),
                     TRUE));
+        }
+
+        /**
+         * at_timezone changes only the zone a {@code timestamp with time zone} value is rendered in, never
+         * the instant, and {@code timestamp with time zone} comparisons are instant-based. A comparison over
+         * {@code at_timezone(column, zone)} therefore constrains the underlying column to exactly the range
+         * a direct comparison would. Derive that range as a pushable domain while keeping the original
+         * expression as the remaining predicate, so the zone argument's null and invalid-zone behavior is
+         * preserved for rows that are actually read.
+         */
+        private static Optional<ExtractionResult> createAtTimeZoneComparisonExtractionResult(
+                NormalizedSimpleComparison comparison,
+                boolean complement,
+                Expression originalExpression)
+        {
+            // IDENTICAL under complement gives "anything but the value, or null", which prunes a row
+            // with x = c and a null zone that NOT (at_timezone(x, zone) IDENTICAL c) keeps
+            if (complement) {
+                return Optional.empty();
+            }
+            NullableValue value = comparison.value();
+            if (value.isNull()) {
+                // at_timezone(x, zone) is null when either argument is null, so e.g. the onlyNull domain
+                // IDENTICAL would produce for the column alone would wrongly exclude non-null x with null zone
+                return Optional.empty();
+            }
+
+            Expression base = comparison.expression();
+            while (base instanceof Call call && isInstantPreservingAtTimeZone(call)) {
+                base = call.arguments().get(0);
+            }
+            if (!(base instanceof Reference reference)) {
+                return Optional.empty();
+            }
+            Symbol symbol = Symbol.from(reference);
+            // value type is the common comparison type, which at_timezone preserves from its first argument
+            return extractOrderableDomain(comparison.comparisonOperator(), value.getType(), value.getValue(), false)
+                    .map(domain -> new ExtractionResult(
+                            TupleDomain.withColumnDomains(ImmutableMap.of(symbol, domain)),
+                            originalExpression));
         }
 
         /**
