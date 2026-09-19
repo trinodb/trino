@@ -26,6 +26,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +35,13 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 @DefunctConfig("gcs.use-access-token")
 public class GcsFileSystemConfig
 {
+    public enum GcsSseType
+    {
+        NONE,
+        KMS,
+        CUSTOMER,
+    }
+
     public enum AuthType
     {
         ACCESS_TOKEN,
@@ -57,8 +65,10 @@ public class GcsFileSystemConfig
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
     private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
     private String applicationId = "Trino";
-    private String encryptionKey;
-    private String decryptionKey;
+    private GcsSseType sseType = GcsSseType.NONE;
+    private String sseKmsKeyName;
+    private String customerEncryptionKey;
+    private String customerDecryptionKey;
 
     @NotNull
     public DataSize getReadBlockSize()
@@ -242,37 +252,104 @@ public class GcsFileSystemConfig
         return this;
     }
 
-    public Optional<String> getEncryptionKey()
+    @NotNull
+    public GcsSseType getSseType()
     {
-        return Optional.ofNullable(encryptionKey);
+        return sseType;
     }
 
-    @Config("gcs.encryption-key")
+    @Config("gcs.sse.type")
+    @ConfigDescription("Type of server-side encryption to use for Google Cloud Storage")
+    public GcsFileSystemConfig setSseType(GcsSseType sseType)
+    {
+        this.sseType = sseType;
+        return this;
+    }
+
+    public Optional<String> getSseKmsKeyName()
+    {
+        return Optional.ofNullable(sseKmsKeyName);
+    }
+
+    @Config("gcs.sse.kms-key-name")
+    @ConfigDescription("Cloud KMS key resource name used to encrypt objects written to Google Cloud Storage")
+    public GcsFileSystemConfig setSseKmsKeyName(String sseKmsKeyName)
+    {
+        this.sseKmsKeyName = sseKmsKeyName;
+        return this;
+    }
+
+    public Optional<String> getCustomerEncryptionKey()
+    {
+        return Optional.ofNullable(customerEncryptionKey);
+    }
+
+    @Config("gcs.customer-encryption-key")
     @ConfigDescription("Base64-encoded AES-256 customer-supplied encryption key used to encrypt objects written to Google Cloud Storage")
     @ConfigSecuritySensitive
-    public GcsFileSystemConfig setEncryptionKey(String encryptionKey)
+    public GcsFileSystemConfig setCustomerEncryptionKey(String customerEncryptionKey)
     {
-        this.encryptionKey = encryptionKey;
+        this.customerEncryptionKey = customerEncryptionKey;
         return this;
     }
 
-    public Optional<String> getDecryptionKey()
+    public Optional<String> getCustomerDecryptionKey()
     {
-        return Optional.ofNullable(decryptionKey);
+        return Optional.ofNullable(customerDecryptionKey);
     }
 
-    @Config("gcs.decryption-key")
+    @Config("gcs.customer-decryption-key")
     @ConfigDescription("Base64-encoded AES-256 customer-supplied encryption key used to decrypt objects read from Google Cloud Storage")
     @ConfigSecuritySensitive
-    public GcsFileSystemConfig setDecryptionKey(String decryptionKey)
+    public GcsFileSystemConfig setCustomerDecryptionKey(String customerDecryptionKey)
     {
-        this.decryptionKey = decryptionKey;
+        this.customerDecryptionKey = customerDecryptionKey;
         return this;
+    }
+
+    @AssertTrue(message = "gcs.customer-encryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER")
+    public boolean isCustomerEncryptionKeyConfigValid()
+    {
+        if (sseType == GcsSseType.CUSTOMER) {
+            return isValidCustomerKey(customerEncryptionKey);
+        }
+        return customerEncryptionKey == null;
+    }
+
+    @AssertTrue(message = "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER")
+    public boolean isCustomerDecryptionKeyConfigValid()
+    {
+        if (sseType == GcsSseType.CUSTOMER) {
+            return isValidCustomerKey(customerDecryptionKey);
+        }
+        return customerDecryptionKey == null;
+    }
+
+    @AssertTrue(message = "gcs.sse.kms-key-name must be set when, and only when, gcs.sse.type=KMS")
+    public boolean isSseKmsKeyNameConfigValid()
+    {
+        if (sseType == GcsSseType.KMS) {
+            return sseKmsKeyName != null && !sseKmsKeyName.isBlank();
+        }
+        return sseKmsKeyName == null;
     }
 
     @AssertTrue(message = "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay")
     public boolean isRetryDelayValid()
     {
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
+    }
+
+    private static boolean isValidCustomerKey(String key)
+    {
+        if (key == null) {
+            return false;
+        }
+        try {
+            return Base64.getDecoder().decode(key).length == 32;
+        }
+        catch (IllegalArgumentException _) {
+            return false;
+        }
     }
 }

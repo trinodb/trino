@@ -21,8 +21,10 @@ import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
 import com.google.cloud.storage.testing.RemoteStorageHelper;
+import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
@@ -34,17 +36,16 @@ import java.io.IOException;
 import java.util.Base64;
 
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.GcsSseType.CUSTOMER;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-// Does not extend AbstractTestGcsFileSystem because the shared tests write and read through the same
-// file system. With a separate encryption and decryption key (as happens during key rotation) those
-// round trips can never succeed, so only the rotation-specific case below is meaningful here.
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TestGcsFileSystemWithEncryptionKeyRotation
+final class TestGcsFileSystemWithEncryptionKeyRotation
 {
     private final EncryptionKey encryptionKey = randomAes256();
     private final EncryptionKey decryptionKey = randomAes256();
@@ -59,8 +60,9 @@ public class TestGcsFileSystemWithEncryptionKeyRotation
             throws IOException
     {
         GcsFileSystemConfig config = new GcsFileSystemConfig()
-                .setEncryptionKey(encodedKey(encryptionKey))
-                .setDecryptionKey(encodedKey(decryptionKey));
+                .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(encodedKey(encryptionKey))
+                .setCustomerDecryptionKey(encodedKey(decryptionKey));
         byte[] jsonKeyBytes = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
         GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
         GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
@@ -113,10 +115,28 @@ public class TestGcsFileSystemWithEncryptionKeyRotation
             readPayload = inputStream.readAllBytes();
         }
         assertThat(readPayload).isEqualTo(existingPayload);
+        byte[] positionedReadPayload = new byte[existingPayload.length];
+        try (var input = fileSystem.newInputFile(inputLocation).newInput()) {
+            input.readFully(0, positionedReadPayload, 0, positionedReadPayload.length);
+        }
+        assertThat(positionedReadPayload).isEqualTo(existingPayload);
+        UriLocation inputUri = fileSystem.preSignedUri(inputLocation, new Duration(1, MINUTES)).orElseThrow();
+        assertThat(inputUri.headers().get("x-goog-encryption-key")).containsExactly(encodedKey(decryptionKey));
 
         Location outputLocation = rootLocation.appendPath("output-with-encryption-key");
         byte[] newPayload = "new-payload".getBytes(UTF_8);
         fileSystem.newOutputFile(outputLocation).createOrOverwrite(newPayload);
+
+        try (var inputStream = fileSystem.newInputFile(outputLocation).newStream()) {
+            assertThat(inputStream.readAllBytes()).isEqualTo(newPayload);
+        }
+        byte[] positionedWritePayload = new byte[newPayload.length];
+        try (var input = fileSystem.newInputFile(outputLocation).newInput()) {
+            input.readFully(0, positionedWritePayload, 0, positionedWritePayload.length);
+        }
+        assertThat(positionedWritePayload).isEqualTo(newPayload);
+        UriLocation outputUri = fileSystem.preSignedUri(outputLocation, new Duration(1, MINUTES)).orElseThrow();
+        assertThat(outputUri.headers().get("x-goog-encryption-key")).containsExactly(encodedKey(encryptionKey));
 
         GcsLocation outputGcsLocation = new GcsLocation(outputLocation);
         Blob outputBlob = storage.get(

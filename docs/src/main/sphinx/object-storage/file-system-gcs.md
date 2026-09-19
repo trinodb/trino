@@ -59,12 +59,13 @@ Storage file system support:
 
 ## Encryption
 
-Trino supports [customer-supplied encryption keys
-(CSEK)](https://cloud.google.com/storage/docs/encryption/customer-supplied-keys)
-to encrypt objects written to Google Cloud Storage and decrypt objects read from
-Google Cloud Storage. Separate encryption and decryption key properties are
-supported so that you can rotate keys: configure the new key for encryption and
-keep the previous key for decryption until all objects are re-encrypted.
+Trino supports Google-managed encryption keys, [customer-managed encryption keys
+(CMEK)](https://cloud.google.com/storage/docs/encryption/customer-managed-keys),
+and [customer-supplied encryption keys
+(CSEK)](https://cloud.google.com/storage/docs/encryption/customer-supplied-keys).
+Separate CSEK encryption and decryption key properties allow key rotation:
+configure the new key for encryption and keep the previous key for decryption
+until all objects are re-encrypted.
 
 :::{list-table}
 :widths: 40, 60
@@ -72,13 +73,28 @@ keep the previous key for decryption until all objects are re-encrypted.
 
 * - Property
   - Description
-* - `gcs.encryption-key`
+* - `gcs.sse.type`
+  - Set the type of Google Cloud Storage server-side encryption to use. Defaults
+    to `NONE`, which uses the bucket's default encryption configuration. The
+    other valid values are `KMS` for encryption with a Cloud KMS key from
+    `gcs.sse.kms-key-name`, and `CUSTOMER` for encryption with
+    customer-supplied encryption keys from `gcs.customer-encryption-key` and
+    `gcs.customer-decryption-key`.
+* - `gcs.sse.kms-key-name`
+  - The [Cloud KMS key resource
+    name](https://cloud.google.com/storage/docs/encryption/using-customer-managed-keys)
+    used to encrypt objects written to Google Cloud Storage when `gcs.sse.type`
+    is set to `KMS`. Reading objects encrypted with CMEK does not require this
+    property because Google Cloud Storage records the key in object metadata.
+* - `gcs.customer-encryption-key`
   - The 256-bit, Base64-encoded AES-256 customer-supplied encryption key used
-    to encrypt objects written to Google Cloud Storage.
-* - `gcs.decryption-key`
+    to encrypt objects written to Google Cloud Storage when `gcs.sse.type` is
+    set to `CUSTOMER`.
+* - `gcs.customer-decryption-key`
   - The 256-bit, Base64-encoded AES-256 customer-supplied encryption key used
-    to decrypt objects read from Google Cloud Storage. Typically set to the
-    same value as `gcs.encryption-key` unless rotating keys.
+    to decrypt objects read from Google Cloud Storage when `gcs.sse.type` is set
+    to `CUSTOMER`. Typically set to the same value as
+    `gcs.customer-encryption-key` unless rotating keys.
 :::
 
 ## Authentication

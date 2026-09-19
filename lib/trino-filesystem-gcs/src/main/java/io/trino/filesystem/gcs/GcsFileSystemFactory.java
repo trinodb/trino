@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
@@ -22,12 +23,13 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY;
-import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_CUSTOMER_DECRYPTION_KEY_PROPERTY;
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_CUSTOMER_ENCRYPTION_KEY_PROPERTY;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -40,6 +42,7 @@ public class GcsFileSystemFactory
     private final int pageSize;
     private final int batchSize;
     private final Optional<String> endpoint;
+    private final Optional<String> sseKmsKeyName;
     private final Optional<EncryptionKey> encryptionKey;
     private final Optional<EncryptionKey> decryptionKey;
     private final ListeningExecutorService executorService;
@@ -53,8 +56,18 @@ public class GcsFileSystemFactory
         this.pageSize = config.getPageSize();
         this.batchSize = config.getBatchSize();
         this.endpoint = config.getEndpoint();
-        this.encryptionKey = toEncryptionKey(config.getEncryptionKey());
-        this.decryptionKey = toEncryptionKey(config.getDecryptionKey());
+        this.sseKmsKeyName = switch (config.getSseType()) {
+            case KMS -> config.getSseKmsKeyName();
+            case NONE, CUSTOMER -> Optional.empty();
+        };
+        this.encryptionKey = switch (config.getSseType()) {
+            case NONE, KMS -> Optional.empty();
+            case CUSTOMER -> toEncryptionKey(config.getCustomerEncryptionKey(), "gcs.customer-encryption-key");
+        };
+        this.decryptionKey = switch (config.getSseType()) {
+            case NONE, KMS -> Optional.empty();
+            case CUSTOMER -> toEncryptionKey(config.getCustomerDecryptionKey(), "gcs.customer-decryption-key");
+        };
         this.storageFactory = requireNonNull(storageFactory, "storageFactory is null");
         this.executorService = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("trino-filesystem-gcs-%S")));
     }
@@ -68,15 +81,35 @@ public class GcsFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        Optional<EncryptionKey> encryptionKey = toEncryptionKey(Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_ENCRYPTION_KEY_PROPERTY)))
-                .or(() -> this.encryptionKey);
-        Optional<EncryptionKey> decryptionKey = toEncryptionKey(Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_DECRYPTION_KEY_PROPERTY)))
-                .or(() -> this.decryptionKey);
-        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint, encryptionKey, decryptionKey);
+        Optional<EncryptionKey> identityEncryptionKey = toEncryptionKey(
+                Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_CUSTOMER_ENCRYPTION_KEY_PROPERTY)),
+                EXTRA_CREDENTIALS_GCS_CUSTOMER_ENCRYPTION_KEY_PROPERTY);
+        Optional<EncryptionKey> identityDecryptionKey = toEncryptionKey(
+                Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_CUSTOMER_DECRYPTION_KEY_PROPERTY)),
+                EXTRA_CREDENTIALS_GCS_CUSTOMER_DECRYPTION_KEY_PROPERTY);
+        Optional<EncryptionKey> encryptionKey = identityEncryptionKey.or(() -> this.encryptionKey);
+        Optional<EncryptionKey> decryptionKey = identityDecryptionKey.or(() -> this.decryptionKey);
+        List<EncryptionKey> decryptionKeys = ImmutableList.<EncryptionKey>builder()
+                .addAll(encryptionKey.stream().toList())
+                .addAll(decryptionKey.filter(key -> !key.equals(encryptionKey.orElse(null))).stream().toList())
+                .build();
+        Optional<String> sseKmsKeyName = identityEncryptionKey.isPresent() ? Optional.empty() : this.sseKmsKeyName;
+        return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint, sseKmsKeyName, encryptionKey, decryptionKeys);
     }
 
-    private static Optional<EncryptionKey> toEncryptionKey(Optional<String> base64Key)
+    private static Optional<EncryptionKey> toEncryptionKey(Optional<String> base64Key, String keyName)
     {
-        return base64Key.map(key -> EncryptionKey.ofAes256(Base64.getDecoder().decode(key)));
+        try {
+            return base64Key.map(key -> {
+                byte[] decodedKey = Base64.getDecoder().decode(key);
+                if (decodedKey.length != 32) {
+                    throw new IllegalArgumentException("AES-256 key must be 32 bytes");
+                }
+                return EncryptionKey.ofAes256(decodedKey);
+            });
+        }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid %s: must be a Base64-encoded 256-bit key".formatted(keyName), e);
+        }
     }
 }

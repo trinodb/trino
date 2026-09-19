@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import java.io.IOException;
 
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.GcsSseType.CUSTOMER;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
@@ -32,7 +33,8 @@ final class TestGcsFileSystemWithConfiguredEncryptionKey
             throws IOException
     {
         initialize(requireEnv("GCP_CREDENTIALS_KEY"), new GcsFileSystemConfig()
-                .setEncryptionKey(encodedKey(encryptionKey))
-                .setDecryptionKey(encodedKey(encryptionKey)));
+                .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(encodedKey(encryptionKey))
+                .setCustomerDecryptionKey(encodedKey(encryptionKey)));
     }
 }
