@@ -2407,7 +2407,8 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name, getBranchName(table));
-                if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
+                FreshnessCheck freshnessCheck = checkMaterializedViewFreshness(session, name, materializedViewDefinition);
+                if (freshnessCheck.sufficientlyFresh()) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
@@ -2418,6 +2419,15 @@ class StatementAnalyzer
                     return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
                 }
                 else if (shouldFailWhenStale(materializedViewDefinition)) {
+                    if (freshnessCheck.canNeverBeFresh()) {
+                        throw semanticException(
+                                VIEW_IS_STALE,
+                                table,
+                                "Materialized view '%s' is stale and can never be fresh, because its freshness cannot be determined and its GRACE PERIOD is zero. " +
+                                        "This happens when it depends on a table in another catalog, a table function, or a non-deterministic function. " +
+                                        "Use a non-zero GRACE PERIOD, or WHEN STALE INLINE.",
+                                name);
+                    }
                     throw semanticException(VIEW_IS_STALE, table, "Materialized view '%s' is stale", name);
                 }
                 // This is a stale materialized view and should be expanded like a logical view
@@ -2494,7 +2504,12 @@ class StatementAnalyzer
             return tableScope;
         }
 
-        private boolean isMaterializedViewSufficientlyFresh(Session session, QualifiedObjectName name, MaterializedViewDefinition materializedViewDefinition)
+        /// A materialized view whose freshness cannot be determined ({@link MaterializedViewFreshness.Freshness#UNKNOWN},
+        /// reported when a source cannot be tracked) and whose grace period is zero can never be
+        /// considered sufficiently fresh, no matter how often it is refreshed.
+        private record FreshnessCheck(boolean sufficientlyFresh, boolean canNeverBeFresh) {}
+
+        private FreshnessCheck checkMaterializedViewFreshness(Session session, QualifiedObjectName name, MaterializedViewDefinition materializedViewDefinition)
         {
             boolean gracePeriodZero = materializedViewDefinition.getGracePeriod()
                     .map(Duration::isZero)
@@ -2506,28 +2521,31 @@ class StatementAnalyzer
             MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name, considerGracePeriod);
             MaterializedViewFreshness.Freshness freshness = materializedViewFreshness.getFreshness();
 
+            // A view whose freshness cannot be determined is never reported as fresh, so a zero grace period rules out every read of it.
+            boolean canNeverBeFresh = gracePeriodZero && freshness == MaterializedViewFreshness.Freshness.UNKNOWN;
+
             if (freshness == FRESH || freshness == FRESH_WITHIN_GRACE_PERIOD) {
-                return true;
+                return new FreshnessCheck(true, false);
             }
             Optional<Instant> lastKnownFreshTime = materializedViewFreshness.getLastKnownFreshTime();
             if (lastKnownFreshTime.isEmpty()) {
                 // E.g. never refreshed, or connector not updated to report fresh time
-                return false;
+                return new FreshnessCheck(false, canNeverBeFresh);
             }
             if (materializedViewDefinition.getGracePeriod().isEmpty()) {
                 // Unlimited grace period
-                return true;
+                return new FreshnessCheck(true, false);
             }
             if (gracePeriodZero) {
                 // Consider 0 as a special value meaning "do not accept any staleness". This makes 0 more reliable, and more likely what user wanted,
                 // regardless of lastKnownFreshTime, query time or rounding.
-                return false;
+                return new FreshnessCheck(false, canNeverBeFresh);
             }
 
             Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
             // Can be negative
             Duration staleness = Duration.between(lastKnownFreshTime.get(), session.getStart());
-            return staleness.compareTo(gracePeriod) <= 0;
+            return new FreshnessCheck(staleness.compareTo(gracePeriod) <= 0, false);
         }
 
         private static boolean shouldFailWhenStale(MaterializedViewDefinition materializedViewDefinition)
