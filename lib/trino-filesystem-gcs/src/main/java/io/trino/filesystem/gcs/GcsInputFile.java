@@ -15,6 +15,7 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
@@ -23,6 +24,7 @@ import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -41,10 +43,11 @@ public class GcsInputFile
     private final int readBlockSize;
     private final OptionalLong predeclaredLength;
     private final Optional<EncryptionKey> key;
+    private final Map<String, String> auditHeaders;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
-    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified, Optional<EncryptionKey> key)
+    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified, Optional<EncryptionKey> key, Map<String, String> auditHeaders)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -53,6 +56,7 @@ public class GcsInputFile
         this.length = OptionalLong.empty();
         this.lastModified = requireNonNull(lastModified, "lastModified is null");
         this.key = requireNonNull(key, "key is null");
+        this.auditHeaders = ImmutableMap.copyOf(auditHeaders);
     }
 
     @Override
@@ -60,15 +64,15 @@ public class GcsInputFile
             throws IOException
     {
         // Note: Only pass predeclared length, to keep the contract of TrinoFileSystem.newInputFile
-        return new GcsInput(location, storage, predeclaredLength, key);
+        return new GcsInput(location, storage, predeclaredLength, key, auditHeaders);
     }
 
     @Override
     public TrinoInputStream newStream()
             throws IOException
     {
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
-        return new GcsInputStream(location, blob, readBlockSize, predeclaredLength, key);
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
+        return new GcsInputStream(location, storage, blob, readBlockSize, predeclaredLength, key, auditHeaders);
     }
 
     @Override
@@ -98,8 +102,7 @@ public class GcsInputFile
     public boolean exists()
             throws IOException
     {
-        Optional<Blob> blob = getBlob(storage, location, blobGetOptions());
-        return blob.isPresent() && blob.get().exists();
+        return getBlob(storage, location, auditHeaders, blobGetOptions()).isPresent();
     }
 
     @Override
@@ -122,7 +125,7 @@ public class GcsInputFile
     private void loadProperties()
             throws IOException
     {
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location, auditHeaders, blobGetOptions());
         try {
             length = OptionalLong.of(blob.getSize());
             if (lastModified.isEmpty()) {

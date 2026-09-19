@@ -18,31 +18,32 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static java.lang.reflect.Proxy.newProxyInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
-final class TestGcsInput
+final class TestGcsUtils
 {
     @Test
-    void testZeroLengthReadTailDoesNotRead()
-            throws Exception
+    void testAuditHeadersPassedToGetBlob()
     {
+        AtomicReference<Storage.BlobGetOption[]> options = new AtomicReference<>();
         Storage storage = (Storage) newProxyInstance(
-                TestGcsInput.class.getClassLoader(),
+                TestGcsUtils.class.getClassLoader(),
                 new Class<?>[] {Storage.class},
-                (_, method, _) -> {
-                    throw new AssertionError("Storage should not be accessed: " + method);
+                (_, method, arguments) -> {
+                    assertThat(method.getName()).isEqualTo("get");
+                    options.set((Storage.BlobGetOption[]) arguments[1]);
+                    return null;
                 });
-        GcsInput input = new GcsInput(
-                new GcsLocation(Location.of("gs://bucket/key")),
-                storage,
-                OptionalLong.empty(),
-                Optional.empty(),
-                ImmutableMap.of());
+        ImmutableMap<String, String> auditHeaders = ImmutableMap.of(
+                "x-goog-custom-audit-trino-query-id", "query_id",
+                "x-goog-custom-audit-trino-user", "alice");
 
-        assertThat(input.readTail(new byte[0], 0, 0)).isEqualTo(0);
+        getBlob(storage, new GcsLocation(Location.of("gs://bucket/key")), auditHeaders);
+
+        assertThat(options.get()).contains(Storage.BlobGetOption.extraHeaders(auditHeaders));
     }
 }
