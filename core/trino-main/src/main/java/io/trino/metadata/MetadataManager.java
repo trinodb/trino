@@ -1594,6 +1594,20 @@ public final class MetadataManager
     }
 
     @Override
+    public Optional<String> getSchemaComment(Session session, CatalogSchemaName schemaName)
+    {
+        if (!schemaExists(session, schemaName)) {
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+        }
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, schemaName.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getConnectorHandleForSchema(schemaName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        return metadata.getSchemaComment(connectorSession, schemaName.getSchemaName());
+    }
+
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
