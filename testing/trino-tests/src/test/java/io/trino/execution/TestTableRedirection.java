@@ -73,6 +73,7 @@ public class TestTableRedirection
     private static final String INTERMEDIATE_TABLE = "intermediate_table";
     private static final String REDIRECTION_LOOP_PING = "redirection_loop_ping";
     private static final String REDIRECTION_LOOP_PONG = "redirection_loop_pong";
+    private static final String TEST_BRANCH = "test_branch";
     private static final List<String> REDIRECTION_CHAIN = IntStream.range(0, MAX_TABLE_REDIRECTIONS + 1).boxed()
             .map(i -> "redirection_chain_table_" + i)
             .collect(toImmutableList());
@@ -188,6 +189,7 @@ public class TestTableRedirection
                     return Optional.ofNullable(REDIRECTIONS.get(schemaTableName))
                             .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target));
                 })
+                .withBranches(ImmutableList.of(TEST_BRANCH))
                 .build();
     }
 
@@ -227,6 +229,15 @@ public class TestTableRedirection
                         REDIRECTION_CHAIN.stream()
                                 .map(table -> new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_THREE, table).toString())
                                 .collect(Collectors.joining(", ")));
+    }
+
+    @Test
+    public void testTableScanWithBranch()
+    {
+        assertQuery(
+                format("SELECT c2 FROM %s.%s FOR VERSION AS OF '%s'", SCHEMA_ONE, VALID_REDIRECTION_SRC, TEST_BRANCH),
+                "SELECT 1 WHERE 1=0",
+                verifySingleTableScan(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
     }
 
     @Test
