@@ -116,10 +116,11 @@ public class TestMerge
                                 new Case(
                                         ImmutableList.of(new WhenClause(new Call(NOT, ImmutableList.of(new Reference(BOOLEAN, "is_distinct"))), new Cast(new Call(FAIL, ImmutableList.of(new Constant(INTEGER, (long) MERGE_TARGET_ROW_MULTIPLE_MATCHES.toErrorCode().getCode()), new Constant(VARCHAR, utf8Slice("One MERGE target table row matched more than one source row")))), BOOLEAN))),
                                         TRUE),
-                                markDistinct("is_distinct", ImmutableList.of("unique_id", "case_number"),
+                                markDistinct("is_distinct", ImmutableList.of("unique_id", "unique_id_from_target", "case_number"),
                                         anyTree(
                                                 project(ImmutableMap.of(
                                                                 "unique_id", expression(new Coalesce(ImmutableList.of(new Reference(BIGINT, "target_unique_id"), new Reference(BIGINT, "source_unique_id")))),
+                                                                "unique_id_from_target", expression(new Call(NOT, ImmutableList.of(new IsNull(new Reference(BIGINT, "target_unique_id"))))),
                                                                 "field", expression(new Reference(BIGINT, "field")),
                                                                 "merge_row", expression(new Reference(ROW_TYPE, "merge_row")),
                                                                 "case_number", expression(new FieldReference(new Reference(ROW_TYPE, "merge_row"), 4))),
