@@ -74,6 +74,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
+import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_NATIVE_GSS;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
@@ -378,6 +379,11 @@ public class TrinoUri
     public Optional<GSSCredential> getKerberosConstrainedDelegation()
     {
         return resolveOptional(KERBEROS_CONSTRAINED_DELEGATION);
+    }
+
+    public boolean getKerberosUseNativeGss()
+    {
+        return resolveWithDefault(KERBEROS_USE_NATIVE_GSS, false);
     }
 
     public Optional<String> getAccessToken()
@@ -939,6 +945,11 @@ public class TrinoUri
         public Builder setKerberosConstrainedDelegation(GSSCredential kerberosConstrainedDelegation)
         {
             return setProperty(KERBEROS_CONSTRAINED_DELEGATION, requireNonNull(kerberosConstrainedDelegation, "kerberosConstrainedDelegation is null"));
+        }
+
+        public Builder setKerberosUseNativeGss(Boolean kerberosUseNativeGss)
+        {
+            return setProperty(KERBEROS_USE_NATIVE_GSS, requireNonNull(kerberosUseNativeGss, "kerberosUseNativeGss is null"));
         }
 
         public Builder setAccessToken(String accessToken)
