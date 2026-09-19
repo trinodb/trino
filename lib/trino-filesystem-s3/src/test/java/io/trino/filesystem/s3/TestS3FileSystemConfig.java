@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
@@ -24,8 +25,12 @@ import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -47,6 +52,13 @@ public class TestS3FileSystemConfig
         assertRecordedDefaults(recordDefaults(S3FileSystemConfig.class)
                 .setAwsAccessKey(null)
                 .setAwsSecretKey(null)
+                .setKeystorePath(null)
+                .setKeystoreType("JCEKS")
+                .setKeystorePassword(null)
+                .setKeystoreEntryPassword(null)
+                .setKeystoreBucketKeyPrefix(null)
+                .setAwsAccessKeyAlias(null)
+                .setAwsSecretKeyAlias(null)
                 .setEndpoint(null)
                 .setRegion(null)
                 .setPathStyleAccess(false)
@@ -173,7 +185,76 @@ public class TestS3FileSystemConfig
                 .setStsEndpoint("sts.example.com")
                 .setStsRegion("us-west-2"));
 
-        assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected, Set.of(
+                "s3.keystore.path",
+                "s3.keystore.password",
+                "s3.keystore.entry-password",
+                "s3.keystore.bucket-key-prefix",
+                "s3.keystore.type",
+                "s3.aws-access-key-alias",
+                "s3.aws-secret-key-alias"));
+    }
+
+    @Test
+    public void testKeystorePropertyMappings()
+            throws Exception
+    {
+        Path keystoreFile = Files.createTempFile("keystore", ".jceks");
+        keystoreFile.toFile().deleteOnExit();
+
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("s3.keystore.path", keystoreFile.toString())
+                .put("s3.keystore.password", "none")
+                .put("s3.aws-access-key-alias", "access.alias")
+                .put("s3.aws-secret-key-alias", "secret.alias")
+                .buildOrThrow();
+
+        S3FileSystemConfig expected = new S3FileSystemConfig()
+                .setKeystorePath(keystoreFile.toString())
+                .setKeystorePassword("none")
+                .setAwsAccessKeyAlias("access.alias")
+                .setAwsSecretKeyAlias("secret.alias");
+
+        assertFullMapping(properties, expected, Set.of(
+                "s3.application-id",
+                "s3.auth-type",
+                "s3.aws-access-key",
+                "s3.aws-secret-key",
+                "s3.canned-acl",
+                "s3.connection-max-idle-time",
+                "s3.connection-ttl",
+                "s3.cross-region-access",
+                "s3.endpoint",
+                "s3.expect-continue-enabled",
+                "s3.external-id",
+                "s3.http-proxy",
+                "s3.http-proxy.non-proxy-hosts",
+                "s3.http-proxy.password",
+                "s3.http-proxy.preemptive-basic-auth",
+                "s3.http-proxy.secure",
+                "s3.http-proxy.username",
+                "s3.iam-role",
+                "s3.keystore.bucket-key-prefix",
+                "s3.keystore.entry-password",
+                "s3.keystore.type",
+                "s3.max-connections",
+                "s3.max-error-retries",
+                "s3.path-style-access",
+                "s3.region",
+                "s3.requester-pays",
+                "s3.retry-mode",
+                "s3.role-session-name",
+                "s3.signer-type",
+                "s3.socket-connect-timeout",
+                "s3.socket-timeout",
+                "s3.sse.customer-key",
+                "s3.sse.kms-key-id",
+                "s3.sse.type",
+                "s3.storage-class",
+                "s3.streaming.part-size",
+                "s3.sts.endpoint",
+                "s3.sts.region",
+                "s3.tcp-keep-alive"));
     }
 
     @Test
@@ -193,7 +274,14 @@ public class TestS3FileSystemConfig
                 "s3.iam-role",
                 "s3.external-id",
                 "s3.sts.endpoint",
-                "s3.sts.region"));
+                "s3.sts.region",
+                "s3.keystore.path",
+                "s3.keystore.password",
+                "s3.keystore.entry-password",
+                "s3.keystore.bucket-key-prefix",
+                "s3.keystore.type",
+                "s3.aws-access-key-alias",
+                "s3.aws-secret-key-alias"));
     }
 
     @Test
@@ -206,7 +294,7 @@ public class TestS3FileSystemConfig
                 AssertTrue.class);
     }
 
-    private static final String CREDENTIAL_FREE_MESSAGE = "s3.auth-type=ANONYMOUS and s3.auth-type=WEB_IDENTITY cannot be used with other authentication properties (s3.aws-access-key, s3.aws-secret-key, s3.external-id, s3.sts.endpoint, s3.sts.region)";
+    private static final String CREDENTIAL_FREE_MESSAGE = "s3.auth-type=ANONYMOUS and s3.auth-type=WEB_IDENTITY cannot be used with other authentication properties (s3.aws-access-key, s3.aws-secret-key, s3.aws-access-key-alias, s3.aws-secret-key-alias, s3.keystore.path, s3.external-id, s3.sts.endpoint, s3.sts.region)";
     private static final String IAM_ROLE_MESSAGE = "s3.iam-role must be set when, and only when, s3.auth-type=IAM_ROLE";
 
     @Test
@@ -326,5 +414,85 @@ public class TestS3FileSystemConfig
                         .setExternalId("external-id")
                         .setStsEndpoint("sts.example.com")
                         .setStsRegion("us-west-2"));
+    }
+
+    @Test
+    public void testKeystorePathWithoutAliases()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setKeystorePath("/jceks/secrets.jceks"),
+                "keystoreConfigurationValid",
+                "s3.keystore.path requires s3.aws-access-key-alias and s3.aws-secret-key-alias, or s3.keystore.bucket-key-prefix",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testPartialPlaintextCredentials()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setAwsAccessKey("only-access"),
+                "plaintextCredentialsValid",
+                "s3.aws-access-key and s3.aws-secret-key must be configured together",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testPlaintextAndAliasCredentialsMixed()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setKeystorePath("/jceks/secrets.jceks")
+                        .setAwsAccessKeyAlias("access.alias")
+                        .setAwsSecretKeyAlias("secret.alias")
+                        .setAwsAccessKey("plaintext"),
+                "plaintextAndAliasCredentialsValid",
+                "plaintext and alias S3 credentials cannot be mixed",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testKeystoreBucketPrefixWithoutPath()
+    {
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setKeystoreBucketKeyPrefix("fs.s3a.bucket."),
+                "keystoreBucketPrefixValid",
+                "s3.keystore.bucket-key-prefix requires s3.keystore.path",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testKeystorePathMustExist()
+            throws Exception
+    {
+        File missingFile = new File("/doesNotExist-" + UUID.randomUUID());
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setKeystorePath(missingFile.getPath())
+                        .setAwsAccessKeyAlias("access.alias")
+                        .setAwsSecretKeyAlias("secret.alias"),
+                "keystorePath",
+                "file does not exist: " + missingFile,
+                FileExists.class);
+    }
+
+    @Test
+    public void testGlobalAliasAndBucketPrefixMutuallyExclusive()
+            throws Exception
+    {
+        File keystoreFile = Files.createTempFile("keystore", ".jceks").toFile();
+        keystoreFile.deleteOnExit();
+
+        assertFailsValidation(
+                new S3FileSystemConfig()
+                        .setKeystorePath(keystoreFile.getPath())
+                        .setAwsAccessKeyAlias("access.alias")
+                        .setAwsSecretKeyAlias("secret.alias")
+                        .setKeystoreBucketKeyPrefix("fs.s3a.bucket."),
+                "keystoreGlobalAliasAndBucketPrefixMutuallyExclusive",
+                "s3.aws-access-key-alias and s3.aws-secret-key-alias cannot be used with s3.keystore.bucket-key-prefix",
+                AssertTrue.class);
     }
 }
