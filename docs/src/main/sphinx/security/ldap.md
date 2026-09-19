@@ -108,6 +108,9 @@ ldap.user-bind-pattern=<Refer below for usage>
   - Timeout for establishing an LDAP connection. Defaults to `1m`.
 * - `ldap.timeout.read`
   - Timeout for reading data from an LDAP connection. Defaults to `1m`.
+* - `ldap.paging.size`
+  - Number of entries requested per page when reading paged LDAP search results
+    `MaxPageSize` (1000 by default). Defaults to `1000`.
 :::
 
 Based on the LDAP server implementation type, the property

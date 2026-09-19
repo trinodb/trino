@@ -23,6 +23,18 @@ public interface LdapClient
     <T> T processLdapContext(String userName, String password, LdapContextProcessor<T> contextProcessor)
             throws NamingException;
 
+    /**
+     * Returns whether at least one entry matches the query. Intended for existence checks on the authentication
+     * hot path: the search is capped at a single result rather than reading (and materializing) every match.
+     */
+    boolean exists(String userName, String password, LdapQuery ldapQuery)
+            throws NamingException;
+
+    /**
+     * Runs a paged search and hands the results to {@code resultProcessor} as a lazy enumeration: pages are
+     * fetched only as the processor consumes them, so callers reading a single entry avoid reading later pages,
+     * while callers that iterate to the end receive every entry across all pages.
+     */
     <T> T executeLdapQuery(String userName, String password, LdapQuery ldapQuery, LdapSearchResultProcessor<T> resultProcessor)
             throws NamingException;
 
