@@ -16,7 +16,11 @@ package io.trino.plugin.ldapgroup;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 public class LdapGroupProviderConfig
 {
@@ -26,6 +30,8 @@ public class LdapGroupProviderConfig
     private String ldapUserSearchFilter = "(uid={0})";
     private String ldapGroupsNameAttribute = "cn";
     private boolean ldapUseGroupFilter;
+    private Duration ldapGroupCacheTtl = new Duration(0, TimeUnit.SECONDS);
+    private int ldapGroupCacheSize = 1000;
 
     @NotNull
     public String getLdapAdminUser()
@@ -108,6 +114,34 @@ public class LdapGroupProviderConfig
     public LdapGroupProviderConfig setLdapUseGroupFilter(boolean ldapUseGroupFilter)
     {
         this.ldapUseGroupFilter = ldapUseGroupFilter;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getLdapGroupCacheTtl()
+    {
+        return ldapGroupCacheTtl;
+    }
+
+    @Config("ldap.group-cache-ttl")
+    @ConfigDescription("Duration to cache groups retrieved from LDAP. Set to 0 to disable caching, default value is 0s (disabled)")
+    public LdapGroupProviderConfig setLdapGroupCacheTtl(Duration ldapGroupCacheTtl)
+    {
+        this.ldapGroupCacheTtl = ldapGroupCacheTtl;
+        return this;
+    }
+
+    public int getLdapGroupCacheSize()
+    {
+        return ldapGroupCacheSize;
+    }
+
+    @Config("ldap.group-cache-size")
+    @ConfigDescription("Maximum number of entries in the group membership cache, default value is 1000")
+    public LdapGroupProviderConfig setLdapGroupCacheSize(int ldapGroupCacheSize)
+    {
+        this.ldapGroupCacheSize = ldapGroupCacheSize;
         return this;
     }
 }
