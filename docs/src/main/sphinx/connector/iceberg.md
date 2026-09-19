@@ -2128,6 +2128,9 @@ SELECT *
 FROM example.testdb.customer_orders FOR VERSION AS OF 'test-branch';
 ```
 
+Branches use the current table schema. Tags, snapshot IDs, and timestamps use the
+schema of the snapshot they resolve to.
+
 ##### Rolling back to a previous snapshot
 
 Use the `$snapshots` metadata table to determine the latest snapshot ID of the
