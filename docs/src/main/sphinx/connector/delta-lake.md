@@ -597,6 +597,10 @@ measure to ensure that files are retained as expected. The minimum value for
 this property is `0s`. There is a minimum retention session property as well,
 `vacuum_min_retention`.
 
+Tables that use deletion vectors are supported. A deletion vector file is kept
+while any add action still references it. After the retention period,
+unreferenced deletion vector files are removed like other data files.
+
 (delta-lake-data-management)=
 ### Data management
 
