@@ -87,6 +87,7 @@ import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -151,6 +152,12 @@ public class CreateTableTask
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
             return immediateVoidFuture();
+        }
+        if (plannerContext.getMetadata().isView(session, tableName)) {
+            if (statement.getSaveMode() == IGNORE) {
+                return immediateVoidFuture();
+            }
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "View '%s' already exists, cannot create a table with the same name", tableName);
         }
 
         String catalogName = tableName.catalogName();
