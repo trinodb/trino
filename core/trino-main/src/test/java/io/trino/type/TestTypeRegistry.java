@@ -20,6 +20,7 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry
@@ -38,5 +39,15 @@ public class TestTypeRegistry
     public void testOperatorsImplemented()
     {
         typeRegistry.verifyTypes();
+    }
+
+    @Test
+    public void testNumericIsAliasForDecimal()
+    {
+        assertThat(typeRegistry.isTypeRegistered("numeric")).isTrue();
+        assertThat(typeRegistry.fromSqlType("numeric(10, 2)"))
+                .isEqualTo(typeRegistry.fromSqlType("decimal(10, 2)"));
+        assertThat(typeRegistry.fromSqlType("NUMERIC"))
+                .isEqualTo(typeRegistry.fromSqlType("DECIMAL"));
     }
 }

@@ -71,9 +71,13 @@ public class TestTypeOfFunction
                 .isEqualTo("varchar(10)");
         assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL(5,1))"))
                 .isEqualTo("decimal(5,1)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS NUMERIC(5,1))"))
+                .isEqualTo("decimal(5,1)");
         assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL(1))"))
                 .isEqualTo("decimal(1,0)");
         assertThat(assertions.function("typeof", "CAST(NULL AS DECIMAL)"))
+                .isEqualTo("decimal(38,0)");
+        assertThat(assertions.function("typeof", "CAST(NULL AS NUMERIC)"))
                 .isEqualTo("decimal(38,0)");
         assertThat(assertions.function("typeof", "CAST(NULL AS ARRAY(INTEGER))"))
                 .isEqualTo("array(integer)");
