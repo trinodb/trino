@@ -39,6 +39,8 @@ import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -588,6 +590,36 @@ public class TestDeltaLakeMetadata
             assertThat(checksumTableHandle.getMetadataEntry()).isEqualTo(transactionLogTableHandle.getMetadataEntry());
             assertThat(checksumTableHandle.getProtocolEntry()).isEqualTo(transactionLogTableHandle.getProtocolEntry());
         }
+    }
+
+    @Test
+    public void testCollectLatestDeletionVectors()
+    {
+        DeletionVectorEntry newestDeletionVector = new DeletionVectorEntry("u", "new", OptionalInt.empty(), 1, 2);
+        DeletionVectorEntry olderDeletionVector = new DeletionVectorEntry("u", "old", OptionalInt.empty(), 1, 1);
+        AddFileEntry newestFile = new AddFileEntry(
+                "file.parquet",
+                ImmutableMap.of(),
+                1,
+                1,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.of(newestDeletionVector));
+        AddFileEntry olderFile = new AddFileEntry(
+                "file.parquet",
+                ImmutableMap.of(),
+                1,
+                1,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.of(olderDeletionVector));
+
+        assertThat(DeltaLakeMetadata.collectLatestDeletionVectors(ImmutableList.of(newestFile, olderFile).iterator()))
+                .isEqualTo(ImmutableMap.of("file.parquet", newestDeletionVector));
     }
 
     private static ConnectorSession loadMetadataFromChecksumFileSession(boolean enabled)
