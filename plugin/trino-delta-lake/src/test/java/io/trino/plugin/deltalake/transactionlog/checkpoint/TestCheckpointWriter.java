@@ -26,6 +26,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -52,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -61,6 +63,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.addFileEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.metadataEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.protocolEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.removeFileEntry;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
@@ -80,6 +86,20 @@ public class TestCheckpointWriter
 {
     private final TypeManager typeManager = TESTING_TYPE_MANAGER;
     private final CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
+
+    @Test
+    public void testDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false);
+    }
+
+    @Test
+    public void testRestoredFileWithoutDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(true);
+    }
 
     @Test
     public void testCheckpointWriteReadJsonRoundtrip()
@@ -430,6 +450,54 @@ public class TestCheckpointWriter
         assertThat(fileStatistics.getMinValues().get()).isEmpty();
         assertThat(fileStatistics.getMaxValues().get()).isEmpty();
         assertThat(fileStatistics.getNullCount().get()).isEmpty();
+    }
+
+    private void assertDeletionVectorRoundtrip(boolean restoreWithoutDeletionVector)
+            throws IOException
+    {
+        MetadataEntry metadata = new MetadataEntry(
+                "metadataId",
+                "",
+                "",
+                new MetadataEntry.Format("parquet", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":[{\"name\":\"value\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of("delta.enableDeletionVectors", "true"),
+                1);
+        ProtocolEntry protocol = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
+        CheckpointBuilder builder = new CheckpointBuilder();
+        builder.addLogEntry(metadataEntry(metadata));
+        builder.addLogEntry(protocolEntry(protocol));
+        AddFileEntry original = new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.empty());
+        builder.addLogEntry(addFileEntry(original));
+
+        Optional<DeletionVectorEntry> previousDeletionVector = Optional.empty();
+        for (DeletionVectorEntry deletionVector : ImmutableList.of(
+                new DeletionVectorEntry("i", "inline", OptionalInt.empty(), 34, 1),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(1), 36, 2),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(39), 38, 3))) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 1, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.of(deletionVector))));
+            previousDeletionVector = Optional.of(deletionVector);
+        }
+        if (restoreWithoutDeletionVector) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 2, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(original));
+        }
+
+        CheckpointEntries expected = builder.build();
+        CheckpointEntries entries = expected;
+        for (int checkpoint = 0; checkpoint < 2; checkpoint++) {
+            File targetFile = Files.createTempFile("testDeletionVectorRoundtrip-", ".checkpoint.parquet").toFile();
+            targetFile.deleteOnExit();
+            String targetPath = targetFile.toURI().toString();
+            targetFile.delete();
+            new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+
+            entries = readCheckpoint(targetPath, metadata, protocol, true);
+            assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
+            assertThat(entries.removeFileEntries()).containsExactlyInAnyOrderElementsOf(expected.removeFileEntries());
+        }
     }
 
     private AddFileEntry makeComparable(AddFileEntry original)
