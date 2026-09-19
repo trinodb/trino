@@ -13,29 +13,44 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 
-import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static java.util.Objects.requireNonNull;
 
 class S3SecurityMappingsFileSource
         implements Supplier<S3SecurityMappings>
 {
-    private final File configFile;
+    private final Path configFile;
     private final String jsonPointer;
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public S3SecurityMappingsFileSource(S3SecurityMappingConfig config)
+    public S3SecurityMappingsFileSource(S3SecurityMappingConfig config, SecretsResolver secretsResolver)
     {
-        this.configFile = config.getConfigFile().orElseThrow();
+        this.configFile = config.getConfigFile().orElseThrow().toPath();
         this.jsonPointer = config.getJsonPointer();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
     public S3SecurityMappings get()
     {
-        return parseJson(configFile.toPath(), jsonPointer, S3SecurityMappings.class);
+        try {
+            String json = Files.readString(configFile);
+            String resolved = secretsResolver.getResolvedConfiguration(ImmutableMap.of("json", json)).get("json");
+            return parseJson(resolved, jsonPointer, S3SecurityMappings.class);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read security mapping file: " + configFile, e);
+        }
     }
 }
