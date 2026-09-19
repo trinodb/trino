@@ -370,7 +370,7 @@ public abstract class AbstractTrinoCatalog
     {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
                 .map(column -> {
-                    Type type = typeManager.getType(column.getType());
+                    Type type = typeManager.fromSqlType(column.getType().getId());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
                         // For now preserve timestamptz columns so that we can parse partitioning
                         type = TIMESTAMP_TZ_MICROS;
@@ -396,7 +396,7 @@ public abstract class AbstractTrinoCatalog
 
         return definition.getColumns().stream()
                 .map(column -> {
-                    Type type = typeManager.getType(column.getType());
+                    Type type = typeManager.fromSqlType(column.getType().getId());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
                         // Apply point-in-time semantics to maintain partitioning capabilities
                         type = TIMESTAMP_TZ_MICROS;

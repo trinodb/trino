@@ -14,15 +14,27 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.LongInterval;
 import io.trino.type.SqlIntervalDayTime;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.round;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntervalDayToSecondAverageAggregation
         extends AbstractTestAggregationFunction
@@ -61,5 +73,49 @@ public class TestIntervalDayToSecondAverageAggregation
     protected List<Type> getFunctionParameterTypes()
     {
         return ImmutableList.of(INTERVAL_DAY_TIME);
+    }
+
+    @Test
+    public void testRoundingToOutputPrecision()
+    {
+        for (int precision = 0; precision <= 12; precision++) {
+            long quantum = longTenToNth(12 - precision);
+            for (long base : new long[] {-1001, -1, 0, 1, 1001}) {
+                for (int sign : new int[] {-1, 1}) {
+                    // Values on either side of the midpoint, and exactly at the midpoint.
+                    assertAverage(precision, base * quantum, sign * quantum, 5, 11, base * quantum);
+                    assertAverage(precision, base * quantum, sign * quantum, 6, 11, (base + sign) * quantum);
+                    assertAverage(precision, base * quantum, sign * quantum, 1, 2, (base + (sign > 0 ? 1 : 0)) * quantum);
+                }
+            }
+        }
+    }
+
+    private static void assertAverage(int precision, long basePicos, long incrementPicos, int incrementCount, int count, long expectedPicos)
+    {
+        IntervalDayTimeType type = createIntervalDayTimeType(DAY, SECOND, 9, precision);
+        LongDecimalWithOverflowAndLongState direct = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+        LongDecimalWithOverflowAndLongState combined = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+        for (int index = 0; index < count; index++) {
+            long picos = basePicos + (index < incrementCount ? incrementPicos : 0);
+            LongDecimalWithOverflowAndLongState partial = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+            if (type.isShort()) {
+                IntervalDayToSecondAverageAggregation.averageShort(direct, picos / 1_000_000);
+                IntervalDayToSecondAverageAggregation.averageShort(partial, picos / 1_000_000);
+            }
+            else {
+                LongInterval value = new LongInterval(floorDiv(picos, 1_000_000), floorMod(picos, 1_000_000));
+                IntervalDayToSecondAverageAggregation.averageLong(direct, value);
+                IntervalDayToSecondAverageAggregation.averageLong(partial, value);
+            }
+            IntervalDayToSecondAverageAggregation.combine(combined, partial);
+        }
+        for (LongDecimalWithOverflowAndLongState state : new LongDecimalWithOverflowAndLongState[] {direct, combined}) {
+            BlockBuilder builder = type.createBlockBuilder(null, 1);
+            IntervalDayToSecondAverageAggregation.output(precision, state, builder);
+            assertThat(type.getObjectValue(builder.build(), 0))
+                    .as("precision %s, base %s, increment %s, count %s/%s", precision, basePicos, incrementPicos, incrementCount, count)
+                    .isEqualTo(new SqlIntervalDayTime(floorDiv(expectedPicos, 1_000_000), floorMod(expectedPicos, 1_000_000), precision));
+        }
     }
 }

@@ -357,14 +357,27 @@ public class TestOperators
     }
 
     @Test
+    public void testPicosecondIntervalDayToSecond()
+    {
+        // a nanosecond interval keeps the short (nanosecond) form, wrapping modulo 24 hours
+        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '1.123456789' SECOND(13, 9)")).matches("TIME '12:34:57.123456789+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123456789' SECOND(13, 9) + TIME '12:34:56+08:35'")).matches("TIME '12:34:57.123456789+08:35'");
+        assertThat(assertions.expression("TIME '12:34:57.123456789+08:35' - INTERVAL '1.123456789' SECOND(13, 9)")).matches("TIME '12:34:56.000000000+08:35'");
+
+        // a sub-nanosecond interval pushes the result into the long (picosecond) form
+        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '0.000000000123' SECOND(13, 12)")).matches("TIME '12:34:56.000000000123+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.000000000111+08:35' + INTERVAL '0.000000000222' SECOND(13, 12)")).matches("TIME '12:34:56.000000000333+08:35'");
+    }
+
+    @Test
     public void testAddIntervalDayToSecond()
     {
-        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.123+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.223+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.243+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1234+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.2464+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12345+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.24645+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.123000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.223000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.243000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1234+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246400+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12345+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246450+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.123456+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246456+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.1234567+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.2464567+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.12345678+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.24645678+08:35'");
@@ -373,12 +386,12 @@ public class TestOperators
         assertThat(assertions.expression("TIME '12:34:56.12345678901+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.24645678901+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.123456789012+08:35' + INTERVAL '1.123' SECOND")).matches("TIME '12:34:57.246456789012+08:35'");
 
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56+08:35'")).matches("TIME '12:34:57.123+08:35'");
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.1+08:35'")).matches("TIME '12:34:57.223+08:35'");
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.12+08:35'")).matches("TIME '12:34:57.243+08:35'");
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.123+08:35'")).matches("TIME '12:34:57.246+08:35'");
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.1234+08:35'")).matches("TIME '12:34:57.2464+08:35'");
-        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.12345+08:35'")).matches("TIME '12:34:57.24645+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56+08:35'")).matches("TIME '12:34:57.123000+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.1+08:35'")).matches("TIME '12:34:57.223000+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.12+08:35'")).matches("TIME '12:34:57.243000+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.123+08:35'")).matches("TIME '12:34:57.246000+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.1234+08:35'")).matches("TIME '12:34:57.246400+08:35'");
+        assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.12345+08:35'")).matches("TIME '12:34:57.246450+08:35'");
         assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.123456+08:35'")).matches("TIME '12:34:57.246456+08:35'");
         assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.1234567+08:35'")).matches("TIME '12:34:57.2464567+08:35'");
         assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.12345678+08:35'")).matches("TIME '12:34:57.24645678+08:35'");
@@ -388,22 +401,22 @@ public class TestOperators
         assertThat(assertions.expression("INTERVAL '1.123' SECOND + TIME '12:34:56.123456789012+08:35'")).matches("TIME '12:34:57.246456789012+08:35'");
 
         // carry
-        assertThat(assertions.expression("TIME '12:59:59+08:35' + INTERVAL '1' SECOND")).matches("TIME '13:00:00.000+08:35'");
-        assertThat(assertions.expression("TIME '12:59:59.999+08:35' + INTERVAL '0.001' SECOND")).matches("TIME '13:00:00.000+08:35'");
+        assertThat(assertions.expression("TIME '12:59:59+08:35' + INTERVAL '1' SECOND")).matches("TIME '13:00:00.000000+08:35'");
+        assertThat(assertions.expression("TIME '12:59:59.999+08:35' + INTERVAL '0.001' SECOND")).matches("TIME '13:00:00.000000+08:35'");
 
         // wrap-around
-        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '13' HOUR")).matches("TIME '01:34:56.000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56+08:35' + INTERVAL '13' HOUR")).matches("TIME '01:34:56.000000+08:35'");
     }
 
     @Test
     public void testSubtractIntervalDayToSecond()
     {
-        assertThat(assertions.expression("TIME '12:34:56+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.877+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.977+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.997+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1234+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.0004+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12345+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.00045+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.877000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.977000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:54.997000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1234+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000400+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12345+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000450+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.123456+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000456+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.1234567+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.0004567+08:35'");
         assertThat(assertions.expression("TIME '12:34:56.12345678+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.00045678+08:35'");
@@ -413,73 +426,73 @@ public class TestOperators
         assertThat(assertions.expression("TIME '12:34:56.123456789012+08:35' - INTERVAL '1.123' SECOND")).matches("TIME '12:34:55.000456789012+08:35'");
 
         // borrow
-        assertThat(assertions.expression("TIME '13:00:00+08:35' - INTERVAL '1' SECOND")).matches("TIME '12:59:59.000+08:35'");
-        assertThat(assertions.expression("TIME '13:00:00+08:35' - INTERVAL '0.001' SECOND")).matches("TIME '12:59:59.999+08:35'");
+        assertThat(assertions.expression("TIME '13:00:00+08:35' - INTERVAL '1' SECOND")).matches("TIME '12:59:59.000000+08:35'");
+        assertThat(assertions.expression("TIME '13:00:00+08:35' - INTERVAL '0.001' SECOND")).matches("TIME '12:59:59.999000+08:35'");
 
         // wrap-around
-        assertThat(assertions.expression("TIME '12:34:56+08:35' - INTERVAL '13' HOUR")).matches("TIME '23:34:56.000+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56+08:35' - INTERVAL '13' HOUR")).matches("TIME '23:34:56.000000+08:35'");
     }
 
     @Test
     public void testSubtract()
     {
         // round down
-        assertThat(assertions.expression("TIME '12:34:56+08:35' - TIME '12:34:55+08:35'")).matches("INTERVAL '1' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.2+08:35' - TIME '12:34:55.1+08:35'")).matches("INTERVAL '1.1' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.22+08:35' - TIME '12:34:55.11+08:35'")).matches("INTERVAL '1.11' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.222+08:35' - TIME '12:34:55.111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.2222+08:35' - TIME '12:34:55.1111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.22222+08:35' - TIME '12:34:55.11111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.222222+08:35' - TIME '12:34:55.111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.2222222+08:35' - TIME '12:34:55.1111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.22222222+08:35' - TIME '12:34:55.11111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.222222222+08:35' - TIME '12:34:55.111111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.2222222222+08:35' - TIME '12:34:55.1111111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.22222222222+08:35' - TIME '12:34:55.11111111111+08:35'")).matches("INTERVAL '1.111' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.222222222222+08:35' - TIME '12:34:55.111111111111+08:35'")).matches("INTERVAL '1.111' SECOND");
+        assertThat(assertions.expression("TIME '12:34:56+08:35' - TIME '12:34:55+08:35'")).matches("CAST(INTERVAL '0 00:00:01' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.2+08:35' - TIME '12:34:55.1+08:35'")).matches("CAST(INTERVAL '0 00:00:01.1' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.22+08:35' - TIME '12:34:55.11+08:35'")).matches("CAST(INTERVAL '0 00:00:01.11' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.222+08:35' - TIME '12:34:55.111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.2222+08:35' - TIME '12:34:55.1111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.1111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.22222+08:35' - TIME '12:34:55.11111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.11111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.222222+08:35' - TIME '12:34:55.111111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.111111' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.2222222+08:35' - TIME '12:34:55.1111111+08:35'")).matches("INTERVAL '0 00:00:01.1111111' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIME '12:34:56.22222222+08:35' - TIME '12:34:55.11111111+08:35'")).matches("INTERVAL '0 00:00:01.11111111' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIME '12:34:56.222222222+08:35' - TIME '12:34:55.111111111+08:35'")).matches("INTERVAL '0 00:00:01.111111111' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIME '12:34:56.2222222222+08:35' - TIME '12:34:55.1111111111+08:35'")).matches("INTERVAL '0 00:00:01.1111111111' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIME '12:34:56.22222222222+08:35' - TIME '12:34:55.11111111111+08:35'")).matches("INTERVAL '0 00:00:01.11111111111' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIME '12:34:56.222222222222+08:35' - TIME '12:34:55.111111111111+08:35'")).matches("INTERVAL '0 00:00:01.111111111111' DAY(9) TO SECOND(12)");
 
-        // round up
-        assertThat(assertions.expression("TIME '12:34:56.9+08:35' - TIME '12:34:55.1+08:35'")).matches("INTERVAL '1.8' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.99+08:35' - TIME '12:34:55.11+08:35'")).matches("INTERVAL '1.88' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.999+08:35' - TIME '12:34:55.111+08:35'")).matches("INTERVAL '1.888' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.9999+08:35' - TIME '12:34:55.1111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.99999+08:35' - TIME '12:34:55.11111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.999999+08:35' - TIME '12:34:55.111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.9999999+08:35' - TIME '12:34:55.1111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.99999999+08:35' - TIME '12:34:55.11111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.999999999+08:35' - TIME '12:34:55.111111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.9999999999+08:35' - TIME '12:34:55.1111111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.99999999999+08:35' - TIME '12:34:55.11111111111+08:35'")).matches("INTERVAL '1.889' SECOND");
-        assertThat(assertions.expression("TIME '12:34:56.999999999999+08:35' - TIME '12:34:55.111111111111+08:35'")).matches("INTERVAL '1.889' SECOND");
+        // round up -- the full sub-microsecond difference is preserved instead of rounding into the sixth digit
+        assertThat(assertions.expression("TIME '12:34:56.9+08:35' - TIME '12:34:55.1+08:35'")).matches("CAST(INTERVAL '0 00:00:01.8' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.99+08:35' - TIME '12:34:55.11+08:35'")).matches("CAST(INTERVAL '0 00:00:01.88' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.999+08:35' - TIME '12:34:55.111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.9999+08:35' - TIME '12:34:55.1111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.8888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.99999+08:35' - TIME '12:34:55.11111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.88888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.999999+08:35' - TIME '12:34:55.111111+08:35'")).matches("CAST(INTERVAL '0 00:00:01.888888' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '12:34:56.9999999+08:35' - TIME '12:34:55.1111111+08:35'")).matches("INTERVAL '0 00:00:01.8888888' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIME '12:34:56.99999999+08:35' - TIME '12:34:55.11111111+08:35'")).matches("INTERVAL '0 00:00:01.88888888' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIME '12:34:56.999999999+08:35' - TIME '12:34:55.111111111+08:35'")).matches("INTERVAL '0 00:00:01.888888888' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIME '12:34:56.9999999999+08:35' - TIME '12:34:55.1111111111+08:35'")).matches("INTERVAL '0 00:00:01.8888888888' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIME '12:34:56.99999999999+08:35' - TIME '12:34:55.11111111111+08:35'")).matches("INTERVAL '0 00:00:01.88888888888' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIME '12:34:56.999999999999+08:35' - TIME '12:34:55.111111111111+08:35'")).matches("INTERVAL '0 00:00:01.888888888888' DAY(9) TO SECOND(12)");
 
         // different timezone, positive result
-        assertThat(assertions.expression("TIME '09:00:00-14:00' - TIME '19:00:00+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.0-14:00' - TIME '19:00:00.0+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.00-14:00' - TIME '19:00:00.00+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.000-14:00' - TIME '19:00:00.000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.0000-14:00' - TIME '19:00:00.0000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.00000-14:00' - TIME '19:00:00.00000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.000000-14:00' - TIME '19:00:00.000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.0000000-14:00' - TIME '19:00:00.0000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.00000000-14:00' - TIME '19:00:00.00000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.000000000-14:00' - TIME '19:00:00.000000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.0000000000-14:00' - TIME '19:00:00.0000000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.00000000000-14:00' - TIME '19:00:00.00000000000+03:00'")).matches("INTERVAL '7' HOUR");
-        assertThat(assertions.expression("TIME '09:00:00.000000000000-14:00' - TIME '19:00:00.000000000000+03:00'")).matches("INTERVAL '7' HOUR");
+        assertThat(assertions.expression("TIME '09:00:00-14:00' - TIME '19:00:00+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.0-14:00' - TIME '19:00:00.0+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.00-14:00' - TIME '19:00:00.00+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.000-14:00' - TIME '19:00:00.000+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.0000-14:00' - TIME '19:00:00.0000+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.00000-14:00' - TIME '19:00:00.00000+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.000000-14:00' - TIME '19:00:00.000000+03:00'")).matches("CAST(INTERVAL '0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '09:00:00.0000000-14:00' - TIME '19:00:00.0000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIME '09:00:00.00000000-14:00' - TIME '19:00:00.00000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIME '09:00:00.000000000-14:00' - TIME '19:00:00.000000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIME '09:00:00.0000000000-14:00' - TIME '19:00:00.0000000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIME '09:00:00.00000000000-14:00' - TIME '19:00:00.00000000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIME '09:00:00.000000000000-14:00' - TIME '19:00:00.000000000000+03:00'")).matches("INTERVAL '0 07:00:00' DAY(9) TO SECOND(12)");
 
         // different timezone, negative result
-        assertThat(assertions.expression("TIME '19:00:00+03:00' - TIME '09:00:00-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.0+03:00' - TIME '09:00:00.0-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.00+03:00' - TIME '09:00:00.00-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.000+03:00' - TIME '09:00:00.000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.0000+03:00' - TIME '09:00:00.0000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.00000+03:00' - TIME '09:00:00.00000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.000000+03:00' - TIME '09:00:00.000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.0000000+03:00' - TIME '09:00:00.0000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.00000000+03:00' - TIME '09:00:00.00000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.000000000+03:00' - TIME '09:00:00.000000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.0000000000+03:00' - TIME '09:00:00.0000000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.00000000000+03:00' - TIME '09:00:00.00000000000-14:00'")).matches("INTERVAL '-7' HOUR");
-        assertThat(assertions.expression("TIME '19:00:00.000000000000+03:00' - TIME '09:00:00.000000000000-14:00'")).matches("INTERVAL '-7' HOUR");
+        assertThat(assertions.expression("TIME '19:00:00+03:00' - TIME '09:00:00-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.0+03:00' - TIME '09:00:00.0-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.00+03:00' - TIME '09:00:00.00-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.000+03:00' - TIME '09:00:00.000-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.0000+03:00' - TIME '09:00:00.0000-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.00000+03:00' - TIME '09:00:00.00000-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.000000+03:00' - TIME '09:00:00.000000-14:00'")).matches("CAST(INTERVAL -'0 07:00:00' DAY TO SECOND AS INTERVAL DAY(9) TO SECOND)");
+        assertThat(assertions.expression("TIME '19:00:00.0000000+03:00' - TIME '09:00:00.0000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(7)");
+        assertThat(assertions.expression("TIME '19:00:00.00000000+03:00' - TIME '09:00:00.00000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(8)");
+        assertThat(assertions.expression("TIME '19:00:00.000000000+03:00' - TIME '09:00:00.000000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(9)");
+        assertThat(assertions.expression("TIME '19:00:00.0000000000+03:00' - TIME '09:00:00.0000000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(10)");
+        assertThat(assertions.expression("TIME '19:00:00.00000000000+03:00' - TIME '09:00:00.00000000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(11)");
+        assertThat(assertions.expression("TIME '19:00:00.000000000000+03:00' - TIME '09:00:00.000000000000-14:00'")).matches("INTERVAL -'0 07:00:00' DAY(9) TO SECOND(12)");
     }
 }

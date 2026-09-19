@@ -15,27 +15,46 @@ package io.trino.type;
 
 import java.util.Objects;
 
-import static io.trino.client.IntervalDayTime.formatMillis;
-import static io.trino.client.IntervalDayTime.toMillis;
+import static io.trino.client.IntervalDayTime.formatInterval;
+import static io.trino.client.IntervalDayTime.toMicros;
+import static io.trino.type.IntervalArithmetic.roundMicros;
 
 public class SqlIntervalDayTime
 {
-    private final long milliSeconds;
+    private static final long MICROS_PER_MILLI = 1000;
 
-    public SqlIntervalDayTime(long milliSeconds)
+    private final long microseconds;
+    private final int picosOfMicro;
+    private final int fractionalPrecision;
+
+    public SqlIntervalDayTime(long microseconds)
     {
-        this.milliSeconds = milliSeconds;
+        this(microseconds, 0, 6);
+    }
+
+    public SqlIntervalDayTime(long microseconds, int fractionalPrecision)
+    {
+        this(microseconds, 0, fractionalPrecision);
+    }
+
+    public SqlIntervalDayTime(long microseconds, int picosOfMicro, int fractionalPrecision)
+    {
+        this.microseconds = microseconds;
+        this.picosOfMicro = picosOfMicro;
+        this.fractionalPrecision = fractionalPrecision;
     }
 
     public SqlIntervalDayTime(int day, int hour, int minute, int second, int millis)
     {
-        milliSeconds = toMillis(day, hour, minute, second, millis);
+        microseconds = toMicros(day, hour, minute, second, millis * MICROS_PER_MILLI);
+        picosOfMicro = 0;
+        fractionalPrecision = 6;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(milliSeconds);
+        return Objects.hash(microseconds, picosOfMicro);
     }
 
     @Override
@@ -48,17 +67,27 @@ public class SqlIntervalDayTime
             return false;
         }
         SqlIntervalDayTime other = (SqlIntervalDayTime) obj;
-        return this.milliSeconds == other.milliSeconds;
+        return this.microseconds == other.microseconds && this.picosOfMicro == other.picosOfMicro;
     }
 
     @Override
     public String toString()
     {
-        return formatMillis(milliSeconds);
+        return formatInterval(microseconds, picosOfMicro, fractionalPrecision);
     }
 
-    public long getMillis()
+    public long getMicros()
     {
-        return milliSeconds;
+        return microseconds;
+    }
+
+    /// Rounds this value to `precision` fractional-seconds digits. The precision is
+    /// at most 6, so the sub-microsecond fraction
+    /// drops out and only the microseconds are rounded half-up. Used to render the
+    /// legacy millisecond wire form for clients without the `PARAMETRIC_INTERVAL`
+    /// capability.
+    public SqlIntervalDayTime roundTo(int precision)
+    {
+        return new SqlIntervalDayTime(roundMicros(microseconds, precision), precision);
     }
 }

@@ -14,14 +14,21 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.aggregation.state.LongIntervalState;
+import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.type.LongInterval;
 import io.trino.type.SqlIntervalDayTime;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntervalDayToSecondSumAggregation
         extends AbstractTestAggregationFunction
@@ -60,5 +67,48 @@ public class TestIntervalDayToSecondSumAggregation
     protected List<Type> getFunctionParameterTypes()
     {
         return ImmutableList.of(INTERVAL_DAY_TIME);
+    }
+
+    @Test
+    public void testFractionalCarryAtStorageBoundary()
+    {
+        LongInterval large = new LongInterval(Long.MIN_VALUE, 500_000);
+        LongInterval small = new LongInterval(-1, 500_000);
+        for (boolean reverse : new boolean[] {false, true}) {
+            LongInterval first = reverse ? small : large;
+            LongInterval second = reverse ? large : small;
+            LongIntervalState inputState = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            IntervalDayToSecondSumAggregation.sumLong(inputState, first);
+            IntervalDayToSecondSumAggregation.sumLong(inputState, second);
+            assertThat(inputState.getMicros()).isEqualTo(Long.MIN_VALUE);
+            assertThat(inputState.getPicosOfMicro()).isZero();
+
+            LongIntervalState firstPartial = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            LongIntervalState secondPartial = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            IntervalDayToSecondSumAggregation.sumLong(firstPartial, first);
+            IntervalDayToSecondSumAggregation.sumLong(secondPartial, second);
+            IntervalDayToSecondSumAggregation.combine(firstPartial, secondPartial);
+            assertThat(firstPartial.getMicros()).isEqualTo(Long.MIN_VALUE);
+            assertThat(firstPartial.getPicosOfMicro()).isZero();
+        }
+    }
+
+    @Test
+    public void testFractionalSumOverflow()
+    {
+        for (LongInterval value : new LongInterval[] {new LongInterval(Long.MAX_VALUE, 500_000), new LongInterval(Long.MIN_VALUE, 0)}) {
+            LongInterval increment = value.getMicros() > 0 ? new LongInterval(0, 500_000) : new LongInterval(-1, 999_999);
+            LongIntervalState inputState = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            IntervalDayToSecondSumAggregation.sumLong(inputState, value);
+            assertTrinoExceptionThrownBy(() -> IntervalDayToSecondSumAggregation.sumLong(inputState, increment))
+                    .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+
+            LongIntervalState firstPartial = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            LongIntervalState secondPartial = StateCompiler.generateStateFactory(LongIntervalState.class).createSingleState();
+            IntervalDayToSecondSumAggregation.sumLong(firstPartial, value);
+            IntervalDayToSecondSumAggregation.sumLong(secondPartial, increment);
+            assertTrinoExceptionThrownBy(() -> IntervalDayToSecondSumAggregation.combine(firstPartial, secondPartial))
+                    .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
+        }
     }
 }

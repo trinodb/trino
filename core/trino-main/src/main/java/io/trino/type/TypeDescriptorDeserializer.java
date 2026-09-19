@@ -18,8 +18,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Inject;
 import io.trino.spi.type.TypeDescriptor;
 
-import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
-
 public final class TypeDescriptorDeserializer
         extends FromStringDeserializer<TypeDescriptor>
 {
@@ -32,6 +30,6 @@ public final class TypeDescriptorDeserializer
     @Override
     protected TypeDescriptor _deserialize(String value, DeserializationContext context)
     {
-        return parseTypeDescriptor(value);
+        return TypeDescriptor.fromString(value);
     }
 }
