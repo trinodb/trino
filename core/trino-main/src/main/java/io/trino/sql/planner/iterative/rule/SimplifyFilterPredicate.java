@@ -14,18 +14,22 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 
@@ -42,8 +46,11 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.IrUtils.preOrder;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Simplify conditional expressions in filter predicate.
@@ -57,7 +64,8 @@ public class SimplifyFilterPredicate
         implements Rule<FilterNode>
 {
     private static final Pattern<FilterNode> PATTERN = filter();
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final IrExpressionOptimizer optimizer;
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -65,9 +73,10 @@ public class SimplifyFilterPredicate
         return PATTERN;
     }
 
-    public SimplifyFilterPredicate(Metadata metadata)
+    public SimplifyFilterPredicate(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.optimizer = newOptimizer(plannerContext);
     }
 
     @Override
@@ -83,7 +92,7 @@ public class SimplifyFilterPredicate
                     Optional.of((Expression) Logical.and(nullIf.first(), isFalseOrNullPredicate(context.getSession(), nullIf.second()))) :
                     switch (conjunct) {
                         case Case expression -> simplify(context.getSession(), expression);
-                        case Match expression -> simplify(expression);
+                        case Match expression -> simplify(context, expression);
                         case null, default -> Optional.empty();
                     };
 
@@ -208,24 +217,57 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(Match caseExpression)
+    private Optional<Expression> simplify(Context context, Match match)
     {
-        Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
+        Expression defaultValue = match.defaultValue();
 
-        if (caseExpression.operand() instanceof Constant literal && literal.value() == null) {
-            return defaultValue;
+        if (match.operand() instanceof Constant operand && operand.value() == null && noClauseMatchesNull(context, match)) {
+            return Optional.of(defaultValue);
         }
 
-        List<Expression> results = caseExpression.clauses().stream()
+        List<Expression> results = match.clauses().stream()
                 .map(MatchClause::result)
                 .collect(toImmutableList());
-        if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.get().equals(TRUE)) {
+        if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.equals(TRUE)) {
             return Optional.of(TRUE);
         }
-        if (results.stream().allMatch(SimplifyFilterPredicate::isNotTrue) && isNotTrue(defaultValue.get())) {
+        if (results.stream().allMatch(SimplifyFilterPredicate::isNotTrue) && isNotTrue(defaultValue)) {
             return Optional.of(FALSE);
         }
         return Optional.empty();
+    }
+
+    /// Whether a NULL operand necessarily selects the default value, i.e. no clause predicate can be
+    /// true for it. A bare-equality clause is such a predicate, since a comparison with NULL is NULL,
+    /// while an extended-CASE clause like `IS NOT DISTINCT FROM x` matches a NULL operand.
+    private boolean noClauseMatchesNull(Context context, Match match)
+    {
+        for (MatchClause clause : match.clauses()) {
+            Lambda predicate = clause.lambda();
+            // the operand parameter comes last, after the values a Bind captures
+            Symbol parameter = predicate.arguments().getLast();
+            if (rebinds(predicate.body(), parameter)) {
+                // an inner lambda parameter of the same name would be bound to NULL along with the operand
+                return false;
+            }
+            Expression body = optimizer.process(
+                            predicate.body(),
+                            context.getSession(),
+                            context.getSymbolAllocator(),
+                            ImmutableMap.of(parameter, new Constant(parameter.type(), null)))
+                    .orElse(predicate.body());
+            if (!isNotTrue(body)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean rebinds(Expression expression, Symbol parameter)
+    {
+        return preOrder(expression)
+                .anyMatch(expr -> expr instanceof Lambda lambda && lambda.arguments().stream()
+                        .anyMatch(argument -> argument.name().equals(parameter.name())));
     }
 
     private static boolean isNotTrue(Expression expression)
@@ -236,6 +278,6 @@ public class SimplifyFilterPredicate
 
     private Expression isFalseOrNullPredicate(Session session, Expression expression)
     {
-        return not(metadata, getCharVarcharCoercion(session), comparison(metadata, getCharVarcharCoercion(session), IDENTICAL, expression, TRUE));
+        return not(plannerContext.getMetadata(), getCharVarcharCoercion(session), comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), IDENTICAL, expression, TRUE));
     }
 }
