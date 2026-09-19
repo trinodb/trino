@@ -91,7 +91,8 @@ public class CreateViewTask
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = metadata.getWriteRedirectedTableName(session, originalName);
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 
@@ -136,10 +137,18 @@ public class CreateViewTask
                 parameterLookup,
                 true);
 
+        // When the view name was redirected, record the target catalog/schema as the defaults for
+        // resolving unqualified names in the view body. Storing the redirecting catalog would make
+        // the view resolvable only through it, and break reads against the catalog it actually
+        // lives in.
+        boolean redirected = !name.equals(originalName);
+        Optional<String> definitionCatalog = redirected ? Optional.of(name.catalogName()) : session.getCatalog();
+        Optional<String> definitionSchema = redirected ? Optional.of(name.schemaName()) : session.getSchema();
+
         ViewDefinition definition = new ViewDefinition(
                 sql,
-                session.getCatalog(),
-                session.getSchema(),
+                definitionCatalog,
+                definitionSchema,
                 columns,
                 statement.getComment(),
                 owner,

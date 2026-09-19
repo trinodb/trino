@@ -135,7 +135,12 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        // Resolve write redirection before anything else: the existence check, access control and
+        // above all the table properties must be evaluated against the target catalog, since a
+        // pure-redirection catalog registers no table properties of its own.
+        QualifiedObjectName tableName = plannerContext.getMetadata().getWriteRedirectedTableName(
+                session,
+                createQualifiedObjectName(session, statement, statement.getName()));
         Optional<TableHandle> tableHandle;
         try {
             tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
