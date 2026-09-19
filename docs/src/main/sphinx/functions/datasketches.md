@@ -8,8 +8,9 @@ approximate answers with mathematical guarantees much faster than traditional
 exact methods. DataSketches functions allow querying these serialized sketches
 from Trino. Support for the
 [Theta Sketch framework](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html)
-is available through {func}`theta_sketch_union` and
-{func}`theta_sketch_cardinality`, typically used to replace expensive
+is available through {func}`theta_sketch_union`,
+{func}`theta_sketch_cardinality`, and
+{func}`theta_sketch_jaccard_similarity`, typically used to replace expensive
 `COUNT(DISTINCT ...)` aggregations when sketches are precomputed and stored.
 
 ## Configuration
@@ -68,6 +69,13 @@ Returns the estimated value of the sketch.
 
 Returns the estimated value of the sketch using the supplied `seed`. Use this
 when the sketch was created with a non-default seed.
+:::
+
+:::{function} theta_sketch_jaccard_similarity(sketch_a, sketch_b) -> double
+Returns the Jaccard similarity index of two sketches, defined as the size of
+their intersection divided by the size of their union. The result is between
+`0.0` for disjoint inputs and `1.0` for identical inputs. Both input sketches
+must have been built with the default seed.
 :::
 
 ## Examples
