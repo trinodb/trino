@@ -97,32 +97,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedColumnLineage = ImmutableMap.of(
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "nationkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "name", "IDENTITY")))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("regionkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "regionkey", "IDENTITY")))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("comment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "comment", "IDENTITY")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
@@ -194,32 +178,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedColumnLineage = ImmutableMap.of(
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField(format("marquez.default.%s", viewName), "nationkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField(format("marquez.default.%s", viewName), "name", "IDENTITY")))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
-                                .field("regionkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField(format("marquez.default.%s", viewName), "regionkey", "IDENTITY")))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name(format("marquez.default.%s", viewName))
-                                .field("comment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField(format("marquez.default.%s", viewName), "comment", "IDENTITY")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
@@ -288,28 +256,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedColumnLineage = ImmutableMap.of(
                 "nation", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "name", "IDENTITY")))
                         .build(),
                 "order_count", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of())
                         .build(),
                 "total_revenue", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.orders")
-                                .field("totalprice")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.orders", "totalprice", "AGGREGATION")))
                         .build(),
                 "avg_order_value", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.orders")
-                                .field("totalprice")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.orders", "totalprice", "AGGREGATION")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.sf1.customer", "custkey", null),
@@ -380,63 +336,27 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedColumnLineage = ImmutableMap.of(
                 "d_year", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpcds.tiny.date_dim")
-                                .field("d_year")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpcds.tiny.date_dim", "d_year", "IDENTITY")))
                         .build(),
                 "d_moy", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpcds.tiny.date_dim")
-                                .field("d_moy")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpcds.tiny.date_dim", "d_moy", "IDENTITY")))
                         .build(),
                 "year_month", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.date_dim")
-                                        .field("d_year")
-                                        .build(),
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.date_dim")
-                                        .field("d_moy")
-                                        .build()))
+                                columnLineageInputField("tpcds.tiny.date_dim", "d_year", "TRANSFORMATION"),
+                                columnLineageInputField("tpcds.tiny.date_dim", "d_moy", "TRANSFORMATION")))
                         .build(),
                 "s_store_name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpcds.tiny.store")
-                                .field("s_store_name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpcds.tiny.store", "s_store_name", "IDENTITY")))
                         .build(),
                 "monthly_total", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpcds.tiny.store_sales")
-                                .field("ss_sales_price")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpcds.tiny.store_sales", "ss_sales_price", "AGGREGATION")))
                         .build(),
                 "store_rank", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.date_dim")
-                                        .field("d_year")
-                                        .build(),
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.date_dim")
-                                        .field("d_moy")
-                                        .build(),
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.store_sales")
-                                        .field("ss_sales_price")
-                                        .build()))
+                                columnLineageInputField("tpcds.tiny.date_dim", "d_year", "TRANSFORMATION"),
+                                columnLineageInputField("tpcds.tiny.date_dim", "d_moy", "TRANSFORMATION"),
+                                columnLineageInputField("tpcds.tiny.store_sales", "ss_sales_price", "AGGREGATION")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpcds.sf0.01.store_sales", "ss_sales_price", null),
@@ -518,39 +438,19 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedColumnLineage = ImmutableMap.of(
                 "suppkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.supplier")
-                                .field("suppkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.supplier", "suppkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.supplier")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.supplier", "name", "IDENTITY")))
                         .build(),
                 "address", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.supplier")
-                                .field("address")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.supplier", "address", "IDENTITY")))
                         .build(),
                 "phone", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.supplier")
-                                .field("phone")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.supplier", "phone", "IDENTITY")))
                         .build(),
                 "nation_name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "name", "IDENTITY")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.supplier", "address", null),
@@ -635,29 +535,13 @@ public class TestOpenLineageEventsFromQueries
                         .build(),
                 "total_value", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpch.tiny.orders")
-                                        .field("totalprice")
-                                        .build(),
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.store_sales")
-                                        .field("ss_sales_price")
-                                        .build()))
+                                columnLineageInputField("tpch.tiny.orders", "totalprice", "AGGREGATION"),
+                                columnLineageInputField("tpcds.tiny.store_sales", "ss_sales_price", "AGGREGATION")))
                         .build(),
                 "avg_value", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
                         .inputFields(ImmutableList.of(
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpch.tiny.orders")
-                                        .field("totalprice")
-                                        .build(),
-                                openLineage.newInputFieldBuilder()
-                                        .namespace(OPEN_LINEAGE_NAMESPACE)
-                                        .name("tpcds.tiny.store_sales")
-                                        .field("ss_sales_price")
-                                        .build()))
+                                columnLineageInputField("tpch.tiny.orders", "totalprice", "AGGREGATION"),
+                                columnLineageInputField("tpcds.tiny.store_sales", "ss_sales_price", "AGGREGATION")))
                         .build());
         List<InputField> expectedColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.orders", "totalprice", null),
@@ -726,32 +610,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedCreateTableColumnLineage = ImmutableMap.of(
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "nationkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "name", "IDENTITY")))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("regionkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "regionkey", "IDENTITY")))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("comment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "comment", "IDENTITY")))
                         .build());
         List<InputField> expectedCreateTableColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
@@ -790,32 +658,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedInsertIntoTableColumnLineage = ImmutableMap.of(
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "nationkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "name", "IDENTITY")))
                         .build(),
                 "regionkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("regionkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "regionkey", "IDENTITY")))
                         .build(),
                 "comment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.nation")
-                                .field("comment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.nation", "comment", "IDENTITY")))
                         .build());
         List<InputField> expectedInsertIntoTableColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
@@ -891,32 +743,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedCreateTableColumnLineage = ImmutableMap.of(
                 "custkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("custkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "custkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "name", "IDENTITY")))
                         .build(),
                 "mktsegment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("mktsegment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "mktsegment", "IDENTITY")))
                         .build(),
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "nationkey", "IDENTITY")))
                         .build());
         List<InputField> expectedCreateTableColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "mktsegment", null),
@@ -1020,32 +856,16 @@ public class TestOpenLineageEventsFromQueries
                 .hasSize(1);
         Map<String, ColumnLineageDatasetFacetFieldsAdditional> expectedCreateTableColumnLineage = ImmutableMap.of(
                 "custkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("custkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "custkey", "IDENTITY")))
                         .build(),
                 "name", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("name")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "name", "IDENTITY")))
                         .build(),
                 "mktsegment", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("mktsegment")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "mktsegment", "IDENTITY")))
                         .build(),
                 "nationkey", openLineage.newColumnLineageDatasetFacetFieldsAdditionalBuilder()
-                        .inputFields(ImmutableList.of(openLineage.newInputFieldBuilder()
-                                .namespace(OPEN_LINEAGE_NAMESPACE)
-                                .name("tpch.tiny.customer")
-                                .field("nationkey")
-                                .build()))
+                        .inputFields(ImmutableList.of(columnLineageInputField("tpch.tiny.customer", "nationkey", "IDENTITY")))
                         .build());
         List<InputField> expectedCreateTableColumnLineageDataset = ImmutableList.of(
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "mktsegment", null),
@@ -1103,6 +923,20 @@ public class TestOpenLineageEventsFromQueries
                 expectedMergeIntoTableColumnLineage,
                 expectedMergeIntoTableColumnLineageDataset,
                 expectedMergeIntoTableSchemaFields);
+    }
+
+    private InputField columnLineageInputField(String name, String field, String subtype)
+    {
+        // Column-level lineage carries the analyzer's DIRECT transformation subtype for each source column.
+        return openLineage.newInputFieldBuilder()
+                .namespace(OPEN_LINEAGE_NAMESPACE)
+                .name(name)
+                .field(field)
+                .transformations(ImmutableList.of(openLineage.newInputFieldTransformationsBuilder()
+                        .type("DIRECT")
+                        .subtype(subtype)
+                        .build()))
+                .build();
     }
 
     private void assertCompletedEventOutput(

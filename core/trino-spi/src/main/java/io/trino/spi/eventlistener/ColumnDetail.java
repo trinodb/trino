@@ -14,12 +14,17 @@
 package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
 
+import java.util.LinkedHashSet;
 import java.util.Objects;
+import java.util.Set;
 
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
@@ -30,15 +35,23 @@ public class ColumnDetail
     private final String schema;
     private final String table;
     private final String columnName;
+    private final Set<ColumnTransformationType> transformationTypes;
+
+    @Unstable
+    public ColumnDetail(String catalog, String schema, String table, String columnName)
+    {
+        this(catalog, schema, table, columnName, Set.of());
+    }
 
     @JsonCreator
     @Unstable
-    public ColumnDetail(String catalog, String schema, String table, String columnName)
+    public ColumnDetail(String catalog, String schema, String table, String columnName, Set<ColumnTransformationType> transformationTypes)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.transformationTypes = unmodifiableSet(new LinkedHashSet<>(requireNonNullElse(transformationTypes, Set.of())));
     }
 
     @JsonProperty
@@ -65,6 +78,14 @@ public class ColumnDetail
         return columnName;
     }
 
+    @JsonProperty
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public Set<ColumnTransformationType> getTransformationTypes()
+    {
+        return transformationTypes;
+    }
+
+    // transformationTypes is excluded from equals/hashCode: it is advisory derivation metadata, not identity.
     @Override
     public int hashCode()
     {
