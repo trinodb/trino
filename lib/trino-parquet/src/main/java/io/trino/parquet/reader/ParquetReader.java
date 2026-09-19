@@ -507,6 +507,26 @@ public class ParquetReader
             resetSelectionTracking();
         }
 
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            selectedPositionsReadModes = null;
+            selectedPositions = selectedPositions.selectPositions(offset, size);
+            sizeInBytes = 0;
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    // loaded blocks already reflect the previous selection, so the incoming range applies to them directly
+                    block = block.getRegion(offset, size);
+                    sizeInBytes += block.getSizeInBytes();
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                    blocks[i] = block;
+                }
+            }
+            resetSelectionTracking();
+        }
+
         private void resetSelectionTracking()
         {
             unloadedSelectedColumns = countUnloadedColumns();
@@ -579,11 +599,17 @@ public class ParquetReader
         }
     }
 
+    /**
+     * When {@code positions} is null, the selection is the contiguous range
+     * {@code [rangeOffset, rangeOffset + positionCount)} of the original page.
+     * Otherwise {@code rangeOffset} is zero and the selection is listed in {@code positions}.
+     */
     private record SelectedPositions(
             int originalPositionCount,
             int positionCount,
             @Nullable int[] positions,
             int positionsOffset,
+            int rangeOffset,
             SelectionAnalysis analysis)
     {
         private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
@@ -591,7 +617,7 @@ public class ParquetReader
 
         private static SelectedPositions allPositions(int positionCount)
         {
-            return new SelectedPositions(positionCount, positionCount, null, 0, SelectionAnalysis.analyzed(true, positionCount == 0 ? 0 : 1, 0));
+            return new SelectedPositions(positionCount, positionCount, null, 0, 0, SelectionAnalysis.analyzed(true, positionCount == 0 ? 0 : 1, 0));
         }
 
         public long retainedSizeInBytes()
@@ -678,7 +704,10 @@ public class ParquetReader
         public Block apply(Block block)
         {
             if (positions == null) {
-                return block;
+                if (rangeOffset == 0) {
+                    return block;
+                }
+                return block.getRegion(rangeOffset, positionCount);
             }
             return block.getPositions(positions, positionsOffset, positionCount);
         }
@@ -687,7 +716,7 @@ public class ParquetReader
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
-                int position = positions == null ? i : positions[positionsOffset + i];
+                int position = positions == null ? rangeOffset + i : positions[positionsOffset + i];
                 if (batchRowNumbers == null) {
                     rowNumbers[i] = batchStartRow + position;
                 }
@@ -707,7 +736,7 @@ public class ParquetReader
                 for (int i = 0; i < size; i++) {
                     int selectedPosition = positions[offset + i];
                     checkIndex(selectedPosition, positionCount);
-                    newPositions[i] = selectedPosition;
+                    newPositions[i] = rangeOffset + selectedPosition;
                 }
             }
             else {
@@ -723,23 +752,43 @@ public class ParquetReader
 
         public SelectedPositions selectPositionsView(int[] positions, int offset, int size)
         {
-            if (this.positions != null) {
+            // incoming positions are relative to a narrowed range, so they cannot be used as a view of the original page
+            if (this.positions != null || rangeOffset != 0) {
                 return selectPositions(positions, offset, size);
             }
             checkFromIndexSize(offset, size, positions.length);
-            return new SelectedPositions(originalPositionCount, size, positions, offset, new SelectionAnalysis());
+            return new SelectedPositions(originalPositionCount, size, positions, offset, 0, new SelectionAnalysis());
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int offset, int size)
+        {
+            checkFromIndexSize(offset, size, positionCount);
+            if (positions == null) {
+                int newRangeOffset = rangeOffset + offset;
+                int skippedPositionCount = max(newRangeOffset, originalPositionCount - newRangeOffset - size);
+                return new SelectedPositions(
+                        originalPositionCount,
+                        size,
+                        null,
+                        0,
+                        newRangeOffset,
+                        SelectionAnalysis.analyzed(true, size == 0 ? 0 : 1, skippedPositionCount));
+            }
+            int[] newPositions = Arrays.copyOfRange(positions, positionsOffset + offset, positionsOffset + offset + size);
+            return create(originalPositionCount, newPositions, 0, size);
         }
 
         public SelectedPositions retainedCopy()
         {
             analyze();
             int[] retainedPositions = Arrays.copyOfRange(positions, positionsOffset, positionsOffset + positionCount);
-            return new SelectedPositions(originalPositionCount, positionCount, retainedPositions, 0, analysis);
+            return new SelectedPositions(originalPositionCount, positionCount, retainedPositions, 0, 0, analysis);
         }
 
         private static SelectedPositions create(int originalPositionCount, int[] positions, int offset, int size)
         {
-            return new SelectedPositions(originalPositionCount, size, positions, offset, new SelectionAnalysis());
+            return new SelectedPositions(originalPositionCount, size, positions, offset, 0, new SelectionAnalysis());
         }
 
         private void analyze()
