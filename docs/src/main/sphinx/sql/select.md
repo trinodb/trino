@@ -22,8 +22,22 @@ SELECT [ ALL | DISTINCT ] select_expression [, ...]
 where `from_item` is one of
 
 ```text
-table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+table_name [ FOR { TIMESTAMP | VERSION } { AS OF value | FROM start TO end } ]
+  [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
 ```
+
+For connectors that support querying a range, use `FOR TIMESTAMP FROM start TO end`
+or `FOR VERSION FROM start TO end` to pass both bounds to the connector. For example:
+
+```sql
+SELECT *
+FROM events FOR TIMESTAMP
+    FROM TIMESTAMP '2025-01-01 00:00:00 UTC'
+    TO TIMESTAMP '2025-01-02 00:00:00 UTC';
+```
+
+Range support and the interpretation of the bounds depend on the connector.
+`AS OF value` continues to select a single point in time or version.
 
 ```text
 from_item join_type from_item

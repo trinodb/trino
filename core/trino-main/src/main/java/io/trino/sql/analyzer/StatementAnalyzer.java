@@ -6612,6 +6612,7 @@ class StatementAnalyzer
                     // the version pointer is used for SELECT FROM table FOR VERSION AS OF 'branch':
                     .or(() -> table.getQueryPeriod()
                             .filter(queryPeriod -> queryPeriod.getRangeType() == QueryPeriod.RangeType.VERSION)
+                            .filter(queryPeriod -> queryPeriod.getStart().isEmpty())
                             .flatMap(QueryPeriod::getEnd)
                             .filter(StringLiteral.class::isInstance)
                             .map(StringLiteral.class::cast)
