@@ -16,9 +16,12 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import org.tartarus.snowball.SnowballStemmer;
 import org.tartarus.snowball.ext.ArmenianStemmer;
@@ -84,22 +87,61 @@ public final class WordStemFunction
         return wordStem(slice, new EnglishStemmer());
     }
 
-    @Description("Returns the stem of a word in the given language")
-    @ScalarFunction
-    @LiteralParameters("x")
-    @SqlType("varchar(x)")
-    public static Slice wordStem(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(2)") Slice language)
+    public static Slice wordStem(Slice slice, Slice language)
     {
-        Supplier<SnowballStemmer> stemmer = STEMMERS.get(language);
-        if (stemmer == null) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unknown stemmer language: " + language.toStringUtf8());
-        }
-        return wordStem(slice, stemmer.get());
+        return wordStem(slice, createStemmer(language));
     }
 
     private static Slice wordStem(Slice slice, SnowballStemmer stemmer)
     {
         stemmer.setCurrent(slice.toStringUtf8());
         return stemmer.stem() ? utf8Slice(stemmer.getCurrent()) : slice;
+    }
+
+    private static SnowballStemmer createStemmer(Slice language)
+    {
+        Supplier<SnowballStemmer> stemmer = STEMMERS.get(language);
+        if (stemmer == null) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unknown stemmer language: " + language.toStringUtf8());
+        }
+        return stemmer.get();
+    }
+
+    @Description("Returns the stem of a word in the given language")
+    @ScalarFunction("word_stem")
+    public static final class WithLanguage
+    {
+        private WithLanguage() {}
+
+        @ScalarFunctionImplementationChoice
+        public static final class Row
+        {
+            private Row() {}
+
+            @LiteralParameters("x")
+            @SqlType("varchar(x)")
+            public static Slice wordStem(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(2)") Slice language)
+            {
+                return WordStemFunction.wordStem(slice, language);
+            }
+        }
+
+        @ConstantSpecialization(arguments = 1)
+        public static final class ConstantLanguage
+        {
+            private final SnowballStemmer stemmer;
+
+            public ConstantLanguage(@ConstantArgument(1) Slice language)
+            {
+                stemmer = createStemmer(language);
+            }
+
+            @LiteralParameters("x")
+            @SqlType("varchar(x)")
+            public Slice wordStem(@SqlType("varchar(x)") Slice slice)
+            {
+                return WordStemFunction.wordStem(slice, stemmer);
+            }
+        }
     }
 }
