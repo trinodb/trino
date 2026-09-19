@@ -74,6 +74,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -95,6 +96,7 @@ import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
@@ -2961,6 +2963,12 @@ public class HiveMetadata
             return Optional.empty();
         }
         return toConnectorViewDefinition(session, viewName, metastore.getTable(viewName.getSchemaName(), viewName.getTableName()));
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getView(session, viewName).map(_ -> new BasicViewHandle(viewName));
     }
 
     private Optional<ConnectorViewDefinition> toConnectorViewDefinition(ConnectorSession session, SchemaTableName viewName, Optional<Table> table)

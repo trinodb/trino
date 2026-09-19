@@ -68,6 +68,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -604,23 +605,50 @@ public class LakehouseMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
+            RetryMode retryMode,
+            RefreshType refreshType)
     {
         List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.beginRefreshMaterializedView(session, tableHandle, icebergSourceHandles, hasForeignSourceTables, retryMode, refreshType);
+        return icebergMetadata.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, icebergSourceHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, retryMode, refreshType);
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions, boolean hasNonDeterministicFunctions)
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return icebergMetadata.getViewHandle(session, viewName);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
     {
         List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
                 .filter(IcebergTableHandle.class::isInstance)
                 .toList();
         hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        return icebergMetadata.finishRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, sourceViewHandles, hasForeignSourceTables, hasForeignSourceViews, hasSourceTableFunctions, hasNonDeterministicFunctions);
     }
 
     @Override

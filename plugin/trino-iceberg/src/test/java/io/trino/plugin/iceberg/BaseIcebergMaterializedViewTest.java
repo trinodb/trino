@@ -43,6 +43,7 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
+import io.trino.sql.SqlPath;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
@@ -182,6 +183,30 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("DROP TABLE small_region");
         assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+    }
+
+    @Test
+    public void testMaterializedViewGoesStaleWhenSourceSchemaChangesWithoutNewSnapshot()
+    {
+        String sourceTableName = "test_schema_only_change_source_" + randomNameSuffix();
+        String materializedViewName = "test_schema_only_change_mv_" + randomNameSuffix();
+        String freshnessQuery = format(
+                "SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '%s'",
+                materializedViewName);
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a')", 1);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 1);
+        assertQuery(freshnessQuery, "VALUES 'FRESH'");
+
+        // A column rename is schema-only: it doesn't create a new snapshot, so the recorded snapshot id
+        // alone would look unchanged despite the source's schema having evolved
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN name TO full_name");
+        assertQuery(freshnessQuery, "VALUES 'STALE'");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + sourceTableName);
     }
 
     @Test
@@ -1712,6 +1737,50 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewWhenStaleFail()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        String mvName = "mv_when_stale_fail_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (a bigint)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " GRACE PERIOD INTERVAL '0' SECOND WHEN STALE FAIL AS SELECT * FROM " + sourceTableName);
+
+        // never refreshed, so stale by definition
+        assertQueryFails("SELECT * FROM " + mvName, ".* Materialized view '.*" + mvName + "' is stale");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+        assertQuery("SELECT * FROM " + mvName, "VALUES 1");
+
+        // altering the source makes the MV stale again
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 2", 1);
+        assertQueryFails("SELECT * FROM " + mvName, ".* Materialized view '.*" + mvName + "' is stale");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testMaterializedViewPath()
+    {
+        String mvName = "mv_path_" + randomNameSuffix();
+
+        // unqualified, and "mock.system" isn't on the default path
+        assertQueryFails("SELECT * FROM TABLE(sequence_function())", "line 1:21: Table function 'sequence_function' not registered");
+
+        Session withPath = Session.builder(getSession())
+                .setPath(SqlPath.buildPath("mock.system", Optional.empty()))
+                .build();
+        assertUpdate(withPath, "CREATE MATERIALIZED VIEW " + mvName + " WHEN STALE INLINE AS SELECT * FROM TABLE(sequence_function())");
+
+        // never refreshed, so stale, so the inline path re-analyzes the unqualified call using
+        // the path stored at creation time, not this (path-less) session's own
+        assertThat(computeActual("SELECT * FROM " + mvName).getRowCount()).isEqualTo(1);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName);
+    }
+
+    @Test
     public void testIncrementalRefresh()
     {
         String sourceTableName = "source_table" + randomNameSuffix();
@@ -1934,6 +2003,47 @@ public abstract class BaseIcebergMaterializedViewTest
                 result -> assertThat(result.getRowCount()).isEqualTo(25));
     }
 
+    @Test
+    public void testSelectFailsWhenSourceColumnRenamedWhileStale()
+    {
+        String sourceTableName = "test_select_rename_source_" + randomNameSuffix();
+        String materializedViewName = "test_select_rename_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN id TO ident");
+        assertQueryFails(
+                "SELECT * FROM " + materializedViewName,
+                ".*is stale or in invalid state: column \\[ident\\] of type integer projected from query view at position 0 has a different name from column \\[id\\] of type integer stored in view definition");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
+    public void testRefreshRealignsSchemaWhenSourceColumnRenamed()
+    {
+        String sourceTableName = "test_refresh_rename_source_" + randomNameSuffix();
+        String materializedViewName = "test_refresh_rename_mv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (id INT, name VARCHAR)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM " + sourceTableName);
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
+
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME COLUMN id TO ident");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (4, 'd')", 1);
+
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 4);
+        assertQuery("SELECT * FROM " + materializedViewName, "VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')");
+        assertQuery(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '" + materializedViewName + "'",
+                "VALUES 'ident', 'name'");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
@@ -1952,12 +2062,12 @@ public abstract class BaseIcebergMaterializedViewTest
         return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 
-    private void assertFreshness(String viewName, String expected)
+    protected void assertFreshness(String viewName, String expected)
     {
         assertThat((String) computeScalar("SELECT freshness FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'")).isEqualTo(expected);
     }
 
-    private ZonedDateTime getLastFreshTime(String viewName)
+    protected ZonedDateTime getLastFreshTime(String viewName)
     {
         return (ZonedDateTime) computeActual("SELECT last_fresh_time FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND name = '" + viewName + "'").getOnlyValue();
     }
