@@ -6,20 +6,20 @@ local exchange (GATHER, SINGLE, [])
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, [name])
                             partial aggregation over (name)
-                                final aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, exists, unique)
+                                final aggregation over (suppkey_0, name, nationkey, orderkey_19, commitdate, receiptdate, orderstatus, name_13, exists, unique)
                                     local exchange (GATHER, SINGLE, [])
-                                        partial aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, exists, unique)
+                                        partial aggregation over (suppkey_0, name, nationkey, orderkey_19, commitdate, receiptdate, orderstatus, name_13, exists, unique)
                                             join (RIGHT, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, [orderkey_36])
-                                                    dynamic filter (orderkey_36::EQUAL)
+                                                remote exchange (REPARTITION, HASH, [orderkey_40])
+                                                    dynamic filter (orderkey_40::EQUAL)
                                                         scan lineitem
-                                                final aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
+                                                final aggregation over (suppkey_0, name, nationkey, orderkey_19, commitdate, receiptdate, orderstatus, name_13, unique_64)
                                                     local exchange (GATHER, SINGLE, [])
-                                                        intermediate aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
+                                                        intermediate aggregation over (suppkey_0, name, nationkey, orderkey_19, commitdate, receiptdate, orderstatus, name_13, unique_64)
                                                             join (INNER, PARTITIONED, can skip output duplicates):
-                                                                remote exchange (REPARTITION, HASH, [orderkey_16])
-                                                                    partial aggregation over (orderkey_16, suppkey_18)
-                                                                        dynamic filter (orderkey_16::EQUAL)
+                                                                remote exchange (REPARTITION, HASH, [orderkey_19])
+                                                                    partial aggregation over (orderkey_19, suppkey_21)
+                                                                        dynamic filter (orderkey_19::EQUAL)
                                                                             scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
@@ -36,5 +36,5 @@ local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                                     scan nation
                                                                         local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPARTITION, HASH, [orderkey_5])
+                                                                            remote exchange (REPARTITION, HASH, [orderkey_6])
                                                                                 scan orders

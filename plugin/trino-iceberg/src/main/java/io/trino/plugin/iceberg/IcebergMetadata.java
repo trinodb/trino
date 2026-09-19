@@ -288,6 +288,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNum
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.specIdColumnHandle;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.toIcebergLiteral;
@@ -310,6 +311,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
@@ -367,6 +369,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
@@ -990,9 +993,11 @@ public class IcebergMetadata
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
+        // Predicates on hidden columns are enforced by the split source and cannot be applied to a scan
+        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> isMetadataColumnId(column.getId())).isAll();
 
         DiscretePredicates discretePredicates = null;
-        if (!partitionSourceIds.isEmpty()) {
+        if (!partitionSourceIds.isEmpty() && !hasHiddenColumnPredicate) {
             // Extract identity partition columns
             Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
@@ -1165,6 +1170,7 @@ public class IcebergMetadata
         columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle());
         columnHandles.putIfAbsent(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.putIfAbsent(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
+        columnHandles.putIfAbsent(SPEC_ID.getColumnName(), specIdColumnHandle());
         return ImmutableMap.copyOf(columnHandles);
     }
 
@@ -3744,7 +3750,16 @@ public class IcebergMetadata
         else {
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId());
+            // A constraint only has to be enforceable in the specs that are actually scanned, which $spec_id narrows:
+            // a column which spec 0 partitions by and spec 1 does not is enforceable when $spec_id selects spec 0.
+            Domain specIdDomain = getSpecIdDomain(predicate).intersect(getSpecIdDomain(table.getEnforcedPredicate()));
+            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId()).stream()
+                    .filter(specId -> specIdDomain.includesNullableValue((long) specId))
+                    .collect(toImmutableSet());
+            // A $spec_id filter that matches no spec in the snapshot leaves no file to scan, so every data column
+            // constraint holds trivially. Determined here rather than in canEnforceColumnConstraintInSpecs, which
+            // treats an empty set as "unknown" and falls back to the current spec.
+            boolean scanIsEmpty = !specIdDomain.isAll() && partitionSpecIds.isEmpty();
 
             Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
@@ -3754,11 +3769,12 @@ public class IcebergMetadata
                 if (!isConvertibleToIcebergExpression(domain)) {
                     unsupported.put(columnHandle, domain);
                 }
-                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
+                else if (scanIsEmpty || canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
                 }
                 else if (isMetadataColumnId(columnHandle.getId())) {
-                    if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
+                    // $spec_id must be enforced here, since the split source prunes files with this domain
+                    if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn() || columnHandle.isSpecIdColumn()) {
                         newEnforced.put(columnHandle, domain);
                     }
                     else {
