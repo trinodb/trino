@@ -35,11 +35,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.sql.gen.BytecodeUtils.generateToString;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.defineHiddenClassFromBytes;
 import static io.trino.util.CompilerUtils.generateHiddenClassBytes;
@@ -216,15 +213,6 @@ public final class ClassTemplateCache<T>
         {
             return description.get();
         }
-    }
-
-    private static void generateToString(ClassDefinition classDefinition, Binding descriptionBinding)
-    {
-        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
-                .getBody()
-                .append(loadConstant(descriptionBinding))
-                .invokeVirtual(Object.class, "toString", String.class)
-                .retObject();
     }
 
     /**

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
@@ -53,7 +54,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.bytecode.Access.PUBLIC;
+import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.OpCode.NOP;
+import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
@@ -174,6 +178,19 @@ public final class BytecodeUtils
             return constantClassDataAt(toIntExact(binding.getBindingId()), binding.getType().returnType());
         }
         return invoke(binding, "constant_" + binding.getBindingId());
+    }
+
+    /**
+     * Declares a {@code toString} method returning the description bound at the given class
+     * data slot, so a generated class describes itself in debuggers, heap dumps, and logs.
+     */
+    public static void generateToString(ClassDefinition classDefinition, Binding descriptionBinding)
+    {
+        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .append(loadConstant(descriptionBinding))
+                .invokeVirtual(Object.class, "toString", String.class)
+                .retObject();
     }
 
     public static BytecodeNode generateInvocation(
