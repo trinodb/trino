@@ -2133,7 +2133,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     void testDropHiddenMetadataColumn()
     {
-        try (TestTable table = newTrinoTable("test_drop_metadata_column_", "(id int, col int)")) {
+        try (TestTable table = newTrinoTable("test_drop_metadata_column_", "(id int, col int) WITH (partitioning = ARRAY['col'])")) {
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$partition\"", "line 1:1: Cannot drop hidden column");
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$path\"", "line 1:1: Cannot drop hidden column");
             assertQueryFails("ALTER TABLE " + table.getName() + " DROP COLUMN \"$file_modified_time\"", "line 1:1: Cannot drop hidden column");
@@ -5032,7 +5032,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT DISTINCT b FROM test_metadata_optimization WHERE c > 8", "VALUES (9)");
 
         // Predicates on hidden columns are enforced by the split source, so the optimization must not apply
-        assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$partition\" = 'b=6/c=7'", "VALUES (6, 7)");
+        assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$partition\".b = 6 AND \"$partition\".c = 7", "VALUES (6, 7)");
         assertQuery(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$path\" = (SELECT \"$path\" FROM test_metadata_optimization WHERE a = 5)", "VALUES (6, 7)");
         assertQueryReturnsEmptyResult(session, "SELECT DISTINCT b, c FROM test_metadata_optimization WHERE \"$file_modified_time\" < TIMESTAMP '2000-01-01 00:00:00 UTC'");
 
@@ -6434,7 +6434,7 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
                 "VALUES (0, 5), (1, 1)");
 
-        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'regionkey=2'");
+        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$partition\".regionkey = 2");
         assertQuery(
                 "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
                 "VALUES (0, 5)");
@@ -6813,37 +6813,79 @@ public abstract class BaseIcebergConnectorTest
                 .skippingTypesCheck()
                 .matches("VALUES ('userid', 'integer', '', ''), ('zip', 'integer', '', '')");
 
-        String somePath = (String) computeScalar("SELECT \"$partition\" FROM " + tableName + " WHERE userid = 2");
-        String anotherPath = (String) computeScalar("SELECT \"$partition\" FROM " + tableName + " WHERE userid = 3");
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "'"))
+        assertThat(query("SELECT userid, \"$partition\" FROM " + tableName + " WHERE userid = 2"))
+                .matches("VALUES (2, CAST(ROW(2) AS ROW(zip INTEGER)))");
+
+        // Predicates on a partition field are pushed down
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip = 2"))
                 .matches("VALUES 2, 5")
                 .isFullyPushedDown();
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IN ('" + somePath + "', '" + anotherPath + "')"))
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip IN (0, 2)"))
                 .matches("VALUES 0, 2, 3, 5, 6")
                 .isFullyPushedDown();
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" <> '" + somePath + "'"))
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip <> 2"))
                 .matches("VALUES 0, 1, 3, 4, 6, 7")
                 .isFullyPushedDown();
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "' AND userid > 0"))
-                .matches("VALUES 2, 5");
-
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NOT NULL"))
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip >= 1"))
+                .matches("VALUES 1, 2, 4, 5, 7")
+                .isFullyPushedDown();
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip IS NOT NULL"))
                 .matches("VALUES 0, 1, 2, 3, 4, 5, 6, 7")
                 .isFullyPushedDown();
-        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NULL"))
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip IS NULL"))
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
+        // Predicates on the whole row are evaluated by the engine, so row comparison semantics are preserved
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = ROW(2)"))
+                .matches("VALUES 2, 5")
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = ROW(2) AND \"$partition\" <> ROW(0)"))
+                .matches("VALUES 2, 5")
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = ROW(2) AND \"$partition\".zip = 2"))
+                .matches("VALUES 2, 5")
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NOT NULL"))
+                .matches("VALUES 0, 1, 2, 3, 4, 5, 6, 7")
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IS NULL"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" IN (ROW(0), ROW(2))"))
+                .matches("VALUES 0, 2, 3, 5, 6")
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\" = ROW(0) OR \"$partition\" = ROW(2)"))
+                .matches("VALUES 0, 2, 3, 5, 6")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // Expressions over a partition field are not pushed down
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip + 1 = 3"))
+                .matches("VALUES 2, 5")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // Only range predicates on a partition field satisfy the partition filter requirement, as other predicates on $partition do not prune files
+        Session partitionFilterRequired = withPartitionFilterRequired(getSession());
+        assertQuery(partitionFilterRequired, "SELECT userid FROM " + tableName + " WHERE \"$partition\".zip = 2", "VALUES 2, 5");
+        assertQueryFails(partitionFilterRequired, "SELECT userid FROM " + tableName + " WHERE \"$partition\" = ROW(2)", "Filter required for .* on at least one of the partition columns: zip");
+
+        // Predicates on data columns are unaffected
+        assertThat(query("SELECT userid FROM " + tableName + " WHERE \"$partition\".zip = 2 AND userid > 0"))
+                .matches("VALUES 2, 5");
+
+        // The column is no longer a partition path string
+        assertQueryFails("SELECT userid FROM " + tableName + " WHERE \"$partition\" = 'zip=2'", "line 1:65: Cannot apply operator: row\\(\"zip\" integer\\) = varchar\\(5\\)");
+
         String min = format == AVRO ? "NULL" : "'2'";
         String max = format == AVRO ? "NULL" : "'5'";
-        assertThat(query("SHOW STATS FOR (SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "')"))
+        assertThat(query("SHOW STATS FOR (SELECT userid FROM " + tableName + " WHERE \"$partition\".zip = 2)"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('userid', NULL, 2e0, 0e0, NULL, " + min + ", " + max + "), " +
                         "(NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
 
         // EXPLAIN triggers stats calculation and also rendering
-        assertQuerySucceeds("EXPLAIN SELECT userid FROM " + tableName + " WHERE \"$partition\" = '" + somePath + "'");
+        assertQuerySucceeds("EXPLAIN SELECT userid FROM " + tableName + " WHERE \"$partition\".zip = 2");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -6853,7 +6895,10 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_nested_partition", "WITH (partitioning = ARRAY['\"part.f\"']) AS SELECT 1 id, CAST(ROW(10) AS ROW(f int)) part")) {
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'part.f=10')");
+                    .matches("VALUES (1, CAST(ROW(10) AS ROW(\"part.f\" INTEGER)))");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".\"part.f\" = 10"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
         }
     }
 
@@ -6862,7 +6907,10 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_null_partition", "WITH (partitioning = ARRAY['part']) AS SELECT 1 id, CAST(NULL AS integer) part")) {
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'part=null')");
+                    .matches("VALUES (1, CAST(ROW(NULL) AS ROW(part INTEGER)))");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".part IS NULL"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
         }
     }
 
@@ -6870,8 +6918,7 @@ public abstract class BaseIcebergConnectorTest
     void testPartitionHiddenColumnWithNonPartitionTable()
     {
         try (TestTable table = newTrinoTable("test_non_partition", " AS SELECT 1 id")) {
-            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR '')");
+            assertQueryFails("SELECT id, \"$partition\" FROM " + table.getName(), ".*Column '\\$partition' cannot be resolved");
         }
     }
 
@@ -6880,34 +6927,42 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_multiple_partition", "WITH (partitioning = ARRAY['p1', 'p2']) AS SELECT 1 id, 10 p1, 100 p2")) {
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'p1=10/p2=100')");
+                    .matches("VALUES (1, CAST(ROW(10, 100) AS ROW(p1 INTEGER, p2 INTEGER)))");
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".p1 = 10 AND \"$partition\".p2 = 100"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            // OR across fields is not pushed down
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".p1 = 10 OR \"$partition\".p2 = 999"))
+                    .matches("VALUES 1")
+                    .isNotFullyPushedDown(FilterNode.class);
         }
     }
 
     @Test
     void testPartitionHiddenColumnTransform()
     {
-        testPartitionHiddenColumnTransform("year(part)", "timestamp '2017-05-01 10:12:34'", "part_year=2017", "timestamp '2018-05-01 10:12:34'", "part_year=2018");
-        testPartitionHiddenColumnTransform("month(part)", "timestamp '2017-05-01 10:12:34'", "part_month=2017-05", "timestamp '2018-05-01 10:12:34'", "part_month=2018-05");
-        testPartitionHiddenColumnTransform("day(part)", "timestamp '2017-05-01 10:12:34'", "part_day=2017-05-01", "timestamp '2018-05-01 10:12:34'", "part_day=2018-05-01");
-        testPartitionHiddenColumnTransform("hour(part)", "timestamp '2017-05-01 10:12:34'", "part_hour=2017-05-01-10", "timestamp '2018-05-01 10:12:34'", "part_hour=2018-05-01-10");
-        testPartitionHiddenColumnTransform("bucket(part, 10)", "1", "part_bucket=6", "2", "part_bucket=2");
-        testPartitionHiddenColumnTransform("truncate(part, 3)", "'abcde'", "part_trunc=abc", "'vwxyz'", "part_trunc=vwx");
+        testPartitionHiddenColumnTransform("year(part)", "part_year", "INTEGER", "timestamp '2017-05-01 10:12:34'", "47", "timestamp '2018-05-01 10:12:34'", "48");
+        testPartitionHiddenColumnTransform("month(part)", "part_month", "INTEGER", "timestamp '2017-05-01 10:12:34'", "568", "timestamp '2018-05-01 10:12:34'", "580");
+        testPartitionHiddenColumnTransform("day(part)", "part_day", "DATE", "timestamp '2017-05-01 10:12:34'", "DATE '2017-05-01'", "timestamp '2018-05-01 10:12:34'", "DATE '2018-05-01'");
+        testPartitionHiddenColumnTransform("hour(part)", "part_hour", "INTEGER", "timestamp '2017-05-01 10:12:34'", "414898", "timestamp '2018-05-01 10:12:34'", "423658");
+        testPartitionHiddenColumnTransform("bucket(part, 10)", "part_bucket", "INTEGER", "1", "6", "2", "2");
+        testPartitionHiddenColumnTransform("truncate(part, 3)", "part_trunc", "VARCHAR", "'abcde'", "'abc'", "'vwxyz'", "'vwx'");
     }
 
-    private void testPartitionHiddenColumnTransform(String partitioning, String firstInput, String firstPartition, String secondInput, String secondPartition)
+    private void testPartitionHiddenColumnTransform(String partitioning, String fieldName, String fieldType, String firstInput, String firstPartition, String secondInput, String secondPartition)
     {
         try (TestTable table = newTrinoTable("test_transform_partition", "WITH (partitioning = ARRAY['" + partitioning + "']) AS SELECT 1 id, " + firstInput + " part")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, " + secondInput + ")", 1);
 
-            assertThat(computeActual("SELECT \"$partition\" FROM " + table.getName()).getOnlyColumnAsSet())
-                    .containsExactlyInAnyOrder(firstPartition, secondPartition);
+            String rowType = "ROW(" + fieldName + " " + fieldType + ")";
+            assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, CAST(ROW(" + firstPartition + ") AS " + rowType + ")), (2, CAST(ROW(" + secondPartition + ") AS " + rowType + "))");
 
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = '" + firstPartition + "'"))
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\"." + fieldName + " = " + firstPartition))
                     .isFullyPushedDown()
                     .matches("VALUES 1");
 
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = '" + secondPartition + "'"))
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\"." + fieldName + " = " + secondPartition))
                     .isFullyPushedDown()
                     .matches("VALUES 2");
         }
@@ -6918,23 +6973,44 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_rename_partition", "WITH (partitioning = ARRAY['part']) AS SELECT 1 id, 10 part")) {
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'part=10')");
+                    .matches("VALUES (1, CAST(ROW(10) AS ROW(part INTEGER)))");
 
+            // The partition field keeps its name when the source column is renamed
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN part TO renamed_part");
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'part=10')");
+                    .matches("VALUES (1, CAST(ROW(10) AS ROW(part INTEGER)))");
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
             assertThat(query("SELECT id, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'part=10'), (2, VARCHAR 'part=20')");
+                    .matches("VALUES (1, CAST(ROW(10) AS ROW(part INTEGER))), (2, CAST(ROW(20) AS ROW(part INTEGER)))");
 
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = 'part=10'"))
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".part = 10"))
                     .isFullyPushedDown()
                     .matches("VALUES 1");
 
-            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\" = 'part=20'"))
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE \"$partition\".part = 20"))
                     .isFullyPushedDown()
                     .matches("VALUES 2");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnTimeTravelBeforePartitionColumnAdded()
+    {
+        try (TestTable table = newTrinoTable("test_partition_time_travel", "AS SELECT 1 x")) {
+            long snapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y integer");
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['y']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+
+            // The snapshot predates column y, so it has no partition fields
+            assertThat(query("SELECT x FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId))
+                    .matches("VALUES 1");
+            assertQueryFails("SELECT \"$partition\" FROM " + table.getName() + " FOR VERSION AS OF " + snapshotId, ".*Column '\\$partition' cannot be resolved");
+
+            assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
+                    .matches("VALUES (1, CAST(ROW(NULL) AS ROW(y INTEGER))), (2, CAST(ROW(20) AS ROW(y INTEGER)))");
         }
     }
 
@@ -6943,23 +7019,74 @@ public abstract class BaseIcebergConnectorTest
     {
         try (TestTable table = newTrinoTable("test_change_partition", "WITH (partitioning = ARRAY['y']) AS SELECT 1 x, 10 y")) {
             assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'y=10')");
+                    .matches("VALUES (1, CAST(ROW(10) AS ROW(y INTEGER)))");
 
+            // Fields absent from a row's partition spec are null
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['x']");
             assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'y=10')");
+                    .matches("VALUES (1, CAST(ROW(10, NULL) AS ROW(y INTEGER, x INTEGER)))");
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
             assertThat(query("SELECT x, \"$partition\" FROM " + table.getName()))
-                    .matches("VALUES (1, VARCHAR 'y=10'), (2, VARCHAR 'x=2')");
+                    .matches("VALUES (1, CAST(ROW(10, NULL) AS ROW(y INTEGER, x INTEGER))), (2, CAST(ROW(NULL, 2) AS ROW(y INTEGER, x INTEGER)))");
 
-            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = 'y=10'"))
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\".y = 10"))
                     .isFullyPushedDown()
                     .matches("VALUES 1");
 
-            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = 'x=2'"))
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\".x = 2"))
                     .isFullyPushedDown()
                     .matches("VALUES 2");
+
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\".x IS NULL"))
+                    .isFullyPushedDown()
+                    .matches("VALUES 1");
+
+            // Comparing whole rows with a NULL field is unknown, as in the engine, rather than a match on the NULL
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = CAST(ROW(10, NULL) AS ROW(y INTEGER, x INTEGER))"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" > CAST(ROW(10, NULL) AS ROW(y INTEGER, x INTEGER))"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$partition\" = CAST(ROW(NULL, 2) AS ROW(y INTEGER, x INTEGER)) OR \"$partition\".y = 10"))
+                    .matches("VALUES 1");
+        }
+    }
+
+    @Test
+    void testPartitionHiddenColumnFieldIdCollidingWithDataColumnId()
+    {
+        // Partition field ids start at 1000, so bucket(c1) shares its id with data column c1000
+        String columns = IntStream.rangeClosed(1, 1000)
+                .mapToObj(i -> "c" + i + " integer")
+                .collect(joining(", "));
+        try (TestTable table = newTrinoTable("test_partition_field_id_collision", "(" + columns + ") WITH (partitioning = ARRAY['bucket(c1, 4)', 'c1000'])")) {
+            String values = IntStream.rangeClosed(1, 1000)
+                    .mapToObj(i -> i == 1000 ? "42" : "1")
+                    .collect(joining(", "));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + values + ")", 1);
+
+            int bucket = (int) computeScalar("SELECT partition.c1_bucket FROM \"" + table.getName() + "$partitions\"");
+            assertThat(bucket).isNotEqualTo(42);
+
+            // Selecting only partition values takes the page generation fast path
+            assertThat(query("SELECT \"$partition\".c1_bucket, \"$partition\".c1000, c1000 FROM " + table.getName()))
+                    .matches("VALUES (" + bucket + ", 42, 42)");
+            assertThat(query("SELECT \"$partition\" FROM " + table.getName()))
+                    .matches("SELECT CAST(ROW(" + bucket + ", 42) AS ROW(c1_bucket INTEGER, c1000 INTEGER))");
+            assertThat(query("SELECT \"$partition\".c1_bucket FROM " + table.getName()))
+                    .matches("VALUES " + bucket);
+
+            // A dynamic filter on the partition field must not be applied to the data column sharing its id
+            assertThat(query("SELECT t.c1000 FROM " + table.getName() + " t JOIN (VALUES " + bucket + ") b(v) ON t.\"$partition\".c1_bucket = b.v"))
+                    .matches("VALUES 42");
+            assertThat(query("SELECT t.c1000 FROM " + table.getName() + " t JOIN (VALUES 42) b(v) ON t.\"$partition\".c1_bucket = b.v"))
+                    .returnsEmptyResult();
+
+            // An expression over the partition field is not a filter on the partition column sharing its id
+            assertQueryFails(
+                    withPartitionFilterRequired(getSession()),
+                    "SELECT c1000 FROM " + table.getName() + " WHERE \"$partition\".c1_bucket + 1 = " + (bucket + 1),
+                    "Filter required for .* on at least one of the partition columns: c1, c1000");
         }
     }
 
@@ -6970,35 +7097,41 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10), (2, 20), (3, 30)", 3);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 10), (5, 20), (6, 30)", 3);
 
-            Set<Object> filesInBucket0Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket1Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket2Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket0Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 0").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 1").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 2").getOnlyColumnAsSet();
 
             assertThat(filesInBucket0Before).hasSize(2);
             assertThat(filesInBucket1Before).hasSize(2);
             assertThat(filesInBucket2Before).hasSize(2);
 
+            // OPTIMIZE requires the filter to be enforced by the connector
+            assertThatThrownBy(() -> computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\".part_bucket + 1 = 1"))
+                    .hasMessageContaining("connector was not able to handle provided WHERE expression");
+            assertThatThrownBy(() -> computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\" = ROW(0)"))
+                    .hasMessageContaining("connector was not able to handle provided WHERE expression");
+
             // Execute optimize procedure on the specific partition
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'part_bucket=0'");
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\".part_bucket = 0");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30)");
 
-            Set<Object> filesInBucket0After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket1After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket2After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket0After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 0").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 1").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 2").getOnlyColumnAsSet();
 
             assertThat(filesInBucket0After).hasSize(1).doesNotContain(filesInBucket0Before);
             assertThat(filesInBucket1After).hasSize(2).isEqualTo(filesInBucket1Before);
             assertThat(filesInBucket2After).hasSize(2).isEqualTo(filesInBucket2Before);
 
             // Repeat optimize procedure on the same bucket and verify that the file isn't rewritten
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'part_bucket=0'");
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE \"$partition\".part_bucket = 0");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30)");
 
-            Set<Object> filesInBucket0Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket1Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
-            Set<Object> filesInBucket2Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket0Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 0").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 1").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2Repeat = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\".part_bucket = 2").getOnlyColumnAsSet();
 
             assertThat(filesInBucket0Repeat).hasSize(1).isEqualTo(filesInBucket0After);
             assertThat(filesInBucket1Repeat).hasSize(2).isEqualTo(filesInBucket1After);
