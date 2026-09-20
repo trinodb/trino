@@ -19,6 +19,7 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
+import java.util.Optional;
 
 final class TestingBlobCache
 {
@@ -29,7 +30,7 @@ final class TestingBlobCache
         return new BlobCache()
         {
             @Override
-            public Blob get(CacheKey key, BlobSource source)
+            public Optional<Blob> get(CacheKey key, BlobSource source)
                     throws IOException
             {
                 return cache.get(key, source, stats);

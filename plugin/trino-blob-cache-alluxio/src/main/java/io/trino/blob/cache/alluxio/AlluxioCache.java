@@ -31,6 +31,7 @@ import io.trino.spi.cache.CacheKey;
 import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -56,7 +57,7 @@ public class AlluxioCache
         this.cacheManager = CacheManager.Factory.create(this.config);
     }
 
-    public Blob get(CacheKey key, BlobSource source, AlluxioCacheStats statistics)
+    public Optional<Blob> get(CacheKey key, BlobSource source, AlluxioCacheStats statistics)
             throws IOException
     {
         requireNonNull(key, "key is null");
@@ -64,7 +65,7 @@ public class AlluxioCache
         try {
             URIStatus status = uriStatus(cacheIdentifier(key), source);
             CacheManager tracingCacheManager = new TracingCacheManager(tracer, key.toString(), pageSize, cacheManager);
-            return new AlluxioBlob(tracer, source, key.toString(), status, tracingCacheManager, config, statistics);
+            return Optional.of(new AlluxioBlob(tracer, source, key.toString(), status, tracingCacheManager, config, statistics));
         }
         catch (Throwable e) {
             // The cache owns the source until a blob is returned, so it must not stay open

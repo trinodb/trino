@@ -95,7 +95,7 @@ final class TestCacheFileSystemEncryption
             implements BlobCache
     {
         @Override
-        public Blob get(CacheKey key, BlobSource source)
+        public Optional<Blob> get(CacheKey key, BlobSource source)
         {
             throw new UnsupportedOperationException();
         }
