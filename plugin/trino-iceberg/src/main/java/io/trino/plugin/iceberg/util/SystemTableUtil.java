@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.util.JsonUtils;
-import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetricsUtil;
