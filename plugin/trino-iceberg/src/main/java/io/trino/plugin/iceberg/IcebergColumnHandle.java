@@ -36,6 +36,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -217,6 +218,12 @@ public class IcebergColumnHandle
     public boolean isIsDeletedColumn()
     {
         return id == IS_DELETED.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isMetadataColumn()
+    {
+        return isMetadataColumnId(baseColumnIdentity.getId());
     }
 
     @JsonIgnore
