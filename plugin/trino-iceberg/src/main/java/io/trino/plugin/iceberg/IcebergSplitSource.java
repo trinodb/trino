@@ -124,7 +124,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
@@ -174,7 +173,7 @@ public class IcebergSplitSource
     private final double minimumAssignedSplitWeight;
     private final Set<Integer> projectedBaseColumns;
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
-    private final Domain partitionDomain;
+    private final PartitionFieldPredicate partitionFieldPredicate;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
@@ -243,7 +242,7 @@ public class IcebergSplitSource
                 .map(column -> column.getBaseColumnIdentity().getId())
                 .collect(toImmutableSet());
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, _) -> !column.isMetadataColumn());
-        this.partitionDomain = getPartitionDomain(tableHandle.getEnforcedPredicate());
+        this.partitionFieldPredicate = PartitionFieldPredicate.fromPredicate(tableHandle.getEnforcedPredicate());
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
         checkArgument(
                 tableHandle.getUnenforcedPredicate().isAll() || tableHandle.getLimit().isEmpty(),
@@ -254,6 +253,8 @@ public class IcebergSplitSource
         this.predicatedColumnIds = Stream.concat(
                         tableHandle.getUnenforcedPredicate().getDomains().orElse(ImmutableMap.of()).keySet().stream(),
                         dynamicFilterColumns.stream().map(IcebergColumnHandle.class::cast))
+                // Metadata columns have no file statistics, and their ids may collide with data column ids
+                .filter(column -> !column.isMetadataColumn())
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
@@ -487,11 +488,8 @@ public class IcebergSplitSource
         }
 
         PartitionSpec partitionSpec = getFileScanPartitionSpec(fileScanTask, specsById);
-        if (!partitionDomain.isAll()) {
-            String partition = partitionSpec.partitionToPath(fileScanTask.partition());
-            if (!partitionDomain.includesNullableValue(utf8Slice(partition))) {
-                return true;
-            }
+        if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(partitionSpec, fileScanTask.partition())) {
+            return true;
         }
         Domain fullPathDomain = dynamicFilterContext.fullPathDomain();
         if (!fullPathDomain.isAll() && !fullPathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {

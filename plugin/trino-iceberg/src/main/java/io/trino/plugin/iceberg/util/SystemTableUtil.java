@@ -106,10 +106,8 @@ public final class SystemTableUtil
     }
 
     /**
-     * Returns a unique name for each partition field, keyed by field id. Fields of different specs can share a name, for
-     * example when a v1 table is partitioned by x again after x was removed. The latest field, which has the highest field
-     * id, keeps the name, and earlier ones are suffixed with their field id, as Iceberg does. The suffix is repeated until
-     * the name is unique.
+     * Returns a unique name for each partition field, keyed by field id. The field with the highest id keeps a name
+     * shared across specs; earlier fields get their field id appended, repeated until the name is unique.
      */
     private static Map<Integer, String> uniqueFieldNames(List<PartitionField> fields)
     {

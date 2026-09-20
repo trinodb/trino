@@ -372,6 +372,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
@@ -386,6 +387,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
+import static io.trino.plugin.iceberg.PartitionFieldPredicate.canEnforcePartitionRowDomain;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
@@ -1163,7 +1165,7 @@ public class IcebergMetadata
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         BaseTable icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager, tableHandle.getFormatVersion());
+        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), getPartitionColumn(icebergTable, typeManager), typeManager, tableHandle.getFormatVersion());
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
@@ -1198,7 +1200,9 @@ public class IcebergMetadata
             columnHandles.putIfAbsent(ROW_ID.getColumnName(), rowIdColumnHandle());
             columnHandles.putIfAbsent(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName(), lastUpdatedSequenceNumberColumnHandle());
         }
-        columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle());
+        // $partition is typed from the current table schema and partition specs
+        BaseTable icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        getPartitionColumn(icebergTable, typeManager).ifPresent(partitionColumn -> columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle(partitionColumn)));
         columnHandles.putIfAbsent(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.putIfAbsent(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
         return ImmutableMap.copyOf(columnHandles);
@@ -1245,6 +1249,8 @@ public class IcebergMetadata
             }
             Set<Integer> columnsWithPredicates = new HashSet<>();
             table.getConstraintColumns().stream()
+                    // Metadata column ids may collide with the ids of partition source columns
+                    .filter(column -> !column.isMetadataColumn())
                     .map(IcebergColumnHandle::getId)
                     .forEach(columnsWithPredicates::add);
             table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
@@ -1318,7 +1324,7 @@ public class IcebergMetadata
                             .map(tableName -> (Callable<Optional<TableColumnsMetadata>>) () -> {
                                 try {
                                     Table icebergTable = catalog.loadTable(session, tableName);
-                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager, formatVersion(icebergTable));
+                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), getPartitionColumn(icebergTable, typeManager), typeManager, formatVersion(icebergTable));
                                     return Optional.of(TableColumnsMetadata.forTable(tableName, columns));
                                 }
                                 catch (TableNotFoundException e) {
@@ -2711,7 +2717,7 @@ public class IcebergMetadata
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
             List<String> parquetBloomFilterColumns = getProperty(properties, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
+            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(icebergTable, typeManager), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
 
             Set<String> existingParquetBloomFilterColumns = icebergTable.properties().keySet().stream()
                     .filter(key -> key.startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX))
@@ -2729,7 +2735,7 @@ public class IcebergMetadata
                 updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
             }
             else {
-                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
+                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(icebergTable, typeManager), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
                 updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             }
         }
@@ -3882,19 +3888,21 @@ public class IcebergMetadata
             Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new VerifyException("No domains"));
             domains.forEach((columnHandle, domain) -> {
-                if (!isConvertibleToIcebergExpression(domain)) {
-                    unsupported.put(columnHandle, domain);
-                }
-                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
-                    newEnforced.put(columnHandle, domain);
-                }
-                else if (columnHandle.isMetadataColumn()) {
-                    if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
+                if (columnHandle.isMetadataColumn()) {
+                    // Metadata columns are enforced by the split source, so their domains need not convert to Iceberg expressions
+                    if (columnHandle.isPartitionField() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()
+                            || (columnHandle.isPartitionColumn() && canEnforcePartitionRowDomain(domain))) {
                         newEnforced.put(columnHandle, domain);
                     }
                     else {
                         unsupported.put(columnHandle, domain);
                     }
+                }
+                else if (!isConvertibleToIcebergExpression(domain)) {
+                    unsupported.put(columnHandle, domain);
+                }
+                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
+                    newEnforced.put(columnHandle, domain);
                 }
                 else {
                     newUnenforced.put(columnHandle, domain);
