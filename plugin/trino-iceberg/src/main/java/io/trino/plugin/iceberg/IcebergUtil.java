@@ -73,6 +73,7 @@ import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
@@ -134,7 +135,6 @@ import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnMetadata;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
@@ -180,6 +180,8 @@ import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTE
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
@@ -216,6 +218,7 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.IcebergPartitionSpecUtils.bindUnchecked;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -476,7 +479,7 @@ public final class IcebergUtil
                 .collect(toImmutableList());
     }
 
-    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager, int formatVersion)
+    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, Optional<IcebergPartitionColumn> partitionColumn, TypeManager typeManager, int formatVersion)
     {
         List<NestedField> icebergColumns = schema.columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
@@ -489,7 +492,7 @@ public final class IcebergUtil
                     .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
                     .build());
         }
-        columns.add(partitionColumnMetadata());
+        partitionColumn.ifPresent(column -> columns.add(partitionColumnMetadata(column)));
         columns.add(pathColumnMetadata());
         if (formatVersion >= 3) {
             columns.add(rowIdColumnMetadata());
@@ -845,6 +848,24 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type);
+    }
+
+    /**
+     * Type of the {@code $partition} column: a row of the partition fields across all partition specs of the table.
+     * Empty when the table has never been partitioned.
+     */
+    public static Optional<IcebergPartitionColumn> getPartitionColumn(IcebergTableHandle table, TypeManager typeManager)
+    {
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        // Specs are those of the table, while the schema is that of the snapshot, which may predate a partition column
+        Map<Integer, PartitionSpec> specs = table.getPartitionSpecJsons().entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> bindUnchecked(schema, entry.getValue())));
+        return getPartitionColumn(schema, specs, typeManager);
+    }
+
+    public static Optional<IcebergPartitionColumn> getPartitionColumn(Schema schema, Map<Integer, PartitionSpec> specs, TypeManager typeManager)
+    {
+        return getPartitionColumnType(typeManager, getAllPartitionFields(schema, specs), schema);
     }
 
     /**
@@ -1366,17 +1387,6 @@ public final class IcebergUtil
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking metadata location: " + metadataDirectoryLocation, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
-    }
-
-    public static Domain getPartitionDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
-    {
-        IcebergColumnHandle partitionColumn = partitionColumnHandle();
-        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
-                .get(partitionColumn);
-        if (domain == null) {
-            return Domain.all(partitionColumn.getType());
-        }
-        return domain;
     }
 
     public static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
