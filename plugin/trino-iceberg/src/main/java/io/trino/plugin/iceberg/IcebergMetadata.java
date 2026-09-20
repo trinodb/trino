@@ -311,7 +311,6 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
@@ -995,7 +994,7 @@ public class IcebergMetadata
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
         // Predicates on hidden columns are enforced by the split source and cannot be applied to a scan
-        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> isMetadataColumnId(column.getId())).isAll();
+        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> column.isMetadataColumn()).isAll();
 
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty() && !hasHiddenColumnPredicate) {
@@ -1182,7 +1181,7 @@ public class IcebergMetadata
 
         // Look up write-default from the table schema
         Optional<String> defaultValue = Optional.empty();
-        if (!isMetadataColumnId(column.getId())) {
+        if (!column.isMetadataColumn()) {
             Schema tableSchema = SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson());
             NestedField field = tableSchema.findField(column.getId());
             if (field != null) {
@@ -1195,7 +1194,7 @@ public class IcebergMetadata
                 .setType(column.getType())
                 .setNullable(column.isNullable())
                 .setComment(column.getComment())
-                .setHidden(isMetadataColumnId(column.getId()))
+                .setHidden(column.isMetadataColumn())
                 .setDefaultValue(defaultValue)
                 .build();
     }
@@ -3307,7 +3306,7 @@ public class IcebergMetadata
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> column.isMetadataColumn());
         if (!medataColumnPredicate.isAll()) {
             return Optional.empty();
         }
@@ -3492,7 +3491,7 @@ public class IcebergMetadata
             }
         }
 
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !column.isMetadataColumn());
         TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
         effectivePredicate = effectivePredicate.intersect(domainCollector.domains());
         effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
@@ -3779,7 +3778,7 @@ public class IcebergMetadata
                 else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
                 }
-                else if (isMetadataColumnId(columnHandle.getId())) {
+                else if (columnHandle.isMetadataColumn()) {
                     if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
                         newEnforced.put(columnHandle, domain);
                     }

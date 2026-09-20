@@ -29,6 +29,9 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,6 +68,25 @@ public class TestIcebergColumnHandle
                 .path(2)
                 .build();
         testRoundTrip(partialColumn);
+    }
+
+    @Test
+    public void testIsMetadataColumn()
+    {
+        IcebergColumnHandle dataColumn = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "id")).columnType(BIGINT).build();
+        assertThat(dataColumn.isMetadataColumn()).isFalse();
+
+        // A projected field of a data column is not a metadata column, whatever its field id
+        ColumnIdentity field = new ColumnIdentity(FILE_PATH.getId(), "field", PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle projectedField = IcebergColumnHandle.optional(new ColumnIdentity(2, "root", STRUCT, ImmutableList.of(field)))
+                .fieldType(RowType.from(ImmutableList.of(RowType.field("field", BIGINT))), BIGINT)
+                .path(FILE_PATH.getId())
+                .build();
+        assertThat(projectedField.getId()).isEqualTo(FILE_PATH.getId());
+        assertThat(projectedField.isMetadataColumn()).isFalse();
+
+        assertThat(pathColumnHandle().isMetadataColumn()).isTrue();
+        assertThat(partitionColumnHandle().isMetadataColumn()).isTrue();
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)

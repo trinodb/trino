@@ -46,7 +46,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampNanosToRange;
 import static io.trino.plugin.iceberg.util.Timestamps.compareTimestampTzNanosToRange;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
@@ -124,7 +123,7 @@ public final class ExpressionConverter
         List<Expression> conjuncts = new ArrayList<>();
         for (Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
-            checkArgument(!isMetadataColumnId(columnHandle.getId()), "Constraint on an unexpected column %s", columnHandle);
+            checkArgument(!columnHandle.isMetadataColumn(), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();
             checkArgument(isConvertibleToIcebergExpression(domain), "Unexpected not convertible domain on column %s: %s", columnHandle, domain);
             conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
