@@ -72,6 +72,7 @@ import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Partitioning;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
@@ -109,6 +110,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -134,7 +136,6 @@ import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnMetadata;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
@@ -182,6 +183,8 @@ import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTE
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
@@ -486,7 +489,7 @@ public final class IcebergUtil
                 .collect(toImmutableList());
     }
 
-    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager, int formatVersion)
+    public static List<ColumnMetadata> getColumnMetadatas(Schema schema, Optional<IcebergPartitionColumn> partitionColumn, TypeManager typeManager, int formatVersion)
     {
         List<NestedField> icebergColumns = schema.columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 5);
@@ -501,7 +504,7 @@ public final class IcebergUtil
                     .setDefaultValue(formatIcebergDefaultAsSql(column.writeDefault(), column.type()))
                     .build());
         }
-        columns.add(partitionColumnMetadata());
+        partitionColumn.ifPresent(column -> columns.add(partitionColumnMetadata(column)));
         columns.add(pathColumnMetadata());
         if (formatVersion >= 3) {
             columns.add(rowIdColumnMetadata());
@@ -861,15 +864,38 @@ public final class IcebergUtil
     }
 
     /**
+     * Type of the {@code $partition} column: a row of the partition fields across all partition specs
+     * of the table. Fields are typed from the current schema, as {@link Partitioning#partitionType}
+     * does, since the schema of an older snapshot may predate a partition source column.
+     * Empty when the table has never been partitioned.
+     */
+    public static Optional<IcebergPartitionColumn> getPartitionColumn(Table table, TypeManager typeManager)
+    {
+        return getPartitionColumnType(typeManager, getAllPartitionFields(table.schema(), table.specs()), table.schema());
+    }
+
+    /**
      * Returns the Trino native value of every partition field of a file, keyed by partition field id. Values may be null.
      */
     public static Map<Integer, Object> getPartitionFieldValues(PartitionSpec spec, StructLike partition)
     {
+        return getPartitionFieldValues(spec, partition, _ -> true);
+    }
+
+    /**
+     * Like {@link #getPartitionFieldValues(PartitionSpec, StructLike)}, but only for the partition fields with the given ids.
+     */
+    public static Map<Integer, Object> getPartitionFieldValues(PartitionSpec spec, StructLike partition, IntPredicate fieldIds)
+    {
         List<PartitionField> fields = spec.fields();
         Map<Integer, Object> values = new HashMap<>(fields.size());
         for (int index = 0; index < fields.size(); index++) {
+            int fieldId = fields.get(index).fieldId();
+            if (!fieldIds.test(fieldId)) {
+                continue;
+            }
             org.apache.iceberg.types.Type type = spec.partitionType().fields().get(index).type();
-            values.put(fields.get(index).fieldId(), convertIcebergValueToTrino(type, partition.get(index, type.typeId().javaClass())));
+            values.put(fieldId, convertIcebergValueToTrino(type, partition.get(index, type.typeId().javaClass())));
         }
         return values;
     }
@@ -1381,17 +1407,6 @@ public final class IcebergUtil
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking metadata location: " + metadataDirectoryLocation, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
-    }
-
-    public static Domain getPartitionDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
-    {
-        IcebergColumnHandle partitionColumn = partitionColumnHandle();
-        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
-                .get(partitionColumn);
-        if (domain == null) {
-            return Domain.all(partitionColumn.getType());
-        }
-        return domain;
     }
 
     public static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)

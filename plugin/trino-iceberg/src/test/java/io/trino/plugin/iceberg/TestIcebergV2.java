@@ -761,12 +761,12 @@ public class TestIcebergV2
                     .returnsEmptyResult();
 
             // verify equality deletes work with nested field and querying metadata columns
-            assertThat(query("SELECT \"$partition\" FROM " + tableName))
-                    .matches("VALUES VARCHAR ''");
-            assertThat(query("SELECT root.nested, \"$partition\" FROM " + tableName))
-                    .matches("VALUES (BIGINT '10', VARCHAR '')");
-            assertThat(query("SELECT \"$partition\", root.nested FROM " + tableName))
-                    .matches("VALUES (VARCHAR '', BIGINT '10')");
+            assertThat(query("SELECT \"$path\" IS NOT NULL FROM " + tableName))
+                    .matches("VALUES true");
+            assertThat(query("SELECT root.nested, \"$path\" IS NOT NULL FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', true)");
+            assertThat(query("SELECT \"$path\" IS NOT NULL, root.nested FROM " + tableName))
+                    .matches("VALUES (true, BIGINT '10')");
         }
     }
 
@@ -833,6 +833,28 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeleteKeyIdCollidingWithPartitionFieldId()
+            throws Exception
+    {
+        // Partition field ids start at 1000, so bucket(c1) shares its id with the equality delete key c1000
+        String columns = IntStream.rangeClosed(1, 1000)
+                .mapToObj(i -> "c" + i + " integer")
+                .collect(Collectors.joining(", "));
+        String ones = "1, ".repeat(999);
+        try (TestTable table = newTrinoTable("test_equality_delete_partition_field_id_collision_", "(" + columns + ")")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" + ones + "42), (" + ones + "7)", 2);
+            writeEqualityDeleteToNationTable(loadTable(tableName), Optional.empty(), Optional.empty(), ImmutableMap.of("c1000", 42));
+            // Partition after writing the unpartitioned delete, so it still applies to the data file
+            assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['bucket(c1, 4)']");
+
+            // The key column must be read for the delete even though a partition field with its id is projected
+            assertThat(query("SELECT \"$partition\".c1_bucket FROM " + tableName))
+                    .matches("VALUES CAST(NULL AS INTEGER)");
+        }
+    }
+
+    @Test
     public void testPartitionFieldNameSuffixCollidingWithExplicitName()
     {
         try (TestTable table = newTrinoTable("test_partition_field_name_suffix_", "(x integer, y integer)")) {
@@ -845,6 +867,7 @@ public class TestIcebergV2
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
 
             assertQuery("SELECT partition.p_1000_1000, partition.p, partition.p_1000 FROM \"" + table.getName() + "$partitions\"", "VALUES (NULL, 2, 20)");
+            assertQuery("SELECT \"$partition\".p_1000_1000, \"$partition\".p, \"$partition\".p_1000 FROM " + table.getName(), "VALUES (NULL, 2, 20)");
         }
     }
 
