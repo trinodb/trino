@@ -37,6 +37,8 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.util.DefaultLocationProvider;
 import io.trino.plugin.iceberg.util.ObjectStoreLocationProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -51,6 +53,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -96,6 +99,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -167,6 +171,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
@@ -183,6 +188,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -839,6 +845,37 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type);
+    }
+
+    /**
+     * Returns the Trino native value of every partition field of a file, keyed by partition field id. Values may be null.
+     */
+    public static Map<Integer, Object> getPartitionFieldValues(PartitionSpec spec, StructLike partition)
+    {
+        List<PartitionField> fields = spec.fields();
+        Map<Integer, Object> values = new HashMap<>(fields.size());
+        for (int index = 0; index < fields.size(); index++) {
+            org.apache.iceberg.types.Type type = spec.partitionType().fields().get(index).type();
+            values.put(fields.get(index).fieldId(), convertIcebergValueToTrino(type, partition.get(index, type.typeId().javaClass())));
+        }
+        return values;
+    }
+
+    /**
+     * Builds the {@code $partition} value of a file from the values returned by {@link #getPartitionFieldValues}.
+     * Fields missing from the file's partition spec are null.
+     */
+    public static SqlRow getPartitionRow(IcebergPartitionColumn partitionColumn, Map<Integer, Object> partitionFieldValues)
+    {
+        return buildRowValue(partitionColumn.rowType(), fieldBuilders -> writePartitionValues(partitionColumn, partitionFieldValues, fieldBuilders));
+    }
+
+    public static void writePartitionValues(IcebergPartitionColumn partitionColumn, Map<Integer, Object> partitionFieldValues, List<BlockBuilder> fieldBuilders)
+    {
+        List<RowType.Field> fields = partitionColumn.rowType().getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            writeNativeValue(fields.get(i).getType(), fieldBuilders.get(i), partitionFieldValues.get(partitionColumn.fieldIds().get(i)));
+        }
     }
 
     /**
