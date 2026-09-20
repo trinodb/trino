@@ -283,9 +283,9 @@ public class PageFunctionCompiler
                 type(Object.class),
                 type(PageProjectionWork.class));
 
-        FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
-        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
-        FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
+        FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE, FINAL), "blockBuilder", BlockBuilder.class);
+        FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
+        FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE, FINAL), "selectedPositions", SelectedPositions.class);
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
