@@ -1565,6 +1565,7 @@ The output of the query has the following columns:
   - Partition range metadata.
 :::
 
+(iceberg-partitions-table)=
 ##### `$partitions` table
 
 The `$partitions` table provides a detailed overview of the partitions of the
@@ -1661,7 +1662,8 @@ The output of the query has the following columns:
 * - `partition`
   - `ROW(...)`
   - A row that contains the mapping of the partition column names to the
-    partition column values.
+    partition column values. See [`$partitions`](iceberg-partitions-table) for
+    how partition fields are named.
 * - `record_count`
   - `BIGINT`
   - The number of entries contained in the data file.
@@ -1796,6 +1798,8 @@ The metadata tables include the following columns:
 * - `data_file`
   - `ROW`
   - Metadata including file path, file format, file size and other information.
+    See [`$partitions`](iceberg-partitions-table) for how partition fields are
+    named.
 * - `readable_metrics`
   - `JSON`
   - JSON-formatted file metrics such as column size, value count, and others.
@@ -1856,7 +1860,11 @@ The output of the query has the following columns:
 In addition to the defined columns, the Iceberg connector automatically exposes
 path metadata as a hidden column in each table:
 
-- `$partition`: Partition path for this row
+- `$partition`: Partition values for this row as a `ROW` with one field per
+  partition field across all partition specs, matching the `partition` column
+  of the [`$partitions`](iceberg-partitions-table) table. Fields not in the
+  row's partition spec are `NULL`. Not exposed for tables that have never been
+  partitioned.
 - `$path`: Full file system path name of the file for this row
 - `$file_modified_time`: Timestamp of the last modification of the file for
   this row
@@ -1877,6 +1885,20 @@ SELECT *
 FROM example.web.page_views
 WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 ```
+
+Retrieve all records that belong to a specific partition using a filter on a
+field of `"$partition"`. Simple comparisons on individual partition fields are
+pushed down, including for transforms such as `bucket`:
+
+```sql
+SELECT *
+FROM example.web.page_views
+WHERE "$partition".user_id_bucket = 3
+```
+
+Equality and `IN` filters on the whole `"$partition"` row also skip files and
+satisfy the `query_partition_filter_required` session property, unless a
+compared row has a `NULL` or `NaN` field. Other filters on the whole row do not.
 
 Retrieve all records that belong to a specific file using
 `"$file_modified_time"` filter:

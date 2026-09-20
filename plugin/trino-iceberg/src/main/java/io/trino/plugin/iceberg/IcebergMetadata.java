@@ -76,6 +76,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -137,6 +138,7 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -364,6 +366,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
@@ -430,6 +433,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Boolean.parseBoolean;
@@ -1140,7 +1145,7 @@ public class IcebergMetadata
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         BaseTable icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager, tableHandle.getFormatVersion());
+        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), getPartitionColumn(tableHandle, typeManager), typeManager, tableHandle.getFormatVersion());
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
@@ -1175,7 +1180,7 @@ public class IcebergMetadata
             columnHandles.putIfAbsent(ROW_ID.getColumnName(), rowIdColumnHandle());
             columnHandles.putIfAbsent(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName(), lastUpdatedSequenceNumberColumnHandle());
         }
-        columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle());
+        getPartitionColumn(table, typeManager).ifPresent(partitionColumn -> columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle(partitionColumn)));
         columnHandles.putIfAbsent(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.putIfAbsent(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
         return ImmutableMap.copyOf(columnHandles);
@@ -1221,6 +1226,8 @@ public class IcebergMetadata
             }
             Set<Integer> columnsWithPredicates = new HashSet<>();
             table.getConstraintColumns().stream()
+                    // Metadata column ids may collide with the ids of partition source columns
+                    .filter(column -> !column.isMetadataColumn())
                     .map(IcebergColumnHandle::getId)
                     .forEach(columnsWithPredicates::add);
             table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
@@ -1294,7 +1301,7 @@ public class IcebergMetadata
                             .map(tableName -> (Callable<Optional<TableColumnsMetadata>>) () -> {
                                 try {
                                     Table icebergTable = catalog.loadTable(session, tableName);
-                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager, formatVersion(icebergTable));
+                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), getPartitionColumn(icebergTable.schema(), icebergTable.specs(), typeManager), typeManager, formatVersion(icebergTable));
                                     return Optional.of(TableColumnsMetadata.forTable(tableName, columns));
                                 }
                                 catch (TableNotFoundException e) {
@@ -2662,7 +2669,7 @@ public class IcebergMetadata
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
             List<String> parquetBloomFilterColumns = getProperty(properties, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
+            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(table, typeManager), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
 
             Set<String> existingParquetBloomFilterColumns = icebergTable.properties().keySet().stream()
                     .filter(key -> key.startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX))
@@ -2680,7 +2687,7 @@ public class IcebergMetadata
                 updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
             }
             else {
-                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
+                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(table, typeManager), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
                 updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             }
         }
@@ -3804,19 +3811,25 @@ public class IcebergMetadata
             Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new VerifyException("No domains"));
             domains.forEach((columnHandle, domain) -> {
-                if (!isConvertibleToIcebergExpression(domain)) {
+                if (columnHandle.isMetadataColumn()) {
+                    // Metadata columns are enforced by the split source, so their domains need not convert to Iceberg expressions.
+                    // Comparisons on the whole $partition row are left to the engine, as row comparison semantics differ from domain membership,
+                    // but the partition field domains they imply are enforced
+                    if (columnHandle.isPartitionField() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
+                        newEnforced.merge(columnHandle, domain, Domain::intersect);
+                    }
+                    else {
+                        if (columnHandle.isPartitionColumn()) {
+                            partitionFieldDomains(columnHandle, domain).forEach((field, fieldDomain) -> newEnforced.merge(field, fieldDomain, Domain::intersect));
+                        }
+                        unsupported.put(columnHandle, domain);
+                    }
+                }
+                else if (!isConvertibleToIcebergExpression(domain)) {
                     unsupported.put(columnHandle, domain);
                 }
                 else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
                     newEnforced.put(columnHandle, domain);
-                }
-                else if (columnHandle.isMetadataColumn()) {
-                    if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
-                        newEnforced.put(columnHandle, domain);
-                    }
-                    else {
-                        unsupported.put(columnHandle, domain);
-                    }
                 }
                 else {
                     newUnenforced.put(columnHandle, domain);
@@ -3897,6 +3910,35 @@ public class IcebergMetadata
                 .filter(field -> table.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet());
+    }
+
+    /**
+     * Returns the partition field domains implied by a discrete set of {@code $partition} rows, which let the split source skip files
+     * while the engine still evaluates the row comparison.
+     */
+    private static Map<IcebergColumnHandle, Domain> partitionFieldDomains(IcebergColumnHandle partitionColumn, Domain domain)
+    {
+        if (domain.isNullAllowed() || !domain.getValues().isDiscreteSet()) {
+            return ImmutableMap.of();
+        }
+        List<Object> rows = domain.getValues().getDiscreteSet();
+        RowType rowType = (RowType) partitionColumn.getType();
+        ImmutableMap.Builder<IcebergColumnHandle, Domain> fieldDomains = ImmutableMap.builder();
+        for (int field = 0; field < rowType.getFields().size(); field++) {
+            io.trino.spi.type.Type fieldType = rowType.getFields().get(field).getType();
+            List<Object> values = new ArrayList<>(rows.size());
+            for (Object row : rows) {
+                SqlRow sqlRow = (SqlRow) row;
+                Object value = readNativeValue(fieldType, sqlRow.getRawFieldBlock(field), sqlRow.getRawIndex());
+                // A field domain cannot hold a null or NaN, which a row comparison such as IS NOT DISTINCT FROM can still match
+                if (value == null || isFloatingPointNaN(fieldType, value)) {
+                    return ImmutableMap.of();
+                }
+                values.add(value);
+            }
+            fieldDomains.put(createProjectedColumnHandle(partitionColumn, ImmutableList.of(field), fieldType), Domain.create(ValueSet.copyOf(fieldType, values), false));
+        }
+        return fieldDomains.buildOrThrow();
     }
 
     @Override
