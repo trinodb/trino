@@ -444,12 +444,15 @@ public class PageFunctionCompiler
         // Always compute InputChannels from the caller's layout
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter, layout);
         InputChannels inputChannels = result.inputChannels();
+        // resolved once: the supplier runs per split, and getConstructor scans the members
+        // and copies the Constructor on every call
+        MethodHandle constructor = constructorMethodHandle(filterClass, InputChannels.class);
         return () -> {
             try {
-                return filterClass.getConstructor(InputChannels.class).newInstance(inputChannels);
+                return (PageFilter) constructor.invoke(inputChannels);
             }
-            catch (ReflectiveOperationException e) {
-                throw new TrinoException(COMPILER_ERROR, e);
+            catch (Throwable t) {
+                throw new TrinoException(COMPILER_ERROR, t);
             }
         };
     }
