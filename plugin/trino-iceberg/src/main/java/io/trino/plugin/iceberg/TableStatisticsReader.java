@@ -75,7 +75,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -157,7 +156,7 @@ public final class TableStatisticsReader
 
         Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !isMetadataColumnId(column.getId())));
+        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !column.isMetadataColumn()));
 
         NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1000),
