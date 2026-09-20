@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.spi.type.RowType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
