@@ -215,6 +215,12 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
+    public void verifyTableWritable(Table icebergTable)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");
+    }
+
+    @Override
     public Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,

@@ -113,6 +113,11 @@ public interface TrinoCatalog
         return icebergTable.newTransaction();
     }
 
+    /**
+     * Fails before a write begins if the catalog does not allow modifying the table.
+     */
+    default void verifyTableWritable(Table icebergTable) {}
+
     Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
