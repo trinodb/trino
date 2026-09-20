@@ -27,7 +27,6 @@ import io.trino.spi.cache.CacheKey;
 import io.trino.spi.cache.CacheManagerContext;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.cache.ConnectorCacheFactory;
-import io.trino.spi.cache.NoopBlob;
 import io.trino.spi.catalog.CatalogName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,6 +37,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -87,7 +87,7 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of(CAN_EXCEED_HEAP_SIZE))).orElseThrow();
-        cache.get(CacheKey.of("file", "version"), new TestingBlobSource()).close();
+        cache.get(CacheKey.of("file", "version"), new TestingBlobSource());
 
         assertThat(memory.recordedKeys()).isEmpty();
         assertThat(disk.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.data", "file", "version")));
@@ -104,7 +104,7 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of())).orElseThrow();
-        cache.get(CacheKey.of("file"), new TestingBlobSource()).close();
+        cache.get(CacheKey.of("file"), new TestingBlobSource());
 
         assertThat(memory.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.data", "file")));
     }
@@ -188,7 +188,7 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY))).orElseThrow();
-        cache.get(CacheKey.of("file"), new TestingBlobSource()).close();
+        cache.get(CacheKey.of("file"), new TestingBlobSource());
 
         assertThat(memory.recordedKeys()).isEmpty();
         assertThat(other.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.metadata", "file")));
@@ -310,10 +310,12 @@ class TestCacheManagerRegistry
                     return new BlobCache()
                     {
                         @Override
-                        public Blob get(CacheKey key, BlobSource source)
+                        public Optional<Blob> get(CacheKey key, BlobSource source)
+                                throws IOException
                         {
                             recordedKeys.add(key);
-                            return new NoopBlob(source);
+                            source.close();
+                            return Optional.empty();
                         }
 
                         @Override

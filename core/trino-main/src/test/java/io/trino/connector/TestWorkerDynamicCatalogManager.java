@@ -27,7 +27,6 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheCapability;
 import io.trino.spi.cache.CacheKey;
 import io.trino.spi.cache.CacheManagerContext;
-import io.trino.spi.cache.NoopBlob;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogVersion;
@@ -37,6 +36,7 @@ import io.trino.spi.connector.ConnectorName;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -137,9 +137,11 @@ class TestWorkerDynamicCatalogManager
                     return new BlobCache()
                     {
                         @Override
-                        public Blob get(CacheKey key, BlobSource source)
+                        public Optional<Blob> get(CacheKey key, BlobSource source)
+                                throws IOException
                         {
-                            return new NoopBlob(source);
+                            source.close();
+                            return Optional.empty();
                         }
 
                         @Override
