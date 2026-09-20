@@ -31,6 +31,7 @@ import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
+import io.trino.security.ExtraCredentialsProviderManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -47,6 +48,7 @@ import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
+import io.trino.spi.security.ExtraCredentialsProviderFactory;
 import io.trino.spi.security.GroupProviderFactory;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
@@ -112,6 +114,7 @@ public class PluginManager
     private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
+    private final ExtraCredentialsProviderManager extraCredentialsProviderManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final CacheManagerRegistry cacheManagerRegistry;
@@ -135,6 +138,7 @@ public class PluginManager
             Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
+            ExtraCredentialsProviderManager extraCredentialsProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
@@ -155,6 +159,7 @@ public class PluginManager
         this.headerAuthenticatorManager = requireNonNull(headerAuthenticatorManager, "headerAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
+        this.extraCredentialsProviderManager = requireNonNull(extraCredentialsProviderManager, "extraCredentialsProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
@@ -298,6 +303,11 @@ public class PluginManager
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
             log.info("Registering group provider %s", groupProviderFactory.getName());
             groupProviderManager.addGroupProviderFactory(groupProviderFactory);
+        }
+
+        for (ExtraCredentialsProviderFactory extraCredentialsProviderFactory : plugin.getExtraCredentialsProviderFactories()) {
+            log.info("Registering extra credentials provider %s", extraCredentialsProviderFactory.getName());
+            extraCredentialsProviderManager.addExtraCredentialsProviderFactory(extraCredentialsProviderFactory);
         }
 
         for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
