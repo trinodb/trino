@@ -436,20 +436,31 @@ public interface Metadata
     /**
      * Begin refresh materialized view query
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType);
+    InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
+            List<TableHandle> sourceTableHandles,
+            RefreshType refreshType);
 
     /**
      * Finish refresh materialized view query
      */
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions);
+
+    /**
+     * Returns a handle for the given view or materialized view.
+     */
+    Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName);
 
     /**
      * Push update into connector
