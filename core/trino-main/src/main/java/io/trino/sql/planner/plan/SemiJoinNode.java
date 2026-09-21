@@ -37,6 +37,18 @@ public class SemiJoinNode
     private final Optional<DistributionType> distributionType;
     private final Optional<DynamicFilterId> dynamicFilterId;
 
+    public SemiJoinNode(
+            PlanNodeId id,
+            PlanNode source,
+            PlanNode filteringSource,
+            Symbol sourceJoinSymbol,
+            Symbol filteringSourceJoinSymbol,
+            Symbol semiJoinOutput,
+            Optional<DistributionType> distributionType)
+    {
+        this(id, source, filteringSource, sourceJoinSymbol, filteringSourceJoinSymbol, semiJoinOutput, distributionType, Optional.empty());
+    }
+
     @JsonCreator
     public SemiJoinNode(
             @JsonProperty("id") PlanNodeId id,

@@ -73,6 +73,23 @@ public class TestArbitraryDistributionSplitAssigner
     private static final HostAddress HOST_3 = HostAddress.fromParts("localhost", 8083);
 
     @Test
+    public void testStartWiringMarksEmptySchedulingUpdate()
+    {
+        SplitAssigner splitAssigner = createSplitAssigner(ImmutableSet.of(PARTITIONED_1), ImmutableSet.of(), 100, false);
+
+        assertThat(splitAssigner.startWiring(PARTITIONED_1).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> {
+                    assertThat(update.readyForScheduling()).isTrue();
+                    assertThat(update.splits().isEmpty()).isTrue();
+                    assertThat(update.wiringOnly()).isTrue();
+                });
+        assertThat(splitAssigner.assign(PARTITIONED_1, createSplitsMultimap(ImmutableList.of(createSplit(1))), false).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> assertThat(update.wiringOnly()).isFalse());
+    }
+
+    @Test
     public void testEmpty()
     {
         // single partitioned source

@@ -13,8 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (ss_item_sk)
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ss_item_sk::EQUAL, ss_addr_sk::EQUAL, ss_sold_date_sk::EQUAL)
-                                                                scan store_sales
+                                                            scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
@@ -24,8 +23,7 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (i_item_id_8::EQUAL)
-                                                                scan item
+                                                            scan item
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     final aggregation over (i_item_id_13)
@@ -42,8 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (cs_item_sk)
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (cs_item_sk::EQUAL, cs_bill_addr_sk::EQUAL, cs_sold_date_sk::EQUAL)
-                                                                scan catalog_sales
+                                                            scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
@@ -53,8 +50,7 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (i_item_id_90::EQUAL)
-                                                                scan item
+                                                            scan item
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     final aggregation over (i_item_id_117)
@@ -71,8 +67,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (ws_item_sk)
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ws_item_sk::EQUAL, ws_bill_addr_sk::EQUAL, ws_sold_date_sk::EQUAL)
-                                                                scan web_sales
+                                                            scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
@@ -82,8 +77,7 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (i_item_id_195::EQUAL)
-                                                                scan item
+                                                            scan item
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     final aggregation over (i_item_id_222)

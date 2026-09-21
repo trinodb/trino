@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -29,6 +30,7 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 
@@ -38,6 +40,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,6 +65,7 @@ public class MergeOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final OrderingCompiler orderingCompiler;
+        private final List<PlanFragmentId> sourceFragmentIds;
         private boolean closed;
 
         public MergeOperatorFactory(
@@ -75,6 +79,21 @@ public class MergeOperator
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrder)
         {
+            this(operatorId, sourceId, directExchangeClientSupplier, serdeFactory, orderingCompiler, types, outputChannels, sortChannels, sortOrder, ImmutableList.of());
+        }
+
+        public MergeOperatorFactory(
+                int operatorId,
+                PlanNodeId sourceId,
+                DirectExchangeClientSupplier directExchangeClientSupplier,
+                PagesSerdeFactory serdeFactory,
+                OrderingCompiler orderingCompiler,
+                List<Type> types,
+                List<Integer> outputChannels,
+                List<Integer> sortChannels,
+                List<SortOrder> sortOrder,
+                List<PlanFragmentId> sourceFragmentIds)
+        {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
@@ -86,6 +105,7 @@ public class MergeOperator
             this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
             this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
+            this.sourceFragmentIds = ImmutableList.copyOf(requireNonNull(sourceFragmentIds, "sourceFragmentIds is null"));
         }
 
         @Override
@@ -114,6 +134,19 @@ public class MergeOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < outputChannels.size()) || sourceFragmentIds.isEmpty()) {
+                context.stop(this, request);
+                return;
+            }
+            context.bindRemoteSource(sourceFragmentIds, request.mapChannels(outputChannels::get));
         }
     }
 

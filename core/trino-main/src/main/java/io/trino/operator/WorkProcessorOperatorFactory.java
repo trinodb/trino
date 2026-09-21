@@ -13,8 +13,12 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 public interface WorkProcessorOperatorFactory
 {
@@ -29,6 +33,21 @@ public interface WorkProcessorOperatorFactory
             WorkProcessor<Page> sourcePages);
 
     WorkProcessorOperatorFactory duplicate();
+
+    default void propagateRuntimeConstraint(
+            RuntimeConstraintRequest request,
+            Consumer<RuntimeConstraintRequest> input,
+            RuntimeConstraintWiringContext context)
+    {
+        context.stop(getOperatorType(), request);
+    }
+
+    default List<RuntimeConstraintRequest> getInputRuntimeConstraints()
+    {
+        return ImmutableList.of();
+    }
+
+    default void completeRuntimeConstraintWiring(RuntimeConstraintWiringContext context) {}
 
     default void close()
     {

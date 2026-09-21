@@ -8,13 +8,11 @@ final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [partkey_6])
                                     partial aggregation over (partkey_6)
-                                        dynamic filter (partkey_6::EQUAL)
-                                            scan lineitem
+                                        scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [partkey])
                                 join (INNER, REPLICATED):
-                                    dynamic filter (partkey::EQUAL)
-                                        scan lineitem
+                                    scan lineitem
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan part

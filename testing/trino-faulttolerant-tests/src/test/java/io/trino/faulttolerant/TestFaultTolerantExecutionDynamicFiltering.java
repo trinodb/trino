@@ -14,6 +14,7 @@
 package io.trino.faulttolerant;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.execution.AbstractTestCoordinatorDynamicFiltering;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,6 +35,7 @@ import java.util.Set;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -63,8 +65,25 @@ public class TestFaultTolerantExecutionDynamicFiltering
         return TASK;
     }
 
+    @Test
+    public void testReplicatedDynamicFilterStatistics()
+    {
+        var result = getDistributedQueryRunner().executeWithPlan(
+                Session.builder(noJoinReordering(BROADCAST))
+                        .setSystemProperty("legacy_dynamic_filtering", "false")
+                        .build(),
+                "SELECT count(*) FROM tpch.tiny.lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'");
+        var statistics = getDistributedQueryRunner().getCoordinator().getQueryManager()
+                .getFullQueryInfo(result.queryId())
+                .getQueryStats()
+                .getDynamicFiltersStats();
+
+        assertThat(statistics.getTotalDynamicFilters()).isEqualTo(1);
+        assertThat(statistics.getReplicatedDynamicFilters()).isEqualTo(1);
+    }
+
     // Tests with non-selective build side are overridden because moving dynamic filter collection to the build source side in task retry mode
-    // results in each instance of DynamicFilterSourceOperator receiving fewer input rows. Therefore, testing max-distinct-values-per-driver
+    // results in each instance of RuntimeConstraintSourceOperator receiving fewer input rows. Therefore, testing max-distinct-values-per-driver
     // requires larger build side and the assertions on the collected domain are adjusted for multiple ranges instead of single range.
     @Override
     protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType)

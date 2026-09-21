@@ -16,6 +16,7 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.trino.Session;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.TableInfo;
@@ -26,7 +27,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -125,6 +125,20 @@ public class TestJsonRepresentation
     }
 
     @Test
+    public void testDistributedExplainDoesNotIncludeRuntimeConstraintMetadata()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty("legacy_dynamic_filtering", "false")
+                .build();
+
+        assertThat((String) queryRunner.execute(
+                session,
+                "EXPLAIN (TYPE DISTRIBUTED) SELECT orders.orderkey FROM orders JOIN nation ON orders.orderkey = nation.nationkey").getOnlyValue())
+                .doesNotContain("runtimeConstraint")
+                .doesNotContain("dynamicFilterAssignments");
+    }
+
+    @Test
     public void testAggregationPlan()
     {
         assertJsonRepresentation(
@@ -161,14 +175,13 @@ public class TestJsonRepresentation
                         ImmutableList.of(new JoinNode.EquiJoinClause(pb.symbol("a", BIGINT), pb.symbol("d", BIGINT))),
                         ImmutableList.of(pb.symbol("b", BIGINT)),
                         ImmutableList.of(),
-                        Optional.of(comparison(LESS_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "c"))),
-                        ImmutableMap.of(new DynamicFilterId("DF"), pb.symbol("d", BIGINT))),
+                        Optional.of(comparison(LESS_THAN, new Reference(BIGINT, "a"), new Reference(BIGINT, "c")))),
                 new JsonRenderedNode(
                         "2",
                         "InnerJoin",
                         ImmutableMap.of("criteria", "(a = d)", "filter", "(a < c)"),
                         ImmutableList.of(new Symbol(BIGINT, "b")),
-                        ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
+                        ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation("0", ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"))),

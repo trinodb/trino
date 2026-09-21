@@ -71,6 +71,7 @@ class EventDrivenTaskSource
         implements Closeable
 {
     private final QueryId queryId;
+    private final boolean runtimeConstraintWiring;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final Map<PlanFragmentId, Exchange> sourceExchanges;
     private final SetMultimap<PlanNodeId, PlanFragmentId> remoteSources;
@@ -86,6 +87,8 @@ class EventDrivenTaskSource
     private boolean initialized;
     @GuardedBy("this")
     private List<IdempotentSplitSource> splitSources;
+    private Optional<PlanNodeId> deferredSplitSource = Optional.empty();
+    private boolean wiringStarted;
     @GuardedBy("this")
     private final Set<PlanFragmentId> completedFragments = new HashSet<>();
 
@@ -111,6 +114,24 @@ class EventDrivenTaskSource
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             SplitSourceMetricsRecorder metricsRecorder)
     {
+        this(queryId, tableExecuteContextManager, sourceExchanges, remoteSources, splitSourceSupplier, assigner, executor, splitBatchSize, targetExchangeSplitSizeInBytes, sourcePartitioningScheme, metricsRecorder, false);
+    }
+
+    EventDrivenTaskSource(
+            QueryId queryId,
+            TableExecuteContextManager tableExecuteContextManager,
+            Map<PlanFragmentId, Exchange> sourceExchanges,
+            SetMultimap<PlanNodeId, PlanFragmentId> remoteSources,
+            Supplier<Map<PlanNodeId, SplitSource>> splitSourceSupplier,
+            SplitAssigner assigner,
+            Executor executor,
+            int splitBatchSize,
+            long targetExchangeSplitSizeInBytes,
+            FaultTolerantPartitioningScheme sourcePartitioningScheme,
+            SplitSourceMetricsRecorder metricsRecorder,
+            boolean runtimeConstraintWiring)
+    {
+        this.runtimeConstraintWiring = runtimeConstraintWiring;
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.sourceExchanges = ImmutableMap.copyOf(requireNonNull(sourceExchanges, "sourceExchanges is null"));
@@ -152,11 +173,17 @@ class EventDrivenTaskSource
             PlanFragmentId sourceFragmentId = entry.getKey();
             PlanNodeId remoteSourceNodeId = remoteSourceNodeIds.get(sourceFragmentId);
             verify(remoteSourceNodeId != null, "remote source not found for fragment: %s", sourceFragmentId);
+            if (runtimeConstraintWiring && deferredSplitSource.isEmpty()) {
+                deferredSplitSource = Optional.of(remoteSourceNodeId);
+            }
             ExchangeSourceHandleSource handleSource = closer.register(entry.getValue().getSourceHandles());
             ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, metricsRecorder)));
         }
         for (Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
+            if (deferredSplitSource.isEmpty() && entry.getValue().isSplitSourceCreationDeferred()) {
+                deferredSplitSource = Optional.of(entry.getKey());
+            }
             splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, metricsRecorder)));
         }
         this.splitSources = splitSources.build();
@@ -165,6 +192,11 @@ class EventDrivenTaskSource
     @GuardedBy("this")
     private ListenableFuture<AssignmentResult> processNext()
     {
+        if (!wiringStarted && deferredSplitSource.isPresent()) {
+            wiringStarted = true;
+            AssignmentResult result = assigner.startWiring(deferredSplitSource.orElseThrow());
+            return immediateFuture(result);
+        }
         List<ListenableFuture<IdempotentSplitSource.SplitBatchReference>> futures = splitSources.stream()
                 .map(IdempotentSplitSource::getNext)
                 .filter(Optional::isPresent)

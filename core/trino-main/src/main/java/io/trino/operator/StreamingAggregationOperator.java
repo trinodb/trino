@@ -34,6 +34,7 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -118,6 +119,19 @@ public class StreamingAggregationOperator
         {
             checkState(!closed, "Factory is already closed");
             return new StreamingAggregationOperator(operatorContext, sourcePages, sourceTypes, groupByTypes, groupByChannels, aggregatorFactories, joinCompiler);
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (!request.channelsMatch(channel -> channel < groupByChannels.size())) {
+                context.stop(getOperatorType(), request);
+                return;
+            }
+            input.accept(request.mapChannels(groupByChannels::get));
         }
 
         @Override

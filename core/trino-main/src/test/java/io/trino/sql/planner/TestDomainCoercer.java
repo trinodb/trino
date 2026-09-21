@@ -192,8 +192,8 @@ public class TestDomainCoercer
         // With the default coercion (deprecated.legacy-varchar-to-char-coercion disabled) there is
         // no varchar to char saturated floor cast: CAST(char AS varchar) returns the unpadded value
         // while char values compare as if space-padded to their declared length, so the cast is not
-        // monotone and domain bounds cannot be translated. RemoveUnsupportedDynamicFilters drops
-        // dynamic filters over CAST(char AS varchar) join keys instead.
+        // monotone and domain bounds cannot be translated. Runtime-constraint planning does not
+        // install a route over CAST(char AS varchar) join keys instead.
         assertThatThrownBy(() -> applySaturatedCasts(
                 multipleValues(createVarcharType(10), ImmutableList.of(utf8Slice("I"), utf8Slice("P"))),
                 createCharType(10)))

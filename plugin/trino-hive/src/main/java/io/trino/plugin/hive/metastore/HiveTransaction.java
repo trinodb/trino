@@ -22,9 +22,9 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.connector.SchemaTableName;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 
 import static java.util.Objects.requireNonNull;
@@ -36,7 +36,7 @@ public class HiveTransaction
     private final ScheduledFuture<?> heartbeatTask;
     private final AcidTransaction transaction;
 
-    private final Map<SchemaTableName, ValidTxnWriteIdList> validHiveTransactionsForTable = new HashMap<>();
+    private final Map<SchemaTableName, ValidTxnWriteIdList> validHiveTransactionsForTable = new ConcurrentHashMap<>();
 
     public HiveTransaction(String queryId, long transactionId, ScheduledFuture<?> heartbeatTask, AcidTransaction transaction)
     {

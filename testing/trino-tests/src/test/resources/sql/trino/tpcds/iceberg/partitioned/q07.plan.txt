@@ -11,8 +11,7 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ss_item_sk::EQUAL, ss_promo_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_cdemo_sk::EQUAL)
-                                                        scan store_sales
+                                                    scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan customer_demographics

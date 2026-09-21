@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 package io.trino.server;
-
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -132,6 +131,7 @@ import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SplitSourceFactory;
+import io.trino.sql.planner.runtimeconstraint.RuntimeConstraintContributionBatch;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
 import io.trino.sql.rewrite.ExplainRewrite;
@@ -380,6 +380,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(FailTaskRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
+        jsonCodecBinder(binder).bindJsonCodec(RuntimeConstraintContributionBatch.class);
         binder.bind(RemoteTaskFactory.class).to(HttpRemoteTaskFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskFactory.class).withGeneratedName();
 

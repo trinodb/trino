@@ -671,6 +671,50 @@ public class OperatorStats
                 info);
     }
 
+    public OperatorStats withInfo(@Nullable OperatorInfo info)
+    {
+        return new OperatorStats(
+                stageId,
+                pipelineId,
+                operatorId,
+                planNodeId,
+                sourceId,
+                operatorType,
+                totalDrivers,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                inputDataSize,
+                inputPositions,
+                sumSquaredInputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                outputDataSize,
+                outputPositions,
+                dynamicFilterSplitsProcessed,
+                metrics,
+                connectorMetrics,
+                pipelineMetrics,
+                physicalWrittenDataSize,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                peakUserMemoryReservation,
+                peakRevocableMemoryReservation,
+                spilledDataSize,
+                blockedReason,
+                info);
+    }
+
     public OperatorStats withPipelineMetrics(Metrics pipelineMetrics)
     {
         return new OperatorStats(

@@ -28,6 +28,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -79,6 +80,26 @@ public class HashSemiJoinOperator
         {
             checkState(!closed, "Factory is already closed");
             return new HashSemiJoinOperator(operatorContext, sourcePages, setSupplier, probeJoinChannel);
+        }
+
+        @Override
+        public void propagateRuntimeConstraint(
+                RuntimeConstraintRequest request,
+                Consumer<RuntimeConstraintRequest> input,
+                RuntimeConstraintWiringContext context)
+        {
+            if (request.kind() == RuntimeConstraintRequest.Kind.REQUIRE_TRUE && request.channel() == probeTypes.size()) {
+                setSupplier.enableRuntimeConstraint();
+                input.accept(new RuntimeConstraintRequest(
+                        RuntimeConstraintRequest.semiJoinConstraintId(planNodeId),
+                        probeJoinChannel));
+                return;
+            }
+            if (request.channel() < probeTypes.size()) {
+                input.accept(request);
+                return;
+            }
+            context.stop(getOperatorType(), request);
         }
 
         @Override

@@ -13,8 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [cr_returning_addr_sk])
                                                     partial aggregation over (cr_returning_customer_sk, cr_returning_addr_sk)
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (cr_returning_customer_sk::EQUAL, cr_returning_addr_sk::EQUAL, cr_returned_date_sk::EQUAL)
-                                                                scan catalog_returns
+                                                            scan catalog_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim
@@ -24,8 +23,7 @@ local exchange (GATHER, SINGLE, [])
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED):
-                                        dynamic filter (c_current_addr_sk::EQUAL)
-                                            scan customer
+                                        scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan customer_address
@@ -43,8 +41,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, [cr_returning_addr_sk_34])
                                                                         partial aggregation over (cr_returning_customer_sk_31, cr_returning_addr_sk_34)
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (cr_returning_addr_sk_34::EQUAL, cr_returned_date_sk_51::EQUAL)
-                                                                                    scan catalog_returns
+                                                                                scan catalog_returns
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         scan date_dim

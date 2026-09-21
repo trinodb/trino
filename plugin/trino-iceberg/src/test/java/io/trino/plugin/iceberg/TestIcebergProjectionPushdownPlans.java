@@ -225,11 +225,10 @@ public class TestIcebergProjectionPushdownPlans
                                 join(INNER, builder -> builder
                                         .equiCriteria("s_expr_1", "t_expr_1")
                                         .left(
-                                                anyTree(
-                                                        tableScan(
-                                                                equalTo(((IcebergTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(column1Handle))),
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))
+                                                tableScan(
+                                                        equalTo(((IcebergTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(column1Handle))),
+                                                        TupleDomain.all(),
+                                                        ImmutableMap.of("s_expr_1", equalTo(column1Handle))))
                                         .right(
                                                 anyTree(
                                                         filter(

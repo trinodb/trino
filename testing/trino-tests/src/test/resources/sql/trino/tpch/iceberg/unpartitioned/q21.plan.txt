@@ -11,27 +11,23 @@ local exchange (GATHER, SINGLE, [])
                                         partial aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, exists, unique)
                                             join (RIGHT, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [orderkey_36])
-                                                    dynamic filter (orderkey_36::EQUAL)
-                                                        scan lineitem
+                                                    scan lineitem
                                                 final aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
                                                     local exchange (GATHER, SINGLE, [])
                                                         intermediate aggregation over (suppkey_0, name, nationkey, orderkey_16, commitdate, receiptdate, orderstatus, name_11, unique_59)
                                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                                 remote exchange (REPARTITION, HASH, [orderkey_16])
                                                                     partial aggregation over (orderkey_16, suppkey_18)
-                                                                        dynamic filter (orderkey_16::EQUAL)
-                                                                            scan lineitem
+                                                                        scan lineitem
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     join (INNER, PARTITIONED):
                                                                         remote exchange (REPARTITION, HASH, [orderkey])
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (orderkey::EQUAL, suppkey_0::EQUAL)
-                                                                                    scan lineitem
+                                                                                scan lineitem
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                                         join (INNER, REPLICATED):
-                                                                                            dynamic filter (nationkey::EQUAL)
-                                                                                                scan supplier
+                                                                                            scan supplier
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                                     scan nation

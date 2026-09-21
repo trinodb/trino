@@ -43,6 +43,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -69,6 +70,67 @@ public class TestHashDistributionSplitAssigner
     private static final InternalNode NODE_1 = new InternalNode("node1", URI.create("http://localhost:8081"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_2 = new InternalNode("node2", URI.create("http://localhost:8082"), NodeVersion.UNKNOWN, false);
     private static final InternalNode NODE_3 = new InternalNode("node3", URI.create("http://localhost:8083"), NodeVersion.UNKNOWN, false);
+
+    @Test
+    public void testStartWiringMarksEmptySchedulingUpdate()
+    {
+        FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(1, Optional.empty());
+        HashDistributionSplitAssigner splitAssigner = new HashDistributionSplitAssigner(
+                new PlanFragmentId("fragment"),
+                Optional.of(TEST_CATALOG_HANDLE),
+                ImmutableSet.of(PARTITIONED_1),
+                ImmutableSet.of(),
+                partitioningScheme,
+                createSourcePartitionToTaskPartition(
+                        partitioningScheme,
+                        ImmutableSet.of(PARTITIONED_1),
+                        ImmutableMap.of(),
+                        1,
+                        1,
+                        1,
+                        _ -> false,
+                        true));
+
+        assertThat(splitAssigner.startWiring(PARTITIONED_1).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> {
+                    assertThat(update.readyForScheduling()).isTrue();
+                    assertThat(update.splits().isEmpty()).isTrue();
+                    assertThat(update.wiringOnly()).isTrue();
+                });
+        assertThat(splitAssigner.assign(PARTITIONED_1, createSplitMap(createSplit(1, 0)), false).partitionUpdates())
+                .singleElement()
+                .satisfies(update -> assertThat(update.wiringOnly()).isFalse());
+    }
+
+    @Test
+    public void testWiringDoesNotFixDataPartitionCount()
+    {
+        AtomicInteger sizingCalls = new AtomicInteger();
+        HashDistributionSplitAssigner splitAssigner = new HashDistributionSplitAssigner(
+                new PlanFragmentId("fragment"),
+                Optional.of(TEST_CATALOG_HANDLE),
+                ImmutableSet.of(PARTITIONED_1),
+                ImmutableSet.of(),
+                createPartitioningScheme(2, Optional.empty()),
+                () -> {
+                    sizingCalls.incrementAndGet();
+                    return createSourcePartitionToTaskPartition(createPartitioningScheme(2, Optional.empty()), ImmutableSet.of(PARTITIONED_1), ImmutableMap.of(), 1, 1, 2, _ -> false, true);
+                });
+
+        SplitAssigner.AssignmentResult wiring = splitAssigner.startWiring(PARTITIONED_1);
+        assertThat(wiring.partitionsAdded()).extracting(SplitAssigner.Partition::partitionId).containsExactly(0);
+        assertThat(wiring.noMorePartitions()).isFalse();
+        assertThat(sizingCalls.get()).isZero();
+
+        SplitAssigner.AssignmentResult data = splitAssigner.assign(PARTITIONED_1, createSplitMap(createSplit(1, 1)), false);
+        assertThat(data.partitionsAdded()).extracting(SplitAssigner.Partition::partitionId).containsExactly(1);
+        assertThat(data.noMorePartitions()).isTrue();
+        assertThat(data.partitionUpdates()).singleElement().satisfies(update -> assertThat(update.partitionId()).isEqualTo(1));
+        assertThat(sizingCalls.get()).isEqualTo(1);
+        splitAssigner.assign(PARTITIONED_1, createSplitMap(createSplit(2, 0)), true);
+        assertThat(sizingCalls.get()).isEqualTo(1);
+    }
 
     @Test
     public void testEmpty()

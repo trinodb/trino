@@ -21,7 +21,6 @@ import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -487,8 +486,7 @@ public abstract class BaseDynamicPartitionPruningTest
         QueryRunner runner = getQueryRunner();
         MaterializedResultWithPlan result = runner.executeWithPlan(session, sql);
         assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
-        QueryId queryId = result.queryId();
-        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
+        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.queryId()).getQueryStats();
         return stats.getPhysicalInputPositions();
     }
 

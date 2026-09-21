@@ -121,6 +121,7 @@ import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
+import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.EMPTY;
 import static io.trino.execution.scheduler.PipelinedQueryScheduler.ConstantKey.ONE;
@@ -1156,7 +1157,7 @@ public class PipelinedQueryScheduler
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-                return new FixedCountScheduler(stageExecution, partitionToNode);
+                return new FixedCountScheduler(stageExecution, partitionToNode, isEnableDynamicFiltering(session));
             }
 
             // contains local source
@@ -1267,9 +1268,14 @@ public class PipelinedQueryScheduler
                     if (stateMachine.getState().isDone()) {
                         return;
                     }
-                    int numberOfTasks = stageExecution.getAllTasks().size();
                     if (!state.canScheduleMoreTasks()) {
-                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), stageExecution.getAttemptId(), numberOfTasks);
+                        dynamicFilterService.stageCannotScheduleMoreTasks(
+                                stageExecution.getStageId(),
+                                stageExecution.getAttemptId(),
+                                stageExecution.getAllTasks().stream()
+                                        .map(RemoteTask::getTaskId)
+                                        .map(TaskId::partitionId)
+                                        .collect(toImmutableSet()));
                     }
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()

@@ -259,7 +259,6 @@ public class TestScaledWriterScheduler
                 DataSize.of(0, DataSize.Unit.MEGABYTE),
                 0,
                 Duration.valueOf("0s"),
-                0,
                 1,
                 1);
     }

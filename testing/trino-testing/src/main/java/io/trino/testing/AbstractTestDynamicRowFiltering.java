@@ -23,24 +23,26 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
-import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_ROW_FILTERING;
 import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_OUTPUT_POSITIONS;
 import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_TIME;
-import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
@@ -201,24 +203,30 @@ public abstract class AbstractTestDynamicRowFiltering
 
     private OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
-        Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
-        FilterNode planNode = (FilterNode) PlanNodeSearcher.searchFrom(plan.getRoot())
-                .where(node -> {
-                    if (!(node instanceof FilterNode filterNode)) {
-                        return false;
-                    }
-                    if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
-                        return false;
-                    }
-                    if (extractDynamicFilters(filterNode.getPredicate()).dynamicConjuncts().isEmpty()) {
-                        return false;
-                    }
-                    return getSchemaTableName(tableScanNode.getTable().connectorHandle())
-                            .equals(new SchemaTableName("tpch", tableName));
-                })
-                .findOnlyElement();
+        Set<PlanNodeId> candidateNodeIds = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId)
+                .getStages().orElseThrow().getStages().stream()
+                .map(stage -> stage.plan())
+                .filter(Objects::nonNull)
+                .flatMap(fragment -> PlanNodeSearcher.searchFrom(fragment.getRoot())
+                        .where(node -> getScanFilterAndProjectTableScan(node)
+                                .filter(scan -> getSchemaTableName(scan.getTable().connectorHandle())
+                                        .equals(new SchemaTableName("tpch", tableName)))
+                                .isPresent())
+                        .findAll().stream()
+                        .map(PlanNode::getId))
+                .collect(toImmutableSet());
 
-        return extractOperatorStatsForNodeId(queryId, planNode.getId(), "ScanFilterAndProjectOperator");
+        List<OperatorStats> candidates = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId)
+                .getQueryStats().getOperatorSummaries().stream()
+                .filter(summary -> candidateNodeIds.contains(summary.getPlanNodeId()))
+                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .toList();
+        return candidates.stream()
+                .filter(summary -> summary.getMetrics().getMetrics().containsKey(DYNAMIC_FILTER_TIME))
+                .findFirst()
+                .orElseGet(() -> candidates.stream()
+                        .max(Comparator.comparingLong(OperatorStats::getOutputPositions))
+                        .orElseThrow());
     }
 
     private Session dynamicRowFiltering(JoinDistributionType distributionType)

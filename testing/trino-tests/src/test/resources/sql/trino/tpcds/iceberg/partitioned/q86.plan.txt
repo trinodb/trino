@@ -10,8 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (i_category_gid, i_class_gid, groupid)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
-                                                    scan web_sales
+                                                scan web_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim

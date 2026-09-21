@@ -97,6 +97,8 @@ public class JoinDomainBuilder
 
     private boolean collectDistinctValues = true;
     private boolean collectMinMax;
+    private boolean sawInputRow;
+    private boolean sawNull;
 
     private long retainedSizeInBytes = INSTANCE_SIZE;
 
@@ -161,6 +163,15 @@ public class JoinDomainBuilder
 
     public void add(Block block)
     {
+        sawInputRow |= block.getPositionCount() > 0;
+        if (!sawNull && block.mayHaveNull()) {
+            for (int position = 0; position < block.getPositionCount(); position++) {
+                if (block.isNull(position)) {
+                    sawNull = true;
+                    break;
+                }
+            }
+        }
         if (collectDistinctValues) {
             switch (block) {
                 case ValueBlock valueBlock -> {
@@ -263,6 +274,16 @@ public class JoinDomainBuilder
                 retainedSizeInBytes += maxValue.getRetainedSizeInBytes();
             }
         }
+    }
+
+    public boolean sawInputRow()
+    {
+        return sawInputRow;
+    }
+
+    public boolean sawNull()
+    {
+        return sawNull;
     }
 
     public void disableMinMax()
