@@ -41,12 +41,25 @@ import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
+import io.trino.plugin.hive.procedure.CreateEmptyPartitionProcedure;
+import io.trino.plugin.hive.procedure.DropStatsProcedure;
+import io.trino.plugin.hive.procedure.FlushMetadataCacheProcedure;
+import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
+import io.trino.plugin.hive.procedure.RegisterPartitionProcedure;
+import io.trino.plugin.hive.procedure.SyncPartitionMetadataProcedure;
+import io.trino.plugin.hive.procedure.UnregisterPartitionProcedure;
+import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.procedure.Procedure;
 
 import java.util.Optional;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.lakehouse.TableType.HIVE;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 class LakehouseHiveModule
@@ -86,6 +99,20 @@ class LakehouseHiveModule
         var systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PartitionsSystemTableProvider.class).in(Scopes.SINGLETON);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, DirectoryLister.class);
+        newOptionalBinder(binder, GlueCache.class);
+
+        var procedures = newMapBinder(binder, TableType.class, Procedure.class).permitDuplicates();
+        procedures.addBinding(HIVE).toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(HIVE).toProvider(RegisterPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(HIVE).toProvider(UnregisterPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(HIVE).toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(HIVE).toProvider(DropStatsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(HIVE).toProvider(FlushMetadataCacheProcedure.class).in(Scopes.SINGLETON);
+
+        var tableProcedures = newMapBinder(binder, TableType.class, TableProcedureMetadata.class).permitDuplicates();
+        tableProcedures.addBinding(HIVE).toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
 
         install(new HiveFormatsModule());
         binder.install(new HiveExecutorModule());

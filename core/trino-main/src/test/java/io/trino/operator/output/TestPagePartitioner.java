@@ -508,17 +508,18 @@ public class TestPagePartitioner
     }
 
     @Test
-    public void testOutputForOneValueDictionaryBlock()
+    public void testOutputForSingleEntryDictionary()
     {
-        testOutputForOneValueDictionaryBlock(PartitioningMode.ROW_WISE);
-        testOutputForOneValueDictionaryBlock(PartitioningMode.COLUMNAR);
+        testOutputForSingleEntryDictionary(PartitioningMode.ROW_WISE);
+        testOutputForSingleEntryDictionary(PartitioningMode.COLUMNAR);
     }
 
-    private void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
+    private void testOutputForSingleEntryDictionary(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
         PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
+        assertThat(page.getBlock(0)).isInstanceOf(RunLengthEncodedBlock.class);
 
         processPages(multiPartitionPartitioner, partitioningMode, page);
 

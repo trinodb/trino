@@ -15,6 +15,7 @@ package io.trino.tests.product.postgresql;
 
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -42,7 +43,7 @@ public abstract class PostgresqlEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executePostgresql(String sql)
+    public QueryResult executePostgresql(@Language("SQL") String sql)
     {
         try (Connection conn = createPostgresqlConnection();
                 Statement stmt = conn.createStatement();
@@ -54,7 +55,7 @@ public abstract class PostgresqlEnvironment
         }
     }
 
-    public int executePostgresqlUpdate(String sql)
+    public int executePostgresqlUpdate(@Language("SQL") String sql)
     {
         try (Connection conn = createPostgresqlConnection();
                 Statement stmt = conn.createStatement()) {

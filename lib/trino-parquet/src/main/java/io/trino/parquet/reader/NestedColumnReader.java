@@ -490,14 +490,9 @@ public class NestedColumnReader<BufferType>
         remainingPageValueCount = pageValueCount;
         rowRanges.resetForNewPage(page.getFirstRowIndex());
 
-        // For a compressed data page, the memory used by the decompressed values data needs to be accounted
-        // for separately as ParquetCompressionUtils#decompress allocates a new byte array for the decompressed result.
-        // For an uncompressed data page, we read directly from input Slices whose memory usage is already accounted
-        // for in AbstractParquetDataSource#ReferenceCountedReader.
-        int dataPageSizeInBytes = pageReader.arePagesCompressed() ? page.getUncompressedSize() : 0;
         long dictionarySizeInBytes = dictionaryDecoder == null ? 0 : dictionaryDecoder.getRetainedSizeInBytes();
         long repetitionBufferSizeInBytes = sizeOf(repetitionBuffer);
-        memoryContext.setBytes(dataPageSizeInBytes + dictionarySizeInBytes + repetitionBufferSizeInBytes);
+        memoryContext.setBytes(dictionarySizeInBytes + repetitionBufferSizeInBytes + pageReader.getRetainedPageBytes());
         return true;
     }
 

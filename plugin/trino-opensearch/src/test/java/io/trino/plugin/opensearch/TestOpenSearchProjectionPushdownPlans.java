@@ -39,14 +39,12 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
-import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.opensearch.client.Request;
-import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
@@ -58,6 +56,7 @@ import java.util.Set;
 import static com.google.common.base.Predicates.equalTo;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
+import static io.trino.plugin.opensearch.RestClientUtils.createClient;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -107,7 +106,7 @@ final class TestOpenSearchProjectionPushdownPlans
             throw new RuntimeException(e);
         }
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = createClient(address);
 
         try {
             planTester.installPlugin(new OpenSearchPlugin());

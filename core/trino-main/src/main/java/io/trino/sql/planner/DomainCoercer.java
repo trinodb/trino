@@ -36,6 +36,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -87,13 +88,13 @@ public final class DomainCoercer
             this.coercedValueType = requireNonNull(coercedValueType, "coercedValueType is null");
             Type originalValueType = domain.getType();
             try {
-                this.saturatedFloorCastOperator = metadata.getCoercion(SATURATED_FLOOR_CAST, originalValueType, coercedValueType);
+                this.saturatedFloorCastOperator = metadata.getCoercion(getCharVarcharCoercion(session), SATURATED_FLOOR_CAST, originalValueType, coercedValueType);
             }
             catch (OperatorNotFoundException e) {
                 throw new IllegalStateException(
                         format("Saturated floor cast operator not found for coercion from %s to %s", originalValueType, coercedValueType));
             }
-            this.castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
+            this.castToOriginalTypeOperator = metadata.getCoercion(getCharVarcharCoercion(session), coercedValueType, originalValueType);
             // choice of placing unordered values first or last does not matter for this code
             this.comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
         }

@@ -73,8 +73,7 @@ public class TestPasswordAuthentication
                 .buildOrThrow());
 
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost("https", address.getHost(), address.getPort()))
-                .setHttpClientConfigCallback(this::setupSslContext));
+        client = createSecureClient(address);
 
         QueryRunner runner = OpenSearchQueryRunner.builder(opensearch.getAddress())
                 .addConnectorProperties(ImmutableMap.<String, String>builder()
@@ -89,6 +88,13 @@ public class TestPasswordAuthentication
                 .build();
 
         assertions = new QueryAssertions(runner);
+    }
+
+    @SuppressWarnings("deprecation")
+    private RestHighLevelClient createSecureClient(HostAndPort address)
+    {
+        return new RestHighLevelClient(RestClient.builder(new HttpHost("https", address.getHost(), address.getPort()))
+                .setHttpClientConfigCallback(this::setupSslContext));
     }
 
     private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)

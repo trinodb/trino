@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -58,7 +59,7 @@ public class TestEvaluateIsNull
         assertThat(optimize(new IsNull(new Cast(new Reference(BIGINT, "a"), INTEGER))))
                 .isEqualTo(Optional.empty());
 
-        assertThat(optimize(new IsNull(not(PLANNER_CONTEXT.getMetadata(), new Reference(BOOLEAN, "a")))))
+        assertThat(optimize(new IsNull(not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(testSession()), new Reference(BOOLEAN, "a")))))
                 .isEqualTo(Optional.of(new IsNull(new Reference(BOOLEAN, "a"))));
 
         assertThat(optimize(new IsNull(new IsNull(new Reference(BIGINT, "a")))))

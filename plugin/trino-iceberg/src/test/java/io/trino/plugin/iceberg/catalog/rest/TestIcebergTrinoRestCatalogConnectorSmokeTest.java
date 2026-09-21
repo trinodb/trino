@@ -269,7 +269,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Test
@@ -296,7 +296,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Override

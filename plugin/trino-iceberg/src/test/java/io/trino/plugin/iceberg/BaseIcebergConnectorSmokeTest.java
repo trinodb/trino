@@ -160,7 +160,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             });
             List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
             assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            if (expectedValues.isEmpty()) {
+                assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+            }
+            else {
+                assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
+            }
         }
         finally {
             executor.shutdownNow();

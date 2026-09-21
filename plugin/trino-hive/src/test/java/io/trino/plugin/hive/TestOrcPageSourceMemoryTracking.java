@@ -99,7 +99,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -610,11 +612,12 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _, memoryContext) -> newPageSource(memoryContext),
+                    (_, _) -> (_, _, _, _, _, _, memoryContext) -> newPageSource(memoryContext),
                     TEST_TABLE_HANDLE,
                     Optional.empty(),
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
-                    types);
+                    types,
+                    newSimpleAggregatedMemoryContext());
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             return operator;
@@ -627,12 +630,12 @@ public class TestOrcPageSourceMemoryTracking
             List<Expression> projections = range(0, types.size())
                     .mapToObj(i -> (Expression) new Reference(types.get(i), "field_" + i))
                     .collect(toImmutableList());
-            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(Optional.empty(), projections, layout);
+            Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, layout);
             SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    _ -> (_, _, _, _, _, _, memoryContext) -> newPageSource(memoryContext),
+                    (_, _) -> (_, _, _, _, _, _, memoryContext) -> newPageSource(memoryContext),
                     _ -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     Optional.empty(),
@@ -640,7 +643,8 @@ public class TestOrcPageSourceMemoryTracking
                     DynamicFilter.EMPTY,
                     types,
                     DataSize.ofBytes(0),
-                    0);
+                    0,
+                    newSimpleAggregatedMemoryContext());
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();

@@ -24,10 +24,10 @@ import okhttp3.Response;
 import okhttp3.tls.HandshakeCertificates;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -83,7 +83,7 @@ public abstract class JdbcOAuth2Environment
     private static final String HYDRA_CONSENT_HOST = "hydra-consent";
 
     protected Network network;
-    protected PostgreSQLContainer<?> hydraDb;
+    protected PostgreSQLContainer hydraDb;
     protected GenericContainer<?> hydraMigration;
     protected GenericContainer<?> hydraConsent;
     protected GenericContainer<?> hydra;
@@ -102,7 +102,7 @@ public abstract class JdbcOAuth2Environment
         network = Network.newNetwork();
 
         // Start Hydra's PostgreSQL database
-        hydraDb = new PostgreSQLContainer<>(DockerImageName.parse("postgres:14.0"))
+        hydraDb = new PostgreSQLContainer(DockerImageName.parse("postgres:14.0"))
                 .withNetwork(network)
                 .withNetworkAliases("hydra-db")
                 .withDatabaseName("hydra")

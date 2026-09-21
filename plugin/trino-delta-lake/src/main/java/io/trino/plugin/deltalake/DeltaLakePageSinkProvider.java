@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
@@ -204,7 +205,8 @@ public class DeltaLakePageSinkProvider
             ConnectorSession session,
             ConnectorMergeTableHandle mergeHandle,
             Optional<ConnectorTableCredentials> tableCredentials,
-            ConnectorPageSinkId pageSinkId)
+            ConnectorPageSinkId pageSinkId,
+            MemoryContext memoryContext)
     {
         DeltaLakeMergeTableHandle merge = (DeltaLakeMergeTableHandle) mergeHandle;
         DeltaLakeInsertTableHandle tableHandle = merge.insertTableHandle();
@@ -235,7 +237,8 @@ public class DeltaLakePageSinkProvider
                 merge.deletionVectors(),
                 getRandomPrefixLength(tableHandle.metadataEntry()),
                 merge.shallowCloneSourceTableLocation(),
-                useDeltaLengthByteArrayEncoding);
+                useDeltaLengthByteArrayEncoding,
+                memoryContext);
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(

@@ -30,11 +30,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 
 /**
  * Optimize case of transformation with cast and json_extract_scalars E.g,
@@ -70,8 +70,9 @@ public class SpecializeTransformWithJsonParse
                 Constant jsonPath = (Constant) innerTransformArguments.getLast();
                 Call newCall = new Call(
                         metadata.resolveBuiltinFunction(
+                                getCharVarcharCoercion(session),
                                 JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME,
-                                fromTypes(ImmutableList.of(jsonData.type(), jsonPath.type()))),
+                                ImmutableList.of(jsonData.type(), jsonPath.type())),
                         ImmutableList.of(jsonData, jsonPath));
                 return Optional.of(newCall);
             }

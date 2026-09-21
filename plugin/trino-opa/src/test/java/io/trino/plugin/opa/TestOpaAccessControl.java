@@ -484,7 +484,7 @@ final class TestOpaAccessControl
                         "type": "%s"
                     }
                 }
-                """.formatted(schema.getCatalogName(), schema.getSchemaName(), principal.getName(), principal.getType());
+                """.formatted(schema.getCatalogName(), schema.getSchemaName(), principal.getPrincipalName(), principal.getType());
         assertAccessControlMethodBehaviour(methodWrapper, ImmutableSet.of(expectedRequest));
     }
 
@@ -525,7 +525,7 @@ final class TestOpaAccessControl
                         table.getCatalogName(),
                         table.getSchemaTableName().getSchemaName(),
                         table.getSchemaTableName().getTableName(),
-                        principal.getName(),
+                        principal.getPrincipalName(),
                         principal.getType());
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }

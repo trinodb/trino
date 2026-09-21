@@ -156,6 +156,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForMaterializedViewExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        Span span = startSpan("getTableHandleForMaterializedViewExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForMaterializedViewExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
+        }
+    }
+
+    @Override
     public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
     {
         Span span = startSpan("getColumnHandlesForTableExecute", tableHandle);
@@ -793,11 +802,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.getTableHandle());
         try (var ignored = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
+            return delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 

@@ -64,7 +64,7 @@ public class TestHiveConfig
                 .setMaxPartitionDropsPerQuery(100_000)
                 .setRecursiveDirWalkerEnabled(false)
                 .setIgnoreAbsentPartitions(false)
-                .setHiveStorageFormat(HiveStorageFormat.ORC)
+                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setHiveCompressionCodec(HiveCompressionOption.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)

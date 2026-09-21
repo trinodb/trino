@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayDistinctFunction;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 
 public class ArraySortAfterArrayDistinct
@@ -43,7 +45,7 @@ public class ArraySortAfterArrayDistinct
 
     public ArraySortAfterArrayDistinct(PlannerContext plannerContext)
     {
-        super((expression, _) -> rewrite(expression, plannerContext.getMetadata()));
+        super((expression, context) -> rewrite(expression, plannerContext.getMetadata(), context.getSession()));
     }
 
     @Override
@@ -57,22 +59,24 @@ public class ArraySortAfterArrayDistinct
                 patternRecognitionExpressionRewrite());
     }
 
-    private static Expression rewrite(Expression expression, Metadata metadata)
+    private static Expression rewrite(Expression expression, Metadata metadata, Session session)
     {
         if (expression instanceof Reference) {
             return expression;
         }
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, session), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
+        private final Session session;
 
-        public Visitor(Metadata metadata)
+        public Visitor(Metadata metadata, Session session)
         {
             this.metadata = metadata;
+            this.session = session;
         }
 
         @Override
@@ -88,14 +92,14 @@ public class ArraySortAfterArrayDistinct
                     List<Expression> arraySortArguments = call.arguments();
                     List<Type> arraySortArgumentsTypes = resolvedFunction.signature().getArgumentTypes();
 
-                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata)
+                    Call arrayDistinctCall = BuiltinFunctionCallBuilder.resolve(metadata, getCharVarcharCoercion(session))
                             .setName(ArrayDistinctFunction.NAME)
                             .setArguments(
                                     ImmutableList.of(arraySortArgumentsTypes.get(0)),
                                     ImmutableList.of(arraySortArguments.get(0)))
                             .build();
 
-                    BuiltinFunctionCallBuilder arraySortCallBuilder = BuiltinFunctionCallBuilder.resolve(metadata)
+                    BuiltinFunctionCallBuilder arraySortCallBuilder = BuiltinFunctionCallBuilder.resolve(metadata, getCharVarcharCoercion(session))
                             .setName(ArraySortFunction.NAME)
                             .addArgument(arraySortArgumentsTypes.get(0), arrayDistinctCall);
 

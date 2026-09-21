@@ -13,13 +13,14 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.Hive4HiveServerContainer;
 import io.trino.testing.containers.Hive4MetastoreContainer;
-import io.trino.testing.containers.Minio;
 import io.trino.testing.containers.SparkHudiContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -34,11 +35,11 @@ import static io.trino.testing.containers.environment.QueryRetry.executeWithRetr
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 
 /**
- * Hive/Hudi product test environment with table redirections using S3 (MinIO) storage.
+ * Hive/Hudi product test environment with table redirections using S3 (Floci) storage.
  * <p>
  * This environment provides:
  * <ul>
- *   <li>MinIO container providing S3-compatible object storage</li>
+ *   <li>Floci container providing S3-compatible object storage</li>
  *   <li>Hive 4 Metastore container (standalone metastore service)</li>
  *   <li>Hive 4 HiveServer2 container (connects to remote metastore)</li>
  *   <li>Spark container with Hudi support configured for S3 storage</li>
@@ -71,7 +72,7 @@ public class HiveHudiRedirectionsEnvironment
     private static final String BUCKET_NAME = "hudi-test-bucket";
 
     private Network network;
-    private Minio minio;
+    private Floci floci;
     private Hive4MetastoreContainer metastore;
     private Hive4HiveServerContainer hiveServer;
     private SparkHudiContainer spark;
@@ -86,12 +87,12 @@ public class HiveHudiRedirectionsEnvironment
 
         network = Network.newNetwork();
 
-        // Start MinIO first (provides S3-compatible storage)
-        minio = Minio.builder()
+        // Start Floci first (provides S3-compatible storage)
+        floci = new Floci()
                 .withNetwork(network)
-                .build();
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
+                .withNetworkAliases("floci");
+        floci.start();
+        floci.createBucket(BUCKET_NAME);
 
         // Configure warehouse path to use S3 storage
         String warehouseDir = "s3a://" + BUCKET_NAME + "/warehouse";
@@ -117,10 +118,10 @@ public class HiveHudiRedirectionsEnvironment
                 .withNetwork(network)
                 .withNetworkAliases(SparkHudiContainer.HOST_NAME)
                 .withS3Config(
-                        Minio.MINIO_ROOT_USER,
-                        Minio.MINIO_ROOT_PASSWORD,
-                        Minio.DEFAULT_HOST_NAME,
-                        Minio.MINIO_API_PORT,
+                        Floci.FLOCI_ACCESS_KEY,
+                        Floci.FLOCI_SECRET_KEY,
+                        "floci",
+                        Floci.FLOCI_PORT,
                         metastoreUri,
                         warehouseDir);
         spark.start();
@@ -130,14 +131,14 @@ public class HiveHudiRedirectionsEnvironment
         trino = TrinoProductTestContainer.builder()
                 .withNetwork(network)
                 .withCatalog("hive", hiveCatalog(metastoreUri)
-                        .withMinioS3()
+                        .withFlociS3()
                         .withCommonProperties()
                         .withPartitionProcedures()
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .put("hive.hudi-catalog-name", "hudi")
                         .build())
                 .withCatalog("hudi", HiveCatalogPropertiesBuilder.hudiCatalog(metastoreUri)
-                        .withMinioS3()
+                        .withFlociS3()
                         .build())
                 .withCatalog("tpch", Map.of("connector.name", "tpch"))
                 .build();
@@ -161,7 +162,7 @@ public class HiveHudiRedirectionsEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {
@@ -183,7 +184,7 @@ public class HiveHudiRedirectionsEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {
@@ -215,7 +216,7 @@ public class HiveHudiRedirectionsEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeHive(String sql)
+    public QueryResult executeHive(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement();
@@ -233,7 +234,7 @@ public class HiveHudiRedirectionsEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement()) {
@@ -245,7 +246,7 @@ public class HiveHudiRedirectionsEnvironment
     }
 
     /**
-     * Returns the name of the test bucket created in MinIO.
+     * Returns the name of the test bucket created in Floci.
      *
      * @return the bucket name
      */
@@ -311,9 +312,9 @@ public class HiveHudiRedirectionsEnvironment
             metastore.close();
             metastore = null;
         }
-        if (minio != null) {
-            minio.close();
-            minio = null;
+        if (floci != null) {
+            floci.close();
+            floci = null;
         }
         if (network != null) {
             network.close();

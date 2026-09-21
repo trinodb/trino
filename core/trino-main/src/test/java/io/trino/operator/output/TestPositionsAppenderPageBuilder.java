@@ -16,6 +16,7 @@ package io.trino.operator.output;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -128,6 +128,112 @@ public class TestPositionsAppenderPageBuilder
     }
 
     @Test
+    public void testFullOnDictionaryDirectSizeInBytes()
+    {
+        int maxPageBytes = 1000;
+        int maxDirectSize = 1000;
+        PositionsAppenderPageBuilder pageBuilder = PositionsAppenderPageBuilder.withMaxPageSize(
+                maxPageBytes,
+                maxDirectSize,
+                List.of(VARCHAR),
+                new PositionsAppenderFactory(new BlockTypeOperators()));
+
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(dictionaryBuilder, "first");
+        VARCHAR.writeString(dictionaryBuilder, "second");
+        Block valueBlock = dictionaryBuilder.build();
+        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1});
+        Page inputPage = new Page(dictionaryBlock);
+
+        IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        pageBuilder.appendToOutputPartition(inputPage, positions);
+        PositionsAppenderSizeAccumulator sizeAccumulator = pageBuilder.computeAppenderSizes();
+        assertThat(sizeAccumulator.getSizeInBytes())
+                .as("dictionary mode reports the ids size only")
+                .isEqualTo(Integer.BYTES * 10);
+        assertThat(sizeAccumulator.getDirectSizeInBytes())
+                .as("direct size is the average dictionary entry size per buffered id")
+                .isEqualTo(valueBlock.getSizeInBytes() * 10 / valueBlock.getPositionCount());
+        assertThat(pageBuilder.isFull()).isFalse();
+
+        // Keep inserting until the direct size limit is reached
+        while (pageBuilder.computeAppenderSizes().getDirectSizeInBytes() < maxDirectSize) {
+            pageBuilder.appendToOutputPartition(inputPage, positions);
+        }
+        assertThat(pageBuilder.isFull()).isTrue();
+
+        Page result = pageBuilder.build();
+        assertThat(result.getPositionCount())
+                .as("builder is full well before the position count limit")
+                .isLessThan(PositionsAppenderPageBuilder.MAX_POSITION_COUNT);
+        assertThat(result.getBlock(0))
+                .as("flushing preserves the dictionary encoding")
+                .isInstanceOf(DictionaryBlock.class);
+    }
+
+    @Test
+    public void testFlushDictionaryBeforeFlattening()
+    {
+        int maxPageBytes = 100;
+        int maxDirectSize = 1000;
+        PositionsAppenderPageBuilder pageBuilder = PositionsAppenderPageBuilder.withMaxPageSize(
+                maxPageBytes,
+                maxDirectSize,
+                List.of(VARCHAR),
+                new PositionsAppenderFactory(new BlockTypeOperators()));
+
+        int[] ids = new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+        Page inputPage = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
+        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+
+        assertThat(pageBuilder.isFull()).isFalse();
+        assertThat(pageBuilder.computeAppenderSizes().getDirectSizeInBytes()).isGreaterThanOrEqualTo(maxPageBytes);
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(inputPage))
+                .as("appending the same dictionary does not flatten")
+                .isFalse();
+
+        Page pageWithOtherDictionary = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary))
+                .as("pageBuilder should flush before flattening the dictionary")
+                .isTrue();
+        Page flushedPage = pageBuilder.build();
+        assertThat(flushedPage.getPositionCount()).isEqualTo(10);
+        assertThat(flushedPage.getBlock(0) instanceof DictionaryBlock)
+                .as("result should be dictionary encoded")
+                .isTrue();
+    }
+
+    @Test
+    public void testFlattenSmallDictionaryWithoutFlushing()
+    {
+        int maxPageBytes = 1000;
+        int maxDirectSize = maxPageBytes * 8;
+        PositionsAppenderPageBuilder pageBuilder = PositionsAppenderPageBuilder.withMaxPageSize(
+                maxPageBytes,
+                maxDirectSize,
+                List.of(VARCHAR),
+                new PositionsAppenderFactory(new BlockTypeOperators()));
+
+        int[] ids = new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+        Page inputPage = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
+        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+
+        assertThat(pageBuilder.computeAppenderSizes().getDirectSizeInBytes()).isLessThan(maxPageBytes);
+        Page pageWithOtherDictionary = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary))
+                .as("flattening a dictionary that fits in the current page does not flush")
+                .isFalse();
+    }
+
+    private static Block createVarcharDictionary()
+    {
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(dictionaryBuilder, "first");
+        VARCHAR.writeString(dictionaryBuilder, "second");
+        return dictionaryBuilder.build();
+    }
+
+    @Test
     public void testFlushUsefulDictionariesOnRelease()
     {
         int maxPageBytes = 100;
@@ -138,8 +244,11 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        Block valueBlock = writeNativeValue(VARCHAR, Slices.utf8Slice("test"));
-        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[10]);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(dictionaryBuilder, "first");
+        VARCHAR.writeString(dictionaryBuilder, "second");
+        Block valueBlock = dictionaryBuilder.build();
+        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1});
         Page inputPage = new Page(dictionaryBlock);
 
         pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));

@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
 import io.trino.operator.PagesIndexOrdering;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -166,7 +167,7 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void evaluateFinal(BlockBuilder blockBuilder)
+        public void evaluateFinal(BlockBuilder blockBuilder, UpdateMemory updateMemory)
         {
             checkState(pagesIndex != null, "evaluateFinal() already called");
             pagesIndex.sort(pagesIndexOrdering);
@@ -175,10 +176,12 @@ public class OrderedAccumulatorFactory
             pagesIterator.forEachRemaining(arguments -> {
                 mask.reset(arguments.getPositionCount());
                 accumulator.addInput(arguments.getColumns(argumentChannels), mask);
+                // result ignored, evaluateFinal cannot yield
+                updateMemory.update();
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
-            accumulator.evaluateFinal(blockBuilder);
+            accumulator.evaluateFinal(blockBuilder, updateMemory);
         }
     }
 
@@ -264,7 +267,7 @@ public class OrderedAccumulatorFactory
         }
 
         @Override
-        public void prepareFinal()
+        public void prepareFinal(UpdateMemory updateMemory)
         {
             checkState(pagesIndex != null, "prepareFinal() already called");
             pagesIndex.sort(pagesIndexOrdering);
@@ -276,9 +279,12 @@ public class OrderedAccumulatorFactory
                         extractGroupIds(page),
                         page.getColumns(argumentChannels),
                         mask);
+                // result ignored, prepareFinal cannot yield
+                updateMemory.update();
             });
             // release pagesIndex memory after transferring its contents into the accumulator
             pagesIndex = null;
+            accumulator.prepareFinal(updateMemory);
         }
 
         private static int[] extractGroupIds(Page page)

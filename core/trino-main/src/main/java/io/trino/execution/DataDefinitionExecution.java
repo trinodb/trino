@@ -287,6 +287,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public Optional<Map<String, Long>> callResult()
+    {
+        return stateMachine.callResult();
+    }
+
+    @Override
     public QueryState getState()
     {
         return stateMachine.getQueryState();

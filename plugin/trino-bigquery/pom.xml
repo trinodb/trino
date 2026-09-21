@@ -173,12 +173,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
         </dependency>
@@ -201,6 +195,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -309,7 +308,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20260719</version>
+            <version>20260814</version>
         </dependency>
 
         <dependency>

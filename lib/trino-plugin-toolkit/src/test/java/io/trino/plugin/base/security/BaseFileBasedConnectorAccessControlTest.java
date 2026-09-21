@@ -580,6 +580,119 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     @Test
+    public void testUserSubstitutionInSchemaRules()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        Map<String, Object> properties = ImmutableMap.of();
+        accessControl.checkCanCreateSchema(ALICE, "alice", properties);
+        assertDenied(() -> accessControl.checkCanCreateSchema(ALICE, "bob", properties));
+        accessControl.checkCanCreateSchema(BOB, "bob", properties);
+        assertDenied(() -> accessControl.checkCanCreateSchema(BOB, "alice", properties));
+    }
+
+    @Test
+    public void testUserSubstitutionMatchesUserNameLiterally()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        Map<String, Object> properties = ImmutableMap.of();
+        ConnectorSecurityContext specialUser = user("a.user", ImmutableSet.of());
+        accessControl.checkCanCreateSchema(specialUser, "a.user", properties);
+        assertDenied(() -> accessControl.checkCanCreateSchema(specialUser, "aXuser", properties));
+    }
+
+    @Test
+    public void testUserSubstitutionInTableRulesUsingSchemaField()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("alice", "some_table"), Optional.empty(), ImmutableSet.of());
+        accessControl.checkCanInsertIntoTable(ALICE, new SchemaTableName("alice", "some_table"), Optional.empty());
+        accessControl.checkCanDropTable(ALICE, new SchemaTableName("alice", "some_table"));
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bob", "some_table"), Optional.empty(), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanInsertIntoTable(ALICE, new SchemaTableName("bob", "some_table"), Optional.empty()));
+    }
+
+    @Test
+    public void testUserSubstitutionInTableRulesUsingTableField()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        // {user} in the table field
+        accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("shared", "alice_data"), Optional.empty(), ImmutableSet.of());
+        assertDenied(() -> accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("shared", "bob_data"), Optional.empty(), ImmutableSet.of()));
+    }
+
+    @Test
+    public void testUserSubstitutionInFunctionRules()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("alice", "some_function"))).isTrue();
+        assertThat(accessControl.canExecuteFunction(ALICE, new SchemaRoutineName("bob", "some_function"))).isFalse();
+    }
+
+    @Test
+    public void testUserSubstitutionInProcedureRules()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        accessControl.checkCanExecuteProcedure(ALICE, new SchemaRoutineName("alice", "some_procedure"));
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(ALICE, new SchemaRoutineName("bob", "some_procedure")));
+    }
+
+    @Test
+    public void testUserSubstitutionForCheckCanShowTables()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        accessControl.checkCanShowTables(ALICE, "alice");
+        assertDenied(() -> accessControl.checkCanShowTables(ALICE, "bob"));
+    }
+
+    @Test
+    public void testUserSubstitutionForFilterSchemas()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        Set<String> allSchemas = ImmutableSet.of("alice", "bob", "shared", "other");
+        assertThat(accessControl.filterSchemas(ALICE, allSchemas)).isEqualTo(ImmutableSet.of("alice", "shared"));
+        assertThat(accessControl.filterSchemas(BOB, allSchemas)).isEqualTo(ImmutableSet.of("bob", "shared"));
+    }
+
+    @Test
+    public void testUserSubstitutionForFilterTables()
+            throws Exception
+    {
+        ConnectorAccessControl accessControl = createAccessControl("user-substitution.json");
+
+        Set<SchemaTableName> allTables = ImmutableSet.of(
+                new SchemaTableName("alice", "table1"),
+                new SchemaTableName("bob", "table2"),
+                new SchemaTableName("shared", "alice_data"),
+                new SchemaTableName("shared", "bob_data"));
+        assertThat(accessControl.filterTables(ALICE, allTables)).isEqualTo(ImmutableSet.of(
+                new SchemaTableName("alice", "table1"),
+                new SchemaTableName("shared", "alice_data")));
+    }
+
+    @Test
+    public void testInvalidPatternWithoutUserPlaceholderIsRejected()
+    {
+        assertThatThrownBy(() -> createAccessControl("invalid-schema-pattern.json"))
+                .hasStackTraceContaining("Illegal repetition");
+    }
+
+    @Test
     public void testSchemaRulesForCheckCanShowTables()
             throws Exception
     {

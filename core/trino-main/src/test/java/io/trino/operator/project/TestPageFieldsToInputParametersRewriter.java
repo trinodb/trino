@@ -49,6 +49,8 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -176,6 +178,6 @@ public class TestPageFieldsToInputParametersRewriter
 
     private static MatchClause equalityClause(Expression value, Expression result)
     {
-        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), new Symbol(value.type(), "operand"), value, result);
+        return IrExpressions.equalityClause(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new Symbol(value.type(), "operand"), value, result);
     }
 }

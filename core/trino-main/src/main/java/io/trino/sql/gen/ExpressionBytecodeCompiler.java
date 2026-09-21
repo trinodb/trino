@@ -49,6 +49,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,7 @@ public class ExpressionBytecodeCompiler
     private final BiFunction<Reference, Scope, BytecodeNode> referenceCompiler;
     private final FunctionManager functionManager;
     private final Metadata metadata;
+    private final CharVarcharCoercion charVarcharCoercion;
     private final Map<Lambda, CompiledLambda> compiledLambdaMap;
     private final List<Parameter> contextArguments;  // arguments that need to be propagated to generated methods
 
@@ -86,6 +88,7 @@ public class ExpressionBytecodeCompiler
             FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
+            CharVarcharCoercion charVarcharCoercion,
             Map<Lambda, CompiledLambda> compiledLambdaMap,
             List<Parameter> contextArguments)
     {
@@ -95,6 +98,7 @@ public class ExpressionBytecodeCompiler
         this.referenceCompiler = requireNonNull(referenceCompiler, "referenceCompiler is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.charVarcharCoercion = requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
         this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
         this.contextArguments = ImmutableList.copyOf(requireNonNull(contextArguments, "contextArguments is null"));
     }
@@ -241,7 +245,7 @@ public class ExpressionBytecodeCompiler
                 return generatorContext.generate(node.expression());
             }
 
-            ResolvedFunction coercion = metadata.getCoercion(sourceType, returnType);
+            ResolvedFunction coercion = metadata.getCoercion(charVarcharCoercion, sourceType, returnType);
             return generatorContext.generateFullCall(coercion, ImmutableList.of(node.expression()));
         }
 
@@ -301,7 +305,7 @@ public class ExpressionBytecodeCompiler
         @Override
         protected BytecodeNode visitIn(In node, Context context)
         {
-            return new InCodeGenerator(node, metadata).generateExpression(generatorContext(context.scope(), context.lets()));
+            return new InCodeGenerator(node, metadata, charVarcharCoercion).generateExpression(generatorContext(context.scope(), context.lets()));
         }
 
         @Override

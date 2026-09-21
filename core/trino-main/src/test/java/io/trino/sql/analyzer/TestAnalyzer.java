@@ -4199,6 +4199,38 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidTableExecute()
+    {
+        assertFails("ALTER TABLE foo EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Table 'tpch.s1.foo' does not exist");
+        assertFails("ALTER TABLE v1 EXECUTE optimize")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: ALTER TABLE EXECUTE is not supported for views");
+        assertFails("ALTER TABLE mv1 EXECUTE optimize")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: ALTER TABLE EXECUTE is not supported for materialized views");
+    }
+
+    @Test
+    public void testInvalidMaterializedViewExecute()
+    {
+        assertFails("ALTER MATERIALIZED VIEW foo EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.foo' does not exist");
+        assertFails("ALTER MATERIALIZED VIEW t1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.t1' does not exist");
+        assertFails("ALTER MATERIALIZED VIEW v1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Materialized view 'tpch.s1.v1' does not exist");
+        // mv1 has no storage table configured in the mock metadata
+        assertFails("ALTER MATERIALIZED VIEW mv1 EXECUTE optimize")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:7: Storage table for materialized view 'tpch.s1.mv1' does not exist");
+    }
+
+    @Test
     public void testInvalidShowTables()
     {
         assertFails("SHOW TABLES FROM a.b.c")

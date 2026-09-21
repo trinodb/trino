@@ -20,12 +20,19 @@ import java.math.BigInteger;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.rescale;
+import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
+import static java.lang.Math.abs;
+import static java.lang.Math.fma;
+import static java.lang.Math.nextDown;
+import static java.lang.Math.nextUp;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
@@ -52,6 +59,11 @@ public final class DecimalConversions
     private static final long MAX_EXACT_DOUBLE_LONG = MAX_EXACT_DOUBLE.toLongExact();
     // visible for testing
     static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
+    // The 29 significand bits a double loses when narrowed to a float: a midpoint sets them to 2^28, and the margin
+    // covers the under 2 ulps a rounded dividend shifts the quotient.
+    private static final long DISCARDED_FLOAT_BITS_MASK = (1L << 29) - 1;
+    private static final long DISCARDED_FLOAT_BITS_MIDPOINT = 1L << 28;
+    private static final long DISCARDED_FLOAT_BITS_MARGIN = 8;
 
     private DecimalConversions() {}
 
@@ -76,11 +88,35 @@ public final class DecimalConversions
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
     {
-        // Divide in double to avoid double-rounding: ((float) decimal) / tenToScale first
-        // rounds the unscaled value to float (losing precision for |decimal| > 2^24),
-        // then divides — the composition can land on a different float than the correctly
-        // rounded mathematical result.
-        return floatToRawIntBits((float) ((double) decimal / tenToScale));
+        if (tenToScale == 1) {
+            return floatToRawIntBits((float) decimal);
+        }
+        // Dividing in double and narrowing to float rounds twice, which can only misround near a float midpoint.
+        double value = (double) decimal / tenToScale;
+        long discardedBits = doubleToRawLongBits(value) & DISCARDED_FLOAT_BITS_MASK;
+        if (abs(discardedBits - DISCARDED_FLOAT_BITS_MIDPOINT) > DISCARDED_FLOAT_BITS_MARGIN) {
+            return floatToRawIntBits((float) value);
+        }
+        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
+            // An exact dividend rounds the divide correctly, so only a true midpoint misrounds.
+            if (discardedBits != DISCARDED_FLOAT_BITS_MIDPOINT) {
+                return floatToRawIntBits((float) value);
+            }
+            // Exact operands make the residual's sign exact: zero is a tie, its sign gives the side.
+            double residual = fma(value, tenToScale, -(double) decimal);
+            if (residual == 0) {
+                return floatToRawIntBits((float) value);
+            }
+            if (residual < 0) {
+                return floatToRawIntBits((float) nextUp(value));
+            }
+            return floatToRawIntBits((float) nextDown(value));
+        }
+        int scale = Long.numberOfTrailingZeros(tenToScale);
+        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
+            return floatToRawIntBits(BigDecimal.valueOf(decimal, scale).floatValue());
+        }
+        return floatToRawIntBits(BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).floatValue());
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)

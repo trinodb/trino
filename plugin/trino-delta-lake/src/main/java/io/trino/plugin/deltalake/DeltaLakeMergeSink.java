@@ -136,6 +136,7 @@ public class DeltaLakeMergeSink
     private final int randomPrefixLength;
     private final Optional<String> shallowCloneSourceTableLocation;
     private final boolean useDeltaLengthByteArrayEncoding;
+    private final MemoryContext memoryContext;
     private long writtenBytes;
 
     @Nullable
@@ -164,7 +165,8 @@ public class DeltaLakeMergeSink
             Map<String, DeletionVectorEntry> deletionVectors,
             int randomPrefixLength,
             Optional<String> shallowCloneSourceTableLocation,
-            boolean useDeltaLengthByteArrayEncoding)
+            boolean useDeltaLengthByteArrayEncoding,
+            MemoryContext memoryContext)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -195,6 +197,7 @@ public class DeltaLakeMergeSink
         this.randomPrefixLength = randomPrefixLength;
         this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
         this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
 
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
@@ -348,13 +351,7 @@ public class DeltaLakeMergeSink
     {
         List<Slice> fragments = new ArrayList<>();
 
-        insertPageSink.finish().join().stream()
-                .map(Slice::getInput)
-                .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                .map(mergeResultJsonCodec::toJsonBytes)
-                .map(Slices::wrappedBuffer)
-                .forEach(fragments::add);
+        fragments.addAll(newFileFragments(insertPageSink.finish().join()));
         writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((path, deletion) -> {
@@ -367,17 +364,22 @@ public class DeltaLakeMergeSink
         });
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
-            MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getInput)
-                    .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                    .map(mergeResultJsonCodec::toJsonBytes)
-                    .map(Slices::wrappedBuffer)
-                    .forEach(fragments::add);
+            fragments.addAll(newFileFragments(MoreFutures.getDone(cdfPageSink.finish())));
             writtenBytes += cdfPageSink.getCompletedBytes();
         }
 
         return completedFuture(fragments);
+    }
+
+    private List<Slice> newFileFragments(Collection<Slice> dataFileInfos)
+    {
+        return dataFileInfos.stream()
+                .map(Slice::getInput)
+                .map(dataFileInfoCodec::fromJson)
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
+                .map(mergeResultJsonCodec::toJsonBytes)
+                .map(Slices::wrappedBuffer)
+                .collect(toImmutableList());
     }
 
     private Slice writeMergeResult(Slice path, FileDeletion deletion)
@@ -712,8 +714,7 @@ public class DeltaLakeMergeSink
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize),
-                // TODO (https://github.com/trinodb/trino/issues/29956) report memory usage
-                MemoryContext.NO_LIMIT);
+                memoryContext);
     }
 
     private String getReferencedPath(String basePath, String sourcePath)

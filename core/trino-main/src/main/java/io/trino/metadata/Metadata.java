@@ -84,8 +84,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
 import java.util.List;
@@ -116,6 +116,12 @@ public interface Metadata
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableExecuteHandle> getTableHandleForExecute(
+            Session session,
+            TableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties);
+
+    Optional<TableExecuteHandle> getTableHandleForMaterializedViewExecute(
             Session session,
             TableHandle tableHandle,
             String procedureName,
@@ -493,7 +499,7 @@ public interface Metadata
     /**
      * Finish merge query
      */
-    void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+    Optional<ConnectorOutputMetadata> finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Returns a catalog handle for the specified catalog name.
@@ -781,19 +787,19 @@ public interface Metadata
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveBuiltinFunction(String name, List<TypeDescriptorProvider> parameterTypes);
+    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes);
 
-    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    default ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
-        return getCoercion(CAST, fromType, toType);
+        return getCoercion(charVarcharCoercion, CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(CatalogSchemaFunctionName name, Type fromType, Type toType);
+    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 

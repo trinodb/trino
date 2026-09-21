@@ -138,6 +138,12 @@ public class MappedPageSource
         }
 
         @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            return sourcePage.trySelectPositions(positions, offset, size);
+        }
+
+        @Override
         public Page getColumns(int[] channels)
         {
             int[] newChannels = new int[channels.length];

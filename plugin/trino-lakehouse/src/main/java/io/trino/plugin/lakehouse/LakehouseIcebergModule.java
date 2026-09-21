@@ -48,10 +48,24 @@ import io.trino.plugin.iceberg.delete.DefaultDeletionVectorWriter;
 import io.trino.plugin.iceberg.delete.DeletionVectorWriter;
 import io.trino.plugin.iceberg.encryption.IcebergEncryptionModule;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.plugin.iceberg.procedure.AddFilesTableFromTableProcedure;
+import io.trino.plugin.iceberg.procedure.AddFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
+import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
+import io.trino.plugin.iceberg.procedure.OptimizeManifestsTableProcedure;
+import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
+import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
+import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.RollbackToSnapshotTableProcedure;
+import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
+import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.lakehouse.TableType.ICEBERG;
 
 public class LakehouseIcebergModule
         extends AbstractConfigurationAwareModule
@@ -83,6 +97,20 @@ public class LakehouseIcebergModule
         jsonCodecBinder(binder).bindJsonCodec(CommitTaskData.class);
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
+
+        var procedures = newMapBinder(binder, TableType.class, Procedure.class).permitDuplicates();
+        procedures.addBinding(ICEBERG).toProvider(RegisterTableProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding(ICEBERG).toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
+
+        var tableProcedures = newMapBinder(binder, TableType.class, TableProcedureMetadata.class).permitDuplicates();
+        tableProcedures.addBinding(ICEBERG).toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(OptimizeManifestsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(RollbackToSnapshotTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(AddFilesTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding(ICEBERG).toProvider(AddFilesTableFromTableProcedure.class).in(Scopes.SINGLETON);
 
         install(switch (buildConfigObject(MetastoreTypeConfig.class).getMetastoreType()) {
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();

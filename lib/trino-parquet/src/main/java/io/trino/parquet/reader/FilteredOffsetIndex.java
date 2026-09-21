@@ -15,8 +15,8 @@ package io.trino.parquet.reader;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.util.ArrayList;
 import java.util.Arrays;

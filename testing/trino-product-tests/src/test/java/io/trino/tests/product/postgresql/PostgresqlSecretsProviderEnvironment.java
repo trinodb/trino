@@ -17,9 +17,9 @@ import io.trino.testing.containers.TrinoTestImages;
 import io.trino.tests.product.utils.HostMappingDnsResolver;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -56,7 +56,7 @@ public class PostgresqlSecretsProviderEnvironment
     private static final String KEYSTORE_RESOURCE_PATH = "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/trino/etc/docker.cluster.jks";
 
     private Network network;
-    private PostgreSQLContainer<?> postgresql;
+    private PostgreSQLContainer postgresql;
     private GenericContainer<?> coordinator;
     private GenericContainer<?> worker;
     private Path tlsKeyStore;
@@ -70,7 +70,7 @@ public class PostgresqlSecretsProviderEnvironment
         }
 
         network = Network.newNetwork();
-        postgresql = new PostgreSQLContainer<>("postgres:11")
+        postgresql = new PostgreSQLContainer("postgres:11")
                 .withNetwork(network)
                 .withNetworkAliases("postgresql")
                 .withDatabaseName("test")

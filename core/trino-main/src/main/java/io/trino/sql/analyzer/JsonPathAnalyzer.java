@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
+import io.trino.Session;
 import io.trino.jsonpath.JsonDateTimeTemplate;
 import io.trino.jsonpath.XQueryRegex;
 import io.trino.metadata.Metadata;
@@ -64,6 +65,7 @@ import io.trino.sql.jsonpath.tree.TypeMethod;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -72,6 +74,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -83,7 +86,6 @@ import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isStringType;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.jsonpath.tree.ArithmeticUnary.Sign.PLUS;
 import static io.trino.type.Json2016Type.JSON_2016;
 import static java.util.Objects.requireNonNull;
@@ -94,14 +96,17 @@ public class JsonPathAnalyzer
     private static final Type TYPE_METHOD_RESULT_TYPE = createVarcharType(27);
 
     private final Metadata metadata;
+    private final CharVarcharCoercion charVarcharCoercion;
     private final ExpressionAnalyzer literalAnalyzer;
     private final Map<PathNodeRef<PathNode>, Type> types = new LinkedHashMap<>();
     private final Set<PathNodeRef<PathNode>> jsonParameters = new LinkedHashSet<>();
     private final Map<PathNodeRef<PathNode>, JsonDateTimeTemplate> datetimeTemplates = new LinkedHashMap<>();
 
-    public JsonPathAnalyzer(Metadata metadata, ExpressionAnalyzer literalAnalyzer)
+    public JsonPathAnalyzer(Metadata metadata, Session session, ExpressionAnalyzer literalAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        requireNonNull(session, "session is null");
+        this.charVarcharCoercion = getCharVarcharCoercion(session);
         this.literalAnalyzer = requireNonNull(literalAnalyzer, "literalAnalyzer is null");
     }
 
@@ -172,7 +177,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("abs", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "abs", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path abs() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -192,7 +197,7 @@ public class JsonPathAnalyzer
             if (leftType != null && rightType != null) {
                 BoundSignature signature;
                 try {
-                    signature = metadata.resolveOperator(OperatorType.valueOf(node.getOperator().name()), ImmutableList.of(leftType, rightType)).signature();
+                    signature = metadata.resolveOperator(charVarcharCoercion, OperatorType.valueOf(node.getOperator().name()), ImmutableList.of(leftType, rightType)).signature();
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "invalid operand types (%s and %s) in JSON path arithmetic binary expression: %s", leftType.getDisplayName(), rightType.getDisplayName(), e.getMessage());
@@ -219,7 +224,7 @@ public class JsonPathAnalyzer
                 }
                 Type resultType;
                 try {
-                    resultType = metadata.resolveOperator(NEGATION, ImmutableList.of(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveOperator(charVarcharCoercion, NEGATION, ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "invalid operand type (%s) in JSON path arithmetic unary expression: %s", sourceType.getDisplayName(), e.getMessage());
@@ -250,7 +255,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("ceiling", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "ceiling", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path ceiling() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -307,7 +312,7 @@ public class JsonPathAnalyzer
                     throw semanticException(INVALID_PATH, pathNode, "cannot perform JSON path double() method with %s argument", sourceType.getDisplayName());
                 }
                 try {
-                    metadata.getCoercion(sourceType, DOUBLE);
+                    metadata.getCoercion(charVarcharCoercion, sourceType, DOUBLE);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path double() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
@@ -342,7 +347,7 @@ public class JsonPathAnalyzer
             if (sourceType != null) {
                 Type resultType;
                 try {
-                    resultType = metadata.resolveBuiltinFunction("floor", fromTypes(sourceType)).signature().getReturnType();
+                    resultType = metadata.resolveBuiltinFunction(charVarcharCoercion, "floor", ImmutableList.of(sourceType)).signature().getReturnType();
                 }
                 catch (TrinoException e) {
                     throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());

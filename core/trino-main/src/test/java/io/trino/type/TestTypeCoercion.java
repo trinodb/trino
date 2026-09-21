@@ -53,6 +53,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
@@ -67,7 +68,7 @@ public class TestTypeCoercion
     private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
     private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
     private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
-    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType);
+    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType, SQL_STANDARD);
 
     private Type mapType(Type keyType, Type valueType)
     {

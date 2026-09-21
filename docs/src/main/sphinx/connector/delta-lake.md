@@ -13,7 +13,7 @@ data.
 To connect to Databricks Delta Lake, you need:
 
 - Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS,
-  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS, 16.4 LTS and 17.3 LTS are supported.
+  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS, 16.4 LTS, 17.3 LTS and 18 LTS are supported.
 - Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
@@ -162,7 +162,7 @@ values. Typical usage does not require you to configure them.
     metastore cache.
   - `1000`
 * - `delta.metastore.store-table-metadata`
-  - Store table comments and colum definitions in the metastore. The write
+  - Store table comments and column definitions in the metastore. The write
     permission is required to update the metastore.
   - `false`
 * - `delta.metastore.store-table-metadata-threads`
@@ -745,7 +745,7 @@ WHERE "$path" <> 'skipping-file-path'
 ```
 
 ```sql
--- optimze files smaller than 1MB
+-- optimize files smaller than 1MB
 ALTER TABLE test_table EXECUTE optimize
 WHERE "$file_size" <= 1024 * 1024
 ```

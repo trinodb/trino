@@ -668,6 +668,7 @@ public final class ExpressionTreeRewriter<C>
                             frame.getType(),
                             start,
                             rewrittenEnd,
+                            frame.getExclusion(),
                             frame.getMeasures(),
                             frame.getAfterMatchSkipTo(),
                             frame.getPatternSearchMode(),

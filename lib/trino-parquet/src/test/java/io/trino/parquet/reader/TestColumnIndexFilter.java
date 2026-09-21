@@ -16,6 +16,7 @@ package io.trino.parquet.reader;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import org.apache.parquet.bytes.BytesUtils;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.Statistics;
 import org.apache.parquet.filter2.predicate.UserDefinedPredicate;
@@ -27,7 +28,6 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.schema.PrimitiveType;
 import org.junit.jupiter.api.Test;
 
@@ -79,6 +79,9 @@ public class TestColumnIndexFilter
         private final BoundaryOrder order;
         private List<Boolean> nullPages = new ArrayList<>();
         private List<Long> nullCounts = new ArrayList<>();
+        // Without nan counts, parquet 1.18+ conservatively disables page pruning
+        // for floating point columns as their min/max may be NaN-polluted
+        private List<Long> nanCounts = new ArrayList<>();
         private List<ByteBuffer> minValues = new ArrayList<>();
         private List<ByteBuffer> maxValues = new ArrayList<>();
 
@@ -92,6 +95,7 @@ public class TestColumnIndexFilter
         {
             nullPages.add(true);
             nullCounts.add(nullCount);
+            nanCounts.add(0L);
             minValues.add(EMPTY);
             maxValues.add(EMPTY);
             return this;
@@ -101,6 +105,7 @@ public class TestColumnIndexFilter
         {
             nullPages.add(false);
             nullCounts.add(nullCount);
+            nanCounts.add(0L);
             minValues.add(ByteBuffer.wrap(BytesUtils.intToBytes(min)));
             maxValues.add(ByteBuffer.wrap(BytesUtils.intToBytes(max)));
             return this;
@@ -110,6 +115,7 @@ public class TestColumnIndexFilter
         {
             nullPages.add(false);
             nullCounts.add(nullCount);
+            nanCounts.add(0L);
             minValues.add(ByteBuffer.wrap(min.getBytes(UTF_8)));
             maxValues.add(ByteBuffer.wrap(max.getBytes(UTF_8)));
             return this;
@@ -119,6 +125,7 @@ public class TestColumnIndexFilter
         {
             nullPages.add(false);
             nullCounts.add(nullCount);
+            nanCounts.add(0L);
             minValues.add(ByteBuffer.wrap(BytesUtils.longToBytes(Double.doubleToLongBits(min))));
             maxValues.add(ByteBuffer.wrap(BytesUtils.longToBytes(Double.doubleToLongBits(max))));
             return this;
@@ -126,7 +133,7 @@ public class TestColumnIndexFilter
 
         ColumnIndex build()
         {
-            return ColumnIndexBuilder.build(type, order, nullPages, nullCounts, minValues, maxValues);
+            return ColumnIndexBuilder.build(type, order, nullPages, nullCounts, nanCounts, minValues, maxValues, null, null);
         }
     }
 

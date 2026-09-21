@@ -47,7 +47,6 @@ import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeDescriptor.mapType;
 import static io.trino.spi.type.TypeDescriptor.rowType;
 import static io.trino.spi.type.TypeParameter.anonymousField;
-import static io.trino.spi.type.TypeTemplates.argument;
 import static io.trino.spi.type.TypeTemplates.numericVariable;
 import static io.trino.spi.type.TypeTemplates.type;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
@@ -58,6 +57,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeDescriptor;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.parseTypeTemplate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
@@ -1327,7 +1327,7 @@ public class TestSignatureBinder
         private Optional<VariableBindings> bindVariables()
         {
             Assertions.assertThat(argumentTypes).isNotNull();
-            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, PLANNER_CONTEXT.isLegacyVarcharToCharCoercion());
+            SignatureBinder signatureBinder = new SignatureBinder(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion, SQL_STANDARD);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }

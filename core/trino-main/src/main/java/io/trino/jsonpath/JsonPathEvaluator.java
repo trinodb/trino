@@ -14,6 +14,7 @@
 package io.trino.jsonpath;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.FullConnectorSession;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -24,6 +25,7 @@ import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.util.List;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,7 +53,7 @@ public class JsonPathEvaluator
 
         this.path = path;
         this.invoker = new Invoker(session, functionManager);
-        this.resolver = new CachingResolver(metadata);
+        this.resolver = new CachingResolver(metadata, getCharVarcharCoercion(((FullConnectorSession) session).getSession()));
     }
 
     public List<Object> evaluate(JsonNode input, Object[] parameters)

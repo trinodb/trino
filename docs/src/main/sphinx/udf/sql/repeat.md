@@ -16,7 +16,7 @@ processing of a block of statements as long as a condition is met. The condition
 is validated as a last step of each iteration.
 
 The block of statements is processed at least once. After the first, and every
-subsequent processing the expression `condidtion` is validated. If the result is
+subsequent processing the expression `condition` is validated. If the result is
 `true`, processing moves to `END REPEAT` and continues with the next statement in
 the function. If the result is `false`, the statements are processed again.
 

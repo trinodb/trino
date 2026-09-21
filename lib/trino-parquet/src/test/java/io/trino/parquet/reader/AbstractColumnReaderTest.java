@@ -89,7 +89,7 @@ public abstract class AbstractColumnReaderTest
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isFalse();
         if (shouldProduceDictionaryForType(field.getType())) {
-            assertThat(actual).isInstanceOf(DictionaryBlock.class);
+            assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
         }
         format.assertBlock(values, actual);
     }
@@ -160,7 +160,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         if (shouldProduceDictionaryForType(field.getType())) {
-            assertThat(actual).isInstanceOf(DictionaryBlock.class);
+            assertThat(actual).isInstanceOf(RunLengthEncodedBlock.class);
             assertThat(actual.mayHaveNull()).isFalse();
         }
         format.assertBlock(values, actual);
@@ -569,7 +569,7 @@ public abstract class AbstractColumnReaderTest
         // Read and assert
         assertThat(memoryContext.getBytes()).isEqualTo(0);
         reader.setPageReader(getPageReaderMock(List.of(page1, page2), dictionaryPage), Optional.empty());
-        assertThat(memoryContext.getBytes()).isEqualTo(0);
+        assertThat(memoryContext.getBytes()).isGreaterThan(0);
         readBlock(reader, 3);
         long memoryUsage = memoryContext.getBytes();
         assertThat(memoryUsage).isGreaterThan(0);

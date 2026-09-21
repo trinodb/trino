@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import org.apache.parquet.internal.filter2.columnindex.RowRanges;
+import org.apache.parquet.filter2.columnindex.RowRanges;
 
 import java.util.List;
 

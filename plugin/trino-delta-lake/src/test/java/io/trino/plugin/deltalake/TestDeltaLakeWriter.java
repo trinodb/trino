@@ -25,8 +25,10 @@ import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
@@ -102,7 +104,8 @@ public class TestDeltaLakeWriter
     public void testMergeFloatNaNStatistics()
     {
         String columnName = "t_float";
-        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.FLOAT, columnName);
+        // Type-defined order matches how MetadataReader interprets floating point statistics, see ParquetMetadataConverter#toTypeDefinedOrder
+        PrimitiveType type = Types.required(PrimitiveType.PrimitiveTypeName.FLOAT).columnOrder(ColumnOrder.typeDefined()).named(columnName);
         List<ColumnChunkMetadata> metadata = ImmutableList.of(
                 createMetaData(
                         columnName,
@@ -132,7 +135,8 @@ public class TestDeltaLakeWriter
     public void testMergeDoubleNaNStatistics()
     {
         String columnName = "t_double";
-        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.DOUBLE, columnName);
+        // Type-defined order matches how MetadataReader interprets floating point statistics, see ParquetMetadataConverter#toTypeDefinedOrder
+        PrimitiveType type = Types.required(PrimitiveType.PrimitiveTypeName.DOUBLE).columnOrder(ColumnOrder.typeDefined()).named(columnName);
         List<ColumnChunkMetadata> metadata = ImmutableList.of(
                 createMetaData(
                         columnName,

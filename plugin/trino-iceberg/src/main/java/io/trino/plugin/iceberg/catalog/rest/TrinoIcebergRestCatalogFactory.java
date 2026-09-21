@@ -36,7 +36,9 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.RESTUtil;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -63,6 +65,8 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean caseInsensitiveNameMatching;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
+    private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -96,13 +100,34 @@ public class TrinoIcebergRestCatalogFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
         this.remoteTableMappingCache = EvictableCacheBuilder.newBuilder()
+                .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build();
+        if (caseInsensitiveNameMatching && restConfig.isCaseInsensitiveNameMatchingNamespaceCacheEnabled()) {
+            this.namespaceTableListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    // An entry weighs at least one, so listings for empty namespaces still count toward eviction.
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size() + 1)
+                    .shareNothingWhenDisabled()
+                    .build());
+            this.namespaceViewListingCache = Optional.of(EvictableCacheBuilder.newBuilder()
+                    .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
+                    .maximumWeight(restConfig.getCaseInsensitiveNameMatchingNamespaceCacheMaxSize())
+                    .<NamespaceListingKey, List<TableIdentifier>>weigher((_, identifiers) -> identifiers.size() + 1)
+                    .shareNothingWhenDisabled()
+                    .build());
+        }
+        else {
+            this.namespaceTableListingCache = Optional.empty();
+            this.namespaceViewListingCache = Optional.empty();
+        }
     }
 
     @Override
@@ -145,6 +170,8 @@ public class TrinoIcebergRestCatalogFactory
                 caseInsensitiveNameMatching,
                 remoteNamespaceMappingCache,
                 remoteTableMappingCache,
+                namespaceTableListingCache,
+                namespaceViewListingCache,
                 viewEndpointsEnabled,
                 serverAssignedTableLocationEnabled);
     }

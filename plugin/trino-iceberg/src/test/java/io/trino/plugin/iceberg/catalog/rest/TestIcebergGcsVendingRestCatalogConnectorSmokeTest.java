@@ -13,63 +13,63 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
+import io.airlift.http.server.HttpConfig;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.ServerFeature;
+import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.node.NodeInfo;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.gcs.GcsFileSystemConfig;
-import io.trino.filesystem.gcs.GcsFileSystemFactory;
-import io.trino.filesystem.gcs.GcsServiceAccountAuth;
-import io.trino.filesystem.gcs.GcsServiceAccountAuthConfig;
-import io.trino.filesystem.gcs.GcsStorageFactory;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.containers.IcebergGcsRestCatalogBackendContainer;
+import io.trino.testing.containers.FlociGcp;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
-import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTSessionCatalog;
-import org.junit.jupiter.api.AfterAll;
+import org.apache.iceberg.gcp.GCPProperties;
+import org.apache.iceberg.gcp.gcs.GCSFileIO;
+import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Network;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Base64;
+import java.nio.file.Files;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.Optional;
 
+import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private static final Logger LOG = Logger.get(TestIcebergGcsVendingRestCatalogConnectorSmokeTest.class);
+    private static final String OAUTH_TOKEN = "test-oauth-token";
 
-    private final String gcpCredentialKey;
-    private final String warehouseLocation;
+    private final String bucketName = "test-iceberg-gcs-vending-rest-" + randomNameSuffix();
 
-    private IcebergGcsRestCatalogBackendContainer restCatalog;
+    private String warehouseLocation;
+    private JdbcCatalog backend;
 
     public TestIcebergGcsVendingRestCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        gcpCredentialKey = requiredNonEmptySystemProperty("testing.gcp-credentials-key");
-        String gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
-        warehouseLocation = "gs://%s/gcs-vending-rest-test-%s/".formatted(gcpStorageBucket, randomNameSuffix());
     }
 
     @Override
@@ -87,69 +87,83 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        String gcpCredentials = new String(jsonKeyBytes, UTF_8);
+        Network network = closeAfterClass(Network.newNetwork());
+        FlociGcp flociGcp = closeAfterClass(new FlociGcp().withNetwork(network));
+        flociGcp.start();
+        flociGcp.createBucket(bucketName);
 
-        GoogleCredentials credentials = GoogleCredentials.fromStream(new ByteArrayInputStream(jsonKeyBytes))
-                .createScoped("https://www.googleapis.com/auth/cloud-platform");
-        AccessToken accessToken = credentials.refreshAccessToken();
+        long tokenExpiresAtMs = Instant.now().plus(1, ChronoUnit.HOURS).toEpochMilli();
+        warehouseLocation = "gs://%s/gcs-vending-rest-test-%s/".formatted(bucketName, randomNameSuffix());
+        backend = closeAfterClass(buildBackendCatalog(FLOCI_GCP_PROJECT_ID, flociGcp.getEndpoint().toString(), OAUTH_TOKEN, tokenExpiresAtMs));
 
-        JsonMapper mapper = new JsonMapper();
-        JsonNode jsonKey = mapper.readTree(gcpCredentials);
-        String gcpProjectId = jsonKey.get("project_id").asText();
+        VendedCredentialsRestCatalogAdapter adapter = new VendedCredentialsRestCatalogAdapter(backend)
+        {
+            @Override
+            public Map<String, String> getVendedCredentialsConfig(String restServerUri)
+            {
+                return ImmutableMap.<String, String>builder()
+                        .put(GCPProperties.GCS_OAUTH2_TOKEN, OAUTH_TOKEN)
+                        .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(tokenExpiresAtMs))
+                        .buildOrThrow();
+            }
+        };
 
-        restCatalog = closeAfterClass(new IcebergGcsRestCatalogBackendContainer(
-                warehouseLocation,
-                gcpProjectId,
-                accessToken.getTokenValue(),
-                accessToken.getExpirationTime().getTime()));
-        restCatalog.start();
+        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig()
+                .setHttpEnabled(true);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
+        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
+                .withLegacyUriCompliance(true)
+                .build());
+        testServer.start();
+        closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
-                                .put("iceberg.rest-catalog.uri", restCatalog.catalogUri())
+                                .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("fs.gcs.enabled", "true")
                                 .put("gcs.auth-type", "APPLICATION_DEFAULT")
+                                .put("gcs.endpoint", flociGcp.getEndpoint().toString())
+                                .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    private JdbcCatalog buildBackendCatalog(String gcpProjectId, String gcsServiceHost, String oauthToken, long tokenExpiresAtMs)
+            throws IOException
+    {
+        JdbcCatalog catalog = new JdbcCatalog();
+        catalog.initialize("backend_jdbc", ImmutableMap.<String, String>builder()
+                .put(CatalogProperties.URI, "jdbc:h2:file:" + Files.createTempFile(null, null).toAbsolutePath())
+                .put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation)
+                .put(CatalogProperties.FILE_IO_IMPL, GCSFileIO.class.getName())
+                .put(JdbcCatalog.PROPERTY_PREFIX + "username", "user")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "password", "password")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "schema-version", "V1")
+                .put(GCPProperties.GCS_PROJECT_ID, gcpProjectId)
+                .put(GCPProperties.GCS_SERVICE_HOST, gcsServiceHost)
+                .put(GCPProperties.GCS_OAUTH2_TOKEN, oauthToken)
+                .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(tokenExpiresAtMs))
+                .buildOrThrow());
+        return catalog;
     }
 
     @Override
     @BeforeAll
     public void initFileSystem()
     {
-        byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
-        GcsServiceAccountAuthConfig authConfig = new GcsServiceAccountAuthConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory;
-        try {
-            storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(authConfig));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        fileSystem = new GcsFileSystemFactory(config, storageFactory).create(SESSION);
-    }
-
-    @AfterAll
-    public void removeTestData()
-    {
-        if (fileSystem == null) {
-            return;
-        }
-        try {
-            fileSystem.deleteDirectory(Location.of(warehouseLocation));
-        }
-        catch (IOException e) {
-            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-            LOG.warn(e, "Failed to clean up GCS test directory: %s", warehouseLocation);
-        }
+        fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.forUser(SESSION.getUser())
+                        .withExtraCredentials(ImmutableMap.of(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, OAUTH_TOKEN))
+                        .build());
     }
 
     @Test
@@ -177,20 +191,8 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
-            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, restCatalog.catalogUri()));
-            SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
-                    "user-default",
-                    "user",
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    SESSION.getIdentity());
-            TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
-            return ((BaseTable) catalog.loadTable(context, identifier)).operations().current().metadataFileLocation();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+        return ((BaseTable) backend.loadTable(identifier)).operations().current().metadataFileLocation();
     }
 
     @Override
@@ -295,7 +297,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Test
@@ -311,11 +313,6 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/pull/15734 is merged and bumped in Trino")
-    public void testDropTableWithMissingDataFile() {}
-
-    @Test
-    @Override
     public void testDropTableWithMissingManifestListFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
@@ -327,7 +324,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching("Failed to load table: (.*)");
+                .hasMessageContaining("Cannot drop corrupted table");
     }
 
     @Override

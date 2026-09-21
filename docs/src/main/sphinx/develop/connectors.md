@@ -160,7 +160,7 @@ WHERE url = 'https://github.com/trinodb/trino.git'
 (connector-metadata)=
 ## ConnectorMetadata
 
-The connector metadata interface allows Trino to get a lists of schemas,
+The connector metadata interface allows Trino to get a list of schemas,
 tables, columns, and other metadata about a particular data source.
 
 A basic read-only connector should implement the following methods:

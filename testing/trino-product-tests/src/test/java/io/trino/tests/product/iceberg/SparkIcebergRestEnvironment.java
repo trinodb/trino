@@ -19,6 +19,7 @@ import io.trino.testing.containers.IcebergRestCatalogContainer;
 import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -194,7 +195,7 @@ public class SparkIcebergRestEnvironment
      * @return the query result
      */
     @Override
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {
@@ -217,7 +218,7 @@ public class SparkIcebergRestEnvironment
      * @return the number of affected rows, or 0 for DDL statements
      */
     @Override
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {

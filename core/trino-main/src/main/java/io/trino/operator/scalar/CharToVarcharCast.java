@@ -14,19 +14,22 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.trino.FullConnectorSession;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
+import io.trino.type.CharVarcharCoercion;
 
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 
-/**
- * Default {@code CHAR} to {@code VARCHAR} cast. Registered unless the
- * {@code deprecated.legacy-varchar-to-char-coercion} configuration property is set, in which case
- * {@link LegacyCharToVarcharCast} is registered instead.
- */
+/// `CHAR` to `VARCHAR` cast whose behavior follows the session's char/varchar coercion
+/// direction ([SystemSessionProperties#getCharVarcharCoercion(Session)].
 public final class CharToVarcharCast
 {
     private CharToVarcharCast() {}
@@ -34,10 +37,16 @@ public final class CharToVarcharCast
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
-    public static Slice charToVarcharCast(@LiteralParameter("y") Long y, @SqlType("char(x)") Slice slice)
+    public static Slice charToVarcharCast(ConnectorSession session, @LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("char(x)") Slice slice)
     {
-        // CHAR values are stored without trailing spaces. Casting to VARCHAR yields the unpadded value
-        // (trailing spaces are not re-introduced), truncating only when the target VARCHAR is shorter.
-        return truncateToLength(slice, y.intValue());
+        if (((FullConnectorSession) session).getCharVarcharCoercion() == CharVarcharCoercion.LEGACY) {
+            // Legacy: re-pad to the declared CHAR length, truncating to the target VARCHAR length when it is shorter.
+            if (x <= y) {
+                return padSpaces(slice, (int) x);
+            }
+            return padSpaces(truncateToLength(slice, (int) y), (int) y);
+        }
+        // CHAR values are stored without trailing spaces; yield the unpadded value, truncated to the target length.
+        return truncateToLength(slice, (int) y);
     }
 }

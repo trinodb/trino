@@ -62,6 +62,7 @@ import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.getRootDefinitionLevelWriter;
 import static io.trino.parquet.writer.repdef.RepLevelWriterProvider.getRootRepetitionLevelWriter;
+import static io.trino.parquet.writer.valuewriter.PrimitiveValueWriter.createStatistics;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.format.Util.writePageHeader;
@@ -134,7 +135,7 @@ public class PrimitiveColumnWriter
         this.compressor = getCompressor(compressionCodec);
         this.pageSizeThreshold = pageSizeThreshold;
         this.pageValueCountLimit = pageValueCountLimit;
-        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
+        this.columnStatistics = createStatistics(columnDescriptor.getPrimitiveType());
         this.compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
         this.bloomFilter = requireNonNull(bloomFilter, "bloomFilter is null");
     }

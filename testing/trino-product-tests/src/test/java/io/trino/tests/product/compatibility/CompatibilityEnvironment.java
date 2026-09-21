@@ -17,6 +17,7 @@ import io.trino.testing.containers.HadoopContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.Transferable;
@@ -31,6 +32,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Map;
 
+import static io.trino.testing.containers.environment.ConnectionRetry.createWithRetry;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hadoopMetastoreUri;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -103,7 +105,7 @@ public class CompatibilityEnvironment
         waitForCompatibilityServerReady();
     }
 
-    public QueryResult executeCompatibilityTrino(String sql)
+    public QueryResult executeCompatibilityTrino(@Language("SQL") String sql)
     {
         try (Connection connection = createCompatibilityTrinoConnection();
                 Statement statement = connection.createStatement();
@@ -115,7 +117,7 @@ public class CompatibilityEnvironment
         }
     }
 
-    public int executeCompatibilityTrinoUpdate(String sql)
+    public int executeCompatibilityTrinoUpdate(@Language("SQL") String sql)
     {
         try (Connection connection = createCompatibilityTrinoConnection();
                 Statement statement = connection.createStatement()) {
@@ -126,13 +128,13 @@ public class CompatibilityEnvironment
         }
     }
 
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         String jdbcUrl = format(
                 "jdbc:hive2://%s:%s/default",
                 hadoop.getHost(),
                 hadoop.getMappedPort(HadoopContainer.HIVESERVER2_PORT));
-        try (Connection connection = DriverManager.getConnection(jdbcUrl, "hive", "");
+        try (Connection connection = createWithRetry(() -> DriverManager.getConnection(jdbcUrl, "hive", ""));
                 Statement statement = connection.createStatement()) {
             return statement.executeUpdate(sql);
         }

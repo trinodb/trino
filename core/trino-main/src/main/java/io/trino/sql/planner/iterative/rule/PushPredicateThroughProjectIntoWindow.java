@@ -37,6 +37,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
@@ -121,7 +122,7 @@ public class PushPredicateThroughProjectIntoWindow
                 plannerContext,
                 context.getSession(),
                 filter.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {
             return Result.empty();
@@ -144,8 +145,8 @@ public class PushPredicateThroughProjectIntoWindow
         // Remove the ranking domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
-                domainTranslator.toPredicate(newTupleDomain));
+                extractionResult.remainingExpression(),
+                domainTranslator.toPredicate(getCharVarcharCoercion(context.getSession()), newTupleDomain));
         if (newPredicate.equals(TRUE)) {
             return Result.ofPlanNode(project);
         }

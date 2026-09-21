@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
@@ -183,7 +184,7 @@ public class IcebergPageSinkProvider
     }
 
     @Override
-    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId)
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, Optional<ConnectorTableCredentials> tableCredentials, ConnectorPageSinkId pageSinkId, MemoryContext memoryContext)
     {
         verify(tableCredentials.isPresent(), "tableCredentials is empty");
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;

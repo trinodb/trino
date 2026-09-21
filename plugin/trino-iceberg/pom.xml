@@ -16,7 +16,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.108.4</dep.nessie.version>
+        <dep.nessie.version>0.108.8</dep.nessie.version>
         <dep.keycloak.version>26.0.8</dep.keycloak.version>
     </properties>
 
@@ -53,12 +53,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -76,6 +70,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -583,6 +582,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
@@ -958,10 +963,7 @@
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</exclude>
-                                <exclude>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</exclude>
+                                <exclude>**/TestIcebergBigLakeVendedCredentials.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
@@ -1021,16 +1023,17 @@
                             <includes>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsVendingRestCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergGcsRestCatalogVendedCredentialsRefresh.java</include>
-                                <include>**/TestIcebergGcsRestCatalogStorageCredentialsRefresh.java</include>
+                                <include>**/TestIcebergBigLakeVendedCredentials.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
+                            <systemPropertyVariables>
+                                <!-- Default pool size (available processors) is too small for the real cloud storage deletes these smoke tests share it for -->
+                                <iceberg.worker.num-threads>16</iceberg.worker.num-threads>
+                            </systemPropertyVariables>
                         </configuration>
                     </plugin>
                 </plugins>

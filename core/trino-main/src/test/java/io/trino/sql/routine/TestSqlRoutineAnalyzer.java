@@ -318,6 +318,169 @@ class TestSqlRoutineAnalyzer
                 """)
                 .hasErrorCode(MISSING_RETURN)
                 .hasMessage("line 2:1: Function must end in a RETURN statement");
+
+        // an ELSEIF chain with no final ELSE can still fall through, regardless of whether
+        // every existing branch returns
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  IF false THEN
+                    RETURN 13;
+                  ELSEIF true THEN
+                    RETURN 14;
+                  END IF;
+                END
+                """)
+                .hasErrorCode(MISSING_RETURN)
+                .hasMessage("line 2:1: Function must end in a RETURN statement");
+
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  CASE
+                    WHEN false THEN RETURN 13;
+                  END CASE;
+                END
+                """)
+                .hasErrorCode(MISSING_RETURN)
+                .hasMessage("line 2:1: Function must end in a RETURN statement");
+
+        // a loop as the last statement still requires a trailing RETURN
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  WHILE true DO
+                    RETURN 13;
+                  END WHILE;
+                END
+                """)
+                .hasErrorCode(MISSING_RETURN)
+                .hasMessage("line 2:1: Function must end in a RETURN statement");
+
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  REPEAT
+                    RETURN 13;
+                  UNTIL true
+                  END REPEAT;
+                END
+                """)
+                .hasErrorCode(MISSING_RETURN)
+                .hasMessage("line 2:1: Function must end in a RETURN statement");
+
+        // an exhaustive IF followed by another statement does not satisfy the RETURN requirement
+        assertFails(
+                """
+                FUNCTION test() RETURNS int
+                BEGIN
+                  DECLARE x int;
+                  IF true THEN
+                    RETURN 13;
+                  ELSE
+                    RETURN 14;
+                  END IF;
+                  SET x = 1;
+                END
+                """)
+                .hasErrorCode(MISSING_RETURN)
+                .hasMessage("line 2:1: Function must end in a RETURN statement");
+    }
+
+    @Test
+    void testExhaustiveIfReturn()
+    {
+        // every branch returns, so no trailing RETURN is needed
+        analyze(
+                """
+                FUNCTION test(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSEIF a = 1 THEN
+                    RETURN 'one';
+                  ELSE
+                    RETURN 'more than one or negative';
+                  END IF;
+                END
+                """);
+
+        analyze(
+                """
+                FUNCTION test(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    RETURN 'zero';
+                  ELSE
+                    RETURN 'nonzero';
+                  END IF;
+                END
+                """);
+
+        // nested IF statements are checked recursively
+        analyze(
+                """
+                FUNCTION test(a bigint, b bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    IF b = 0 THEN
+                      RETURN 'both zero';
+                    ELSE
+                      RETURN 'a zero';
+                    END IF;
+                  ELSE
+                    RETURN 'a nonzero';
+                  END IF;
+                END
+                """);
+
+        // a BEGIN/END block as a branch body
+        analyze(
+                """
+                FUNCTION test(a bigint) RETURNS varchar
+                BEGIN
+                  IF a = 0 THEN
+                    BEGIN
+                      RETURN 'zero';
+                    END;
+                  ELSE
+                    RETURN 'nonzero';
+                  END IF;
+                END
+                """);
+    }
+
+    @Test
+    void testExhaustiveCaseReturn()
+    {
+        // every branch returns, so no trailing RETURN is needed
+        analyze(
+                """
+                FUNCTION test(a int) RETURNS int
+                BEGIN
+                  CASE
+                    WHEN a = 0 THEN RETURN 0;
+                    WHEN a = 1 THEN RETURN 1;
+                    ELSE RETURN -1;
+                  END CASE;
+                END
+                """);
+
+        analyze(
+                """
+                FUNCTION test(a int) RETURNS int
+                BEGIN
+                  CASE a
+                    WHEN 0 THEN RETURN 0;
+                    WHEN 1 THEN RETURN 1;
+                    ELSE RETURN -1;
+                  END CASE;
+                END
+                """);
     }
 
     @Test

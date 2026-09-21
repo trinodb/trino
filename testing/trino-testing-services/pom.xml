@@ -125,6 +125,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
+                        <io.trino.testing.services.junit.FlakyTestRetryExtension.enabled>true</io.trino.testing.services.junit.FlakyTestRetryExtension.enabled>
                         <io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>true</io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>
                     </systemPropertyVariables>
                 </configuration>

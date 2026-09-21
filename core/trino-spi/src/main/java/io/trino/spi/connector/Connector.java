@@ -80,7 +80,7 @@ public interface Connector
     default ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
     {
         ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider();
-        return () -> pageSourceProvider;
+        return _ -> pageSourceProvider;
     }
 
     /**

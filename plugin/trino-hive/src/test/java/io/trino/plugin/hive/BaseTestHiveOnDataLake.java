@@ -583,7 +583,8 @@ abstract class BaseTestHiveOnDataLake
                         "    col1 varchar, " +
                         "    col2 varchar, " +
                         "    regionkey bigint) " +
-                        "    WITH (partitioned_by=ARRAY['regionkey'])",
+                        // ORC so the file-size thresholds below hit the intended S3 multipart-upload code paths
+                        "    WITH (format='ORC', partitioned_by=ARRAY['regionkey'])",
                 testTable));
 
         long partSizeInBytes = HIVE_S3_STREAMING_PART_SIZE.toBytes();
@@ -2373,6 +2374,22 @@ abstract class BaseTestHiveOnDataLake
         }
         finally {
             hiveFlociDataLake.runOnHive("DROP DATABASE IF EXISTS " + schemaName + " CASCADE");
+        }
+    }
+
+    @Test
+    public void testSyncPartitionMetadataWithNonHiveTable()
+    {
+        String tableName = "test_sync_partition_metadata_iceberg_table" + randomNameSuffix();
+
+        hiveFlociDataLake.runOnHive("CREATE TABLE %s.%s (a int) PARTITIONED BY (part int) TBLPROPERTIES ('table_type'='iceberg')".formatted(HIVE_TEST_SCHEMA, tableName));
+        try {
+            assertQueryFails(
+                    "CALL system.sync_partition_metadata(schema_name => '%s', table_name => '%s', mode => 'FULL')".formatted(HIVE_TEST_SCHEMA, tableName),
+                    "\\QNot a Hive table '%s.%s'".formatted(HIVE_TEST_SCHEMA, tableName));
+        }
+        finally {
+            hiveFlociDataLake.runOnHive("DROP TABLE IF EXISTS %s.%s".formatted(HIVE_TEST_SCHEMA, tableName));
         }
     }
 

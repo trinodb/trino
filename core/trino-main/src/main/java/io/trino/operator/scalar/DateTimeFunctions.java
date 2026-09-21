@@ -363,6 +363,16 @@ public final class DateTimeFunctions
         }
     }
 
+    public static boolean isValidDateUnit(Slice unit)
+    {
+        for (DateTimeFieldProvider dateField : DATE_FIELDS) {
+            if (dateField.match(unit)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
     {
         for (DateTimeFieldProvider dateField : DATE_FIELDS) {
@@ -371,6 +381,16 @@ public final class DateTimeFunctions
             }
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid DATE field");
+    }
+
+    public static boolean isValidTimestampUnit(Slice unit)
+    {
+        for (DateTimeFieldProvider timestampField : TIMESTAMP_FIELDS) {
+            if (timestampField.match(unit)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)

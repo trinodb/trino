@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
@@ -70,7 +71,7 @@ public class EvaluateIn
             return Optional.of(NULL_BOOLEAN);
         }
 
-        ResolvedFunction equalsOperator = metadata.resolveOperator(EQUAL, ImmutableList.of(value.type(), value.type()));
+        ResolvedFunction equalsOperator = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(value.type(), value.type()));
         ConnectorSession connectorSession = session.toConnectorSession();
 
         boolean nullMatch = false;

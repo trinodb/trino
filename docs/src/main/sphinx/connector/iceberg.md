@@ -271,6 +271,13 @@ implementation is used:
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
   - `true`
+* - `iceberg.domain-compaction-threshold`
+  - Minimum size of query predicates above which Trino compacts the predicates.
+    Pushing a large list of predicates down to the data source can compromise
+    performance. For optimization in that situation, Trino can compact the large
+    predicates. If necessary, adjust the threshold to ensure a balance between
+    performance and predicate pushdown.
+  - `1000`
 * - `iceberg.encryption.kms-type`
   - Key Management Service type for
     [Iceberg table encryption](https://iceberg.apache.org/docs/latest/encryption/).
@@ -345,7 +352,7 @@ Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
 The Iceberg specification includes supported data types and the mapping to the
-formating in the Avro, ORC, or Parquet files:
+formatting in the Avro, ORC, or Parquet files:
 
 - [Iceberg to Avro](https://iceberg.apache.org/spec/#avro)
 - [Iceberg to ORC](https://iceberg.apache.org/spec/#orc)
@@ -652,6 +659,20 @@ CALL example.system.register_table(
   metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
 ```
 
+You can also provide a metadata location different from the default
+`<table_location>/metadata` directory by specifying the `metadata_location`
+argument. This may be necessary when the metadata file does not reside in the
+default metadata folder relative to the table location:
+
+```sql
+CALL example.system.register_table(
+  schema_name => 'testdb', 
+  table_name => 'orders', 
+  table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/orders', 
+  metadata_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/orders/custom_metadata', 
+  metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json');
+```
+
 To prevent unauthorized users from accessing data, this procedure is disabled by
 default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
@@ -712,11 +733,14 @@ nested directories, or `false` to ignore them.
 #### Add files
 
 The connector can add files from tables or locations to an existing Iceberg
-table if `iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+table.
 
 Use the procedure `add_files_from_table` to add existing files from a Hive table
 in the current catalog, or `add_files` to add existing files from a specified
-location, to an existing Iceberg table.
+location, to an existing Iceberg table. The `add_files_from_table` procedure is
+always available; `add_files` procedure additionally requires
+`iceberg.add-files-procedure.enabled` to be set to `true`. Neither procedure is
+supported for tables using Iceberg format version `3`.
  
 The data files must be the Parquet, ORC, or Avro file format.
 
@@ -781,7 +805,8 @@ a object storage path specified with the required `location` parameter. The
 files must use the specified `format`, with `ORC` and `PARQUET` as valid values.
 The target Iceberg table must use the same format as the added files. The
 procedure does not validate file schemas for compatibility with the target
-Iceberg table. The `location` property is supported for partitioned tables.
+Iceberg table. The `location` property is not supported for partitioned
+tables.
 
 The following examples copy `ORC`-format files from the location
 `s3://my-bucket/a/path` into the Iceberg table `iceberg_customer_orders` in the
@@ -1077,6 +1102,18 @@ from the table.
 ALTER TABLE test_table EXECUTE drop_extended_stats;
 ```
 
+The output of the query has the following metrics:
+
+:::{list-table} Output
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `removed_statistics_count`
+  - The count of statistics files removed by drop_extended_stats.
+:::
+
 (iceberg-alter-table-set-properties)=
 #### ALTER TABLE SET PROPERTIES
 
@@ -1149,9 +1186,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
     for new tables; `1`, `2`, or `3`. Defaults to `2`. Version `2` is required
-    for row level deletes. Version `3` support is experimental; row-level
-    updates, deletes, and OPTIMIZE are not supported. Tables with v3 features
-    such as column default values and encryption are not supported.
+    for row level deletes. Version `3` support is experimental. Row-level
+    updates and deletes on version `3` tables use deletion vectors. The
+    `add_files` and `add_files_from_table` procedures are not supported on
+    version `3` tables, and writing to encrypted tables is not supported.
     Version `3` is required for tables containing `VARIANT` columns.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
@@ -1287,6 +1325,13 @@ write.format.default   | PARQUET  |
 
 The `$history` table provides a log of the metadata changes performed on the
 Iceberg table.
+
+The table is derived from the snapshot log, which records each change to the
+current snapshot. Snapshots which never became current, such as intermediate
+snapshots of a multi-snapshot commit or snapshots on a branch, do not appear.
+A snapshot which became current more than once, for example after
+`rollback_to_snapshot`, appears once for each time it became current. The 
+`$snapshots` table lists all snapshots.
 
 You can retrieve the changelog of the Iceberg table `test_table` by using the
 following query:
@@ -2221,6 +2266,21 @@ use the data from the storage tables, even after the grace period expired.
 The Iceberg connector supports the {ref}`WHEN STALE <mv-when-stale>` clause in
 {doc}`/sql/create-materialized-view` to control the behavior when a materialized
 view is stale. 
+
+You can perform physical maintenance of the storage table with {ref}`ALTER
+MATERIALIZED VIEW EXECUTE <alter-materialized-view-execute>`. The `optimize`,
+`optimize_manifests`, `expire_snapshots`, `remove_orphan_files`, and
+`drop_extended_stats` procedures are supported. The `rollback_to_snapshot`,
+`add_files`, and `add_files_from_table` procedures are rejected, because they
+would desynchronize the storage table from the materialized view. Running a
+procedure requires the privilege to execute that procedure against the
+materialized view. The procedure preserves the metadata used to determine
+freshness, so a subsequent `REFRESH MATERIALIZED VIEW` can still be
+incremental:
+
+```
+ALTER MATERIALIZED VIEW mv_name EXECUTE optimize
+```
 
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.

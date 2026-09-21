@@ -27,7 +27,9 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.plan.ExchangeNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -133,7 +135,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
 
         // nested joins
@@ -158,7 +160,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 filter(
-                                                        not(getPlanTester().getPlannerContext().getMetadata(), new IsNull(new Reference(VARCHAR, "c_name"))),
+                                                        not(getPlanTester().getPlannerContext().getMetadata(), getCharVarcharCoercion(TEST_SESSION), new IsNull(new Reference(VARCHAR, "c_name"))),
                                                         tableScan("customer", ImmutableMap.of("c_custkey", "custkey", "c_name", "name"))))))));
     }
 

@@ -27,6 +27,8 @@ runs:
     - name: Check if a specified commit compiles
       shell: bash
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
+      env:
+        BASE_REF: ${{ inputs.base_ref }}
       run: |
         set -x
 
@@ -37,7 +39,7 @@ runs:
         export MAVEN="./mvnw"
         MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError"
         MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress"
-        export MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ inputs.base_ref }}"
+        export MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${BASE_REF}"
         RETRY=.github/bin/retry
         # -------
 

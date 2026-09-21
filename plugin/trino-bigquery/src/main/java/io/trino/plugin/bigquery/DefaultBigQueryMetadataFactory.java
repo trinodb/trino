@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 
@@ -23,6 +24,7 @@ public class DefaultBigQueryMetadataFactory
 {
     private final BigQueryClientFactory bigQueryClient;
     private final BigQueryWriteClientFactory writeClientFactory;
+    private final RetrySettings writerRetrySettings;
     private final ListeningExecutorService executorService;
     private final BigQueryTypeManager typeManager;
     private final boolean isLegacyMetadataListing;
@@ -31,12 +33,14 @@ public class DefaultBigQueryMetadataFactory
     public DefaultBigQueryMetadataFactory(
             BigQueryClientFactory bigQueryClient,
             BigQueryWriteClientFactory writeClientFactory,
+            @ForBigQueryWriter RetrySettings writerRetrySettings,
             BigQueryTypeManager typeManager,
             ListeningExecutorService executorService,
             BigQueryConfig config)
     {
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
         this.writeClientFactory = requireNonNull(writeClientFactory, "writeClientFactory is null");
+        this.writerRetrySettings = requireNonNull(writerRetrySettings, "writerRetrySettings is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.isLegacyMetadataListing = config.isLegacyMetadataListing();
@@ -45,6 +49,6 @@ public class DefaultBigQueryMetadataFactory
     @Override
     public BigQueryMetadata create(BigQueryTransactionHandle transaction)
     {
-        return new BigQueryMetadata(bigQueryClient, writeClientFactory, typeManager, executorService, isLegacyMetadataListing);
+        return new BigQueryMetadata(bigQueryClient, writeClientFactory, writerRetrySettings, typeManager, executorService, isLegacyMetadataListing);
     }
 }

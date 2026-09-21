@@ -16,6 +16,7 @@ package io.trino.tests.product.deltalake;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -114,7 +115,7 @@ public class DeltaLakeDatabricksEnvironment
     protected String databricksJdbcUrl()
     {
         // Arrow requires additional JVM options that are not needed by these tests.
-        return appendJdbcOption(requireEnv("DATABRICKS_133_JDBC_URL"), "EnableArrow=0");
+        return appendJdbcOption(requireEnv("DATABRICKS_143_JDBC_URL"), "EnableArrow=0");
     }
 
     protected final String databricksLogin()
@@ -134,7 +135,7 @@ public class DeltaLakeDatabricksEnvironment
         return requireEnv("S3_BUCKET");
     }
 
-    public QueryResult executeTrinoSql(String sql)
+    public QueryResult executeTrinoSql(@Language("SQL") String sql)
     {
         return executeSql(this::createTrinoConnection, sql, "Trino");
     }
@@ -166,7 +167,7 @@ public class DeltaLakeDatabricksEnvironment
         }
     }
 
-    public QueryResult executeDatabricksSql(String sql)
+    public QueryResult executeDatabricksSql(@Language("SQL") String sql)
     {
         return executeSql(this::createDatabricksConnection, sql, "Databricks");
     }

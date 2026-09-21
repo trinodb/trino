@@ -21,7 +21,13 @@ import com.azure.storage.common.sas.AccountSasResourceType;
 import com.azure.storage.common.sas.AccountSasService;
 import com.azure.storage.common.sas.AccountSasSignatureValues;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.http.server.HttpConfig;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.ServerFeature;
+import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.azure.AzureAuthAccessKey;
@@ -33,20 +39,23 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.containers.IcebergAzureRestCatalogBackendContainer;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
-import org.apache.iceberg.catalog.SessionCatalog;
+import org.apache.iceberg.azure.AzureProperties;
+import org.apache.iceberg.azure.adlsv2.ADLSFileIO;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.time.OffsetDateTime;
+import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -64,7 +73,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     private final String accessKey;
     private final String warehouseLocation;
 
-    private IcebergAzureRestCatalogBackendContainer restCatalog;
+    private JdbcCatalog backend;
 
     public TestIcebergAbfsVendingRestCatalogConnectorSmokeTest()
     {
@@ -92,21 +101,40 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     {
         OffsetDateTime sasTokenExpiry = OffsetDateTime.now().plusHours(1);
         String sasToken = generateAccountSasToken(sasTokenExpiry);
+        long sasTokenExpiresAtMs = sasTokenExpiry.toInstant().toEpochMilli();
 
-        restCatalog = closeAfterClass(new IcebergAzureRestCatalogBackendContainer(
-                warehouseLocation,
-                account,
-                accessKey,
-                sasToken,
-                sasTokenExpiry.toInstant().toEpochMilli()));
-        restCatalog.start();
+        backend = closeAfterClass(buildBackendCatalog());
+
+        VendedCredentialsRestCatalogAdapter adapter = new VendedCredentialsRestCatalogAdapter(backend)
+        {
+            @Override
+            public Map<String, String> getVendedCredentialsConfig(String restServerUri)
+            {
+                return ImmutableMap.<String, String>builder()
+                        .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account, sasToken)
+                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account, Long.toString(sasTokenExpiresAtMs))
+                        .buildOrThrow();
+            }
+        };
+
+        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig()
+                .setHttpEnabled(true);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
+        TestingHttpServer testServer = new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
+                .withLegacyUriCompliance(true)
+                .build());
+        testServer.start();
+        closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
-                                .put("iceberg.rest-catalog.uri", restCatalog.catalogUri())
+                                .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.rest-catalog.socket-timeout", "30s")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
@@ -115,6 +143,23 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    private JdbcCatalog buildBackendCatalog()
+            throws IOException
+    {
+        JdbcCatalog catalog = new JdbcCatalog();
+        catalog.initialize("backend_jdbc", ImmutableMap.<String, String>builder()
+                .put(CatalogProperties.URI, "jdbc:h2:file:" + Files.createTempFile(null, null).toAbsolutePath())
+                .put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation)
+                .put(CatalogProperties.FILE_IO_IMPL, ADLSFileIO.class.getName())
+                .put(JdbcCatalog.PROPERTY_PREFIX + "username", "user")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "password", "password")
+                .put(JdbcCatalog.PROPERTY_PREFIX + "schema-version", "V1")
+                .put(AzureProperties.ADLS_SHARED_KEY_ACCOUNT_NAME, account)
+                .put(AzureProperties.ADLS_SHARED_KEY_ACCOUNT_KEY, accessKey)
+                .buildOrThrow());
+        return catalog;
     }
 
     private String generateAccountSasToken(OffsetDateTime expiryTime)
@@ -200,20 +245,8 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
-            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, restCatalog.catalogUri()));
-            SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
-                    "user-default",
-                    "user",
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    SESSION.getIdentity());
-            TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
-            return ((BaseTable) catalog.loadTable(context, identifier)).operations().current().metadataFileLocation();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        TableIdentifier identifier = TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
+        return ((BaseTable) backend.loadTable(identifier)).operations().current().metadataFileLocation();
     }
 
     @Override
@@ -315,8 +348,11 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed bumped in Trino")
-    public void testDropTableWithMissingMetadataFile() {}
+    public void testDropTableWithMissingMetadataFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
+                .hasMessageContaining("Cannot drop corrupted table");
+    }
 
     @Test
     @Override
@@ -325,19 +361,17 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageContaining("Location does not exist")
                 .hasNoCause();
     }
 
     @Test
     @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed and bumped in Trino")
-    public void testDropTableWithMissingDataFile() {}
-
-    @Test
-    @Override
-    @Disabled("TODO: Re-enable once https://github.com/apache/iceberg/issues/15760 is fixed and bumped in Trino")
-    public void testDropTableWithNonExistentTableLocation() {}
+    public void testDropTableWithNonExistentTableLocation()
+    {
+        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
+                .hasMessageContaining("Cannot drop corrupted table");
+    }
 
     @Test
     @Override

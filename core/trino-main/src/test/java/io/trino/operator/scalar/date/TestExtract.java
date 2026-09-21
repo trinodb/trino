@@ -30,6 +30,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestExtract
 {
+    private static final String MIN_DATE_LITERAL = "DATE '-5877641-06-23'";
+    private static final String MAX_DATE_LITERAL = "DATE '+5881580-07-11'";
+
     private QueryAssertions assertions;
 
     @BeforeAll
@@ -52,6 +55,13 @@ public class TestExtract
         assertThat(assertions.expression("EXTRACT(YEAR FROM DATE '1960-05-10')")).matches("BIGINT '1960'");
         assertThat(assertions.expression("year(DATE '2020-05-10')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year(DATE '1960-05-10')")).matches("BIGINT '1960'");
+
+        // just outside short range
+        assertThat(assertions.expression("EXTRACT(YEAR FROM DATE '-32769-01-01')")).matches("BIGINT '-32769'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM DATE '32768-01-01')")).matches("BIGINT '32768'");
+
+        assertThat(assertions.expression("EXTRACT(YEAR FROM " + MIN_DATE_LITERAL + ")")).matches("BIGINT '-5877641'");
+        assertThat(assertions.expression("EXTRACT(YEAR FROM " + MAX_DATE_LITERAL + ")")).matches("BIGINT '5881580'");
     }
 
     @Test

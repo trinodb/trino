@@ -392,7 +392,7 @@ public class MultiNodeTrinoCluster
             }
 
             // Build coordinator
-            TrinoContainer coordinator = new TrinoContainer(DockerImageName.parse(imageName));
+            TrinoContainer coordinator = new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino"));
             coordinator.withNetwork(network);
             coordinator.withNetworkAliases(COORDINATOR_ALIAS);
 

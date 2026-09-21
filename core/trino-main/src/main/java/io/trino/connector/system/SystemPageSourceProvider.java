@@ -73,7 +73,8 @@ public class SystemPageSourceProvider
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorPageSourceProvider = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null")
-                .map(ConnectorPageSourceProviderFactory::createPageSourceProvider);
+                // system tables hold no state shared across page sources, so there is nothing to account for
+                .map(factory -> factory.createPageSourceProvider(MemoryContext.NO_LIMIT));
     }
 
     @Override

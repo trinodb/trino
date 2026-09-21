@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -47,6 +48,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,8 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -84,8 +88,6 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
-import static io.trino.sql.ir.TestingIr.between;
-import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
@@ -110,6 +112,7 @@ public class TestDomainTranslator
     private static final Symbol C_BIGINT_1 = new Symbol(BIGINT, "c_bigint_1");
     private static final Symbol C_DOUBLE_1 = new Symbol(DOUBLE, "c_double_1");
     private static final Symbol C_VARCHAR_1 = new Symbol(VARCHAR, "c_varchar_1");
+    private static final Symbol C_VARCHAR_5 = new Symbol(createVarcharType(5), "c_varchar_5");
     private static final Symbol C_BOOLEAN_1 = new Symbol(BOOLEAN, "c_boolean_1");
     private static final Symbol C_TIMESTAMP = new Symbol(createTimestampType(3), "c_timestamp");
     private static final Symbol C_DATE = new Symbol(DATE, "c_date");
@@ -118,6 +121,7 @@ public class TestDomainTranslator
     private static final Symbol C_INTEGER = new Symbol(INTEGER, "c_integer");
     private static final Symbol C_INTEGER_1 = new Symbol(INTEGER, "c_integer_1");
     private static final Symbol C_CHAR = new Symbol(createCharType(10), "c_char");
+    private static final Symbol C_CHAR_5 = new Symbol(createCharType(5), "c_char_5");
     private static final Symbol C_DECIMAL_21_3 = new Symbol(createDecimalType(21, 3), "c_decimal_21_3");
     private static final Symbol C_DECIMAL_21_3_1 = new Symbol(createDecimalType(21, 3), "c_decimal_21_3_1");
     private static final Symbol C_DECIMAL_12_2 = new Symbol(createDecimalType(12, 2), "c_decimal_12_2");
@@ -132,6 +136,10 @@ public class TestDomainTranslator
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
     private static final long COLOR_VALUE_1 = 1;
     private static final long COLOR_VALUE_2 = 2;
+
+    private static final Session LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+            .build();
 
     private TestingFunctionResolution functionResolution;
     private DomainTranslator domainTranslator;
@@ -154,8 +162,8 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.none();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain);
     }
 
     @Test
@@ -163,8 +171,8 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.all();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain);
     }
 
     @Test
@@ -296,8 +304,8 @@ public class TestDomainTranslator
                 .buildOrThrow());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(ImmutableMap.<Symbol, Domain>builder()
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
                 .put(C_VARCHAR, Domain.notNull(VARCHAR))
@@ -431,8 +439,8 @@ public class TestDomainTranslator
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)));
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
 
         // Test complements
         assertUnsupportedPredicate(not(and(
@@ -443,8 +451,8 @@ public class TestDomainTranslator
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
     }
 
     @Test
@@ -454,22 +462,22 @@ public class TestDomainTranslator
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)));
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
 
         originalPredicate = or(
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), unprocessableExpression2(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         originalPredicate = or(
                 and(lessThan(C_BIGINT, bigintLiteral(20L)), unprocessableExpression1(C_BIGINT)),
                 and(greaterThan(C_BIGINT, bigintLiteral(10L)), unprocessableExpression2(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false)));
 
         // Same unprocessableExpression means that we can do more extraction
         // If both sides are operating on the same single symbol
@@ -477,8 +485,8 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), unprocessableExpression1(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         // And not if they have different symbols
         assertUnsupportedPredicate(or(
@@ -492,38 +500,38 @@ public class TestDomainTranslator
                 greaterThan(C_DOUBLE, doubleLiteral(2.0)),
                 lessThan(C_DOUBLE, doubleLiteral(5.0)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
                 greaterThan(C_REAL, realLiteral(2.0f)),
                 lessThan(C_REAL, realLiteral(5.0f)),
                 isNull(C_REAL));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.all());
 
         originalPredicate = or(
                 and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
                 and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
                 and(greaterThan(C_REAL, realLiteral(2.0f)), unprocessableExpression1(C_REAL)),
                 and(lessThan(C_REAL, realLiteral(5.0f)), unprocessableExpression1(C_REAL)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
 
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), greaterThan(C_DOUBLE, doubleLiteral(1.0)), unprocessableExpression1(C_BIGINT)),
                 and(greaterThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
                 C_BIGINT,
                 Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false),
                 C_DOUBLE,
@@ -534,25 +542,25 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), randPredicate(C_BIGINT, BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), randPredicate(C_BIGINT, BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         // Test complements
         originalPredicate = not(or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT))));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(and(
+        assertThat(result.remainingExpression()).isEqualTo(and(
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
-        assertThat(result.getTupleDomain().isAll()).isTrue();
+        assertThat(result.tupleDomain().isAll()).isTrue();
 
         originalPredicate = not(or(
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getRemainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
     }
 
     @Test
@@ -560,29 +568,29 @@ public class TestDomainTranslator
     {
         Expression originalPredicate = C_BOOLEAN.toSymbolReference();
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false)));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = not(C_BOOLEAN.toSymbolReference());
         result = fromPredicate(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false)));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false)));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
         Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, domain, C_BOOLEAN_1, domain));
-        assertThat(result.getRemainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, domain, C_BOOLEAN_1, domain));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
 
         originalPredicate = or(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
 
         originalPredicate = not(and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference()));
         result = fromPredicate(originalPredicate);
-        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
-        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
     }
 
     @Test
@@ -649,6 +657,8 @@ public class TestDomainTranslator
                 isDistinctFrom(C_COLOR, colorLiteral(COLOR_VALUE_1)),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true)));
 
+        assertPredicateIsAlwaysFalse(equal(cast(C_INTEGER, DOUBLE), doubleLiteral(1.5)));
+
         // Test complement
         assertPredicateTranslates(
                 not(greaterThan(C_BIGINT, bigintLiteral(2L))),
@@ -689,6 +699,128 @@ public class TestDomainTranslator
         assertPredicateTranslates(
                 not(isDistinctFrom(C_COLOR, colorLiteral(COLOR_VALUE_1))),
                 tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), false)));
+    }
+
+    @Test
+    public void testFromIdenticalToBooleanConstant()
+    {
+        // the predicate is true for the same rows as the operand
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), TRUE),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        assertPredicateTranslates(
+                comparison(IDENTICAL, TRUE, lessThan(C_BIGINT, bigintLiteral(2L))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), FALSE),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), false)));
+
+        // a double negation is the non-negated form
+        assertPredicateTranslates(
+                not(not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), TRUE))),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        // the operand constrains more than one column, which the non-negated form handles
+        assertPredicateTranslates(
+                comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), lessThan(C_BIGINT_1, bigintLiteral(2L))), TRUE),
+                tupleDomain(
+                        C_BIGINT,
+                        Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false),
+                        C_BIGINT_1,
+                        Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)));
+
+        // the domain is not complemented, so NaN cannot be lost
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE),
+                tupleDomain(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 2.0)), false)));
+
+        assertPredicateTranslates(
+                comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE),
+                tupleDomain(C_REAL, Domain.create(ValueSet.ofRanges(Range.lessThan(REAL, toReal(2.0f))), false)));
+
+        // the operand is never true
+        assertPredicateIsAlwaysFalse(
+                comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_BIGINT, bigintLiteral(5L))), TRUE));
+
+        // a partial domain is still worth extracting
+        assertPredicateTranslates(
+                comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), unprocessableExpression1(C_BIGINT)), TRUE),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false)),
+                unprocessableExpression1(C_BIGINT));
+
+        // the operand yields no domain, so the predicate is kept as it is rather than rewritten to an equivalent form
+        assertUnsupportedPredicate(
+                comparison(IDENTICAL, unprocessableExpression1(C_BIGINT), TRUE));
+
+        assertUnsupportedPredicate(
+                comparison(IDENTICAL, unprocessableExpression1(C_BIGINT), FALSE));
+
+        // the negated predicate is true also when the operand is null
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), TRUE)),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 2L)), true)));
+
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), FALSE)),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), true)));
+
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, isNull(C_BIGINT), TRUE)),
+                tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+
+        // the column-wise union of the OR terms is their strict union, so the operand's domain is exact
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, or(lessThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_BIGINT, bigintLiteral(5L))), TRUE)),
+                tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 2L, true, 5L, true)), true)));
+
+        // the operand's domain is not exact, so it cannot be complemented
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), unprocessableExpression2(C_BIGINT)), TRUE)));
+
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, unprocessableExpression1(C_BIGINT), TRUE)));
+
+        // the operand constrains more than one column
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), lessThan(C_BIGINT_1, bigintLiteral(2L))), TRUE)));
+
+        // NaN is not part of the complemented domain, but the negated predicate is true for it
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)));
+
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE)));
+
+        // an all or empty value set contains NaN exactly when it contains everything, so complementing it does not lose NaN
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, isNull(C_DOUBLE), TRUE)),
+                tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, isNotNull(C_DOUBLE), TRUE)),
+                tupleDomain(C_DOUBLE, Domain.onlyNull(DOUBLE)));
+
+        // the operand is never true, so the negated predicate is true for every row, whatever the remaining expression
+        assertPredicateIsAlwaysTrue(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_BIGINT, bigintLiteral(5L))), TRUE)));
+
+        assertPredicateIsAlwaysTrue(
+                not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression1(C_BIGINT)), TRUE)));
+
+        // a null constant does not test the operand for truth
+        assertUnsupportedPredicate(
+                comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), nullLiteral(BOOLEAN)));
+
+        assertUnsupportedPredicate(
+                not(comparison(IDENTICAL, lessThan(C_BIGINT, bigintLiteral(2L)), nullLiteral(BOOLEAN))));
+
+        // both operands are constant, so there is no expression to extract a domain from
+        assertUnsupportedPredicate(comparison(IDENTICAL, TRUE, TRUE));
+        assertUnsupportedPredicate(comparison(IDENTICAL, FALSE, TRUE));
+        assertUnsupportedPredicate(not(comparison(IDENTICAL, TRUE, TRUE)));
+        assertUnsupportedPredicate(not(comparison(IDENTICAL, FALSE, TRUE)));
     }
 
     @Test
@@ -836,6 +968,28 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testIdenticalOverCoercedCast()
+    {
+        Expression decimal425 = new Constant(createDecimalType(20, 1), Decimals.encodeScaledValue(new BigDecimal("42.5"), 1));
+
+        // CAST(c_integer AS bigint) IS NOT DISTINCT FROM BIGINT '42' holds exactly for c_integer = 42
+        assertPredicateTranslates(
+                comparison(IDENTICAL, cast(C_INTEGER, BIGINT), bigintLiteral(42L)),
+                tupleDomain(C_INTEGER, Domain.singleValue(INTEGER, 42L)));
+        assertPredicateTranslates(
+                isDistinctFrom(cast(C_INTEGER, BIGINT), bigintLiteral(42L)),
+                tupleDomain(C_INTEGER, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 42L), Range.greaterThan(INTEGER, 42L)), true)));
+
+        // no integer value casts to BIGINT '2147483648'
+        assertPredicateIsAlwaysFalse(comparison(IDENTICAL, cast(C_INTEGER, BIGINT), bigintLiteral(Integer.MAX_VALUE + 1L)));
+        assertPredicateIsAlwaysTrue(isDistinctFrom(cast(C_INTEGER, BIGINT), bigintLiteral(Integer.MAX_VALUE + 1L)));
+
+        // no bigint value casts to DECIMAL '42.5'
+        assertPredicateIsAlwaysFalse(comparison(IDENTICAL, cast(C_BIGINT, createDecimalType(20, 1)), decimal425));
+        assertPredicateIsAlwaysTrue(isDistinctFrom(cast(C_BIGINT, createDecimalType(20, 1)), decimal425));
+    }
+
+    @Test
     public void testNonImplicitCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
@@ -897,6 +1051,16 @@ public class TestDomainTranslator
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
                                 Range.range(VARCHAR, utf8Slice("2005-09-19"), true, utf8Slice("2005-09-1:"), false),
                                 Range.range(VARCHAR, utf8Slice("2005-9-19"), true, utf8Slice("2005-9-1:"), false),
+                                Range.greaterThan(VARCHAR, utf8Slice("9"))),
+                        false)));
+
+        // IDENTICAL, same as = because the value is not null
+        assertPredicateDerives(
+                comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
+                                Range.range(VARCHAR, utf8Slice("2005-9-10"), true, utf8Slice("2005-9-11"), false),
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
 
@@ -979,6 +1143,17 @@ public class TestDomainTranslator
                 and(
                         greaterThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
                         lessThanOrEqual(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR_1, DATE))));
+    }
+
+    @Test
+    public void testComparisonOverCastOfNonDeterministicExpression()
+    {
+        Expression randomInteger = new Call(
+                functionResolution.resolveFunction("random", fromTypes(INTEGER)),
+                ImmutableList.of(new Constant(INTEGER, 5L)));
+
+        assertUnsupportedPredicate(equal(cast(randomInteger, DOUBLE), doubleLiteral(1.5)));
+        assertUnsupportedPredicate(notEqual(cast(randomInteger, DOUBLE), doubleLiteral(1.5)));
     }
 
     @Test
@@ -1345,7 +1520,7 @@ public class TestDomainTranslator
                         C_BIGINT,
                         Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
 
-        assertThat(toPredicate(fromPredicate(expression).getTupleDomain())).isEqualTo(and(
+        assertThat(toPredicate(fromPredicate(expression).tupleDomain())).isEqualTo(and(
                 comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0)),
                 comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0))));
     }
@@ -1545,6 +1720,157 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(equal(cast(C_CHAR, charType), cast(stringLiteral("abc12345678"), charType)));
     }
 
+    @Test
+    public void testCastCharToVarcharComparison()
+    {
+        // The equality family is equivalent to a comparison of char values, which UnwrapCastInComparison rewrites
+        Type castType = createVarcharType(10);
+        assertUnsupportedPredicate(equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+    }
+
+    @Test
+    public void testCastCharToVarcharOrderingComparison()
+    {
+        // With the default coercion, CAST(char AS varchar) trims trailing spaces, so char(5) 'abc' casts to 'abc'.
+        // Char comparison pads with spaces while varchar comparison does not, so the cast is not order-preserving and
+        // the domain is a superset of the values satisfying the comparison, hence the comparison is also retained.
+        Type charType = createCharType(5);
+        Type castType = createVarcharType(10);
+
+        // 'abc' does not satisfy the comparison with itself, and no other char(5) value casts to 'abc'
+        assertPredicateDerives(
+                lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+        assertPredicateDerives(
+                lessThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+
+        // 'abc' is rounded down to from 'abc  ', and its varchar form 'abc' is below 'abc  '
+        assertPredicateDerives(
+                lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+
+        // char(5) 'abc' + U+0000 casts to a varchar above 'abc' while sorting below char(5) 'abc', so the lower bound
+        // is lowered to the bound with its last character decremented
+        assertPredicateDerives(
+                greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+        assertPredicateDerives(
+                greaterThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+
+        // No char(5) value extends 'abcde', so the bound needs no extension, and 'abcde' casts to 'abcde' which is
+        // below 'abcdefg'
+        assertPredicateDerives(
+                greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abcdefg"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abcde"))), false)));
+
+        // The last character of a lower bound must decrement within ASCII, which rules out a '!', an empty bound and
+        // a non-ASCII character
+        assertUnsupportedPredicate(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("ab!"))));
+        assertUnsupportedPredicate(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("   "))));
+        assertUnsupportedPredicate(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("ab\u0105"))));
+
+        // A constant containing a character below the space is not usable as a bound: char(5) 'a' sorts above
+        // char(5) 'a' + U+0001 while their varchar forms compare the other way around
+        assertUnsupportedPredicate(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("a\u0001b"))));
+        assertUnsupportedPredicate(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("a\u0001b"))));
+
+        // A cast to a varchar shorter than the char length truncates
+        Type shortCastType = createVarcharType(3);
+        assertUnsupportedPredicate(lessThan(cast(C_CHAR_5, shortCastType), new Constant(shortCastType, utf8Slice("abc"))));
+
+        // An unbounded cast target never truncates
+        assertPredicateDerives(
+                lessThan(cast(C_CHAR_5, VARCHAR), new Constant(VARCHAR, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+    }
+
+    @Test
+    public void testCastCharToVarcharOrderingComparisonGuards()
+    {
+        Type castType = createVarcharType(10);
+        assertUnsupportedPredicate(not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(lessThan(cast(cast(C_CHAR_5, createCharType(3)), castType), new Constant(castType, utf8Slice("abc"))));
+    }
+
+    @Test
+    public void testCastCharToVarcharOrderingComparisonWithLegacyCoercion()
+    {
+        // With the legacy coercion, CAST(char AS varchar) pads with spaces up to the char length, so char(5) 'abc'
+        // casts to 'abc  '
+        Type charType = createCharType(5);
+        Type castType = createVarcharType(10);
+
+        // 'abc  ' is above 'abc', so char(5) 'abc' does not satisfy the comparison
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+
+        // unlike with the default coercion, char(5) 'abc' does not satisfy the comparison with 'abc  ' either
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                lessThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+    }
+
+    @Test
+    public void testCastVarcharToCharComparison()
+    {
+        // CAST(varchar AS char) truncates and trims trailing spaces, so it is not injective, but every value it maps
+        // to the constant starts with the constant. The domain is a superset, hence the comparison is also retained.
+        Type varcharType = createVarcharType(5);
+        Type castType = createCharType(5);
+        Domain prefixOfAbc = Domain.create(
+                ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)),
+                false);
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_5, prefixOfAbc));
+        assertPredicateDerives(
+                comparison(IDENTICAL, cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_5, prefixOfAbc));
+
+        // The cast semantics do not depend on the char to varchar coercion
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_5, prefixOfAbc));
+
+        // Unbounded source type
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR, Domain.create(
+                        ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("abc"), true, utf8Slice("abd"), false)),
+                        false)));
+
+        // No varchar(5) value is long enough to cast to the constant
+        Type longCastType = createCharType(10);
+        assertPredicateIsAlwaysFalse(equal(cast(C_VARCHAR_5, longCastType), new Constant(longCastType, utf8Slice("abcdefg"))));
+
+        // NOT_EQUAL does not constrain the source: a value starting with the constant can cast to something else
+        assertUnsupportedPredicate(notEqual(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        // Ordering comparisons are not translatable because the cast is not order-preserving
+        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(lessThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+
+        // No range can be derived for an all non-ASCII constant
+        assertUnsupportedPredicate(equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("\u00ff"))));
+    }
+
     private void assertPredicateIsAlwaysTrue(Expression expression)
     {
         assertPredicateTranslates(expression, TupleDomain.all(), TRUE);
@@ -1567,24 +1893,39 @@ public class TestDomainTranslator
 
     private void assertPredicateDerives(Expression expression, TupleDomain<Symbol> tupleDomain)
     {
-        assertPredicateTranslates(expression, tupleDomain, expression);
+        assertPredicateDerives(TEST_SESSION, expression, tupleDomain);
+    }
+
+    private void assertPredicateDerives(Session session, Expression expression, TupleDomain<Symbol> tupleDomain)
+    {
+        assertPredicateTranslates(session, expression, tupleDomain, expression);
     }
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
     {
-        ExtractionResult result = fromPredicate(expression);
-        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
-        assertThat(result.getRemainingExpression()).isEqualTo(remainingExpression);
+        assertPredicateTranslates(TEST_SESSION, expression, tupleDomain, remainingExpression);
+    }
+
+    private void assertPredicateTranslates(Session session, Expression expression, TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
+    {
+        ExtractionResult result = fromPredicate(session, expression);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain);
+        assertThat(result.remainingExpression()).isEqualTo(remainingExpression);
     }
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
     {
-        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
+        return fromPredicate(TEST_SESSION, originalPredicate);
+    }
+
+    private ExtractionResult fromPredicate(Session session, Expression originalPredicate)
+    {
+        return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), session, originalPredicate);
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(getCharVarcharCoercion(TEST_SESSION), tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -1640,7 +1981,7 @@ public class TestDomainTranslator
 
     private static Expression isDistinctFrom(Symbol symbol, Expression expression)
     {
-        return not(comparison(IDENTICAL, symbol.toSymbolReference(), expression));
+        return isDistinctFrom(symbol.toSymbolReference(), expression);
     }
 
     private Call like(Symbol symbol, String pattern)
@@ -1745,9 +2086,14 @@ public class TestDomainTranslator
         return comparison(LESS_THAN_OR_EQUAL, left, right);
     }
 
+    private static Expression isDistinctFrom(Expression left, Expression right)
+    {
+        return not(comparison(IDENTICAL, left, right));
+    }
+
     private static Expression not(Expression expression)
     {
-        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), expression);
+        return IrExpressions.not(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), expression);
     }
 
     private static Expression comparison(ComparisonOperator operator, Expression expression1, Expression expression2)
@@ -1809,8 +2155,8 @@ public class TestDomainTranslator
     private void testSimpleComparison(Expression expression, Symbol symbol, Expression expectedRemainingExpression, Domain expectedDomain)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertThat(result.getRemainingExpression()).isEqualTo(expectedRemainingExpression);
-        TupleDomain<Symbol> actual = result.getTupleDomain();
+        assertThat(result.remainingExpression()).isEqualTo(expectedRemainingExpression);
+        TupleDomain<Symbol> actual = result.tupleDomain();
         TupleDomain<Symbol> expected = tupleDomain(symbol, expectedDomain);
         if (!actual.equals(expected)) {
             fail(format("for comparison [%s] expected [%s] but found [%s]", expression, expected, actual));

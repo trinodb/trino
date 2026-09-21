@@ -24,8 +24,12 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.blob.cache.alluxio.AlluxioBlobCachePlugin;
 import io.trino.execution.QueryManager;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -34,6 +38,7 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.MaterializedResult;
@@ -71,6 +76,9 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_AS_OPERATION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_OPERATION;
@@ -79,6 +87,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STAT
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
@@ -147,8 +156,21 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected void environmentSetup() {}
 
-    protected abstract HiveHadoop createHiveHadoop()
-            throws Exception;
+    protected HiveMetastore createMetastore()
+            throws Exception
+    {
+        hiveHadoop = closeAfterClass(createHiveHadoop());
+        return new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
+                        .build(this::closeAfterClass));
+    }
+
+    protected HiveHadoop createHiveHadoop()
+            throws Exception
+    {
+        throw new UnsupportedOperationException("Subclass must override createMetastore() or createHiveHadoop()");
+    }
 
     protected abstract Map<String, String> hiveStorageConfiguration();
 
@@ -165,16 +187,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract void deleteFile(String filePath);
 
     @Override
+    @SuppressWarnings("deprecation")
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         environmentSetup();
 
-        this.hiveHadoop = closeAfterClass(createHiveHadoop());
-        this.metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
-                        .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                        .build(this::closeAfterClass));
+        metastore = createMetastore();
 
         QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {
@@ -206,16 +225,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table.tableName(), table.resourcePath(), queryRunner);
             });
 
-            queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
-
-            queryRunner.createCatalog(
-                    "hive",
-                    "hive",
-                    ImmutableMap.<String, String>builder()
-                            .put("hive.metastore", "thrift")
-                            .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
-                            .putAll(hiveStorageConfiguration())
-                            .buildOrThrow());
+            ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                    .putAll(hiveStorageConfiguration());
+            if (hiveHadoop == null) {
+                queryRunner.installPlugin(new TestingHivePlugin(
+                        queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"),
+                        metastore));
+            }
+            else {
+                queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
+                hiveProperties
+                        .put("hive.metastore", "thrift")
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString());
+            }
+            queryRunner.createCatalog("hive", "hive", hiveProperties.buildOrThrow());
 
             return queryRunner;
         }
@@ -228,17 +251,24 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
+        ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.<String, String>builder()
+                .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                .put("delta.register-table-procedure.enabled", "true")
+                .putAll(deltaStorageConfiguration());
+
         DeltaLakeQueryRunner.Builder builder = DeltaLakeQueryRunner.builder(SCHEMA)
-                .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
-                        .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("delta.register-table-procedure.enabled", "true")
-                        .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                        .putAll(deltaStorageConfiguration())
-                        .buildOrThrow())
-                .addDeltaProperty("fs.hadoop.enabled", "true")
                 .setSchemaLocation(getLocationForTable(bucketName, SCHEMA));
+        if (hiveHadoop == null) {
+            builder.setMetastore(metastore);
+        }
+        else {
+            deltaProperties
+                    .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
+                    .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
+                    .put("fs.hadoop.enabled", "true");
+        }
+        builder.setDeltaProperties(deltaProperties.buildOrThrow());
         getBlobCacheProperties().ifPresent(properties -> {
             builder.withPlugin(getBlobCachePlugin());
             builder.withBlobCache(getBlobCacheType(), properties);
@@ -265,6 +295,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     final void cleanUp()
     {
         hiveHadoop = null; // closed by closeAfterClass
+        metastore = null;
     }
 
     @Override
@@ -279,38 +310,41 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     @Test
     public void testDropSchemaExternalFiles()
+            throws Exception
     {
         String schemaName = "externalFileSchema";
         String schemaDir = bucketUrl() + "drop-schema-with-external-files/";
-        String subDir = schemaDir + "subdir/";
-        String externalFile = subDir + "external-file";
+        String externalFile = schemaDir + "subdir/external-file";
+        TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+        Location externalFileLocation = Location.of(externalFile);
 
         // Create file in a subdirectory of the schema directory before creating schema
-        hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
-        hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
+        fileSystem.newOutputFile(externalFileLocation).createOrOverwrite(new byte[0]);
 
         assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+        assertThat(fileSystem.newInputFile(externalFileLocation).exists())
                 .as("external file exists after creating schema")
-                .isEqualTo(0);
+                .isTrue();
 
         assertUpdate("DROP SCHEMA " + schemaName);
-        assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+        assertThat(fileSystem.newInputFile(externalFileLocation).exists())
                 .as("external file exists after dropping schema")
-                .isEqualTo(0);
+                .isTrue();
 
         // Test behavior without external file
-        hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
+        fileSystem.deleteFile(externalFileLocation);
+        Location schemaLocation = externalFileLocation.parentDirectory().parentDirectory();
+        fileSystem.createDirectory(schemaLocation);
 
         assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
+        assertThat(fileSystem.directoryExists(schemaLocation))
                 .as("schema directory exists after creating schema")
-                .isEqualTo(0);
+                .isNotEqualTo(Optional.of(false));
 
         assertUpdate("DROP SCHEMA " + schemaName);
-        assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
+        assertThat(fileSystem.directoryExists(schemaLocation))
                 .as("schema directory deleted after dropping schema without external file")
-                .isEqualTo(1);
+                .isNotEqualTo(Optional.of(true));
     }
 
     protected abstract String bucketUrl();
@@ -553,10 +587,24 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_schema" + randomNameSuffix();
         String viewName = "dummy_view";
         assertUpdate("CREATE SCHEMA " + schemaName);
-        hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
+
+        Table.Builder view = Table.builder()
+                .setDatabaseName(schemaName)
+                .setTableName(viewName)
+                .setOwner(Optional.of(getSession().getUser()))
+                .setTableType(VIRTUAL_VIEW.name())
+                .setDataColumns(ImmutableList.of(new Column("dummy", HIVE_STRING, Optional.empty(), Map.of())))
+                .setViewOriginalText(Optional.of(format("SELECT * FROM %s.customer", SCHEMA)))
+                .setViewExpandedText(Optional.of(format("SELECT * FROM %s.customer", SCHEMA)));
+        view.getStorageBuilder()
+                .setStorageFormat(VIEW_STORAGE_FORMAT)
+                .setLocation("");
+        metastore.createTable(view.build(), NO_PRIVILEGES);
+
         assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
-        hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
+        metastore.dropTable(schemaName, viewName, true);
+        metastore.dropDatabase(schemaName, true);
     }
 
     @Test
@@ -799,10 +847,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     @Override
     public void testRenameTable()
+            throws Exception
     {
-        assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+        if (supportsManagedTableRename()) {
+            super.testRenameTable();
+        }
+        else {
+            assertThatThrownBy(super::testRenameTable)
+                    .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
+                    .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+        }
     }
 
     @Test
@@ -834,10 +888,21 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     @Override
     public void testRenameTableAcrossSchemas()
+            throws Exception
     {
-        assertThatThrownBy(super::testRenameTableAcrossSchemas)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+        if (supportsManagedTableRename()) {
+            super.testRenameTableAcrossSchemas();
+        }
+        else {
+            assertThatThrownBy(super::testRenameTableAcrossSchemas)
+                    .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
+                    .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
+        }
+    }
+
+    protected boolean supportsManagedTableRename()
+    {
+        return false;
     }
 
     @Test

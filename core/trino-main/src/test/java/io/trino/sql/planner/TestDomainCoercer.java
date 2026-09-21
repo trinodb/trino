@@ -19,6 +19,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Range.greaterThan;
@@ -27,11 +28,13 @@ import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.Reals.toReal;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -180,6 +183,21 @@ public class TestDomainCoercer
     public void testUnsupportedCast()
     {
         assertThatThrownBy(() -> applySaturatedCasts(Domain.singleValue(INTEGER, 10L), BIGINT))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    public void testVarcharToChar()
+    {
+        // With the default coercion (deprecated.legacy-varchar-to-char-coercion disabled) there is
+        // no varchar to char saturated floor cast: CAST(char AS varchar) returns the unpadded value
+        // while char values compare as if space-padded to their declared length, so the cast is not
+        // monotone and domain bounds cannot be translated. RemoveUnsupportedDynamicFilters drops
+        // dynamic filters over CAST(char AS varchar) join keys instead.
+        assertThatThrownBy(() -> applySaturatedCasts(
+                multipleValues(createVarcharType(10), ImmutableList.of(utf8Slice("I"), utf8Slice("P"))),
+                createCharType(10)))
+                .hasMessage("Saturated floor cast operator not found for coercion from varchar(10) to char(10)")
                 .isInstanceOf(IllegalStateException.class);
     }
 

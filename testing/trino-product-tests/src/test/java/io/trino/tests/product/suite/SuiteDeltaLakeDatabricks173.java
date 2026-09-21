@@ -32,8 +32,7 @@ public final class SuiteDeltaLakeDatabricks173
         List<TestRunResult> results = new ArrayList<>();
         results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks173Environment.class)
                 .includeTag(TestGroup.ConfiguredFeatures.class)
-                .includeTag(TestGroup.DeltaLakeDatabricks.class)
-                .excludeTag(TestGroup.DeltaLakeExclude173.class)
+                .includeTag(TestGroup.DeltaLakeDatabricks173.class)
                 .run());
 
         SuiteRunner.printSummary(results);

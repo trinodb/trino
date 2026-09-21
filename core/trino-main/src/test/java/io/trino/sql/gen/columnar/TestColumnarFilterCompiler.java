@@ -24,12 +24,15 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
@@ -39,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarFilterCompiler
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final Expression FILTER = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 2L));
 
@@ -49,17 +53,17 @@ public class TestColumnarFilterCompiler
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
 
         // First compile: cache miss
-        compiler.generateFilter(FILTER, layout);
+        compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout);
         assertThat(compiler.getFilterCache().getRequestCount()).isEqualTo(1);
         assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(1);
 
         // Second compile with same expression: cache hit
-        compiler.generateFilter(FILTER, layout);
+        compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout);
         assertThat(compiler.getFilterCache().getRequestCount()).isEqualTo(2);
         assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(1);
 
         // Cached filter produces correct results
-        ColumnarFilter filter = compiler.generateFilter(FILTER, layout).orElseThrow().get();
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout).orElseThrow().get();
         Block block = createLongSequenceBlock(0, 5);
         SourcePage page = filter.getInputChannels().getInputChannels(SourcePage.create(new Page(
                 createLongSequenceBlock(0, 5),
@@ -97,8 +101,8 @@ public class TestColumnarFilterCompiler
                 new Constant(BIGINT, 12L),
                 new Constant(BIGINT, 14L)));
 
-        ColumnarFilter filter1 = compiler.generateFilter(in1, layout, true).orElseThrow().get();
-        ColumnarFilter filter2 = compiler.generateFilter(in2, layout, true).orElseThrow().get();
+        ColumnarFilter filter1 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in1, layout, true).orElseThrow().get();
+        ColumnarFilter filter2 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in2, layout, true).orElseThrow().get();
 
         // Different value sets share one generated class and stay out of the shared cache
         assertThat(filter2.getClass()).isEqualTo(filter1.getClass());
@@ -117,8 +121,8 @@ public class TestColumnarFilterCompiler
         Map<Symbol, Integer> layout1 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
         Map<Symbol, Integer> layout2 = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 3);
 
-        Optional<Supplier<ColumnarFilter>> supplier1 = compiler.generateFilter(FILTER, layout1);
-        Optional<Supplier<ColumnarFilter>> supplier2 = compiler.generateFilter(FILTER, layout2);
+        Optional<Supplier<ColumnarFilter>> supplier1 = compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout1);
+        Optional<Supplier<ColumnarFilter>> supplier2 = compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout2);
         assertThat(supplier1).isPresent();
         assertThat(supplier2).isPresent();
 
@@ -155,7 +159,7 @@ public class TestColumnarFilterCompiler
 
         // Still produces correct results
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 2);
-        ColumnarFilter filter = compiler.generateFilter(FILTER, layout).orElseThrow().get();
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, FILTER, layout).orElseThrow().get();
         Block block = createLongSequenceBlock(0, 5);
         SourcePage page = filter.getInputChannels().getInputChannels(SourcePage.create(new Page(
                 createLongSequenceBlock(0, 5),

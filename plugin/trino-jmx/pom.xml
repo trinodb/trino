@@ -20,12 +20,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -38,6 +32,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>
@@ -104,6 +103,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>jackson</artifactId>
             <scope>test</scope>
         </dependency>
 

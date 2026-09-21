@@ -929,7 +929,13 @@ public final class HttpRemoteTask
                 if (currentTimeNanos == 0) {
                     currentTimeNanos = 1;
                 }
-                this.terminationStartedNanos.compareAndSet(0, currentTimeNanos);
+                if (this.terminationStartedNanos.compareAndSet(0, currentTimeNanos)) {
+                    errorScheduledExecutor.schedule(() -> {
+                        if (!getTaskStatus().state().isDone()) {
+                            fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_ERROR, format("Task %s failed to terminate after %s, last known state: %s", taskId, taskTerminationTimeout, getTaskStatus().state())));
+                        }
+                    }, taskTerminationTimeout.roundTo(NANOSECONDS), NANOSECONDS);
+                }
             }
             else {
                 Duration terminatingTime = nanosSince(terminationStartedNanos);
@@ -1153,6 +1159,13 @@ public final class HttpRemoteTask
                 }
             }
         }
+    }
+
+    @Override
+    public void forceFinalizationUsingTaskStatus()
+    {
+        checkState(getTaskStatus().state().isDone(), "task status is not terminal");
+        taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
     }
 
     @Override

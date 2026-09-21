@@ -20,7 +20,6 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -49,7 +48,6 @@ import org.apache.iceberg.expressions.ManifestEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
 import org.apache.iceberg.types.Types;
-import org.apache.iceberg.util.ParallelIterable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -61,8 +59,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -71,6 +72,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
@@ -175,7 +177,6 @@ public final class TableStatisticsReader
                     return evaluator.eval(manifestFile);
                 })
                 .collect(toImmutableList());
-        Iterable<CloseableIterable<DataFile>> dataFileIterables = Iterables.transform(filteredManifests, manifestFile -> readManifest(icebergTable, manifestFile, filter, columnIds));
 
         ImmutableList.Builder<Types.NestedField> columnsBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
@@ -186,31 +187,36 @@ public final class TableStatisticsReader
             }
         }
         List<Types.NestedField> columns = columnsBuilder.build();
-        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, columnTypesBuilder.build(), typeManager);
+        List<Type> columnTypes = columnTypesBuilder.build();
+        IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
+
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
-        CloseableIterable<DataFile> dataFileSource;
         if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
-            dataFileSource = CloseableIterable.concat(dataFileIterables);
+            for (ManifestFile manifestFile : filteredManifests) {
+                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+            }
         }
         else {
-            dataFileSource = new ParallelIterable<>(dataFileIterables, icebergPlanningExecutor);
-        }
-        try (CloseableIterable<DataFile> dataFiles = dataFileSource) {
-            dataFiles.forEach(dataFile -> {
-                PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
-                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {
-                    return;
-                }
-                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(dataFile.location()))) {
-                    return;
-                }
-
-                // Filtering by $file_modified_time is skipped to avoid making filesystem calls on each matched data file
-                icebergStatisticsBuilder.acceptDataFile(dataFile, spec);
-            });
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+            // Aggregate each manifest into its own accumulator on the planning pool and merge it into the result
+            // as soon as it is done. Data files are consumed on the thread that decodes them and partial results
+            // are not retained after merging, so memory usage stays independent of the number of data files.
+            List<Callable<Void>> tasks = filteredManifests.stream()
+                    .map(manifestFile -> (Callable<Void>) () -> {
+                        IcebergStatistics.Builder statisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
+                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+                        synchronized (icebergStatisticsBuilder) {
+                            icebergStatisticsBuilder.merge(statisticsBuilder);
+                        }
+                        return null;
+                    })
+                    .collect(toImmutableList());
+            try {
+                processWithAdditionalThreads(tasks, icebergPlanningExecutor);
+            }
+            catch (ExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e.getCause());
+            }
         }
 
         IcebergStatistics summary = icebergStatisticsBuilder.build();
@@ -360,6 +366,34 @@ public final class TableStatisticsReader
                 return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
+    }
+
+    private static void collectManifestStatistics(
+            IcebergStatistics.Builder statisticsBuilder,
+            Table icebergTable,
+            ManifestFile manifestFile,
+            Expression filter,
+            Set<Integer> columnIds,
+            Domain partitionDomain,
+            Domain pathDomain)
+    {
+        try (CloseableIterable<DataFile> dataFiles = readManifest(icebergTable, manifestFile, filter, columnIds)) {
+            for (DataFile dataFile : dataFiles) {
+                PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
+                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {
+                    continue;
+                }
+                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(dataFile.location()))) {
+                    continue;
+                }
+
+                // Filtering by $file_modified_time is skipped to avoid making filesystem calls on each matched data file
+                statisticsBuilder.acceptDataFile(dataFile, spec);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static CloseableIterable<DataFile> readManifest(Table icebergTable, ManifestFile manifestFile, Expression filter, Set<Integer> columnIds)

@@ -57,11 +57,12 @@ import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClassDataAt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.Math.toIntExact;
@@ -335,14 +336,18 @@ public final class BytecodeUtils
                         block.append(boxPrimitiveIfNecessary(scope, type));
                         block.append(scope.getVariable("wasNull").set(constantFalse()));
                     }
-                    case BLOCK_POSITION -> {
+                    case VALUE_BLOCK_POSITION -> {
                         InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
-                        block.append(inputReferenceNode.produceBlockAndPosition());
+                        block.append(inputReferenceNode.produceValueBlockAndPosition());
                         stackTypes.add(int.class);
-                        if (!functionNullability.isArgumentNullable(realParameterIndex)) {
-                            block.append(scope.getVariable("wasNull").set(inputReferenceNode.blockAndPositionIsNull()));
-                            block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
-                        }
+                        currentParameterIndex++;
+                    }
+                    case VALUE_BLOCK_POSITION_NOT_NULL -> {
+                        InputReferenceNode inputReferenceNode = (InputReferenceNode) arguments.get(realParameterIndex);
+                        block.append(inputReferenceNode.produceValueBlockAndPosition());
+                        stackTypes.add(int.class);
+                        block.append(scope.getVariable("wasNull").set(inputReferenceNode.valueBlockPositionIsNull()));
+                        block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, stackTypes.reversed()));
                         currentParameterIndex++;
                     }
                     case IN_OUT -> {
@@ -383,10 +388,13 @@ public final class BytecodeUtils
 
     private static InvocationArgumentConvention getPreferredArgumentConvention(BytecodeNode argument, int argumentCount, boolean nullable)
     {
-        // a Java function can only have 255 arguments, so if the count is low use block position or boxed nullable as they are more efficient
+        // a Java function can only have 255 arguments, so if the count is low use value block position or boxed nullable as they are more efficient
         if (argumentCount <= 64) {
             if (argument instanceof InputReferenceNode) {
-                return BLOCK_POSITION;
+                if (nullable) {
+                    return VALUE_BLOCK_POSITION;
+                }
+                return VALUE_BLOCK_POSITION_NOT_NULL;
             }
             if (nullable) {
                 return NULL_FLAG;

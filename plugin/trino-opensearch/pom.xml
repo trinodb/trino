@@ -16,7 +16,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.opensearch.version>3.7.0</dep.opensearch.version>
+        <dep.opensearch.version>3.8.0</dep.opensearch.version>
     </properties>
 
     <dependencies>
@@ -33,12 +33,6 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
@@ -59,6 +53,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

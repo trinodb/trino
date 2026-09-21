@@ -185,6 +185,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -974,6 +975,22 @@ class AstBuilder
         return new TableExecute(
                 getLocation(context),
                 new Table(getLocation(context.TABLE()), getQualifiedName(context.tableName)),
+                (Identifier) visit(context.procedureName),
+                arguments,
+                visitIfPresent(context.booleanExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMaterializedViewExecute(SqlBaseParser.MaterializedViewExecuteContext context)
+    {
+        List<CallArgument> arguments = ImmutableList.of();
+        if (context.argument() != null) {
+            arguments = visit(context.argument(), CallArgument.class);
+        }
+
+        return new MaterializedViewExecute(
+                getLocation(context),
+                new Table(getLocation(context.MATERIALIZED()), getQualifiedName(context.qualifiedName())),
                 (Identifier) visit(context.procedureName),
                 arguments,
                 visitIfPresent(context.booleanExpression(), Expression.class));
@@ -3448,11 +3465,17 @@ class AstBuilder
             searchMode = Optional.of(new PatternSearchMode(getLocation(context.SEEK()), SEEK));
         }
 
+        WindowFrame.Exclusion exclusion = WindowFrame.Exclusion.NO_OTHERS;
+        if (context.frameExclusion() != null) {
+            exclusion = getFrameExclusion(context.frameExclusion());
+        }
+
         return new WindowFrame(
                 getLocation(context),
                 getFrameType(context.frameExtent().frameType),
                 (FrameBound) visit(context.frameExtent().start),
                 visitIfPresent(context.frameExtent().end, FrameBound.class),
+                exclusion,
                 visit(context.measureDefinition(), MeasureDefinition.class),
                 visitIfPresent(context.skipTo(), SkipTo.class),
                 searchMode,
@@ -4621,6 +4644,23 @@ class AstBuilder
             case SqlBaseLexer.GROUPS -> WindowFrame.Type.GROUPS;
             default -> throw new IllegalArgumentException("Unsupported frame type: " + type.getText());
         };
+    }
+
+    private static WindowFrame.Exclusion getFrameExclusion(SqlBaseParser.FrameExclusionContext context)
+    {
+        if (context.CURRENT() != null) {
+            return WindowFrame.Exclusion.CURRENT_ROW;
+        }
+        if (context.GROUP() != null) {
+            return WindowFrame.Exclusion.GROUP;
+        }
+        if (context.TIES() != null) {
+            return WindowFrame.Exclusion.TIES;
+        }
+        if (context.NO() != null) {
+            return WindowFrame.Exclusion.NO_OTHERS;
+        }
+        throw new IllegalArgumentException("Unsupported frame exclusion: " + context.getText());
     }
 
     private static FrameBound.Type getBoundedFrameBoundType(Token token)

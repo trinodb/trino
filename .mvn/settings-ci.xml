@@ -1,0 +1,11 @@
+<settings>
+    <!--
+        CI-only settings, merged in as the global-settings file via MAVEN_ARGS in ci.yml
+
+        Activating the profile here is necessary to make the Google Maven Central mirror apply
+        before extensions (.mvn/extensions.xml) are loaded.
+    -->
+    <activeProfiles>
+        <activeProfile>ci-google-maven-central</activeProfile>
+    </activeProfiles>
+</settings>

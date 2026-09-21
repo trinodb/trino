@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+  issues: write # to create milestones and set them on merged PRs
+  pull-requests: write
+
 defaults:
   run:
     shell: bash --noprofile --norc -euo pipefail {0}
@@ -15,6 +20,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
         timeout-minutes: 15
       - name: Get milestone from pom.xml

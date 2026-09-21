@@ -16,12 +16,6 @@
     <profiles>
         <profile>
             <id>ci-google-maven-central</id>
-            <activation>
-                <property>
-                    <name>env.CONTINUOUS_INTEGRATION</name>
-                    <value>true</value>
-                </property>
-            </activation>
             <repositories>
                 <repository>
                     <id>google-maven-central</id>

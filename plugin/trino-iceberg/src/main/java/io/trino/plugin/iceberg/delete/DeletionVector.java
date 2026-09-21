@@ -27,11 +27,14 @@ import java.util.zip.CRC32;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_DELETION_VECTOR_TOO_LARGE;
 
 public final class DeletionVector
 {
+    private static final int INSTANCE_SIZE = instanceSize(DeletionVector.class);
     private static final int MAGIC_LE = 0x64_39_D3_D1;
     private static final int LENGTH_SIZE_BYTES = 4;
     private static final int CRC_SIZE_BYTES = 4;
@@ -155,6 +158,22 @@ public final class DeletionVector
         return cardinality;
     }
 
+    public long retainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + retainedSizeInBytes(deletedRows);
+    }
+
+    private static long retainedSizeInBytes(RoaringBitmap[] deletedRows)
+    {
+        long size = sizeOfObjectArray(deletedRows.length);
+        for (RoaringBitmap bitmap : deletedRows) {
+            if (bitmap != null) {
+                size += bitmap.getLongSizeInBytes();
+            }
+        }
+        return size;
+    }
+
     private static int key(long pos)
     {
         return (int) (pos >>> 32);
@@ -172,6 +191,8 @@ public final class DeletionVector
 
     public static final class Builder
     {
+        private static final int INSTANCE_SIZE = instanceSize(Builder.class);
+
         private int bitmapCount;
         private RoaringBitmap[] deletedRows = new RoaringBitmap[0];
 
@@ -270,6 +291,11 @@ public final class DeletionVector
                 bitmapCount++;
             }
             return bitmap;
+        }
+
+        public long retainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + DeletionVector.retainedSizeInBytes(deletedRows);
         }
 
         public Optional<DeletionVector> build()

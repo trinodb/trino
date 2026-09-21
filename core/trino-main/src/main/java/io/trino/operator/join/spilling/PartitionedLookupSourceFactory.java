@@ -52,6 +52,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.SizeOf.sizeOfBooleanArray;
 import static io.trino.operator.join.OuterLookupSource.createOuterLookupSourceSupplier;
 import static io.trino.operator.join.spilling.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static java.util.Collections.emptyList;
@@ -145,6 +146,16 @@ public final class PartitionedLookupSourceFactory
     public int partitions()
     {
         return partitions.length;
+    }
+
+    // The factory allocates the outer join visited-position flags when the last partition is lent,
+    // so each HashBuilderOperator accounts its partition's share through this method.
+    public long getOuterPositionTrackerSizeInBytes(int positionCount)
+    {
+        if (!outer) {
+            return 0;
+        }
+        return sizeOfBooleanArray(positionCount);
     }
 
     @Override

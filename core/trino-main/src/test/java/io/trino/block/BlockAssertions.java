@@ -496,8 +496,12 @@ public final class BlockAssertions
     public static Block createStringDictionaryBlock(int start, int length)
     {
         checkArgument(length > 5, "block must have more than 5 entries");
+        return createStringDictionaryBlock(start, length, length / 5);
+    }
 
-        int dictionarySize = length / 5;
+    public static Block createStringDictionaryBlock(int start, int length, int dictionarySize)
+    {
+        checkArgument(dictionarySize > 0, "dictionarySize must be greater than 0");
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));

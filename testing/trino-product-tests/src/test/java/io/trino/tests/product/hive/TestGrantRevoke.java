@@ -97,7 +97,7 @@ class TestGrantRevoke
 
         cleanupRoles(env);
 
-        assertThat(listRoles(env)).containsOnlyElementsOf(PREDEFINED_ROLES);
+        assertThat(listRoles(env)).containsExactlyInAnyOrderElementsOf(PREDEFINED_ROLES);
     }
 
     @Test

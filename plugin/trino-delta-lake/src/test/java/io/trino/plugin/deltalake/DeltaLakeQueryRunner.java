@@ -19,6 +19,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -74,6 +76,7 @@ public final class DeltaLakeQueryRunner
         private final String schemaName;
         private ImmutableMap.Builder<String, String> deltaProperties = ImmutableMap.builder();
         private Optional<String> schemaLocation = Optional.empty();
+        private Optional<HiveMetastore> metastore = Optional.empty();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
 
         protected Builder(String schemaName)
@@ -139,6 +142,13 @@ public final class DeltaLakeQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public Builder setMetastore(HiveMetastore metastore)
+        {
+            this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
@@ -154,10 +164,12 @@ public final class DeltaLakeQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                queryRunner.installPlugin(new TestingDeltaLakePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data")));
+                queryRunner.installPlugin(new TestingDeltaLakePlugin(
+                        queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data"),
+                        () -> metastore.map(TestingDeltaLakeMetastoreModule::new)));
 
                 Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
-                if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
+                if (metastore.isEmpty() && !deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
                     deltaProperties.put("hive.metastore", "file");
                 }
 
@@ -195,6 +207,7 @@ public final class DeltaLakeQueryRunner
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
                     .addDeltaProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
+                    .addDeltaProperty("fs.hadoop.enabled", "true")
                     .setInitialTables(TpchTable.getTables())
                     .build();
 

@@ -33,6 +33,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -140,7 +141,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
         AggregationNode distinct = null;
 
         // decorrelate nested plan
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, getCharVarcharCoercion(context.getSession()), context.getSymbolAllocator(), context.getLookup());
         Optional<PlanNodeDecorrelator.DecorrelatedNode> decorrelatedSource = decorrelator.decorrelateFilters(source, correlatedJoinNode.getCorrelation());
         if (decorrelatedSource.isEmpty()) {
             // we failed to decorrelate the nested plan, so check if we can extract a distinct operator from the nested plan
@@ -154,7 +155,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
             }
         }
 
-        source = decorrelatedSource.get().getNode();
+        source = decorrelatedSource.get().node();
 
         // assign unique id on correlated join's input. It will be used to distinguish between original input rows after join
         PlanNode inputWithUniqueId = new AssignUniqueId(
@@ -171,7 +172,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
                 inputWithUniqueId.getOutputSymbols(),
                 source.getOutputSymbols(),
                 false,
-                decorrelatedSource.get().getCorrelatedPredicates(),
+                decorrelatedSource.get().correlatedPredicate(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),

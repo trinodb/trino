@@ -36,7 +36,6 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.UUID;
 
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;

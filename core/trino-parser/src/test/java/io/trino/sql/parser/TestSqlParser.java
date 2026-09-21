@@ -136,6 +136,7 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MatchPredicate;
+import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeDelete;
@@ -5118,6 +5119,29 @@ public class TestSqlParser
     }
 
     @Test
+    public void testMaterializedViewExecute()
+    {
+        Table mv = new Table(location(1, 7), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false))));
+        Identifier procedure = new Identifier(location(1, 37), "bar", false);
+
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar"))
+                .isEqualTo(new MaterializedViewExecute(location(1, 1), mv, procedure, ImmutableList.of(), Optional.empty()));
+        assertThat(statement("ALTER MATERIALIZED VIEW foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17")).isEqualTo(
+                new MaterializedViewExecute(
+                        location(1, 1),
+                        mv,
+                        procedure,
+                        ImmutableList.of(
+                                new CallArgument(location(1, 41), Optional.of(new Identifier(location(1, 41), "bah", false)), new LongLiteral(location(1, 48), "1")),
+                                new CallArgument(location(1, 51), Optional.of(new Identifier(location(1, 51), "wuh", false)), new StringLiteral(location(1, 58), "clap"))),
+                        Optional.of(
+                                new Predicated(
+                                        location(1, 76),
+                                        new Identifier(location(1, 72), "age", false),
+                                        new ComparisonPredicate(location(1, 76), ComparisonPredicate.Operator.GREATER_THAN, new LongLiteral(location(1, 78), "17"))))));
+    }
+
+    @Test
     public void testAnalyze()
     {
         QualifiedName table = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 9), "foo", false)));
@@ -8339,7 +8363,7 @@ public class TestSqlParser
                                 Optional.of(new Identifier(location(1, 14), "someWindow", false)),
                                 ImmutableList.of(new Identifier(location(1, 38), "x", false)),
                                 Optional.of(new OrderBy(location(1, 40), ImmutableList.of(new SortItem(location(1, 49), new Identifier(location(1, 49), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8356,7 +8380,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier(location(1, 27), "x", false)),
                                 Optional.of(new OrderBy(location(1, 29), ImmutableList.of(new SortItem(location(1, 38), new Identifier(location(1, 38), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8445,6 +8469,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(7, 17), CURRENT_ROW),
                                         Optional.of(new FrameBound(location(7, 33), FOLLOWING, new LongLiteral(location(7, 33), "5"))),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(
                                                 new MeasureDefinition(
                                                         location(5, 8),
@@ -8526,6 +8551,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(3, 8), CURRENT_ROW),
                                         Optional.empty(),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(new MeasureDefinition(
                                                 location(2, 12),
                                                 new Identifier(location(2, 12), "z", false),

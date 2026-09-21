@@ -42,6 +42,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
@@ -78,6 +79,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -426,6 +428,10 @@ public class ColumnJdbcTable
         if (type instanceof DecimalType) {
             return Types.DECIMAL;
         }
+        if (type.equals(NUMBER)) {
+            // Types.OTHER, matching the JDBC driver's ResultSetMetaData.getColumnType. DECIMAL would suggest ResultSet.getBigDecimal, which fails for some values.
+            return Types.OTHER;
+        }
         if (type instanceof VarcharType) {
             return Types.VARCHAR;
         }
@@ -472,6 +478,10 @@ public class ColumnJdbcTable
         }
         if (type instanceof DecimalType decimalType) {
             return decimalType.getPrecision();
+        }
+        if (type.equals(NUMBER)) {
+            // no declared precision, so report the maximum length of a value, +1 for the sign
+            return NumberType.currentMaxPrecision() + 1;
         }
         if (type.equals(REAL)) {
             return 24; // IEEE 754
@@ -570,6 +580,7 @@ public class ColumnJdbcTable
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
+                type.equals(NUMBER) ||
                 (type instanceof DecimalType)) {
             return 10;
         }

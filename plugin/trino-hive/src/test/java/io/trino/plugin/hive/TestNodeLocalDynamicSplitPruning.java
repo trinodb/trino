@@ -82,7 +82,8 @@ class TestNodeLocalDynamicSplitPruning
     void testDynamicBucketPruning()
             throws IOException
     {
-        HiveConfig config = new HiveConfig();
+        // The split points at an empty ORC file; keep ORC as the default storage format
+        HiveConfig config = new HiveConfig().setHiveStorageFormat(HiveStorageFormat.ORC);
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
             assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
@@ -97,7 +98,8 @@ class TestNodeLocalDynamicSplitPruning
     void testDynamicPartitionPruning()
             throws IOException
     {
-        HiveConfig config = new HiveConfig();
+        // The split points at an empty ORC file; keep ORC as the default storage format
+        HiveConfig config = new HiveConfig().setHiveStorageFormat(HiveStorageFormat.ORC);
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
 
         try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {

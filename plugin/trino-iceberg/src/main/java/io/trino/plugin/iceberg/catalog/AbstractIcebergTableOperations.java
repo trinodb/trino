@@ -24,7 +24,6 @@ import io.trino.metastore.StorageFormat;
 import io.trino.plugin.iceberg.IcebergExceptions;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
@@ -42,7 +41,6 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.types.Types.NestedField;
 
-import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +54,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
@@ -303,9 +300,6 @@ public abstract class AbstractIcebergTableOperations
                             .abortOn(throwable -> TrinoFileSystem.isUnrecoverableException(throwable) || IcebergExceptions.isFatalException(throwable))
                             .build())
                     .get(() -> metadataLoader.apply(newLocation));
-        }
-        catch (UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing metadata file for table %s".formatted(getSchemaTableName().toString()), e);
         }
         catch (Throwable failure) {
             throw translateMetadataException(failure, getSchemaTableName().toString());

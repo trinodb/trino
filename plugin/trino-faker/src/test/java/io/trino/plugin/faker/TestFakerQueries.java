@@ -284,6 +284,12 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("min", "2022-03-21 00:00:00 +01:00", "max", "2022-03-21 00:00:01 +01:00"), "count(distinct rnd_timestamptz0)", "2"))
                 .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000000 +01:00", "max", "2022-03-21 00:00:00.000001 +01:00"), "count(distinct rnd_timestamptz6)", "2"))
                 .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000 +01:00", "max", "2022-03-21 00:00:00.000000001 +01:00"), "count(distinct rnd_timestamptz9)", "2"))
+                // an inclusive high bound at the top unit of a millisecond or microsecond must carry
+                // into the next one, and at maximum precision the fraction must survive normalization
+                .add(new TestDataType("rnd_timestamp9_carry", "timestamp(9)", Map.of("min", "2022-03-21 00:00:00.000000998", "max", "2022-03-21 00:00:00.000000999"), "count(distinct rnd_timestamp9_carry)", "2"))
+                .add(new TestDataType("rnd_timestamp12", "timestamp(12)", Map.of("min", "2022-03-21 00:00:00.000000000001", "max", "2022-03-21 00:00:00.000000000002"), "count(distinct rnd_timestamp12)", "2"))
+                .add(new TestDataType("rnd_timestamptz6_carry", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000998 +01:00", "max", "2022-03-21 00:00:00.000999 +01:00"), "count(distinct rnd_timestamptz6_carry)", "2"))
+                .add(new TestDataType("rnd_timestamptz12", "timestamp(12) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000001 +01:00", "max", "2022-03-21 00:00:00.000000000002 +01:00"), "count(distinct rnd_timestamptz12)", "2"))
                 .add(new TestDataType("rnd_time", "time", Map.of("min", "01:02:03.456", "max", "01:02:03.457"), "count(distinct rnd_time)", "2"))
                 .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "01:02:03", "max", "01:02:04"), "count(distinct rnd_time0)", "2"))
                 .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "01:02:03.000456", "max", "01:02:03.000457"), "count(distinct rnd_time6)", "2"))

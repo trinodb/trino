@@ -49,6 +49,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -59,6 +60,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
@@ -79,6 +81,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPostgreSqlClient
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
@@ -354,8 +357,8 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                between(
-                                        FUNCTIONS.getMetadata(),
+                                between(FUNCTIONS.getMetadata(),
+                                        CHAR_VARCHAR_COERCION,
                                         emptySymbolAllocator(),
                                         new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "c_bigint_symbol"))),
                                         new Constant(BIGINT, 1L),
@@ -372,8 +375,8 @@ public class TestPostgreSqlClient
         assertThat(JDBC_CLIENT.convertPredicate(
                 SESSION,
                 translateToConnectorExpression(
-                        between(
-                                FUNCTIONS.getMetadata(),
+                        between(FUNCTIONS.getMetadata(),
+                                CHAR_VARCHAR_COERCION,
                                 emptySymbolAllocator(),
                                 new Coalesce(
                                         new Reference(VARCHAR, "a_varchar_symbol"),
@@ -406,7 +409,7 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                not(FUNCTIONS.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
+                                not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(VARCHAR, "c_varchar_symbol")))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IS NOT NULL");
@@ -420,9 +423,9 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                nullIf(
-                                        FUNCTIONS.getMetadata(),
+                                nullIf(FUNCTIONS.getMetadata(),
                                         FUNCTIONS.getPlannerContext().getTypeManager(),
+                                        CHAR_VARCHAR_COERCION,
                                         emptySymbolAllocator(),
                                         new Reference(VARCHAR, "a_varchar_symbol"),
                                         new Reference(VARCHAR, "b_varchar_symbol"))),
@@ -439,9 +442,9 @@ public class TestPostgreSqlClient
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
                         translateToConnectorExpression(
-                                not(
-                                        FUNCTIONS.getMetadata(),
-                                        not(FUNCTIONS.getMetadata(), new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
+                                not(FUNCTIONS.getMetadata(),
+                                        CHAR_VARCHAR_COERCION,
+                                        not(FUNCTIONS.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(VARCHAR, "c_varchar_symbol"))))),
                         Map.of("c_varchar_symbol", VARCHAR_COLUMN))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("NOT ((\"c_varchar\") IS NOT NULL)");

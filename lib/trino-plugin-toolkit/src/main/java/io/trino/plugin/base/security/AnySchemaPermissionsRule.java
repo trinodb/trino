@@ -16,29 +16,22 @@ package io.trino.plugin.base.security;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 public class AnySchemaPermissionsRule
 {
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
-    private final Optional<Pattern> schemaRegex;
+    private final IdentityMatcher identityMatcher;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
 
-    public AnySchemaPermissionsRule(Optional<Pattern> userRegex, Optional<Pattern> roleRegex, Optional<Pattern> groupRegex, Optional<Pattern> schemaRegex)
+    public AnySchemaPermissionsRule(IdentityMatcher identityMatcher, Optional<UserSubstitutingPattern> schemaPattern)
     {
-        this.userRegex = userRegex;
-        this.roleRegex = roleRegex;
-        this.groupRegex = groupRegex;
-        this.schemaRegex = schemaRegex;
+        this.identityMatcher = identityMatcher;
+        this.schemaPattern = schemaPattern;
     }
 
     public boolean match(String user, Set<String> roles, Set<String> groups, String schemaName)
     {
-        return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                schemaRegex.map(regex -> regex.matcher(schemaName).matches()).orElse(true);
+        return identityMatcher.matches(user, roles, groups) &&
+                schemaPattern.map(pattern -> pattern.matches(user, schemaName)).orElse(true);
     }
 
     @Override
@@ -51,25 +44,13 @@ public class AnySchemaPermissionsRule
             return false;
         }
         AnySchemaPermissionsRule that = (AnySchemaPermissionsRule) o;
-        return patternEquals(userRegex, that.userRegex) &&
-                patternEquals(roleRegex, that.roleRegex) &&
-                patternEquals(groupRegex, that.groupRegex) &&
-                patternEquals(schemaRegex, that.schemaRegex);
-    }
-
-    private static boolean patternEquals(Optional<Pattern> left, Optional<Pattern> right)
-    {
-        if (left.isEmpty() || right.isEmpty()) {
-            return left.isEmpty() == right.isEmpty();
-        }
-        Pattern leftPattern = left.get();
-        Pattern rightPattern = right.get();
-        return leftPattern.pattern().equals(rightPattern.pattern()) && leftPattern.flags() == rightPattern.flags();
+        return identityMatcher.equals(that.identityMatcher) &&
+                Objects.equals(schemaPattern, that.schemaPattern);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(userRegex, roleRegex, groupRegex, schemaRegex);
+        return Objects.hash(identityMatcher, schemaPattern);
     }
 }

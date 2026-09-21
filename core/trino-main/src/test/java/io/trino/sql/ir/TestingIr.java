@@ -15,13 +15,18 @@ package io.trino.sql.ir;
 
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.type.CharVarcharCoercion;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 
 /// Test helpers for building IR expressions whose construction needs a function resolver.
 public final class TestingIr
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
+
     private TestingIr() {}
 
     /// Builds the canonical IR form of a comparison (a {@link Call} to the operator function),
@@ -31,7 +36,7 @@ public final class TestingIr
     /// test.
     public static Expression comparison(ComparisonOperator operator, Expression left, Expression right)
     {
-        return IrExpressions.comparison(PLANNER_CONTEXT.getMetadata(), operator, left, right);
+        return IrExpressions.comparison(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, operator, left, right);
     }
 
     /// Builds the desugared IR form of a `value BETWEEN min AND max` predicate (see
@@ -39,18 +44,18 @@ public final class TestingIr
     /// planner context.
     public static Expression between(Expression value, Expression min, Expression max)
     {
-        return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), emptySymbolAllocator(), value, min, max);
+        return IrExpressions.between(PLANNER_CONTEXT.getMetadata(), CHAR_VARCHAR_COERCION, emptySymbolAllocator(), value, min, max);
     }
 
     /// Builds the desugared IR form of `NULLIF(first, second)` (see {@link IrExpressions#nullIf}),
     /// resolving the equality operator against the shared testing planner context.
     public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second)
     {
-        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), allocator, first, second);
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), CHAR_VARCHAR_COERCION, allocator, first, second);
     }
 
     public static Expression nullIf(SymbolAllocator allocator, Expression first, Expression second, Type comparisonType)
     {
-        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), allocator, first, second, comparisonType);
+        return IrExpressions.nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), CHAR_VARCHAR_COERCION, allocator, first, second, comparisonType);
     }
 }

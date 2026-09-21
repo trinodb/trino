@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
@@ -42,6 +43,7 @@ public class IcebergPageSourceProviderFactory
     private final ParquetFooterCache parquetFooterCache;
     private final Optional<BlocksHashFactory> blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final int domainCompactionThreshold;
 
     @Inject
     public IcebergPageSourceProviderFactory(
@@ -67,11 +69,12 @@ public class IcebergPageSourceProviderFactory
                 ? Optional.of(requireNonNull(blocksHashFactory, "blocksHashFactory is null"))
                 : Optional.empty();
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
+        this.domainCompactionThreshold = config.getDomainCompactionThreshold();
     }
 
     @Override
-    public IcebergPageSourceProvider createPageSourceProvider()
+    public IcebergPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
     {
-        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory);
+        return new IcebergPageSourceProvider(fileSystemFactory, fileIoFactory, fileFormatDataSourceStats, orcReaderOptions, parquetReaderOptions, typeManager, parquetFooterCache, blocksHashFactory, encryptionManagerFactory, memoryContext, domainCompactionThreshold);
     }
 }

@@ -56,6 +56,8 @@ import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -166,6 +168,7 @@ public class BenchmarkInCodeGenerator
                     new PageFunctionCompiler(functionManager, metadata, typeManager, 0),
                     new ColumnarFilterCompiler(functions.getPlannerContext(), 0))
                     .compilePageProcessor(
+                            getCharVarcharCoercion(TEST_SESSION),
                             columnarEvaluationEnabled,
                             true,
                             Optional.of(filter),

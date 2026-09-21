@@ -13,13 +13,19 @@
  */
 package io.trino.spi;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
@@ -84,11 +90,7 @@ final class TestPage
         Block commonSourceIdBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, commonDictionaryIds, commonSourceId);
 
         // second dictionary block is "length(firstColumn)"
-        BlockBuilder dictionary2 = BIGINT.createFixedSizeBlockBuilder(dictionary1.getPositionCount());
-        for (Slice expectedValue : dictionaryValues1) {
-            BIGINT.writeLong(dictionary2, expectedValue.length());
-        }
-        Block commonSourceIdBlock2 = createProjectedDictionaryBlock(positionCount, dictionary2.build(), commonDictionaryIds, commonSourceId);
+        Block commonSourceIdBlock2 = createProjectedDictionaryBlock(positionCount, createLengthsBlock(dictionaryValues1), commonDictionaryIds, commonSourceId);
 
         // Create block with a different source id, dictionary size, used
         int otherDictionaryUsedPositions = 30;
@@ -113,6 +115,94 @@ final class TestPage
 
         assertThat(((DictionaryBlock) page.getBlock(0)).getDictionarySourceId())
                 .isEqualTo(((DictionaryBlock) page.getBlock(2)).getDictionarySourceId());
+    }
+
+    @Test
+    public void testCompactSingleEntryRelatedDictionaryBlocks()
+    {
+        int positionCount = 100;
+        DictionaryId commonSourceId = randomDictionaryId();
+        int[] dictionaryIds = new int[positionCount];
+
+        Slice[] dictionaryValues = createExpectedValues(1000);
+        int dictionaryPosition = 723;
+        Arrays.fill(dictionaryIds, dictionaryPosition);
+        Block dictionary1 = createSlicesBlock(dictionaryValues);
+        Block dictionaryBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, dictionaryIds, commonSourceId);
+
+        Block dictionaryBlock2 = createProjectedDictionaryBlock(positionCount, createLengthsBlock(dictionaryValues), dictionaryIds, commonSourceId);
+
+        Page page = new Page(dictionaryBlock1, dictionaryBlock2);
+        page.compact();
+
+        assertThat(page.getBlock(0)).isInstanceOf(RunLengthEncodedBlock.class);
+        assertThat(page.getBlock(1)).isInstanceOf(RunLengthEncodedBlock.class);
+        assertThat(VARBINARY.getSlice(page.getBlock(0), 0)).isEqualTo(dictionaryValues[dictionaryPosition]);
+        assertThat(BIGINT.getLong(page.getBlock(1), 0)).isEqualTo(dictionaryValues[dictionaryPosition].length());
+    }
+
+    @Test
+    public void testCompactIdentityRelatedDictionaryBlocks()
+    {
+        int positionCount = 100;
+        DictionaryId commonSourceId = randomDictionaryId();
+        int[] dictionaryIds = new int[positionCount];
+        Arrays.setAll(dictionaryIds, position -> position);
+
+        Slice[] dictionaryValues = createExpectedValues(positionCount);
+        Block dictionary1 = createSlicesBlock(dictionaryValues);
+        Block dictionary2 = createLengthsBlock(dictionaryValues);
+        Block dictionaryBlock1 = createProjectedDictionaryBlock(positionCount, dictionary1, dictionaryIds, commonSourceId);
+        Block dictionaryBlock2 = createProjectedDictionaryBlock(positionCount, dictionary2, dictionaryIds, commonSourceId);
+
+        Page page = new Page(dictionaryBlock1, dictionaryBlock2);
+        page.compact();
+
+        assertThat(page.getBlock(0)).isSameAs(dictionary1);
+        assertThat(page.getBlock(1)).isSameAs(dictionary2);
+    }
+
+    @Test
+    public void testCompactIdentityRelatedDictionaryBlocksWithDifferentSources()
+    {
+        int positionCount = 2;
+        Slice[] dictionaryValues = createExpectedValues(positionCount);
+        Block dictionary = createSlicesBlock(dictionaryValues);
+        DictionaryBlock firstBlock = (DictionaryBlock) createProjectedDictionaryBlock(
+                positionCount,
+                dictionary,
+                new int[] {0, 1},
+                randomDictionaryId());
+        DictionaryBlock secondBlock = (DictionaryBlock) createProjectedDictionaryBlock(
+                positionCount,
+                dictionary,
+                new int[] {1, 0},
+                randomDictionaryId());
+
+        assertThatThrownBy(() -> DictionaryBlock.compactRelatedBlocks(ImmutableList.of(firstBlock, secondBlock)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("dictionarySourceIds must be the same");
+    }
+
+    @Test
+    public void testCompactUniqueRelatedDictionaryBlocks()
+    {
+        int positionCount = 100;
+        DictionaryId commonSourceId = randomDictionaryId();
+        int[] dictionaryIds = new int[positionCount];
+        Arrays.setAll(dictionaryIds, position -> position * 2);
+
+        Slice[] dictionaryValues = createExpectedValues(positionCount * 2);
+        Block dictionaryBlock1 = createProjectedDictionaryBlock(positionCount, createSlicesBlock(dictionaryValues), dictionaryIds, commonSourceId);
+        Block dictionaryBlock2 = createProjectedDictionaryBlock(positionCount, createLengthsBlock(dictionaryValues), dictionaryIds, commonSourceId);
+
+        Page page = new Page(dictionaryBlock1, dictionaryBlock2);
+        page.compact();
+
+        assertThat(page.getBlock(0)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(page.getBlock(1)).isInstanceOf(LongArrayBlock.class);
+        assertThat(VARBINARY.getSlice(page.getBlock(0), 50)).isEqualTo(dictionaryValues[100]);
+        assertThat(BIGINT.getLong(page.getBlock(1), 50)).isEqualTo(dictionaryValues[100].length());
     }
 
     @Test
@@ -172,6 +262,15 @@ final class TestPage
         for (Slice value : values) {
             verifyNotNull(value);
             VARBINARY.writeSlice(builder, value);
+        }
+        return builder.build();
+    }
+
+    private static Block createLengthsBlock(Slice[] values)
+    {
+        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(values.length);
+        for (Slice value : values) {
+            BIGINT.writeLong(builder, value.length());
         }
         return builder.build();
     }

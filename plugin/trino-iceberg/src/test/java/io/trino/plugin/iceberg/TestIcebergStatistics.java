@@ -716,7 +716,8 @@ public class TestIcebergStatistics
         assertQuery("SHOW STATS FOR " + tableName, extendedStats);
 
         // Dropping extended stats clears distinct count and leaves other stats alone
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
+        assertThat(query("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS"))
+                .matches("VALUES (VARCHAR 'removed_statistics_count', BIGINT '1')");
         assertQuery("SHOW STATS FOR " + tableName, baseStats);
 
         // Re-analyzing should work

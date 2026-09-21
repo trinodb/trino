@@ -52,6 +52,7 @@ public class DefaultThriftMetastoreClientFactory
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenSetPartitionsColumnStatisticsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
@@ -116,7 +117,8 @@ public class DefaultThriftMetastoreClientFactory
                 chosenGetTableAlternative,
                 chosenTableParamAlternative,
                 chosenAlterTransactionalTableAlternative,
-                chosenAlterPartitionsAlternative);
+                chosenAlterPartitionsAlternative,
+                chosenSetPartitionsColumnStatisticsAlternative);
     }
 
     private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)

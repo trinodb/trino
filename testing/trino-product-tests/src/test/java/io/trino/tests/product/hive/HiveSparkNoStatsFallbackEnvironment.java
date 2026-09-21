@@ -19,6 +19,7 @@ import io.trino.testing.containers.SparkIcebergContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Network;
 import org.testcontainers.trino.TrinoContainer;
 
@@ -117,7 +118,7 @@ public class HiveSparkNoStatsFallbackEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeSpark(String sql)
+    public QueryResult executeSpark(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {
@@ -139,7 +140,7 @@ public class HiveSparkNoStatsFallbackEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeSparkUpdate(String sql)
+    public int executeSparkUpdate(@Language("SQL") String sql)
     {
         try {
             return executeWithRetry(() -> {
@@ -172,7 +173,7 @@ public class HiveSparkNoStatsFallbackEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeHive(String sql)
+    public QueryResult executeHive(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement();
@@ -190,7 +191,7 @@ public class HiveSparkNoStatsFallbackEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         try (Connection conn = createHiveConnection();
                 Statement stmt = conn.createStatement()) {

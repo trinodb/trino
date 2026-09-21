@@ -21,20 +21,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>com.singlestore</groupId>
             <artifactId>singlestore-jdbc-client</artifactId>
-            <version>1.2.11</version>
+            <version>1.2.12</version>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

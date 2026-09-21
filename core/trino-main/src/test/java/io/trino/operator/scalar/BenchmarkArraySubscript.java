@@ -53,6 +53,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -139,7 +140,7 @@ public class BenchmarkArraySubscript
             }
 
             List<Expression> projections = projectionsBuilder.build();
-            pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections, ImmutableMap.of(new Symbol(arrayType, "$col_0"), 0)).get();
+            pageProcessor = compiler.compilePageProcessor(TEST_SESSION, Optional.empty(), projections, ImmutableMap.of(new Symbol(arrayType, "$col_0"), 0)).get();
             page = new Page(block);
         }
 

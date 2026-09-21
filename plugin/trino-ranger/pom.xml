@@ -16,7 +16,7 @@
 
     <properties>
         <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
-        <dep.graalvm.version>25.2.4</dep.graalvm.version>
+        <dep.graalvm.version>25.3.4.1</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.9.0</dep.ranger.version>
@@ -29,12 +29,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-            <classifier>classes</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
@@ -42,6 +36,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>guice</artifactId>
         </dependency>
 
         <dependency>

@@ -56,7 +56,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.awscore.endpoint.AwsClientEndpointProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
@@ -505,16 +504,13 @@ public class S3FileSystemExchangeStorage
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
-                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())))
-                .endpointOverride(endpoint.map(URI::create).orElseGet(() -> AwsClientEndpointProvider.builder()
-                        .serviceEndpointPrefix("s3")
-                        .defaultProtocol("http")
-                        .region(region.orElseThrow(() -> new IllegalArgumentException("region is expected to be set")))
-                        .build()
-                        .clientEndpoint()));
+                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())));
 
+        endpoint.map(URI::create).ifPresent(clientBuilder::endpointOverride);
+        if (endpoint.isEmpty() && region.isEmpty()) {
+            throw new IllegalArgumentException("region is expected to be set");
+        }
         region.ifPresent(clientBuilder::region);
-
         return clientBuilder.build();
     }
 

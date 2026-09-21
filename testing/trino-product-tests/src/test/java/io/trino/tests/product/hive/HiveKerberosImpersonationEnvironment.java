@@ -17,6 +17,7 @@ import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.HadoopContainer;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.QueryResult;
+import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container;
 import org.testcontainers.utility.MountableFile;
 
@@ -240,7 +241,7 @@ public class HiveKerberosImpersonationEnvironment
      * @param sql the SQL query to execute
      * @return the query result
      */
-    public QueryResult executeHive(String sql)
+    public QueryResult executeHive(@Language("SQL") String sql)
     {
         try {
             String stdout = executeHiveWithBeeline(sql);
@@ -264,7 +265,7 @@ public class HiveKerberosImpersonationEnvironment
      * @param sql the SQL statement to execute
      * @return the number of affected rows, or 0 for DDL statements
      */
-    public int executeHiveUpdate(String sql)
+    public int executeHiveUpdate(@Language("SQL") String sql)
     {
         try {
             executeHiveWithBeeline(sql);
@@ -282,7 +283,7 @@ public class HiveKerberosImpersonationEnvironment
         }
     }
 
-    private String executeHiveWithBeeline(String sql)
+    private String executeHiveWithBeeline(@Language("SQL") String sql)
             throws IOException, InterruptedException, SQLException
     {
         SQLException lastFailure = null;

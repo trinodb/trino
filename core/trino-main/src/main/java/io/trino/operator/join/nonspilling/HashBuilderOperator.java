@@ -317,16 +317,17 @@ public class HashBuilderOperator
         }
 
         checkState(index != null, "index is null");
+        long outerPositionTrackerSizeInBytes = lookupSourceFactory.getOuterPositionTrackerSizeInBytes(index.getPositionCount());
         ListenableFuture<Void> reserved = localUserMemoryContext.setBytes(index.getEstimatedMemoryRequiredToCreateLookupSource(
                 hashArraySizeSupplier,
                 sortChannel,
-                hashChannels));
+                hashChannels) + outerPositionTrackerSizeInBytes);
         if (!reserved.isDone() || !operatorContext.isWaitingForMemory().isDone()) {
             // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
             return;
         }
         LookupSourceSupplier partition = buildLookupSource();
-        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
+        localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes() + outerPositionTrackerSizeInBytes);
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
         index = null;

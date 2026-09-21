@@ -199,10 +199,10 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFi
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
-import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -257,6 +257,8 @@ public class IcebergPageSourceProvider
     private final ParquetFooterCache parquetFooterCache;
     private final Optional<BlocksHashFactory> blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
+    private final MemoryContext sharedMemoryContext;
+    private final int domainCompactionThreshold;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -270,7 +272,9 @@ public class IcebergPageSourceProvider
             TypeManager typeManager,
             ParquetFooterCache parquetFooterCache,
             Optional<BlocksHashFactory> blocksHashFactory,
-            EncryptionManagerFactory encryptionManagerFactory)
+            EncryptionManagerFactory encryptionManagerFactory,
+            MemoryContext sharedMemoryContext,
+            int domainCompactionThreshold)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -281,7 +285,10 @@ public class IcebergPageSourceProvider
         this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
-        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory);
+        this.sharedMemoryContext = requireNonNull(sharedMemoryContext, "sharedMemoryContext is null");
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
+        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage);
     }
 
     @Override
@@ -435,17 +442,22 @@ public class IcebergPageSourceProvider
 
         // filter out deleted rows
         if (!deletes.isEmpty()) {
-            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
-                    .getDeletePageFilter(
-                            path,
-                            dataSequenceNumber,
-                            deletes,
-                            requiredColumns,
-                            tableSchema,
-                            readerPageSourceWithRowPositions.startRowPosition(),
-                            readerPageSourceWithRowPositions.endRowPosition(),
-                            deleteFile -> readDeletionVector(fileSystem, deleteFile),
-                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext())));
+            Supplier<Optional<PageFilter>> deletePredicate = memoize(() -> {
+                LocalMemoryContext deletionVectorMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
+                Optional<PageFilter> pageFilter = getDeleteManager(partitionSpec, partitionData)
+                        .getDeletePageFilter(
+                                path,
+                                dataSequenceNumber,
+                                deletes,
+                                requiredColumns,
+                                tableSchema,
+                                readerPageSourceWithRowPositions.startRowPosition(),
+                                readerPageSourceWithRowPositions.endRowPosition(),
+                                deleteFile -> readDeletionVector(fileSystem, deleteFile, memoryContext),
+                                (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain, memoryContext.newAggregatedMemoryContext()),
+                                deletionVectorMemoryContext::setBytes);
+                return pageFilter;
+            });
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
                     Optional<PageFilter> pageFilter = deletePredicate.get();
@@ -464,13 +476,16 @@ public class IcebergPageSourceProvider
         return pageSource;
     }
 
-    @Override
-    public long getMemoryUsage()
+    /**
+     * Delete filters are shared by all splits of the scan, so their size is reported at provider scope,
+     * after each delete file loads. The lock makes the reported value consistent with the filters held at that point.
+     */
+    private synchronized void reportDeleteFilterMemoryUsage()
     {
-        return unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
+        sharedMemoryContext.setBytes(unpartitionedTableDeleteManager.getEstimatedSizeInBytes() +
                 partitionedDeleteManagers.values().stream()
                         .mapToLong(DeleteManager::getEstimatedSizeInBytes)
-                        .sum();
+                        .sum());
     }
 
     private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
@@ -490,7 +505,7 @@ public class IcebergPageSourceProvider
                         })
                 .apply(partitionData);
 
-        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory));
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, _ -> new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage));
     }
 
     private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
@@ -514,7 +529,7 @@ public class IcebergPageSourceProvider
                         fileStatisticsDomain,
                         dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))),
                 fileStatisticsDomain)
-                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+                .simplify(domainCompactionThreshold);
     }
 
     private TupleDomain<IcebergColumnHandle> prunePredicate(
@@ -559,16 +574,22 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
-    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete)
+    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete, AggregatedMemoryContext memoryContext)
     {
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
+        LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
         try (TrinoInput trinoInput = trinoInputFile.newInput()) {
-            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), toIntExact(delete.contentSizeInBytes().orElseThrow()));
+            int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
+            readBufferMemoryContext.setBytes(contentSize);
+            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), contentSize);
             return DeletionVector.builder().deserialize(slice).build().orElseThrow();
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
+        }
+        finally {
+            readBufferMemoryContext.close();
         }
     }
 
@@ -632,6 +653,7 @@ public class IcebergPageSourceProvider
                     fileSchema,
                     dataColumns,
                     predicate,
+                    domainCompactionThreshold,
                     orcReaderOptions
                             .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                             .withMaxBufferSize(getOrcMaxBufferSize(session))
@@ -664,11 +686,11 @@ public class IcebergPageSourceProvider
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                             .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                             .withBloomFilter(useParquetBloomFilter(session))
-                            // TODO https://github.com/trinodb/trino/issues/11000
-                            .withUseColumnIndex(false)
+                            .withUseColumnIndex(isParquetUseColumnIndex(session))
                             .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
                             .build(),
                     predicate,
+                    domainCompactionThreshold,
                     fileFormatDataSourceStats,
                     parquetFooterCache,
                     nameMapping,
@@ -740,6 +762,7 @@ public class IcebergPageSourceProvider
             Schema tableSchema,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
+            int domainCompactionThreshold,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
@@ -760,7 +783,8 @@ public class IcebergPageSourceProvider
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumnsByIcebergId(reader, nameMapping);
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
-                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
+                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled())
+                    .setDomainCompactionThreshold(domainCompactionThreshold);
             Map<IcebergColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
             for (IcebergColumnHandle column : columns) {
@@ -1095,6 +1119,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> columns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
+            int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetFooterCache parquetFooterCache,
             Optional<NameMapping> nameMapping,
@@ -1255,7 +1280,7 @@ public class IcebergPageSourceProvider
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,
                     UTC,
-                    ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
+                    domainCompactionThreshold,
                     options);
 
             ParquetDataSourceId dataSourceId = dataSource.getId();
@@ -1269,7 +1294,7 @@ public class IcebergPageSourceProvider
                     memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),
-                    Optional.empty(),
+                    Optional.of(parquetPredicate),
                     Optional.empty(),
                     parquetMetadata.getDecryptionContext());
 
@@ -2191,6 +2216,12 @@ public class IcebergPageSourceProvider
         public Page getPage()
         {
             return sourcePage.getColumns(channels);
+        }
+
+        @Override
+        public boolean trySelectPositions(int[] positions, int offset, int size)
+        {
+            return sourcePage.trySelectPositions(positions, offset, size);
         }
 
         @Override

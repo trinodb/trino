@@ -54,6 +54,7 @@ import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -379,6 +380,13 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
         assertThat(fileSystem.listFiles(tableLocation).hasNext())
                 .describedAs("Table location should exist")
                 .isTrue();
+    }
+
+    @Test
+    @Override // TODO https://github.com/trinodb/trino/issues/30928 Fix flaky test
+    public void testDeleteRowsConcurrently()
+    {
+        abort("skipped");
     }
 
     @Override

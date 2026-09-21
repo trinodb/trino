@@ -34,6 +34,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
+import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -43,6 +44,8 @@ import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
@@ -58,6 +61,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageProcessorCompiler
 {
+    private static final CharVarcharCoercion CHAR_VARCHAR_COERCION = getCharVarcharCoercion(TEST_SESSION);
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
     private final ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
 
@@ -73,8 +77,8 @@ public class TestPageProcessorCompiler
                 new Symbol(arrayType, "$col_1"), 1);
         List<Expression> projections = ImmutableList.of(call(resolvedFunction, col0, col1));
 
-        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
-        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory1 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
+        Function<DynamicFilter, PageProcessor> factory2 = compiler.compilePageProcessor(CHAR_VARCHAR_COERCION, true, true, Optional.empty(), Optional.empty(), projections, layout, Optional.empty(), OptionalInt.empty());
         assertThat(factory1 != factory2).isTrue();
     }
 
@@ -85,6 +89,7 @@ public class TestPageProcessorCompiler
                 new Symbol(BIGINT, "$col_0"), 3,
                 new Symbol(VARCHAR, "$col_1"), 1);
         PageProcessor processor = compiler.compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         true,
                         true,
                         Optional.empty(),
@@ -131,6 +136,7 @@ public class TestPageProcessorCompiler
         Call filter = call(lessThan, lengthVarchar, new Constant(BIGINT, 10L));
 
         PageProcessor processor = compiler.compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         true,
                         true,
                         Optional.of(filter),
@@ -179,6 +185,7 @@ public class TestPageProcessorCompiler
         Call filter = call(lessThan, col0, new Constant(BIGINT, 10L));
 
         PageProcessor processor = compiler.compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         true,
                         true,
                         Optional.of(filter),
@@ -209,6 +216,7 @@ public class TestPageProcessorCompiler
     {
         Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 2);
         PageProcessor processor = compiler.compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         true,
                         true,
                         Optional.empty(),
@@ -247,6 +255,7 @@ public class TestPageProcessorCompiler
         Call lessThanRandomExpression = call(lessThan, col0, random);
 
         PageProcessor processor = compiler.compilePageProcessor(
+                        CHAR_VARCHAR_COERCION,
                         true,
                         true,
                         Optional.empty(),

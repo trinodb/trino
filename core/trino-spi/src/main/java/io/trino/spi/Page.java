@@ -186,7 +186,7 @@ public final class Page
 
         Map<DictionaryId, DictionaryBlockIndexes> dictionaryBlocks = getRelatedDictionaryBlocks();
         for (DictionaryBlockIndexes blockIndexes : dictionaryBlocks.values()) {
-            List<DictionaryBlock> compactBlocks = DictionaryBlock.compactRelatedBlocks(blockIndexes.getBlocks());
+            List<? extends Block> compactBlocks = DictionaryBlock.compactRelatedBlocks(blockIndexes.getBlocks());
             List<Integer> indexes = blockIndexes.getIndexes();
             for (int i = 0; i < compactBlocks.size(); i++) {
                 blocks[indexes.get(i)] = compactBlocks.get(i);

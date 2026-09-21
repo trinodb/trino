@@ -367,7 +367,7 @@ public abstract class BaseHiveS3AndGlueTest
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
         try (var _ = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
             assertThat(query("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
-                    .failure().hasMessage("Error committing write to Hive")
+                    .failure().hasMessage("Error committing write to Parquet file")
                     .cause()
                     .cause().hasMessageMatching("Put failed for bucket \\[\\S+] key \\[\\.\\./test_create_schema_invalid_location_\\w+/test_table_schema_invalid_location_\\w+/\\S+]: .*")
                     // The message could be better. In AWS SDK v1 it used to be "Invalid URI".
