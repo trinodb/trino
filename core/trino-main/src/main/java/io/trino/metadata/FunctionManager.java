@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
+import io.trino.FullConnectorSession;
 import io.trino.cache.NonEvictableCache;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
@@ -47,6 +48,7 @@ import java.lang.invoke.MethodType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -61,10 +63,15 @@ import static java.util.Objects.requireNonNull;
 public class FunctionManager
 {
     private static final boolean ASSERTIONS_ENABLED = FunctionManager.class.desiredAssertionStatus();
+    private static final MethodHandle VERIFY_CONNECTOR_SESSION_BOUND;
     private static final MethodHandle NEVER_FAILS_VIOLATED;
 
     static {
         try {
+            VERIFY_CONNECTOR_SESSION_BOUND = MethodHandles.lookup().findStatic(
+                    FunctionManager.class,
+                    "verifyConnectorSessionBound",
+                    MethodType.methodType(ConnectorSession.class, CatalogHandle.class, ConnectorSession.class));
             NEVER_FAILS_VIOLATED = MethodHandles.lookup().findStatic(
                     FunctionManager.class,
                     "neverFailsViolated",
@@ -129,11 +136,46 @@ public class FunctionManager
                     invocationConvention);
         }
 
+        if (ASSERTIONS_ENABLED && !resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            scalarFunctionImplementation = verifyConnectorSessionBound(resolvedFunction.catalogHandle(), scalarFunctionImplementation);
+        }
         verifyMethodHandleSignature(resolvedFunction.signature(), scalarFunctionImplementation, invocationConvention);
         if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
             scalarFunctionImplementation = reportIfNeverFailsViolated(resolvedFunction, scalarFunctionImplementation);
         }
         return scalarFunctionImplementation;
+    }
+
+    private static ScalarFunctionImplementation verifyConnectorSessionBound(CatalogHandle catalogHandle, ScalarFunctionImplementation scalarFunctionImplementation)
+    {
+        MethodHandle target = scalarFunctionImplementation.getMethodHandle();
+        MethodHandle verifySession = MethodHandles.insertArguments(VERIFY_CONNECTOR_SESSION_BOUND, 0, catalogHandle);
+        for (int parameterIndex = 0; parameterIndex < target.type().parameterCount(); parameterIndex++) {
+            if (target.type().parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                target = MethodHandles.filterArguments(target, parameterIndex, verifySession);
+            }
+        }
+        if (target == scalarFunctionImplementation.getMethodHandle()) {
+            return scalarFunctionImplementation;
+        }
+        return ScalarFunctionImplementation.builder()
+                .methodHandle(target)
+                .instanceFactory(scalarFunctionImplementation.getInstanceFactory())
+                .lambdaInterfaces(scalarFunctionImplementation.getLambdaInterfaces())
+                .build();
+    }
+
+    private static ConnectorSession verifyConnectorSessionBound(CatalogHandle catalogHandle, ConnectorSession connectorSession)
+    {
+        if (connectorSession instanceof FullConnectorSession fullConnectorSession) {
+            CatalogHandle sessionCatalogHandle = fullConnectorSession.getCatalogHandle();
+            checkState(
+                    catalogHandle.equals(sessionCatalogHandle),
+                    "ConnectorSession is bound to %s, but the function is from %s",
+                    sessionCatalogHandle,
+                    catalogHandle);
+        }
+        return connectorSession;
     }
 
     private static ScalarFunctionImplementation reportIfNeverFailsViolated(ResolvedFunction resolvedFunction, ScalarFunctionImplementation scalarFunctionImplementation)
