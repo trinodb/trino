@@ -4276,7 +4276,7 @@ public abstract class BaseHiveConnectorTest
         testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
         // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
         // larger threshold for writerScalingMinDataProcessed. This way we can ensure that the writer scaling is not triggered.
-        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(128, MEGABYTE));
+        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(2, GIGABYTE));
     }
 
     private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
@@ -4286,6 +4286,8 @@ public abstract class BaseHiveConnectorTest
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, Integer.toString(maxWriterTasks))
                 .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
+                // Pin the writer count so the scaling threshold below is compared against a fixed value on every machine
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "10MB")
