@@ -59,6 +59,34 @@ public class TpcdsMetadata
     public static final List<String> SCHEMA_NAMES = ImmutableList.of(
             TINY_SCHEMA_NAME, "sf1", "sf10", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
 
+    // Primary-key columns per the TPC-DS schema; these are always populated in generated data.
+    private static final Map<String, Set<String>> PRIMARY_KEY_COLUMNS = ImmutableMap.<String, Set<String>>builder()
+            .put("call_center", ImmutableSet.of("cc_call_center_sk"))
+            .put("catalog_page", ImmutableSet.of("cp_catalog_page_sk"))
+            .put("catalog_returns", ImmutableSet.of("cr_item_sk", "cr_order_number"))
+            .put("catalog_sales", ImmutableSet.of("cs_item_sk", "cs_order_number"))
+            .put("customer", ImmutableSet.of("c_customer_sk"))
+            .put("customer_address", ImmutableSet.of("ca_address_sk"))
+            .put("customer_demographics", ImmutableSet.of("cd_demo_sk"))
+            .put("date_dim", ImmutableSet.of("d_date_sk"))
+            .put("household_demographics", ImmutableSet.of("hd_demo_sk"))
+            .put("income_band", ImmutableSet.of("ib_income_band_sk"))
+            .put("inventory", ImmutableSet.of("inv_date_sk", "inv_item_sk", "inv_warehouse_sk"))
+            .put("item", ImmutableSet.of("i_item_sk"))
+            .put("promotion", ImmutableSet.of("p_promo_sk"))
+            .put("reason", ImmutableSet.of("r_reason_sk"))
+            .put("ship_mode", ImmutableSet.of("sm_ship_mode_sk"))
+            .put("store", ImmutableSet.of("s_store_sk"))
+            .put("store_returns", ImmutableSet.of("sr_item_sk", "sr_ticket_number"))
+            .put("store_sales", ImmutableSet.of("ss_item_sk", "ss_ticket_number"))
+            .put("time_dim", ImmutableSet.of("t_time_sk"))
+            .put("warehouse", ImmutableSet.of("w_warehouse_sk"))
+            .put("web_page", ImmutableSet.of("wp_web_page_sk"))
+            .put("web_returns", ImmutableSet.of("wr_item_sk", "wr_order_number"))
+            .put("web_sales", ImmutableSet.of("ws_item_sk", "ws_order_number"))
+            .put("web_site", ImmutableSet.of("web_site_sk"))
+            .buildOrThrow();
+
     private final Set<String> tableNames;
     private final TpcdsTableStatisticsFactory tpcdsTableStatisticsFactory = new TpcdsTableStatisticsFactory();
 
@@ -117,9 +145,21 @@ public class TpcdsMetadata
 
     private static ConnectorTableMetadata getTableMetadata(String schemaName, Table tpcdsTable)
     {
+        // Only primary-key columns are declared NOT NULL. They are guaranteed non-null: dimension
+        // surrogate keys are dense sequences, and fact-table keys are always populated (they are
+        // exactly the columns the data generator's NOT NULL bitmap protects on fact tables).
+        //
+        // The generator's NOT NULL bitmap is deliberately not used to derive nullability for other
+        // columns: it also marks the rec_end_date of history (SCD) tables non-null, yet those are
+        // set to null for the current record (see TestTpcdsMetadataStatistics#testNullFraction).
+        Set<String> notNullColumns = PRIMARY_KEY_COLUMNS.getOrDefault(tpcdsTable.getName(), ImmutableSet.of());
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), getTrinoType(column.getType())));
+            columns.add(ColumnMetadata.builder()
+                    .setName(column.getName())
+                    .setType(getTrinoType(column.getType()))
+                    .setNullable(!notNullColumns.contains(column.getName()))
+                    .build());
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());
