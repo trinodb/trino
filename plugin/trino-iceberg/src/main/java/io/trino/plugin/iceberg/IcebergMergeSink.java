@@ -121,20 +121,24 @@ public class IcebergMergeSink
         Block rowPositionBlock = fields.get(1);
         Block partitionSpecIdBlock = fields.get(2);
         Block partitionDataBlock = fields.get(3);
+        // Rows for the same file arrive in runs, so the map is consulted only when the file path changes
+        Slice currentFilePath = null;
+        FileDeletion currentDeletion = null;
         for (int position = 0; position < filePathBlock.getPositionCount(); position++) {
             Slice filePath = VarcharType.VARCHAR.getSlice(filePathBlock, position);
-            long rowPosition = BIGINT.getLong(rowPositionBlock, position);
-
-            FileDeletion deletion = fileDeletions.get(filePath);
-            if (deletion == null) {
-                int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, position);
-                String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, position).toStringUtf8();
-                deletion = new FileDeletion(partitionSpecId, partitionData);
-                // Copy the path so the map key does not pin the whole file path block
-                fileDeletions.put(filePath.copy(), deletion);
+            if (currentFilePath == null || !currentFilePath.equals(filePath)) {
+                currentDeletion = fileDeletions.get(filePath);
+                if (currentDeletion == null) {
+                    int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, position);
+                    String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, position).toStringUtf8();
+                    currentDeletion = new FileDeletion(partitionSpecId, partitionData);
+                    // Copy the path so the map key does not pin the whole file path block
+                    fileDeletions.put(filePath.copy(), currentDeletion);
+                }
+                currentFilePath = filePath;
             }
 
-            deletion.rowsToDelete().add(rowPosition);
+            currentDeletion.rowsToDelete().add(BIGINT.getLong(rowPositionBlock, position));
         }
     }
 
