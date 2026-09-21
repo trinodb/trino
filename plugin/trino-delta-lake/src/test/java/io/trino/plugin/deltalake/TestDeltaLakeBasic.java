@@ -1906,6 +1906,29 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/31252
+    public void testCheckpointWithDeletionVectorWrittenBeforeRemove()
+            throws Exception
+    {
+        String tableName = "deletion_vectors_checkpoint" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        // The commit at version 2 adds a deletion vector to a file and removes the version of that file which has no deletion vector, in that order
+        copyDirectoryContents(new File(Resources.getResource("deltalake/deletion_vector_pages").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat(computeScalar("SELECT count(*) FROM " + tableName)).isEqualTo(20001L);
+
+        // Commit up to the default checkpoint interval of 10 so that Trino writes a checkpoint
+        for (int i = 0; i < 8; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES -1", 1);
+        }
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000010.checkpoint.parquet")).exists();
+
+        assertThat(computeScalar("SELECT count(*) FROM " + tableName)).isEqualTo(20009L);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testUnsupportedVacuumDeletionVectors()
             throws Exception
