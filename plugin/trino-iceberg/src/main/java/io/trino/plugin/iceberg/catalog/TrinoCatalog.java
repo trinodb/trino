@@ -22,6 +22,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -183,6 +184,11 @@ public interface TrinoCatalog
     Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace);
 
     Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName);
+
+    default Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
 
     default Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
     {

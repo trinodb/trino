@@ -1314,9 +1314,14 @@ public final class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
+            List<TableHandle> sourceTableHandles,
+            RefreshType refreshType)
     {
-        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogHandle catalogHandle = storageTableHandle.catalogHandle();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
@@ -1328,19 +1333,31 @@ public final class MetadataManager
 
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 sourceConnectorHandles,
                 sourceConnectorHandles.size() < sourceTableHandles.size(),
                 getRetryPolicy(session).getRetryMode(),
                 refreshType);
 
-        return new InsertTableHandle(tableHandle.catalogHandle(), transactionHandle, handle);
+        return new InsertTableHandle(storageTableHandle.catalogHandle(), transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        return metadata.getViewHandle(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())
+                .map(connectorHandle -> new ViewHandle(catalogHandle, connectorHandle));
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -1358,7 +1375,8 @@ public final class MetadataManager
 
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
-                tableHandle.connectorHandle(),
+                materializedViewHandle.connectorHandle(),
+                storageTableHandle.connectorHandle(),
                 insertHandle.connectorHandle(),
                 fragments,
                 computedStatistics,
