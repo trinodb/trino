@@ -21,6 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HiveSchemaProperties;
+import io.trino.plugin.hive.HiveViewProperties;
 import io.trino.plugin.iceberg.IcebergMaterializedViewProperties;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -65,6 +66,7 @@ public class LakehouseConnector
     private final LakehouseNodePartitioningProvider nodePartitioningProvider;
     private final LakehouseSessionProperties sessionProperties;
     private final LakehouseTableProperties tableProperties;
+    private final HiveViewProperties viewProperties;
     private final IcebergMaterializedViewProperties materializedViewProperties;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
@@ -79,6 +81,7 @@ public class LakehouseConnector
             LakehouseNodePartitioningProvider nodePartitioningProvider,
             LakehouseSessionProperties sessionProperties,
             LakehouseTableProperties tableProperties,
+            HiveViewProperties viewProperties,
             IcebergMaterializedViewProperties materializedViewProperties,
             Map<TableType, Set<Procedure>> procedures,
             Map<TableType, Set<TableProcedureMetadata>> tableProcedures)
@@ -91,6 +94,7 @@ public class LakehouseConnector
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.viewProperties = requireNonNull(viewProperties, "viewProperties is null");
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.procedures = mergeProcedures(procedures);
         this.tableProcedures = mergeTableProcedures(tableProcedures);
@@ -245,6 +249,12 @@ public class LakehouseConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties.getTableProperties();
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return viewProperties.getViewProperties();
     }
 
     @Override
