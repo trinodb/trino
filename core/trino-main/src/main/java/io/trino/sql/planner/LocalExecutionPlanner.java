@@ -4185,6 +4185,7 @@ public class LocalExecutionPlanner
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget refreshTarget) {
                 return metadata.finishRefreshMaterializedView(
                         session,
+                        refreshTarget.getMaterializedViewHandle(),
                         refreshTarget.getTableHandle(),
                         refreshTarget.getInsertHandle(),
                         fragments,
