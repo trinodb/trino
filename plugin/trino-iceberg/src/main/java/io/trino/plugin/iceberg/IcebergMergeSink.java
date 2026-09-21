@@ -125,12 +125,14 @@ public class IcebergMergeSink
             Slice filePath = VarcharType.VARCHAR.getSlice(filePathBlock, position);
             long rowPosition = BIGINT.getLong(rowPositionBlock, position);
 
-            int index = position;
-            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> {
-                int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
-                String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
-                return new FileDeletion(partitionSpecId, partitionData);
-            });
+            FileDeletion deletion = fileDeletions.get(filePath);
+            if (deletion == null) {
+                int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, position);
+                String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, position).toStringUtf8();
+                deletion = new FileDeletion(partitionSpecId, partitionData);
+                // Copy the path so the map key does not pin the whole file path block
+                fileDeletions.put(filePath.copy(), deletion);
+            }
 
             deletion.rowsToDelete().add(rowPosition);
         }
