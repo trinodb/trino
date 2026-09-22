@@ -255,7 +255,7 @@ public class IcebergPageSourceProvider
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
     private final ParquetFooterCache parquetFooterCache;
-    private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
     private final MemoryContext sharedMemoryContext;
     private final int domainCompactionThreshold;
@@ -271,7 +271,7 @@ public class IcebergPageSourceProvider
             ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager,
             ParquetFooterCache parquetFooterCache,
-            Optional<BlocksHashFactory> blocksHashFactory,
+            BlocksHashFactory blocksHashFactory,
             EncryptionManagerFactory encryptionManagerFactory,
             MemoryContext sharedMemoryContext,
             int domainCompactionThreshold)

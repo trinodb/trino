@@ -291,7 +291,7 @@ class TestIcebergPageSourceProvider
                 PARQUET_READER_CONFIG.toParquetReaderOptions(),
                 TESTING_TYPE_MANAGER,
                 ParquetFooterCache.noop(),
-                Optional.of(blocksHashFactory),
+                blocksHashFactory,
                 ENCRYPTION_MANAGER_FACTORY,
                 memoryContext,
                 new IcebergConfig().getDomainCompactionThreshold());
