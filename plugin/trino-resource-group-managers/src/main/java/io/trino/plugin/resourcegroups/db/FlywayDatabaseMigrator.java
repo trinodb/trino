@@ -14,35 +14,31 @@
 package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.log.Logger;
-import jakarta.inject.Inject;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
-public class FlywayMigration
+import javax.sql.DataSource;
+
+final class FlywayDatabaseMigrator
+        implements DatabaseMigrator
 {
-    private static final Logger log = Logger.get(FlywayMigration.class);
+    private static final Logger log = Logger.get(FlywayDatabaseMigrator.class);
 
     private final Flyway flyway;
-    private final boolean runMigrations;
 
-    @Inject
-    public FlywayMigration(DbResourceGroupConfig config)
+    FlywayDatabaseMigrator(DataSource dataSource, String migrationLocation)
     {
-        flyway = Flyway.configure()
-                .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())
-                .locations(SupportedDatabase.requireSupported(config.getConfigDbUrl()).getMigrationLocation())
+        this.flyway = Flyway.configure()
+                .dataSource(dataSource)
+                .locations(migrationLocation)
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
                 .load();
-        runMigrations = config.isRunMigrationsEnabled();
     }
 
+    @Override
     public void migrate()
     {
-        if (!runMigrations) {
-            log.info("Skipping migrations");
-            return;
-        }
         log.info("Performing migrations...");
         MigrateResult migrations = flyway.migrate();
         log.info("Performed %s migrations", migrations.migrationsExecuted);

@@ -72,6 +72,7 @@ public class DbResourceGroupConfigurationManager
     private static final Logger log = Logger.get(DbResourceGroupConfigurationManager.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;
+    private final DatabaseMigrator migrator;
     private final ResourceGroupsDao dao;
     private final Map<ResourceGroupId, ResourceGroupSpec> specsUsedToConfigureGroups = new ConcurrentHashMap<>();
     private final ResourceGroupToTemplateMap configuredGroups = new ResourceGroupToTemplateMap();
@@ -92,12 +93,14 @@ public class DbResourceGroupConfigurationManager
     @Inject
     public DbResourceGroupConfigurationManager(
             LifeCycleManager lifeCycleManager,
+            DatabaseMigrator migrator,
             ClusterMemoryPoolManager memoryPoolManager,
             DbResourceGroupConfig config,
             ResourceGroupsDao dao,
             @ForEnvironment String environment)
     {
         this(Optional.of(lifeCycleManager),
+                migrator,
                 memoryPoolManager,
                 config,
                 dao,
@@ -112,6 +115,7 @@ public class DbResourceGroupConfigurationManager
             String environment)
     {
         this(Optional.empty(),
+                new NoOpDatabaseMigrator(),
                 memoryPoolManager,
                 config,
                 dao,
@@ -120,6 +124,7 @@ public class DbResourceGroupConfigurationManager
 
     private DbResourceGroupConfigurationManager(
             Optional<LifeCycleManager> lifeCycleManager,
+            DatabaseMigrator migrator,
             ClusterMemoryPoolManager memoryPoolManager,
             DbResourceGroupConfig config,
             ResourceGroupsDao dao,
@@ -127,13 +132,12 @@ public class DbResourceGroupConfigurationManager
     {
         super(memoryPoolManager);
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        requireNonNull(dao, "daoProvider is null");
+        this.migrator = requireNonNull(migrator, "migrator is null");
+        this.dao = requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.refreshInterval = config.getRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
-        this.dao = dao;
-        load();
     }
 
     @Override
@@ -178,7 +182,9 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1000, refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+            migrator.migrate();
+            load();
+            configExecutor.scheduleWithFixedDelay(this::load, refreshInterval.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
