@@ -398,7 +398,7 @@ public final class Session
                 queryDataEncoding);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
