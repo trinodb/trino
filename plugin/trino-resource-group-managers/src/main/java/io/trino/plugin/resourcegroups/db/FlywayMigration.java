@@ -18,8 +18,6 @@ import jakarta.inject.Inject;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
 
-import static java.lang.String.format;
-
 public class FlywayMigration
 {
     private static final Logger log = Logger.get(FlywayMigration.class);
@@ -32,7 +30,7 @@ public class FlywayMigration
     {
         flyway = Flyway.configure()
                 .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())
-                .locations(getLocation(config.getConfigDbUrl()))
+                .locations(SupportedDatabase.requireSupported(config.getConfigDbUrl()).getMigrationLocation())
                 .baselineOnMigrate(true)
                 .baselineVersion("0")
                 .load();
@@ -48,21 +46,5 @@ public class FlywayMigration
         log.info("Performing migrations...");
         MigrateResult migrations = flyway.migrate();
         log.info("Performed %s migrations", migrations.migrationsExecuted);
-    }
-
-    private static String getLocation(String configDbUrl)
-    {
-        if (configDbUrl.startsWith("jdbc:postgresql")) {
-            return "/db/migration/postgresql";
-        }
-        if (configDbUrl.startsWith("jdbc:oracle")) {
-            return "/db/migration/oracle";
-        }
-        if (configDbUrl.startsWith("jdbc:mysql")) {
-            return "/db/migration/mysql";
-        }
-        // validation is not performed in DbResourceGroupConfig because DB backed
-        // resource group tests use the h2 database.
-        throw new IllegalArgumentException(format("Invalid JDBC URL: %s. Only PostgreSQL, MySQL, and Oracle are supported.", configDbUrl));
     }
 }
