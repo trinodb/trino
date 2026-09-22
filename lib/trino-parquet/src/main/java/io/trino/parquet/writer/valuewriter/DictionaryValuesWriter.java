@@ -78,7 +78,7 @@ public abstract class DictionaryValuesWriter
     protected int lastUsedDictionarySize;
 
     /* dictionary encoded values */
-    private IntList encodedValues = new IntList();
+    private DictionaryIndexBuffer encodedValues = new DictionaryIndexBuffer();
 
     protected DictionaryValuesWriter(
             int maxDictionaryByteSize,
@@ -115,7 +115,7 @@ public abstract class DictionaryValuesWriter
     {
         fallBackDictionaryEncodedData(writer);
         // ids of the current page are now copied to the fallback writer; free them regardless of dictionary reuse
-        encodedValues = new IntList();
+        encodedValues = new DictionaryIndexBuffer();
         if (lastUsedDictionarySize == 0) {
             // if we never used the dictionary
             // we free dictionary encoded data
@@ -199,7 +199,7 @@ public abstract class DictionaryValuesWriter
     public void reset()
     {
         close();
-        encodedValues = new IntList();
+        encodedValues = new DictionaryIndexBuffer();
     }
 
     @Override
@@ -245,7 +245,7 @@ public abstract class DictionaryValuesWriter
     }
 
     private static final class RunLengthEncodingConsumer
-            implements IntList.SegmentConsumer
+            implements DictionaryIndexBuffer.SegmentConsumer
     {
         private final RunLengthBitPackingHybridEncoder encoder;
         private int runValue;

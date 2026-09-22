@@ -28,9 +28,9 @@ import static java.lang.Math.min;
  * contiguous runs. Supports append and forward segment iteration only.
  * Based on org.apache.parquet.column.values.dictionary.IntList.
  */
-final class IntList
+final class DictionaryIndexBuffer
 {
-    private static final int INSTANCE_SIZE = instanceSize(IntList.class);
+    private static final int INSTANCE_SIZE = instanceSize(DictionaryIndexBuffer.class);
     private static final int INITIAL_SLAB_SIZE = 1024;
     private static final int MAX_SLAB_SIZE = 16 * 1024;
 
