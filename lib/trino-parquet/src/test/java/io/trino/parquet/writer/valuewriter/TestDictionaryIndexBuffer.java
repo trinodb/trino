@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestIntList
+class TestDictionaryIndexBuffer
 {
     @Test
     void testEmpty()
     {
         int[] emitted = {0};
-        new IntList().forEachSegment((_, _, length) -> emitted[0] += length);
+        new DictionaryIndexBuffer().forEachSegment((_, _, length) -> emitted[0] += length);
         assertThat(emitted[0]).isZero();
     }
 
@@ -50,14 +50,14 @@ class TestIntList
 
     private static void assertRoundTrip(int size)
     {
-        IntList list = new IntList();
+        DictionaryIndexBuffer buffer = new DictionaryIndexBuffer();
         for (int value = 0; value < size; value++) {
-            list.add(value);
+            buffer.add(value);
         }
 
         int[] collected = new int[size];
         int[] position = {0};
-        list.forEachSegment((segment, offset, length) -> {
+        buffer.forEachSegment((segment, offset, length) -> {
             assertThat(offset).isZero();
             assertThat(length).isPositive();
             System.arraycopy(segment, offset, collected, position[0], length);
