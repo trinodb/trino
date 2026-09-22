@@ -607,7 +607,7 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
         // GROUP BY above WHERE and LIMIT
         assertThat(query("SELECT regionkey, sum(nationkey) FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) GROUP BY regionkey")).isFullyPushedDown();
-        // GROUP BY above TopN - TopN pushdown not yet supported
+        // GROUP BY above TopN - TopN pushdown is only supported when ordering by __time
         assertThat(query("SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey")).isNotFullyPushedDown(project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with WHERE on neither grouping nor aggregation column
         assertThat(query("SELECT nationkey, min(regionkey) FROM nation WHERE name = 'ARGENTINA' GROUP BY nationkey")).isFullyPushedDown();
@@ -735,5 +735,35 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on aggregation column
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+    }
+
+    @Test
+    public void testTopNPushdownOnTimeColumn()
+    {
+        // __time is the only sort key Druid supports for a non-aggregating query
+        assertThat(query("SELECT __time FROM orders ORDER BY __time DESC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+        assertThat(query("SELECT __time FROM orders ORDER BY __time ASC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate ASC LIMIT 10")
+                .isFullyPushedDown();
+        // __time is never null, so the requested null ordering does not matter
+        assertThat(query("SELECT __time FROM orders ORDER BY __time DESC NULLS FIRST LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+        // with a pushed down predicate
+        assertThat(query("SELECT __time FROM orders WHERE orderkey < 1000 ORDER BY __time DESC LIMIT 10"))
+                .ordered()
+                .matches("SELECT CAST(orderdate AS timestamp(3)) FROM tpch.tiny.orders WHERE orderkey < 1000 ORDER BY orderdate DESC LIMIT 10")
+                .isFullyPushedDown();
+
+        // any other sort key stays in Trino
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT orderkey FROM orders ORDER BY __time DESC, orderkey LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
+        // TopN above LIMIT would put the ORDER BY on a subquery, which Druid does not honor
+        assertThat(query("SELECT __time FROM (SELECT __time FROM orders LIMIT 100) ORDER BY __time DESC LIMIT 10")).isNotFullyPushedDown(TopNNode.class);
     }
 }

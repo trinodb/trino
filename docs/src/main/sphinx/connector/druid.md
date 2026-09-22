@@ -218,6 +218,13 @@ aggregation results stay consistent with Trino's `NULL` semantics. Set the
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
+### Top-N pushdown
+
+The connector supports {ref}`Top-N pushdown <topn-pushdown>` when the query
+orders exclusively by the `__time` column, which is the only sort key Druid
+supports for non-aggregating queries. Ordering by any other column is performed
+by Trino.
+
 ### Predicate pushdown support
 
 The connector supports {ref}`predicate expression pushdown <predicate-pushdown>`.
