@@ -960,6 +960,16 @@ under 128 megabytes in size:
 ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '128MB')
 ```
 
+By default, `optimize` writes the rewritten data files using the table's
+existing [sort order](iceberg-sorted-files), configured with the `sorted_by`
+table property. Use the `sorted_by` parameter of the `optimize` command to
+apply a different sort order for the rewritten files only, without changing
+the table's configured sort order:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize (sorted_by => ARRAY['order_date'])
+```
+
 You can use a `WHERE` clause with the columns used to partition the table
 to filter which partitions are optimized:
 
