@@ -846,6 +846,18 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCommentMaterializedView(SqlBaseParser.CommentMaterializedViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(visitString(context.string()).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.MATERIALIZED_VIEW, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
     public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
     {
         Optional<String> comment = Optional.empty();

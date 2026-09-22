@@ -4880,6 +4880,15 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCommentMaterializedView()
+    {
+        QualifiedName materializedView = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "a", false)));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("test")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.empty()));
+    }
+
+    @Test
     public void testCommentColumn()
     {
         QualifiedName column = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false)));
