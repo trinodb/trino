@@ -75,31 +75,45 @@ public class ViewExpression
         return new Builder();
     }
 
+    public static Builder builderFrom(ViewExpression viewExpression)
+    {
+        return new Builder(viewExpression);
+    }
+
     public static class Builder
     {
-        private String identity;
-        private String catalog;
-        private String schema;
+        private Optional<String> identity = Optional.empty();
+        private Optional<String> catalog = Optional.empty();
+        private Optional<String> schema = Optional.empty();
         private String expression;
         private List<CatalogSchemaName> path = List.of();
 
         private Builder() {}
 
+        private Builder(ViewExpression viewExpression)
+        {
+            this.identity = viewExpression.identity;
+            this.catalog = viewExpression.catalog;
+            this.schema = viewExpression.schema;
+            this.expression = viewExpression.expression;
+            this.path = viewExpression.path;
+        }
+
         public Builder identity(String identity)
         {
-            this.identity = identity;
+            this.identity = Optional.ofNullable(identity);
             return this;
         }
 
         public Builder catalog(String catalog)
         {
-            this.catalog = catalog;
+            this.catalog = Optional.ofNullable(catalog);
             return this;
         }
 
         public Builder schema(String schema)
         {
-            this.schema = schema;
+            this.schema = Optional.ofNullable(schema);
             return this;
         }
 
@@ -117,12 +131,7 @@ public class ViewExpression
 
         public ViewExpression build()
         {
-            return new ViewExpression(
-                    Optional.ofNullable(identity),
-                    Optional.ofNullable(catalog),
-                    Optional.ofNullable(schema),
-                    expression,
-                    path);
+            return new ViewExpression(identity, catalog, schema, expression, path);
         }
     }
 }
