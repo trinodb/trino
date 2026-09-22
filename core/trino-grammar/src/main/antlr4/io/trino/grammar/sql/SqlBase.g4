@@ -84,6 +84,7 @@ statement
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
+    | COMMENT ON MATERIALIZED VIEW qualifiedName IS (string | NULL)    #commentMaterializedView
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
