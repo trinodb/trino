@@ -194,6 +194,9 @@ public class LakehouseMetadata
         if (!tableProcedureNames.getOrDefault(tableType, ImmutableSet.of()).contains(procedureName)) {
             throw new TrinoException(NOT_SUPPORTED, "Table procedure not supported for %s tables: %s".formatted(tableType, procedureName));
         }
+        if (procedureName.equals("OPTIMIZE") && tableType != TableType.ICEBERG && executeProperties.get("sorted_by") != null) {
+            throw new TrinoException(NOT_SUPPORTED, "sorted_by option not supported for %s tables: %s".formatted(tableType, procedureName));
+        }
         return forHandle(tableHandle).getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
     }
 

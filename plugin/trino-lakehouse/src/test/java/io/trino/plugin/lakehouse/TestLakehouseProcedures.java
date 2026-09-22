@@ -44,6 +44,9 @@ final class TestLakehouseProcedures
         try (TestTable table = newTrinoTable("test_optimize_iceberg", "(id integer)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize (sorted_by => ARRAY['id'])");
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE \"OPTIMIZE\" (\"SORTED_BY\" => ARRAY['id'])");
         }
     }
 
@@ -55,6 +58,9 @@ final class TestLakehouseProcedures
                 .build();
         try (TestTable table = newTrinoTable("test_optimize_hive", "WITH (type = 'HIVE', format = 'PARQUET') AS SELECT 1 id")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize (sorted_by => ARRAY['id'])", "sorted_by option not supported for HIVE tables: OPTIMIZE");
+            assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE \"OPTIMIZE\" (\"SORTED_BY\" => ARRAY['id'])", "sorted_by option not supported for HIVE tables: OPTIMIZE");
         }
     }
 
@@ -64,6 +70,9 @@ final class TestLakehouseProcedures
         try (TestTable table = newTrinoTable("test_optimize_delta", "WITH (type = 'DELTA') AS SELECT 1 id")) {
             // the local file system provides no Delta transaction log synchronizer, so the statement resolves and then fails on the write
             assertQueryFails("ALTER TABLE " + table.getName() + " EXECUTE optimize", "Writes are not enabled on the file filesystem.*");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " EXECUTE optimize (sorted_by => ARRAY['id'])", "sorted_by option not supported for DELTA tables: OPTIMIZE");
+            assertQueryFails("ALTER TABLE " + table.getName() + " EXECUTE \"OPTIMIZE\" (\"SORTED_BY\" => ARRAY['id'])", "sorted_by option not supported for DELTA tables: OPTIMIZE");
         }
     }
 
