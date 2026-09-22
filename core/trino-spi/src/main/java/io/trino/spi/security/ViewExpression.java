@@ -109,9 +109,10 @@ public class ViewExpression
             return this;
         }
 
-        public void setPath(List<CatalogSchemaName> path)
+        public Builder path(List<CatalogSchemaName> path)
         {
             this.path = List.copyOf(path);
+            return this;
         }
 
         public ViewExpression build()
