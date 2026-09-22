@@ -51,6 +51,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
+        "iceberg.equality-deletes-blocks-hash-enabled",
         "iceberg.experimental.extended-statistics.enabled",
         "iceberg.extended-statistics.enabled",
         "iceberg.file-based-conflict-detection",
@@ -108,7 +109,6 @@ public class IcebergConfig
     private int metadataParallelism = 8;
     private boolean metadataVirtualThreadsEnabled = true;
     private boolean bucketExecutionEnabled = true;
-    private boolean equalityDeletesBlocksHashEnabled = true;
     private ParquetFooterCacheType parquetFooterCacheType = NONE;
     private DataSize parquetFooterCacheMemoryMaxSize = DataSize.of(10, MEGABYTE);
     private int domainCompactionThreshold = 1000;
@@ -714,19 +714,6 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
-        return this;
-    }
-
-    public boolean isEqualityDeletesBlocksHashEnabled()
-    {
-        return equalityDeletesBlocksHashEnabled;
-    }
-
-    @Config("iceberg.equality-deletes-blocks-hash-enabled")
-    @ConfigDescription("Use BlocksHash for optimized equality delete filtering")
-    public IcebergConfig setEqualityDeletesBlocksHashEnabled(boolean equalityDeletesBlocksHashEnabled)
-    {
-        this.equalityDeletesBlocksHashEnabled = equalityDeletesBlocksHashEnabled;
         return this;
     }
 

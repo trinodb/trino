@@ -27,8 +27,6 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.type.TypeManager;
 
-import java.util.Optional;
-
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSourceProviderFactory
@@ -41,7 +39,7 @@ public class IcebergPageSourceProviderFactory
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
     private final ParquetFooterCache parquetFooterCache;
-    private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
     private final int domainCompactionThreshold;
 
@@ -65,9 +63,7 @@ public class IcebergPageSourceProviderFactory
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.parquetFooterCache = requireNonNull(parquetFooterCache, "parquetFooterCache is null");
-        this.blocksHashFactory = config.isEqualityDeletesBlocksHashEnabled()
-                ? Optional.of(requireNonNull(blocksHashFactory, "blocksHashFactory is null"))
-                : Optional.empty();
+        this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.domainCompactionThreshold = config.getDomainCompactionThreshold();
     }

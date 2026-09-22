@@ -49,11 +49,11 @@ import static java.util.concurrent.Future.State.SUCCESS;
 public class DeleteManager
 {
     private final TypeManager typeManager;
-    private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final BlocksHashFactory blocksHashFactory;
     private final Runnable memoryUsageReporter;
     private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
-    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory, Runnable memoryUsageReporter)
+    public DeleteManager(TypeManager typeManager, BlocksHashFactory blocksHashFactory, Runnable memoryUsageReporter)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
@@ -168,13 +168,10 @@ public class DeleteManager
 
             // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
             EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> {
-                if (blocksHashFactory.isPresent()) {
-                    List<Type> deleteTypes = deleteColumns.stream()
-                            .map(IcebergColumnHandle::getType)
-                            .collect(toImmutableList());
-                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get());
-                }
-                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns));
+                List<Type> deleteTypes = deleteColumns.stream()
+                        .map(IcebergColumnHandle::getType)
+                        .collect(toImmutableList());
+                return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory);
             });
             deleteFilters.add(builder);
 
