@@ -27,8 +27,10 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.FileContent;
@@ -51,6 +53,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.apache.iceberg.types.Types.NestedField.optional;
@@ -119,6 +122,44 @@ class TestEqualityDeleteFilter
         assertThat(dataPage.getPositionCount()).isEqualTo(2);
         assertThat(BIGINT.getLong(dataPage.getBlock(1), 0)).isEqualTo(2L);
         assertThat(BIGINT.getLong(dataPage.getBlock(1), 1)).isEqualTo(3L);
+    }
+
+    @Test
+    void testStructKeyDeletesMatchingRows()
+    {
+        int rootFieldId = 10;
+        int rootAFieldId = 11;
+        int rootBFieldId = 12;
+        ColumnIdentity rootIdentity = new ColumnIdentity(rootFieldId, "root", STRUCT, ImmutableList.of(
+                new ColumnIdentity(rootAFieldId, "a", PRIMITIVE, ImmutableList.of()),
+                new ColumnIdentity(rootBFieldId, "b", PRIMITIVE, ImmutableList.of())));
+        RowType rootRowType = RowType.rowType(RowType.field("a", VARCHAR), RowType.field("b", VARCHAR));
+        IcebergColumnHandle rootHandle = IcebergColumnHandle.optional(rootIdentity).columnType(rootRowType).build();
+        IcebergColumnHandle rootBHandle = IcebergColumnHandle.optional(rootIdentity).fieldType(rootRowType, VARCHAR).path(rootBFieldId).build();
+        Schema rootKeySchema = new Schema(optional(rootFieldId, "root", Types.StructType.of(
+                optional(rootAFieldId, "a", Types.StringType.get()),
+                optional(rootBFieldId, "b", Types.StringType.get()))));
+
+        EqualityDeleteFilterBuilder builder = newBuilder(rootKeySchema, ImmutableList.of(rootRowType));
+        loadDeleteFile(builder, ImmutableList.of(rootHandle), DELETE_FILE_SEQUENCE_NUMBER, new Page(rowBlock(new String[][] {{"x2", "y2"}})));
+        EqualityDeleteFilter filter = builder.build();
+
+        // only the full struct column is projected
+        PageFilter basePredicate = filter.createPageFilter(ImmutableList.of(rootHandle), SPLIT_DATA_SEQUENCE_NUMBER);
+        SourcePage basePage = SourcePage.create(new Page(
+                rowBlock(new String[][] {{"x1", "y1"}, {"x2", "y2"}, {"x3", "y3"}})));
+        basePredicate.applyFilter(basePage);
+        assertThat(basePage.getPositionCount()).isEqualTo(2);
+
+        // a dereferenced subfield of the struct is also projected
+        PageFilter dereferencedPredicate = filter.createPageFilter(ImmutableList.of(rootBHandle, rootHandle), SPLIT_DATA_SEQUENCE_NUMBER);
+        SourcePage dereferencedPage = SourcePage.create(new Page(
+                varcharBlock("y1", "y2", "y3"),
+                rowBlock(new String[][] {{"x1", "y1"}, {"x2", "y2"}, {"x3", "y3"}})));
+        dereferencedPredicate.applyFilter(dereferencedPage);
+        assertThat(dereferencedPage.getPositionCount()).isEqualTo(2);
+        assertThat(VARCHAR.getSlice(dereferencedPage.getBlock(0), 0).toStringUtf8()).isEqualTo("y1");
+        assertThat(VARCHAR.getSlice(dereferencedPage.getBlock(0), 1).toStringUtf8()).isEqualTo("y3");
     }
 
     @Test
@@ -588,5 +629,17 @@ class TestEqualityDeleteFilter
             BIGINT.writeLong(builder, value);
         }
         return builder.build();
+    }
+
+    private static Block rowBlock(String[][] rows)
+    {
+        int rowCount = rows.length;
+        BlockBuilder aBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        BlockBuilder bBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        for (String[] row : rows) {
+            VARCHAR.writeString(aBuilder, row[0]);
+            VARCHAR.writeString(bBuilder, row[1]);
+        }
+        return RowBlock.fromFieldBlocks(rowCount, new Block[] {aBuilder.build(), bBuilder.build()});
     }
 }

@@ -59,12 +59,20 @@ public final class EqualityDeleteFilter
     public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         // Deduplicate by base column ID to handle nested field projections where multiple
-        // nested fields from the same base struct appear (e.g., root.a, root.b both reference base column "root")
+        // nested fields from the same base struct appear (e.g., root.a, root.b, root all reference base column "root")
+        // The base struct wins if it appears anywhere in the projections list.
         Map<Integer, Integer> dataChannelsByBaseId = new HashMap<>();
         for (int channel = 0; channel < columns.size(); channel++) {
             IcebergColumnHandle column = columns.get(channel);
-            if (!isMetadataColumnId(column.getId())) {
-                dataChannelsByBaseId.putIfAbsent(column.getBaseColumnIdentity().getId(), channel);
+            if (isMetadataColumnId(column.getId())) {
+                continue;
+            }
+            int baseId = column.getBaseColumnIdentity().getId();
+            if (column.isBaseColumn()) {
+                dataChannelsByBaseId.put(baseId, channel);
+            }
+            else {
+                dataChannelsByBaseId.putIfAbsent(baseId, channel);
             }
         }
         // map from delete schema channel to data page channel

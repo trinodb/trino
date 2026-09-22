@@ -750,6 +750,52 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeletesWithStructColumnAsKey()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_deletes_struct_key_", "(id BIGINT, root ROW(a VARCHAR, b VARCHAR, c VARCHAR))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row('x1', 'y1', 'z1'))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, row('x2', 'y2', 'z2'))", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, row('x3', 'y3', 'z3'))", 1);
+            Table icebergTable = loadTable(tableName);
+            assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
+
+            List<String> deleteFileColumns = ImmutableList.of("root");
+            Schema deleteRowSchema = icebergTable.schema().select(deleteFileColumns);
+            List<Integer> equalityFieldIds = deleteFileColumns.stream()
+                    .map(name -> deleteRowSchema.findField(name).fieldId())
+                    .collect(toImmutableList());
+            Types.StructType structType = (Types.StructType) deleteRowSchema.findField("root").type();
+
+            for (Map<String, String> deletedValues : ImmutableList.of(
+                    ImmutableMap.of("a", "x2", "b", "y2", "c", "z2"),
+                    ImmutableMap.of("a", "x3", "b", "y3", "c", "z3"))) {
+                Record structRecord = GenericRecord.create(structType);
+                deletedValues.forEach(structRecord::setField);
+                writeEqualityDeleteToNationTableWithDeleteColumns(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("root", structRecord),
+                        deleteRowSchema,
+                        equalityFieldIds);
+            }
+
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', CAST(row('x1', 'y1', 'z1') AS ROW(a VARCHAR, b VARCHAR, c VARCHAR)))");
+
+            // verify that the equality delete is effective when not specifying the corresponding column in the projection list
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
+
+            // verify that the equality delete is effective when only a subfield of the struct key is projected
+            assertThat(query("SELECT root.b FROM " + tableName))
+                    .matches("VALUES CAST('y1' AS VARCHAR)");
+        }
+    }
+
+    @Test
     public void testOptimizingWholeTableRemovesEqualityDeletes()
             throws Exception
     {
