@@ -31,6 +31,7 @@ import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.plugin.jdbc.TestingH2JdbcModule;
 import io.trino.plugin.memory.MemoryPlugin;
+import io.trino.plugin.session.SessionPropertyConfigurationManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -68,9 +69,13 @@ import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -81,8 +86,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -133,6 +140,33 @@ public class TestAccessControl
     private static final String DEFAULT_SCHEMA = "default";
     private static final String REDIRECTED_SOURCE = "redirected_source";
     private static final String REDIRECTED_TARGET = "redirected_target";
+    private static final String SESSION_PROPERTY_DEFAULTS_USER = "session_property_defaults_user";
+    private static final String SESSION_PROPERTY_DEFAULT_VALUE = "1h";
+    private static final String SESSION_PROPERTY_OVERRIDE_VALUE = "2h";
+    private static final String MOCK_CATALOG = "mock";
+    private static final String CATALOG_SESSION_PROPERTY_NAME = "session_property_defaults_property";
+    private static final String QUALIFIED_CATALOG_SESSION_PROPERTY_NAME = MOCK_CATALOG + "." + CATALOG_SESSION_PROPERTY_NAME;
+    private static final String CATALOG_SESSION_PROPERTY_DEFAULT_VALUE = "default_value";
+    private static final String CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE = "override_value";
+    private static final String SESSION_PROPERTY_CONFIG =
+            """
+            [
+              {
+                "user": "%s",
+                "sessionProperties": {
+                  "%s": "%s",
+                  "%s": "%s"
+                }
+              }
+            ]
+            """.formatted(
+            SESSION_PROPERTY_DEFAULTS_USER,
+            QUERY_MAX_RUN_TIME,
+            SESSION_PROPERTY_DEFAULT_VALUE,
+            QUALIFIED_CATALOG_SESSION_PROPERTY_NAME,
+            CATALOG_SESSION_PROPERTY_DEFAULT_VALUE);
+    @TempDir
+    private static Path tempDir;
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new DefaultSystemAccessControl());
     private final TestingGroupProvider groupProvider = new TestingGroupProvider();
     private TestingSystemSecurityMetadata systemSecurityMetadata;
@@ -251,6 +285,7 @@ public class TestAccessControl
                 .withColumnProperties(() -> ImmutableList.of(
                         integerProperty("another_property", "description", 0, false),
                         stringProperty("string_column_property", "description", "", false)))
+                .withSessionProperty(stringProperty(CATALOG_SESSION_PROPERTY_NAME, "Session property used to test administrator-configured defaults", null, false))
                 .withRedirectTable((_, schemaTableName) -> {
                     if (schemaTableName.equals(SchemaTableName.schemaTableName(DEFAULT_SCHEMA, REDIRECTED_SOURCE))) {
                         return Optional.of(
@@ -292,6 +327,12 @@ public class TestAccessControl
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
         systemSecurityMetadata = (TestingSystemSecurityMetadata) queryRunner.getCoordinator().getInstance(Key.get(SystemSecurityMetadata.class));
+
+        queryRunner.installPlugin(new SessionPropertyConfigurationManagerPlugin());
+        queryRunner.getCoordinator().getSessionPropertyDefaults().setConfigurationManager(
+                "file",
+                ImmutableMap.of("session-property-manager.config-file", writeConfig("session-property-config.json", SESSION_PROPERTY_CONFIG)));
+
         return queryRunner;
     }
 
@@ -1121,6 +1162,104 @@ public class TestAccessControl
     }
 
     @Test
+    public void testSessionPropertyDefaultApplies()
+    {
+        reset();
+
+        // The injected default is validated against the end user's privileges,
+        // so a user without the grant cannot run any query at all once a default matches their session
+        // This leaves administrators stuck:
+        // without a grant to set the property, every query of the user fails;
+        // with the grant, the user is free to override the configured value, so it cannot serve as a guardrail.
+        getQueryRunner().getAccessControl().deny(privilege(SESSION_PROPERTY_DEFAULTS_USER, QUERY_MAX_RUN_TIME, SET_SESSION));
+        assertThatThrownBy(() -> sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUERY_MAX_RUN_TIME))
+                .hasMessageContaining("Access Denied: Cannot set system session property " + QUERY_MAX_RUN_TIME);
+
+        reset();
+
+        getQueryRunner().getAccessControl().deny(privilege(SESSION_PROPERTY_DEFAULTS_USER, QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, SET_SESSION));
+        assertThatThrownBy(() -> sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUALIFIED_CATALOG_SESSION_PROPERTY_NAME))
+                .hasMessageContaining("Access Denied: Cannot set catalog session property " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME);
+    }
+
+    @Test
+    public void testSessionPropertyDefaultCanBeOverridden()
+    {
+        reset();
+
+        assertThat(sessionPropertyValue(sessionPropertyDefaultsUser().setSystemProperty(QUERY_MAX_RUN_TIME, SESSION_PROPERTY_OVERRIDE_VALUE).build(), QUERY_MAX_RUN_TIME))
+                .isEqualTo(SESSION_PROPERTY_OVERRIDE_VALUE);
+
+        assertThat(sessionPropertyValue(sessionPropertyDefaultsUser().setCatalogSessionProperty(MOCK_CATALOG, CATALOG_SESSION_PROPERTY_NAME, CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE).build(), QUALIFIED_CATALOG_SESSION_PROPERTY_NAME))
+                .isEqualTo(CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE);
+    }
+
+    @Test
+    public void testSessionPropertyDefaultCanBeOverriddenBySql()
+    {
+        reset();
+
+        assertThat(computeActual(sessionPropertyDefaultsUser().build(), "SET SESSION " + QUERY_MAX_RUN_TIME + " = '" + SESSION_PROPERTY_OVERRIDE_VALUE + "'").getSetSessionProperties())
+                .containsEntry(QUERY_MAX_RUN_TIME, SESSION_PROPERTY_OVERRIDE_VALUE);
+        assertThat(computeActual(sessionPropertyDefaultsUser().build(), "SET SESSION " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME + " = '" + CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE + "'").getSetSessionProperties())
+                .containsEntry(QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE);
+    }
+
+    @Test
+    public void testSessionPropertyOverrideDenied()
+    {
+        reset();
+
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().setSystemProperty(QUERY_MAX_RUN_TIME, SESSION_PROPERTY_OVERRIDE_VALUE).build(),
+                "SELECT 1",
+                "Cannot set system session property " + QUERY_MAX_RUN_TIME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUERY_MAX_RUN_TIME, SET_SESSION));
+
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().setCatalogSessionProperty(MOCK_CATALOG, CATALOG_SESSION_PROPERTY_NAME, CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE).build(),
+                "SELECT 1",
+                "Cannot set catalog session property " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, SET_SESSION));
+    }
+
+    @Test
+    public void testSessionPropertyOverrideWithDefaultValueDenied()
+    {
+        reset();
+
+        // The configured default must not be discoverable by probing with the same value
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().setSystemProperty(QUERY_MAX_RUN_TIME, SESSION_PROPERTY_DEFAULT_VALUE).build(),
+                "SELECT 1",
+                "Cannot set system session property " + QUERY_MAX_RUN_TIME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUERY_MAX_RUN_TIME, SET_SESSION));
+
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().setCatalogSessionProperty(MOCK_CATALOG, CATALOG_SESSION_PROPERTY_NAME, CATALOG_SESSION_PROPERTY_DEFAULT_VALUE).build(),
+                "SELECT 1",
+                "Cannot set catalog session property " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, SET_SESSION));
+    }
+
+    @Test
+    public void testSessionPropertyOverrideBySqlDenied()
+    {
+        reset();
+
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().build(),
+                "SET SESSION " + QUERY_MAX_RUN_TIME + " = '" + SESSION_PROPERTY_OVERRIDE_VALUE + "'",
+                "Cannot set system session property " + QUERY_MAX_RUN_TIME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUERY_MAX_RUN_TIME, SET_SESSION));
+        assertAccessDenied(
+                sessionPropertyDefaultsUser().build(),
+                "SET SESSION " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME + " = '" + CATALOG_SESSION_PROPERTY_OVERRIDE_VALUE + "'",
+                "Cannot set catalog session property " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME,
+                privilege(SESSION_PROPERTY_DEFAULTS_USER, QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, SET_SESSION));
+    }
+
+    @Test
     public void testDescribe()
     {
         reset();
@@ -1676,6 +1815,28 @@ public class TestAccessControl
         getQueryRunner().execute(functionOwner1, "DROP FUNCTION memory_test.default.%s(integer)".formatted(function));
         getQueryRunner().execute(functionOwner1, "DROP FUNCTION memory_test.default.%s(integer)".formatted(deniedFunction));
         assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.functions_authorization");
+    }
+
+    private Session.SessionBuilder sessionPropertyDefaultsUser()
+    {
+        return Session.builder(getSession())
+                .setIdentity(Identity.ofUser(SESSION_PROPERTY_DEFAULTS_USER));
+    }
+
+    private static String writeConfig(String fileName, String content)
+            throws IOException
+    {
+        Path path = tempDir.resolve(fileName);
+        Files.writeString(path, content);
+        return path.toString();
+    }
+
+    private String sessionPropertyValue(Session session, String propertyName)
+    {
+        return (String) computeActual(session, "SHOW SESSION LIKE '" + propertyName + "'").getMaterializedRows().stream()
+                .filter(row -> row.getField(0).equals(propertyName))
+                .collect(onlyElement())
+                .getField(1);
     }
 
     private static final class DenySetPropertiesSystemAccessControl
