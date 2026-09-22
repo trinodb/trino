@@ -1166,20 +1166,16 @@ public class TestAccessControl
     {
         reset();
 
-        // The injected default is validated against the end user's privileges,
-        // so a user without the grant cannot run any query at all once a default matches their session
-        // This leaves administrators stuck:
-        // without a grant to set the property, every query of the user fails;
-        // with the grant, the user is free to override the configured value, so it cannot serve as a guardrail.
+        // The defaults are administrator-configured, so they must apply even though the user has no privilege to set the properties explicitly
         getQueryRunner().getAccessControl().deny(privilege(SESSION_PROPERTY_DEFAULTS_USER, QUERY_MAX_RUN_TIME, SET_SESSION));
-        assertThatThrownBy(() -> sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUERY_MAX_RUN_TIME))
-                .hasMessageContaining("Access Denied: Cannot set system session property " + QUERY_MAX_RUN_TIME);
+        assertThat(sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUERY_MAX_RUN_TIME))
+                .isEqualTo(SESSION_PROPERTY_DEFAULT_VALUE);
 
         reset();
 
         getQueryRunner().getAccessControl().deny(privilege(SESSION_PROPERTY_DEFAULTS_USER, QUALIFIED_CATALOG_SESSION_PROPERTY_NAME, SET_SESSION));
-        assertThatThrownBy(() -> sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUALIFIED_CATALOG_SESSION_PROPERTY_NAME))
-                .hasMessageContaining("Access Denied: Cannot set catalog session property " + QUALIFIED_CATALOG_SESSION_PROPERTY_NAME);
+        assertThat(sessionPropertyValue(sessionPropertyDefaultsUser().build(), QUALIFIED_CATALOG_SESSION_PROPERTY_NAME))
+                .isEqualTo(CATALOG_SESSION_PROPERTY_DEFAULT_VALUE);
     }
 
     @Test
