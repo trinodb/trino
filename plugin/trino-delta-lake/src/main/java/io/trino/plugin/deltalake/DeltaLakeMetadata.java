@@ -52,6 +52,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.TableUpdateInfo;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
@@ -491,7 +492,7 @@ public class DeltaLakeMetadata
     private final TransactionLogReaderFactory transactionLogReaderFactory;
     private final ConnectorExpressionEvaluator evaluator;
     private final DeltaLakeTableCredentialsProvider tableCredentialsProvider;
-    private final Map<VendedCredentialsHandle, Optional<DeltaLakeTableCredentials>> tableCredentialsMap = new ConcurrentHashMap<>();
+    private final Map<VendedCredentialsHandle, Optional<FileSystemCredentials>> tableCredentialsMap = new ConcurrentHashMap<>();
 
     private record QueriedTable(SchemaTableName schemaTableName, long version)
     {
@@ -748,13 +749,12 @@ public class DeltaLakeMetadata
 
     public Optional<DeltaLakeTableCredentials> getTableCredentials(VendedCredentialsHandle vendedCredentialsHandle)
     {
-        Optional<DeltaLakeTableCredentials> credentials = tableCredentialsMap.get(vendedCredentialsHandle);
-        if (credentials != null && credentials.isPresent() && credentials.get().fileSystemCredentials().isValid()) {
-            return credentials;
+        Optional<FileSystemCredentials> credentials = tableCredentialsMap.get(vendedCredentialsHandle);
+        if (credentials == null || credentials.isEmpty() || !credentials.get().isValid()) {
+            credentials = tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle);
+            tableCredentialsMap.put(vendedCredentialsHandle, credentials);
         }
-        credentials = tableCredentialsProvider.getTableCredentials(vendedCredentialsHandle);
-        tableCredentialsMap.put(vendedCredentialsHandle, credentials);
-        return credentials;
+        return credentials.map(fileSystemCredentials -> DeltaLakeTableCredentials.of(vendedCredentialsHandle, fileSystemCredentials));
     }
 
     @Override
