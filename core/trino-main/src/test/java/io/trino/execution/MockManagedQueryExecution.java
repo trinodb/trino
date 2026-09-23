@@ -167,7 +167,8 @@ public class MockManagedQueryExecution
                 null,
                 null,
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                null);
     }
 
     @Override
@@ -298,6 +299,7 @@ public class MockManagedQueryExecution
                 Optional.empty(),
                 Optional.empty(),
                 RetryPolicy.NONE,
+                null,
                 false,
                 new NodeVersion("test"));
     }

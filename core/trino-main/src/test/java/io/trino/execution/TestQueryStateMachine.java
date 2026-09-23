@@ -355,6 +355,17 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testQueuePositionSupplier()
+    {
+        QueryStateMachine queryStateMachine = queryStateMachine().build();
+        queryStateMachine.setQueuePositionSupplier(() -> Optional.of(3));
+        assertThat(queryStateMachine.getBasicQueryInfo(Optional.empty()).getQueuePosition()).isEqualTo(3);
+
+        assertThat(queryStateMachine.transitionToWaitingForResources()).isTrue();
+        assertThat(queryStateMachine.getBasicQueryInfo(Optional.empty()).getQueuePosition()).isNull();
+    }
+
+    @Test
     public void testPlanningTimeDuration()
     {
         TestingTicker mockTicker = new TestingTicker();
