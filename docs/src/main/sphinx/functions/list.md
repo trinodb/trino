@@ -79,6 +79,7 @@
 - {func}`bitwise_xor`
 - {func}`bool_and`
 - {func}`bool_or`
+- {func}`btrim`
 
 ## C
 

@@ -572,6 +572,24 @@ public final class StringFunctions
         return trim(slice);
     }
 
+    @Description("Removes whitespace from the beginning and end of a string")
+    @ScalarFunction(value = "btrim", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice btrim(@SqlType("varchar(x)") Slice slice)
+    {
+        return trim(slice);
+    }
+
+    @Description("Removes whitespace from the beginning and end of a string")
+    @ScalarFunction(value = "btrim", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice charBtrim(@SqlType("char(x)") Slice slice)
+    {
+        return trim(slice);
+    }
+
     @Description("Remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -622,6 +640,24 @@ public final class StringFunctions
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return trimTrailingSpaces(trim(slice, codePointsToTrim));
+    }
+
+    @Description("Remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction(value = "btrim", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice btrim(@SqlType("varchar(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
+    {
+        return trim(slice, codePointsToTrim);
+    }
+
+    @Description("Remove the longest string containing only given characters from the beginning and end of a string")
+    @ScalarFunction(value = "btrim", neverFails = true)
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice charBtrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
         return trimTrailingSpaces(trim(slice, codePointsToTrim));
     }

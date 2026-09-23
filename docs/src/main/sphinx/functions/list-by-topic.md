@@ -507,6 +507,7 @@ For more details, see {doc}`setdigest`
 
 For more details, see {doc}`string`
 
+- {func}`btrim`
 - {func}`chr`
 - {func}`codepoint`
 - {func}`concat`
