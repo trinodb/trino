@@ -22,12 +22,14 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.planner.ComparisonPreimages;
 import io.trino.sql.planner.SymbolAllocator;
 
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
+
 public final class UnwrapFunctionInComparison
         extends ExpressionRewriteRuleSet
 {
     public UnwrapFunctionInComparison(PlannerContext plannerContext)
     {
-        super((expression, context) -> unwrap(plannerContext, context.getSession(), context.getSymbolAllocator(), expression));
+        super((expression, context) -> unwrap(plannerContext, context.getSession(), context.getSymbolAllocator(), expression), session -> isFunctionPreimagesEnabled(session));
     }
 
     public static Expression unwrap(PlannerContext plannerContext, Session session, SymbolAllocator allocator, Expression expression)
