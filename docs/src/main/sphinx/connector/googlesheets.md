@@ -29,6 +29,7 @@ The following configuration properties are available:
 | `gsheets.metadata-sheet-id`    | Sheet ID of the spreadsheet, that contains the table mapping                      |
 | `gsheets.max-data-cache-size`  | Maximum number of spreadsheets to cache, defaults to `1000`                       |
 | `gsheets.data-cache-ttl`       | How long to cache spreadsheet data or metadata, defaults to `5m`                  |
+| `gsheets.max-rows`             | Maximum number of rows read from a sheet, `0` disables it, defaults to `10000`    |
 | `gsheets.connection-timeout`   | Timeout when connection to Google Sheets API, defaults to `20s`                   |
 | `gsheets.read-timeout`         | Timeout when reading from Google Sheets API, defaults to `20s`                    |
 | `gsheets.write-timeout`        | Timeout when writing to Google Sheets API, defaults to `20s`                      |
@@ -84,12 +85,16 @@ address of the service account.
 The sheet needs to be mapped to a Trino table name. Specify a table name
 (column A) and the sheet ID (column B) in the metadata sheet. To refer
 to a specific range in the sheet, add the range after the sheet ID, separated
-with `#`. If a range is not provided, the connector loads only 10,000 rows by default from
-the first tab in the sheet.
+with `#`. If a range is not provided, the connector reads the first tab in the sheet.
 
 The first row of the provided sheet range is used as the header and will determine the column
 names of the Trino table.
 For more details on sheet range syntax see the [google sheets docs](https://developers.google.com/sheets/api/guides/concepts).
+
+The connector reads at most `gsheets.max-rows` rows, including the header row, from a sheet
+or range. Instead of silently truncating the data, a query fails with the
+`SHEETS_EXCEEDED_ROW_LIMIT` error if the sheet or range contains more rows. The limit also
+applies to the metadata sheet. Set `gsheets.max-rows` to `0` to disable the limit.
 
 ## Writing to sheets
 
@@ -165,7 +170,8 @@ FROM
 ```
 
 A sheet range or named range can be provided as an optional `range` argument.
-The default sheet range is `$1:$10000` if one is not provided:
+If a range is not provided, the first tab in the sheet is read, subject to the
+`gsheets.max-rows` limit:
 
 ```
 SELECT *

@@ -194,7 +194,7 @@ public class TestGoogleSheets
         // Attempting to put a sheet range in the id fails since the sheet id is invalid
         assertThat(query(
                 "SELECT * FROM TABLE(gsheets.system.sheet(id => '%s%s'))".formatted(DATA_SHEET_ID, "number_text")))
-                .failure().hasMessageContaining("Failed reading data from sheet: %snumber_text#$1:$10000".formatted(DATA_SHEET_ID));
+                .failure().hasMessageContaining("Failed reading data from sheet: %snumber_text".formatted(DATA_SHEET_ID));
     }
 
     @Test
