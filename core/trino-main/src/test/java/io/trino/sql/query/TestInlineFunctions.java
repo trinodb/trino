@@ -81,6 +81,32 @@ public class TestInlineFunctions
     }
 
     @Test
+    public void testSqlFunctionInPredicate()
+    {
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
+                    RETURN x * 2
+                SELECT nationkey
+                FROM nation
+                WHERE my_func(nationkey) = BIGINT '2'
+                """))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION my_func(x bigint)
+                    RETURNS bigint
+                    RETURN x * 2
+                SELECT nationkey
+                FROM nation
+                WHERE my_func(nationkey) < BIGINT '4'
+                """))
+                .matches("VALUES BIGINT '0', BIGINT '1'");
+    }
+
+    @Test
     public void testSqlFunction()
     {
         assertThat(assertions.query(
