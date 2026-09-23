@@ -23,13 +23,15 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.planner.ComparisonPreimages;
 import io.trino.sql.planner.SymbolAllocator;
 
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
+
 public final class UnwrapFunctionInComparison
         extends ExpressionRewriteRuleSet
 {
     public UnwrapFunctionInComparison(PlannerContext plannerContext)
     {
         ComparisonPreimages preimages = new ComparisonPreimages(plannerContext);
-        super((expression, context) -> unwrap(plannerContext, preimages, context.getSession(), context.getSymbolAllocator(), expression));
+        super((expression, context) -> unwrap(plannerContext, preimages, context.getSession(), context.getSymbolAllocator(), expression), session -> isFunctionPreimagesEnabled(session));
     }
 
     public static Expression unwrap(PlannerContext plannerContext, Session session, SymbolAllocator allocator, Expression expression)
@@ -40,7 +42,11 @@ public final class UnwrapFunctionInComparison
     public static Expression unwrap(PlannerContext plannerContext, ComparisonPreimages preimages, Session session, SymbolAllocator allocator, Expression expression)
     {
         // Resolves each projection, implementation, and cast once for this expression tree.
-        FunctionPreimages functionPreimages = preimages.newFunctionPreimages();
+        return unwrap(plannerContext, preimages, preimages.newFunctionPreimages(), session, allocator, expression);
+    }
+
+    public static Expression unwrap(PlannerContext plannerContext, ComparisonPreimages preimages, FunctionPreimages functionPreimages, Session session, SymbolAllocator allocator, Expression expression)
+    {
         return ExpressionTreeRewriter.rewriteWith(new io.trino.sql.ir.ExpressionRewriter<Void>()
         {
             @Override
