@@ -47,7 +47,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeOperators;
 import io.trino.split.ConnectorAwareSplitSource;
 import io.trino.split.SplitSource;
 import io.trino.sql.DynamicFilters;
@@ -111,6 +110,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -141,7 +141,6 @@ public class TestMultiSourcePartitionedScheduler
     private final FinalizerService finalizerService = new FinalizerService();
     private final Metadata metadata = createTestingMetadataManager();
     private final FunctionManager functionManager = createTestingFunctionManager();
-    private final TypeOperators typeOperators = new TypeOperators();
     private final Session session = TestingSession.testSessionBuilder().build();
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
 
@@ -383,7 +382,7 @@ public class TestMultiSourcePartitionedScheduler
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
                 TEST_SESSION,
@@ -439,7 +438,7 @@ public class TestMultiSourcePartitionedScheduler
                 ImmutableMap.of(TABLE_SCAN_1_NODE_ID, createFixedSplitSource(200), TABLE_SCAN_2_NODE_ID, createFixedSplitSource(200)),
                 createSplitPlacementPolicies(session, stage, nodeTaskMap, nodeManager),
                 stage,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                 () -> true,
                 200);
         // the queues of 3 running nodes should be full
@@ -490,7 +489,7 @@ public class TestMultiSourcePartitionedScheduler
                 splitSources,
                 splitPlacementPolicy,
                 stage,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                 () -> false,
                 splitBatchSize);
     }
