@@ -28,7 +28,7 @@ public interface EqualityDeleteFilterBuilder
      * Builds the EqualityDeleteFilter.
      * After building the EqualityDeleteFilter, additional rows can be added to this builder, and the filter can be rebuilt.
      */
-    DeleteFilter build();
+    EqualityDeleteFilter build();
 
     long getEstimatedSizeInBytes();
 }

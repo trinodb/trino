@@ -45,19 +45,17 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static java.util.Objects.requireNonNull;
 
-public final class FlatEqualityDeleteFilter
-        implements DeleteFilter
+public final class EqualityDeleteFilter
 {
     private final Schema deleteSchema;
     private final EqualityDeleteIndex index;
 
-    private FlatEqualityDeleteFilter(Schema deleteSchema, EqualityDeleteIndex index)
+    private EqualityDeleteFilter(Schema deleteSchema, EqualityDeleteIndex index)
     {
         this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
         this.index = requireNonNull(index, "index is null");
     }
 
-    @Override
     public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
         // Deduplicate by base column ID to handle nested field projections where multiple
@@ -230,9 +228,9 @@ public final class FlatEqualityDeleteFilter
         }
 
         @Override
-        public FlatEqualityDeleteFilter build()
+        public EqualityDeleteFilter build()
         {
-            return new FlatEqualityDeleteFilter(deleteSchema, index);
+            return new EqualityDeleteFilter(deleteSchema, index);
         }
 
         @Override

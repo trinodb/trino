@@ -149,7 +149,7 @@ public class DeleteManager
         DeletionVector read(DeleteFile deleteFile);
     }
 
-    private List<DeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
             return List.of();
@@ -171,7 +171,7 @@ public class DeleteManager
                 List<Type> deleteTypes = deleteColumns.stream()
                         .map(IcebergColumnHandle::getType)
                         .collect(toImmutableList());
-                return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory);
+                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory);
             });
             deleteFilters.add(builder);
 
