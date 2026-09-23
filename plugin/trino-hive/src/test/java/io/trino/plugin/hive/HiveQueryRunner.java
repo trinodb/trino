@@ -24,6 +24,8 @@ import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.parquet.crypto.DecryptionKeyRetriever;
+import io.trino.plugin.hive.containers.Hive3FlociDataLake;
+import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -54,6 +56,7 @@ import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
@@ -477,6 +480,30 @@ public final class HiveQueryRunner
                     .build();
 
             Logger log = Logger.get(HiveLocalFileSystemQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class Hive3FlociDataLakeQueryRunnerMain
+    {
+        private Hive3FlociDataLakeQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            Hive3FlociDataLake hiveFlociDataLake = new Hive3FlociDataLake("hive3-floci-data-lake-" + randomNameSuffix());
+            hiveFlociDataLake.start();
+
+            //noinspection resource
+            DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveFlociDataLake)
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
+                    .setSkipTimezoneSetup(true)
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(Hive3FlociDataLakeQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
