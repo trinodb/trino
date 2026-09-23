@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.StructuralCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -24,6 +25,7 @@ import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionMetadata;
@@ -87,6 +89,7 @@ public final class MapToMapCast
     public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
         super(FunctionMetadata.operatorBuilder(CAST)
+                .domainProjection(new DomainProjection(new StructuralCastPreimage()))
                 .signature(Signature.builder()
                         .castableToTypeParameter("FK", typeVariable("TK"))
                         .castableToTypeParameter("FV", typeVariable("TV"))
@@ -95,7 +98,6 @@ public final class MapToMapCast
                         .returnType(mapType(typeVariable("TK"), typeVariable("TV")))
                         .argumentType(mapType(typeVariable("FK"), typeVariable("FV")))
                         .build())
-                .nullable()
                 .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
@@ -125,7 +127,7 @@ public final class MapToMapCast
         BlockPositionIsIdentical keyIdentical = blockTypeOperators.getIdenticalOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyIdentical, keyHashCode);
-        return new ChoicesSpecializedSqlScalarFunction(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**

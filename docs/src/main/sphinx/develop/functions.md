@@ -298,6 +298,15 @@ and unknown elsewhere. Its false domain is empty, and negating it does not admit
 any rows. `BETWEEN` applies the same rules to its two comparisons, including null
 bounds. Nontrivial projected arguments are bound when needed to avoid repeated evaluation.
 
+For comparisons that can return null for non-null operands, a provider may implement
+`comparisonConstant(context, constant)`. The mapped input constant must preserve
+every supported native comparison operator, including unknown results, for every successful
+original evaluation. The common rule retains the native operator. Array, row, and map
+casts use recursive exact mappings that preserve nested nulls; lossy constants and
+unsupported element coercions decline. `IN` maps every item without repeating the
+input. This contract does not imply that domain extraction can represent the
+comparison's truth sets.
+
 The common consumer declines unsupported comparisons, nonconstant parameters,
 expansions of lists longer than ten items, and truth domains exceeding a combined
 32 ranges. Point-to-point `IN` rewrites that preserve the list size do not require
