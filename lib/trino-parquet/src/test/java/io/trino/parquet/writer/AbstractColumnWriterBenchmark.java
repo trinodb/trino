@@ -123,7 +123,7 @@ public abstract class AbstractColumnWriterBenchmark
         try (PrimitiveValueWriter writer = createValuesWriter()) {
             for (Block block : blocks) {
                 writer.write(block);
-                if (writer.getEstimatedBufferedSize() >= MAX_PAGE_SIZE.toBytes()) {
+                if (writer.getEstimatedDataPageSize() >= MAX_PAGE_SIZE.toBytes()) {
                     output.add(flushPage(writer));
                 }
             }

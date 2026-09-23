@@ -74,6 +74,7 @@ public class PrimitiveColumnWriter
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 8 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 2 * 1024 * 1024;
     private static final int MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE = 1024 * 1024;
+    private static final int MINIMUM_DICTIONARY_COMPRESSION_RATIO_SAMPLE_SIZE = 64 * 1024;
     private static final double MAX_COMPRESSION_EXPANSION_RATIO = 1.5;
     // ParquetMetadataConverter.MAX_STATS_SIZE is 4096, we need a value which would guarantee that min and max
     // don't add up to 4096 (so less than 2048). Using 1K as that is big enough for most use cases.
@@ -101,6 +102,8 @@ public class PrimitiveColumnWriter
     private final Optional<BloomFilter> bloomFilter;
     private long totalCompressedSize;
     private long totalUnCompressedSize;
+    private long dictionaryPageCompressedSize;
+    private long dictionaryPageUncompressedSize;
     private long totalValues;
 
     private final int maxDefinitionLevel;
@@ -309,8 +312,10 @@ public class PrimitiveColumnWriter
             ParquetDataOutput pageHeader = createDataOutput(dictStream);
             outputs.add(pageHeader);
             outputs.add(pageData);
-            totalCompressedSize += pageHeader.size() + compressedSize;
-            totalUnCompressedSize += pageHeader.size() + uncompressedSize;
+            dictionaryPageCompressedSize = pageHeader.size() + compressedSize;
+            dictionaryPageUncompressedSize = pageHeader.size() + uncompressedSize;
+            totalCompressedSize += dictionaryPageCompressedSize;
+            totalUnCompressedSize += dictionaryPageUncompressedSize;
             dictionaryPagesWithEncoding.merge(getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
             dictionaryPageSize = OptionalInt.of(pageHeader.size() + compressedSize);
 
@@ -335,16 +340,35 @@ public class PrimitiveColumnWriter
     @Override
     public long getEstimatedBufferedBytes(CompressionStats compressionStats)
     {
-        long pendingBufferedBytesEstimate = definitionLevelWriter.getBufferedSize() +
+        long pendingDataPageSize = definitionLevelWriter.getBufferedSize() +
                 repetitionLevelWriter.getBufferedSize() +
-                primitiveValueWriter.getEstimatedBufferedSize();
-        return pageBufferedBytes + estimateCompressedSize(pendingBufferedBytesEstimate, compressionStats);
+                primitiveValueWriter.getEstimatedDataPageSize();
+        long pendingDictionaryPageSize = primitiveValueWriter.getEstimatedDictionaryPageSize();
+        return pageBufferedBytes +
+                estimateCompressedSize(
+                        pendingDataPageSize,
+                        totalCompressedSize - dictionaryPageCompressedSize,
+                        totalUnCompressedSize - dictionaryPageUncompressedSize,
+                        compressionStats.dataPageCompressedSize(),
+                        compressionStats.dataPageUncompressedSize(),
+                        MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE) +
+                estimateCompressedSize(
+                        pendingDictionaryPageSize,
+                        dictionaryPageCompressedSize,
+                        dictionaryPageUncompressedSize,
+                        compressionStats.dictionaryPageCompressedSize(),
+                        compressionStats.dictionaryPageUncompressedSize(),
+                        MINIMUM_DICTIONARY_COMPRESSION_RATIO_SAMPLE_SIZE);
     }
 
     @Override
     public CompressionStats getCompressionStats()
     {
-        return new CompressionStats(totalCompressedSize, totalUnCompressedSize);
+        return new CompressionStats(
+                totalCompressedSize - dictionaryPageCompressedSize,
+                totalUnCompressedSize - dictionaryPageUncompressedSize,
+                dictionaryPageCompressedSize,
+                dictionaryPageUncompressedSize);
     }
 
     @Override
@@ -364,15 +388,21 @@ public class PrimitiveColumnWriter
                 primitiveValueWriter.getBufferedSize();
     }
 
-    private long estimateCompressedSize(long uncompressedSize, CompressionStats compressionStats)
+    private static long estimateCompressedSize(
+            long uncompressedSize,
+            long currentCompressedSize,
+            long currentUncompressedSize,
+            long aggregateCompressedSize,
+            long aggregateUncompressedSize,
+            long minimumSampleSize)
     {
         // If the current write has a reasonable compression sample size, use the compression ratio from the current
         // writer, otherwise use the compression stats from other columns in this file. Also, verify the overall
         // compression stats has a reasonable compression sample size before use.
-        if (totalUnCompressedSize >= MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE || compressionStats.uncompressedSize() < MINIMUM_COMPRESSION_RATIO_SAMPLE_SIZE) {
-            return estimateCompressedSize(uncompressedSize, totalCompressedSize, totalUnCompressedSize);
+        if (currentUncompressedSize >= minimumSampleSize || aggregateUncompressedSize < minimumSampleSize) {
+            return estimateCompressedSize(uncompressedSize, currentCompressedSize, currentUncompressedSize);
         }
-        return estimateCompressedSize(uncompressedSize, compressionStats.compressedSize(), compressionStats.uncompressedSize());
+        return estimateCompressedSize(uncompressedSize, aggregateCompressedSize, aggregateUncompressedSize);
     }
 
     @VisibleForTesting

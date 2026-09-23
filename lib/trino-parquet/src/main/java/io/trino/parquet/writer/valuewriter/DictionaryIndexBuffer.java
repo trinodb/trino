@@ -19,13 +19,15 @@ import java.util.List;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 /**
- * Append-only list of ints backed by a growing list of slabs. Slabs never move once allocated, so
- * appends never copy existing data. Slab size doubles from {@code INITIAL_SLAB_SIZE} to
- * {@code MAX_SLAB_SIZE} so small writers stay compact while large writers append into long
- * contiguous runs. Supports append and forward segment iteration only.
+ * Append-only buffer of dictionary indexes backed by a growing list of slabs. Slabs never move once
+ * allocated, so appends never copy existing data. Slab size doubles from {@code INITIAL_SLAB_SIZE}
+ * to {@code MAX_SLAB_SIZE} so small writers stay compact while large writers append into long
+ * contiguous runs. Tracks the hybrid RLE/bit-packed run layout so its serialized size can be
+ * calculated at the dictionary's current bit width without rescanning the indexes.
  * Based on org.apache.parquet.column.values.dictionary.IntList.
  */
 final class DictionaryIndexBuffer
@@ -42,6 +44,16 @@ final class DictionaryIndexBuffer
     private int currentSlabSize = INITIAL_SLAB_SIZE;
     private int size;
 
+    private int previousValue;
+    private int bufferedValues;
+    private int repeatCount;
+    private int currentBitPackedGroupCount;
+
+    private long bitPackedRuns;
+    private long bitPackedGroups;
+    private long rleRuns;
+    private long rleHeadersSize;
+
     public void add(int value)
     {
         if (currentSlab == null) {
@@ -56,11 +68,38 @@ final class DictionaryIndexBuffer
         currentSlab[currentSlabOffset] = value;
         currentSlabOffset++;
         size++;
+        updateEstimatedSize(value);
     }
 
     public int size()
     {
         return size;
+    }
+
+    public long estimatedSerializedSize(int bitWidth)
+    {
+        long estimatedBitPackedRuns = bitPackedRuns;
+        long estimatedBitPackedGroups = bitPackedGroups;
+        long estimatedRleRuns = rleRuns;
+        long estimatedRleHeadersSize = rleHeadersSize;
+
+        if (repeatCount >= 8) {
+            estimatedRleRuns++;
+            estimatedRleHeadersSize += unsignedVarIntSize(repeatCount << 1);
+        }
+        else if (bufferedValues > 0) {
+            estimatedBitPackedGroups++;
+            if (currentBitPackedGroupCount == 0 || currentBitPackedGroupCount >= 63) {
+                estimatedBitPackedRuns++;
+            }
+        }
+
+        // One byte stores the bit width before the hybrid RLE/bit-packed stream.
+        return 1 +
+                estimatedBitPackedRuns +
+                estimatedBitPackedGroups * bitWidth +
+                estimatedRleHeadersSize +
+                estimatedRleRuns * ((bitWidth + 7) / 8);
     }
 
     /**
@@ -86,6 +125,63 @@ final class DictionaryIndexBuffer
             slabsSize += sizeOfIntArray(currentSlab.length);
         }
         return INSTANCE_SIZE + sizeOfObjectArray(slabs.size()) + slabsSize;
+    }
+
+    private void updateEstimatedSize(int value)
+    {
+        if (value != previousValue) {
+            if (repeatCount >= 8) {
+                writeRleRun();
+            }
+
+            previousValue = value;
+            repeatCount = 1;
+            bufferedValues++;
+            if (bufferedValues == 8) {
+                writeBitPackedGroup();
+            }
+            return;
+        }
+
+        repeatCount++;
+        if (repeatCount >= 8) {
+            return;
+        }
+
+        bufferedValues++;
+        if (bufferedValues == 8) {
+            writeBitPackedGroup();
+        }
+    }
+
+    private void writeBitPackedGroup()
+    {
+        if (currentBitPackedGroupCount >= 63) {
+            currentBitPackedGroupCount = 0;
+        }
+        if (currentBitPackedGroupCount == 0) {
+            bitPackedRuns++;
+        }
+
+        bitPackedGroups++;
+        currentBitPackedGroupCount++;
+        bufferedValues = 0;
+        repeatCount = 0;
+    }
+
+    private void writeRleRun()
+    {
+        currentBitPackedGroupCount = 0;
+        rleRuns++;
+        rleHeadersSize += unsignedVarIntSize(repeatCount << 1);
+        repeatCount = 0;
+        bufferedValues = 0;
+    }
+
+    private static int unsignedVarIntSize(int value)
+    {
+        int bitLength = Integer.SIZE - Integer.numberOfLeadingZeros(value);
+        return max(1, (bitLength + 6) / 7);
     }
 
     public interface SegmentConsumer
