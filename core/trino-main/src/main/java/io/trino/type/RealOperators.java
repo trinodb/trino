@@ -16,7 +16,9 @@ package io.trino.type;
 import com.google.common.math.DoubleMath;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -103,6 +105,7 @@ public final class RealOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -141,6 +144,7 @@ public final class RealOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.BIGINT)
     public static long castToBigint(@SqlType(StandardTypes.REAL) long value)
@@ -158,6 +162,7 @@ public final class RealOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
@@ -174,6 +179,7 @@ public final class RealOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.REAL) long value)
@@ -190,6 +196,7 @@ public final class RealOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.REAL) long value)
@@ -205,6 +212,7 @@ public final class RealOperators
         return (byte) rounded;
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.REAL) long value)
@@ -212,6 +220,7 @@ public final class RealOperators
         return intBitsToFloat((int) value);
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.REAL) long value)
@@ -226,6 +235,7 @@ public final class RealOperators
         return TrinoNumber.from(new BigDecimal(Float.toString(floatValue)));
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)

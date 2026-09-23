@@ -14,7 +14,9 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.preimage.VarcharToDatePreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -53,12 +55,13 @@ public final class DateOperators
 
     // fallible
     @ScalarFunction("date")
+    @FunctionPreimage(VarcharToDatePreimage.class)
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
     public static long castFromVarchar(@SqlType("varchar(x)") Slice value)
     {
-        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+        // Note: update VarcharToDatePreimage and DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
 
         try {
             return parseDate(trim(value));
