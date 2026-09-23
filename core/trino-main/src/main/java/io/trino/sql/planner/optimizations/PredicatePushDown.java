@@ -104,7 +104,7 @@ import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
-import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
+import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -297,8 +297,8 @@ public class PredicatePushDown
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().assignments(), entry))
-                    .map(conjunct -> canonicalizeExpression(conjunct, plannerContext, getCharVarcharCoercion(session))) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, plannerContext, symbolAllocator, conjunct))
+                    .map(conjunct -> canonicalizeExpression(conjunct, plannerContext, getCharVarcharCoercion(session))) // normalize expressions to a form that comparison preimages understand
+                    .map(conjunct -> unwrap(plannerContext, session, symbolAllocator, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(inlinedDeterministicConjuncts));

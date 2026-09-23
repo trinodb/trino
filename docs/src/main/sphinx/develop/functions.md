@@ -215,6 +215,11 @@ the result will automatically be `NULL` (the function will not be called).
 
 ## Domain preimages
 
+A scalar function can declare how a set of its results maps back to a set of its
+inputs. The optimizer uses this *preimage* to expose columns and ranges to predicate
+pushdown. For example, the preimage of `2025` through `year(date)` is the range from
+the beginning of 2025 to the beginning of 2026.
+
 Attach `@FunctionPreimage(Provider.class)` to the same
 method or class as the scalar function declaration. Cast operators use the same
 annotation. The provider implements `DomainPreimage` and has a public
@@ -297,6 +302,12 @@ intersects false domains. Thus `year(d) IN (2025, NULL)` is true in the 2025 ran
 and unknown elsewhere. Its false domain is empty, and negating it does not admit
 any rows. `BETWEEN` applies the same rules to its two comparisons, including null
 bounds. Nontrivial projected arguments are bound when needed to avoid repeated evaluation.
+
+Built-in providers cover `year(date)`, `year(timestamp)`, eligible `date_trunc`
+units, instant-preserving `at_timezone` calls, and eligible numeric, character,
+temporal casts, and exact array, row, and map constant mappings. All comparison unwrapping uses `UnwrapFunctionInComparison`,
+including predicates exposed by inlining project assignments during predicate
+pushdown. Projection lookup currently supports global function bundles.
 
 For comparisons that can return null for non-null operands, a provider may implement
 `comparisonConstant(context, constant)`. The mapped input constant must preserve

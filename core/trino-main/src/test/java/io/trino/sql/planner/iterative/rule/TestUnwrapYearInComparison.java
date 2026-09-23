@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -28,13 +29,13 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -45,11 +46,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -62,14 +59,10 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
-import static io.trino.sql.ir.TestingIr.between;
-import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.calculateRangeEndInclusive;
-import static io.trino.sql.planner.iterative.rule.UnwrapYearInComparison.unwrapYear;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -335,24 +328,6 @@ public class TestUnwrapYearInComparison
     }
 
     @Test
-    public void testCalculateRangeEndInclusive()
-    {
-        assertThat(calculateRangeEndInclusive(1960, DATE)).isEqualTo(LocalDate.of(1960, 12, 31).toEpochDay());
-        assertThat(calculateRangeEndInclusive(2024, DATE)).isEqualTo(LocalDate.of(2024, 12, 31).toEpochDay());
-
-        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_SECONDS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59)));
-        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_MILLIS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_000_000)));
-        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_MICROS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)));
-        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_NANOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
-        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_PICOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
-        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_SECONDS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59)));
-        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_MILLIS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_000_000)));
-        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_MICROS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)));
-        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_NANOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
-        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_PICOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
-    }
-
-    @Test
     public void testUnwrapYearBindsNonDeterministicOperandOnce()
     {
         Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
@@ -376,15 +351,15 @@ public class TestUnwrapYearInComparison
                         new Symbol(TIMESTAMP_MILLIS, "operand"),
                         randomTimestamp(),
                         new Logical(OR, ImmutableList.of(
-                                letBetween("between", operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
-                                letBetween("between_0", operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
+                                letBetween(operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
+                                letBetween(operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
     }
 
     @Test
     public void testUnwrapYearInKeepsSingleValueUnbound()
     {
         assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2021L)))))
-                .isEqualTo(letBetween("between", randomTimestamp(), "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999"));
+                .isEqualTo(letBetween(randomTimestamp(), "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999"));
     }
 
     @Test
@@ -431,8 +406,8 @@ public class TestUnwrapYearInComparison
                         new Symbol(TIMESTAMP_MILLIS, "operand"),
                         cast,
                         new Logical(OR, ImmutableList.of(
-                                letBetween("between", operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
-                                letBetween("between_0", operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
+                                letBetween(operand, "2019-01-01 00:00:00.000", "2019-12-31 23:59:59.999"),
+                                letBetween(operand, "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999")))));
     }
 
     private static long toEpochMicros(LocalDateTime localDateTime)
@@ -472,13 +447,16 @@ public class TestUnwrapYearInComparison
 
     private static Expression unwrap(Expression expression)
     {
-        return unwrapYear(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), expression);
+        return UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), expression);
     }
 
-    private static Expression letBetween(String name, Expression value, String low, String high)
+    private static Expression letBetween(Expression value, String low, String high)
     {
-        Reference bound = new Reference(value.type(), name);
-        return new Let(new Symbol(value.type(), name), value, between(bound, timestampConstant(low), timestampConstant(high)));
+        if (value instanceof Reference) {
+            return between(value, timestampConstant(low), timestampConstant(high));
+        }
+        Reference bound = new Reference(value.type(), "operand");
+        return new Let(new Symbol(value.type(), "operand"), value, between(bound, timestampConstant(low), timestampConstant(high)));
     }
 
     private static Expression yearTimestamp(Expression operand)
@@ -499,5 +477,24 @@ public class TestUnwrapYearInComparison
     private static Expression not(Expression value)
     {
         return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
+    }
+
+    private static Expression comparison(ComparisonOperator operator, Expression left, Expression right)
+    {
+        if (left instanceof Constant && !(right instanceof Constant)) {
+            return comparison(operator.flip(), right, left);
+        }
+        if (right instanceof Constant constant && constant.value() != null &&
+                (constant.type().equals(DATE) || constant.type() instanceof TimestampType) &&
+                (operator == LESS_THAN_OR_EQUAL || operator == GREATER_THAN)) {
+            Object next = constant.type().equals(DATE) ? (long) constant.value() + 1 : constant.type().getNextValue(constant.value()).orElseThrow();
+            return TestingIr.comparison(operator == LESS_THAN_OR_EQUAL ? LESS_THAN : GREATER_THAN_OR_EQUAL, left, new Constant(constant.type(), next));
+        }
+        return TestingIr.comparison(operator, left, right);
+    }
+
+    private static Expression between(Expression value, Constant low, Constant high)
+    {
+        return new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, value, low), comparison(LESS_THAN_OR_EQUAL, value, high)));
     }
 }

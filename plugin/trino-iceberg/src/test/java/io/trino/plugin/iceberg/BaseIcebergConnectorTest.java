@@ -5247,7 +5247,7 @@ public abstract class BaseIcebergConnectorTest
                 .setSystemProperty("redistribute_writes", "false")
                 .build();
 
-        // The zone is a column: a constant zone is unwrapped by UnwrapAtTimeZoneInComparison before
+        // The zone is a column: a constant zone is unwrapped by the comparison preimage rule before
         // pushdown, so only a column zone exercises the DomainTranslator derivation.
         assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, zone VARCHAR, ts TIMESTAMP(6) WITH TIME ZONE) WITH (partitioning = ARRAY['month(ts)'])");
         // The wall time 2020-10-25 02:31:18 Europe/Warsaw is ambiguous: it occurs at 00:31:18 UTC

@@ -117,7 +117,7 @@ public final class CanonicalizeExpressionRewriter
                 if (argumentType instanceof TimestampType
                         || argumentType instanceof TimestampWithTimeZoneType
                         || argumentType instanceof VarcharType) {
-                    // prefer `CAST(x as DATE)` to `date(x)`, see e.g. UnwrapCastInComparison
+                    // prefer `CAST(x as DATE)` to `date(x)`, so comparison preimages resolve the coercion metadata
                     return new Cast(treeRewriter.rewrite(argument, context), DATE);
                 }
             }

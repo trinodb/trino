@@ -33,6 +33,7 @@ import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison;
 import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
@@ -56,6 +57,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -74,7 +76,6 @@ import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
 import static io.trino.type.Reals.toReal;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -261,7 +262,8 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '32766'", comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a < DOUBLE '32766.9'", comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
+        // The shared domain renderer uses <> for a set that excludes only the type's maximum or minimum.
+        testUnwrap("smallint", "a < DOUBLE '32766.9'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
 
         // top of range
         testUnwrap("smallint", "a < DOUBLE '32767'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
@@ -304,7 +306,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '32766'", comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L)));
 
         // round to top of range
-        testUnwrap("smallint", "a <= DOUBLE '32766.9'", comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
+        testUnwrap("smallint", "a <= DOUBLE '32766.9'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
 
         // top of range
         testUnwrap("smallint", "a <= DOUBLE '32767'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
@@ -362,7 +364,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '-32767'", comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a > DOUBLE '-32767.9'", comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
+        testUnwrap("smallint", "a > DOUBLE '-32767.9'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
 
         // bottom of range
         testUnwrap("smallint", "a > DOUBLE '-32768'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
@@ -402,7 +404,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '-32767'", comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L)));
 
         // round to bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32767.9'", comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
+        testUnwrap("smallint", "a >= DOUBLE '-32767.9'", comparison(NOT_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
 
         // bottom of range
         testUnwrap("smallint", "a >= DOUBLE '-32768'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
@@ -684,26 +686,22 @@ public class TestUnwrapCastInComparison
         testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-03-29 02:00:00.000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-03-29 04:00:00.000000000"))));
         testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-03-29 02:00:00.000000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-03-29 04:00:00.000000000000"))));
 
-        // DST backward -- Warsaw changed clock 1h backward on 2020-10-25T01:00 UTC (2020-03-29T03:00 local time)
-        // Note that in given session no input TIMESTAMP value can produce TIMESTAMP WITH TIME ZONE within [2020-10-25 00:00:00 UTC, 2020-10-25 01:00:00 UTC], so '>=' is OK
-        // last before
-        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 00:59:59 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(0), "a"), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "2020-10-25 02:59:59"))));
-        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 00:59:59.999 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2020-10-25 02:59:59.999"))));
-        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 00:59:59.999999 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "2020-10-25 02:59:59.999999"))));
-        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 00:59:59.999999999 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-25 02:59:59.999999999"))));
-        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 00:59:59.999999999999 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-25 02:59:59.999999999999"))));
-        // first within
-        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 01:00:00 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(0), "a"), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "2020-10-25 02:00:00"))));
-        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 01:00:00.000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2020-10-25 02:00:00.000"))));
-        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 01:00:00.000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "2020-10-25 02:00:00.000000"))));
-        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 01:00:00.000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-25 02:00:00.000000000"))));
-        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 01:00:00.000000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-25 02:00:00.000000000000"))));
-        // last within
-        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 01:59:59 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(0), "a"), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "2020-10-25 02:59:59"))));
-        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 01:59:59.999 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2020-10-25 02:59:59.999"))));
-        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 01:59:59.999999 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "2020-10-25 02:59:59.999999"))));
-        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 01:59:59.999999999 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-25 02:59:59.999999999"))));
-        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 01:59:59.999999999999 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-25 02:59:59.999999999999"))));
+        // Both occurrences of the repeated local hour have ambiguous reverse boundaries.
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            String fraction = precision == 0 ? "" : "." + "9".repeat(precision);
+            String zeros = precision == 0 ? "" : "." + "0".repeat(precision);
+            var source = createTimestampType(precision);
+            var target = createTimestampWithTimeZoneType(precision);
+            for (String time : List.of("00:00:00" + zeros, "00:30:00" + zeros, "00:59:59" + fraction, "01:00:00" + zeros, "01:30:00" + zeros, "01:59:59" + fraction)) {
+                String value = "2020-10-25 " + time + " UTC";
+                testUnwrap(
+                        warsawSession,
+                        "timestamp(" + precision + ")",
+                        "a > TIMESTAMP '" + value + "'",
+                        comparison(GREATER_THAN, new Cast(new Reference(source, "a"), target), new Constant(target, DateTimes.parseTimestampWithTimeZone(precision, value))));
+            }
+        }
+
         // first after
         testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 02:00:00 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(0), "a"), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "2020-10-25 03:00:00"))));
         testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 02:00:00.000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2020-10-25 03:00:00.000"))));
@@ -713,38 +711,34 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testIntegralFloatingRoundingFibers()
+    {
+        Reference bigint = new Reference(BIGINT, "a");
+        Reference integer = new Reference(INTEGER, "a");
+        // Ties round to even, so both adjacent integers at the precision boundary match.
+        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, bigint, new Constant(BIGINT, 9007199254740992L)),
+                comparison(LESS_THAN_OR_EQUAL, bigint, new Constant(BIGINT, 9007199254740993L)))));
+        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", new Logical(AND, ImmutableList.of(
+                comparison(GREATER_THAN_OR_EQUAL, bigint, new Constant(BIGINT, -9007199254740993L)),
+                comparison(LESS_THAN_OR_EQUAL, bigint, new Constant(BIGINT, -9007199254740992L)))));
+        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", comparison(GREATER_THAN_OR_EQUAL, bigint, new Constant(BIGINT, 9223372036854775296L)));
+        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", comparison(LESS_THAN, bigint, new Constant(BIGINT, -9223372036854775295L)));
+
+        testUnwrap("bigint", "a = REAL '8388608'", comparison(EQUAL, bigint, new Constant(BIGINT, 8388608L)));
+        testUnwrap("bigint", "a = REAL '-8388608'", comparison(EQUAL, bigint, new Constant(BIGINT, -8388608L)));
+        testUnwrap("bigint", "a = REAL '9223372036854775807'", comparison(GREATER_THAN_OR_EQUAL, bigint, new Constant(BIGINT, 9223371761976868864L)));
+        testUnwrap("bigint", "a = REAL '-9223372036854775807'", comparison(LESS_THAN, bigint, new Constant(BIGINT, -9223371761976868863L)));
+
+        testUnwrap("integer", "a = REAL '8388608'", comparison(EQUAL, integer, new Constant(INTEGER, 8388608L)));
+        testUnwrap("integer", "a = REAL '-8388608'", comparison(EQUAL, integer, new Constant(INTEGER, -8388608L)));
+        testUnwrap("integer", "a = REAL '2147483647'", comparison(GREATER_THAN_OR_EQUAL, integer, new Constant(INTEGER, 2147483584L)));
+        testUnwrap("integer", "a = REAL '-2147483647'", comparison(LESS_THAN, integer, new Constant(INTEGER, -2147483583L)));
+    }
+
+    @Test
     public void testNoEffect()
     {
-        // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
-        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), DOUBLE), new Constant(DOUBLE, 9.007199254740992e15)));
-
-        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), DOUBLE), new Constant(DOUBLE, 9.223372036854776e18)));
-
-        // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
-        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), DOUBLE), new Constant(DOUBLE, -9.007199254740992e15)));
-
-        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), DOUBLE), new Constant(DOUBLE, -9.223372036854776e18)));
-
-        // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
-        testUnwrap("bigint", "a = REAL '8388608'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), REAL), new Constant(REAL, toReal(8388608.0f))));
-
-        testUnwrap("bigint", "a = REAL '9223372036854775807'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), REAL), new Constant(REAL, toReal(9.223372e18f))));
-
-        // BIGINT->REAL implicit cast is not injective if the real constant is <= -2^23 and >= real(-2^63 + 1)
-        testUnwrap("bigint", "a = REAL '-8388608'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), REAL), new Constant(REAL, toReal(-8388608.0f))));
-
-        testUnwrap("bigint", "a = REAL '-9223372036854775807'", comparison(EQUAL, new Cast(new Reference(BIGINT, "a"), REAL), new Constant(REAL, toReal(-9.223372e18f))));
-
-        // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
-        testUnwrap("integer", "a = REAL '8388608'", comparison(EQUAL, new Cast(new Reference(INTEGER, "a"), REAL), new Constant(REAL, toReal(8388608.0f))));
-
-        testUnwrap("integer", "a = REAL '2147483647'", comparison(EQUAL, new Cast(new Reference(INTEGER, "a"), REAL), new Constant(REAL, toReal(2.1474836e9f))));
-
-        // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
-        testUnwrap("integer", "a = REAL '-8388608'", comparison(EQUAL, new Cast(new Reference(INTEGER, "a"), REAL), new Constant(REAL, toReal(-8388608.0f))));
-
-        testUnwrap("integer", "a = REAL '-2147483647'", comparison(EQUAL, new Cast(new Reference(INTEGER, "a"), REAL), new Constant(REAL, toReal(-2.1474836e9f))));
-
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", comparison(EQUAL, new Cast(new Reference(createDecimalType(16), "a"), DOUBLE), new Constant(DOUBLE, 1.0)));
 
@@ -898,13 +892,15 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 1L)), comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 2L)))));
 
         // fractional bounds tighten to their inclusive integer neighbors via getNextValue/getPreviousValue
-        testUnwrap("smallint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2.9'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)), comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)))));
+        // Only 2 matches, so the shared domain renderer produces equality.
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2.9'", comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)));
         // fractional bounds with no integer between them tighten to an empty range: false for a non-null source
         testUnwrap("smallint", "a BETWEEN DOUBLE '1.4' AND DOUBLE '1.6'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
 
         // CAST(timestamp AS date) range unwrapped to a raw timestamp range, inclusive on both ends
-        testUnwrap("timestamp(3)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-23 23:59:59.999"))))));
-        testUnwrap("timestamp(6)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), comparison(LESS_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-07-23 23:59:59.999999"))))));
+        // The preimage uses the start of the next day as its exclusive upper bound.
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-24 00:00:00.000"))))));
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-07-24 00:00:00.000000"))))));
 
         // low bound below the source type range always holds and drops out, leaving the upper comparison
         testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '2'", comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)));
@@ -939,9 +935,9 @@ public class TestUnwrapCastInComparison
     private static Expression unwrapBetweenDouble(Expression source)
     {
         SymbolAllocator symbolAllocator = emptySymbolAllocator();
-        return unwrapCasts(
-                TEST_SESSION,
+        return UnwrapFunctionInComparison.unwrap(
                 FUNCTIONS.getPlannerContext(),
+                TEST_SESSION,
                 symbolAllocator,
                 IrExpressions.between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), symbolAllocator, new Cast(source, DOUBLE), new Constant(DOUBLE, 1.1), new Constant(DOUBLE, 2.2)));
     }
@@ -984,42 +980,43 @@ public class TestUnwrapCastInComparison
         // however expensive or non-deterministic the source is.
         Expression real = new Cast(new Call(RANDOM, ImmutableList.of()), REAL);
         In equalities = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0)));
-        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), equalities))
+        assertThat(UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), equalities))
                 .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, toReal(3.0f)))));
 
         // A null item keeps its place in the list, so it does not push the rewrite onto the disjunction path.
         In withNull = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null)));
-        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), withNull))
+        assertThat(UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), withNull))
                 .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, null))));
 
         // Items that unwrap to ranges make the result a disjunction, which references the source once per item.
-        // A non-deterministic source would then be evaluated once per item and the items would no longer test a
-        // single value, so the IN is left alone.
+        // Bind a non-deterministic source once so every range tests the same value.
         ResolvedFunction fromUnixtime = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
         Expression timestamp = new Cast(new Call(fromUnixtime, ImmutableList.of(new Call(RANDOM, ImmutableList.of()))), createTimestampType(6));
         In ranges = new In(new Cast(timestamp, DATE), ImmutableList.of(date("1981-06-22"), date("1981-07-23")));
-        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), ranges)).isEqualTo(ranges);
+        Expression rewrittenRanges = UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), ranges);
+        assertThat(rewrittenRanges).isInstanceOf(Let.class);
+        assertThat(occurrences(rewrittenRanges, timestamp)).isEqualTo(1);
     }
 
     @Test
     public void testInListTooLongToExpand()
     {
         // Items that unwrap to ranges cannot stay an IN list, so the predicate becomes a disjunction with a
-        // range per item. A list longer than UnwrapCastInComparison.MAX_EXPANDED_IN_LIST_SIZE is left alone.
+        // range per item. A list longer than the common consumer's expansion limit is left alone.
         Cast source = new Cast(new Reference(createTimestampType(3), "a"), DATE);
         List<Expression> dates = IntStream.rangeClosed(1, 11)
-                .mapToObj(day -> date("1981-06-%02d".formatted(day)))
+                .mapToObj(day -> date("1981-06-%02d".formatted(day * 2 - 1)))
                 .collect(toImmutableList());
 
         In atLimit = new In(source, dates.subList(0, 10));
-        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), atLimit))
+        assertThat(UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), atLimit))
                 .isInstanceOfSatisfying(Logical.class, disjunction -> {
                     assertThat(disjunction.operator()).isEqualTo(OR);
                     assertThat(disjunction.terms()).hasSize(10);
                 });
 
         In tooLong = new In(source, dates);
-        assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), tooLong)).isEqualTo(tooLong);
+        assertThat(UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), tooLong)).isEqualTo(tooLong);
     }
 
     private static Expression date(String value)
@@ -1064,9 +1061,9 @@ public class TestUnwrapCastInComparison
 
     private static void assertBoundOnce(ComparisonOperator operator, Expression operand)
     {
-        Expression unwrapped = unwrapCasts(
-                TEST_SESSION,
+        Expression unwrapped = UnwrapFunctionInComparison.unwrap(
                 FUNCTIONS.getPlannerContext(),
+                TEST_SESSION,
                 emptySymbolAllocator(),
                 comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
@@ -1098,9 +1095,9 @@ public class TestUnwrapCastInComparison
         Reference operand = new Reference(createTimestampType(6), "a");
 
         for (ComparisonOperator operator : asList(EQUAL, NOT_EQUAL, IDENTICAL)) {
-            Expression unwrapped = unwrapCasts(
-                    TEST_SESSION,
+            Expression unwrapped = UnwrapFunctionInComparison.unwrap(
                     FUNCTIONS.getPlannerContext(),
+                    TEST_SESSION,
                     emptySymbolAllocator(),
                     comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
@@ -1111,23 +1108,23 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
-    public void testTimestampToDateKeepsCastOfReferenceInline()
+    public void testTimestampToDateExposesNestedCastForPushdown()
     {
-        // The cast source may itself be a cast over a column (a date column coerced to timestamp). A cast
-        // chain over a reference is cheap and deterministic, so it stays inline rather than bound. Keeping
-        // the inner cast visible lets a later unwrap pass collapse the predicate onto the column and push it
-        // into the scan (e.g. Iceberg partition pruning); binding it in a Let would block that.
+        // One pass binds the inner cast. A subsequent pass projects through the binding,
+        // exposing the date column for predicate pushdown without duplicating evaluation.
         Expression operand = new Cast(new Reference(DATE, "a"), createTimestampType(6));
 
         for (ComparisonOperator operator : asList(EQUAL, NOT_EQUAL, IDENTICAL)) {
-            Expression unwrapped = unwrapCasts(
-                    TEST_SESSION,
+            Expression unwrapped = UnwrapFunctionInComparison.unwrap(
                     FUNCTIONS.getPlannerContext(),
+                    TEST_SESSION,
                     emptySymbolAllocator(),
                     comparison(operator, new Cast(operand, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2021-06-01")))));
 
+            assertThat(occurrences(unwrapped, operand)).as("operator %s", operator).isEqualTo(1);
+            unwrapped = UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), unwrapped);
             assertThat(unwrapped).as("operator %s", operator).isNotInstanceOf(Let.class);
-            assertThat(occurrences(unwrapped, operand)).as("operator %s", operator).isGreaterThanOrEqualTo(2);
+            assertThat(occurrences(unwrapped, operand)).as("operator %s", operator).isZero();
         }
     }
 
