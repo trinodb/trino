@@ -1027,8 +1027,9 @@
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestTrinoSnowflakeCatalog.java</include>
+                                <!-- TODO https://github.com/trinodb/trino/pull/31094 Re-enable these tests -->
+                                <!-- <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include> -->
+                                <!-- <include>**/TestTrinoSnowflakeCatalog.java</include> -->
                             </includes>
                             <systemPropertyVariables>
                                 <!-- Default pool size (available processors) is too small for the real cloud storage deletes these smoke tests share it for -->
