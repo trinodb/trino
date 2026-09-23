@@ -215,6 +215,11 @@ the result will automatically be `NULL` (the function will not be called).
 
 ## Domain preimages
 
+A scalar function can declare how a set of its results maps back to a set of its
+inputs. The optimizer uses this *preimage* to expose columns and ranges to predicate
+pushdown. For example, the preimage of `2025` through `year(date)` is the range from
+the beginning of 2025 to the beginning of 2026.
+
 Attach `@FunctionPreimage(Provider.class)` to the same
 method or class as the scalar function declaration. Cast operators use the same
 annotation. The provider implements `DomainPreimage` and has a public

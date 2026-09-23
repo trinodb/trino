@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
@@ -43,6 +44,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -62,10 +64,17 @@ public class ExpressionRewriteRuleSet
     }
 
     private final ExpressionRewriter rewriter;
+    private final Predicate<Session> enabled;
 
     public ExpressionRewriteRuleSet(ExpressionRewriter rewriter)
     {
+        this(rewriter, _ -> true);
+    }
+
+    public ExpressionRewriteRuleSet(ExpressionRewriter rewriter, Predicate<Session> enabled)
+    {
         this.rewriter = requireNonNull(rewriter, "rewriter is null");
+        this.enabled = requireNonNull(enabled, "enabled is null");
     }
 
     public Set<Rule<?>> rules()
@@ -81,42 +90,50 @@ public class ExpressionRewriteRuleSet
 
     public Rule<?> projectExpressionRewrite()
     {
-        return new ProjectExpressionRewrite(rewriter);
+        return new ProjectExpressionRewrite(rewriter, enabled);
     }
 
     public Rule<?> aggregationExpressionRewrite()
     {
-        return new AggregationExpressionRewrite(rewriter);
+        return new AggregationExpressionRewrite(rewriter, enabled);
     }
 
     public Rule<?> filterExpressionRewrite()
     {
-        return new FilterExpressionRewrite(rewriter);
+        return new FilterExpressionRewrite(rewriter, enabled);
     }
 
     public Rule<?> joinExpressionRewrite()
     {
-        return new JoinExpressionRewrite(rewriter);
+        return new JoinExpressionRewrite(rewriter, enabled);
     }
 
     public Rule<?> valuesExpressionRewrite()
     {
-        return new ValuesExpressionRewrite(rewriter);
+        return new ValuesExpressionRewrite(rewriter, enabled);
     }
 
     public Rule<?> patternRecognitionExpressionRewrite()
     {
-        return new PatternRecognitionExpressionRewrite(rewriter);
+        return new PatternRecognitionExpressionRewrite(rewriter, enabled);
     }
 
     private static final class ProjectExpressionRewrite
             implements Rule<ProjectNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        ProjectExpressionRewrite(ExpressionRewriter rewriter)
+        ProjectExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
@@ -146,10 +163,18 @@ public class ExpressionRewriteRuleSet
             implements Rule<AggregationNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        AggregationExpressionRewrite(ExpressionRewriter rewriter)
+        AggregationExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
@@ -198,10 +223,18 @@ public class ExpressionRewriteRuleSet
             implements Rule<FilterNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        FilterExpressionRewrite(ExpressionRewriter rewriter)
+        FilterExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
@@ -231,10 +264,18 @@ public class ExpressionRewriteRuleSet
             implements Rule<JoinNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        JoinExpressionRewrite(ExpressionRewriter rewriter)
+        JoinExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
@@ -277,10 +318,18 @@ public class ExpressionRewriteRuleSet
             implements Rule<ValuesNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        ValuesExpressionRewrite(ExpressionRewriter rewriter)
+        ValuesExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
@@ -331,10 +380,18 @@ public class ExpressionRewriteRuleSet
             implements Rule<PatternRecognitionNode>
     {
         private final ExpressionRewriter rewriter;
+        private final Predicate<Session> enabled;
 
-        PatternRecognitionExpressionRewrite(ExpressionRewriter rewriter)
+        PatternRecognitionExpressionRewrite(ExpressionRewriter rewriter, Predicate<Session> enabled)
         {
             this.rewriter = rewriter;
+            this.enabled = enabled;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return enabled.test(session);
         }
 
         @Override
