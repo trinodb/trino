@@ -25,7 +25,6 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.Type;
 
-import static io.trino.hive.formats.ByteSearch.indexOfByte;
 import static io.trino.hive.formats.ReadWriteUtils.calculateTruncationLength;
 
 public class StringEncoding
@@ -143,8 +142,7 @@ public class StringEncoding
 
     private boolean containsEscapeByte(Slice slice, int offset, int length)
     {
-        int start = slice.byteArrayOffset() + offset;
-        return indexOfByte(slice.byteArray(), start, start + length, escapeByte) >= 0;
+        return slice.indexOfByte(escapeByte, offset, length) >= 0;
     }
 
     private static ColumnData unescape(ColumnData columnData, byte escapeByte)
