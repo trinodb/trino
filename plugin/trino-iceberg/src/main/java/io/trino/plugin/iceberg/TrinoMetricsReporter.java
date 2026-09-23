@@ -27,12 +27,15 @@ import org.apache.iceberg.metrics.MetricsReporter;
  *
  * @see LoggingMetricsReporter
  */
-public enum TrinoMetricsReporter
+public final class TrinoMetricsReporter
         implements MetricsReporter
 {
-    TRINO_METRICS_REPORTER;
+    public static final TrinoMetricsReporter TRINO_METRICS_REPORTER = new TrinoMetricsReporter();
 
     private static final Logger log = Logger.get(TrinoMetricsReporter.class);
+
+    // Iceberg creates the METRICS_REPORTER_IMPL class through its public no-arg constructor
+    public TrinoMetricsReporter() {}
 
     @Override
     public void report(MetricsReport report)
