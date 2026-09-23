@@ -16,18 +16,15 @@ package io.trino.transaction;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import static java.util.Objects.requireNonNull;
 
-public final class TransactionId
+public record TransactionId(UUID uuid)
 {
-    private final UUID uuid;
-
-    private TransactionId(UUID uuid)
+    public TransactionId
     {
-        this.uuid = requireNonNull(uuid, "uuid is null");
+        requireNonNull(uuid, "uuid is null");
     }
 
     public static TransactionId create()
@@ -39,25 +36,6 @@ public final class TransactionId
     public static TransactionId valueOf(String value)
     {
         return new TransactionId(UUID.fromString(value));
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(uuid);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        TransactionId other = (TransactionId) obj;
-        return Objects.equals(this.uuid, other.uuid);
     }
 
     @Override
