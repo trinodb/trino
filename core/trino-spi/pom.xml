@@ -701,6 +701,11 @@
                                     <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int)</old>
                                     <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int)</new>
                                 </item>
+                                <!-- ViewExpression.Builder.setPath was the only non-fluent setter on the builder. -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.ViewExpression.Builder::setPath(java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
