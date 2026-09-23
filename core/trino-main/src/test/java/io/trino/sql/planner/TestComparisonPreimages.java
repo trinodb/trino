@@ -31,24 +31,32 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.ComparisonOperator;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.spi.function.PreimageResult.Exactness.EXACT;
@@ -56,9 +64,17 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
+import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.testing.TestingSession.testSession;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -70,6 +86,72 @@ public class TestComparisonPreimages
     private static final Session SESSION = testSession();
     private static final Reference BIGINT_INPUT = new Reference(BIGINT, "value");
     private static final AtomicInteger EVALUATIONS = new AtomicInteger();
+
+    private final ComparisonPreimages preimages = new ComparisonPreimages(FUNCTIONS.getPlannerContext(), SESSION);
+    private final IrExpressionEvaluator evaluator = new IrExpressionEvaluator(FUNCTIONS.getPlannerContext());
+
+    @Test
+    void testConservativeProjection()
+    {
+        Expression predicate = compare(EQUAL, call("preimage_conservative", BIGINT_INPUT), new Constant(BIGINT, 1L));
+        assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+    }
+
+    @Test
+    void testNullableInputComparisonsAreUnsupported()
+    {
+        Reference input = new Reference(RowType.anonymous(List.of(BIGINT)), "value");
+        Call function = call("preimage_row", input);
+        assertThat(FUNCTIONS.getMetadata().getDomainProjection(SESSION, function.function())).isPresent();
+        assertThat(preimages.hasProjection(function)).isFalse();
+        assertThat(preimages.rewrite(compare(EQUAL, function, new Constant(BIGINT, 1L)), emptySymbolAllocator())).isEmpty();
+    }
+
+    @Test
+    void testParametersAndFunctionIdentity()
+    {
+        assertEquivalent(compare(EQUAL, call("preimage_parameter", BIGINT_INPUT, new Constant(BIGINT, 42L)), new Constant(BIGINT, 1L)), List.of(0L, 1L, 2L));
+        for (Expression parameter : List.of(new Constant(BIGINT, 41L), new Constant(BIGINT, null), BIGINT_INPUT)) {
+            Expression predicate = compare(EQUAL, call("preimage_parameter", BIGINT_INPUT, parameter), new Constant(BIGINT, 1L));
+            assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+        }
+        assertThat(preimages.hasProjection(call("preimage_identity_alias", BIGINT_INPUT))).isTrue();
+        assertThat(preimages.hasProjection(call("year", BIGINT_INPUT))).isFalse();
+        Expression unrelated = compare(EQUAL, call("year", BIGINT_INPUT), new Constant(BIGINT, 1L));
+        assertThat(preimages.rewrite(unrelated, emptySymbolAllocator())).isEmpty();
+    }
+
+    @Test
+    void testProviderAdmitsInferredArgument()
+    {
+        // Both arguments have the same type, but this provider only projects the first.
+        Expression unsupported = compare(EQUAL, call("preimage_parameter", new Constant(BIGINT, 1L), BIGINT_INPUT), new Constant(BIGINT, 1L));
+        assertThat(preimages.rewrite(unsupported, emptySymbolAllocator())).isEmpty();
+        assertThat(preimages.extract(unsupported, false)).isEmpty();
+        assertThat(preimages.extract(unsupported, true)).isEmpty();
+        // Fold parameter expressions before deciding which argument is nonconstant.
+        Expression parameter = call("bitwise_xor", new Constant(BIGINT, 40L), new Constant(BIGINT, 2L));
+        assertEquivalent(compare(EQUAL, call("preimage_parameter", BIGINT_INPUT, parameter), new Constant(BIGINT, 1L)), List.of(0L, 1L, 2L));
+    }
+
+    @Test
+    void testProviderCanAdmitEitherArgument()
+    {
+        for (Call function : List.of(
+                call("preimage_xor", BIGINT_INPUT, new Constant(BIGINT, 0L)),
+                call("preimage_xor", new Constant(BIGINT, 0L), BIGINT_INPUT))) {
+            for (ComparisonOperator operator : ComparisonOperator.values()) {
+                assertEquivalent(compare(operator, function, new Constant(BIGINT, 1L)), List.of(Long.MIN_VALUE, -1L, 0L, 1L, 2L, Long.MAX_VALUE));
+            }
+        }
+        for (Call function : List.of(
+                call("preimage_xor", BIGINT_INPUT, BIGINT_INPUT),
+                call("preimage_xor", BIGINT_INPUT, new Constant(BIGINT, null)),
+                call("preimage_xor", new Constant(BIGINT, 0L), new Constant(BIGINT, 1L)))) {
+            assertThat(preimages.hasProjection(function)).isFalse();
+        }
+        assertThat(rewrite(call("preimage_xor", new Constant(BIGINT, 0L), new Constant(BIGINT, 1L)))).isEqualTo(new Constant(BIGINT, 1L));
+    }
 
     @Test
     void testProviderResultsAreValidated()
@@ -130,6 +212,81 @@ public class TestComparisonPreimages
         return FunctionMetadata.scalarBuilder("test_preimage").signature(Signature.builder().returnType(BIGINT).argumentType(BIGINT).build()).description("").neverFails();
     }
 
+    private void assertEquivalent(Expression original, List<?> inputs)
+    {
+        Expression rewritten = rewrite(original);
+        Expression different = negate(compare(IDENTICAL, original, rewritten));
+        for (Object input : inputs) {
+            assertThat(evaluator.evaluate(different, SESSION, singletonMap("value", input)))
+                    .describedAs("%s versus %s for %s", original, rewritten, input)
+                    .isEqualTo(false);
+        }
+        assertThat(evaluator.evaluate(different, SESSION, singletonMap("value", null)))
+                .describedAs("%s versus %s for null", original, rewritten)
+                .isEqualTo(false);
+    }
+
+    @Test
+    void testNumberNaNPreimages()
+    {
+        Reference input = new Reference(NUMBER, "value");
+        Expression function = call("preimage_number", input);
+        Object nan = FloatingPointValueSet.nanValue(NUMBER);
+        List<Object> values = List.of(
+                TrinoNumber.from(BigDecimal.ZERO),
+                TrinoNumber.from(BigDecimal.ONE),
+                TrinoNumber.from(BigDecimal.ONE.negate()),
+                TrinoNumber.from(new TrinoNumber.Infinity(true)),
+                TrinoNumber.from(new TrinoNumber.Infinity(false)),
+                nan);
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (Object constant : List.of(nan, TrinoNumber.from(BigDecimal.ZERO))) {
+                assertEquivalent(compare(operator, function, new Constant(NUMBER, constant)), values);
+            }
+        }
+    }
+
+    @Test
+    void testLargeInWithNaNPreimage()
+    {
+        Expression function = call("preimage_nan_to_one", new Reference(DOUBLE, "value"));
+        for (int size : List.of(10, 11)) {
+            List<Expression> constants = new ArrayList<>();
+            constants.add(new Constant(DOUBLE, 1.0));
+            for (int value = 3; value <= size + 1; value++) {
+                constants.add(new Constant(DOUBLE, (double) value));
+            }
+            if (size == 10) {
+                assertEquivalent(new In(function, constants), List.of(Double.NaN, 0.0, 1.0, 2.0, 3.0, 12.0));
+            }
+            else {
+                for (boolean withNull : List.of(false, true)) {
+                    List<Expression> items = new ArrayList<>(constants);
+                    if (withNull) {
+                        items.add(new Constant(DOUBLE, null));
+                    }
+                    Expression original = new In(function, items);
+                    Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), original);
+                    assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", Double.NaN))).isEqualTo(true);
+                    assertThat(rewritten).isEqualTo(original);
+                    Expression negated = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), negate(original));
+                    assertThat(evaluator.evaluate(negated, SESSION, singletonMap("value", Double.NaN))).isEqualTo(false);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testOverlappingFailurePreimages()
+    {
+        Expression original = compare(EQUAL, call("preimage_nonnegative", BIGINT_INPUT), new Constant(BIGINT, 1L));
+        Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), original);
+        assertThat(rewritten).isEqualTo(original);
+        for (long value : List.of(0L, 1L, 2L)) {
+            assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", value))).isEqualTo(value == 1);
+        }
+    }
+
     private static Block array(Type elementType, Object... values)
     {
         BlockBuilder builder = elementType.createBlockBuilder(null, values.length);
@@ -146,6 +303,23 @@ public class TestComparisonPreimages
             fields[index] = array(type.getFieldTypes().get(index), values[index]);
         }
         return new SqlRow(0, fields);
+    }
+
+    private Expression rewrite(Expression expression)
+    {
+        Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), expression);
+        assertThat(rewritten).isNotEqualTo(expression);
+        return rewritten;
+    }
+
+    private static Expression compare(ComparisonOperator operator, Expression left, Expression right)
+    {
+        return comparison(FUNCTIONS.getMetadata(), getCharVarcharCoercion(SESSION), operator, left, right);
+    }
+
+    private static Expression negate(Expression expression)
+    {
+        return not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(SESSION), expression);
     }
 
     private static Call call(String name, Expression... arguments)
