@@ -14,7 +14,9 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.preimage.AtTimeZonePreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -28,6 +30,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.String.format;
 
 @ScalarFunction("at_timezone")
+@FunctionPreimage(AtTimeZonePreimage.class)
 public final class AtTimeZone
 {
     private AtTimeZone() {}

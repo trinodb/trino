@@ -36,16 +36,21 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
+import io.trino.type.DateTimes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -60,11 +65,13 @@ import java.util.function.Function;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.spi.function.PreimageResult.Exactness.EXACT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -76,6 +83,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
@@ -92,12 +100,51 @@ public class TestComparisonPreimages
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(InternalFunctionBundle.builder().functions(TestFunctions.class).build());
     private static final Session SESSION = testSession();
+    private static final Reference DATE_INPUT = new Reference(DATE, "value");
     private static final Reference SMALLINT_INPUT = new Reference(SMALLINT, "value");
     private static final Reference BIGINT_INPUT = new Reference(BIGINT, "value");
     private static final AtomicInteger EVALUATIONS = new AtomicInteger();
+    private static final List<Long> DATES = List.of(
+            (long) Integer.MIN_VALUE,
+            (long) Integer.MIN_VALUE + 1,
+            date("-0001-12-31"),
+            date("0000-01-01"),
+            date("0000-12-31"),
+            date("0001-01-01"),
+            date("1969-12-31"),
+            date("1970-01-01"),
+            date("2024-12-31"),
+            date("2025-01-01"),
+            date("2025-12-31"),
+            date("2026-01-01"),
+            (long) Integer.MAX_VALUE - 1,
+            (long) Integer.MAX_VALUE);
 
     private final ComparisonPreimages preimages = new ComparisonPreimages(FUNCTIONS.getPlannerContext(), SESSION);
     private final IrExpressionEvaluator evaluator = new IrExpressionEvaluator(FUNCTIONS.getPlannerContext());
+
+    @Test
+    void testMetadataRegistration()
+    {
+        Call year = year(DATE_INPUT);
+        assertThat(year.function().neverFails()).isTrue();
+        assertThat(FUNCTIONS.getMetadata().getDomainProjection(SESSION, year.function())).isPresent();
+        assertThat(preimages.hasProjection(year)).isTrue();
+        assertThat(preimages.hasProjection(new Cast(SMALLINT_INPUT, BIGINT))).isTrue();
+    }
+
+    @Test
+    void testYearComparisons()
+    {
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (long year : List.of(Long.MIN_VALUE, -6_000_000L, (long) LocalDate.ofEpochDay(Integer.MIN_VALUE).getYear(), -1L, 0L, 1L, 1970L, 2025L, (long) LocalDate.ofEpochDay(Integer.MAX_VALUE).getYear(), 6_000_000L, Long.MAX_VALUE)) {
+                Expression original = compare(operator, year(DATE_INPUT), new Constant(BIGINT, year));
+                assertEquivalent(original, DATES);
+                assertEquivalent(compare(operator.flip(), new Constant(BIGINT, year), year(DATE_INPUT)), DATES);
+            }
+            assertEquivalent(compare(operator, year(DATE_INPUT), new Constant(BIGINT, null)), DATES);
+        }
+    }
 
     @Test
     void testWideningIntegralComparisons()
@@ -128,6 +175,62 @@ public class TestComparisonPreimages
         for (ComparisonOperator operator : ComparisonOperator.values()) {
             assertEquivalent(compare(operator, new Cast(new Reference(TINYINT, "value"), BIGINT), new Constant(BIGINT, 7L)), values);
         }
+    }
+
+    @Test
+    void testInAndNotIn()
+    {
+        for (List<Expression> items : List.of(
+                List.<Expression>of(new Constant(BIGINT, 2025L)),
+                List.<Expression>of(new Constant(BIGINT, 2025L), new Constant(BIGINT, 2026L)),
+                List.<Expression>of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null)),
+                List.<Expression>of(new Constant(BIGINT, null)))) {
+            Expression predicate = new In(year(DATE_INPUT), items);
+            assertEquivalent(predicate, DATES);
+            assertEquivalent(negate(predicate), DATES);
+        }
+    }
+
+    @Test
+    void testBetweenAndNotBetween()
+    {
+        for (Constant low : List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null))) {
+            for (Constant high : List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null))) {
+                Expression predicate = between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(SESSION), emptySymbolAllocator(), year(DATE_INPUT), low, high);
+                assertEquivalent(predicate, DATES);
+                assertEquivalent(negate(predicate), DATES);
+            }
+        }
+    }
+
+    @Test
+    void testNontrivialInputIsEvaluatedOnce()
+    {
+        Expression counter = call("preimage_counter_date");
+        Expression original = new In(year(counter), List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, 2026L), new Constant(BIGINT, null)));
+        Expression rewritten = rewrite(original);
+        assertThat(rewritten).isInstanceOf(Let.class);
+        EVALUATIONS.set(0);
+        assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", 0L))).isEqualTo(true);
+        assertThat(EVALUATIONS.get()).isEqualTo(1);
+
+        Expression range = between(FUNCTIONS.getMetadata(), getCharVarcharCoercion(SESSION), emptySymbolAllocator(), year(counter), new Constant(BIGINT, 2025L), new Constant(BIGINT, 2025L));
+        Expression rewrittenRange = rewrite(range);
+        EVALUATIONS.set(0);
+        assertThat(evaluator.evaluate(rewrittenRange, SESSION, singletonMap("value", 0L))).isEqualTo(true);
+        assertThat(EVALUATIONS.get()).isEqualTo(1);
+    }
+
+    @Test
+    void testRewriteMayEliminateFailure()
+    {
+        Expression input = call("preimage_fail_date", DATE_INPUT);
+        Expression unknown = new In(year(input), List.of(new Constant(BIGINT, null)));
+        assertThat(preimages.rewrite(unknown, emptySymbolAllocator())).contains(new Constant(BOOLEAN, null));
+        Expression rewritten = rewrite(compare(EQUAL, year(input), new Constant(BIGINT, Long.MAX_VALUE)));
+        assertThatThrownBy(() -> evaluator.evaluate(rewritten, SESSION, singletonMap("value", 0L)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("expected failure");
     }
 
     @Test
@@ -200,6 +303,42 @@ public class TestComparisonPreimages
             assertThat(preimages.hasProjection(function)).isFalse();
         }
         assertThat(rewrite(call("preimage_xor", new Constant(BIGINT, 0L), new Constant(BIGINT, 1L)))).isEqualTo(new Constant(BIGINT, 1L));
+    }
+
+    @Test
+    void testTemporalProvidersDeclineParameterCandidate()
+    {
+        Constant date = new Constant(DATE, date("2025-01-01"));
+        Reference parameter = new Reference(VarcharType.VARCHAR, "value");
+        Expression truncated = compare(EQUAL, call("date_trunc", parameter, date), date);
+        var zonedType = TimestampWithTimeZoneType.createTimestampWithTimeZoneType(3);
+        Constant timestamp = new Constant(zonedType, DateTimes.parseTimestampWithTimeZone(3, "2025-01-01 00:00:00.000 UTC"));
+        Expression atTimeZone = compare(EQUAL, call("at_timezone", timestamp, parameter), timestamp);
+        for (Expression predicate : List.of(truncated, atTimeZone)) {
+            assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+            assertThat(preimages.extract(predicate, false)).isEmpty();
+            assertThat(preimages.extract(predicate, true)).isEmpty();
+        }
+        assertThat(evaluator.evaluate(truncated, SESSION, singletonMap("value", utf8Slice("month")))).isEqualTo(true);
+        assertThat(evaluator.evaluate(atTimeZone, SESSION, singletonMap("value", utf8Slice("UTC")))).isEqualTo(true);
+    }
+
+    @Test
+    void testInferredNontrivialInputIsEvaluatedOnce()
+    {
+        Expression truncated = call("date_trunc", new Constant(VarcharType.VARCHAR, utf8Slice("year")), call("preimage_counter_date"));
+        Expression rewritten = rewrite(compare(EQUAL, truncated, new Constant(DATE, date("2025-01-01"))));
+        EVALUATIONS.set(0);
+        assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", null))).isEqualTo(true);
+        assertThat(EVALUATIONS.get()).isEqualTo(1);
+    }
+
+    @Test
+    void testExpansionLimit()
+    {
+        List<Expression> items = LongStream.range(2000, 2011).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
+        Expression predicate = new In(year(DATE_INPUT), items);
+        assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
     }
 
     @Test
@@ -291,6 +430,24 @@ public class TestComparisonPreimages
         for (ComparisonOperator operator : ComparisonOperator.values()) {
             for (Object constant : List.of(nan, TrinoNumber.from(BigDecimal.ZERO))) {
                 assertEquivalent(compare(operator, function, new Constant(NUMBER, constant)), values);
+            }
+        }
+    }
+
+    @Test
+    void testDateTruncExtremeBoundaries()
+    {
+        for (String unit : List.of("day", "week", "month", "quarter", "year")) {
+            Expression function = call("date_trunc", new Constant(VarcharType.VARCHAR, utf8Slice(unit)), DATE_INPUT);
+            for (long boundary : List.of((long) Integer.MIN_VALUE, (long) Integer.MIN_VALUE + 7, (long) Integer.MAX_VALUE - 7, (long) Integer.MAX_VALUE)) {
+                for (ComparisonOperator operator : ComparisonOperator.values()) {
+                    Expression predicate = compare(operator, function, new Constant(DATE, boundary));
+                    Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), predicate);
+                    for (long input : List.of(0L, (long) Integer.MIN_VALUE + 366, (long) Integer.MAX_VALUE - 366)) {
+                        assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", input)))
+                                .isEqualTo(evaluator.evaluate(predicate, SESSION, singletonMap("value", input)));
+                    }
+                }
             }
         }
     }
@@ -395,6 +552,49 @@ public class TestComparisonPreimages
     }
 
     @Test
+    void testTimestampYearAndDateCasts()
+    {
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            var type = TimestampType.createTimestampType(precision);
+            Reference input = new Reference(type, "value");
+            List<Object> values = new ArrayList<>();
+            values.add(type.getRange().orElseThrow().getMin());
+            values.add(type.getRange().orElseThrow().getMax());
+            for (String timestamp : List.of("1969-12-31 23:59:59", "1970-01-01 00:00:00", "2024-12-31 23:59:59", "2025-01-01 00:00:00", "2025-12-31 23:59:59", "2026-01-01 00:00:00")) {
+                values.add(DateTimes.parseTimestamp(precision, timestamp + (precision == 0 ? "" : "." + "0".repeat(precision))));
+            }
+            for (ComparisonOperator operator : ComparisonOperator.values()) {
+                for (long year : List.of(-300_000L, -1L, 1970L, 2025L, 300_000L)) {
+                    assertEquivalent(compare(operator, year(input), new Constant(BIGINT, year)), values);
+                }
+                for (long day : List.of((long) Integer.MIN_VALUE, date("1970-01-01"), date("2025-01-01"), (long) Integer.MAX_VALUE)) {
+                    assertEquivalent(compare(operator, new Cast(input, DATE), new Constant(DATE, day)), values);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testDateTruncBoundaries()
+    {
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            var type = TimestampType.createTimestampType(precision);
+            Reference input = new Reference(type, "value");
+            List<Object> values = new ArrayList<>();
+            values.add(type.getRange().orElseThrow().getMax());
+            for (String timestamp : List.of("2023-12-31 23:59:59", "2024-01-01 00:00:00", "2024-01-02 12:00:00", "2024-01-07 23:59:59", "2024-04-01 00:00:00", "2025-01-01 00:00:00")) {
+                values.add(DateTimes.parseTimestamp(precision, timestamp + (precision == 0 ? "" : "." + "0".repeat(precision))));
+            }
+            for (String unit : List.of("hour", "day", "week", "month", "quarter", "year")) {
+                Expression truncated = call("date_trunc", new Constant(VarcharType.createVarcharType(unit.length()), utf8Slice(unit)), input);
+                for (ComparisonOperator operator : ComparisonOperator.values()) {
+                    assertEquivalent(compare(operator, truncated, new Constant(type, DateTimes.parseTimestamp(precision, "2024-01-01 00:00:00" + (precision == 0 ? "" : "." + "0".repeat(precision))))), values);
+                }
+            }
+        }
+    }
+
+    @Test
     void testLargeInWithoutExpansion()
     {
         List<Expression> constants = LongStream.range(0, 100).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
@@ -414,6 +614,20 @@ public class TestComparisonPreimages
             for (long value : List.of(0L, 1L, 1_000_000_000L, 1_000_000_000_001L, (long) target.getRange().orElseThrow().getMax() - 1)) {
                 assertEquivalent(compare(operator, new Cast(input, target), new Constant(target, value)), values);
             }
+        }
+    }
+
+    @Test
+    void testBoundaryCalculationDoesNotFailSuccessfulInput()
+    {
+        var type = TimestampType.createTimestampType(6);
+        Reference input = new Reference(type, "value");
+        Expression truncated = call("date_trunc", new Constant(VarcharType.createVarcharType(4), utf8Slice("year")), input);
+        for (Object bound : List.of(type.getRange().orElseThrow().getMin(), type.getRange().orElseThrow().getMax())) {
+            Expression original = compare(EQUAL, truncated, new Constant(type, bound));
+            Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), original);
+            assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", 0L)))
+                    .isEqualTo(evaluator.evaluate(original, SESSION, singletonMap("value", 0L)));
         }
     }
 
@@ -450,6 +664,11 @@ public class TestComparisonPreimages
     private static Expression negate(Expression expression)
     {
         return not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(SESSION), expression);
+    }
+
+    private static Call year(Expression input)
+    {
+        return call("year", input);
     }
 
     private static Call call(String name, Expression... arguments)
