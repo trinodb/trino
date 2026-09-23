@@ -35,9 +35,11 @@ import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -55,6 +57,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -65,6 +69,9 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -74,6 +81,7 @@ import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.testing.TestingSession.testSession;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -84,6 +92,7 @@ public class TestComparisonPreimages
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(InternalFunctionBundle.builder().functions(TestFunctions.class).build());
     private static final Session SESSION = testSession();
+    private static final Reference SMALLINT_INPUT = new Reference(SMALLINT, "value");
     private static final Reference BIGINT_INPUT = new Reference(BIGINT, "value");
     private static final AtomicInteger EVALUATIONS = new AtomicInteger();
 
@@ -91,10 +100,50 @@ public class TestComparisonPreimages
     private final IrExpressionEvaluator evaluator = new IrExpressionEvaluator(FUNCTIONS.getPlannerContext());
 
     @Test
+    void testWideningIntegralComparisons()
+    {
+        List<Type> types = List.of(TINYINT, SMALLINT, INTEGER, BIGINT);
+        for (int source = 0; source < types.size() - 1; source++) {
+            Type sourceType = types.get(source);
+            Type.Range bounds = sourceType.getRange().orElseThrow();
+            long min = (long) bounds.getMin();
+            long max = (long) bounds.getMax();
+            List<Long> inputs = List.of(min, min + 1, -1L, 0L, 1L, max - 1, max);
+            for (int target = source + 1; target < types.size(); target++) {
+                Type targetType = types.get(target);
+                for (ComparisonOperator operator : ComparisonOperator.values()) {
+                    for (long value : List.of(min - 1, min, min + 1, -1L, 0L, 1L, max - 1, max, max + 1)) {
+                        assertEquivalent(compare(operator, new Cast(new Reference(sourceType, "value"), targetType), new Constant(targetType, value)), inputs);
+                    }
+                    assertEquivalent(compare(operator, new Cast(new Reference(sourceType, "value"), targetType), new Constant(targetType, null)), inputs);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testTinyintExhaustive()
+    {
+        List<Long> values = LongStream.rangeClosed(Byte.MIN_VALUE, Byte.MAX_VALUE).boxed().toList();
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            assertEquivalent(compare(operator, new Cast(new Reference(TINYINT, "value"), BIGINT), new Constant(BIGINT, 7L)), values);
+        }
+    }
+
+    @Test
     void testConservativeProjection()
     {
         Expression predicate = compare(EQUAL, call("preimage_conservative", BIGINT_INPUT), new Constant(BIGINT, 1L));
         assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+    }
+
+    @Test
+    void testNestedExactProjection()
+    {
+        Expression predicate = compare(EQUAL, call("preimage_identity", new Cast(SMALLINT_INPUT, BIGINT)), new Constant(BIGINT, 1L));
+        Expression first = rewrite(predicate);
+        Expression second = rewrite(first);
+        assertThat(second).isEqualTo(compare(EQUAL, SMALLINT_INPUT, new Constant(SMALLINT, 1L)));
     }
 
     @Test
@@ -247,6 +296,44 @@ public class TestComparisonPreimages
     }
 
     @Test
+    void testIntegralFloatingRoundingFibers()
+    {
+        for (Type source : List.of(INTEGER, BIGINT)) {
+            long min = (long) source.getRange().orElseThrow().getMin();
+            long max = (long) source.getRange().orElseThrow().getMax();
+            List<Long> inputs = new ArrayList<>();
+            for (long distance : List.of(0L, 1L, 2L, 63L, 64L, 65L, 511L, 512L, 513L, (1L << 38) - 1, 1L << 38, (1L << 38) + 1)) {
+                if (distance <= max) {
+                    inputs.add(min + distance);
+                    inputs.add(max - distance);
+                }
+            }
+            for (long boundary : List.of(0L, 1L << 24, 1L << 53)) {
+                if (boundary < max) {
+                    for (long offset : List.of(-2L, -1L, 0L, 1L, 2L)) {
+                        inputs.add(boundary + offset);
+                        inputs.add(-boundary + offset);
+                    }
+                }
+            }
+            for (Type target : List.of(REAL, DOUBLE)) {
+                for (long boundary : List.of(min, max, 0L, -(1L << 24), 1L << 24, -(1L << 53), 1L << 53)) {
+                    Object value;
+                    if (target.equals(REAL)) {
+                        value = (long) floatToRawIntBits((float) boundary);
+                    }
+                    else {
+                        value = (double) boundary;
+                    }
+                    for (ComparisonOperator operator : ComparisonOperator.values()) {
+                        assertEquivalent(compare(operator, new Cast(new Reference(source, "value"), target), new Constant(target, value)), inputs);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void testLargeInWithNaNPreimage()
     {
         Expression function = call("preimage_nan_to_one", new Reference(DOUBLE, "value"));
@@ -284,6 +371,49 @@ public class TestComparisonPreimages
         assertThat(rewritten).isEqualTo(original);
         for (long value : List.of(0L, 1L, 2L)) {
             assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", value))).isEqualTo(value == 1);
+        }
+    }
+
+    @Test
+    void testFloatingPointCasts()
+    {
+        Reference input = new Reference(REAL, "value");
+        List<Long> values = Stream.of(Float.NEGATIVE_INFINITY, -Float.MAX_VALUE, -1.0f, -0.0f, 0.0f, Float.MIN_VALUE, 1.0f, Float.MAX_VALUE, Float.POSITIVE_INFINITY, Float.NaN)
+                .map(value -> (long) Float.floatToRawIntBits((float) value)).toList();
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (double value : List.of(Double.NEGATIVE_INFINITY, -Double.MAX_VALUE, -1.1, -1.0, -0.0, 0.0, Double.MIN_VALUE, 1.0, 1.1, Double.MAX_VALUE, Double.POSITIVE_INFINITY, Double.NaN)) {
+                assertEquivalent(compare(operator, new Cast(input, DOUBLE), new Constant(DOUBLE, value)), values);
+            }
+        }
+        for (List<Expression> items : List.of(
+                List.<Expression>of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, Double.NaN)),
+                List.<Expression>of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null)))) {
+            Expression predicate = new In(new Cast(input, DOUBLE), items);
+            assertEquivalent(predicate, values);
+            assertEquivalent(negate(predicate), values);
+        }
+    }
+
+    @Test
+    void testLargeInWithoutExpansion()
+    {
+        List<Expression> constants = LongStream.range(0, 100).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
+        Expression original = new In(new Cast(SMALLINT_INPUT, BIGINT), constants);
+        assertThat(preimages.rewrite(original, emptySymbolAllocator())).hasValueSatisfying(value -> assertThat(value).isInstanceOf(In.class));
+        assertEquivalent(original, List.of(-1L, 0L, 50L, 99L, 100L));
+    }
+
+    @Test
+    void testTimePrecisionCast()
+    {
+        var source = TimeType.createTimeType(3);
+        var target = TimeType.createTimeType(12);
+        Reference input = new Reference(source, "value");
+        List<Long> values = List.of(0L, 1_000_000_000L, 1_000_000_000_000L, (long) source.getRange().orElseThrow().getMax() - 1_000_000_000L);
+        for (ComparisonOperator operator : ComparisonOperator.values()) {
+            for (long value : List.of(0L, 1L, 1_000_000_000L, 1_000_000_000_001L, (long) target.getRange().orElseThrow().getMax() - 1)) {
+                assertEquivalent(compare(operator, new Cast(input, target), new Constant(target, value)), values);
+            }
         }
     }
 

@@ -25,8 +25,10 @@ import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
@@ -148,6 +150,7 @@ public final class DecimalCasts
                 .signature(signature)
                 .deterministic(true)
                 .neverFails(neverFails)
+                .domainProjection(new DomainProjection(new OrderPreservingCastPreimage()))
                 .choice(choice -> choice
                         .implementation(methodsGroup -> methodsGroup
                                 .methods(methodNames)
@@ -182,7 +185,7 @@ public final class DecimalCasts
                 .argumentType(from)
                 .returnType(type("decimal", numericVariable("precision"), numericVariable("scale")))
                 .build();
-        return new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
+        PolymorphicScalarFunctionBuilder builder = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)
@@ -201,7 +204,11 @@ public final class DecimalCasts
                                         tenToScale = powerOfTen(resultType.getScale());
                                     }
                                     return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
-                                }))).build();
+                                })));
+        if (!nullableResult) {
+            builder.domainProjection(new DomainProjection(new OrderPreservingCastPreimage()));
+        }
+        return builder.build();
     }
 
     public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalCasts.class)

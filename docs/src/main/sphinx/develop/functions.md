@@ -279,6 +279,17 @@ The dependency helper supplies a lazily resolved native comparator for non-null
 function results, with unordered values sorted last. Providers reuse it for the
 bound call when comparing constants and calculating boundaries.
 
+Timestamp-to-timestamp-with-time-zone projections decline boundaries in either
+occurrence of a repeated local time in the session zone. Reversing a boundary in
+the occurrence that the ordinary cast cannot produce can otherwise exclude matching
+inputs. Runtime domain consumers perform no pruning when this projection declines.
+Admission uses `java.time` zone rules to detect gaps and overlaps. Regional-zone
+bounds before 1970 decline projection because their historical rules can differ
+from those used by the legacy casts. Fixed-offset zones have no such restriction. DATE-to-timestamp-with-time-zone projection checks adjacent
+dates through the ordinary forward cast: midnight offset changes can make a reverse
+cast return the wrong date, or make multiple dates produce the same result. If the
+adjacent results do not strictly bracket the boundary, projection declines.
+
 Expression replacement requires exact preimages for both the true and false result
 domains. Inputs in neither domain produce unknown. `NOT` swaps the domains; `AND`
 intersects true domains and unions false domains; `OR` unions true domains and
@@ -293,6 +304,13 @@ expansions of lists longer than ten items, and truth domains exceeding a combine
 expansion.
 Providers return domains or typed constants, never planner expressions; the comparison rule and domain
 translator share value-set rendering while owning their respective null semantics.
+
+Integer-to-floating providers account for all source values that round to a boundary,
+using at most the source bit width in bisection steps where direct conversion is not
+exact. Runtime domains keep dynamic filtering's size limits rather than expression
+expansion budgets. NaN representation and rendering support REAL, DOUBLE, and NUMBER.
+Providers collect projected ranges and normalize them together when constructing the
+value set, keeping large collected domains from repeatedly rebuilding prior ranges.
 
 ## Aggregation function implementation
 
