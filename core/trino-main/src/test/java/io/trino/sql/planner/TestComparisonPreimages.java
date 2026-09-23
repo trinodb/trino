@@ -19,6 +19,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.DomainPreimage;
 import io.trino.spi.function.DomainPreimage.Context;
@@ -34,6 +35,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -68,6 +73,7 @@ import java.util.stream.Stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.STRICT_NOT_DISTINCT_FROM;
 import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.spi.function.PreimageResult.Exactness.EXACT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -83,6 +89,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
+import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
@@ -90,6 +97,7 @@ import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.testing.TestingSession.testSession;
 import static java.lang.Float.floatToRawIntBits;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -629,6 +637,137 @@ public class TestComparisonPreimages
             assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", 0L)))
                     .isEqualTo(evaluator.evaluate(original, SESSION, singletonMap("value", 0L)));
         }
+    }
+
+    @Test
+    void testArrayCastComparisons()
+    {
+        ArrayType source = new ArrayType(INTEGER);
+        ArrayType target = new ArrayType(BIGINT);
+        List<Block> inputs = List.of(array(INTEGER), array(INTEGER, 0L), array(INTEGER, 1L, 2L), array(INTEGER, 1L, null), array(INTEGER, null, 2L), array(INTEGER, 1L, 3L));
+        for (Object constant : asList(null, array(BIGINT), array(BIGINT, 1L, 2L), array(BIGINT, 1L, null), array(BIGINT, null, 2L))) {
+            for (ComparisonOperator operator : ComparisonOperator.values()) {
+                Cast cast = new Cast(new Reference(source, "value"), target);
+                assertEquivalent(compare(operator, cast, new Constant(target, constant)), inputs);
+                assertEquivalent(compare(operator.flip(), new Constant(target, constant), cast), inputs);
+            }
+        }
+    }
+
+    @Test
+    void testNestedRowCastComparisons()
+    {
+        RowType source = RowType.anonymous(List.of(INTEGER, new ArrayType(INTEGER)));
+        RowType target = RowType.anonymous(List.of(BIGINT, new ArrayType(BIGINT)));
+        List<SqlRow> inputs = List.of(row(source, 1L, array(INTEGER, 2L)), row(source, null, array(INTEGER, 2L)), row(source, 1L, array(INTEGER, (Object) null)), row(source, 0L, null), row(source, 2L, null));
+        for (Object constant : asList(null, row(target, 1L, array(BIGINT, 2L)), row(target, null, array(BIGINT, 2L)), row(target, 1L, array(BIGINT, (Object) null)))) {
+            for (ComparisonOperator operator : ComparisonOperator.values()) {
+                assertEquivalent(compare(operator, new Cast(new Reference(source, "value"), target), new Constant(target, constant)), inputs);
+            }
+        }
+    }
+
+    @Test
+    void testMapCastComparisons()
+    {
+        MapType source = new MapType(INTEGER, new ArrayType(INTEGER), FUNCTIONS.getPlannerContext().getTypeOperators());
+        MapType target = new MapType(BIGINT, new ArrayType(BIGINT), FUNCTIONS.getPlannerContext().getTypeOperators());
+        List<SqlMap> inputs = List.of(
+                new SqlMap(source, STRICT_NOT_DISTINCT_FROM, array(INTEGER, 1L), array(source.getValueType(), array(INTEGER, 2L))),
+                new SqlMap(source, STRICT_NOT_DISTINCT_FROM, array(INTEGER, 1L), array(source.getValueType(), (Object) null)),
+                new SqlMap(source, STRICT_NOT_DISTINCT_FROM, array(INTEGER, 2L), array(source.getValueType(), array(INTEGER, (Object) null))));
+        for (Object constant : asList(
+                null,
+                new SqlMap(target, STRICT_NOT_DISTINCT_FROM, array(BIGINT, 1L), array(target.getValueType(), array(BIGINT, 2L))),
+                new SqlMap(target, STRICT_NOT_DISTINCT_FROM, array(BIGINT, 1L), array(target.getValueType(), (Object) null)))) {
+            for (ComparisonOperator operator : List.of(EQUAL, NOT_EQUAL, IDENTICAL)) {
+                assertEquivalent(compare(operator, new Cast(new Reference(source, "value"), target), new Constant(target, constant)), inputs);
+            }
+        }
+    }
+
+    @Test
+    void testStructuralCastScalarFamilies()
+    {
+        List<Type> sources = List.of(DecimalType.createDecimalType(5, 2), CharType.createCharType(2), VarcharType.createVarcharType(2), DATE, TimestampType.createTimestampType(3));
+        List<Type> targets = List.of(DecimalType.createDecimalType(10, 3), CharType.createCharType(4), VarcharType.createVarcharType(4), TimestampType.createTimestampType(6), TimestampType.createTimestampType(9));
+        List<Object> sourceValues = List.of(123L, utf8Slice("a"), utf8Slice("a"), 0L, 0L);
+        List<Object> targetValues = List.of(1230L, utf8Slice("a"), utf8Slice("a"), 0L, DateTimes.parseTimestamp(9, "1970-01-01 00:00:00.000000000"));
+        for (int index = 0; index < sources.size(); index++) {
+            ArrayType source = new ArrayType(sources.get(index));
+            ArrayType target = new ArrayType(targets.get(index));
+            List<Block> inputs = List.of(array(source.getElementType()), array(source.getElementType(), sourceValues.get(index)), array(source.getElementType(), (Object) null));
+            for (ComparisonOperator operator : ComparisonOperator.values()) {
+                assertEquivalent(compare(operator, new Cast(new Reference(source, "value"), target), new Constant(target, array(target.getElementType(), targetValues.get(index)))), inputs);
+            }
+        }
+    }
+
+    @Test
+    void testStructuralCastIn()
+    {
+        ArrayType source = new ArrayType(INTEGER);
+        ArrayType target = new ArrayType(BIGINT);
+        List<Block> inputs = List.of(array(INTEGER), array(INTEGER, 0L), array(INTEGER, 7L), array(INTEGER, 100L), array(INTEGER, (Object) null));
+        for (int size : List.of(2, 100)) {
+            List<Expression> constants = new ArrayList<>();
+            for (long value = 0; value < size; value++) {
+                constants.add(new Constant(target, array(BIGINT, value)));
+            }
+            constants.add(new Constant(target, array(BIGINT, (Object) null)));
+            for (boolean nullItem : List.of(false, true)) {
+                if (nullItem) {
+                    constants.add(new Constant(target, null));
+                }
+                In original = new In(new Cast(new Reference(source, "value"), target), constants);
+                assertEquivalent(original, inputs);
+                assertEquivalent(negate(original), inputs);
+            }
+        }
+    }
+
+    @Test
+    void testStructuralCastFloatingPoint()
+    {
+        for (Type sourceElement : List.of(INTEGER, REAL)) {
+            ArrayType source = new ArrayType(sourceElement);
+            ArrayType target = new ArrayType(DOUBLE);
+            List<Block> inputs = new ArrayList<>();
+            for (long value : List.of(-1L, 0L, 1L, 2L, 16_777_217L)) {
+                inputs.add(array(sourceElement, sourceElement.equals(REAL) ? (long) Float.floatToRawIntBits((float) value) : value));
+            }
+            if (sourceElement.equals(REAL)) {
+                inputs.add(array(REAL, (long) Float.floatToRawIntBits(Float.NaN)));
+            }
+            for (double constant : sourceElement.equals(REAL) ? List.of(1.0, Double.NaN, Double.POSITIVE_INFINITY) : List.of(1.0)) {
+                for (ComparisonOperator operator : ComparisonOperator.values()) {
+                    assertEquivalent(compare(operator, new Cast(new Reference(source, "value"), target), new Constant(target, array(DOUBLE, constant))), inputs);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testStructuralCastDeclinesLossyConstants()
+    {
+        for (Object value : List.of(array(DOUBLE, 1.5), array(DOUBLE, 0x1.0p53), array(DOUBLE, Double.NaN), array(DOUBLE, Double.POSITIVE_INFINITY))) {
+            ArrayType source = new ArrayType(BIGINT);
+            ArrayType target = new ArrayType(DOUBLE);
+            Expression original = compare(EQUAL, new Cast(new Reference(source, "value"), target), new Constant(target, value));
+            assertThat(preimages.rewrite(original, emptySymbolAllocator())).isEmpty();
+            // A failed planning-time reverse cast must leave successful evaluations available.
+            assertThat(evaluator.evaluate(original, SESSION, singletonMap("value", array(BIGINT, 1L)))).isEqualTo(false);
+        }
+    }
+
+    @Test
+    void testStructuralCastEvaluatesInputOnce()
+    {
+        Expression original = compare(EQUAL, new Cast(call("preimage_counter_array"), new ArrayType(BIGINT)), new Constant(new ArrayType(BIGINT), array(BIGINT, 1L)));
+        Expression rewritten = rewrite(original);
+        EVALUATIONS.set(0);
+        assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", null))).isEqualTo(true);
+        assertThat(EVALUATIONS.get()).isEqualTo(1);
     }
 
     private static Block array(Type elementType, Object... values)
