@@ -49,7 +49,6 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
@@ -738,9 +737,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
         {
-            return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
+            return delegate.getCoercion(charVarcharCoercion, fromType, toType);
         }
 
         @Override

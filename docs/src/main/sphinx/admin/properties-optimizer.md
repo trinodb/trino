@@ -7,8 +7,9 @@
 - **Session property:** `function_preimages_enabled`
 
 Use function preimages to rewrite comparisons over scalar functions and casts,
-and to extract domains from predicates. When disabled, the legacy comparison
-unwrap rules and domain extraction remain active. The two
+extract domains from predicates, and coerce dynamic filters to probe-column types.
+When disabled, the legacy comparison unwrap rules, domain extraction, and
+saturated-floor dynamic-filter coercion remain active. The two
 implementations are mutually exclusive, including during predicate pushdown
 through projections. The session property overrides the configured default.
 

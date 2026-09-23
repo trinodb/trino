@@ -345,6 +345,17 @@ expansion.
 Providers return domains or typed constants, never planner expressions; the comparison rule and domain
 translator share value-set rendering while owning their respective null semantics.
 
+`FunctionPreimages` binds the same providers for runtime domains without planner IR.
+Dynamic filters project collected comparison domains backward through probe-side
+casts, accepting conservative supersets because the join still verifies matches.
+Unsupported projections perform no pruning. When `function_preimages_enabled` is
+enabled, provider availability replaces the saturated-floor capability check.
+When disabled, local and distributed dynamic filters use the legacy saturated-floor
+coercion and capability check. The `SATURATED_FLOOR_CAST` operator and its
+implementations remain available for this fallback.
+Domain extraction also uses providers for exact cast projection; conservative
+fallbacks retain residual predicates.
+
 Integer-to-floating providers account for all source values that round to a boundary,
 using at most the source bit width in bisection steps where direct conversion is not
 exact. Runtime domains keep dynamic filtering's size limits rather than expression
