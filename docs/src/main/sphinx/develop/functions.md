@@ -286,6 +286,10 @@ calculating boundaries.
 
 Providers return domains or typed constants, never planner expressions.
 
+A provider returns `isComparisonIdentity(context) == true` only when a validated
+call preserves comparisons with arbitrary expressions of the same type, so the call
+can be removed even when neither comparison operand is constant.
+
 For comparisons that can return null for non-null operands, a provider may implement
 `comparisonConstant(context, constant)`. The mapped input constant must preserve
 every supported native comparison operator, including unknown results, for every
