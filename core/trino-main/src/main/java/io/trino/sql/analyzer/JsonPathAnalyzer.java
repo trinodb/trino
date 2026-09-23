@@ -122,7 +122,7 @@ public class JsonPathAnalyzer
 
     public JsonPathAnalysis analyzeImplicitJsonPath(String path, NodeLocation location)
     {
-        PathNode root = PathParser.withFixedErrorLocation(new Location(location.getLineNumber(), location.getColumnNumber())).parseJsonPath(path);
+        PathNode root = PathParser.withFixedErrorLocation(new Location(location.line(), location.column())).parseJsonPath(path);
         new Visitor(ImmutableMap.of(), new StringLiteral(path)).process(root);
         return new JsonPathAnalysis((JsonPath) root, types, jsonParameters, datetimeTemplates);
     }
