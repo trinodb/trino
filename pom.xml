@@ -1505,7 +1505,7 @@
             <dependency>
                 <groupId>io.trino.coral</groupId>
                 <artifactId>coral</artifactId>
-                <version>2.2.49-1</version>
+                <version>2.5.10-1</version>
             </dependency>
 
             <dependency>
