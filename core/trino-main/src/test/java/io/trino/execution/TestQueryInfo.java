@@ -131,6 +131,7 @@ public class TestQueryInfo
         assertThat(actual.getResourceGroupId()).isEqualTo(expected.getResourceGroupId());
         assertThat(actual.getQueryType()).isEqualTo(expected.getQueryType());
         assertThat(actual.getRetryPolicy()).isEqualTo(expected.getRetryPolicy());
+        assertThat(actual.getQueuePosition()).isEqualTo(expected.getQueuePosition());
     }
 
     @Test
@@ -247,6 +248,7 @@ public class TestQueryInfo
                 Optional.of(new ResourceGroupId("groupId")),
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.TASK,
+                null,
                 false,
                 new NodeVersion("test"));
     }

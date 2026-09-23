@@ -257,6 +257,7 @@ public class FailedDispatchQuery
                 resourceGroupId,
                 Optional.empty(),
                 RetryPolicy.NONE,
+                null,
                 false,
                 version);
 

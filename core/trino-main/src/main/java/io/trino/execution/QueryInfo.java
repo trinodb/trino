@@ -86,6 +86,7 @@ public class QueryInfo
     private final Optional<ResourceGroupId> resourceGroupId;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+    private final Integer queuePosition;
     private final boolean pruned;
     private final NodeVersion version;
 
@@ -126,6 +127,7 @@ public class QueryInfo
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("retryPolicy") RetryPolicy retryPolicy,
+            @JsonProperty("queuePosition") @Nullable Integer queuePosition,
             @JsonProperty("pruned") boolean pruned,
             @JsonProperty("version") NodeVersion version)
     {
@@ -195,9 +197,17 @@ public class QueryInfo
         this.resourceGroupId = resourceGroupId;
         this.queryType = queryType;
         this.retryPolicy = retryPolicy;
+        this.queuePosition = queuePosition;
         this.pruned = pruned;
         this.version = version;
         this.selectColumnsLineageInfo = selectColumnsLineageInfo.map(ImmutableList::copyOf);
+    }
+
+    @Nullable
+    @JsonProperty
+    public Integer getQueuePosition()
+    {
+        return queuePosition;
     }
 
     @JsonProperty

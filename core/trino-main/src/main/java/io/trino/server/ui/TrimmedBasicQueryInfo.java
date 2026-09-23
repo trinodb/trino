@@ -24,6 +24,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import jakarta.annotation.Nullable;
 
 import java.net.URI;
 import java.util.Optional;
@@ -54,6 +55,7 @@ public class TrimmedBasicQueryInfo
     private final Optional<ErrorCode> errorCode;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+    private final Integer queuePosition;
     private final Optional<Set<String>> clientTags;
     private final Optional<String> traceToken;
 
@@ -82,6 +84,7 @@ public class TrimmedBasicQueryInfo
         this.queryStats = requireNonNull(queryInfo.getQueryStats(), "queryStats is null");
         this.queryType = requireNonNull(queryInfo.getQueryType(), "queryType is null");
         this.retryPolicy = requireNonNull(queryInfo.getRetryPolicy(), "retryPolicy is null");
+        this.queuePosition = queryInfo.getQueuePosition();
         this.clientTags = Optional.ofNullable(queryInfo.getSession().getClientTags());
         this.traceToken = requireNonNull(queryInfo.getSession().getTraceToken(), "traceToken is null");
     }
@@ -186,6 +189,13 @@ public class TrimmedBasicQueryInfo
     public RetryPolicy getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    @Nullable
+    @JsonProperty
+    public Integer getQueuePosition()
+    {
+        return queuePosition;
     }
 
     @JsonProperty

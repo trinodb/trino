@@ -68,6 +68,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -352,6 +353,17 @@ public class TestQueryStateMachine
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertThat(stateMachine.transitionToCanceled()).isTrue();
         assertFinalState(stateMachine, FAILED, new TrinoException(USER_CANCELED, "canceled"));
+    }
+
+    @Test
+    public void testQueuePositionSupplier()
+    {
+        QueryStateMachine queryStateMachine = queryStateMachine().build();
+        queryStateMachine.setQueuePositionSupplier(() -> OptionalInt.of(3));
+        assertThat(queryStateMachine.getBasicQueryInfo(Optional.empty()).getQueuePosition()).isEqualTo(3);
+
+        assertThat(queryStateMachine.transitionToWaitingForResources()).isTrue();
+        assertThat(queryStateMachine.getBasicQueryInfo(Optional.empty()).getQueuePosition()).isNull();
     }
 
     @Test

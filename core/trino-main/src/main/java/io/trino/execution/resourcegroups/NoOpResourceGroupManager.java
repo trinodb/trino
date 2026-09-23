@@ -15,12 +15,14 @@ package io.trino.execution.resourcegroups;
 
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
 /**
@@ -39,6 +41,12 @@ public final class NoOpResourceGroupManager
     public Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OptionalInt tryGetQueryPosition(QueryId queryId, ResourceGroupId resourceGroupId)
+    {
+        return OptionalInt.empty();
     }
 
     @Override
