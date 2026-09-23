@@ -89,6 +89,8 @@
 - {func}`ceil`
 - {func}`ceiling`
 - {func}`char2hexint`
+- {func}`char_length`
+- {func}`character_length`
 - {func}`checksum`
 - {func}`chr`
 - {func}`classify`

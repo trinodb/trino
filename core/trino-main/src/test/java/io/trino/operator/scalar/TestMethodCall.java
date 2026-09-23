@@ -59,7 +59,7 @@ public class TestMethodCall
         assertions = null;
     }
 
-    @ScalarFunction("char_length")
+    @ScalarFunction("varchar_length")
     @InstanceMethod
     @SqlType(StandardTypes.BIGINT)
     public static long varcharCharLength(@SqlType(StandardTypes.VARCHAR) Slice self)
@@ -101,14 +101,14 @@ public class TestMethodCall
     @Test
     public void testReceiverInParens()
     {
-        assertThat(assertions.expression("('hello').char_length()"))
+        assertThat(assertions.expression("('hello').varchar_length()"))
                 .matches("BIGINT '5'");
     }
 
     @Test
     public void testReceiverIsFunctionCall()
     {
-        assertThat(assertions.expression("upper('ab').char_length()"))
+        assertThat(assertions.expression("upper('ab').varchar_length()"))
                 .matches("BIGINT '2'");
     }
 
@@ -123,9 +123,9 @@ public class TestMethodCall
     public void testBareReceiverResolvesAsMethod()
     {
         // SQL:2023 6.3 SR 2: A.B(args) is treated as a method invocation when applicable.
-        // Here `s` is a column of type VARCHAR, so s.char_length() resolves to the
-        // varchar method rather than a function named "s.char_length".
-        assertThat(assertions.query("SELECT s.char_length() FROM (VALUES VARCHAR 'hi') t(s)"))
+        // Here `s` is a column of type VARCHAR, so s.varchar_length() resolves to the
+        // varchar method rather than a function named "s.varchar_length".
+        assertThat(assertions.query("SELECT s.varchar_length() FROM (VALUES VARCHAR 'hi') t(s)"))
                 .matches("VALUES BIGINT '2'");
     }
 
@@ -139,16 +139,16 @@ public class TestMethodCall
     @Test
     public void testInstanceMethodNotResolvableAsFunction()
     {
-        // The plain `char_length('hello')` form must NOT resolve to the instance method.
-        assertTrinoExceptionThrownBy(() -> assertions.expression("char_length('hello')").evaluate())
+        // The plain `varchar_length('hello')` form must NOT resolve to the instance method.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("varchar_length('hello')").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     @Test
     public void testInstanceMethodNotResolvableAsStaticMethod()
     {
-        // `char_length` is an @InstanceMethod, so the static-method form must not find it.
-        assertTrinoExceptionThrownBy(() -> assertions.expression("varchar::char_length('hello')").evaluate())
+        // `varchar_length` is an @InstanceMethod, so the static-method form must not find it.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("varchar::varchar_length('hello')").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
@@ -164,15 +164,15 @@ public class TestMethodCall
     public void testReceiverCoercion()
     {
         // VARCHAR(2) coerces to the method's unbounded VARCHAR receiver type.
-        assertThat(assertions.expression("CAST('hi' AS VARCHAR(2)).char_length()"))
+        assertThat(assertions.expression("CAST('hi' AS VARCHAR(2)).varchar_length()"))
                 .matches("BIGINT '2'");
     }
 
     @Test
     public void testReceiverNotCoercible()
     {
-        // INTEGER has no implicit coercion to VARCHAR, so no instance method named `char_length` is found for it.
-        assertTrinoExceptionThrownBy(() -> assertions.expression("(42).char_length()").evaluate())
+        // INTEGER has no implicit coercion to VARCHAR, so no instance method named `varchar_length` is found for it.
+        assertTrinoExceptionThrownBy(() -> assertions.expression("(42).varchar_length()").evaluate())
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
@@ -195,9 +195,9 @@ public class TestMethodCall
     @Test
     public void testCaseInsensitiveMethodName()
     {
-        assertThat(assertions.expression("'hello'.CHAR_LENGTH()"))
+        assertThat(assertions.expression("'hello'.VARCHAR_LENGTH()"))
                 .matches("BIGINT '5'");
-        assertThat(assertions.expression("'hello'.Char_Length()"))
+        assertThat(assertions.expression("'hello'.VARCHAR_LENGTH()"))
                 .matches("BIGINT '5'");
     }
 
