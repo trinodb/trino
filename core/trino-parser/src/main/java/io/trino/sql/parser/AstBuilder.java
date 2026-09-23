@@ -4780,8 +4780,8 @@ class AstBuilder
         requireNonNull(token, "token is null");
         return baseLocation
                 .map(location -> new NodeLocation(
-                        token.getLine() + location.getLineNumber() - 1,
-                        token.getCharPositionInLine() + 1 + (token.getLine() == 1 ? location.getColumnNumber() : 0)))
+                        token.getLine() + location.line() - 1,
+                        token.getCharPositionInLine() + 1 + (token.getLine() == 1 ? location.column() : 0)))
                 .orElse(new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1));
     }
 

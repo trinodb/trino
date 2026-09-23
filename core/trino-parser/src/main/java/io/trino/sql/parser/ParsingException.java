@@ -36,7 +36,7 @@ public class ParsingException
 
     public ParsingException(String message, NodeLocation nodeLocation)
     {
-        this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
+        this(message, null, nodeLocation.line(), nodeLocation.column());
     }
 
     public int getLineNumber()
