@@ -99,8 +99,8 @@ public class DistributeComparisonOverCase
         return new Case(
                 caseTerm.whenClauses().stream()
                         .map(clause -> new WhenClause(
-                                clause.getOperand(),
-                                comparison(metadata, charVarcharCoercion, operator, clause.getResult(), target)))
+                                clause.operand(),
+                                comparison(metadata, charVarcharCoercion, operator, clause.result(), target)))
                         .toList(),
                 comparison(metadata, charVarcharCoercion, operator, caseTerm.defaultValue(), target));
     }

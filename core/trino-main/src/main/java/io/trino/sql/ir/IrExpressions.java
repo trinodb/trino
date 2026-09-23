@@ -334,10 +334,10 @@ public final class IrExpressions
             return null;
         }
         WhenClause when = caseExpression.whenClauses().get(0);
-        if (!(matchComparison(when.getOperand()) instanceof Comparison.Equal(Expression left, Expression right))) {
+        if (!(matchComparison(when.operand()) instanceof Comparison.Equal(Expression left, Expression right))) {
             return null;
         }
-        if (!isConstantNull(when.getResult())) {
+        if (!isConstantNull(when.result())) {
             return null;
         }
         if (!caseExpression.defaultValue().equals(left)) {
@@ -426,7 +426,7 @@ public final class IrExpressions
                 case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
                         mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referencesMayBeNull);
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.getResult(), referencesMayBeNull)) ||
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
@@ -481,7 +481,7 @@ public final class IrExpressions
                 case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
                 case Comparison comparison -> mayFail(plannerContext, charVarcharCoercion, comparison.left()) || mayFail(plannerContext, charVarcharCoercion, comparison.right());
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.getOperand()) || mayFail(plannerContext, charVarcharCoercion, clause.getResult())) ||
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.operand()) || mayFail(plannerContext, charVarcharCoercion, clause.result())) ||
                     mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
             case Cast e -> mayFail(plannerContext, charVarcharCoercion, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));

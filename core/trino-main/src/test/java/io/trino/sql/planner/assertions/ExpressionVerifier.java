@@ -262,8 +262,8 @@ public final class ExpressionVerifier
 
     private boolean process(WhenClause actual, WhenClause expected)
     {
-        return process(actual.getOperand(), expected.getOperand()) &&
-                process(actual.getResult(), expected.getResult());
+        return process(actual.operand(), expected.operand()) &&
+                process(actual.result(), expected.result());
     }
 
     @Override

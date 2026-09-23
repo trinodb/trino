@@ -251,10 +251,10 @@ public class IrExpressionOptimizer
         boolean changed = false;
         ImmutableList.Builder<WhenClause> optimized = ImmutableList.builder();
         for (WhenClause clause : clauses) {
-            Optional<Expression> operand = process(clause.getOperand(), session, symbolAllocator, bindings);
-            Optional<Expression> result = process(clause.getResult(), session, symbolAllocator, bindings);
+            Optional<Expression> operand = process(clause.operand(), session, symbolAllocator, bindings);
+            Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
             if (operand.isPresent() || result.isPresent()) {
-                optimized.add(new WhenClause(operand.orElse(clause.getOperand()), result.orElse(clause.getResult())));
+                optimized.add(new WhenClause(operand.orElse(clause.operand()), result.orElse(clause.result())));
             }
             else {
                 optimized.add(clause);

@@ -138,11 +138,11 @@ public final class PageFieldsToInputParametersRewriter
             // First condition is unconditional; everything else is conditional
             List<WhenClause> whenClauses = node.whenClauses();
             if (!whenClauses.isEmpty()) {
-                process(whenClauses.getFirst().getOperand(), unconditionallyEvaluated);
-                process(whenClauses.getFirst().getResult(), false);
+                process(whenClauses.getFirst().operand(), unconditionallyEvaluated);
+                process(whenClauses.getFirst().result(), false);
                 for (int i = 1; i < whenClauses.size(); i++) {
-                    process(whenClauses.get(i).getOperand(), false);
-                    process(whenClauses.get(i).getResult(), false);
+                    process(whenClauses.get(i).operand(), false);
+                    process(whenClauses.get(i).result(), false);
                 }
             }
             process(node.defaultValue(), false);
