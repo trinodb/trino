@@ -238,10 +238,10 @@ public final class ExpressionTreeRewriter<C>
 
         protected WhenClause rewriteWhenClause(WhenClause node, Context<C> context)
         {
-            Expression operand = rewrite(node.getOperand(), context.get());
-            Expression result = rewrite(node.getResult(), context.get());
+            Expression operand = rewrite(node.operand(), context.get());
+            Expression result = rewrite(node.result(), context.get());
 
-            if (operand != node.getOperand() || result != node.getResult()) {
+            if (operand != node.operand() || result != node.result()) {
                 return new WhenClause(operand, result);
             }
             return node;

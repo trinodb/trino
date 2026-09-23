@@ -62,9 +62,9 @@ public class SimplifyRedundantCase
             return Optional.empty();
         }
 
-        if (!whenClauses.stream().map(WhenClause::getResult).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
+        if (!whenClauses.stream().map(WhenClause::result).allMatch(result -> result.equals(TRUE) || result.equals(FALSE)) ||
                 (!defaultValue.equals(TRUE) && !defaultValue.equals(FALSE)) ||
-                whenClauses.stream().map(WhenClause::getOperand).anyMatch(e -> !isDeterministic(e))) {
+                whenClauses.stream().map(WhenClause::operand).anyMatch(e -> !isDeterministic(e))) {
             return Optional.empty();
         }
 
@@ -97,17 +97,17 @@ public class SimplifyRedundantCase
         // This method constructs the simplified expression recursively.
 
         int end = start;
-        while (end < clauses.size() && clauses.get(end).getResult().equals(FALSE)) {
+        while (end < clauses.size() && clauses.get(end).result().equals(FALSE)) {
             end++;
         }
 
         List<Expression> falseTerms = clauses.subList(start, end).stream()
-                .map(clause -> IrExpressions.not(metadata, getCharVarcharCoercion(session), IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clause.getOperand(), TRUE)))
+                .map(clause -> IrExpressions.not(metadata, getCharVarcharCoercion(session), IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clause.operand(), TRUE)))
                 .toList();
 
         if (end < clauses.size()) {
             List<Expression> terms = new ArrayList<>();
-            terms.add(IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clauses.get(end).getOperand(), TRUE));
+            terms.add(IrExpressions.comparison(metadata, getCharVarcharCoercion(session), ComparisonOperator.IDENTICAL, clauses.get(end).operand(), TRUE));
             transformRecursive(session, end + 1, clauses, defaultExpression).ifPresent(terms::add);
 
             return Optional.of(IrUtils.and(

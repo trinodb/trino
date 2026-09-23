@@ -42,10 +42,10 @@ public class EvaluateCase
         }
 
         for (WhenClause whenClause : whenClauses) {
-            Expression operand = whenClause.getOperand();
+            Expression operand = whenClause.operand();
 
             if (operand.equals(TRUE)) {
-                return Optional.of(whenClause.getResult());
+                return Optional.of(whenClause.result());
             }
             else if (!(operand instanceof Constant)) {
                 return Optional.empty();

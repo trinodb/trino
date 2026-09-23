@@ -266,7 +266,7 @@ public class ExpressionBytecodeCompiler
             for (WhenClause clause : node.whenClauses().reversed()) {
                 Variable wasNull = generatorContext.wasNull();
                 BytecodeBlock conditionBlock = new BytecodeBlock()
-                        .append(generatorContext.generate(clause.getOperand()))
+                        .append(generatorContext.generate(clause.operand()))
                         .comment("... and condition value was not null")
                         .append(wasNull)
                         .invokeStatic(CompilerOperations.class, "not", boolean.class, boolean.class)
@@ -275,7 +275,7 @@ public class ExpressionBytecodeCompiler
 
                 result = new IfStatement()
                         .condition(conditionBlock)
-                        .ifTrue(generatorContext.generate(clause.getResult()))
+                        .ifTrue(generatorContext.generate(clause.result()))
                         .ifFalse(result);
             }
             return result;
