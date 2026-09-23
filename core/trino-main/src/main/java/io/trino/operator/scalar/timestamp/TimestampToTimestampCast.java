@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -29,6 +31,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
 import static java.lang.Math.incrementExact;
 
+@FunctionPreimage(OrderPreservingCastPreimage.class)
 @ScalarOperator(CAST)
 public final class TimestampToTimestampCast
 {

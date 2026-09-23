@@ -16,6 +16,9 @@ package io.trino.operator.scalar;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
+import io.trino.operator.scalar.preimage.VarcharToCharPreimage;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -35,6 +38,7 @@ public final class CharacterStringCasts
 {
     private CharacterStringCasts() {}
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
@@ -46,6 +50,7 @@ public final class CharacterStringCasts
         return slice;
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
@@ -57,6 +62,7 @@ public final class CharacterStringCasts
         return slice;
     }
 
+    @FunctionPreimage(VarcharToCharPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
