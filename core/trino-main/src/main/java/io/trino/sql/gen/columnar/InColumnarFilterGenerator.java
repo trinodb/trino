@@ -15,7 +15,6 @@ package io.trino.sql.gen.columnar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
@@ -28,7 +27,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.airlift.slice.Slice;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -39,6 +37,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.ClassTemplateCache;
@@ -74,6 +73,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -81,8 +81,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceWithoutTemplate;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.declareBlockVariables;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateBlockMayHaveNull;
@@ -99,14 +99,14 @@ public class InColumnarFilterGenerator
 {
     private final Reference valueReference;
     private final Map<Symbol, Integer> layout;
-    private final int valueChannel;
+    private final TypeOperators typeOperators;
     private final boolean useSwitchCase;
     private final Set<Object> constantValues;
 
     private final MethodHandle equalsMethodHandle;
     private final MethodHandle hashCodeMethodHandle;
 
-    public InColumnarFilterGenerator(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager)
+    public InColumnarFilterGenerator(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
     {
         checkArgument(!in.valueList().isEmpty(), "At least one value is required in IN list");
         if (!(in.value() instanceof Reference)) {
@@ -114,9 +114,7 @@ public class InColumnarFilterGenerator
         }
         valueReference = (Reference) in.value();
         this.layout = requireNonNull(layout, "layout is null");
-        Integer channel = layout.get(Symbol.from(valueReference));
-        checkState(channel != null, "Reference not in layout: %s", valueReference.name());
-        valueChannel = channel;
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         List<Expression> expressions = in.valueList();
         expressions.forEach(expression -> {
             if (!(expression instanceof Constant)) {
@@ -168,16 +166,13 @@ public class InColumnarFilterGenerator
         Set<?> constantValuesSet = toFastutilHashSet(constantValues, valueType, hashCodeMethodHandle, equalsMethodHandle);
         Binding constant = callSiteBinder.bind(constantValuesSet, constantValuesSet.getClass());
 
-        generateInFilterRangeMethod(
+        generateInFilterMethods(
                 classDefinition,
+                callSiteBinder,
+                typeOperators,
                 valueReference,
                 layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, scope, constantValuesSet, constant, position, result));
-        generateInFilterListMethod(
-                classDefinition,
-                valueReference,
-                layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, scope, constantValuesSet, constant, position, result));
+                (scope, value, result) -> generateSetContainsCall(scope, constantValuesSet, constant, value, result));
 
         return classDefinition;
     }
@@ -198,21 +193,9 @@ public class InColumnarFilterGenerator
         body.ret();
     }
 
-    private BytecodeBlock generateSetContainsCall(CallSiteBinder binder, Scope scope, Set<?> constantValuesSet, Binding constant, BytecodeExpression position, Variable result)
+    private BytecodeBlock generateSetContainsCall(Scope scope, Set<?> constantValuesSet, Binding constant, BytecodeExpression value, Variable result)
     {
-        Type valueType = valueReference.type();
-        Class<?> javaType = valueType.getJavaType();
-
-        Class<?> callType = javaType;
-        if (!callType.isPrimitive() && callType != Slice.class) {
-            callType = Object.class;
-        }
-        String methodName = "get" + Primitives.wrap(callType).getSimpleName();
-        BytecodeExpression value = constantType(binder, valueType)
-                .invoke(methodName, callType, scope.getVariable("block_" + valueChannel), position);
-        if (callType != javaType) {
-            value = value.cast(javaType);
-        }
+        Class<?> javaType = valueReference.type().getJavaType();
 
         if (useSwitchCase) {
             LabelNode end = new LabelNode("end");
@@ -318,14 +301,31 @@ public class InColumnarFilterGenerator
         return true;
     }
 
-    // Emits the per-position membership test for a single-column IN filter, setting result to the outcome.
+    // Emits the membership test of the current row's value for a single-column IN filter, setting result to the outcome.
     @FunctionalInterface
     interface ContainsCallGenerator
     {
-        BytecodeBlock generate(Scope scope, BytecodeExpression position, Variable result);
+        BytecodeBlock generate(Scope scope, BytecodeExpression value, Variable result);
     }
 
-    static void generateInFilterRangeMethod(ClassDefinition classDefinition, Reference valueReference, Map<Symbol, Integer> layout, ContainsCallGenerator containsCall)
+    // Generates filterPositionsRange and filterPositionsList, both reading the row value through the type's read operator.
+    static void generateInFilterMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, TypeOperators typeOperators, Reference valueReference, Map<Symbol, Integer> layout, ContainsCallGenerator containsCall)
+    {
+        MethodHandle readValue = typeOperators.getReadValueOperator(valueReference.type(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        Binding readValueBinding = callSiteBinder.bind(readValue);
+        generateInFilterRangeMethod(classDefinition, readValueBinding, valueReference, layout, containsCall);
+        generateInFilterListMethod(classDefinition, readValueBinding, valueReference, layout, containsCall);
+    }
+
+    // Reads the row value at the given position through the bound read operator.
+    private static BytecodeExpression generateReadValue(Binding readValueBinding, Reference valueReference, Map<Symbol, Integer> layout, Scope scope, Variable position)
+    {
+        Integer field = layout.get(Symbol.from(valueReference));
+        checkState(field != null, "Reference not in layout: %s", valueReference.name());
+        return invoke(readValueBinding, "readValue", scope.getVariable("block_" + field), position);
+    }
+
+    private static void generateInFilterRangeMethod(ClassDefinition classDefinition, Binding readValueBinding, Reference valueReference, Map<Symbol, Integer> layout, ContainsCallGenerator containsCall)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter outputPositions = arg("outputPositions", int[].class);
@@ -346,6 +346,7 @@ public class InColumnarFilterGenerator
         Variable outputPositionsCount = scope.declareVariable("outputPositionsCount", body, constantInt(0));
         Variable position = scope.declareVariable(int.class, "position");
         Variable result = scope.declareVariable(boolean.class, "result");
+        BytecodeExpression value = generateReadValue(readValueBinding, valueReference, layout, scope, position);
 
         IfStatement ifStatement = new IfStatement()
                 .condition(generateBlockMayHaveNull(ImmutableList.of(valueReference), layout, scope));
@@ -358,7 +359,7 @@ public class InColumnarFilterGenerator
                 .body(new IfStatement()
                         .condition(generateBlockPositionNotNull(ImmutableList.of(valueReference), layout, scope, position))
                         .ifTrue(new BytecodeBlock()
-                                .append(containsCall.generate(scope, position, result))
+                                .append(containsCall.generate(scope, value, result))
                                 .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount)))));
 
         ifStatement.ifFalse(new ForLoop("non-nullable range based loop")
@@ -366,13 +367,13 @@ public class InColumnarFilterGenerator
                 .condition(lessThan(position, add(offset, size)))
                 .update(position.increment())
                 .body(new BytecodeBlock()
-                        .append(containsCall.generate(scope, position, result))
+                        .append(containsCall.generate(scope, value, result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
         body.append(outputPositionsCount.ret());
     }
 
-    static void generateInFilterListMethod(ClassDefinition classDefinition, Reference valueReference, Map<Symbol, Integer> layout, ContainsCallGenerator containsCall)
+    private static void generateInFilterListMethod(ClassDefinition classDefinition, Binding readValueBinding, Reference valueReference, Map<Symbol, Integer> layout, ContainsCallGenerator containsCall)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter outputPositions = arg("outputPositions", int[].class);
@@ -395,6 +396,7 @@ public class InColumnarFilterGenerator
         Variable index = scope.declareVariable(int.class, "index");
         Variable position = scope.declareVariable(int.class, "position");
         Variable result = scope.declareVariable(boolean.class, "result");
+        BytecodeExpression value = generateReadValue(readValueBinding, valueReference, layout, scope, position);
 
         IfStatement ifStatement = new IfStatement()
                 .condition(generateBlockMayHaveNull(ImmutableList.of(valueReference), layout, scope));
@@ -409,7 +411,7 @@ public class InColumnarFilterGenerator
                         .append(new IfStatement()
                                 .condition(generateBlockPositionNotNull(ImmutableList.of(valueReference), layout, scope, position))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(containsCall.generate(scope, position, result))
+                                        .append(containsCall.generate(scope, value, result))
                                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))))));
 
         ifStatement.ifFalse(new ForLoop("non-nullable positions loop")
@@ -418,7 +420,7 @@ public class InColumnarFilterGenerator
                 .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(position.set(activePositions.getElement(index)))
-                        .append(containsCall.generate(scope, position, result))
+                        .append(containsCall.generate(scope, value, result))
                         .append(updateOutputPositions(result, position, outputPositions, outputPositionsCount))));
 
         body.append(outputPositionsCount.ret());

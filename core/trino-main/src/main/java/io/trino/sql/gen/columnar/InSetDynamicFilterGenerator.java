@@ -28,6 +28,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.InputChannels;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -56,11 +56,9 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.sql.gen.BytecodeUtils.generateToString;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceDirect;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
-import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterListMethod;
-import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterRangeMethod;
+import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterMethods;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.util.Objects.requireNonNull;
@@ -71,14 +69,14 @@ public final class InSetDynamicFilterGenerator
 {
     private final Reference valueReference;
     private final Map<Symbol, Integer> layout;
+    private final TypeOperators typeOperators;
     private final Type valueType;
     private final Class<? extends LongSet> setClass;
     private final LongSet valueSet;
-    private final int valueChannel;
 
     // Returns empty when the IN predicate is not an eligible long-backed dynamic filter, so the caller
     // falls back to the shared cache path.
-    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager)
+    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
     {
         if (!(in.value() instanceof Reference valueReference) || valueReference.type().getJavaType() != long.class) {
             return Optional.empty();
@@ -106,19 +104,17 @@ public final class InSetDynamicFilterGenerator
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         LongSet valueSet = (LongSet) toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
-        return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet));
+        return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators));
     }
 
-    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, LongSet valueSet)
+    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, LongSet valueSet, TypeOperators typeOperators)
     {
         this.valueReference = requireNonNull(valueReference, "valueReference is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.valueSet = requireNonNull(valueSet, "valueSet is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.valueType = valueReference.type();
         this.setClass = valueSet.getClass().asSubclass(LongSet.class);
-        Integer channel = layout.get(Symbol.from(valueReference));
-        checkState(channel != null, "Reference not in layout: %s", valueReference.name());
-        valueChannel = channel;
     }
 
     public Type valueType()
@@ -149,16 +145,13 @@ public final class InSetDynamicFilterGenerator
         FieldDefinition valueSetField = classDefinition.declareField(a(PRIVATE, FINAL), "valueSet", setClass);
         generateConstructor(classDefinition, inputChannelsField, valueSetField, setClass);
 
-        generateInFilterRangeMethod(
+        generateInFilterMethods(
                 classDefinition,
+                callSiteBinder,
+                typeOperators,
                 valueReference,
                 layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, valueSetField, scope, position, result));
-        generateInFilterListMethod(
-                classDefinition,
-                valueReference,
-                layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, valueSetField, scope, position, result));
+                (scope, value, result) -> generateSetContainsCall(valueSetField, scope, value, result));
 
         // like every other columnar filter class, describe itself in debuggers and logs; the
         // bound value set is not included, since it can be arbitrarily large and this class is
@@ -186,13 +179,10 @@ public final class InSetDynamicFilterGenerator
         body.ret();
     }
 
-    private BytecodeBlock generateSetContainsCall(CallSiteBinder binder, FieldDefinition valueSetField, Scope scope, BytecodeExpression position, Variable result)
+    private static BytecodeBlock generateSetContainsCall(FieldDefinition valueSetField, Scope scope, BytecodeExpression value, Variable result)
     {
-        Type valueType = valueReference.type();
-        BytecodeExpression value = constantType(binder, valueType)
-                .invoke("getLong", long.class, scope.getVariable("block_" + valueChannel), position);
         return new BytecodeBlock()
-                .comment("valueSet.contains(<stackValue>)")
+                .comment("valueSet.contains(value)")
                 .append(result.set(scope.getThis()
                         .getField(valueSetField)
                         .invoke("contains", boolean.class, value)));
