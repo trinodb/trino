@@ -527,6 +527,7 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -545,6 +546,7 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
@@ -563,6 +565,7 @@ public final class StringFunctions
         return SliceUtf8.trim(slice);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Removes whitespace from the beginning and end of a string")
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
@@ -581,6 +584,7 @@ public final class StringFunctions
         return SliceUtf8.leftTrim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the beginning of a string")
     @ScalarFunction(value = "ltrim", neverFails = true)
     @LiteralParameters("x")
@@ -599,13 +603,14 @@ public final class StringFunctions
         return SliceUtf8.rightTrim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the end of a string")
     @ScalarFunction(value = "rtrim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice charRightTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(rightTrim(slice, codePointsToTrim));
+        return rightTrim(slice, codePointsToTrim);
     }
 
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
@@ -617,13 +622,14 @@ public final class StringFunctions
         return SliceUtf8.trim(slice, codePointsToTrim);
     }
 
+    // TODO remove once legacy_varchar_to_char_coercion is gone https://github.com/trinodb/trino/issues/31297
     @Description("Remove the longest string containing only given characters from the beginning and end of a string")
     @ScalarFunction(value = "trim", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice charTrim(@SqlType("char(x)") Slice slice, @SqlType(CodePointsType.NAME) int[] codePointsToTrim)
     {
-        return trimTrailingSpaces(trim(slice, codePointsToTrim));
+        return trim(slice, codePointsToTrim);
     }
 
     @ScalarOperator(OperatorType.CAST)
