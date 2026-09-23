@@ -233,6 +233,12 @@ non-null constants. For such a call the function result is null if and only if t
 projected argument is null. Unsupported signatures and parameters retain the
 original expression.
 
+Registration does not specify an argument position. After constant folding, the
+consumer nominates the call's sole nonconstant SQL argument. It declines calls with
+multiple nonconstant arguments or null parameters; all-constant calls use ordinary
+constant folding. The candidate can be an arbitrary expression and retains the
+usual single-evaluation guarantees.
+
 Every provider entry point must validate `context.inputArgument()` before
 reading constant parameters or computing results. For example, the date-truncation
 provider accepts argument 1 and declines a varying unit at argument 0. Unsupported
@@ -264,9 +270,16 @@ Providers are trusted semantic implementations; incorrect results can produce
 incorrect query answers. They must not reinterpret arbitrary exceptions as
 unsupported input.
 
+Failing inputs do not constrain an exact projection. If independently projected
+true and false domains overlap, expression rewriting declines the pair; domain
+extraction can still consume a single projection. The large-`IN` shortcut also
+declines projected NaN singletons, which SQL equality cannot match.
+
 The dependency helper supplies a native comparator for non-null function results,
 with unordered values sorted last. Providers use it when comparing constants and
 calculating boundaries.
+
+Providers return domains or typed constants, never planner expressions.
 
 ## Aggregation function implementation
 
