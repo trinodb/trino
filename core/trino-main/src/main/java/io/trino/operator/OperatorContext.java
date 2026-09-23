@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -71,21 +70,21 @@ public class OperatorContext
     private final DriverContext driverContext;
     private final Executor executor;
 
-    private final CounterStat physicalInputDataSize = new CounterStat();
-    private final CounterStat physicalInputPositions = new CounterStat();
+    private final AtomicLong physicalInputDataSize = new AtomicLong();
+    private final AtomicLong physicalInputPositions = new AtomicLong();
     private final AtomicLong physicalInputReadTimeNanos = new AtomicLong();
 
-    private final CounterStat internalNetworkInputDataSize = new CounterStat();
-    private final CounterStat internalNetworkPositions = new CounterStat();
+    private final AtomicLong internalNetworkInputDataSize = new AtomicLong();
+    private final AtomicLong internalNetworkPositions = new AtomicLong();
 
     private final ResourceUsageTimeSeriesRecorder cpuTimeSeriesRecorder = new ResourceUsageTimeSeriesRecorder();
     private final OperationTiming addInputTiming = new OperationTiming(cpuTimeSeriesRecorder);
-    private final CounterStat inputDataSize = new CounterStat();
-    private final CounterStat inputPositions = new CounterStat();
+    private final AtomicLong inputDataSize = new AtomicLong();
+    private final AtomicLong inputPositions = new AtomicLong();
 
     private final OperationTiming getOutputTiming = new OperationTiming(cpuTimeSeriesRecorder);
-    private final CounterStat outputDataSize = new CounterStat();
-    private final CounterStat outputPositions = new CounterStat();
+    private final AtomicLong outputDataSize = new AtomicLong();
+    private final AtomicLong outputPositions = new AtomicLong();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
@@ -173,8 +172,8 @@ public class OperatorContext
     {
         operationTimer.recordOperationComplete(addInputTiming);
         if (page != null) {
-            inputDataSize.update(page.getSizeInBytes());
-            inputPositions.update(page.getPositionCount());
+            inputDataSize.getAndAdd(page.getSizeInBytes());
+            inputPositions.getAndAdd(page.getPositionCount());
         }
     }
 
@@ -187,8 +186,8 @@ public class OperatorContext
         checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
         checkArgument(positions >= 0, "positions is negative (%s)", positions);
         checkArgument(readNanos >= 0, "readNanos is negative (%s)", readNanos);
-        physicalInputDataSize.update(sizeInBytes);
-        physicalInputPositions.update(positions);
+        physicalInputDataSize.getAndAdd(sizeInBytes);
+        physicalInputPositions.getAndAdd(positions);
         physicalInputReadTimeNanos.getAndAdd(readNanos);
     }
 
@@ -200,8 +199,8 @@ public class OperatorContext
     {
         checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
         checkArgument(positions >= 0, "positions is negative (%s)", positions);
-        internalNetworkInputDataSize.update(sizeInBytes);
-        internalNetworkPositions.update(positions);
+        internalNetworkInputDataSize.getAndAdd(sizeInBytes);
+        internalNetworkPositions.getAndAdd(positions);
     }
 
     /**
@@ -212,16 +211,16 @@ public class OperatorContext
     {
         checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
         checkArgument(positions >= 0, "positions is negative (%s)", positions);
-        inputDataSize.update(sizeInBytes);
-        inputPositions.update(positions);
+        inputDataSize.getAndAdd(sizeInBytes);
+        inputPositions.getAndAdd(positions);
     }
 
     void recordGetOutput(OperationTimer operationTimer, Page page)
     {
         operationTimer.recordOperationComplete(getOutputTiming);
         if (page != null) {
-            outputDataSize.update(page.getSizeInBytes());
-            outputPositions.update(page.getPositionCount());
+            outputDataSize.getAndAdd(page.getSizeInBytes());
+            outputPositions.getAndAdd(page.getPositionCount());
         }
     }
 
@@ -229,8 +228,8 @@ public class OperatorContext
     {
         checkArgument(sizeInBytes >= 0, "sizeInBytes is negative (%s)", sizeInBytes);
         checkArgument(positions >= 0, "positions is negative (%s)", positions);
-        outputDataSize.update(sizeInBytes);
-        outputPositions.update(positions);
+        outputDataSize.getAndAdd(sizeInBytes);
+        outputPositions.getAndAdd(positions);
     }
 
     public void recordDynamicFilterSplitProcessed(long dynamicFilterSplits)
@@ -478,24 +477,24 @@ public class OperatorContext
         this.infoSupplier.set(infoSupplier);
     }
 
-    public CounterStat getInputDataSize()
+    public long getInputDataSize()
     {
-        return inputDataSize;
+        return inputDataSize.get();
     }
 
-    public CounterStat getInputPositions()
+    public long getInputPositions()
     {
-        return inputPositions;
+        return inputPositions.get();
     }
 
-    public CounterStat getOutputDataSize()
+    public long getOutputDataSize()
     {
-        return outputDataSize;
+        return outputDataSize.get();
     }
 
-    public CounterStat getOutputPositions()
+    public long getOutputPositions()
     {
-        return outputPositions;
+        return outputPositions.get();
     }
 
     public long getWriterInputDataSize()
@@ -524,7 +523,7 @@ public class OperatorContext
         Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
-        long inputPositionsCount = inputPositions.getTotalCount();
+        long inputPositionsCount = inputPositions.get();
 
         return new OperatorStats(
                 driverContext.getTaskId().stageId().id(),
@@ -539,20 +538,20 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                DataSize.ofBytes(physicalInputDataSize.getTotalCount()),
-                physicalInputPositions.getTotalCount(),
+                DataSize.ofBytes(physicalInputDataSize.get()),
+                physicalInputPositions.get(),
                 new Duration(physicalInputReadTimeNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
-                internalNetworkPositions.getTotalCount(),
-                DataSize.ofBytes(inputDataSize.getTotalCount()),
+                DataSize.ofBytes(internalNetworkInputDataSize.get()),
+                internalNetworkPositions.get(),
+                DataSize.ofBytes(inputDataSize.get()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
                 new Duration(getOutputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                DataSize.ofBytes(outputDataSize.getTotalCount()),
-                outputPositions.getTotalCount(),
+                DataSize.ofBytes(outputDataSize.get()),
+                outputPositions.get(),
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(
