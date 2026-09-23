@@ -64,6 +64,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -800,6 +801,8 @@ public interface Metadata
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
 
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
+
+    Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction);
 
     ResolvedAggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
