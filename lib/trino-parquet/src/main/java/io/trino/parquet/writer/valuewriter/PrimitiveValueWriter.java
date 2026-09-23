@@ -69,13 +69,14 @@ public abstract class PrimitiveValueWriter
         return valuesWriter.getBufferedSize();
     }
 
-    public long getEstimatedBufferedSize()
+    public long getEstimatedDataPageSize()
     {
-        return switch (valuesWriter) {
-            case DictionaryFallbackValuesWriter dictionaryFallbackValuesWriter -> dictionaryFallbackValuesWriter.getEstimatedBufferedSize();
-            case BloomFilterValuesWriter bloomFilterValuesWriter -> bloomFilterValuesWriter.getEstimatedBufferedSize();
-            default -> valuesWriter.getBufferedSize();
-        };
+        return valuesWriter.getEstimatedDataPageSize();
+    }
+
+    public long getEstimatedDictionaryPageSize()
+    {
+        return valuesWriter.getEstimatedDictionaryPageSize();
     }
 
     public BytesInput getBytes()

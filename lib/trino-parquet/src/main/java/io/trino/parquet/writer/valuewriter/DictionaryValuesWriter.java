@@ -145,7 +145,18 @@ public abstract class DictionaryValuesWriter
     @Override
     public long getBufferedSize()
     {
-        return encodedValues.size() * 4L;
+        int bitWidth = BytesUtils.getWidthFromMaxInt(getDictionarySize() - 1);
+        return encodedValues.estimatedSerializedSize(bitWidth);
+    }
+
+    long getDictionaryByteSize()
+    {
+        return dictionaryByteSize;
+    }
+
+    long getLastUsedDictionaryByteSize()
+    {
+        return lastUsedDictionaryByteSize;
     }
 
     @Override
