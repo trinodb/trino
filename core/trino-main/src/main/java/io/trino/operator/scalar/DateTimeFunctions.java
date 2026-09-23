@@ -16,10 +16,13 @@ package io.trino.operator.scalar;
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.trino.operator.scalar.preimage.DateTruncPreimage;
+import io.trino.operator.scalar.preimage.YearDatePreimage;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -298,6 +301,7 @@ public final class DateTimeFunctions
     @ScalarFunction("date_trunc")
     @LiteralParameters("x")
     @SqlType(StandardTypes.DATE)
+    @FunctionPreimage(DateTruncPreimage.class)
     public static long truncateDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date)
     {
         long millis = getDateField(UTC_CHRONOLOGY, unit).roundFloor(DAYS.toMillis(date));
@@ -583,6 +587,7 @@ public final class DateTimeFunctions
 
     @Description("Year of the given date")
     @ScalarFunction(value = "year", neverFails = true)
+    @FunctionPreimage(YearDatePreimage.class)
     @SqlType(StandardTypes.BIGINT)
     public static long yearFromDate(@SqlType(StandardTypes.DATE) long date)
     {
