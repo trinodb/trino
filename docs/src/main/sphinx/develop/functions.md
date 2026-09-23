@@ -281,6 +281,12 @@ calculating boundaries.
 
 Providers return domains or typed constants, never planner expressions.
 
+For comparisons that can return null for non-null operands, a provider may implement
+`comparisonConstant(context, constant)`. The mapped input constant must preserve
+every supported native comparison operator, including unknown results, for every
+successful original evaluation. This contract does not imply that domain extraction
+can represent the comparison's truth sets.
+
 ## Aggregation function implementation
 
 Aggregation functions use a similar framework to scalar functions, but are
