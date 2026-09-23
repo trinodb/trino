@@ -19,6 +19,7 @@ import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.QueryId;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -71,6 +72,49 @@ public class TestResourceGroups
         root.run(query3);
         assertThat(query3.getState()).isEqualTo(FAILED);
         assertThat(query3.getThrowable().getMessage()).isEqualTo("Too many queued queries for \"root\"");
+    }
+
+    @Test
+    @Timeout(10)
+    public void testGetQueryPosition()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(0);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withQueryId("query1").build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().withQueryId("query2").build();
+        root.run(query1);
+        root.run(query2);
+        assertThat(query1.getState()).isEqualTo(QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(2));
+        assertThat(root.getQueryPosition(new QueryId("not_queued"))).isEqualTo(Optional.empty());
+
+        root.setHardConcurrencyLimit(1);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.empty());
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(1));
+    }
+
+    @Test
+    @Timeout(10)
+    public void testGetQueryPositionWithWeightedScheduling()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(0);
+        root.setSchedulingPolicy(WEIGHTED);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withQueryId("query1").build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(QUEUED);
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.empty());
     }
 
     @Test
