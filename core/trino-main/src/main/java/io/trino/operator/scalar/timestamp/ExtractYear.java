@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.operator.scalar.preimage.YearTimestampPreimage;
 import io.trino.spi.function.Description;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -25,6 +27,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Year of the given timestamp")
 @ScalarFunction(value = "year", neverFails = true)
+@FunctionPreimage(YearTimestampPreimage.class)
 public final class ExtractYear
 {
     private ExtractYear() {}
