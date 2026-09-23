@@ -27,6 +27,9 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.InputChannels;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
@@ -36,7 +39,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
-import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
@@ -71,14 +73,19 @@ public final class InSetDynamicFilterGenerator
     private final Map<Symbol, Integer> layout;
     private final TypeOperators typeOperators;
     private final Type valueType;
-    private final Class<? extends LongSet> setClass;
-    private final LongSet valueSet;
+    private final Class<?> setClass;
+    private final Set<?> valueSet;
 
-    // Returns empty when the IN predicate is not an eligible long-backed dynamic filter, so the caller
+    // Returns empty when the IN predicate is not an eligible dynamic filter, so the caller
     // falls back to the shared cache path.
     public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
     {
-        if (!(in.value() instanceof Reference valueReference) || valueReference.type().getJavaType() != long.class) {
+        if (!(in.value() instanceof Reference valueReference)) {
+            return Optional.empty();
+        }
+        Type valueType = valueReference.type();
+        // FastutilSetHelper does not handle indeterminate values in structural types
+        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
             return Optional.empty();
         }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
@@ -93,7 +100,6 @@ public final class InSetDynamicFilterGenerator
             return Optional.empty();
         }
 
-        Type valueType = valueReference.type();
         // Small integer IN lists compile to a lookupswitch with tiny baked data; leave them on the
         // shared cache path where the switch is faster and retention is not a concern.
         if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
@@ -103,18 +109,18 @@ public final class InSetDynamicFilterGenerator
         ResolvedFunction resolvedHashCode = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-        LongSet valueSet = (LongSet) toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
+        Set<?> valueSet = toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
         return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators));
     }
 
-    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, LongSet valueSet, TypeOperators typeOperators)
+    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, Set<?> valueSet, TypeOperators typeOperators)
     {
         this.valueReference = requireNonNull(valueReference, "valueReference is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.valueSet = requireNonNull(valueSet, "valueSet is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.valueType = valueReference.type();
-        this.setClass = valueSet.getClass().asSubclass(LongSet.class);
+        this.setClass = valueSet.getClass();
     }
 
     public Type valueType()
@@ -122,12 +128,12 @@ public final class InSetDynamicFilterGenerator
         return valueType;
     }
 
-    public Class<? extends LongSet> setClass()
+    public Class<?> setClass()
     {
         return setClass;
     }
 
-    public LongSet valueSet()
+    public Set<?> valueSet()
     {
         return valueSet;
     }
@@ -162,7 +168,7 @@ public final class InSetDynamicFilterGenerator
         return createClassInstanceDirect(callSiteBinder, classDefinition);
     }
 
-    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField, FieldDefinition valueSetField, Class<? extends LongSet> setClass)
+    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField, FieldDefinition valueSetField, Class<?> setClass)
     {
         Parameter inputChannelsParam = arg("inputChannels", InputChannels.class);
         Parameter valueSetParam = arg("valueSet", setClass);
@@ -179,12 +185,16 @@ public final class InSetDynamicFilterGenerator
         body.ret();
     }
 
-    private static BytecodeBlock generateSetContainsCall(FieldDefinition valueSetField, Scope scope, BytecodeExpression value, Variable result)
+    private BytecodeBlock generateSetContainsCall(FieldDefinition valueSetField, Scope scope, BytecodeExpression value, Variable result)
     {
+        BytecodeExpression element = value;
+        if (!valueType.getJavaType().isPrimitive()) {
+            element = value.cast(Object.class);
+        }
         return new BytecodeBlock()
                 .comment("valueSet.contains(value)")
                 .append(result.set(scope.getThis()
                         .getField(valueSetField)
-                        .invoke("contains", boolean.class, value)));
+                        .invoke("contains", boolean.class, element)));
     }
 }

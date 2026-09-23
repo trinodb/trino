@@ -48,7 +48,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
@@ -214,7 +213,7 @@ public class ColumnarFilterCompiler
     // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
     private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
     {
-        Class<? extends LongSet> setClass = generator.setClass();
+        Class<?> setClass = generator.setClass();
         Class<? extends ColumnarFilter> clazz;
         try {
             clazz = inSetDynamicFilterCache.get(new InSetDynamicFilterKey(generator.valueType(), setClass), generator::generateColumnarFilter);
@@ -222,7 +221,7 @@ public class ColumnarFilterCompiler
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
-        LongSet valueSet = generator.valueSet();
+        Set<?> valueSet = generator.valueSet();
         MethodHandle constructor = filterConstructor(clazz, InputChannels.class, setClass);
         return () -> {
             try {
@@ -239,7 +238,7 @@ public class ColumnarFilterCompiler
         return constructorMethodHandle(COMPILER_ERROR, filterClass, parameterTypes);
     }
 
-    private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
+    private record InSetDynamicFilterKey(Type valueType, Class<?> setClass) {}
 
     private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
 
