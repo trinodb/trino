@@ -1505,7 +1505,7 @@
             <dependency>
                 <groupId>io.trino.coral</groupId>
                 <artifactId>coral</artifactId>
-                <version>2.2.49-1</version>
+                <version>2.5.10-1-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -2350,6 +2350,20 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <!-- Temporary: serves io.trino.coral:coral:2.5.10-1-SNAPSHOT; must be removed before this can land. -->
+    <repositories>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>findinpath-trino-coral</id>
+            <url>https://raw.githubusercontent.com/findinpath/trino-coral/findinpath/coral-2.5.10-1-jar/</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
