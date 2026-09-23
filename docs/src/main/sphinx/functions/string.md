@@ -27,6 +27,21 @@ some languages. Specifically, this will return incorrect results for
 Lithuanian, Turkish and Azeri.
 :::
 
+:::{function} btrim(string) -> varchar
+Removes leading and trailing whitespace from `string`.
+:::
+
+:::{function} btrim(string, characters) -> varchar
+:noindex: true
+
+Removes the longest string containing only characters in `characters`
+from the beginning and end of `string`.
+
+```
+SELECT btrim('xyxtrimyyx', 'xy'); -- 'trim'
+```
+:::
+
 :::{function} chr(n) -> varchar
 Returns the Unicode code point `n` as a single character string.
 :::

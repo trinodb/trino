@@ -321,6 +321,77 @@ public class TestTrim
         assertInvalidFunction("TRIM(BOTH utf8(from_hex('3281')) FROM 'hello world')", "Invalid UTF-8 encoding in characters: 2�");
     }
 
+    @Test
+    public void testBtrim()
+    {
+        assertFunction("BTRIM('')", "CAST('' AS VARCHAR(0))");
+        assertFunction("BTRIM('   ')", "CAST('' AS VARCHAR(3))");
+        assertFunction("BTRIM('  hello  ')", "CAST('hello' AS VARCHAR(9))");
+        assertFunction("BTRIM('  hello')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM('hello  ')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM(' hello world ')", "CAST('hello world' AS VARCHAR(13))");
+
+        assertFunction("BTRIM('信念 爱 希望   ')", "CAST('信念 爱 希望' AS VARCHAR(10))");
+        assertFunction("BTRIM('信念 爱 希望  ')", "CAST('信念 爱 希望' AS VARCHAR(9))");
+        assertFunction("BTRIM(' 信念 爱 希望 ')", "CAST('信念 爱 希望' AS VARCHAR(9))");
+        assertFunction("BTRIM('  信念 爱 希望')", "CAST('信念 爱 希望' AS VARCHAR(9))");
+        assertFunction("BTRIM('   信念 爱 希望')", "CAST('信念 爱 希望' AS VARCHAR(10))");
+    }
+
+    @Test
+    public void testCharBtrim()
+    {
+        assertFunction("BTRIM(CAST('' AS CHAR(20)))", "CAST('' AS VARCHAR(20))");
+        assertFunction("BTRIM(CAST('  hello  ' AS CHAR(9)))", "CAST('hello' AS VARCHAR(9))");
+        assertFunction("BTRIM(CAST('  hello' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM(CAST('hello  ' AS CHAR(7)))", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM(CAST(' hello world ' AS CHAR(13)))", "CAST('hello world' AS VARCHAR(13))");
+    }
+
+    @Test
+    public void testBtrimParametrized()
+    {
+        assertFunction("BTRIM('', '')", "CAST('' AS VARCHAR(0))");
+        assertFunction("BTRIM('   ', '')", "CAST('   ' AS VARCHAR(3))");
+        assertFunction("BTRIM('  hello  ', '')", "CAST('  hello  ' AS VARCHAR(9))");
+        assertFunction("BTRIM('  hello  ', ' ')", "CAST('hello' AS VARCHAR(9))");
+        assertFunction("BTRIM('  hello  ', 'he ')", "CAST('llo' AS VARCHAR(9))");
+        assertFunction("BTRIM('  hello  ', 'lo ')", "CAST('he' AS VARCHAR(9))");
+        assertFunction("BTRIM('  hello', ' ')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM('hello  ', ' ')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM('hello  ', 'l o')", "CAST('he' AS VARCHAR(7))");
+        assertFunction("BTRIM('hello  ', 'l')", "CAST('hello  ' AS VARCHAR(7))");
+        assertFunction("BTRIM(' hello world ', ' ')", "CAST('hello world' AS VARCHAR(13))");
+        assertFunction("BTRIM(' hello world ', ' ld')", "CAST('hello wor' AS VARCHAR(13))");
+        assertFunction("BTRIM(' hello world ', ' eh')", "CAST('llo world' AS VARCHAR(13))");
+        assertFunction("BTRIM(' hello world ', ' ehlowrd')", "CAST('' AS VARCHAR(13))");
+        assertFunction("BTRIM(' hello world ', ' x')", "CAST('hello world' AS VARCHAR(13))");
+
+        // non latin characters
+        assertFunction("BTRIM('źółć', 'ćź')", "CAST('ół' AS VARCHAR(4))");
+
+        // invalid utf-8 characters
+        assertInvalidFunction("BTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("BTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testCharBtrimParametrized()
+    {
+        assertFunction("BTRIM(CAST('' AS CHAR(1)), '')", "CAST('' AS VARCHAR(1))");
+        assertFunction("BTRIM(CAST('   ' AS CHAR(3)), '')", "CAST('' AS VARCHAR(3))");
+        assertFunction("BTRIM(CAST('  hello  ' AS CHAR(9)), '')", "CAST('  hello' AS VARCHAR(9))");
+        assertFunction("BTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", "CAST('hello' AS VARCHAR(9))");
+        assertFunction("BTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", "CAST('llo' AS VARCHAR(9))");
+        assertFunction("BTRIM(CAST('  hello' AS CHAR(7)), ' ')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM(CAST('hello  ' AS CHAR(7)), 'l')", "CAST('hello' AS VARCHAR(7))");
+        assertFunction("BTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", "CAST('hello world' AS VARCHAR(13))");
+        assertFunction("BTRIM(CAST('abc def' AS CHAR(7)), 'def')", "CAST('abc' AS VARCHAR(7))");
+
+        // non latin characters
+        assertFunction("BTRIM(CAST('źółć' AS CHAR(4)), 'źćł')", "CAST('ó' AS VARCHAR(4))");
+    }
+
     private void assertFunction(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertThat(assertions.query("SELECT " + actual)).matches("SELECT " + expected);
