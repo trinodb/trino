@@ -47,6 +47,7 @@ public class FunctionMetadata
     private final boolean deprecated;
     private final Optional<TypeTemplate> receiverType;
     private final boolean instanceMethod;
+    private final Optional<DomainProjection> domainProjection;
 
     private FunctionMetadata(
             FunctionId functionId,
@@ -61,7 +62,8 @@ public class FunctionMetadata
             FunctionKind kind,
             boolean deprecated,
             Optional<TypeTemplate> receiverType,
-            boolean instanceMethod)
+            boolean instanceMethod,
+            Optional<DomainProjection> domainProjection)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.signature = requireNonNull(signature, "signature is null");
@@ -86,6 +88,23 @@ public class FunctionMetadata
             throw new IllegalArgumentException("instance method must have a receiver type");
         }
         this.instanceMethod = instanceMethod;
+        this.domainProjection = requireNonNull(domainProjection, "domainProjection is null");
+        domainProjection.ifPresent(_ -> {
+            if (kind != SCALAR || !deterministic) {
+                throw new IllegalArgumentException("domain projection requires a deterministic scalar function");
+            }
+            if (signature.isVariableArity() || signature.getArgumentTypes().isEmpty()) {
+                throw new IllegalArgumentException("domain projection requires a nonempty fixed-arity signature");
+            }
+            if (functionNullability.isReturnNullable() || functionNullability.getArgumentNullable().contains(true)) {
+                throw new IllegalArgumentException("domain projection requires a non-nullable return and null-propagating arguments");
+            }
+        });
+    }
+
+    public Optional<DomainProjection> getDomainProjection()
+    {
+        return domainProjection;
     }
 
     /**
@@ -244,6 +263,7 @@ public class FunctionMetadata
         private boolean deprecated;
         private Optional<TypeTemplate> receiverType = Optional.empty();
         private boolean instanceMethod;
+        private Optional<DomainProjection> domainProjection = Optional.empty();
 
         private Builder(String canonicalName, FunctionKind kind)
         {
@@ -357,6 +377,15 @@ public class FunctionMetadata
             return this;
         }
 
+        public Builder domainProjection(DomainProjection domainProjection)
+        {
+            if (this.domainProjection.isPresent()) {
+                throw new IllegalArgumentException("domain projection is already declared");
+            }
+            this.domainProjection = Optional.of(requireNonNull(domainProjection, "domainProjection is null"));
+            return this;
+        }
+
         public FunctionMetadata build()
         {
             FunctionId functionId = this.functionId;
@@ -379,7 +408,8 @@ public class FunctionMetadata
                     kind,
                     deprecated,
                     receiverType,
-                    instanceMethod);
+                    instanceMethod,
+                    domainProjection);
         }
     }
 }

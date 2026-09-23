@@ -64,6 +64,7 @@ public class ParametricScalar
                 .description(details.getDescription().orElse(""));
 
         details.getAliases().forEach(functionMetadata::alias);
+        details.getDomainProjection().ifPresent(functionMetadata::domainProjection);
 
         if (details.isHidden()) {
             functionMetadata.hidden();
