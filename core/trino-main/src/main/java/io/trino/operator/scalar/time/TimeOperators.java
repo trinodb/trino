@@ -15,8 +15,10 @@ package io.trino.operator.scalar.time;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.operator.scalar.preimage.TimeCastPreimage;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Constraint;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -76,6 +78,7 @@ public final class TimeOperators
     }
 
     @ScalarOperator(CAST)
+    @FunctionPreimage(TimeCastPreimage.class)
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision)")
     public static long castToTime(

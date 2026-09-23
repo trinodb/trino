@@ -16,6 +16,8 @@ package io.trino.type;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
@@ -38,6 +40,7 @@ public final class DecimalToDecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(CAST, DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
+            .domainProjection(new DomainProjection(new OrderPreservingCastPreimage()))
             .neverFails(boundSignature -> {
                 DecimalType source = (DecimalType) getOnlyElement(boundSignature.getArgumentTypes());
                 DecimalType target = (DecimalType) boundSignature.getReturnType();

@@ -13,7 +13,9 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
+import io.trino.operator.scalar.preimage.TimestampWithTimeZoneCastPreimage;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -27,6 +29,7 @@ import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 
+@FunctionPreimage(TimestampWithTimeZoneCastPreimage.class)
 @ScalarOperator(CAST)
 public final class DateToTimestampWithTimeZoneCast
 {
