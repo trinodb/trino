@@ -23,6 +23,7 @@ import io.trino.execution.ManagedQueryExecution;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -262,6 +263,23 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return queuedQueries.size() + descendantQueuedQueries;
+        }
+    }
+
+    public Optional<Integer> getQueryPosition(QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        synchronized (root) {
+            if (!(queuedQueries instanceof StochasticPriorityQueue)) {
+                int position = 1;
+                for (ManagedQueryExecution query : queuedQueries) {
+                    if (query.getSession().getQueryId().equals(queryId)) {
+                        return Optional.of(position);
+                    }
+                    position++;
+                }
+            }
+            return Optional.empty();
         }
     }
 
