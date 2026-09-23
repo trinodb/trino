@@ -23,6 +23,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.preimage.StructuralCastPreimage;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -31,6 +32,7 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -110,6 +112,7 @@ public class RowToRowCast
     private RowToRowCast()
     {
         super(FunctionMetadata.operatorBuilder(CAST)
+                .domainProjection(new DomainProjection(new StructuralCastPreimage()))
                 .signature(Signature.builder()
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
