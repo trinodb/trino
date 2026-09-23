@@ -14,10 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.TimestampType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
@@ -25,6 +28,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.type.DateTimes;
@@ -36,6 +40,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -51,13 +56,10 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
-import static io.trino.sql.ir.TestingIr.between;
-import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison.unwrapDateTrunc;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,6 +70,11 @@ public class TestUnwrapDateTruncInComparison
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
     private static final ResolvedFunction FROM_UNIXTIME = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
     private static final ResolvedFunction DATE_TRUNC_TS3 = FUNCTIONS.resolveFunction("date_trunc", fromTypes(createVarcharType(4), createTimestampType(3)));
+
+    public TestUnwrapDateTruncInComparison()
+    {
+        super(ImmutableMap.of(FUNCTION_PREIMAGES_ENABLED, "true"));
+    }
 
     @Test
     public void testDateSupportedUnitsEqual()
@@ -304,7 +311,7 @@ public class TestUnwrapDateTruncInComparison
 
     private static Expression unwrap(Expression expression)
     {
-        return unwrapDateTrunc(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), expression);
+        return UnwrapFunctionInComparison.unwrap(FUNCTIONS.getPlannerContext(), TEST_SESSION, emptySymbolAllocator(), expression);
     }
 
     private static Expression dateTruncYear(Expression operand)
@@ -320,5 +327,24 @@ public class TestUnwrapDateTruncInComparison
     private static Expression not(Expression value)
     {
         return IrExpressions.not(FUNCTIONS.getMetadata(), getCharVarcharCoercion(TEST_SESSION), value);
+    }
+
+    private static Expression comparison(ComparisonOperator operator, Expression left, Expression right)
+    {
+        if (left instanceof Constant && !(right instanceof Constant)) {
+            return comparison(operator.flip(), right, left);
+        }
+        if (right instanceof Constant constant && constant.value() != null &&
+                (constant.type().equals(DATE) || constant.type() instanceof TimestampType) &&
+                (operator == LESS_THAN_OR_EQUAL || operator == GREATER_THAN)) {
+            Object next = constant.type().equals(DATE) ? (long) constant.value() + 1 : constant.type().getNextValue(constant.value()).orElseThrow();
+            return TestingIr.comparison(operator == LESS_THAN_OR_EQUAL ? LESS_THAN : GREATER_THAN_OR_EQUAL, left, new Constant(constant.type(), next));
+        }
+        return TestingIr.comparison(operator, left, right);
+    }
+
+    private static Expression between(Expression value, Constant low, Constant high)
+    {
+        return new Logical(AND, ImmutableList.of(comparison(GREATER_THAN_OR_EQUAL, value, low), comparison(LESS_THAN_OR_EQUAL, value, high)));
     }
 }

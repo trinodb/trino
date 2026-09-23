@@ -1,5 +1,16 @@
 # Optimizer properties
 
+## `optimizer.function-preimages-enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `function_preimages_enabled`
+
+Use function preimages to rewrite comparisons over scalar functions and casts.
+When disabled, the legacy comparison unwrap rules remain active. The two
+implementations are mutually exclusive, including during predicate pushdown
+through projections. The session property overrides the configured default.
+
 ## `optimizer.dictionary-aggregation`
 
 - **Type:** {ref}`prop-type-boolean`

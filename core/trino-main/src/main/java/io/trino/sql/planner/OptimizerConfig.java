@@ -67,6 +67,7 @@ public class OptimizerConfig
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
+    private boolean functionPreimagesEnabled = true;
     private boolean optimizeMetadataQueries;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
@@ -625,6 +626,19 @@ public class OptimizerConfig
     public OptimizerConfig setRewriteFilteringSemiJoinToInnerJoin(boolean rewriteFilteringSemiJoinToInnerJoin)
     {
         this.rewriteFilteringSemiJoinToInnerJoin = rewriteFilteringSemiJoinToInnerJoin;
+        return this;
+    }
+
+    public boolean isFunctionPreimagesEnabled()
+    {
+        return functionPreimagesEnabled;
+    }
+
+    @Config("optimizer.function-preimages-enabled")
+    @ConfigDescription("Use function preimages")
+    public OptimizerConfig setFunctionPreimagesEnabled(boolean functionPreimagesEnabled)
+    {
+        this.functionPreimagesEnabled = functionPreimagesEnabled;
         return this;
     }
 
