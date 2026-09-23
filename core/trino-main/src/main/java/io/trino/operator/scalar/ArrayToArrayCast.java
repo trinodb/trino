@@ -13,11 +13,13 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.operator.scalar.preimage.StructuralCastPreimage;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.CastDependency;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
@@ -30,6 +32,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 
 @ScalarOperator(CAST)
+@FunctionPreimage(StructuralCastPreimage.class)
 public final class ArrayToArrayCast
 {
     private ArrayToArrayCast() {}
