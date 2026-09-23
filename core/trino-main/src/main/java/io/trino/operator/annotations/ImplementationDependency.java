@@ -121,7 +121,7 @@ public interface ImplementationDependency
             }
             if (annotation instanceof OperatorDependency operatorDependency) {
                 OperatorType operator = operatorDependency.operator();
-                checkArgument(operator != OperatorType.CAST && operator != OperatorType.SATURATED_FLOOR_CAST, "%s not supported for OperatorDependency", operator);
+                checkArgument(operator != OperatorType.CAST, "%s not supported for OperatorDependency", operator);
                 return new OperatorImplementationDependency(
                         operator,
                         Arrays.stream(operatorDependency.argumentTypes())

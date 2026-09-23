@@ -39,7 +39,6 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
@@ -47,17 +46,11 @@ import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
-import static java.math.RoundingMode.FLOOR;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public final class RealOperators
 {
-    private static final float MIN_SHORT_AS_FLOAT = -0x1p15f;
-    private static final float MAX_SHORT_PLUS_ONE_AS_FLOAT = 0x1p15f;
-    private static final float MIN_BYTE_AS_FLOAT = -0x1p7f;
-    private static final float MAX_BYTE_PLUS_ONE_AS_FLOAT = 0x1p7f;
-
     private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0#####E0", new DecimalFormatSymbols(ENGLISH)));
 
     private RealOperators() {}
@@ -241,36 +234,5 @@ public final class RealOperators
     public static boolean castToBoolean(@SqlType(StandardTypes.REAL) long value)
     {
         return intBitsToFloat((int) value) != 0.0f;
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.SMALLINT)
-    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.REAL) long value)
-    {
-        return saturatedFloorCastToLong(value, Short.MIN_VALUE, MIN_SHORT_AS_FLOAT, Short.MAX_VALUE, MAX_SHORT_PLUS_ONE_AS_FLOAT, StandardTypes.SMALLINT);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.TINYINT)
-    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.REAL) long value)
-    {
-        return saturatedFloorCastToLong(value, Byte.MIN_VALUE, MIN_BYTE_AS_FLOAT, Byte.MAX_VALUE, MAX_BYTE_PLUS_ONE_AS_FLOAT, StandardTypes.TINYINT);
-    }
-
-    private static long saturatedFloorCastToLong(long valueBits, long minValue, float minValueAsDouble, long maxValue, float maxValuePlusOneAsDouble, String targetType)
-    {
-        float value = intBitsToFloat((int) valueBits);
-        if (value <= minValueAsDouble) {
-            return minValue;
-        }
-        if (value + 1 >= maxValuePlusOneAsDouble) {
-            return maxValue;
-        }
-        try {
-            return DoubleMath.roundToLong(value, FLOOR);
-        }
-        catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast real %s to %s", value, targetType), e);
-        }
     }
 }

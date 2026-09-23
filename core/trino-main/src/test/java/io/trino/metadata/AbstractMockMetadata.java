@@ -926,7 +926,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }

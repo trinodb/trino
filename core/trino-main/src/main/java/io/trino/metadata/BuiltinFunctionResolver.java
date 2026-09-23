@@ -30,7 +30,6 @@ import io.trino.type.CharVarcharCoercion;
 import java.util.Collection;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
@@ -41,6 +40,7 @@ import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -110,19 +110,18 @@ class BuiltinFunctionResolver
         }
     }
 
-    ResolvedFunction resolveCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    ResolvedFunction resolveCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
-        checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
             return uncheckedCacheGet(
                     coercionCache,
-                    new CoercionCacheKey(charVarcharCoercion, operatorType, fromType, toType),
-                    () -> resolveCoercion(charVarcharCoercion, mangleOperatorName(operatorType), fromType, toType));
+                    new CoercionCacheKey(charVarcharCoercion, fromType, toType),
+                    () -> resolveCoercion(charVarcharCoercion, mangleOperatorName(CAST), fromType, toType));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
                 if (cause.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                    throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType, cause);
+                    throw new OperatorNotFoundException(CAST, ImmutableList.of(fromType), toType, cause);
                 }
                 throw cause;
             }
@@ -183,12 +182,11 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record CoercionCacheKey(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    private record CoercionCacheKey(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
         private CoercionCacheKey
         {
             requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
-            requireNonNull(operatorType, "operatorType is null");
             requireNonNull(fromType, "fromType is null");
             requireNonNull(toType, "toType is null");
         }

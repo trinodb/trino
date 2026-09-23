@@ -13,8 +13,6 @@
  */
 package io.trino.type;
 
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.preimage.IntegralCastPreimage;
 import io.trino.operator.scalar.preimage.IntegralToFloatingPointCastPreimage;
@@ -41,7 +39,6 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -212,19 +209,5 @@ public final class IntegerOperators
         }
 
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.SMALLINT)
-    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.INTEGER) long value)
-    {
-        return Shorts.saturatedCast(value);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.TINYINT)
-    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.INTEGER) long value)
-    {
-        return SignedBytes.saturatedCast(value);
     }
 }

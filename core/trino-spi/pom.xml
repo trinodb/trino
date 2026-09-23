@@ -268,6 +268,11 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST</old>
+                                    <justification>The internal boundary-conversion operator is replaced by registered function preimages.</justification>
+                                </item>
+                                <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method io.trino.spi.block.DictionaryBlock io.trino.spi.block.DictionaryBlock::compact()</old>
                                     <new>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::compact()</new>

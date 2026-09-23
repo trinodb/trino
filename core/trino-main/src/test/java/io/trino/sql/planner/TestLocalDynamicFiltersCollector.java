@@ -17,6 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.connector.TestingColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -25,8 +26,11 @@ import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -38,11 +42,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
@@ -50,6 +59,10 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
+import static io.trino.type.DateTimes.parseTimestamp;
+import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
+import static io.trino.type.Reals.toReal;
+import static java.time.LocalDate.parse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalDynamicFiltersCollector
@@ -124,6 +137,154 @@ public class TestLocalDynamicFiltersCollector
         assertThat(filter.isAwaitable()).isFalse();
         assertThat(isBlocked.isDone()).isTrue();
         assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(INTEGER, 7L))));
+    }
+
+    @Test
+    public void testNaNDynamicFilterCoercion()
+    {
+        for (boolean nullAllowed : List.of(false, true)) {
+            LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
+            DynamicFilterId filterId = new DynamicFilterId("filter");
+            collector.register(ImmutableSet.of(filterId));
+            Symbol symbol = new Symbol(REAL, "value");
+            ColumnHandle column = new TestingColumnHandle("column");
+            DynamicFilter filter = createDynamicFilter(
+                    collector,
+                    ImmutableList.of(new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), DOUBLE), EQUAL, nullAllowed)),
+                    ImmutableMap.of(symbol, column));
+            collector.collectDynamicFilterDomains(ImmutableMap.of(filterId, Domain.multipleValues(DOUBLE, List.of(Double.NaN, 2.0))));
+            assertThat(filter.isComplete()).isTrue();
+            assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                    column, Domain.multipleValues(REAL, List.of(toReal(Float.NaN), toReal(2)), nullAllowed))));
+        }
+    }
+
+    @Test
+    public void testTimestampCoercionAcrossOverlap()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setTimeZoneKey(getTimeZoneKey("Europe/Warsaw"))
+                .build();
+        InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(PLANNER_CONTEXT.getFunctionManager());
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            String fraction = precision == 0 ? "" : "." + "0".repeat(precision);
+            TimestampType source = createTimestampType(precision);
+            TimestampWithTimeZoneType target = createTimestampWithTimeZoneType(precision);
+            var cast = PLANNER_CONTEXT.getMetadata().getCoercion(getCharVarcharCoercion(session), source, target);
+            // Both occurrences of the repeated local hour, including their endpoints.
+            for (String time : List.of("00:30:00", "01:30:00", "00:00:00", "00:59:59", "01:00:00", "01:59:59")) {
+                Domain collected = Domain.singleValue(target, parseTimestampWithTimeZone(precision, "2025-10-26 " + time + fraction + " UTC"));
+                for (ComparisonOperator operator : List.of(GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, EQUAL)) {
+                    LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+                    DynamicFilterId filterId = new DynamicFilterId("filter");
+                    collector.register(ImmutableSet.of(filterId));
+                    Symbol symbol = new Symbol(source, "symbol");
+                    ColumnHandle column = new TestingColumnHandle("column");
+                    DynamicFilters.Descriptor descriptor = new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), target), operator);
+                    DynamicFilter filter = createDynamicFilter(collector, ImmutableList.of(descriptor), ImmutableMap.of(symbol, column));
+                    collector.collectDynamicFilterDomains(ImmutableMap.of(filterId, collected));
+
+                    Domain comparison = descriptor.applyComparison(collected);
+                    for (String localTime : List.of("01:59:59", "02:00:00", "02:15:00", "02:45:00", "03:00:00")) {
+                        Object input = parseTimestamp(precision, "2025-10-26 " + localTime + fraction);
+                        Object result = invoker.invoke(cast, session.toConnectorSession(), input);
+                        if (comparison.includesNullableValue(result)) {
+                            assertThat(filter.getCurrentPredicate().contains(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(source, input)))))
+                                    .as("timestamp(%s) %s %s UTC, input %s", precision, operator, time, localTime)
+                                    .isTrue();
+                        }
+                    }
+                    assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.all());
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testDateCoercionAtMidnightTransition()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setTimeZoneKey(getTimeZoneKey("Africa/Casablanca"))
+                .build();
+        List<Object> inputs = List.of(parse("2011-04-01").toEpochDay(), parse("2011-04-02").toEpochDay(), parse("2011-04-03").toEpochDay(), parse("2011-04-04").toEpochDay());
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            String fraction = precision == 0 ? "" : "." + "0".repeat(precision);
+            assertCastDynamicFilterPreservesMatches(
+                    session,
+                    DATE,
+                    createTimestampWithTimeZoneType(precision),
+                    inputs,
+                    parseTimestampWithTimeZone(precision, "2011-04-02 23:00:00" + fraction + " UTC"));
+        }
+    }
+
+    @Test
+    public void testDateCoercionAcrossSkippedDay()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setTimeZoneKey(getTimeZoneKey("Pacific/Apia"))
+                .build();
+        List<Object> inputs = List.of(parse("2011-12-29").toEpochDay(), parse("2011-12-30").toEpochDay(), parse("2011-12-31").toEpochDay(), parse("2012-01-01").toEpochDay());
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            String fraction = precision == 0 ? "" : "." + "0".repeat(precision);
+            assertCastDynamicFilterPreservesMatches(
+                    session,
+                    DATE,
+                    createTimestampWithTimeZoneType(precision),
+                    inputs,
+                    parseTimestampWithTimeZone(precision, "2011-12-30 10:00:00" + fraction + " UTC"));
+        }
+    }
+
+    @Test
+    public void testTimestampCoercionWithHistoricalZoneRules()
+    {
+        Session session = Session.builder(TEST_SESSION)
+                .setTimeZoneKey(getTimeZoneKey("Africa/Bamako"))
+                .build();
+        for (int precision : List.of(0, 3, 6, 9, 12)) {
+            String fraction = precision == 0 ? "" : "." + "0".repeat(precision);
+            List<Object> inputs = List.of(
+                    parseTimestamp(precision, "1911-12-31 23:59:59" + fraction),
+                    parseTimestamp(precision, "1912-01-01 00:00:00" + fraction),
+                    parseTimestamp(precision, "1912-01-01 00:15:00" + fraction),
+                    parseTimestamp(precision, "1912-01-01 00:47:00" + fraction),
+                    parseTimestamp(precision, "1912-01-01 01:05:00" + fraction));
+            assertCastDynamicFilterPreservesMatches(
+                    session,
+                    createTimestampType(precision),
+                    createTimestampWithTimeZoneType(precision),
+                    inputs,
+                    parseTimestampWithTimeZone(precision, "1912-01-01 00:47:00" + fraction + " UTC"));
+        }
+    }
+
+    private void assertCastDynamicFilterPreservesMatches(Session session, Type source, Type target, List<Object> inputs, Object boundary)
+    {
+        var cast = PLANNER_CONTEXT.getMetadata().getCoercion(getCharVarcharCoercion(session), source, target);
+        InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(PLANNER_CONTEXT.getFunctionManager());
+        for (ComparisonOperator operator : List.of(EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL)) {
+            LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(session);
+            DynamicFilterId filterId = new DynamicFilterId("filter");
+            collector.register(ImmutableSet.of(filterId));
+            Symbol symbol = new Symbol(source, "symbol");
+            ColumnHandle column = new TestingColumnHandle("column");
+            DynamicFilters.Descriptor descriptor = new DynamicFilters.Descriptor(filterId, new Cast(symbol.toSymbolReference(), target), operator);
+            DynamicFilter filter = createDynamicFilter(collector, ImmutableList.of(descriptor), ImmutableMap.of(symbol, column));
+            Domain collected = Domain.singleValue(target, boundary);
+            collector.collectDynamicFilterDomains(ImmutableMap.of(filterId, collected));
+            Domain comparison = descriptor.applyComparison(collected);
+            int matches = 0;
+            for (Object input : inputs) {
+                if (comparison.includesNullableValue(invoker.invoke(cast, session.toConnectorSession(), input))) {
+                    matches++;
+                    assertThat(filter.getCurrentPredicate().contains(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(source, input)))))
+                            .as("%s to %s %s, input %s, zone %s", source, target, operator, input, session.getTimeZoneKey())
+                            .isTrue();
+                }
+            }
+            assertThat(matches).isPositive();
+        }
     }
 
     @Test

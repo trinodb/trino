@@ -37,7 +37,6 @@ public enum OperatorType
     CAST("CAST", 1, false),
     SUBSCRIPT("[]", 2, false),
     HASH_CODE("HASH CODE", 1, true),
-    SATURATED_FLOOR_CAST("SATURATED FLOOR CAST", 1, false),
     IDENTICAL("IDENTICAL", 2, true),
     XX_HASH_64("XX HASH 64", 1, true),
     INDETERMINATE("INDETERMINATE", 1, true),

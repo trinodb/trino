@@ -30,8 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
-import static io.trino.operator.scalar.LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -201,99 +199,6 @@ public class TestCharacterStringCasts
                 .hasType(createCharType(2))
                 .neverFails()
                 .isEqualTo("a ");
-    }
-
-    @Test
-    public void testLegacyVarcharToCharSaturatedFloorCast()
-    {
-        String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
-        String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
-        String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
-
-        assertThat(varcharToCharSaturatedFloorCast(
-                5L,
-                utf8Slice("123" + new String(Character.toChars(0xE000))))).isEqualTo(utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
-
-        // Truncation
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12345"))).isEqualTo(utf8Slice("1234"));
-
-        // Size fits, preserved
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1234"))).isEqualTo(utf8Slice("1234"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("123" + NON_BMP_CHARACTER));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("12" + NON_BMP_CHARACTER + "3"));
-
-        // Size fits, preserved except char(4) representation has trailing spaces removed
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123 "))).isEqualTo(utf8Slice("123"));
-
-        // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), so last character needs decrementing
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123"))).isEqualTo(utf8Slice("122" + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12 "))).isEqualTo(utf8Slice("12" + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1  "))).isEqualTo(utf8Slice("1 " + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice(" "))).isEqualTo(utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("1" + NON_BMP_CHARACTER + "2" + maxCodePoint));
-
-        // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), previous to last needs decrementing since last is \0
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12\0"))).isEqualTo(utf8Slice("11" + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1\0"))).isEqualTo(utf8Slice("0" + maxCodePoint + maxCodePoint + maxCodePoint));
-
-        // Smaller than any char(4) casted back to varchar, so the result is lowest char(4) possible
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("\0\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice(""))).isEqualTo(utf8Slice("\0\0\0\0"));
-    }
-
-    @Test
-    public void testVarcharToVarcharSaturatedFloorCast()
-    {
-        assertVarcharToVarcharSaturatedFloorCast(4L, "12345", "1234");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "12345", "12345");
-        assertVarcharToVarcharSaturatedFloorCast(6L, "12345", "12345");
-
-        assertVarcharToVarcharSaturatedFloorCast(4L, "123  ", "123 ");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "123  ", "123  ");
-
-        assertVarcharToVarcharSaturatedFloorCast(4L, "1234" + NON_BMP_CHARACTER, "1234");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
-        assertVarcharToVarcharSaturatedFloorCast(6L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
-    }
-
-    private void assertVarcharToVarcharSaturatedFloorCast(long length, String baseString, String expected)
-    {
-        assertThat(varcharToVarcharSaturatedFloorCast(length, utf8Slice(baseString)))
-                .isEqualTo(utf8Slice(expected));
     }
 
     @Test

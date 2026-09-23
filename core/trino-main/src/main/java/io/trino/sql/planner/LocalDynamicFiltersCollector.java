@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.Session;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
@@ -43,7 +44,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.sql.DynamicFilters.extractSourceSymbols;
-import static io.trino.sql.planner.DomainCoercer.applySaturatedCasts;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -117,13 +117,11 @@ public class LocalDynamicFiltersCollector
                                                         Type targetType = symbol.type();
                                                         Domain updatedDomain = descriptor.applyComparison(domain);
                                                         if (!updatedDomain.getType().equals(targetType)) {
-                                                            return applySaturatedCasts(
+                                                            return new FunctionPreimages(
                                                                     plannerContext.getMetadata(),
                                                                     plannerContext.getFunctionManager(),
-                                                                    plannerContext.getTypeOperators(),
-                                                                    session,
-                                                                    updatedDomain,
-                                                                    targetType);
+                                                                    plannerContext.getTypeManager(),
+                                                                    session).castPreimage(updatedDomain, targetType);
                                                         }
                                                         return updatedDomain;
                                                     }))),

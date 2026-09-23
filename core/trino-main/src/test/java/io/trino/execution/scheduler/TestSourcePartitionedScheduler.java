@@ -48,7 +48,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.DynamicFilterSnapshot;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeOperators;
 import io.trino.split.ConnectorAwareSplitSource;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Partitioning;
@@ -106,6 +105,7 @@ import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -135,7 +135,6 @@ public class TestSourcePartitionedScheduler
     private final FinalizerService finalizerService = new FinalizerService();
     private final Metadata metadata = createTestingMetadataManager();
     private final FunctionManager functionManager = createTestingFunctionManager();
-    private final TypeOperators typeOperators = new TypeOperators();
     private final Session session = TestingSession.testSessionBuilder().build();
 
     public TestSourcePartitionedScheduler()
@@ -380,7 +379,7 @@ public class TestSourcePartitionedScheduler
                     new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(20, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                     2,
-                    new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                    new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                     new TableExecuteContextManager(),
                     () -> false);
             scheduler.schedule();
@@ -518,7 +517,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(4 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 4 * 300,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> false);
 
@@ -561,7 +560,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, createFixedSplitSource(3 * 300, TestingSplit::createRemoteSplit), DynamicFilter.EMPTY),
                 new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(session), stage::getAllTasks),
                 3 * 300,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> true);
 
@@ -590,7 +589,7 @@ public class TestSourcePartitionedScheduler
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
         StageExecution stage = createStageExecution(plan, nodeTaskMap);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new StableHostAddressProvider(new DefaultNodeManager(CURRENT_NODE, nodeManager, false), new StableHostAddressProviderConfig())));
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
                 TEST_SESSION,
@@ -673,7 +672,7 @@ public class TestSourcePartitionedScheduler
                 new ConnectorAwareSplitSource(TEST_CATALOG_HANDLE, splitSource, DynamicFilter.EMPTY),
                 placementPolicy,
                 splitBatchSize,
-                new DynamicFilterService(metadata, functionManager, typeOperators, new DynamicFilterConfig()),
+                new DynamicFilterService(metadata, functionManager, PLANNER_CONTEXT.getTypeManager(), new DynamicFilterConfig()),
                 new TableExecuteContextManager(),
                 () -> false);
     }

@@ -30,7 +30,6 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -40,27 +39,17 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
-import static io.trino.type.Reals.toReal;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.lang.runtime.ExactConversionsSupport.isLongToByteExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToIntExact;
 import static java.lang.runtime.ExactConversionsSupport.isLongToShortExact;
-import static java.math.RoundingMode.FLOOR;
 import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 
 public final class DoubleOperators
 {
-    private static final double MIN_INTEGER_AS_DOUBLE = -0x1p31;
-    private static final double MAX_INTEGER_PLUS_ONE_AS_DOUBLE = 0x1p31;
-    private static final double MIN_SHORT_AS_DOUBLE = -0x1p15;
-    private static final double MAX_SHORT_PLUS_ONE_AS_DOUBLE = 0x1p15;
-    private static final double MIN_BYTE_AS_DOUBLE = -0x1p7;
-    private static final double MAX_BYTE_PLUS_ONE_AS_DOUBLE = 0x1p7;
-
     private static final ThreadLocal<DecimalFormat> FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.0###################E0", new DecimalFormatSymbols(ENGLISH)));
 
     private DoubleOperators() {}
@@ -238,67 +227,5 @@ public final class DoubleOperators
         }
 
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s (%s) cannot be represented as varchar(%s)", value, stringValue, x));
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.REAL)
-    public static long saturatedFloorCastToReal(@SqlType(StandardTypes.DOUBLE) double value)
-    {
-        if (Double.isNaN(value)) {
-            return toReal(Float.NaN);
-        }
-        float result;
-        float minFloat = -1.0f * Float.MAX_VALUE;
-        if (value <= minFloat) {
-            result = minFloat;
-        }
-        else if (value >= Float.MAX_VALUE) {
-            result = Float.MAX_VALUE;
-        }
-        else {
-            result = (float) value;
-            if (result > value) {
-                result = Math.nextDown(result);
-            }
-            checkState(result <= value);
-        }
-        return floatToRawIntBits(result);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.INTEGER)
-    public static long saturatedFloorCastToInteger(@SqlType(StandardTypes.DOUBLE) double value)
-    {
-        return saturatedFloorCastToLong(value, Integer.MIN_VALUE, MIN_INTEGER_AS_DOUBLE, Integer.MAX_VALUE, MAX_INTEGER_PLUS_ONE_AS_DOUBLE, StandardTypes.INTEGER);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.SMALLINT)
-    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
-    {
-        return saturatedFloorCastToLong(value, Short.MIN_VALUE, MIN_SHORT_AS_DOUBLE, Short.MAX_VALUE, MAX_SHORT_PLUS_ONE_AS_DOUBLE, StandardTypes.SMALLINT);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.TINYINT)
-    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
-    {
-        return saturatedFloorCastToLong(value, Byte.MIN_VALUE, MIN_BYTE_AS_DOUBLE, Byte.MAX_VALUE, MAX_BYTE_PLUS_ONE_AS_DOUBLE, StandardTypes.TINYINT);
-    }
-
-    private static long saturatedFloorCastToLong(double value, long minValue, double minValueAsDouble, long maxValue, double maxValuePlusOneAsDouble, String targetType)
-    {
-        if (value <= minValueAsDouble) {
-            return minValue;
-        }
-        if (value + 1 >= maxValuePlusOneAsDouble) {
-            return maxValue;
-        }
-        try {
-            return DoubleMath.roundToLong(value, FLOOR);
-        }
-        catch (ArithmeticException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast double %s to %s", value, targetType), e);
-        }
     }
 }

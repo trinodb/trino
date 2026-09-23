@@ -1409,13 +1409,6 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
-    {
-        // no tracing since it doesn't call any connector
-        return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
-    }
-
-    @Override
     public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector

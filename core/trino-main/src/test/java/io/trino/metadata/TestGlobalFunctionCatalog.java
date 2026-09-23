@@ -95,7 +95,7 @@ public class TestGlobalFunctionCatalog
         boolean foundOperator = false;
         for (FunctionMetadata function : listOperators(functionResolution)) {
             OperatorType operatorType = unmangleOperator(function.getCanonicalName());
-            if (operatorType == CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
+            if (operatorType == CAST) {
                 continue;
             }
             if (function.getSignature().isGeneric()) {

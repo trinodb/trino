@@ -370,15 +370,6 @@ import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_ADD_OPERATOR;
 import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_DIVIDE_OPERATOR;
 import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_MULTIPLY_OPERATOR;
 import static io.trino.type.DecimalOperators.LEGACY_DECIMAL_SUBTRACT_OPERATOR;
-import static io.trino.type.DecimalSaturatedFloorCasts.BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 
 public final class SystemFunctionBundle
@@ -602,11 +593,6 @@ public final class SystemFunctionBundle
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_MULTIPLY_OPERATOR : DECIMAL_MULTIPLY_OPERATOR)
                 .functions(featuresConfig.isLegacyArithmeticDecimalOperators() ? LEGACY_DECIMAL_DIVIDE_OPERATOR : DECIMAL_DIVIDE_OPERATOR)
                 .functions(DECIMAL_MODULO_OPERATOR)
-                .function(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .functions(DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST, BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .aggregates(Histogram.class)
                 .aggregates(ChecksumAggregationFunction.class)
                 .aggregates(ArbitraryAggregationFunction.class)
@@ -654,11 +640,6 @@ public final class SystemFunctionBundle
                 .aggregates(BigintApproximateMostFrequent.class)
                 .aggregates(VarcharApproximateMostFrequent.class)
                 .scalar(ArrayHistogramFunction.class);
-
-        // TODO (https://github.com/trinodb/trino/issues/30778) Restore char/varchar dynamic filtering domain coercion
-//        if (featuresConfig.isLegacyVarcharToCharCoercion()) {
-//            builder.scalars(LegacyVarcharToCharSaturatedFloorCast.class);
-//        }
 
         // timestamp operators and functions
         builder

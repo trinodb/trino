@@ -30,7 +30,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.function.OperatorType.CAST;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static java.util.Objects.requireNonNull;
 
 public final class OperatorImplementationDependency
@@ -43,7 +42,7 @@ public final class OperatorImplementationDependency
     {
         super(invocationConvention, type);
         this.operator = requireNonNull(operator, "operator is null");
-        checkArgument(operator != CAST && operator != SATURATED_FLOOR_CAST);
+        checkArgument(operator != CAST);
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 

@@ -836,7 +836,7 @@ public class TestDynamicFilterService
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 config);
 
         QueryId queryId = new QueryId("query");
@@ -1001,7 +1001,7 @@ public class TestDynamicFilterService
         return new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                PLANNER_CONTEXT.getTypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
     }
 

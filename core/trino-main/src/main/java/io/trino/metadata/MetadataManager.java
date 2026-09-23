@@ -2728,9 +2728,9 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(charVarcharCoercion, operatorType, fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, fromType, toType);
     }
 
     @Override

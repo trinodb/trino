@@ -97,8 +97,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
-import static io.trino.spi.function.OperatorType.CAST;
-
 public interface Metadata
 {
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle);
@@ -793,12 +791,7 @@ public interface Metadata
     ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
-    {
-        return getCoercion(charVarcharCoercion, CAST, fromType, toType);
-    }
-
-    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType);
 
     ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType);
 
