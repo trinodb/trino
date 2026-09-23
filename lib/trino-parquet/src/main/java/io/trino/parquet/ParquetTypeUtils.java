@@ -29,8 +29,16 @@ import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.IntLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -41,8 +49,17 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -298,6 +315,9 @@ public final class ParquetTypeUtils
             if (!(columnIO instanceof GroupColumnIO groupColumnIo)) {
                 throw new IllegalStateException("Expected columnIO to be GroupColumnIO but got %s".formatted(columnIO.getClass().getSimpleName()));
             }
+            if (groupColumnIo.getChild(ShreddedVariantField.TYPED_VALUE) != null) {
+                return Optional.of(constructShreddedVariantField(type, groupColumnIo));
+            }
             PrimitiveField valueField = (PrimitiveField) constructField(VARBINARY, groupColumnIo.getChild(0), false).orElseThrow();
             PrimitiveField metadataField = (PrimitiveField) constructField(VARBINARY, groupColumnIo.getChild(1), false).orElseThrow();
             return Optional.of(new VariantField(
@@ -373,8 +393,167 @@ public final class ParquetTypeUtils
     {
         return (type == VARIANT || type.getBaseName().equals(JSON)) &&
                 columnIO instanceof GroupColumnIO groupColumnIo &&
-                groupColumnIo.getChildrenCount() == 2 &&
-                groupColumnIo.getChild("value") != null &&
-                groupColumnIo.getChild("metadata") != null;
+                groupColumnIo.getChild(ShreddedVariantField.METADATA) != null &&
+                groupColumnIo.getChild(ShreddedVariantField.VALUE) != null;
     }
+
+    /**
+     * Builds the field tree for a shredded VARIANT column (a group with {@code metadata}, an optional
+     * {@code value}, and a {@code typed_value} child) per the Parquet Variant shredding spec. The
+     * shredded columns are modeled as a synthesized {@code RowType} struct mirroring the Parquet
+     * layout so the standard nested readers can materialize them; the {@code typed_value} subtree is
+     * navigated by exact name (variant field names are case-sensitive).
+     */
+    public static ShreddedVariantField constructShreddedVariantField(Type variantType, GroupColumnIO variantColumnIo)
+    {
+        NodeField node = buildShreddedNode(variantColumnIo, true);
+        if (!(node.field() instanceof GroupField struct)) {
+            throw new IllegalStateException("Shredded Variant struct is not a group field");
+        }
+        return new ShreddedVariantField(
+                variantType,
+                variantColumnIo.getRepetitionLevel(),
+                variantColumnIo.getDefinitionLevel(),
+                variantColumnIo.getType().getRepetition() != OPTIONAL,
+                struct);
+    }
+
+    private static NodeField buildShreddedNode(GroupColumnIO nodeColumnIo, boolean topLevel)
+    {
+        ImmutableList.Builder<RowType.Field> typeFields = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Field>> childFields = ImmutableList.builder();
+
+        if (topLevel) {
+            if (!(nodeColumnIo.getChild(ShreddedVariantField.METADATA) instanceof PrimitiveColumnIO metadata)) {
+                throw new IllegalArgumentException("Shredded Variant column is missing a primitive metadata field");
+            }
+            typeFields.add(RowType.field(ShreddedVariantField.METADATA, VARBINARY));
+            childFields.add(Optional.of(shreddedPrimitiveField(VARBINARY, metadata)));
+        }
+
+        ColumnIO valueColumnIo = nodeColumnIo.getChild(ShreddedVariantField.VALUE);
+        if (valueColumnIo != null) {
+            if (!(valueColumnIo instanceof PrimitiveColumnIO value)) {
+                throw new IllegalArgumentException("Shredded Variant value field is not primitive");
+            }
+            typeFields.add(RowType.field(ShreddedVariantField.VALUE, VARBINARY));
+            childFields.add(Optional.of(shreddedPrimitiveField(VARBINARY, value)));
+        }
+
+        ColumnIO typedValueColumnIo = nodeColumnIo.getChild(ShreddedVariantField.TYPED_VALUE);
+        if (typedValueColumnIo != null) {
+            NodeField typedValue = buildShreddedTypedValue(typedValueColumnIo);
+            typeFields.add(RowType.field(ShreddedVariantField.TYPED_VALUE, typedValue.type()));
+            childFields.add(Optional.of(typedValue.field()));
+        }
+
+        RowType rowType = RowType.from(typeFields.build());
+        GroupField group = new GroupField(
+                rowType,
+                nodeColumnIo.getRepetitionLevel(),
+                nodeColumnIo.getDefinitionLevel(),
+                nodeColumnIo.getType().getRepetition() != OPTIONAL,
+                childFields.build());
+        return new NodeField(rowType, group);
+    }
+
+    private static NodeField buildShreddedTypedValue(ColumnIO typedValueColumnIo)
+    {
+        if (typedValueColumnIo instanceof PrimitiveColumnIO primitive) {
+            Type type = shreddedScalarType(primitive);
+            return new NodeField(type, shreddedPrimitiveField(type, primitive));
+        }
+        if (!(typedValueColumnIo instanceof GroupColumnIO group)) {
+            throw new IllegalArgumentException("Shredded Variant typed_value is neither primitive nor group");
+        }
+        if (group.getType().getLogicalTypeAnnotation() instanceof ListLogicalTypeAnnotation) {
+            if (!(getArrayElementColumn(group.getChild(0)) instanceof GroupColumnIO elementColumnIo)) {
+                throw new IllegalArgumentException("Shredded array element is not a Variant node group");
+            }
+            NodeField element = buildShreddedNode(elementColumnIo, false);
+            ArrayType arrayType = new ArrayType(element.type());
+            GroupField field = new GroupField(
+                    arrayType,
+                    group.getRepetitionLevel(),
+                    group.getDefinitionLevel(),
+                    group.getType().getRepetition() != OPTIONAL,
+                    ImmutableList.of(Optional.of(element.field())));
+            return new NodeField(arrayType, field);
+        }
+
+        ImmutableList.Builder<RowType.Field> typeFields = ImmutableList.builder();
+        ImmutableList.Builder<Optional<Field>> childFields = ImmutableList.builder();
+        for (int i = 0; i < group.getChildrenCount(); i++) {
+            if (!(group.getChild(i) instanceof GroupColumnIO fieldColumnIo)) {
+                throw new IllegalArgumentException("Shredded object field is not a Variant node group: " + group.getChild(i).getName());
+            }
+            NodeField node = buildShreddedNode(fieldColumnIo, false);
+            typeFields.add(RowType.field(fieldColumnIo.getName(), node.type()));
+            childFields.add(Optional.of(node.field()));
+        }
+        RowType rowType = RowType.from(typeFields.build());
+        GroupField field = new GroupField(
+                rowType,
+                group.getRepetitionLevel(),
+                group.getDefinitionLevel(),
+                group.getType().getRepetition() != OPTIONAL,
+                childFields.build());
+        return new NodeField(rowType, field);
+    }
+
+    private static PrimitiveField shreddedPrimitiveField(Type type, PrimitiveColumnIO columnIo)
+    {
+        return new PrimitiveField(type, columnIo.getType().getRepetition() != OPTIONAL, columnIo.getColumnDescriptor(), columnIo.getId());
+    }
+
+    private static Type shreddedScalarType(PrimitiveColumnIO columnIo)
+    {
+        LogicalTypeAnnotation annotation = columnIo.getType().getLogicalTypeAnnotation();
+        PrimitiveTypeName physicalType = columnIo.getType().asPrimitiveType().getPrimitiveTypeName();
+        return switch (physicalType) {
+            case BOOLEAN -> BOOLEAN;
+            case FLOAT -> REAL;
+            case DOUBLE -> DOUBLE;
+            case INT32 -> {
+                if (annotation instanceof DateLogicalTypeAnnotation) {
+                    yield DATE;
+                }
+                if (annotation instanceof DecimalLogicalTypeAnnotation decimal) {
+                    yield DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
+                }
+                if (annotation instanceof IntLogicalTypeAnnotation integer) {
+                    yield switch (integer.getBitWidth()) {
+                        case 8 -> TINYINT;
+                        case 16 -> SMALLINT;
+                        default -> INTEGER;
+                    };
+                }
+                yield INTEGER;
+            }
+            case INT64 -> {
+                if (annotation instanceof DecimalLogicalTypeAnnotation decimal) {
+                    yield DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
+                }
+                if (annotation instanceof TimestampLogicalTypeAnnotation || annotation instanceof TimeLogicalTypeAnnotation) {
+                    throw new TrinoException(NOT_SUPPORTED, "Shredded Variant timestamp/time is not yet supported: " + columnIo.getType());
+                }
+                yield BIGINT;
+            }
+            case BINARY -> {
+                if (annotation instanceof StringLogicalTypeAnnotation) {
+                    yield VARCHAR;
+                }
+                yield VARBINARY;
+            }
+            case FIXED_LEN_BYTE_ARRAY -> {
+                if (annotation instanceof DecimalLogicalTypeAnnotation decimal) {
+                    yield DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
+                }
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported shredded Variant scalar Parquet type: " + columnIo.getType());
+            }
+            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported shredded Variant scalar Parquet type: " + columnIo.getType());
+        };
+    }
+
+    private record NodeField(Type type, Field field) {}
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.ShreddedVariantField;
 import io.trino.parquet.VariantField;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -31,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.parquet.ParquetTypeUtils.constructShreddedVariantField;
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnById;
@@ -102,7 +104,13 @@ public final class IcebergParquetColumnIOConverter
         if (type == VARIANT) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
 
-            // Expect the Iceberg VARIANT Parquet shape:
+            // Shredded VARIANT (Parquet Variant shredding spec): a typed_value child alongside
+            // metadata and value. Reconstruct the unshredded VARIANT at read time.
+            if (groupColumnIO.getChild(ShreddedVariantField.TYPED_VALUE) != null) {
+                return Optional.of(constructShreddedVariantField(type, groupColumnIO));
+            }
+
+            // Otherwise expect the unshredded Iceberg VARIANT Parquet shape:
             // optional group variant (VARIANT) {
             //   required binary metadata;
             //   required binary value;

@@ -35,6 +35,7 @@ import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
 import io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.ShreddedVariantField;
 import io.trino.parquet.VariantField;
 import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
@@ -45,6 +46,7 @@ import io.trino.parquet.spark.Variant;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Bitmap;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
@@ -1119,6 +1121,37 @@ public class ParquetReader
         return new ColumnChunk(variantBlock, metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
     }
 
+    private ColumnChunk readShreddedVariant(ShreddedVariantField field)
+            throws IOException
+    {
+        ColumnChunk structChunk = readStruct(field.getStruct());
+        Block structBlock = structChunk.getBlock();
+        int positionCount = structBlock.getPositionCount();
+        RowType structType = (RowType) field.getStruct().getType();
+        List<Optional<io.trino.spi.variant.Variant>> variants = ShreddedVariantReader.reconstructColumn(structType, structBlock, positionCount);
+
+        BlockBuilder metadataBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        BlockBuilder valueBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        long[] valueIsValid = new long[Bitmap.wordsForBits(positionCount)];
+        boolean hasNull = false;
+        for (int position = 0; position < positionCount; position++) {
+            Optional<io.trino.spi.variant.Variant> variant = variants.get(position);
+            if (variant.isEmpty()) {
+                metadataBuilder.appendNull();
+                valueBuilder.appendNull();
+                hasNull = true;
+            }
+            else {
+                VARBINARY.writeSlice(metadataBuilder, variant.get().metadata().toSlice());
+                VARBINARY.writeSlice(valueBuilder, variant.get().data());
+                Bitmap.set(valueIsValid, 0, position);
+            }
+        }
+        Optional<long[]> validity = hasNull ? Optional.of(valueIsValid) : Optional.empty();
+        Block variantBlock = VariantBlock.create(positionCount, metadataBuilder.build(), valueBuilder.build(), validity);
+        return new ColumnChunk(variantBlock, structChunk.getDefinitionLevels(), structChunk.getRepetitionLevels());
+    }
+
     private ColumnChunk readVariantAsJson(VariantField field)
             throws IOException
     {
@@ -1390,6 +1423,9 @@ public class ParquetReader
             parseField(variantField.getValue(), primitiveFields);
             parseField(variantField.getMetadata(), primitiveFields);
         }
+        else if (field instanceof ShreddedVariantField shreddedVariantField) {
+            parseField(shreddedVariantField.getStruct(), primitiveFields);
+        }
     }
 
     public Block readBlock(Field field)
@@ -1402,7 +1438,10 @@ public class ParquetReader
             throws IOException
     {
         ColumnChunk columnChunk;
-        if (field instanceof VariantField variantField) {
+        if (field instanceof ShreddedVariantField shreddedVariantField) {
+            columnChunk = readShreddedVariant(shreddedVariantField);
+        }
+        else if (field instanceof VariantField variantField) {
             if (variantField.getType() == VARIANT) {
                 // Directly read VARIANT as a single block
                 columnChunk = readVariant(variantField);
