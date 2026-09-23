@@ -27,6 +27,14 @@ some languages. Specifically, this will return incorrect results for
 Lithuanian, Turkish and Azeri.
 :::
 
+:::{function} char_length(string) -> bigint
+This is an alias for {func}`length`.
+:::
+
+:::{function} character_length(string) -> bigint
+This is an alias for {func}`length`.
+:::
+
 :::{function} chr(n) -> varchar
 Returns the Unicode code point `n` as a single character string.
 :::
