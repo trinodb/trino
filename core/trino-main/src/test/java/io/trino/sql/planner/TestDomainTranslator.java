@@ -1020,34 +1020,23 @@ public class TestDomainTranslator
     @Test
     public void testNonImplicitCastOnSymbolSide()
     {
-        // we expect TupleDomain.all here().
-        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
-        assertUnsupportedPredicate(equal(
-                cast(C_TIMESTAMP, DATE),
-                new Constant(DATE, DATE_VALUE)));
+        assertPredicateTranslates(
+                equal(cast(C_TIMESTAMP, DATE), new Constant(DATE, DATE_VALUE)),
+                tupleDomain(C_TIMESTAMP, Domain.create(ValueSet.ofRanges(Range.range(C_TIMESTAMP.type(), DATE_VALUE * 86_400_000_000L, true, (DATE_VALUE + 1) * 86_400_000_000L, false)), false)));
         assertUnsupportedPredicate(equal(
                 cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
     }
 
     @Test
-    public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    public void testApproximateDomainsUseRegisteredPreimages()
     {
-        assertUnsupportedPredicate(equal(
-                cast(C_DECIMAL_12_2, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, REAL),
-                new Constant(REAL, toReal(12345.56f))));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_INTEGER, REAL),
-                new Constant(REAL, toReal(12345.56f))));
+        assertPredicateTranslates(
+                equal(cast(C_DECIMAL_12_2, DOUBLE), new Constant(DOUBLE, 12345.56)),
+                tupleDomain(C_DECIMAL_12_2, Domain.singleValue(C_DECIMAL_12_2.type(), 1234556L)));
+        assertPredicateTranslates(equal(cast(C_BIGINT, DOUBLE), new Constant(DOUBLE, 12345.56)), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_BIGINT, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_INTEGER, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
     }
 
     @Test
@@ -1454,7 +1443,7 @@ public class TestDomainTranslator
                 C_BIGINT.toSymbolReference(),
                 ImmutableList.of(new Constant(BIGINT, null))));
 
-        assertUnsupportedPredicate(not(new In(
+        assertPredicateIsAlwaysFalse(not(new In(
                 cast(C_SMALLINT, BIGINT),
                 ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -1558,7 +1547,7 @@ public class TestDomainTranslator
     {
         assertPredicateTranslates(
                 comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7)),
-                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(SMALLINT, 3L)), false)));
+                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(SMALLINT, 4L)), false)));
     }
 
     @Test
@@ -1751,11 +1740,16 @@ public class TestDomainTranslator
     @Test
     public void testCastCharToVarcharComparison()
     {
-        // The equality family is equivalent to a comparison of char values, which UnwrapCastInComparison rewrites
         Type castType = createVarcharType(10);
-        assertUnsupportedPredicate(equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertPredicateTranslates(
+                equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
+        assertPredicateTranslates(
+                notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.create(ValueSet.of(C_CHAR.type(), utf8Slice("abc")).complement(), false)));
+        assertPredicateTranslates(
+                comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
     }
 
     @Test
@@ -1834,25 +1828,29 @@ public class TestDomainTranslator
         Type castType = createVarcharType(10);
 
         // 'abc  ' is above 'abc', so char(5) 'abc' does not satisfy the comparison
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
 
         // unlike with the default coercion, char(5) 'abc' does not satisfy the comparison with 'abc  ' either
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
-        assertPredicateDerives(
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)),
+                TRUE);
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)),
+                TRUE);
 
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
     }
 
     @Test

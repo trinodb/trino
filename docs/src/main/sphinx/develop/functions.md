@@ -303,11 +303,29 @@ and unknown elsewhere. Its false domain is empty, and negating it does not admit
 any rows. `BETWEEN` applies the same rules to its two comparisons, including null
 bounds. Nontrivial projected arguments are bound when needed to avoid repeated evaluation.
 
+`DomainTranslator` consumes only the true domain of the complete filtering
+predicate. It permits conservative preimages while retaining the original predicate
+as a residual. In nested projections, any conservative step requires that residual,
+even if later steps are exact. Negation selects the false result domain before
+projection; neither the complement of a true domain nor the complement of a
+conservative preimage is a valid general substitute.
+
 Built-in providers cover `year(date)`, `year(timestamp)`, eligible `date_trunc`
 units, instant-preserving `at_timezone` calls, and eligible numeric, character,
 temporal casts, and exact array, row, and map constant mappings. All comparison unwrapping uses `UnwrapFunctionInComparison`,
 including predicates exposed by inlining project assignments during predicate
 pushdown. Projection lookup currently supports global function bundles.
+
+`Domain` represents NaN independently of ordered values. True and false sets
+account for ordinary comparisons, `IDENTICAL`, and nulls independently. Domain
+extraction preserves these sets exactly; the shared renderer uses `IDENTICAL` to
+express NaN membership. Connectors receive complete domains and choose whether to
+enforce them, push a conservative superset with the required residual, or decline
+pushdown. See [](value-domains) for the connector contract.
+Providers return `isComparisonIdentity(context) == true` only
+when a validated call preserves comparisons with arbitrary expressions of the same
+type; this permits removing `at_timezone` even when neither comparison operand is
+constant.
 
 For comparisons that can return null for non-null operands, a provider may implement
 `comparisonConstant(context, constant)`. The mapped input constant must preserve

@@ -34,6 +34,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -87,12 +88,14 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.IDENTICAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.planner.DomainTranslator.getExtractionResult;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
 import static io.trino.testing.TestingSession.testSession;
@@ -152,6 +155,11 @@ public class TestComparisonPreimages
             }
             assertEquivalent(compare(operator, year(DATE_INPUT), new Constant(BIGINT, null)), DATES);
         }
+        var result = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, compare(EQUAL, year(DATE_INPUT), new Constant(BIGINT, 2025L)));
+        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(
+                Symbol.from(DATE_INPUT),
+                Domain.create(ValueSet.ofRanges(Range.range(DATE, date("2025-01-01"), true, date("2026-01-01"), false)), false))));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -197,6 +205,10 @@ public class TestComparisonPreimages
             assertEquivalent(predicate, DATES);
             assertEquivalent(negate(predicate), DATES);
         }
+        Expression nullBearing = new In(year(DATE_INPUT), List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null)));
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, negate(nullBearing));
+        assertThat(extracted.tupleDomain().isNone()).isTrue();
+        assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -246,6 +258,39 @@ public class TestComparisonPreimages
     {
         Expression predicate = compare(EQUAL, call("preimage_conservative", BIGINT_INPUT), new Constant(BIGINT, 1L));
         assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
+        assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(BIGINT_INPUT), Domain.multipleValues(BIGINT, List.of(1L, 7L)))));
+        assertThat(extracted.remainingExpression()).isEqualTo(predicate);
+        assertThat(getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, negate(predicate)).remainingExpression()).isEqualTo(negate(predicate));
+
+        Expression nested = compare(EQUAL, call("preimage_conservative", new Cast(SMALLINT_INPUT, BIGINT)), new Constant(BIGINT, 1L));
+        var nestedExtraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, nested);
+        assertThat(nestedExtraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(SMALLINT_INPUT), Domain.multipleValues(SMALLINT, List.of(1L, 7L)))));
+        assertThat(nestedExtraction.remainingExpression()).isEqualTo(nested);
+    }
+
+    @Test
+    void testExactNaNDomainExtraction()
+    {
+        Reference input = new Reference(DOUBLE, "value");
+        Expression function = call("preimage_nan_to_one", input);
+        Expression predicate = new In(function, List.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0)));
+        Domain expected = Domain.multipleValues(DOUBLE, List.of(Double.NaN, 3.0));
+        var extraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
+        assertThat(extraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(input), expected)));
+        assertThat(extraction.remainingExpression()).isEqualTo(TRUE);
+        extraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, negate(predicate));
+        assertThat(extraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(input), Domain.create(expected.getValues().complement(), false))));
+        assertThat(extraction.remainingExpression()).isEqualTo(TRUE);
+
+        Reference realInput = new Reference(REAL, "value");
+        Expression cast = new Cast(realInput, DOUBLE);
+        extraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, compare(NOT_EQUAL, cast, new Constant(DOUBLE, 1.0)));
+        assertThat(extraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(realInput), Domain.create(ValueSet.of(REAL, (long) floatToRawIntBits(1.0f)).complement(), false))));
+        assertThat(extraction.remainingExpression()).isEqualTo(TRUE);
+        extraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, compare(IDENTICAL, cast, new Constant(DOUBLE, Double.NaN)));
+        assertThat(extraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(realInput), Domain.singleValue(REAL, (long) floatToRawIntBits(Float.NaN)))));
+        assertThat(extraction.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -255,6 +300,9 @@ public class TestComparisonPreimages
         Expression first = rewrite(predicate);
         Expression second = rewrite(first);
         assertThat(second).isEqualTo(compare(EQUAL, SMALLINT_INPUT, new Constant(SMALLINT, 1L)));
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
+        assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(SMALLINT_INPUT), Domain.singleValue(SMALLINT, 1L))));
+        assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -289,6 +337,10 @@ public class TestComparisonPreimages
         assertThat(preimages.rewrite(unsupported, emptySymbolAllocator())).isEmpty();
         assertThat(preimages.extract(unsupported, false)).isEmpty();
         assertThat(preimages.extract(unsupported, true)).isEmpty();
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, unsupported);
+        assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(extracted.remainingExpression()).isEqualTo(unsupported);
+
         // Fold parameter expressions before deciding which argument is nonconstant.
         Expression parameter = call("bitwise_xor", new Constant(BIGINT, 40L), new Constant(BIGINT, 2L));
         assertEquivalent(compare(EQUAL, call("preimage_parameter", BIGINT_INPUT, parameter), new Constant(BIGINT, 1L)), List.of(0L, 1L, 2L));
@@ -303,6 +355,10 @@ public class TestComparisonPreimages
             for (ComparisonOperator operator : ComparisonOperator.values()) {
                 assertEquivalent(compare(operator, function, new Constant(BIGINT, 1L)), List.of(Long.MIN_VALUE, -1L, 0L, 1L, 2L, Long.MAX_VALUE));
             }
+            Expression predicate = compare(EQUAL, function, new Constant(BIGINT, 1L));
+            var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
+            assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(BIGINT_INPUT), Domain.singleValue(BIGINT, 1L))));
+            assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
         }
         for (Call function : List.of(
                 call("preimage_xor", BIGINT_INPUT, BIGINT_INPUT),
@@ -347,6 +403,9 @@ public class TestComparisonPreimages
         List<Expression> items = LongStream.range(2000, 2011).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
         Expression predicate = new In(year(DATE_INPUT), items);
         assertThat(preimages.rewrite(predicate, emptySymbolAllocator())).isEmpty();
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
+        assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(DATE_INPUT), Domain.create(ValueSet.ofRanges(Range.range(DATE, date("2000-01-01"), true, date("2011-01-01"), false)), false))));
+        assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -440,6 +499,14 @@ public class TestComparisonPreimages
                 assertEquivalent(compare(operator, function, new Constant(NUMBER, constant)), values);
             }
         }
+        Expression identical = compare(IDENTICAL, function, new Constant(NUMBER, nan));
+        var distinct = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, negate(identical));
+        assertThat(distinct.remainingExpression()).isEqualTo(TRUE);
+        assertThat(distinct.tupleDomain().getDomains().orElseThrow().get(Symbol.from(input)).includesNullableValue(nan)).isFalse();
+        assertThat(distinct.tupleDomain().getDomains().orElseThrow().get(Symbol.from(input)).includesNullableValue(null)).isTrue();
+        var nanOnly = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, identical);
+        assertThat(nanOnly.remainingExpression()).isEqualTo(TRUE);
+        assertThat(nanOnly.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(input), Domain.singleValue(NUMBER, nan))));
     }
 
     @Test
@@ -455,6 +522,7 @@ public class TestComparisonPreimages
                         assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", input)))
                                 .isEqualTo(evaluator.evaluate(predicate, SESSION, singletonMap("value", input)));
                     }
+                    getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
                 }
             }
         }
@@ -537,6 +605,12 @@ public class TestComparisonPreimages
         for (long value : List.of(0L, 1L, 2L)) {
             assertThat(evaluator.evaluate(rewritten, SESSION, singletonMap("value", value))).isEqualTo(value == 1);
         }
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, original);
+        Domain domain = extracted.tupleDomain().getDomains().orElseThrow().get(Symbol.from(BIGINT_INPUT));
+        assertThat(domain.includesNullableValue(1L)).isTrue();
+        assertThat(domain.includesNullableValue(2L)).isFalse();
+        assertThat(domain.includesNullableValue(-1L)).isTrue();
+        assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
     }
 
     @Test
@@ -557,6 +631,9 @@ public class TestComparisonPreimages
             assertEquivalent(predicate, values);
             assertEquivalent(negate(predicate), values);
         }
+        var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, compare(NOT_EQUAL, new Cast(input, DOUBLE), new Constant(DOUBLE, 1.0)));
+        assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
+        assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(singletonMap(Symbol.from(input), Domain.create(ValueSet.of(REAL, (long) floatToRawIntBits(1.0f)).complement(), false))));
     }
 
     @Test
