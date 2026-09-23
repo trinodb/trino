@@ -77,7 +77,6 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
@@ -104,7 +103,6 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Statement;
@@ -135,7 +133,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_NO_SUCH_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_TABLE_EXISTS_ERROR;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -348,21 +345,26 @@ public class MySqlClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(remoteTableName)), ImmutableList.of());
-
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
-            ResultSetMetaData metadata = preparedStatement.getMetaData();
-            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
-            for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                String name = metadata.getColumnName(column);
-                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
+        String sql = "SELECT column_name, collation_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, remoteTableName.getCatalogName().orElse(null));
+            statement.setString(2, remoteTableName.getTableName());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
+                while (resultSet.next()) {
+                    String collation = resultSet.getString("collation_name");
+                    if (collation == null) {
+                        // Non-character column (e.g. numeric): case sensitivity does not apply
+                        continue;
+                    }
+                    // MySQL collations end in _ci (insensitive), _cs or _bin (sensitive)
+                    CaseSensitivity caseSensitivity = collation.endsWith("_ci") ? CASE_INSENSITIVE : CASE_SENSITIVE;
+                    columns.put(resultSet.getString("column_name"), caseSensitivity);
+                }
+                return columns.buildOrThrow();
             }
-            return columns.buildOrThrow();
         }
         catch (SQLException e) {
-            if (e.getErrorCode() == ER_NO_SUCH_TABLE) {
-                throw new TableNotFoundException(schemaTableName);
-            }
             throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + requireNonNullElse(e.getMessage(), e), e);
         }
     }
