@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
-import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.isTimestampToTimestampWithTimeZoneInjectiveAt;
+import static io.trino.operator.scalar.preimage.TimestampWithTimeZoneCastPreimage.isTimestampToTimestampWithTimeZoneInjectiveAt;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,14 +48,23 @@ public class TestUnwrapCastInComparison
         testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-03-29T03:00:00Z"), true);
         testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-03-29T03:00:00.000000001Z"), true);
 
-        // DST change backward
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T00:00:00.999999998Z"), true);
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T00:00:00.999999999Z"), true);
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:00:00Z"), true);
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:00:00.000000001Z"), true);
+        // Regional rules before 1970 are not used to infer exact cast preimages.
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Africa/Bamako"), Instant.parse("1912-01-01T00:47:00Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.EPOCH.minusNanos(1), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.EPOCH, true);
 
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:00:00.999999998Z"), true);
-        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:00:00.999999999Z"), true);
+        // Fixed offsets have no transitions and support historical values.
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("UTC"), Instant.parse("1912-01-01T00:47:00Z"), true);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneOffset.ofHoursMinutes(5, 30), Instant.parse("1912-01-01T00:47:00Z"), true);
+
+        // Decline both occurrences of the repeated local hour, including the transition.
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-24T23:59:59.999999999Z"), true);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T00:00:00Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T00:30:00Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T00:59:59.999999999Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:00:00Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:30:00Z"), false);
+        testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T01:59:59.999999999Z"), false);
         testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T02:00:00Z"), true);
         testIsTimestampToTimestampWithTimeZoneInjectiveAt(ZoneId.of("Europe/Warsaw"), Instant.parse("2020-10-25T02:00:00.000000001Z"), true);
 
