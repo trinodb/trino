@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -77,6 +78,7 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -84,6 +86,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.function.PreimageResult.Exactness.EXACT;
 import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -178,6 +181,9 @@ public final class DomainTranslator
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
         private final TypeCoercion typeCoercion;
+        private final ComparisonPreimages preimages;
+        private final FunctionPreimages functionPreimages;
+        private final boolean functionPreimagesEnabled;
 
         private Visitor(PlannerContext plannerContext, Session session)
         {
@@ -185,6 +191,21 @@ public final class DomainTranslator
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
+            this.preimages = new ComparisonPreimages(plannerContext);
+            // Shares projection, implementation, and cast resolutions across this extraction.
+            this.functionPreimages = preimages.newFunctionPreimages();
+            this.functionPreimagesEnabled = isFunctionPreimagesEnabled(session);
+        }
+
+        private Optional<ExtractionResult> extractPreimage(Expression expression, boolean complement)
+        {
+            if (!functionPreimagesEnabled) {
+                return Optional.empty();
+            }
+            return preimages.extract(session, functionPreimages, expression, complement)
+                    .map(result -> new ExtractionResult(
+                            TupleDomain.withColumnDomains(ImmutableMap.of(Symbol.from(result.reference()), result.domain())),
+                            result.exactness() == EXACT ? TRUE : complementIfNecessary(expression, complement)));
         }
 
         private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
@@ -212,6 +233,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitLet(Let node, Boolean complement)
         {
+            Optional<ExtractionResult> preimage = extractPreimage(node, complement);
+            if (preimage.isPresent()) {
+                return preimage.get();
+            }
             // Domain extraction is symbolic, so inlining the bound reference back into the body
             // preserves the predicate's runtime semantics for extraction purposes.
             Expression inlined = ExpressionTreeRewriter.rewriteWith(
@@ -236,6 +261,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitLogical(Logical node, Boolean complement)
         {
+            Optional<ExtractionResult> preimage = extractPreimage(node, complement);
+            if (preimage.isPresent()) {
+                return preimage.get();
+            }
             List<ExtractionResult> results = node.terms().stream()
                     .map(term -> process(term, complement))
                     .collect(toImmutableList());
@@ -290,6 +319,10 @@ public final class DomainTranslator
 
         private ExtractionResult processComparison(Comparison node, Expression originalExpression, Boolean complement)
         {
+            Optional<ExtractionResult> preimage = extractPreimage(originalExpression, complement);
+            if (preimage.isPresent()) {
+                return preimage.get();
+            }
             Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(node);
             if (optionalNormalized.isEmpty()) {
                 return visitExpression(originalExpression, complement);
@@ -312,7 +345,8 @@ public final class DomainTranslator
                 // type of expression which is then cast to type of value
                 Type castSourceType = castExpression.expression().type();
                 Type castTargetType = castExpression.type();
-                if (castSourceType instanceof VarcharType varcharType && castTargetType == DATE) {
+                // With function preimages, the cast providers supply these conservative domains
+                if (!functionPreimagesEnabled && castSourceType instanceof VarcharType varcharType && castTargetType == DATE) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
                             normalized,
                             varcharType,
@@ -322,7 +356,7 @@ public final class DomainTranslator
                         return result.get();
                     }
                 }
-                if (castSourceType instanceof CharType charType && castTargetType instanceof VarcharType varcharType) {
+                if (!functionPreimagesEnabled && castSourceType instanceof CharType charType && castTargetType instanceof VarcharType varcharType) {
                     Optional<ExtractionResult> result = createCharCastToVarcharOrderingExtractionResult(
                             normalized,
                             charType,
@@ -334,7 +368,7 @@ public final class DomainTranslator
                     }
                     return visitExpression(originalExpression, complement);
                 }
-                if (castSourceType instanceof VarcharType sourceVarcharType && castTargetType instanceof CharType) {
+                if (!functionPreimagesEnabled && castSourceType instanceof VarcharType sourceVarcharType && castTargetType instanceof CharType) {
                     Optional<ExtractionResult> result = createVarcharCastToCharComparisonExtractionResult(
                             normalized,
                             sourceVarcharType,
@@ -345,7 +379,7 @@ public final class DomainTranslator
                     }
                     return visitExpression(originalExpression, complement);
                 }
-                if (!isOrderPreserving(castExpression)) {
+                if (functionPreimagesEnabled || !isOrderPreserving(castExpression)) {
                     //
                     // we cannot use non-coercion cast to literal_type on symbol side to build tuple domain
                     //
@@ -939,6 +973,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIn(In node, Boolean complement)
         {
+            Optional<ExtractionResult> projected = extractPreimage(node, complement);
+            if (projected.isPresent()) {
+                return projected.get();
+            }
             checkState(!node.valueList().isEmpty(), "InListExpression should never be empty");
 
             Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);

@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.FUNCTION_PREIMAGES_ENABLED;
 import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -120,6 +121,7 @@ public class TestDomainTranslator
     private static final Symbol C_DOUBLE_1 = new Symbol(DOUBLE, "c_double_1");
     private static final Symbol C_VARCHAR_1 = new Symbol(VARCHAR, "c_varchar_1");
     private static final Symbol C_VARCHAR_5 = new Symbol(createVarcharType(5), "c_varchar_5");
+    private static final Symbol C_VARCHAR_10 = new Symbol(createVarcharType(10), "c_varchar_10");
     private static final Symbol C_BOOLEAN_1 = new Symbol(BOOLEAN, "c_boolean_1");
     private static final Symbol C_TIMESTAMP = new Symbol(createTimestampType(3), "c_timestamp");
     private static final Symbol C_DATE = new Symbol(DATE, "c_date");
@@ -147,6 +149,12 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private static final Session LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
+            .build();
+    private static final Session LEGACY_PREIMAGES_SESSION = Session.builder(TEST_SESSION)
+            .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, "false")
+            .build();
+    private static final Session LEGACY_PREIMAGES_LEGACY_CHAR_VARCHAR_COERCION_SESSION = Session.builder(LEGACY_PREIMAGES_SESSION)
             .setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true")
             .build();
 
@@ -1020,41 +1028,85 @@ public class TestDomainTranslator
     @Test
     public void testNonImplicitCastOnSymbolSide()
     {
-        // we expect TupleDomain.all here().
-        // see comment in DomainTranslator.Visitor.visitComparisonExpression()
-        assertUnsupportedPredicate(equal(
-                cast(C_TIMESTAMP, DATE),
-                new Constant(DATE, DATE_VALUE)));
+        assertPredicateTranslates(
+                equal(cast(C_TIMESTAMP, DATE), new Constant(DATE, DATE_VALUE)),
+                tupleDomain(C_TIMESTAMP, Domain.create(ValueSet.ofRanges(Range.range(C_TIMESTAMP.type(), DATE_VALUE * 86_400_000_000L, true, (DATE_VALUE + 1) * 86_400_000_000L, false)), false)));
         assertUnsupportedPredicate(equal(
                 cast(C_DECIMAL_12_2, BIGINT),
                 bigintLiteral(135L)));
     }
 
     @Test
-    public void testNoSaturatedFloorCastFromUnsupportedApproximateDomain()
+    public void testLegacyDomainExtraction()
     {
-        assertUnsupportedPredicate(equal(
-                cast(C_DECIMAL_12_2, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
+        Session legacySession = Session.builder(TEST_SESSION)
+                .setSystemProperty(FUNCTION_PREIMAGES_ENABLED, "false")
+                .build();
+        Expression timestampCast = equal(cast(C_TIMESTAMP, DATE), new Constant(DATE, DATE_VALUE));
+        assertPredicateTranslates(legacySession, timestampCast, TupleDomain.all(), timestampCast);
+        Expression approximateCast = equal(cast(C_BIGINT, DOUBLE), new Constant(DOUBLE, 12345.56));
+        assertPredicateTranslates(legacySession, approximateCast, TupleDomain.all(), approximateCast);
+        assertPredicateTranslates(
+                legacySession,
+                equal(cast(C_SMALLINT, BIGINT), new Constant(BIGINT, 123L)),
+                tupleDomain(C_SMALLINT, Domain.singleValue(SMALLINT, 123L)),
+                TRUE);
+    }
 
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, DOUBLE),
-                new Constant(DOUBLE, 12345.56)));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_BIGINT, REAL),
-                new Constant(REAL, toReal(12345.56f))));
-
-        assertUnsupportedPredicate(equal(
-                cast(C_INTEGER, REAL),
-                new Constant(REAL, toReal(12345.56f))));
+    @Test
+    public void testApproximateDomainsUseRegisteredPreimages()
+    {
+        assertPredicateTranslates(
+                equal(cast(C_DECIMAL_12_2, DOUBLE), new Constant(DOUBLE, 12345.56)),
+                tupleDomain(C_DECIMAL_12_2, Domain.singleValue(C_DECIMAL_12_2.type(), 1234556L)));
+        assertPredicateTranslates(equal(cast(C_BIGINT, DOUBLE), new Constant(DOUBLE, 12345.56)), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_BIGINT, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
+        assertPredicateTranslates(equal(cast(C_INTEGER, REAL), new Constant(REAL, toReal(12345.56f))), TupleDomain.none());
     }
 
     @Test
     public void testPredicateWithVarcharCastToDate()
     {
+        long date = (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10"));
+        Domain spellings = Domain.create(ValueSet.ofRanges(
+                        Range.lessThan(VARCHAR, utf8Slice("1")),
+                        Range.range(VARCHAR, utf8Slice("2005-09-10"), true, utf8Slice("2005-09-11"), false),
+                        Range.range(VARCHAR, utf8Slice("2005-9-10"), true, utf8Slice("2005-9-11"), false),
+                        Range.greaterThanOrEqual(VARCHAR, utf8Slice(":"))),
+                false);
+        assertPredicateDerives(equal(cast(C_VARCHAR, DATE), new Constant(DATE, date)), tupleDomain(C_VARCHAR, spellings));
+        assertPredicateDerives(comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, date)), tupleDomain(C_VARCHAR, spellings));
+
+        // A two-digit day cannot be extended into another valid day, so its spellings can be excluded
+        assertPredicateDerives(
+                notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, date)),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
+                                Range.range(VARCHAR, utf8Slice("2005-09-11"), true, utf8Slice("2005-9-10"), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice("2005-9-11"))),
+                        false)));
+
+        // A bounded range includes the strings of every year it touches
+        assertPredicateDerives(
+                between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), new Constant(DATE, date)),
+                tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
+                                Range.lessThan(VARCHAR, utf8Slice("1")),
+                                Range.range(VARCHAR, utf8Slice("2001-"), true, utf8Slice("2005."), false),
+                                Range.greaterThanOrEqual(VARCHAR, utf8Slice(":"))),
+                        false)));
+
+        // String order does not follow year order across year lengths, so '305-01-01' sorts between '2006' and '9'.
+        // A one-sided range includes years of every length and is not translated.
+        assertUnsupportedPredicate(lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, date)));
+        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, date)));
+    }
+
+    @Test
+    public void testLegacyPredicateWithVarcharCastToDate()
+    {
         // =
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1064,6 +1116,7 @@ public class TestDomainTranslator
                         false)));
         // = with day ending with 9
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1074,6 +1127,7 @@ public class TestDomainTranslator
                                 Range.greaterThan(VARCHAR, utf8Slice("9"))),
                         false)));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1084,6 +1138,7 @@ public class TestDomainTranslator
 
         // IDENTICAL, same as = because the value is not null
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 comparison(IDENTICAL, cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1094,6 +1149,7 @@ public class TestDomainTranslator
 
         // !=
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-10")),
@@ -1103,11 +1159,14 @@ public class TestDomainTranslator
 
         // != with single-digit day
         assertUnsupportedPredicate(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-2")))));
         // != with day ending with 9
         assertUnsupportedPredicate(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-09")))));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 notEqual(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-19")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2005-09-19")),
@@ -1117,6 +1176,7 @@ public class TestDomainTranslator
 
         // <
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 lessThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("2006")),
@@ -1125,6 +1185,7 @@ public class TestDomainTranslator
 
         // >
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 greaterThan(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-9-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1133,6 +1194,7 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 greaterThan(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE)),
                 tupleDomain(
                         C_VARCHAR,
@@ -1144,6 +1206,7 @@ public class TestDomainTranslator
 
         // BETWEEN
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 between(cast(C_VARCHAR, DATE), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2005-09-10")))),
                 tupleDomain(C_VARCHAR, Domain.create(ValueSet.ofRanges(
                                 Range.lessThan(VARCHAR, utf8Slice("1")),
@@ -1156,6 +1219,7 @@ public class TestDomainTranslator
 
         // Regression test for https://github.com/trinodb/trino/issues/14954
         assertPredicateTranslates(
+                LEGACY_PREIMAGES_SESSION,
                 between(new Constant(DATE, (long) DateTimeUtils.parseDate(utf8Slice("2001-01-31"))), cast(C_VARCHAR, DATE), cast(C_VARCHAR_1, DATE)),
                 tupleDomain(
                         C_VARCHAR,
@@ -1454,7 +1518,7 @@ public class TestDomainTranslator
                 C_BIGINT.toSymbolReference(),
                 ImmutableList.of(new Constant(BIGINT, null))));
 
-        assertUnsupportedPredicate(not(new In(
+        assertPredicateIsAlwaysFalse(not(new In(
                 cast(C_SMALLINT, BIGINT),
                 ImmutableList.of(new Constant(BIGINT, null)))));
     }
@@ -1558,7 +1622,7 @@ public class TestDomainTranslator
     {
         assertPredicateTranslates(
                 comparison(GREATER_THAN, cast(cast(C_SMALLINT, REAL), DOUBLE), doubleLiteral(3.7)),
-                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(SMALLINT, 3L)), false)));
+                tupleDomain(C_SMALLINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(SMALLINT, 4L)), false)));
     }
 
     @Test
@@ -1751,11 +1815,16 @@ public class TestDomainTranslator
     @Test
     public void testCastCharToVarcharComparison()
     {
-        // The equality family is equivalent to a comparison of char values, which UnwrapCastInComparison rewrites
         Type castType = createVarcharType(10);
-        assertUnsupportedPredicate(equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))));
+        assertPredicateTranslates(
+                equal(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
+        assertPredicateTranslates(
+                notEqual(cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.create(ValueSet.of(C_CHAR.type(), utf8Slice("abc")).complement(), false)));
+        assertPredicateTranslates(
+                comparison(IDENTICAL, cast(C_CHAR, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_CHAR, Domain.singleValue(C_CHAR.type(), utf8Slice("abc"))));
     }
 
     @Test
@@ -1820,9 +1889,23 @@ public class TestDomainTranslator
     public void testCastCharToVarcharOrderingComparisonGuards()
     {
         Type castType = createVarcharType(10);
-        assertUnsupportedPredicate(not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
-        assertUnsupportedPredicate(not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        // Unlike the legacy extraction, a negated ordering projects the complementary range
+        assertPredicateDerives(
+                not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(createCharType(5), utf8Slice("abb"))), false)));
+        assertPredicateDerives(
+                not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))),
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(createCharType(5), utf8Slice("abc"))), false)));
         assertUnsupportedPredicate(lessThan(cast(cast(C_CHAR_5, createCharType(3)), castType), new Constant(castType, utf8Slice("abc"))));
+    }
+
+    @Test
+    public void testLegacyCastCharToVarcharOrderingComparisonGuards()
+    {
+        Type castType = createVarcharType(10);
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, not(lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, not(greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc")))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, lessThan(cast(cast(C_CHAR_5, createCharType(3)), castType), new Constant(castType, utf8Slice("abc"))));
     }
 
     @Test
@@ -1834,29 +1917,56 @@ public class TestDomainTranslator
         Type castType = createVarcharType(10);
 
         // 'abc  ' is above 'abc', so char(5) 'abc' does not satisfy the comparison
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
 
         // unlike with the default coercion, char(5) 'abc' does not satisfy the comparison with 'abc  ' either
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)));
-        assertPredicateDerives(
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThan(charType, utf8Slice("abc"))), false)),
+                TRUE);
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 lessThanOrEqual(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc  "))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(charType, utf8Slice("abc"))), false)),
+                TRUE);
 
-        assertPredicateDerives(
+        assertPredicateTranslates(
                 LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 greaterThan(cast(C_CHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
-                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb"))), false)));
+                tupleDomain(C_CHAR_5, Domain.create(ValueSet.ofRanges(Range.greaterThan(charType, utf8Slice("abb" + new String(Character.toChars(Character.MAX_CODE_POINT)).repeat(2)))), false)),
+                TRUE);
     }
 
     @Test
     public void testCastVarcharToCharComparison()
+    {
+        // CAST(varchar AS char) truncates and trims trailing spaces, so every value it maps to the constant starts
+        // with the constant. The domain is a superset, hence the comparison is also retained.
+        Type castType = createCharType(5);
+        Domain prefixOfAbc = Domain.create(ValueSet.ofRanges(Range.range(createVarcharType(10), utf8Slice("abc"), true, utf8Slice("abd"), false)), false);
+        assertPredicateDerives(equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))), tupleDomain(C_VARCHAR_10, prefixOfAbc));
+        assertPredicateDerives(
+                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_10, prefixOfAbc));
+        // Trailing spaces are trimmed, so 'abc  ' also casts to 'abc' even when the source fits in the char
+        assertPredicateDerives(
+                equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
+                tupleDomain(C_VARCHAR_5, Domain.create(ValueSet.ofRanges(Range.range(createVarcharType(5), utf8Slice("abc"), true, utf8Slice("abd"), false)), false)));
+        // NOT_EQUAL does not constrain a truncating source, and ordering comparisons are not order-preserving
+        assertUnsupportedPredicate(notEqual(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("abc"))));
+        // No range can be derived for an all non-ASCII constant
+        assertUnsupportedPredicate(equal(cast(C_VARCHAR_10, castType), new Constant(castType, utf8Slice("\u00ff"))));
+    }
+
+    @Test
+    public void testLegacyCastVarcharToCharComparison()
     {
         // CAST(varchar AS char) truncates and trims trailing spaces, so it is not injective, but every value it maps
         // to the constant starts with the constant. The domain is a superset, hence the comparison is also retained.
@@ -1866,20 +1976,23 @@ public class TestDomainTranslator
                 ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)),
                 false);
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 comparison(IDENTICAL, cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
 
         // The cast semantics do not depend on the char to varchar coercion
         assertPredicateDerives(
-                LEGACY_CHAR_VARCHAR_COERCION_SESSION,
+                LEGACY_PREIMAGES_LEGACY_CHAR_VARCHAR_COERCION_SESSION,
                 equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR_5, prefixOfAbc));
 
         // Unbounded source type
         assertPredicateDerives(
+                LEGACY_PREIMAGES_SESSION,
                 equal(cast(C_VARCHAR, castType), new Constant(castType, utf8Slice("abc"))),
                 tupleDomain(C_VARCHAR, Domain.create(
                         ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("abc"), true, utf8Slice("abd"), false)),
@@ -1887,16 +2000,16 @@ public class TestDomainTranslator
 
         // No varchar(5) value is long enough to cast to the constant
         Type longCastType = createCharType(10);
-        assertPredicateIsAlwaysFalse(equal(cast(C_VARCHAR_5, longCastType), new Constant(longCastType, utf8Slice("abcdefg"))));
+        assertPredicateIsAlwaysFalse(LEGACY_PREIMAGES_SESSION, equal(cast(C_VARCHAR_5, longCastType), new Constant(longCastType, utf8Slice("abcdefg"))));
 
         // NOT_EQUAL does not constrain the source: a value starting with the constant can cast to something else
-        assertUnsupportedPredicate(notEqual(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, notEqual(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
         // Ordering comparisons are not translatable because the cast is not order-preserving
-        assertUnsupportedPredicate(greaterThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
-        assertUnsupportedPredicate(lessThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, greaterThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, lessThan(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("abc"))));
 
         // No range can be derived for an all non-ASCII constant
-        assertUnsupportedPredicate(equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("\u00ff"))));
+        assertUnsupportedPredicate(LEGACY_PREIMAGES_SESSION, equal(cast(C_VARCHAR_5, castType), new Constant(castType, utf8Slice("\u00ff"))));
     }
 
     @Test
@@ -1988,6 +2101,16 @@ public class TestDomainTranslator
     private void assertUnsupportedPredicate(Expression expression)
     {
         assertPredicateTranslates(expression, TupleDomain.all(), expression);
+    }
+
+    private void assertPredicateIsAlwaysFalse(Session session, Expression expression)
+    {
+        assertPredicateTranslates(session, expression, TupleDomain.none(), TRUE);
+    }
+
+    private void assertUnsupportedPredicate(Session session, Expression expression)
+    {
+        assertPredicateTranslates(session, expression, TupleDomain.all(), expression);
     }
 
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain)

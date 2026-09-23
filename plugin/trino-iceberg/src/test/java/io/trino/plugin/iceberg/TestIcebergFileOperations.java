@@ -733,13 +733,14 @@ public class TestIcebergFileOperations
                         .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
-        // CAST to date and comparison
+        // CAST to date and comparison. A one-sided range cannot prune the partitions: the '2001' partition may hold
+        // a value such as '20015-01-01', which casts to a date after 2005-01-01.
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE CAST(a AS date) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         // CAST to date and BETWEEN
@@ -751,13 +752,13 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
                         .build());
 
-        // conversion to date as a date function
+        // conversion to date as a date function, which is the same one-sided range
         assertFileSystemAccesses("SELECT * FROM test_varchar_as_date_predicate WHERE date(a) >= DATE '2005-01-01'",
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperation(MANIFEST, "InputFile.newStream")) // fewer than without filter
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
                         .build());
 
         assertUpdate("DROP TABLE test_varchar_as_date_predicate");
