@@ -17,9 +17,13 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.type.Type;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
+import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
@@ -28,11 +32,15 @@ import java.util.Optional;
         @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone"),
         @JsonSubTypes.Type(value = EquatableValueSet.class, name = "equatable"),
         @JsonSubTypes.Type(value = SortedRangeSet.class, name = "sortable"),
+        @JsonSubTypes.Type(value = FloatingPointValueSet.class, name = "floatingPoint"),
 })
 public interface ValueSet
 {
     static ValueSet none(Type type)
     {
+        if (typeHasNaN(type)) {
+            return FloatingPointValueSet.fromRanges(SortedRangeSet.none(type));
+        }
         if (type.isOrderable()) {
             return SortedRangeSet.none(type);
         }
@@ -44,6 +52,9 @@ public interface ValueSet
 
     static ValueSet all(Type type)
     {
+        if (typeHasNaN(type)) {
+            return FloatingPointValueSet.fromRanges(SortedRangeSet.all(type));
+        }
         if (type.isOrderable()) {
             return SortedRangeSet.all(type);
         }
@@ -55,6 +66,12 @@ public interface ValueSet
 
     static ValueSet of(Type type, Object first, Object... rest)
     {
+        if (typeHasNaN(type)) {
+            List<Object> values = new ArrayList<>();
+            values.add(first);
+            values.addAll(List.of(rest));
+            return FloatingPointValueSet.copyOf(type, values);
+        }
         if (type.isOrderable()) {
             return SortedRangeSet.of(type, first, rest);
         }
@@ -66,6 +83,9 @@ public interface ValueSet
 
     static ValueSet copyOf(Type type, Collection<?> values)
     {
+        if (typeHasNaN(type)) {
+            return FloatingPointValueSet.copyOf(type, values);
+        }
         if (type.isOrderable()) {
             return SortedRangeSet.of(type, values);
         }
@@ -77,17 +97,39 @@ public interface ValueSet
 
     static ValueSet ofRanges(Range first, Range... rest)
     {
-        return SortedRangeSet.of(first, rest);
+        if (!typeHasNaN(first.getType())) {
+            return SortedRangeSet.of(first, rest);
+        }
+        List<Range> ranges = new ArrayList<>();
+        ranges.add(first);
+        ranges.addAll(List.of(rest));
+        return ofRanges(ranges);
     }
 
     static ValueSet ofRanges(List<Range> ranges)
     {
-        return SortedRangeSet.of(ranges);
+        SortedRangeSet ordered = SortedRangeSet.of(ranges);
+        return typeHasNaN(ordered.getType())
+                ? new FloatingPointValueSet(ordered, ranges.stream().anyMatch(Range::isAll))
+                : ordered;
     }
 
     static ValueSet copyOfRanges(Type type, Collection<Range> ranges)
     {
-        return SortedRangeSet.copyOf(type, ranges);
+        SortedRangeSet ordered = SortedRangeSet.copyOf(type, ranges);
+        return typeHasNaN(type)
+                ? new FloatingPointValueSet(ordered, ranges.stream().anyMatch(Range::isAll))
+                : ordered;
+    }
+
+    /// Converts a legacy floating-point range representation without changing its membership.
+    static ValueSet normalize(ValueSet values)
+    {
+        requireNonNull(values, "values is null");
+        if (values instanceof SortedRangeSet ranges && typeHasNaN(values.getType())) {
+            return FloatingPointValueSet.fromRanges(ranges);
+        }
+        return values;
     }
 
     Type getType();

@@ -124,6 +124,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.spi.predicate.FloatingPointValueSet.requiresNaNPredicate;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -556,7 +557,9 @@ public class ElasticsearchMetadata
         for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-            if (column.supportsPredicates() && !hasFloatingPointZeroBound(entry.getValue())) {
+            Domain domain = entry.getValue();
+            // The search query API does not support NaN predicates.
+            if (column.supportsPredicates() && !requiresNaNPredicate(domain.getValues()) && !hasFloatingPointZeroBound(domain)) {
                 supported.put(column, entry.getValue());
             }
             else {

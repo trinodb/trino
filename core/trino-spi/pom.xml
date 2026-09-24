@@ -204,6 +204,38 @@
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>interface io.trino.spi.predicate.ValueSet</old>
+                                    <new>interface io.trino.spi.predicate.ValueSet</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Add a floating-point value-set subtype. Existing serialized value sets remain readable.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::intersect(===io.trino.spi.predicate.ValueSet===)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::intersect(===io.trino.spi.predicate.SortedRangeSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.ValueSet===)</old>
+                                    <new>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.SortedRangeSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(===java.util.Collection&lt;io.trino.spi.predicate.ValueSet&gt;===)</old>
+                                    <new>parameter io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(===io.trino.spi.predicate.ValueSet===)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::union(java.util.Collection&lt;io.trino.spi.predicate.ValueSet&gt;)</old>
+                                    <new>method io.trino.spi.predicate.ValueSet io.trino.spi.predicate.SortedRangeSet::union(io.trino.spi.predicate.ValueSet)</new>
+                                    <justification>Mixed operations return ValueSet; range-only overloads retain SortedRangeSet results. Revapi pairs overloads by their return types.</justification>
+                                </item>
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
