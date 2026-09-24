@@ -81,6 +81,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
+import static io.trino.sql.ir.SensitiveExpressions.describeFailure;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -163,6 +164,12 @@ public class ColumnarFilterCompiler
     // their large value lists are not retained in the cache.
     public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
     {
+        return generateFilter(charVarcharCoercion, filter, layout, dynamicFilter, false);
+    }
+
+    // sensitive=true keeps the filter, a term of a sensitive expression, out of the diagnostics
+    public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter, boolean sensitive)
+    {
         // Compact the layout to consecutive indices (0, 1, 2, ...). The compiled filter uses these
         // compact indices to access blocks from the InputChannelsSourcePage, which translates
         // compact index back to the original page channel. This must be done before compilation
@@ -181,11 +188,11 @@ public class ColumnarFilterCompiler
 
         Optional<Class<? extends ColumnarFilter>> filterClass;
         if (filterCache == null) {
-            filterClass = generateFilterInternal(charVarcharCoercion, filter, compactLayout);
+            filterClass = generateFilterInternal(charVarcharCoercion, filter, compactLayout, sensitive);
         }
         else {
             try {
-                filterClass = filterCache.get(new CacheKey(filter, charVarcharCoercion), () -> generateFilterInternal(charVarcharCoercion, filter, compactLayout));
+                filterClass = filterCache.get(new CacheKey(filter, charVarcharCoercion), () -> generateFilterInternal(charVarcharCoercion, filter, compactLayout, sensitive));
             }
             catch (ExecutionException e) {
                 throw new UncheckedExecutionException(e);
@@ -241,7 +248,7 @@ public class ColumnarFilterCompiler
 
     private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
 
-    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout)
+    private Optional<Class<? extends ColumnarFilter>> generateFilterInternal(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean sensitive)
     {
         try {
             return switch (filter) {
@@ -266,6 +273,10 @@ public class ColumnarFilterCompiler
             };
         }
         catch (Throwable t) {
+            if (sensitive) {
+                log.debug("Falling back from columnar evaluation for a sensitive filter: %s", describeFailure(t));
+                return Optional.empty();
+            }
             if (t instanceof UnsupportedOperationException || t.getCause() instanceof UnsupportedOperationException) {
                 log.debug("Unsupported filter for columnar evaluation %s, %s", filter, t);
             }

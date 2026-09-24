@@ -105,7 +105,7 @@ public class CreateMaterializedViewTask
     {
         Analysis analysis = executeInternal(statement, stateMachine.getSession(), parameters, warningCollector, stateMachine.getPlanOptimizersStatsCollector());
         stateMachine.setOutput(analysis.getTarget());
-        stateMachine.setReferencedTables(analysis.getReferencedTables());
+        stateMachine.setReferencedTables(analysis.getReferencedTables(), analysis.getRedactedReferencedTables());
         return immediateVoidFuture();
     }
 

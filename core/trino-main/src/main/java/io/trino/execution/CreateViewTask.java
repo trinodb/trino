@@ -155,7 +155,7 @@ public class CreateViewTask
         metadata.createView(session, name, definition, properties, saveMode(statement));
 
         stateMachine.setOutput(analysis.getTarget());
-        stateMachine.setReferencedTables(analysis.getReferencedTables());
+        stateMachine.setReferencedTables(analysis.getReferencedTables(), analysis.getRedactedReferencedTables());
 
         return immediateVoidFuture();
     }

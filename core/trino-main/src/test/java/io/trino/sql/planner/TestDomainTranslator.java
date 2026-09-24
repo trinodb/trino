@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -36,7 +37,9 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
@@ -54,6 +57,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -94,6 +98,7 @@ import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.ColorType.COLOR;
@@ -1804,6 +1809,47 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testSensitiveExpressionRemainsOpaque()
+    {
+        SensitiveExpression sensitive = new SensitiveExpression(equal(C_BIGINT, bigintLiteral(1L)));
+
+        assertPredicateTranslates(sensitive, TupleDomain.all(), sensitive);
+    }
+
+    @Test
+    public void testSensitiveExpressionDerivesDomainForPushdown()
+    {
+        SensitiveExpression sensitive = new SensitiveExpression(equal(C_BIGINT, bigintLiteral(1L)));
+
+        // the domain is derived, but the sensitive expression stays whole as the residual
+        ExtractionResult result = fromPredicateForPushdown(Logical.and(sensitive, equal(C_BIGINT_1, bigintLiteral(2L))));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                C_BIGINT,
+                Domain.singleValue(BIGINT, 1L),
+                C_BIGINT_1,
+                Domain.singleValue(BIGINT, 2L)));
+        assertThat(result.remainingExpression()).isEqualTo(sensitive);
+
+        result = fromPredicateForPushdown(not(sensitive));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 1L)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(not(sensitive));
+    }
+
+    @Test
+    public void testToPredicateWrapsSensitiveSymbols()
+    {
+        TupleDomain<Symbol> tupleDomain = tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L), C_BIGINT_1, Domain.singleValue(BIGINT, 2L));
+
+        assertThat(toPredicate(tupleDomain, ImmutableSet.of())).isEqualTo(toPredicate(tupleDomain));
+        assertThat(toPredicate(tupleDomain, ImmutableSet.of(C_DOUBLE))).isEqualTo(toPredicate(tupleDomain));
+        // the domain of a sensitive symbol stays enforceable but is not rebuilt in clear text
+        assertThat(extractConjuncts(toPredicate(tupleDomain, ImmutableSet.of(C_BIGINT))))
+                .containsExactlyInAnyOrder(equal(C_BIGINT_1, bigintLiteral(2L)), new SensitiveExpression(equal(C_BIGINT, bigintLiteral(1L))));
+        assertThat(toPredicate(TupleDomain.all(), ImmutableSet.of(C_BIGINT))).isEqualTo(TRUE);
+    }
+
+    @Test
     public void testCharComparedToVarcharExpression()
     {
         Type charType = createCharType(10);
@@ -2153,9 +2199,19 @@ public class TestDomainTranslator
         return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), session, originalPredicate);
     }
 
+    private ExtractionResult fromPredicateForPushdown(Expression originalPredicate)
+    {
+        return DomainTranslator.getExtractionResultForPushdown(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
+    }
+
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
         return domainTranslator.toPredicate(getCharVarcharCoercion(TEST_SESSION), tupleDomain);
+    }
+
+    private Expression toPredicate(TupleDomain<Symbol> tupleDomain, Set<Symbol> sensitiveSymbols)
+    {
+        return domainTranslator.toPredicate(getCharVarcharCoercion(TEST_SESSION), tupleDomain, sensitiveSymbols);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)

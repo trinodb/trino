@@ -275,6 +275,13 @@ public class TestEventListenerBasic
                             return EMPTY;
                         })
                         .withRowFilter(schemaTableName -> {
+                            if (schemaTableName.getTableName().equals("test_table_with_sensitive_row_filter")) {
+                                return ViewExpression.builder()
+                                        .identity("user")
+                                        .expression("length(test_varchar) > 0")
+                                        .sensitive(true)
+                                        .build();
+                            }
                             if (schemaTableName.getTableName().equals("test_table_with_row_filter")) {
                                 return ViewExpression.builder()
                                         .identity("user")
@@ -719,6 +726,36 @@ public class TestEventListenerBasic
                 .hasColumnsWithoutMasking("test_varchar")
                 .hasRowFilters("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))")
                 .hasNoTableReferences();
+    }
+
+    @Test
+    public void testSensitiveRowFilterIsReportedToEventListeners()
+            throws Exception
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("sensitive_expression_redaction_enabled", "true")
+                .build();
+        QueryCompletedEvent event = queries.runQueryAndWaitForEvents("SELECT test_bigint FROM mock.default.test_table_with_sensitive_row_filter", session)
+                .getQueryEvents()
+                .getQueryCompletedEvent();
+
+        // Event listeners get the policy and what it reads, while the query plan stays redacted
+        TableInfo table = getOnlyElement(event.getMetadata().getTables());
+        assertThat(table.getFilters()).containsExactly("(length(test_varchar) > 0)");
+        assertThat(table.getColumns()).extracting(ColumnInfo::getColumn).containsExactlyInAnyOrder("test_bigint", "test_varchar");
+        assertThat(event.getMetadata().getRoutines()).extracting(RoutineInfo::getRoutine).contains("length");
+        assertThat(getOnlyElement(event.getIoMetadata().getInputs()).getColumns())
+                .extracting(QueryInputMetadata.Column::name)
+                .containsExactlyInAnyOrder("test_bigint", "test_varchar");
+        assertThat(event.getMetadata().getPlan().orElseThrow()).contains("[REDACTED]").doesNotContain("length(");
+
+        // The query info, which the user can read, does not show them
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(event.getMetadata().getQueryId()));
+        TableInfo reported = getOnlyElement(queryInfo.getReferencedTables());
+        assertThat(reported.getFilters()).containsExactly("[REDACTED]");
+        assertThat(reported.getColumns()).extracting(ColumnInfo::getColumn).containsExactly("test_bigint");
+        assertThat(queryInfo.getRoutines()).extracting(RoutineInfo::getRoutine).doesNotContain("length");
+        assertThat(getOnlyElement(queryInfo.getInputs()).columns()).extracting(column -> column.name()).containsExactly("test_bigint");
     }
 
     @Test
