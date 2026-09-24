@@ -3334,6 +3334,10 @@ public class IcebergMetadata
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
+        if (partitionSpec.isUnpartitioned()) {
+            // Route all rows of a data file to a single writer, so each data file gets one delete file
+            return Optional.of(new IcebergPartitioningHandle(true, ImmutableList.of(), ImmutableList.of()));
+        }
         return getWriteLayout(schema, partitionSpec, true)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
