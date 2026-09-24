@@ -243,6 +243,12 @@
             <artifactId>kafka-json-schema-serializer</artifactId>
             <!-- This is under Confluent Community License and it should not be used with compile scope -->
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
