@@ -20,10 +20,12 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -69,6 +71,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -161,6 +164,25 @@ public class TestDomainTranslator
     public void tearDown()
     {
         functionResolution = null;
+    }
+
+    @Test
+    public void testFloatingPointDomainRoundTrip()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            Symbol symbol = new Symbol(type, "floating_value");
+            Object zero = type.equals(DOUBLE) ? 0.0 : type.equals(REAL) ? toReal(0.0f) : TrinoNumber.from(BigDecimal.ZERO);
+            Domain point = Domain.singleValue(type, zero);
+            Domain nan = Domain.singleValue(type, FloatingPointValueSet.nanValue(type));
+            for (Domain domain : List.of(point, nan, point.union(nan), point.complement(), nan.complement(), Domain.all(type), Domain.none(type))) {
+                for (boolean nullAllowed : List.of(false, true)) {
+                    TupleDomain<Symbol> expected = tupleDomain(symbol, Domain.create(domain.getValues(), nullAllowed));
+                    ExtractionResult result = fromPredicate(toPredicate(expected));
+                    assertThat(result.tupleDomain()).isEqualTo(expected);
+                    assertThat(result.remainingExpression()).isEqualTo(TRUE);
+                }
+            }
+        }
     }
 
     @Test
@@ -499,37 +521,35 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT))));
 
-        // Domain union implicitly adds NaN as an accepted value
-        // The original predicate is returned as the RemainingExpression
-        // (even if left and right unprocessableExpressions are the same)
+        // Covering all ordered values preserves the exclusion of NaN and permits an exact union.
         originalPredicate = or(
                 greaterThan(C_DOUBLE, doubleLiteral(2.0)),
                 lessThan(C_DOUBLE, doubleLiteral(5.0)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false)));
 
         originalPredicate = or(
                 greaterThan(C_REAL, realLiteral(2.0f)),
                 lessThan(C_REAL, realLiteral(5.0f)),
                 isNull(C_REAL));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.remainingExpression()).isEqualTo(TRUE);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN)).complement()));
 
         originalPredicate = or(
                 and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
                 and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_DOUBLE));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false)));
 
         originalPredicate = or(
                 and(greaterThan(C_REAL, realLiteral(2.0f)), unprocessableExpression1(C_REAL)),
                 and(lessThan(C_REAL, realLiteral(5.0f)), unprocessableExpression1(C_REAL)));
         result = fromPredicate(originalPredicate);
-        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
-        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
+        assertThat(result.remainingExpression()).isEqualTo(unprocessableExpression1(C_REAL));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.create(ValueSet.of(REAL, toReal(Float.NaN)).complement(), false)));
 
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
@@ -792,12 +812,14 @@ public class TestDomainTranslator
         assertUnsupportedPredicate(
                 not(comparison(IDENTICAL, and(lessThan(C_BIGINT, bigintLiteral(2L)), lessThan(C_BIGINT_1, bigintLiteral(2L))), TRUE)));
 
-        // NaN is not part of the complemented domain, but the negated predicate is true for it
-        assertUnsupportedPredicate(
-                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)));
+        // The complement includes NaN and null, as does the negated Boolean identity.
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_DOUBLE, doubleLiteral(2.0)), TRUE)),
+                tupleDomain(C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 2.0)).complement(), true)));
 
-        assertUnsupportedPredicate(
-                not(comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE)));
+        assertPredicateTranslates(
+                not(comparison(IDENTICAL, lessThan(C_REAL, realLiteral(2.0f)), TRUE)),
+                tupleDomain(C_REAL, Domain.create(ValueSet.ofRanges(Range.lessThan(REAL, toReal(2.0f))).complement(), true)));
 
         // an all or empty value set contains NaN exactly when it contains everything, so complementing it does not lose NaN
         assertPredicateTranslates(
@@ -934,7 +956,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(lessThan(C_DOUBLE, nanDouble));
         assertPredicateIsAlwaysFalse(lessThanOrEqual(C_DOUBLE, nanDouble));
         assertPredicateTranslates(notEqual(C_DOUBLE, nanDouble), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
-        assertUnsupportedPredicate(isDistinctFrom(C_DOUBLE, nanDouble));
+        assertPredicateTranslates(isDistinctFrom(C_DOUBLE, nanDouble), tupleDomain(C_DOUBLE, Domain.singleValue(DOUBLE, Double.NaN).complement()));
 
         assertPredicateTranslates(not(equal(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateTranslates(not(greaterThan(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
@@ -942,7 +964,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateTranslates(not(lessThanOrEqual(C_DOUBLE, nanDouble)), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
-        assertUnsupportedPredicate(comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), nanDouble));
+        assertPredicateTranslates(comparison(IDENTICAL, C_DOUBLE.toSymbolReference(), nanDouble), tupleDomain(C_DOUBLE, Domain.singleValue(DOUBLE, Double.NaN)));
 
         Expression nanReal = new Constant(REAL, toReal(Float.NaN));
 
@@ -952,7 +974,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(lessThan(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(lessThanOrEqual(C_REAL, nanReal));
         assertPredicateTranslates(notEqual(C_REAL, nanReal), tupleDomain(C_REAL, Domain.notNull(REAL)));
-        assertUnsupportedPredicate(isDistinctFrom(C_REAL, nanReal));
+        assertPredicateTranslates(isDistinctFrom(C_REAL, nanReal), tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN)).complement()));
 
         assertPredicateTranslates(not(equal(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateTranslates(not(greaterThan(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
@@ -960,7 +982,7 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThan(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateTranslates(not(lessThanOrEqual(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_REAL, nanReal)));
-        assertUnsupportedPredicate(comparison(IDENTICAL, C_REAL.toSymbolReference(), nanReal));
+        assertPredicateTranslates(comparison(IDENTICAL, C_REAL.toSymbolReference(), nanReal), tupleDomain(C_REAL, Domain.singleValue(REAL, toReal(Float.NaN))));
     }
 
     @Test

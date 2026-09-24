@@ -536,7 +536,15 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet intersect(ValueSet other)
+    public ValueSet intersect(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.intersect(this);
+        }
+        return intersect(checkCompatibility(other));
+    }
+
+    public SortedRangeSet intersect(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -802,6 +810,9 @@ public final class SortedRangeSet
     @Override
     public boolean overlaps(ValueSet other)
     {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.overlaps(this);
+        }
         SortedRangeSet that = checkCompatibility(other);
 
         if (this.isNone() || that.isNone()) {
@@ -931,7 +942,15 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(Collection<ValueSet> valueSets)
+    public ValueSet union(Collection<ValueSet> valueSets)
+    {
+        if (valueSets.stream().anyMatch(FloatingPointValueSet.class::isInstance)) {
+            return FloatingPointValueSet.fromRanges(this).union(valueSets);
+        }
+        return unionRanges(valueSets.stream().map(this::checkCompatibility).toList());
+    }
+
+    SortedRangeSet unionRanges(Collection<SortedRangeSet> valueSets)
     {
         if (this.isAll()) {
             return this;
@@ -965,7 +984,15 @@ public final class SortedRangeSet
     }
 
     @Override
-    public SortedRangeSet union(ValueSet other)
+    public ValueSet union(ValueSet other)
+    {
+        if (other instanceof FloatingPointValueSet floatingPoint) {
+            return floatingPoint.union(this);
+        }
+        return union(checkCompatibility(other));
+    }
+
+    public SortedRangeSet union(SortedRangeSet other)
     {
         SortedRangeSet that = checkCompatibility(other);
 
@@ -1141,6 +1168,9 @@ public final class SortedRangeSet
     @Override
     public boolean contains(ValueSet other)
     {
+        if (other instanceof FloatingPointValueSet) {
+            return FloatingPointValueSet.fromRanges(this).contains(other);
+        }
         SortedRangeSet that = checkCompatibility(other);
 
         if (this.isAll()) {

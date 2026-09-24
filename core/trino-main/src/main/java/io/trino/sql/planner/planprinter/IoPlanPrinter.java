@@ -789,6 +789,15 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     _ -> {
                         throw new IllegalStateException("Unreachable AllOrNone consumer");
+                    },
+                    floatingPoint -> {
+                        floatingPoint.getOrderedValues().getOrderedRanges().stream()
+                                .map(this::formatRange)
+                                .forEach(formattedRanges::add);
+                        if (floatingPoint.isNaNAllowed()) {
+                            FormattedMarker nan = new FormattedMarker(Optional.of("NaN"), Bound.EXACTLY);
+                            formattedRanges.add(new FormattedRange(nan, nan));
+                        }
                     });
 
             return new FormattedDomain(domain.isNullAllowed(), formattedRanges.build());

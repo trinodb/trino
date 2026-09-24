@@ -36,18 +36,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -135,6 +142,51 @@ public class TestJdbcPageSourceProvider
                 .put("eleven", 11L)
                 .put("twelve", 12L)
                 .buildOrThrow());
+    }
+
+    @Test
+    public void testDynamicFilterUsesScanConnection()
+            throws Exception
+    {
+        String connectionUrl = database.getConnection().getMetaData().getURL();
+        for (List<ColumnHandle> columns : List.<List<ColumnHandle>>of(List.of(textColumn), List.of(textColumn, valueColumn))) {
+            AtomicInteger connections = new AtomicInteger();
+            JdbcClient client = new TestingH2JdbcClient(new BaseJdbcConfig(), _ -> {
+                connections.incrementAndGet();
+                return DriverManager.getConnection(connectionUrl);
+            })
+            {
+                @Override
+                public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+                {
+                    if (typeHandle.equals(valueColumn.getJdbcTypeHandle())) {
+                        return Optional.of(ColumnMapping.longMapping(BIGINT, ResultSet::getLong, bigintWriteFunction(), DISABLE_PUSHDOWN));
+                    }
+                    return super.toColumnMapping(session, connection, typeHandle);
+                }
+            };
+            JdbcPageSourceProvider provider = new JdbcPageSourceProvider(client, executor, RetryPolicy.ofDefaults());
+            JdbcTableHandle constrainedTable = table.intersectedWithConstraint(TupleDomain.withColumnDomains(Map.of(
+                    valueColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 3L)), false))));
+            JdbcSplit filteredSplit = split.withDynamicFilter(TupleDomain.withColumnDomains(Map.of(
+                    valueColumn, Domain.singleValue(BIGINT, 2L))));
+
+            List<String> values = new ArrayList<>();
+            try (ConnectorPageSource pageSource = provider.createPageSource(new JdbcTransactionHandle(), SESSION, filteredSplit, constrainedTable, Optional.empty(), columns, DynamicFilter.EMPTY)) {
+                while (!pageSource.isFinished()) {
+                    SourcePage page = pageSource.getNextSourcePage();
+                    if (page == null) {
+                        continue;
+                    }
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        values.add(VARCHAR.getSlice(page.getBlock(0), position).toStringUtf8());
+                    }
+                }
+            }
+            // Declining the dynamic filter must preserve the already-enforced table constraint.
+            assertThat(values).containsExactlyInAnyOrder("one", "two", "three");
+            assertThat(connections).hasValue(1);
+        }
     }
 
     @Test

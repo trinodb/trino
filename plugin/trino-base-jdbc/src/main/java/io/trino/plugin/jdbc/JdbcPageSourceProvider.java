@@ -98,8 +98,9 @@ public class JdbcPageSourceProvider
                     executor,
                     session,
                     jdbcSplit,
-                    tableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
-                    jdbcColumns);
+                    tableHandle,
+                    jdbcColumns,
+                    jdbcSplit.getDynamicFilter());
         }
 
         return createMergePageSource(session, jdbcSplit, jdbcColumns, tableHandle, mergeRowId);

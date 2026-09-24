@@ -51,6 +51,7 @@ import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -2077,6 +2078,12 @@ public class PlanPrinter
 
         private String formatDomain(Domain domain)
         {
+            if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.asRanges().isEmpty()) {
+                if (floatingPoint.getOrderedValues().isNone()) {
+                    return domain.isNullAllowed() ? "[NULL, NaN]" : "[NaN]";
+                }
+                return formatDomain(Domain.create(floatingPoint.getOrderedValues(), domain.isNullAllowed())) + " OR [NaN]";
+            }
             ImmutableList.Builder<String> parts = ImmutableList.builder();
 
             if (domain.isNullAllowed()) {

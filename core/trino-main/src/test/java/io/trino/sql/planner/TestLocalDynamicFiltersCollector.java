@@ -21,11 +21,14 @@ import io.trino.connector.TestingColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Cast;
+import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import org.junit.jupiter.api.Test;
 
@@ -36,10 +39,15 @@ import java.util.concurrent.CompletableFuture;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -116,6 +124,44 @@ public class TestLocalDynamicFiltersCollector
         assertThat(filter.isAwaitable()).isFalse();
         assertThat(isBlocked.isDone()).isTrue();
         assertThat(filter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.singleValue(INTEGER, 7L))));
+    }
+
+    @Test
+    public void testInfinityComparisonsComplete()
+    {
+        for (Type type : List.of(REAL, DOUBLE, NUMBER)) {
+            Range universe = FloatingPointValueSet.allOrderedValues(type).getSpan();
+            Object minimum = universe.getLowBoundedValue();
+            Object maximum = universe.getHighBoundedValue();
+            for (ComparisonOperator operator : List.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
+                boolean upperBound = operator == LESS_THAN || operator == LESS_THAN_OR_EQUAL;
+                Object limit = upperBound ? maximum : minimum;
+                for (Domain buildDomain : List.of(
+                        Domain.singleValue(type, limit),
+                        Domain.create(ValueSet.ofRanges(upperBound ? Range.greaterThan(type, minimum) : Range.lessThan(type, maximum)), false))) {
+                    LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(TEST_SESSION);
+                    DynamicFilterId filterId = new DynamicFilterId("filter");
+                    collector.register(ImmutableSet.of(filterId));
+                    Symbol symbol = new Symbol(type, "value");
+                    ColumnHandle column = new TestingColumnHandle("column");
+                    DynamicFilter filter = createDynamicFilter(
+                            collector,
+                            ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference(), operator)),
+                            ImmutableMap.of(symbol, column));
+                    CompletableFuture<?> blocked = filter.isBlocked();
+                    assertThat(blocked.isDone()).isFalse();
+                    collector.collectDynamicFilterDomains(ImmutableMap.of(filterId, buildDomain));
+                    assertThat(blocked.isDone()).isTrue();
+                    assertThat(filter.isComplete()).isTrue();
+                    assertThat(filter.isAwaitable()).isFalse();
+                    Domain result = filter.getCurrentPredicate().getDomains().orElseThrow().get(column);
+                    assertThat(result.includesNullableValue(minimum)).isEqualTo(operator != GREATER_THAN);
+                    assertThat(result.includesNullableValue(maximum)).isEqualTo(operator != LESS_THAN);
+                    assertThat(result.includesNullableValue(FloatingPointValueSet.nanValue(type))).isFalse();
+                    assertThat(result.includesNullableValue(null)).isFalse();
+                }
+            }
+        }
     }
 
     @Test

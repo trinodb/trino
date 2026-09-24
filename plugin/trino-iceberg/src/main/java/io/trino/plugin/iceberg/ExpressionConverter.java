@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -78,6 +79,7 @@ import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThan;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.in;
+import static org.apache.iceberg.expressions.Expressions.isNaN;
 import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
@@ -151,14 +153,21 @@ public final class ExpressionConverter
         }
 
         if (type.isOrderable()) {
-            List<Range> orderedRanges = domain.getValues().getRanges().getOrderedRanges();
+            List<Range> orderedRanges = domain.getValues() instanceof FloatingPointValueSet floatingPoint
+                    ? (floatingPoint.isAllOrderedValues() ? List.of() : new FloatingPointValueSet(floatingPoint.getOrderedValues(), false).getRanges().getOrderedRanges())
+                    : domain.getValues().getRanges().getOrderedRanges();
             List<Object> icebergValues = new ArrayList<>();
             List<Expression> rangeExpressions = new ArrayList<>();
             for (Range range : orderedRanges) {
                 if (range.isSingleValue()) {
                     // skip out-of-range values (they are implicitly false)
                     if (range(type, range.getSingleValue()) == ValueInRange.IN_RANGE) {
-                        icebergValues.add(convertTrinoValueToIceberg(type, range.getSingleValue()));
+                        Object value = convertTrinoValueToIceberg(type, range.getSingleValue());
+                        icebergValues.add(normalizeFloatingPointZero(value, false));
+                        Object negativeZero = normalizeFloatingPointZero(value, true);
+                        if (!negativeZero.equals(icebergValues.getLast())) {
+                            icebergValues.add(negativeZero);
+                        }
                     }
                 }
                 else {
@@ -168,7 +177,18 @@ public final class ExpressionConverter
             Expression ranges = or(rangeExpressions);
             Expression values = icebergValues.isEmpty() ? alwaysFalse() : in(columnName, icebergValues);
             Expression nullExpression = domain.isNullAllowed() ? isNull(columnName) : alwaysFalse();
-            return or(nullExpression, or(values, ranges));
+            Expression nonNull = or(values, ranges);
+            if (domain.getValues() instanceof FloatingPointValueSet floatingPoint) {
+                if (floatingPoint.isAllOrderedValues()) {
+                    nonNull = alwaysTrue();
+                }
+                nonNull = floatingPoint.isNaNAllowed()
+                        ? or(isNaN(columnName), nonNull)
+                        : and(List.of(not(isNaN(columnName)), nonNull));
+                // Iceberg negated predicates may match null; null membership is handled separately.
+                nonNull = and(List.of(not(isNull(columnName)), nonNull));
+            }
+            return or(nullExpression, nonNull);
         }
 
         throw new VerifyException(format("Unsupported type %s with domain values %s", type, domain));
@@ -191,7 +211,7 @@ public final class ExpressionConverter
                 case ABOVE_RANGE -> alwaysFalse();
                 case BELOW_RANGE -> alwaysTrue();
                 case IN_RANGE -> {
-                    Object icebergLow = convertTrinoValueToIceberg(type, range.getLowBoundedValue());
+                    Object icebergLow = normalizeFloatingPointZero(convertTrinoValueToIceberg(type, range.getLowBoundedValue()), range.isLowInclusive());
                     if (range.isLowInclusive()) {
                         yield greaterThanOrEqual(columnName, icebergLow);
                     }
@@ -207,7 +227,7 @@ public final class ExpressionConverter
                 case ABOVE_RANGE -> alwaysTrue();
                 case BELOW_RANGE -> alwaysFalse();
                 case IN_RANGE -> {
-                    Object icebergHigh = convertTrinoValueToIceberg(type, range.getHighBoundedValue());
+                    Object icebergHigh = normalizeFloatingPointZero(convertTrinoValueToIceberg(type, range.getHighBoundedValue()), !range.isHighInclusive());
                     if (range.isHighInclusive()) {
                         yield lessThanOrEqual(columnName, icebergHigh);
                     }
@@ -219,6 +239,18 @@ public final class ExpressionConverter
         }
 
         return and(conjuncts);
+    }
+
+    // Trino equates signed zeros, while Iceberg orders -0.0 before +0.0.
+    private static Object normalizeFloatingPointZero(Object value, boolean negative)
+    {
+        if (value instanceof Double number && number == 0.0) {
+            return negative ? -0.0 : 0.0;
+        }
+        if (value instanceof Float number && number == 0.0f) {
+            return negative ? -0.0f : 0.0f;
+        }
+        return value;
     }
 
     private static Expression and(List<Expression> expressions)

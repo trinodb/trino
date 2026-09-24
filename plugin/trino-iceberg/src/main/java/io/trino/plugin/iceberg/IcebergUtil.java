@@ -708,7 +708,8 @@ public final class IcebergUtil
                     return true;
                 },
                 _ -> false,
-                _ -> true);
+                _ -> true,
+                _ -> false);
     }
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)

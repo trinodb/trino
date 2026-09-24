@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -92,8 +93,14 @@ public class BigQueryFilterQueryBuilder
         }
 
         List<String> disjuncts = new ArrayList<>();
+        if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isAllOrderedValues()) {
+            disjuncts.add("NOT IS_NAN(" + quote(columnName) + ")");
+        }
         List<String> singleValues = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        List<Range> orderedRanges = domain.getValues() instanceof FloatingPointValueSet floatingPoint
+                ? (floatingPoint.isAllOrderedValues() ? List.of() : new FloatingPointValueSet(floatingPoint.getOrderedValues(), false).getRanges().getOrderedRanges())
+                : domain.getValues().getRanges().getOrderedRanges();
+        for (Range range : orderedRanges) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 String value = convertToString(column.trinoType(), column.bigqueryType(), range.getSingleValue());
@@ -125,6 +132,11 @@ public class BigQueryFilterQueryBuilder
             disjuncts.add(quote(columnName) + " IN (" + values + ")");
         }
 
+        if (domain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed()) {
+            disjuncts.add("IS_NAN(" + quote(columnName) + ")");
+        }
+
+        // BigQuery ordered comparisons and equality exclude NaN.
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {

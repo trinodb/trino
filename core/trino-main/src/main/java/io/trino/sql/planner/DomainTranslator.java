@@ -28,6 +28,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -165,6 +166,16 @@ public final class DomainTranslator
                 discreteValues -> extractDisjuncts(charVarcharCoercion, domain.getType(), discreteValues, reference),
                 _ -> {
                     throw new IllegalStateException("Case should not be reachable");
+                },
+                floatingPoint -> {
+                    List<Expression> predicates = new ArrayList<>();
+                    if (!floatingPoint.getOrderedValues().isNone()) {
+                        predicates.addAll(extractDisjuncts(charVarcharCoercion, domain.getType(), new FloatingPointValueSet(floatingPoint.getOrderedValues(), false).getRanges(), reference));
+                    }
+                    if (floatingPoint.isNaNAllowed()) {
+                        predicates.add(comparison(metadata, charVarcharCoercion, IDENTICAL, reference, new Constant(domain.getType(), FloatingPointValueSet.nanValue(domain.getType()))));
+                    }
+                    return predicates;
                 }));
 
         return combineDisjunctsWithDefault(disjuncts, TRUE);
@@ -571,11 +582,6 @@ public final class DomainTranslator
             }
             Map.Entry<Symbol, Domain> entry = getOnlyElement(domains.entrySet());
             Domain domain = entry.getValue();
-            if (typeHasNaN(domain.getType()) && !domain.getValues().isAll() && !domain.getValues().isNone()) {
-                // NaN belongs to no range, so complementing a proper subset of the values would drop it, while the negated predicate selects it.
-                // An all or empty value set is the exception: it contains NaN exactly when it contains everything, so complementing it flips NaN too.
-                return Optional.empty();
-            }
             return Optional.of(new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(entry.getKey(), domain.complement())),
                     TRUE));
@@ -936,61 +942,25 @@ public final class DomainTranslator
         private static Optional<Domain> extractOrderableDomain(ComparisonOperator comparisonOperator, Type type, Object value, boolean complement)
         {
             checkArgument(value != null);
-
-            // Handle orderable types which do not have NaN.
-            if (!typeHasNaN(type)) {
-                return switch (comparisonOperator) {
-                    case EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false));
-                    case IDENTICAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), complement));
-                    case GREATER_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false));
-                    case GREATER_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false));
-                    case LESS_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
-                    case LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
-                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
-                };
-            }
-
-            // Handle comparisons against NaN
+            ValueSet values;
             if (isFloatingPointNaN(type, value)) {
-                return switch (comparisonOperator) {
-                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL,
-                         LESS_THAN, LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
-                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
-                    case IDENTICAL -> Optional.empty(); // The Domain should be "NaN". It is currently not supported.
+                values = switch (comparisonOperator) {
+                    case IDENTICAL -> ValueSet.of(type, value);
+                    case NOT_EQUAL -> ValueSet.all(type);
+                    default -> ValueSet.none(type);
                 };
             }
-
-            // Handle comparisons against a non-NaN value when the compared value might be NaN
-            return switch (comparisonOperator) {
-                /*
-                 For comparison operators: EQUAL, IDENTICAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,
-                 the Domain should not contain NaN, but complemented Domain should contain NaN (for IDENTICAL, null as well).
-                 It is currently not supported.
-                 Currently, NaN is only included when ValueSet.isAll().
-
-                 For comparison operator NOT_EQUAL,
-                 the Domain should consist of ranges (which do not sum to the whole ValueSet), and NaN.
-                 Currently, NaN is only included when ValueSet.isAll().
-                  */
-                case EQUAL, IDENTICAL -> complement ?
-                        Optional.empty() :
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false));
-                case GREATER_THAN -> complement ?
-                        Optional.empty() :
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false));
-                case GREATER_THAN_OR_EQUAL -> complement ?
-                        Optional.empty() :
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), false));
-                case LESS_THAN -> complement ?
-                        Optional.empty() :
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value)), false));
-                case LESS_THAN_OR_EQUAL -> complement ?
-                        Optional.empty() :
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false));
-                case NOT_EQUAL -> complement ?
-                        Optional.of(Domain.create(ValueSet.ofRanges(Range.equal(type, value)), false)) :
-                        Optional.empty();
-            };
+            else {
+                values = switch (comparisonOperator) {
+                    case EQUAL, IDENTICAL -> ValueSet.of(type, value);
+                    case NOT_EQUAL -> ValueSet.of(type, value).complement();
+                    case GREATER_THAN -> ValueSet.ofRanges(Range.greaterThan(type, value));
+                    case GREATER_THAN_OR_EQUAL -> ValueSet.ofRanges(Range.greaterThanOrEqual(type, value));
+                    case LESS_THAN -> ValueSet.ofRanges(Range.lessThan(type, value));
+                    case LESS_THAN_OR_EQUAL -> ValueSet.ofRanges(Range.lessThanOrEqual(type, value));
+                };
+            }
+            return Optional.of(Domain.create(complementIfNecessary(values, complement), comparisonOperator == IDENTICAL && complement));
         }
 
         private static Domain extractEquatableDomain(ComparisonOperator comparisonOperator, Type type, Object value, boolean complement)

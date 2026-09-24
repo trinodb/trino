@@ -20,7 +20,9 @@ import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
@@ -142,12 +144,17 @@ public final class PinotQueryBuilder
         boolean invertPredicate = false;
         if (!valueSet.isDiscreteSet()) {
             ValueSet complement = domain.getValues().complement();
-            if (complement.isDiscreteSet()) {
+            if (complement.isDiscreteSet() && !(complement instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed())) {
                 invertPredicate = complement.isDiscreteSet();
                 valueSet = complement;
             }
         }
-        for (Range range : valueSet.getRanges().getOrderedRanges()) {
+        // Pinot accepts infinity literals. Bound both sides so indexed and scan predicates exclude NaN.
+        verify(!(valueSet instanceof FloatingPointValueSet floatingPoint) || !floatingPoint.isNaNAllowed(), "NaN domain must be handled before rendering");
+        Ranges ranges = valueSet instanceof FloatingPointValueSet floatingPoint
+                ? floatingPoint.getOrderedValues().getRanges()
+                : valueSet.getRanges();
+        for (Range range : ranges.getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 singleValues.add(convertValue(range.getType(), range.getSingleValue()));
