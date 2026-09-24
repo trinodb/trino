@@ -21,4 +21,15 @@ public interface ValuesProcessor
     <T> T transform(Function<Ranges, T> rangesFunction, Function<DiscreteValues, T> discreteValuesFunction, Function<AllOrNone, T> allOrNoneFunction);
 
     void consume(Consumer<Ranges> rangesConsumer, Consumer<DiscreteValues> discreteValuesConsumer, Consumer<AllOrNone> allOrNoneConsumer);
+
+    /// Visits the complete floating-point set, including NaN membership, when applicable.
+    default <T> T transform(Function<Ranges, T> ranges, Function<DiscreteValues, T> discrete, Function<AllOrNone, T> allOrNone, Function<FloatingPointValueSet, T> floatingPoint)
+    {
+        return transform(ranges, discrete, allOrNone);
+    }
+
+    default void consume(Consumer<Ranges> ranges, Consumer<DiscreteValues> discrete, Consumer<AllOrNone> allOrNone, Consumer<FloatingPointValueSet> floatingPoint)
+    {
+        consume(ranges, discrete, allOrNone);
+    }
 }

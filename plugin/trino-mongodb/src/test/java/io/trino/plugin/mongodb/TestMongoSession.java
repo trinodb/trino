@@ -35,6 +35,8 @@ import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +51,24 @@ public class TestMongoSession
     private static final MongoColumnHandle COL6 = createColumnHandle("grandparent", createUnboundedVarcharType(), "parent", "col6");
 
     private static final MongoColumnHandle ID_COL = new MongoColumnHandle("_id", ImmutableList.of(), ObjectIdType.OBJECT_ID, false, false, Optional.empty());
+
+    @Test
+    public void testFloatingPointInfinityBounds()
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            MongoColumnHandle column = createColumnHandle("x", type);
+            Object zero = type.equals(DOUBLE) ? (Object) 0.0 : 0L;
+            Object negativeInfinity = type.equals(DOUBLE) ? (Object) Double.NEGATIVE_INFINITY : Float.NEGATIVE_INFINITY;
+            Object positiveInfinity = type.equals(DOUBLE) ? (Object) Double.POSITIVE_INFINITY : Float.POSITIVE_INFINITY;
+            Object translatedZero = type.equals(DOUBLE) ? (Object) 0.0 : 0.0f;
+            Domain lessThanZero = Domain.create(ValueSet.ofRanges(lessThan(type, zero)), false);
+            assertThat(MongoSession.buildQuery(TupleDomain.withColumnDomains(ImmutableMap.of(column, lessThanZero))))
+                    .isEqualTo(new Document("x", new Document("$gte", negativeInfinity).append("$lt", translatedZero)));
+            Domain greaterThanZero = Domain.create(ValueSet.ofRanges(greaterThan(type, zero)), false);
+            assertThat(MongoSession.buildQuery(TupleDomain.withColumnDomains(ImmutableMap.of(column, greaterThanZero))))
+                    .isEqualTo(new Document("x", new Document("$gt", translatedZero).append("$lte", positiveInfinity)));
+        }
+    }
 
     @Test
     public void testBuildProjectionWithoutId()

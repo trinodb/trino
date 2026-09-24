@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -144,7 +145,9 @@ public final class GlueExpressionUtil
     {
         ValueSet valueSet = domain.getValues();
 
-        if (domain.isAll() || !canConvertSqlTypeToStringForGlue(domain.getType(), assumeCanonicalPartitionKeys)) {
+        if (domain.isAll() ||
+                valueSet instanceof FloatingPointValueSet floatingPoint && (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues()) ||
+                !canConvertSqlTypeToStringForGlue(domain.getType(), assumeCanonicalPartitionKeys)) {
             // if the type can't be converted or Domain.all()
             return Optional.empty();
         }
