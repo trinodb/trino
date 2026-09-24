@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -249,6 +250,56 @@ public class TestAddExchangesPlans
                                                 exchange(REMOTE,
                                                         REPLICATE,
                                                         tableScan("region")))))));
+    }
+
+    @Test
+    public void testRemoteExchangeAboveRedistributedCrossJoinProbe()
+    {
+        // the redistributed probe makes the join output arbitrarily partitioned, so a grouped aggregation above it needs a remote exchange
+        assertDistributedPlan(
+                "SELECT r.regionkey, count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey GROUP BY r.regionkey",
+                smallCrossJoinRedistribution(),
+                anyTree(
+                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                anyTree(
+                                        join(INNER, builder -> builder
+                                                .distributionType(REPLICATED)
+                                                .left(
+                                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                anyTree(
+                                                                        tableScan("nation"))))
+                                                .right(
+                                                        anyTree(
+                                                                exchange(REMOTE,
+                                                                        REPLICATE,
+                                                                        tableScan("region")))))))));
+    }
+
+    @Test
+    public void testGatherAboveRedistributedCrossJoinProbeWithExactPartitioning()
+    {
+        // a window without PARTITION BY above the redistributed probe needs a gather
+        assertDistributedPlan(
+                "SELECT sum(r.regionkey) OVER () FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey",
+                Session.builder(smallCrossJoinRedistribution())
+                        .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                        .build(),
+                anyTree(
+                        node(WindowNode.class,
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                anyTree(
+                                                        join(INNER, builder -> builder
+                                                                .distributionType(REPLICATED)
+                                                                .left(
+                                                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                                anyTree(
+                                                                                        tableScan("nation"))))
+                                                                .right(
+                                                                        anyTree(
+                                                                                exchange(REMOTE,
+                                                                                        REPLICATE,
+                                                                                        tableScan("region")))))))))));
     }
 
     @Test
