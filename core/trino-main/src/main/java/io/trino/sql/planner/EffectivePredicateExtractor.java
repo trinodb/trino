@@ -76,6 +76,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -185,6 +186,9 @@ public class EffectivePredicateExtractor
         public Expression visitFilter(FilterNode node, Void context)
         {
             Expression underlyingPredicate = node.getSource().accept(this, context);
+            // Runtime filters are not static facts. Pulling them through an outer join can
+            // embed them in disjunctions that neither pushdown nor connector translation supports.
+            Expression predicate = combineConjuncts(extractDynamicFilters(node.getPredicate()).staticConjuncts());
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
@@ -193,10 +197,10 @@ public class EffectivePredicateExtractor
                 // In that case, ignore it and combine it into the filter directly
                 // See EffectivePredicateExtractor.Visitor#entryToEquality
                 // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
-                return combineConjuncts(underlyingPredicate, node.getPredicate());
+                return combineConjuncts(underlyingPredicate, predicate);
             }
 
-            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
+            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(predicate));
             return combineConjuncts(
                     domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
                     underlying.remainingExpression(),

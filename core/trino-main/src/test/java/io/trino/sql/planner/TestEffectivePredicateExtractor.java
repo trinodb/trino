@@ -59,6 +59,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
@@ -104,6 +105,7 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -206,6 +208,15 @@ public class TestEffectivePredicateExtractor
                 Optional.empty());
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
+    }
+
+    @Test
+    public void testDynamicFilterIsNotEffectivePredicate()
+    {
+        Expression dynamicFilter = createDynamicFilterExpression(
+                metadata, getCharVarcharCoercion(SESSION), new DynamicFilterId("test"), BIGINT, new Reference(BIGINT, "a"));
+        assertThat(effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), filter(baseTableScan, dynamicFilter)))
+                .isEqualTo(TRUE);
     }
 
     @Test
