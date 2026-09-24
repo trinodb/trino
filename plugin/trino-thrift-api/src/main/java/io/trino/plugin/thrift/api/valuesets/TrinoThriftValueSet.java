@@ -18,6 +18,7 @@ import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.spi.predicate.AllOrNoneValueSet;
 import io.trino.spi.predicate.EquatableValueSet;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
 import jakarta.annotation.Nullable;
@@ -102,6 +103,10 @@ public final class TrinoThriftValueSet
 
     public static TrinoThriftValueSet fromValueSet(ValueSet valueSet)
     {
+        if (valueSet instanceof FloatingPointValueSet floatingPoint) {
+            return new TrinoThriftValueSet(null, null, fromSortedRangeSet(floatingPoint.asRanges()
+                    .orElseThrow(() -> new IllegalArgumentException("NaN-containing set cannot be represented by Thrift ranges"))));
+        }
         if (valueSet.getClass() == AllOrNoneValueSet.class) {
             return new TrinoThriftValueSet(
                     fromAllOrNoneValueSet((AllOrNoneValueSet) valueSet),

@@ -825,6 +825,16 @@ public class TestClickHouseConnectorTest
             assertThat(query("SELECT c_real FROM %s WHERE c_double_pos_infinity = +infinity()".formatted(table.getName())))
                     .isFullyPushedDown();
 
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan < 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan > 0".formatted(table.getName())))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_neg_infinity < 0 AND c_double_pos_infinity > 0".formatted(table.getName())))
+                    .matches("VALUES REAL '3.14'")
+                    .isFullyPushedDown();
+
             assertThat(query("SELECT c_real FROM %s WHERE c_double_nan = nan()".formatted(table.getName())))
                     .isReplacedWithEmptyValues();
         }
