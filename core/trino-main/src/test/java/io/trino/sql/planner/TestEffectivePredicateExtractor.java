@@ -52,6 +52,9 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -90,6 +93,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -202,6 +206,32 @@ public class TestEffectivePredicateExtractor
                 Optional.empty());
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
+    }
+
+    @Test
+    public void testMemoTraversalObservesReplacements()
+    {
+        Symbol output = new Symbol(BIGINT, "output");
+        PlanNode plan = new ProjectNode(
+                newId(),
+                filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10))),
+                Assignments.of(output, new Reference(BIGINT, "a")));
+        Memo memo = new Memo(new PlanNodeIdAllocator(), plan);
+        Lookup lookup = Lookup.from(reference -> Stream.of(memo.resolve(reference)));
+        EffectivePredicateExtractor extractor = new EffectivePredicateExtractor(plannerContext, false, lookup);
+        ProjectNode root = (ProjectNode) memo.getNode(memo.getRootGroup());
+
+        assertThat(normalizeConjuncts(extractor.extract(SESSION, emptySymbolAllocator(), root)))
+                .isEqualTo(normalizeConjuncts(greaterThan(output.toSymbolReference(), bigintLiteral(10))));
+
+        GroupReference filterReference = (GroupReference) root.getSource();
+        FilterNode filter = (FilterNode) lookup.resolve(filterReference);
+        memo.replace(filterReference.getGroupId(),
+                new FilterNode(filter.getId(), filter.getSource(), greaterThan(new Reference(BIGINT, "a"), bigintLiteral(20))),
+                "replace input predicate");
+
+        assertThat(normalizeConjuncts(extractor.extract(SESSION, emptySymbolAllocator(), root)))
+                .isEqualTo(normalizeConjuncts(greaterThan(output.toSymbolReference(), bigintLiteral(20))));
     }
 
     @Test

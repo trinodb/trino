@@ -36,6 +36,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -95,16 +97,23 @@ public class EffectivePredicateExtractor
 
     private final PlannerContext plannerContext;
     private final boolean useTableProperties;
+    private final Lookup lookup;
 
     public EffectivePredicateExtractor(PlannerContext plannerContext, boolean useTableProperties)
     {
+        this(plannerContext, useTableProperties, Lookup.noLookup());
+    }
+
+    public EffectivePredicateExtractor(PlannerContext plannerContext, boolean useTableProperties, Lookup lookup)
+    {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.useTableProperties = useTableProperties;
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     public Expression extract(Session session, SymbolAllocator symbolAllocator, PlanNode node)
     {
-        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties), null);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties, lookup), null);
     }
 
     private static class Visitor
@@ -116,8 +125,9 @@ public class EffectivePredicateExtractor
         private final SymbolAllocator symbolAllocator;
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
+        private final Lookup lookup;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties, Lookup lookup)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
@@ -125,6 +135,13 @@ public class EffectivePredicateExtractor
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.useTableProperties = useTableProperties;
             this.domainTranslator = new DomainTranslator(metadata);
+            this.lookup = requireNonNull(lookup, "lookup is null");
+        }
+
+        @Override
+        public Expression visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, context);
         }
 
         @Override
