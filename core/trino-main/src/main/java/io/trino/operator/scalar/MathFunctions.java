@@ -1555,7 +1555,20 @@ public final class MathFunctions
             }
         }
         else {
-            result = (long) ((double) bucketCount * (operand - lower) / (upper - lower) + 1);
+            double range = upper - lower;
+            double position = operand - lower;
+            double scaledPosition = bucketCount * position;
+            if (Double.isFinite(range) && Double.isFinite(scaledPosition)) {
+                result = (long) (scaledPosition / range + 1);
+            }
+            else {
+                if (Double.isInfinite(range)) {
+                    // Scale before subtracting to avoid overflowing the width of a finite range.
+                    range = upper / 2 - lower / 2;
+                    position = operand / 2 - lower / 2;
+                }
+                result = Math.min(bucketCount, (long) (bucketCount * (position / range) + 1));
+            }
         }
 
         if (bound1 > bound2) {
