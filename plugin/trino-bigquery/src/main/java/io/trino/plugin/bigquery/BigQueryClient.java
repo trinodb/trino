@@ -172,7 +172,16 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
-        return toRemoteDataset(projectId, datasetName, () -> listDatasetIds(projectId));
+        Supplier<List<DatasetId>> datasetIds = () -> listDatasetIds(projectId);
+        Optional<RemoteDatabaseObject> remoteDataset = toRemoteDataset(projectId, datasetName, datasetIds);
+        if (remoteDataset.isPresent() && remoteDataset.get().isAmbiguous()) {
+            // The colliding dataset may have been dropped or renamed, so re-resolve from the current remote state.
+            // The cached dataset listing must also be dropped, as the mapping is rebuilt from it.
+            remoteDatasetCaseInsensitiveCache.invalidate(DatasetId.of(projectId, datasetName));
+            remoteDatasetIdCache.invalidate(projectId);
+            return toRemoteDataset(projectId, datasetName, datasetIds);
+        }
+        return remoteDataset;
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, Supplier<List<DatasetId>> datasetIds)
@@ -267,7 +276,12 @@ public class BigQueryClient
 
         Optional<RemoteDatabaseObject> remoteTableFromCache = Optional.ofNullable(remoteTableCaseInsensitiveCache.getIfPresent(cacheKey));
         if (remoteTableFromCache.isPresent()) {
-            return remoteTableFromCache;
+            if (!remoteTableFromCache.get().isAmbiguous()) {
+                return remoteTableFromCache;
+            }
+            // The colliding table may have been dropped or renamed, so invalidate the entry and re-resolve.
+            // The rebuild below seeds from the cache, so the entry must be removed before it runs.
+            remoteTableCaseInsensitiveCache.invalidate(cacheKey);
         }
 
         // Get all information from BigQuery and update cache from all fetched information
