@@ -666,6 +666,41 @@ public final class IcebergQueryRunner
         }
     }
 
+    public static final class IcebergFlociRestSparkQueryRunnerMain
+    {
+        private IcebergFlociRestSparkQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            @SuppressWarnings("resource")
+            SparkIcebergRestFlociDataLake sparkIcebergRestFlociDataLake = new SparkIcebergRestFlociDataLake(bucketName);
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setIcebergProperties(
+                            ImmutableMap.<String, String>builder()
+                                    .put("iceberg.catalog.type", "rest")
+                                    .put("iceberg.rest-catalog.uri", "http://" + sparkIcebergRestFlociDataLake.restCatalogBackendContainer().getRestCatalogEndpoint())
+                                    .put("iceberg.writer-sort-buffer-size", "1MB")
+                                    .put("fs.s3.enabled", "true")
+                                    .put("s3.aws-access-key", sparkIcebergRestFlociDataLake.accessKey())
+                                    .put("s3.aws-secret-key", sparkIcebergRestFlociDataLake.secretKey())
+                                    .put("s3.region", FLOCI_REGION)
+                                    .put("s3.endpoint", sparkIcebergRestFlociDataLake.floci().endpoint().toString())
+                                    .put("s3.path-style-access", "true")
+                                    .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergFlociRestSparkQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     // TODO: Add a new query runner for table encryption
 
     public static final class IcebergAzureQueryRunnerMain
