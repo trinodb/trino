@@ -903,7 +903,7 @@ public class RangerSystemAccessControl
             return Optional.empty();
         }
         else {
-            transformer = transformer.replace("{col}", columnName).replace("{type}", type.getDisplayName());
+            transformer = transformer.replace("{col}", quoteIdentifier(columnName)).replace("{type}", type.getDisplayName());
 
             return Optional.of(ViewExpression.builder().identity(context.getIdentity().getUser()).catalog(tableName.getCatalogName()).schema(tableName.getSchemaTableName().getSchemaName()).expression(transformer).build());
         }
@@ -1065,5 +1065,10 @@ public class RangerSystemAccessControl
     private static RangerTrinoResource createTableResource(CatalogSchemaTableName catalogSchemaTableName)
     {
         return RangerTrinoResource.forTable(catalogSchemaTableName.getCatalogName(), catalogSchemaTableName.getSchemaTableName().getSchemaName(), catalogSchemaTableName.getSchemaTableName().getTableName());
+    }
+
+    private static String quoteIdentifier(String identifier)
+    {
+        return '"' + identifier.replace("\"", "\"\"") + '"';
     }
 }
