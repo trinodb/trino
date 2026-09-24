@@ -82,6 +82,7 @@ public class OptimizerConfig
     private boolean skipRedundantSort = true;
     private boolean complexExpressionPushdownEnabled = true;
     private boolean predicatePushdownUseTableProperties = true;
+    private boolean iterativePredicatePushdownEnabled = true;
     private boolean ignoreDownstreamPreferences;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
     private boolean optimizeDuplicateInsensitiveJoins = true;
@@ -589,6 +590,19 @@ public class OptimizerConfig
     public OptimizerConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
     {
         this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isIterativePredicatePushdownEnabled()
+    {
+        return iterativePredicatePushdownEnabled;
+    }
+
+    @Config("optimizer.iterative-predicate-pushdown.enabled")
+    @ConfigDescription("Use iterative predicate pushdown instead of the legacy implementation")
+    public OptimizerConfig setIterativePredicatePushdownEnabled(boolean iterativePredicatePushdownEnabled)
+    {
+        this.iterativePredicatePushdownEnabled = iterativePredicatePushdownEnabled;
         return this;
     }
 

@@ -21,20 +21,21 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
                                             join (INNER, REPLICATED):
-                                                join (INNER, REPLICATED):
-                                                    join (INNER, REPLICATED):
+                                                join (INNER, PARTITIONED):
+                                                    remote exchange (REPARTITION, HASH, [wr_refunded_addr_sk])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (wr_reason_sk::EQUAL, wr_refunded_addr_sk::EQUAL, wr_returning_cdemo_sk::EQUAL, wr_refunded_cdemo_sk::EQUAL)
-                                                                scan web_returns
+                                                            join (INNER, REPLICATED):
+                                                                dynamic filter (wr_reason_sk::EQUAL, wr_refunded_addr_sk::EQUAL, wr_refunded_cdemo_sk::EQUAL, wr_returning_cdemo_sk::EQUAL)
+                                                                    scan web_returns
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        dynamic filter (cd_marital_status_11::EQUAL, cd_education_status_12::EQUAL)
+                                                                            scan customer_demographics
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                                    dynamic filter (cd_marital_status::EQUAL, cd_education_status::EQUAL)
-                                                                        scan customer_demographics
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan customer_demographics
+                                                                    scan customer_demographics
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                        remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                             scan customer_address
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

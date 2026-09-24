@@ -1,5 +1,17 @@
 # Optimizer properties
 
+## `optimizer.iterative-predicate-pushdown.enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `iterative_predicate_pushdown_enabled`
+
+Use iterative rules for relational predicate pushdown. Set this property to
+`false` to use the legacy visitor implementation during the transition period.
+The session property overrides the configured default for an individual session.
+Both implementations retain connector predicate pushdown and the separate
+dynamic-filtering controls.
+
 ## `optimizer.dictionary-aggregation`
 
 - **Type:** {ref}`prop-type-boolean`
