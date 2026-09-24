@@ -6383,6 +6383,64 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testUpdateOnUnpartitionedTableDeleteFileCount()
+    {
+        testDeleteFileCountOnUnpartitionedTable("UPDATE %s SET value = 1 WHERE mod(id, 2) = 0", 50000, 25000);
+    }
+
+    @Test
+    public void testDeleteOnUnpartitionedTableDeleteFileCount()
+    {
+        testDeleteFileCountOnUnpartitionedTable("DELETE FROM %s WHERE mod(id, 2) = 0", 25000, 0);
+    }
+
+    @Test
+    public void testMergeOnUnpartitionedTableDeleteFileCount()
+    {
+        testDeleteFileCountOnUnpartitionedTable(
+                """
+                MERGE INTO %s t
+                USING (SELECT file * 10000 + id AS id FROM UNNEST(sequence(0, 4)) f(file) CROSS JOIN UNNEST(sequence(0, 9999, 2)) i(id)) s
+                ON t.id = s.id
+                WHEN MATCHED THEN UPDATE SET value = 1
+                """,
+                50000,
+                25000);
+    }
+
+    private void testDeleteFileCountOnUnpartitionedTable(@Language("SQL") String operation, long expectedCount, long expectedSum)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, "4")
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_unpartitioned_delete_files_", "(id integer, value integer)")) {
+            for (int file = 0; file < 5; file++) {
+                assertUpdate("INSERT INTO %s SELECT id, 0 FROM UNNEST(sequence(%s, %s)) t(id)".formatted(table.getName(), file * 10000, file * 10000 + 9999), 10000);
+            }
+            assertQuery(
+                    "SELECT content, count(*) FROM \"" + table.getName() + "$files\" GROUP BY content",
+                    "VALUES (0, 5)");
+
+            assertUpdate(session, operation.formatted(table.getName()), 25000);
+
+            long deleteFileCount = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1");
+            if (formatVersion == 2) {
+                // Each writer writes its own delete file for every data file it touches
+                assertThat(deleteFileCount).isGreaterThanOrEqualTo(10);
+            }
+            else {
+                // Deletion vectors for one data file are merged on commit
+                assertThat(deleteFileCount).isEqualTo(5);
+            }
+            assertQuery(
+                    "SELECT count(*), sum(value) FROM " + table.getName(),
+                    "VALUES (%s, %s)".formatted(expectedCount, expectedSum));
+        }
+    }
+
+    @Test
     public void testOptimizeFilesDoNotInheritSequenceNumber()
             throws IOException
     {
