@@ -355,7 +355,7 @@ public class TestStageStateMachine
         assertThat(stageInfo.subStages()).isEqualTo(ImmutableList.of());
         assertThat(stageInfo.tasks()).isEqualTo(ImmutableList.of());
         assertThat(stageInfo.types()).isEqualTo(ImmutableList.of(VARCHAR));
-        assertThat(stageInfo.plan()).isSameAs(PLAN_FRAGMENT);
+        assertThat(stageInfo.plan().fragment()).isSameAs(PLAN_FRAGMENT);
 
         assertThat(stateMachine.getState()).isEqualTo(expectedState);
         assertThat(stageInfo.state()).isEqualTo(expectedState);

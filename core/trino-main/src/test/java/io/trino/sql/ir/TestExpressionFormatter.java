@@ -13,12 +13,17 @@
  */
 package io.trino.sql.ir;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.Logical.Operator.AND;
+import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,6 +61,36 @@ public class TestExpressionFormatter
                         new Constant(BIGINT, 1L),
                         new Reference(BIGINT, "x")),
                 "LET(x::[bigint] = bigint '1', x)");
+    }
+
+    @Test
+    public void testSecureExpressionIsRedacted()
+    {
+        SecureExpression secure = new SecureExpression(comparison(
+                GREATER_THAN,
+                new Reference(BIGINT, "policy_secret"),
+                new Constant(BIGINT, 100000L)));
+
+        assertFormattedExpression(secure, SecureExpression.REDACTED);
+    }
+
+    @Test
+    public void testSecureTermsOfLogicalExpressionPrintAsOneMarker()
+    {
+        // How many secure terms a conjunction holds depends on how the policy relates to the query, so only one marker is printed
+        SecureExpression policy = new SecureExpression(comparison(GREATER_THAN, new Reference(BIGINT, "policy_secret"), new Constant(BIGINT, 100000L)));
+        SecureExpression derived = new SecureExpression(comparison(GREATER_THAN, new Reference(BIGINT, "policy_secret"), new Constant(BIGINT, 100001L)));
+        Expression visible = comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L));
+
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(policy, derived)), SecureExpression.REDACTED);
+        assertFormattedExpression(new Logical(OR, ImmutableList.of(policy, derived)), SecureExpression.REDACTED);
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(visible, policy, derived)), "((bigint '1' < x) AND [REDACTED])");
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(policy, visible, derived)), "([REDACTED] AND (bigint '1' < x))");
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(policy, new Logical(OR, ImmutableList.of(derived, policy)))), SecureExpression.REDACTED);
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(visible, new Logical(OR, ImmutableList.of(derived, policy)))), "((bigint '1' < x) AND [REDACTED])");
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(visible, visible)), "((bigint '1' < x) AND (bigint '1' < x))");
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(visible, visible, policy, derived)), "((bigint '1' < x) AND (bigint '1' < x) AND [REDACTED])");
+        assertFormattedExpression(new Logical(AND, ImmutableList.of(new Logical(OR, ImmutableList.of(visible, policy)), derived)), "(((bigint '1' < x) OR [REDACTED]) AND [REDACTED])");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

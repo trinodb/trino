@@ -54,6 +54,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
@@ -318,7 +319,17 @@ public final class DomainTranslator
     public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate)
     {
         // This is a limited type analyzer for the simple expressions used in this method
-        return new Visitor(plannerContext, session).process(predicate, false);
+        return new Visitor(plannerContext, session, false).process(predicate, false);
+    }
+
+    /**
+     * Like {@link #getExtractionResult}, but also derives domains from {@link SecureExpression}s for connector pushdown.
+     * The secure expression stays whole in the remaining expression, so the derived domain must not be turned back
+     * into a predicate.
+     */
+    public static ExtractionResult getExtractionResultForPushdown(PlannerContext plannerContext, Session session, Expression predicate)
+    {
+        return new Visitor(plannerContext, session, true).process(predicate, false);
     }
 
     private static class Visitor
@@ -328,13 +339,15 @@ public final class DomainTranslator
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
         private final TypeCoercion typeCoercion;
+        private final boolean deriveSecureDomains;
 
-        private Visitor(PlannerContext plannerContext, Session session)
+        private Visitor(PlannerContext plannerContext, Session session, boolean deriveSecureDomains)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
+            this.deriveSecureDomains = deriveSecureDomains;
         }
 
         private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
@@ -381,6 +394,18 @@ public final class DomainTranslator
                 return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
             }
             return result;
+        }
+
+        @Override
+        protected ExtractionResult visitSecureExpression(SecureExpression node, Boolean complement)
+        {
+            if (!deriveSecureDomains) {
+                // Opaque, so the domain cannot recreate its values in a plan
+                return visitExpression(node, complement);
+            }
+            // The whole secure expression stays as the residual
+            ExtractionResult result = process(node.expression(), complement);
+            return new ExtractionResult(result.tupleDomain(), complementIfNecessary(node, complement));
         }
 
         @Override

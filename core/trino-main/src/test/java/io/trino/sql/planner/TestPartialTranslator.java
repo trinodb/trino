@@ -33,6 +33,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
@@ -181,6 +182,16 @@ public class TestPartialTranslator
         Expression nullIf = nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), getCharVarcharCoercion(TEST_SESSION), new SymbolAllocator(ImmutableList.of()), value, new Constant(BIGINT, 1L));
         assertThat(nullIf).isInstanceOf(Let.class);
         assertFullTranslation(nullIf);
+    }
+
+    @Test
+    public void testSecureExpressionIsNotPartiallyTranslated()
+    {
+        Expression value = new Reference(INTEGER, "secure_symbol");
+        Expression secure = new SecureExpression(value);
+
+        assertThat(extractPartialTranslations(secure, TEST_SESSION)).isEmpty();
+        assertThat(extractPartialTranslations(new Cast(secure, VARCHAR), TEST_SESSION)).isEmpty();
     }
 
     private void assertFullTranslation(Expression expression)

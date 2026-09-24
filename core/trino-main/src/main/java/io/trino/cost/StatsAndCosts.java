@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import io.trino.execution.StagesInfo;
-import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.RedactedPlanFragment;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -96,10 +96,10 @@ public class StatsAndCosts
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
 
         stages.getStages().stream().forEach(stage -> {
-            PlanFragment planFragment = stage.plan();
-            if (planFragment != null) {
-                planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
-                planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
+            RedactedPlanFragment plan = stage.plan();
+            if (plan != null) {
+                planNodeStats.putAll(plan.fragment().getStatsAndCosts().getStats());
+                planNodeCosts.putAll(plan.fragment().getStatsAndCosts().getCosts());
             }
         });
         return new StatsAndCosts(planNodeStats.buildOrThrow(), planNodeCosts.buildOrThrow());

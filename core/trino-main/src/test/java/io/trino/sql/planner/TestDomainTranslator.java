@@ -34,7 +34,9 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
+import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.ir.TestingIr;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.type.LikePattern;
@@ -1715,6 +1717,34 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testSecureExpressionRemainsOpaque()
+    {
+        SecureExpression secure = new SecureExpression(equal(C_BIGINT, bigintLiteral(1L)));
+
+        assertPredicateTranslates(secure, TupleDomain.all(), secure);
+    }
+
+    @Test
+    public void testSecureExpressionDerivesDomainForPushdown()
+    {
+        SecureExpression secure = new SecureExpression(equal(C_BIGINT, bigintLiteral(1L)));
+
+        // the domain is derived, but the secure expression stays whole as the residual
+        ExtractionResult result = fromPredicateForPushdown(Logical.and(secure, equal(C_BIGINT_1, bigintLiteral(2L))));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                C_BIGINT,
+                Domain.singleValue(BIGINT, 1L),
+                C_BIGINT_1,
+                Domain.singleValue(BIGINT, 2L)));
+        assertThat(result.remainingExpression()).isEqualTo(secure);
+
+        result = fromPredicateForPushdown(not(secure));
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(
+                C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L), Range.greaterThan(BIGINT, 1L)), false)));
+        assertThat(result.remainingExpression()).isEqualTo(not(secure));
+    }
+
+    @Test
     public void testCharComparedToVarcharExpression()
     {
         Type charType = createCharType(10);
@@ -2003,6 +2033,11 @@ public class TestDomainTranslator
     private ExtractionResult fromPredicate(Session session, Expression originalPredicate)
     {
         return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), session, originalPredicate);
+    }
+
+    private ExtractionResult fromPredicateForPushdown(Expression originalPredicate)
+    {
+        return DomainTranslator.getExtractionResultForPushdown(functionResolution.getPlannerContext(), TEST_SESSION, originalPredicate);
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)

@@ -40,6 +40,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.routine.ir.IrBlock;
 import io.trino.sql.routine.ir.IrBreak;
 import io.trino.sql.routine.ir.IrContinue;
@@ -264,7 +265,7 @@ public final class SqlRoutineHash
                 }
                 // These expression types are fully represented by class name + type + children
                 case Array _, Bind _, Case _, Cast _, Coalesce _,
-                     In _, IsNull _, Row _, Match _ -> {
+                     In _, IsNull _, Row _, Match _, SecureExpression _ -> {
                     hasher.putInt(expression.children().size());
                     for (Expression child : expression.children()) {
                         hashExpression(child);

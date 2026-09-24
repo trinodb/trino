@@ -36,6 +36,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -81,6 +82,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.expressionOrNullSymbols;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.sql.ir.IrUtils.filterDeterministicConjuncts;
+import static java.util.Collections.disjoint;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -176,12 +178,31 @@ public class EffectivePredicateExtractor
                 // In that case, ignore it and combine it into the filter directly
                 // See EffectivePredicateExtractor.Visitor#entryToEquality
                 // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
+                Set<Symbol> secureSymbols = SecureColumns.symbols(node.getPredicate());
+                if (!secureSymbols.isEmpty()) {
+                    // Constraints on a secure column may derive from the secure predicate, so they stay wrapped as one group
+                    List<Expression> conjuncts = new ArrayList<>();
+                    List<Expression> derived = new ArrayList<>();
+                    for (Expression conjunct : extractConjuncts(underlyingPredicate)) {
+                        if (conjunct instanceof SecureExpression || disjoint(secureSymbols, SymbolsExtractor.extractUnique(conjunct))) {
+                            conjuncts.add(conjunct);
+                        }
+                        else {
+                            derived.add(conjunct);
+                        }
+                    }
+                    if (!derived.isEmpty()) {
+                        conjuncts.add(new SecureExpression(combineConjuncts(derived)));
+                    }
+                    underlyingPredicate = combineConjuncts(conjuncts);
+                }
                 return combineConjuncts(underlyingPredicate, node.getPredicate());
             }
 
             DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
+            // Domains below a secure predicate may have been derived from it (see PushPredicateIntoTableScan)
             return combineConjuncts(
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
+                    SecureColumns.toPredicate(domainTranslator, getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain()), SecureColumns.symbols(node.getPredicate())),
                     underlying.remainingExpression(),
                     current.remainingExpression());
         }
