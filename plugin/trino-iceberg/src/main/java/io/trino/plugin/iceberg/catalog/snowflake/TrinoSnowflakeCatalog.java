@@ -377,6 +377,12 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Materialized views are not supported for the Snowflake Iceberg catalog");
+    }
+
+    @Override
     public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
     {
         throw new TrinoException(NOT_SUPPORTED, "Materialized views are not supported for the Snowflake Iceberg catalog");

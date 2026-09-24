@@ -1219,6 +1219,26 @@ public class TrinoGlueCatalog
     }
 
     @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        ConnectorMaterializedViewDefinition definition = doGetMaterializedView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
+                comment,
+                definition.getOwner(),
+                definition.getPath());
+
+        updateMaterializedView(viewName, newDefinition);
+    }
+
+    @Override
     public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         ConnectorMaterializedViewDefinition definition = doGetMaterializedView(session, viewName)

@@ -617,6 +617,27 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testCommentDoesNotAffectStorageTable()
+    {
+        String materializedViewName = "test_comment_materialized_view" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT _date, count(_date) AS num_dates FROM base_table1 GROUP BY 1");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + materializedViewName, 3);
+
+        TableMetadata storageMetadataBefore = getStorageTableMetadata(materializedViewName);
+        String storageTableUuid = storageMetadataBefore.uuid();
+        List<Snapshot> storageSnapshotsBefore = storageMetadataBefore.snapshots();
+
+        assertUpdate("COMMENT ON MATERIALIZED VIEW " + materializedViewName + " IS 'new comment'");
+        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + materializedViewName)).contains("COMMENT 'new comment'");
+
+        TableMetadata storageMetadataAfter = getStorageTableMetadata(materializedViewName);
+        assertThat(storageMetadataAfter.uuid()).isEqualTo(storageTableUuid);
+        assertThat(storageMetadataAfter.snapshots()).isEqualTo(storageSnapshotsBefore);
+
+        assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+    }
+
+    @Test
     public void testReplaceWithLegacyMetastoreStorage()
     {
         String schemaName = getSession().getSchema().orElseThrow();

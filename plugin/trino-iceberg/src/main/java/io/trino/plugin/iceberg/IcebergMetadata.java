@@ -1429,6 +1429,17 @@ public class IcebergMetadata
     }
 
     @Override
+    public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        try {
+            catalog.updateMaterializedViewComment(session, viewName, comment);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set materialized view comment: " + requireNonNullElse(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         try {
