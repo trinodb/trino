@@ -69,7 +69,10 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -121,6 +124,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
@@ -139,6 +143,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
@@ -234,6 +239,8 @@ public class TestAnalyzer
     private static final String TPCH_CATALOG = "tpch";
     private static final String SECOND_CATALOG = "c2";
     private static final String THIRD_CATALOG = "c3";
+    private static final String FAILING_CATALOG = "failing";
+    private static final ErrorCodeSupplier EXTERNAL_FAILURE = () -> new ErrorCode(0x7FFF_0000, "EXTERNAL_FAILURE", EXTERNAL);
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
@@ -3605,6 +3612,21 @@ public class TestAnalyzer
         assertFails("SELECT * FROM v5")
                 .hasErrorCode(INVALID_VIEW)
                 .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.v5': line 1:15: View is recursive");
+    }
+
+    @Test
+    public void testViewAnalysisErrorCode()
+    {
+        assertFails("SELECT * FROM view_over_external_failure")
+                .hasErrorCode(EXTERNAL_FAILURE)
+                .satisfies(e -> assertThat(((TrinoException) e).getErrorCode().getType()).isEqualTo(EXTERNAL))
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.view_over_external_failure': External failure");
+        assertFails("SELECT * FROM view_over_unclassified_failure")
+                .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.view_over_unclassified_failure': Unexpected failure");
+        assertFails("SELECT * FROM view_over_wrapped_user_failure")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.view_over_wrapped_user_failure': Wrapped failure");
     }
 
     @Test
@@ -8559,6 +8581,15 @@ public class TestAnalyzer
 
         planTester.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
         planTester.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
+        planTester.createCatalog(FAILING_CATALOG, MockConnectorFactory.builder()
+                .withName("failing")
+                .withGetTableHandle((_, table) -> switch (table.getTableName()) {
+                    case "external_failure" -> throw new TrinoException(EXTERNAL_FAILURE, "External failure");
+                    case "unclassified_failure" -> throw new IllegalStateException("Unexpected failure");
+                    case "wrapped_user_failure" -> throw new RuntimeException("Wrapped failure", new TrinoException(PERMISSION_DENIED, "Denied"));
+                    default -> null;
+                })
+                .build(), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(
@@ -8687,6 +8718,18 @@ public class TestAnalyzer
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
+
+        for (String failure : ImmutableList.of("external_failure", "unclassified_failure", "wrapped_user_failure")) {
+            ViewDefinition viewOverFailingCatalog = new ViewDefinition(
+                    "SELECT * FROM failing.s1." + failure,
+                    Optional.of(TPCH_CATALOG),
+                    Optional.of("s1"),
+                    ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                    Optional.empty(),
+                    Optional.of(Identity.ofUser("user")),
+                    ImmutableList.of());
+            inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "view_over_" + failure), viewOverFailingCatalog, ImmutableMap.of(), false));
+        }
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
