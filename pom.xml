@@ -2522,6 +2522,26 @@
                         </exceptions>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <!-- TODO: move to airbase -->
+                        <exclusionFail>true</exclusionFail>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <goals>
+                                <goal>analyze-only</goal>
+                                <goal>analyze-duplicate</goal>
+                                <!-- TODO: move to airbase -->
+                                <goal>analyze-exclusions</goal>
+                            </goals>
+                            <phase>process-test-classes</phase>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
 
