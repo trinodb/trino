@@ -27,6 +27,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
@@ -56,6 +57,7 @@ public sealed interface FilterEvaluator
                 DynamicFilterEvaluator,
                 OrFilterEvaluator,
                 PageFilterEvaluator,
+                RedactingFilterEvaluator,
                 SelectAllEvaluator,
                 SelectNoneEvaluator
 {
@@ -80,6 +82,9 @@ public sealed interface FilterEvaluator
     static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(CharVarcharCoercion charVarcharCoercion, Expression expression, Map<Symbol, Integer> layout, ColumnarFilterCompiler compiler, boolean filterReorderingEnabled, boolean dynamicFilter)
     {
         return switch (expression) {
+            // Failures are redacted like on the bytecode path
+            case SecureExpression secure -> createColumnarFilterEvaluator(charVarcharCoercion, secure.expression(), layout, compiler, filterReorderingEnabled, dynamicFilter)
+                    .map(supplier -> () -> new RedactingFilterEvaluator(supplier.get()));
             case Constant constant when constant.value() instanceof Boolean booleanValue -> booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
             case Constant constant when constant.type().equals(BOOLEAN) && constant.value() == null -> Optional.of(SelectNoneEvaluator::new);
             case Reference reference when reference.type().equals(BOOLEAN) -> createReferenceExpressionEvaluator(charVarcharCoercion, compiler, reference, layout, dynamicFilter);

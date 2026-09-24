@@ -435,6 +435,7 @@ public final class IrExpressions
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
+            case SecureExpression e -> mayBeNull(plannerContext, charVarcharCoercion, e.expression(), referencesMayBeNull);
 
             // These expressions may return null based on their own semantics
             case Constant e -> e.value() == null;
@@ -492,6 +493,7 @@ public final class IrExpressions
             case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
             case Match e -> mayFail(plannerContext, charVarcharCoercion, e.operand()) || e.clauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.lambda().body()) || mayFail(plannerContext, charVarcharCoercion, clause.result())) ||
                     mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
+            case SecureExpression e -> mayFail(plannerContext, charVarcharCoercion, e.expression());
         };
     }
 

@@ -36,6 +36,7 @@ import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -176,6 +177,21 @@ public class TestFilterStatsCalculator
         assertExpression(TRUE).equalTo(standardInputStatistics);
         assertExpression(FALSE).equalTo(zeroStatistics);
         assertExpression(new Constant(BOOLEAN, null)).equalTo(zeroStatistics);
+    }
+
+    @Test
+    public void testSecureExpressionIsEstimatedThroughMarker()
+    {
+        // A secure filter must be estimated as its child, not fall back to the unknown-filter coefficient.
+        double lessThan3Rows = 487.5;
+        assertExpression(new SecureExpression(comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0))))
+                .outputRowsCount(lessThan3Rows)
+                .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
+                        symbolAssert.averageRowSize(4.0)
+                                .lowValue(-10)
+                                .highValue(3)
+                                .distinctValuesCount(26)
+                                .nullsFraction(0.0));
     }
 
     @Test

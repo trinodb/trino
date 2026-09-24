@@ -42,9 +42,13 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import java.time.Duration;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.SECURE_EXPRESSION_REDACTION_ENABLED;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -70,6 +74,7 @@ public class TestColumnMask
             .setCatalog(LOCAL_CATALOG)
             .setSchema(TINY_SCHEMA_NAME)
             .setIdentity(Identity.forUser(USER).build())
+            .setSystemProperty(SECURE_EXPRESSION_REDACTION_ENABLED, "true")
             .build();
 
     private final QueryAssertions assertions;
@@ -220,6 +225,121 @@ public class TestColumnMask
     public void teardown()
     {
         assertions.close();
+    }
+
+    @Test
+    public void testSecureMaskIsTransparentAndRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("custkey + 987654321")
+                        .secure(true)
+                        .build());
+
+        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1"))
+                .matches("VALUES BIGINT '987654691'");
+
+        String plan = (String) assertions.getQueryRunner()
+                .execute(SESSION, "EXPLAIN (TYPE LOGICAL) SELECT custkey FROM orders WHERE orderkey = 1")
+                .getOnlyValue();
+        assertThat(plan).contains("[REDACTED]").doesNotContain("987654321");
+    }
+
+    @Test
+    public void testNonSecureMaskIsNotRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("custkey + 987654321")
+                        .build());
+
+        String plan = (String) assertions.getQueryRunner()
+                .execute(SESSION, "EXPLAIN (TYPE LOGICAL) SELECT custkey FROM orders WHERE orderkey = 1")
+                .getOnlyValue();
+        assertThat(plan).contains("987654321").doesNotContain("[REDACTED]");
+    }
+
+    @Test
+    public void testSecureMaskWithSubqueryIsRejected()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT max(nationkey) FROM nation WHERE name <> 'column-policy-secret')")
+                        .secure(true)
+                        .build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_MASK)
+                .hasMessageContaining("Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+    }
+
+    @Test
+    public void testSecureMaskErrorsAreRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("column_policy_parse_secret $$$").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_MASK)
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("column_policy_unknown + 1").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        // the aggregation check names the offending function, which must be redacted as well
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("count(*)").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("CAST(CAST(custkey AS VARCHAR) || '-column-policy-runtime-secret' AS BIGINT)")
+                        .secure(true)
+                        .build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("[REDACTED]");
     }
 
     @Test

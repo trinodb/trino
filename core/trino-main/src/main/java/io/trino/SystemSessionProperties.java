@@ -170,6 +170,7 @@ public final class SystemSessionProperties
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
+    public static final String SECURE_EXPRESSION_REDACTION_ENABLED = "secure_expression_redaction_enabled";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_period";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_min";
@@ -860,8 +861,14 @@ public final class SystemSessionProperties
                         HIDE_INACCESSIBLE_COLUMNS,
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
                         featuresConfig.isHideInaccessibleColumns(),
-                        value -> validateHideInaccessibleColumns(value, featuresConfig.isHideInaccessibleColumns()),
+                        value -> validateNotDisabledBySession(HIDE_INACCESSIBLE_COLUMNS, value, featuresConfig.isHideInaccessibleColumns()),
                         false),
+                booleanProperty(
+                        SECURE_EXPRESSION_REDACTION_ENABLED,
+                        "Redact secure access-control row filters and column masks from observable query details",
+                        featuresConfig.isSecureExpressionRedactionEnabled(),
+                        value -> validateNotDisabledBySession(SECURE_EXPRESSION_REDACTION_ENABLED, value, featuresConfig.isSecureExpressionRedactionEnabled()),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD,
                         "The number of tasks we create for given non-writer stage of arbitrary distribution before we increase task size",
@@ -1534,10 +1541,10 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
     }
 
-    private static void validateHideInaccessibleColumns(boolean value, boolean defaultValue)
+    private static void validateNotDisabledBySession(String property, boolean value, boolean defaultValue)
     {
         if (defaultValue && !value) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", property));
         }
     }
 
@@ -1802,6 +1809,11 @@ public final class SystemSessionProperties
     public static boolean isHideInaccessibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
+    }
+
+    public static boolean isSecureExpressionRedactionEnabled(Session session)
+    {
+        return session.getSystemProperty(SECURE_EXPRESSION_REDACTION_ENABLED, Boolean.class);
     }
 
     public static int getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(Session session)

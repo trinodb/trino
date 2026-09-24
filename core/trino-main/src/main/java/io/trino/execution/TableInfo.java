@@ -24,12 +24,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.SecureColumns;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -50,15 +53,16 @@ public record TableInfo(
 
     public static Map<PlanNodeId, TableInfo> extract(Session session, Metadata metadata, PlanFragment fragment)
     {
+        Set<Symbol> secureSymbols = SecureColumns.symbols(fragment.getRoot());
         return searchFrom(fragment.getRoot())
                 .where(TableScanNode.class::isInstance)
                 .findAll()
                 .stream()
                 .map(TableScanNode.class::cast)
-                .collect(toImmutableMap(PlanNode::getId, node -> extract(session, metadata, node)));
+                .collect(toImmutableMap(PlanNode::getId, node -> extract(session, metadata, node, secureSymbols)));
     }
 
-    private static TableInfo extract(Session session, Metadata metadata, TableScanNode node)
+    private static TableInfo extract(Session session, Metadata metadata, TableScanNode node, Set<Symbol> secureSymbols)
     {
         CatalogSchemaTableName tableName = metadata.getTableName(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
@@ -66,6 +70,6 @@ public record TableInfo(
                 .map(CatalogInfo::connectorName)
                 .map(ConnectorName::toString);
         QualifiedObjectName objectName = new QualifiedObjectName(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName(), tableName.getSchemaTableName().getTableName());
-        return new TableInfo(connectorName, objectName, tableProperties.getPredicate());
+        return new TableInfo(connectorName, objectName, SecureColumns.redact(tableProperties.getPredicate(), node, secureSymbols));
     }
 }

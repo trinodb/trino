@@ -52,7 +52,9 @@ public class InputExtractor
 
     public List<Input> extractInputs(SubPlan root)
     {
-        Visitor visitor = new Visitor();
+        ImmutableSet.Builder<Symbol> secureSymbols = ImmutableSet.builder();
+        root.getAllFragments().forEach(fragment -> secureSymbols.addAll(SecureColumns.symbols(fragment.getRoot())));
+        Visitor visitor = new Visitor(secureSymbols.build());
         root.getAllFragments()
                 .forEach(fragment -> fragment.getRoot().accept(visitor, fragment.getId()));
 
@@ -64,11 +66,12 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId)
+    private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId, boolean secure)
     {
         CatalogSchemaTableName tableName = metadata.getTableName(session, table);
         SchemaTableName schemaTable = tableName.getSchemaTableName();
-        Optional<Object> inputMetadata = metadata.getInfo(session, table);
+        // Connector info (e.g. pruned partition ids) reveals the values a secure filter enforced
+        Optional<Object> inputMetadata = secure ? Optional.empty() : metadata.getInfo(session, table);
         Optional<String> connectorName = metadata.getCatalogInfo(session, tableName.getCatalogName())
                 .map(CatalogInfo::connectorName)
                 .map(ConnectorName::toString);
@@ -88,6 +91,12 @@ public class InputExtractor
             extends PlanVisitor<Void, PlanFragmentId>
     {
         private final ImmutableSet.Builder<Input> inputs = ImmutableSet.builder();
+        private final Set<Symbol> secureSymbols;
+
+        private Visitor(Set<Symbol> secureSymbols)
+        {
+            this.secureSymbols = secureSymbols;
+        }
 
         public Set<Input> getInputs()
         {
@@ -111,11 +120,14 @@ public class InputExtractor
         private void processScan(PlanFragmentId fragmentId, PlanNodeId planNodeId, TableHandle tableHandle, Map<Symbol, ColumnHandle> assignments)
         {
             Set<Column> columns = new HashSet<>();
-            for (ColumnHandle columnHandle : assignments.values()) {
-                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
-            }
+            assignments.forEach((symbol, columnHandle) -> {
+                if (!secureSymbols.contains(symbol)) {
+                    columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
+                }
+            });
 
-            inputs.add(createInput(session, tableHandle, columns, fragmentId, planNodeId));
+            boolean secure = assignments.keySet().stream().anyMatch(secureSymbols::contains);
+            inputs.add(createInput(session, tableHandle, columns, fragmentId, planNodeId, secure));
         }
 
         @Override

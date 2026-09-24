@@ -48,6 +48,8 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
+import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -59,6 +61,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -107,11 +110,13 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Cast.Kind.REINTERPRET;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.translateConjuncts;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -299,6 +304,21 @@ public class TestConnectorExpressionTranslator
         assertTranslationRoundTrips(
                 new Call(NEGATION_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "double_symbol_1"))),
                 new io.trino.spi.expression.Call(DOUBLE, NEGATE_FUNCTION_NAME, List.of(new Variable("double_symbol_1", DOUBLE))));
+    }
+
+    @Test
+    public void testSecureExpressionIsNotTranslated()
+    {
+        SecureExpression secure = new SecureExpression(comparison(
+                LESS_THAN,
+                new Reference(DOUBLE, "double_symbol_1"),
+                new Reference(DOUBLE, "double_symbol_2")));
+
+        assertTranslationToConnectorExpression(TEST_SESSION, secure, Optional.empty());
+
+        ConnectorExpressionTranslation translation = translateConjuncts(TEST_SESSION, secure, Set.of("double_symbol_1", "double_symbol_2"));
+        assertThat(translation.connectorExpression()).isEqualTo(io.trino.spi.expression.Constant.TRUE);
+        assertThat(translation.remainingExpression()).isEqualTo(secure);
     }
 
     @Test
