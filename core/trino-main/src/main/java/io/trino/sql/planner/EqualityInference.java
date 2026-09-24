@@ -39,7 +39,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
@@ -69,6 +68,7 @@ public class EqualityInference
     private final Map<Expression, List<Expression>> expressionCache = new HashMap<>();
     private final Map<Expression, List<Symbol>> symbolsCache = new HashMap<>();
     private final Map<Expression, Set<Symbol>> uniqueSymbolsCache = new HashMap<>();
+    private final Map<Expression, String> canonicalFormCache = new HashMap<>();
 
     public EqualityInference(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Expression... expressions)
     {
@@ -131,7 +131,7 @@ public class EqualityInference
                 // TODO: be more precise in determining the cost of an expression
                 .comparingInt((ToIntFunction<Expression>) expression -> extractAllSymbols(expression).size())
                 .thenComparingLong(expression -> extractSubExpressions(expression).size())
-                .thenComparing(Expression::toString);
+                .thenComparing(this::canonicalForm);
 
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities, canonicalComparator);
 
@@ -223,14 +223,14 @@ public class EqualityInference
                 }
             }
             // Compile the equality expressions on each side of the scope
-            Expression matchingCanonical = getCanonical(scopeExpressions.stream());
+            Expression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
                 scopeExpressions.stream()
                         .filter(expression -> !expression.equals(matchingCanonical))
                         .map(expression -> comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingCanonical, expression))
                         .forEach(scopeEqualities::add);
             }
-            Expression complementCanonical = getCanonical(scopeComplementExpressions.stream());
+            Expression complementCanonical = getCanonical(scopeComplementExpressions);
             if (scopeComplementExpressions.size() >= 2) {
                 scopeComplementExpressions.stream()
                         .filter(expression -> !expression.equals(complementCanonical))
@@ -241,14 +241,10 @@ public class EqualityInference
             // Compile single equality between matching and complement scope.
             // Only consider expressions that don't have derived expression in other scope.
             // Otherwise, redundant equality would be generated.
-            Optional<Expression> matchingConnecting = scopeExpressions.stream()
-                    .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, symbol -> !scope.contains(symbol), false) == null)
-                    .min(canonicalComparator);
-            Optional<Expression> complementConnecting = scopeComplementExpressions.stream()
-                    .filter(expression -> SymbolsExtractor.extractAll(expression).isEmpty() || rewrite(expression, scope::contains, false) == null)
-                    .min(canonicalComparator);
-            if (matchingConnecting.isPresent() && complementConnecting.isPresent() && !matchingConnecting.equals(complementConnecting)) {
-                scopeStraddlingEqualities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingConnecting.get(), complementConnecting.get()));
+            Expression matchingConnecting = getConnecting(scopeExpressions, symbol -> !scope.contains(symbol));
+            Expression complementConnecting = getConnecting(scopeComplementExpressions, scope::contains);
+            if (matchingConnecting != null && complementConnecting != null && !matchingConnecting.equals(complementConnecting)) {
+                scopeStraddlingEqualities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, matchingConnecting, complementConnecting));
             }
 
             // Compile the scope straddling equality expressions.
@@ -263,7 +259,7 @@ public class EqualityInference
                 straddlingExpressions.add(complementCanonical);
             }
             straddlingExpressions.addAll(scopeStraddlingExpressions);
-            Expression connectingCanonical = getCanonical(straddlingExpressions.stream());
+            Expression connectingCanonical = getCanonical(straddlingExpressions);
             if (connectingCanonical != null) {
                 straddlingExpressions.stream()
                         .filter(expression -> !expression.equals(connectingCanonical))
@@ -294,7 +290,7 @@ public class EqualityInference
             if (scopeExpressions.size() < 2) {
                 continue;
             }
-            Expression canonical = getCanonical(scopeExpressions.stream());
+            Expression canonical = getCanonical(scopeExpressions);
             for (Expression expression : scopeExpressions) {
                 if (!expression.equals(canonical)) {
                     equalities.add(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, canonical, expression));
@@ -357,9 +353,43 @@ public class EqualityInference
     /**
      * Returns the most preferrable expression to be used as the canonical expression
      */
-    private Expression getCanonical(Stream<Expression> expressions)
+    private Expression getCanonical(Collection<Expression> expressions)
     {
-        return expressions.min(canonicalComparator).orElse(null);
+        Expression canonical = null;
+        for (Expression expression : expressions) {
+            if (canonical == null || canonicalComparator.compare(expression, canonical) < 0) {
+                canonical = expression;
+            }
+        }
+        return canonical;
+    }
+
+    /**
+     * The string the canonical ordering falls back on, which is only reached by expressions that
+     * tie on symbol and sub-expression count, as two plain references always do. Rendering one is
+     * far from free and the same expressions are compared over and over, so they are kept.
+     */
+    private String canonicalForm(Expression expression)
+    {
+        return canonicalFormCache.computeIfAbsent(expression, Expression::toString);
+    }
+
+    /**
+     * The canonical expression of one side of a scope that can connect to the other side, which is
+     * one that is either constant or cannot itself be rewritten into {@code otherScope}.
+     */
+    private Expression getConnecting(Collection<Expression> expressions, Predicate<Symbol> otherScope)
+    {
+        Expression connecting = null;
+        for (Expression expression : expressions) {
+            if (connecting != null && canonicalComparator.compare(expression, connecting) >= 0) {
+                continue;
+            }
+            if (extractAllSymbols(expression).isEmpty() || rewrite(expression, otherScope, false) == null) {
+                connecting = expression;
+            }
+        }
+        return connecting;
     }
 
     /**
