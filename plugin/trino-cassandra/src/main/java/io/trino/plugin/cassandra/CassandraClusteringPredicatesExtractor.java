@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -62,15 +63,19 @@ public class CassandraClusteringPredicatesExtractor
             if (domain == null) {
                 break;
             }
-            if (domain.isNullAllowed()) {
+            if (domain.isNullAllowed() || domain.getValues() instanceof FloatingPointValueSet floatingPoint &&
+                    (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues())) {
                 break;
             }
 
             String predicateString = domain.getValues().getValuesProcessor().transform(
                     ranges -> {
                         if (ranges.getRangeCount() == 1) {
-                            fullyPushedColumnPredicates.add(columnHandle);
-                            return translateRangeIntoCql(columnHandle, getOnlyElement(ranges.getOrderedRanges()));
+                            Range range = getOnlyElement(ranges.getOrderedRanges());
+                            if (!(domain.getValues() instanceof FloatingPointValueSet) || (!range.isLowUnbounded() && !range.isHighUnbounded())) {
+                                fullyPushedColumnPredicates.add(columnHandle);
+                            }
+                            return translateRangeIntoCql(columnHandle, range);
                         }
                         if (ranges.getOrderedRanges().stream().allMatch(Range::isSingleValue)) {
                             String inValues = ranges.getOrderedRanges().stream()
