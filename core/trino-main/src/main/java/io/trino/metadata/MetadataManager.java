@@ -1980,6 +1980,15 @@ public final class MetadataManager
     }
 
     @Override
+    public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        metadata.setMaterializedViewComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), comment);
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());

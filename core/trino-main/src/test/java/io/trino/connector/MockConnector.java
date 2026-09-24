@@ -796,6 +796,9 @@ public class MockConnector
         public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties) {}
 
         @Override
+        public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment) {}
+
+        @Override
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
         {
             return getViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new));

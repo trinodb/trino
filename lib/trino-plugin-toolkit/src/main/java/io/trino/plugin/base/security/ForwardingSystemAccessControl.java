@@ -425,6 +425,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanSetMaterializedViewComment(context, materializedView);
+    }
+
+    @Override
     public boolean canExecuteFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
     {
         return delegate().canExecuteFunction(systemSecurityContext, functionName);

@@ -582,6 +582,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the comment of the specified materialized view.
+     */
+    default void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view comments");
+    }
+
+    /**
      * Comments to the specified materialized view column.
      */
     default void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)

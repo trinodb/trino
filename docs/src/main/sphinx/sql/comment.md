@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-COMMENT ON ( TABLE | VIEW | COLUMN ) name IS 'comments'
+COMMENT ON ( TABLE | VIEW | MATERIALIZED VIEW | COLUMN ) name IS 'comments'
 ```
 
 ## Description
@@ -22,6 +22,12 @@ Change the comment for the `users` view to be `master view`:
 
 ```
 COMMENT ON VIEW users IS 'master view';
+```
+
+Change the comment for the `users_mv` materialized view to be `master materialized view`:
+
+```
+COMMENT ON MATERIALIZED VIEW users_mv IS 'master materialized view';
 ```
 
 Change the comment for the `users.name` column to be `full name`:
