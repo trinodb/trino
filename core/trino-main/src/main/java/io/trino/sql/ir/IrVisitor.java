@@ -41,6 +41,7 @@ public abstract class IrVisitor<R, C>
             case Match match -> visitMatch(match, context);
             case Reference reference -> visitReference(reference, context);
             case Row row -> visitRow(row, context);
+            case SensitiveExpression sensitiveExpression -> visitSensitiveExpression(sensitiveExpression, context);
         };
     }
 
@@ -120,6 +121,11 @@ public abstract class IrVisitor<R, C>
     }
 
     protected R visitCoalesce(Coalesce node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    protected R visitSensitiveExpression(SensitiveExpression node, C context)
     {
         return visitExpression(node, context);
     }

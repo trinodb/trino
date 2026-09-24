@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.PageProjectionWork;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SensitiveExpressions;
 import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
@@ -32,16 +33,18 @@ public class GeneratedPageProjection
 {
     private final Expression projection;
     private final boolean isDeterministic;
+    private final boolean sensitive;
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
 
     @Nullable
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(Expression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
+    public GeneratedPageProjection(Expression projection, boolean isDeterministic, boolean sensitive, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;
+        this.sensitive = sensitive;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
     }
@@ -67,8 +70,19 @@ public class GeneratedPageProjection
         else {
             blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
         }
+        PageProjectionWork work;
         try {
-            return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
+            work = (PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
+        }
+        catch (Throwable throwable) {
+            if (sensitive) {
+                // The constructor creates the function instances of the sensitive expression
+                throw SensitiveExpressions.redactFailure(throwable);
+            }
+            throw propagate(throwable);
+        }
+        try {
+            return work.process();
         }
         catch (Throwable throwable) {
             throw propagate(throwable);

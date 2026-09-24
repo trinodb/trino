@@ -56,6 +56,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SensitiveExpression;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePattern;
@@ -133,6 +134,21 @@ public final class DomainTranslator
         return IrUtils.combineConjuncts(toPredicateConjuncts(charVarcharCoercion, tupleDomain));
     }
 
+    /**
+     * Like {@link #toPredicate(CharVarcharCoercion, TupleDomain)}, but wraps the part over {@code sensitiveSymbols} in a
+     * {@link SensitiveExpression}, since it may derive from one.
+     */
+    public Expression toPredicate(CharVarcharCoercion charVarcharCoercion, TupleDomain<Symbol> tupleDomain, Set<Symbol> sensitiveSymbols)
+    {
+        if (sensitiveSymbols.isEmpty()) {
+            return toPredicate(charVarcharCoercion, tupleDomain);
+        }
+        Expression sensitive = toPredicate(charVarcharCoercion, tupleDomain.filter((symbol, _) -> sensitiveSymbols.contains(symbol)));
+        return combineConjuncts(
+                toPredicate(charVarcharCoercion, tupleDomain.filter((symbol, _) -> !sensitiveSymbols.contains(symbol))),
+                TRUE.equals(sensitive) ? sensitive : new SensitiveExpression(sensitive));
+    }
+
     private List<Expression> toPredicateConjuncts(CharVarcharCoercion charVarcharCoercion, TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
@@ -177,7 +193,17 @@ public final class DomainTranslator
     public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate)
     {
         // This is a limited type analyzer for the simple expressions used in this method
-        return new Visitor(plannerContext, session).process(predicate, false);
+        return new Visitor(plannerContext, session, false).process(predicate, false);
+    }
+
+    /**
+     * Like {@link #getExtractionResult}, but also derives domains from {@link SensitiveExpression}s for connector pushdown.
+     * The sensitive expression stays whole in the remaining expression, and a predicate rebuilt from the derived domain
+     * must stay wrapped, see {@link #toPredicate(CharVarcharCoercion, TupleDomain, Set)}.
+     */
+    public static ExtractionResult getExtractionResultForPushdown(PlannerContext plannerContext, Session session, Expression predicate)
+    {
+        return new Visitor(plannerContext, session, true).process(predicate, false);
     }
 
     public static boolean isStructural(Type type)
@@ -213,8 +239,9 @@ public final class DomainTranslator
         private final ComparisonPreimages preimages;
         private final FunctionPreimages functionPreimages;
         private final boolean functionPreimagesEnabled;
+        private final boolean deriveSensitiveDomains;
 
-        private Visitor(PlannerContext plannerContext, Session session)
+        private Visitor(PlannerContext plannerContext, Session session, boolean deriveSensitiveDomains)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -224,6 +251,7 @@ public final class DomainTranslator
             // Shares projection, implementation, and cast resolutions across this extraction.
             this.functionPreimages = preimages.newFunctionPreimages();
             this.functionPreimagesEnabled = isFunctionPreimagesEnabled(session);
+            this.deriveSensitiveDomains = deriveSensitiveDomains;
         }
 
         private Optional<ExtractionResult> extractPreimage(Expression expression, boolean complement)
@@ -285,6 +313,18 @@ public final class DomainTranslator
                 return new ExtractionResult(TupleDomain.all(), complementIfNecessary(node, complement));
             }
             return result;
+        }
+
+        @Override
+        protected ExtractionResult visitSensitiveExpression(SensitiveExpression node, Boolean complement)
+        {
+            if (!deriveSensitiveDomains) {
+                // Opaque, so the domain cannot recreate its values in a plan
+                return visitExpression(node, complement);
+            }
+            // The whole sensitive expression stays as the residual
+            ExtractionResult result = process(node.expression(), complement);
+            return new ExtractionResult(result.tupleDomain(), complementIfNecessary(node, complement));
         }
 
         @Override

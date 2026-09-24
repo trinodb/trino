@@ -29,6 +29,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.SensitiveSymbols;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -233,7 +234,12 @@ public class DeriveTableScanConstraintThroughProject
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(plannerContext, session, inlined);
 
+        // Whether a domain narrows a column that a sensitive filter already constrains would reveal the policy
+        Set<Symbol> sensitiveSymbols = residualFilter
+                .map(filter -> SensitiveSymbols.referencedIn(filter.getPredicate()))
+                .orElse(ImmutableSet.of());
         TupleDomain<ColumnHandle> newDomain = decomposedPredicate.tupleDomain()
+                .filter((symbol, _) -> !sensitiveSymbols.contains(symbol))
                 .transformKeys(tableScan.getAssignments()::get)
                 .intersect(tableScan.getEnforcedConstraint());
 

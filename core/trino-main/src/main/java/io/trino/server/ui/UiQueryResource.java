@@ -163,7 +163,7 @@ public class UiQueryResource
         return stages.getStages().stream()
                 // pruned query info has no plan
                 .filter(stage -> stage.plan() != null)
-                .collect(toImmutableMap(StageInfo::stageId, stage -> FlattenedPlanNode.flatten(plan.get(stage.plan().getId()))));
+                .collect(toImmutableMap(StageInfo::stageId, stage -> FlattenedPlanNode.flatten(plan.get(stage.plan().fragment().getId()))));
     }
 
     @PUT

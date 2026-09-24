@@ -62,7 +62,7 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
-import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.RedactedPlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
@@ -185,11 +185,15 @@ public class QueryStateMachine
 
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
+    // Query info reports the redacted lineage, which omits what only sensitive expressions use. Event listeners get the full one.
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<Input>> redactedInputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final AtomicReference<Optional<List<ColumnLineageInfo>>> selectColumnsLineageInfo = new AtomicReference<>(Optional.empty());
     private final AtomicReference<List<TableInfo>> referencedTables = new AtomicReference<>(ImmutableList.of());
+    private final AtomicReference<List<TableInfo>> redactedReferencedTables = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
+    private final AtomicReference<List<RoutineInfo>> redactedRoutines = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<Map<String, Metrics>> catalogMetadataMetrics = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<String, Metrics>> exchangeMetrics = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<String, Long>> callResult = new AtomicReference<>();
@@ -721,11 +725,11 @@ public class QueryStateMachine
                 failureCause,
                 errorCode,
                 warningCollector.getWarnings(),
-                inputs.get(),
+                redactedInputs.get(),
                 output.get(),
                 selectColumnsLineageInfo.get(),
-                referencedTables.get(),
-                routines.get(),
+                redactedReferencedTables.get(),
+                redactedRoutines.get(),
                 finalInfo,
                 Optional.of(resourceGroup),
                 queryType,
@@ -842,8 +846,8 @@ public class QueryStateMachine
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
             failedInternalNetworkInputPositions += stageStats.getFailedInternalNetworkInputPositions();
 
-            PlanFragment plan = stageInfo.plan();
-            if (plan != null && plan.containsTableScanNode()) {
+            RedactedPlanFragment plan = stageInfo.plan();
+            if (plan != null && plan.fragment().containsTableScanNode()) {
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 failedProcessedInputDataSize += stageStats.getFailedProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
@@ -1052,10 +1056,17 @@ public class QueryStateMachine
         outputManager.updateInputsForQueryResults(inputs, noMoreInputs);
     }
 
-    public void setInputs(List<Input> inputs)
+    public void setInputs(List<Input> inputs, List<Input> redactedInputs)
     {
         requireNonNull(inputs, "inputs is null");
+        requireNonNull(redactedInputs, "redactedInputs is null");
         this.inputs.set(ImmutableSet.copyOf(inputs));
+        this.redactedInputs.set(ImmutableSet.copyOf(redactedInputs));
+    }
+
+    public Set<Input> getInputs()
+    {
+        return inputs.get();
     }
 
     public void setOutput(Optional<Output> output)
@@ -1070,16 +1081,30 @@ public class QueryStateMachine
         this.selectColumnsLineageInfo.set(selectOutputColumnsLineage);
     }
 
-    public void setReferencedTables(List<TableInfo> tables)
+    public void setReferencedTables(List<TableInfo> tables, List<TableInfo> redactedTables)
     {
         requireNonNull(tables, "tables is null");
+        requireNonNull(redactedTables, "redactedTables is null");
         referencedTables.set(ImmutableList.copyOf(tables));
+        redactedReferencedTables.set(ImmutableList.copyOf(redactedTables));
     }
 
-    public void setRoutines(List<RoutineInfo> routines)
+    public List<TableInfo> getReferencedTables()
+    {
+        return referencedTables.get();
+    }
+
+    public void setRoutines(List<RoutineInfo> routines, List<RoutineInfo> redactedRoutines)
     {
         requireNonNull(routines, "routines is null");
+        requireNonNull(redactedRoutines, "redactedRoutines is null");
         this.routines.set(ImmutableList.copyOf(routines));
+        this.redactedRoutines.set(ImmutableList.copyOf(redactedRoutines));
+    }
+
+    public List<RoutineInfo> getRoutines()
+    {
+        return routines.get();
     }
 
     public void setCallResult(Map<String, Long> metrics)
