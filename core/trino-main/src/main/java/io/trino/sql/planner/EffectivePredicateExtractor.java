@@ -77,6 +77,7 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -371,6 +372,9 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitValues(ValuesNode node, Void context)
         {
+            if (node.getRowCount() == 0) {
+                return FALSE;
+            }
             if (node.getOutputSymbols().isEmpty()) {
                 return TRUE;
             }
