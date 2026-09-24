@@ -31,6 +31,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.SensitiveSymbols;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -57,6 +59,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.spi.predicate.FloatingPointValueSet.allOrderedValues;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
+import static io.trino.sql.planner.PlanFragmentRedactor.redactConstraint;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -86,7 +89,7 @@ public class IoPlanPrinter
     private String print()
     {
         IoPlanBuilder ioPlanBuilder = new IoPlanBuilder(plan);
-        plan.getRoot().accept(new IoPlanVisitor(), ioPlanBuilder);
+        plan.getRoot().accept(new IoPlanVisitor(SensitiveSymbols.inPlan(plan.getRoot())), ioPlanBuilder);
         return jsonCodec(IoPlan.class).toJson(ioPlanBuilder.build());
     }
 
@@ -658,6 +661,13 @@ public class IoPlanPrinter
     private class IoPlanVisitor
             extends PlanVisitor<Void, IoPlanBuilder>
     {
+        private final Set<Symbol> sensitiveSymbols;
+
+        private IoPlanVisitor(Set<Symbol> sensitiveSymbols)
+        {
+            this.sensitiveSymbols = ImmutableSet.copyOf(requireNonNull(sensitiveSymbols, "sensitiveSymbols is null"));
+        }
+
         @Override
         protected Void visitPlan(PlanNode node, IoPlanBuilder context)
         {
@@ -738,7 +748,7 @@ public class IoPlanPrinter
                                     tableName.getCatalogName(),
                                     tableName.getSchemaTableName().getSchemaName(),
                                     tableName.getSchemaTableName().getTableName()),
-                            parseConstraint(table, predicateDomain.intersect(filterDomain)),
+                            parseConstraint(table, redactConstraint(predicateDomain.intersect(filterDomain), tableScan, sensitiveSymbols)),
                             estimatedStatsAndCost));
         }
 

@@ -726,10 +726,10 @@ public class TestDynamicPageFilter
         }
 
         @Override
-        public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter)
+        public Optional<Supplier<ColumnarFilter>> generateFilter(CharVarcharCoercion charVarcharCoercion, Expression filter, Map<Symbol, Integer> layout, boolean dynamicFilter, boolean sensitive)
         {
             expressionFilters++;
-            return super.generateFilter(charVarcharCoercion, filter, layout, dynamicFilter);
+            return super.generateFilter(charVarcharCoercion, filter, layout, dynamicFilter, sensitive);
         }
 
         @Override

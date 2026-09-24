@@ -204,7 +204,8 @@ public class CallTask
         }
 
         accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
-        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.objectName(), session.getUser())));
+        List<RoutineInfo> routines = ImmutableList.of(new RoutineInfo(procedureName.objectName(), session.getUser()));
+        stateMachine.setRoutines(routines, routines);
 
         try {
             Object result = procedure.getMethodHandle().invokeWithArguments(arguments);
