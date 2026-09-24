@@ -21,6 +21,7 @@ import jakarta.annotation.Nullable;
 import okhttp3.Authenticator;
 import okhttp3.Challenge;
 import okhttp3.FormBody;
+import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -34,7 +35,9 @@ import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 
@@ -43,14 +46,20 @@ import static java.util.function.Predicate.not;
  * <p>
  * On the first request the authenticator:
  * 1. Receives a 401 from Trino with a {@code WWW-Authenticate: Bearer x_token_endpoint="...", scope="..."} challenge.
- * 2. POSTs to the token endpoint with {@code grant_type=client_credentials}.
- * 3. Caches the resulting access token and its expiry time. The token endpoint URL and scope are
- *    taken from each challenge and are not cached across challenges.
+ * 2. POSTs {@code grant_type=client_credentials} to the token endpoint. By default the endpoint is taken
+ *    from the {@code x_token_endpoint} value in the challenge, which must be an https URL. A client that
+ *    sets the {@code oauth2TokenEndpoint} connection property pins the endpoint to that value: the secret
+ *    is then only ever sent there, and a challenge that names a different endpoint is rejected.
+ * 3. Caches the resulting access token and its expiry time. The scope is taken from each challenge and
+ *    is not cached across challenges.
  * 4. Subsequent requests proactively inject the cached token (via the interceptor).
  * 5. Re-fetches transparently when the token expires (reactively via the authenticator on 401,
- *    using the token endpoint and scope from the fresh challenge).
+ *    using the scope from the fresh challenge).
  * <p>
- * The client secret is only ever sent to the IdP token endpoint — never to Trino.
+ * The client secret is only ever sent to the token endpoint over https — never to Trino, and never over a
+ * clear-text connection. When {@code oauth2TokenEndpoint} is set, it is also never sent to an endpoint that
+ * does not match the configured one, so a malicious or compromised server cannot redirect the credentials
+ * to a host it controls.
  */
 public class ClientCredentialsAuthenticator
         implements Interceptor, Authenticator
@@ -63,6 +72,7 @@ public class ClientCredentialsAuthenticator
     private final OkHttpClient httpClient;
     private final String clientId;
     private final String clientSecret;
+    private final Optional<HttpUrl> configuredTokenEndpoint;
 
     private final Lock lock = new ReentrantLock();
     private volatile String cachedToken;
@@ -71,11 +81,29 @@ public class ClientCredentialsAuthenticator
     public ClientCredentialsAuthenticator(
             OkHttpClient httpClient,
             String clientId,
-            String clientSecret)
+            String clientSecret,
+            Optional<String> tokenEndpoint)
     {
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        // The token request carries the client secret, so it must not follow redirects: a redirect could
+        // send the credentials to a different (or downgraded, non-https) host chosen by the server.
+        this.httpClient = requireNonNull(httpClient, "httpClient is null")
+                .newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build();
         this.clientId = requireNonNull(clientId, "clientId is null");
         this.clientSecret = requireNonNull(clientSecret, "clientSecret is null");
+        this.configuredTokenEndpoint = requireNonNull(tokenEndpoint, "tokenEndpoint is null")
+                .map(ClientCredentialsAuthenticator::parseConfiguredEndpoint);
+    }
+
+    private static HttpUrl parseConfiguredEndpoint(String tokenEndpoint)
+    {
+        HttpUrl url = HttpUrl.parse(tokenEndpoint);
+        checkArgument(url != null, "tokenEndpoint is not a valid URL: %s", tokenEndpoint);
+        // The client secret is sent to this endpoint, so it must not travel in clear text.
+        checkArgument(url.isHttps(), "tokenEndpoint must be an https URL: %s", tokenEndpoint);
+        return url;
     }
 
     @Override
@@ -119,7 +147,7 @@ public class ClientCredentialsAuthenticator
         ChallengeHints(Optional<String> tokenEndpoint, Optional<String> scope)
         {
             this.tokenEndpoint = requireNonNull(tokenEndpoint, "tokenEndpoint is null");
-            this.scope = scope;
+            this.scope = requireNonNull(scope, "scope is null");
         }
 
         Optional<String> tokenEndpoint()
@@ -158,8 +186,7 @@ public class ClientCredentialsAuthenticator
             if (cachedToken != null && !cachedToken.equals(rejectedToken)) {
                 return cachedToken;
             }
-            String tokenEndpoint = hints.tokenEndpoint()
-                    .orElseThrow(() -> new IOException("OAuth2 token endpoint is not available; the server did not return x_token_endpoint in the WWW-Authenticate challenge"));
+            HttpUrl tokenEndpoint = resolveTokenEndpoint(hints);
 
             FormBody.Builder formBuilder = new FormBody.Builder()
                     .add("grant_type", "client_credentials")
@@ -187,11 +214,72 @@ public class ClientCredentialsAuthenticator
         }
     }
 
+    /**
+     * Determines the token endpoint the client credentials are exchanged at. When {@code oauth2TokenEndpoint}
+     * is configured, that endpoint is used and a challenge that names a different one is rejected. Otherwise
+     * the endpoint advertised by the server in the challenge is used, and it must be an https URL so the
+     * secret is never sent over a clear-text connection.
+     */
+    private HttpUrl resolveTokenEndpoint(ChallengeHints hints)
+            throws IOException
+    {
+        Optional<String> challengeTokenEndpoint = hints.tokenEndpoint();
+        if (configuredTokenEndpoint.isPresent()) {
+            HttpUrl configured = configuredTokenEndpoint.get();
+            if (challengeTokenEndpoint.isPresent()) {
+                HttpUrl challengeEndpoint = HttpUrl.parse(challengeTokenEndpoint.get());
+                if (challengeEndpoint == null || !isSameEndpoint(configured, challengeEndpoint)) {
+                    throw new IOException(format(
+                            "Server-provided OAuth2 token endpoint '%s' does not match the configured oauth2TokenEndpoint '%s'; refusing to send client credentials",
+                            challengeTokenEndpoint.get(),
+                            configured));
+                }
+            }
+            return configured;
+        }
+
+        if (challengeTokenEndpoint.isEmpty()) {
+            throw new IOException("OAuth2 token endpoint is not available; the server did not return x_token_endpoint in the WWW-Authenticate challenge");
+        }
+        HttpUrl challengeEndpoint = HttpUrl.parse(challengeTokenEndpoint.get());
+        if (challengeEndpoint == null) {
+            throw new IOException(format("Server-provided OAuth2 token endpoint '%s' is not a valid URL", challengeTokenEndpoint.get()));
+        }
+        // Without a configured endpoint, the secret goes to the server-named endpoint, so it must be https.
+        if (!challengeEndpoint.isHttps()) {
+            throw new IOException(format(
+                    "Server-provided OAuth2 token endpoint '%s' is not https; refusing to send client credentials over an insecure connection",
+                    challengeTokenEndpoint.get()));
+        }
+        return challengeEndpoint;
+    }
+
     private static Request withBearerToken(Request request, String token)
     {
         return request.newBuilder()
                 .header(AUTHORIZATION, "Bearer " + token)
                 .build();
+    }
+
+    /**
+     * Compares two token endpoints for equality after normalization. {@link HttpUrl} already lower-cases the
+     * scheme and host and resolves the default port, so only the path needs its trailing slash normalized.
+     * The query and fragment are ignored because they are not part of the token endpoint's identity.
+     */
+    private static boolean isSameEndpoint(HttpUrl configured, HttpUrl fromChallenge)
+    {
+        return configured.scheme().equals(fromChallenge.scheme())
+                && configured.host().equals(fromChallenge.host())
+                && configured.port() == fromChallenge.port()
+                && trimTrailingSlash(configured.encodedPath()).equals(trimTrailingSlash(fromChallenge.encodedPath()));
+    }
+
+    private static String trimTrailingSlash(String path)
+    {
+        if (path.length() > 1 && path.endsWith("/")) {
+            return path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

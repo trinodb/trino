@@ -36,7 +36,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+
 import java.io.File;
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -104,10 +110,27 @@ public class TestJdbcClientCredentialsAuthentication
             throws Exception
     {
         idpServer = new MockWebServer();
+        // The token endpoint receives the client secret, so it must be served over https.
+        idpServer.useHttps(buildIdpSslContext().getSocketFactory());
         idpServer.start();
 
         tokenStore.invalidateAll();
         tokenStore.issue(ACCESS_TOKEN);
+    }
+
+    private static SSLContext buildIdpSslContext()
+            throws Exception
+    {
+        char[] password = "changeit".toCharArray();
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        try (InputStream in = getResource("localhost.keystore").openStream()) {
+            keyStore.load(in, password);
+        }
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(keyStore, password);
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(keyManagerFactory.getKeyManagers(), null, new SecureRandom());
+        return sslContext;
     }
 
     @AfterEach
@@ -215,8 +238,29 @@ public class TestJdbcClientCredentialsAuthentication
         assertThatThrownBy(() -> {
             Properties props = baseProperties();
             props.setProperty("oauth2ClientId", VALID_CLIENT_ID);
+            props.setProperty("oauth2TokenEndpoint", idpServerBaseUrl() + TOKEN_PATH);
             DriverManager.getConnection(trinoUrl(), props);
         }).isInstanceOf(SQLException.class);
+    }
+
+    @Test
+    public void testConnectsWithoutConfiguredTokenEndpoint()
+            throws Exception
+    {
+        // With no oauth2TokenEndpoint configured, the client uses the (https) endpoint advertised by the server.
+        enqueueToken(ACCESS_TOKEN, 3600);
+
+        Properties props = baseProperties();
+        props.setProperty("oauth2ClientId", VALID_CLIENT_ID);
+        props.setProperty("oauth2ClientSecret", VALID_CLIENT_SECRET);
+        try (Connection connection = DriverManager.getConnection(trinoUrl(), props);
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT 1")) {
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getInt(1)).isEqualTo(1);
+        }
+
+        assertThat(idpServer.getRequestCount()).isEqualTo(1);
     }
 
     private String trinoUrl()
@@ -226,7 +270,7 @@ public class TestJdbcClientCredentialsAuthentication
 
     private String idpServerBaseUrl()
     {
-        return "http://" + idpServer.getHostName() + ":" + idpServer.getPort();
+        return "https://localhost:" + idpServer.getPort();
     }
 
     private Properties baseProperties()
@@ -245,6 +289,7 @@ public class TestJdbcClientCredentialsAuthentication
         Properties props = baseProperties();
         props.setProperty("oauth2ClientId", VALID_CLIENT_ID);
         props.setProperty("oauth2ClientSecret", VALID_CLIENT_SECRET);
+        props.setProperty("oauth2TokenEndpoint", idpServerBaseUrl() + TOKEN_PATH);
         return DriverManager.getConnection(trinoUrl(), props);
     }
 

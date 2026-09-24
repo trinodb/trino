@@ -259,9 +259,16 @@ may not be specified using both methods.
 * - `oauth2ClientId`
   - OAuth2 client ID for non-interactive (machine-to-machine) authentication using the client
     credentials flow. Unlike browser-based authentication, the client authenticates directly
-    using a client ID and secret without user involvement.
+    using a client ID and secret without user involvement. Requires `oauth2ClientSecret` to also
+    be set.
 * - `oauth2ClientSecret`
   - OAuth2 client secret for client credentials authentication.
+* - `oauth2TokenEndpoint`
+  - Optional `https://` URL of the OAuth2 token endpoint that the client credentials are exchanged
+    at. When set, the secret is only ever sent to this endpoint: if the server advertises a token
+    endpoint in its authentication challenge, it is used only when it matches this value, and a
+    mismatch is rejected. When not set, the token endpoint advertised by the server is used, and it
+    must be an `https://` URL.
 * - `disableCompression`
   -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`

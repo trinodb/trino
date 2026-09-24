@@ -167,12 +167,19 @@ mode:
   - HTTP header to add to the authenticated HTTP requests
     (property can be used multiple times; format is key=value).
 * - `--oauth2-client-id`
-  - OAuth2 client ID for client credentials authentication.
+  - OAuth2 client ID for client credentials authentication. Requires
+    `--oauth2-client-secret` to also be set.
 * - `--oauth2-client-secret`
   - Prompt for OAuth2 client secret for client credentials authentication. You 
     can set the `TRINO_OAUTH2_CLIENT_SECRET` environment variable with the 
     OAuth2 client secret value to avoid the prompt. For more information, see
     [](cli-oauth2-client-credentials-auth)
+* - `--oauth2-token-endpoint`
+  - Optional `https://` URL of the OAuth2 token endpoint that the client
+    credentials are exchanged at. When set, the secret is only ever sent to this
+    endpoint, and a token endpoint advertised by the server is used only when it
+    matches this value. When not set, the token endpoint advertised by the server
+    is used, and it must be an `https://` URL.
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`
@@ -374,6 +381,12 @@ client secret:
 ```text
 ./trino https://trino.example.com --oauth2-client-id=myclientid --oauth2-client-secret
 ```
+
+The client secret is exchanged for a token at the OAuth2 token endpoint
+advertised by the server, which must be an `https://` URL. To pin the token
+endpoint to a trusted value instead, set `--oauth2-token-endpoint`; the CLI then
+sends the secret only to that endpoint and rejects a server-advertised endpoint
+that does not match it.
 
 Alternatively, set the client secret as the value of the
 `TRINO_OAUTH2_CLIENT_SECRET` environment variable. Typically use single quotes

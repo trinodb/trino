@@ -72,6 +72,7 @@ import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTER
 import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_ID;
 import static io.trino.client.uri.PropertyName.OAUTH2_CLIENT_SECRET;
+import static io.trino.client.uri.PropertyName.OAUTH2_TOKEN_ENDPOINT;
 import static io.trino.client.uri.PropertyName.PASSWORD;
 import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.PropertyName.SCHEMA;
@@ -204,6 +205,10 @@ public class ClientOptions
     @PropertyMapping(OAUTH2_CLIENT_SECRET)
     @Option(names = "--oauth2-client-secret", description = "Prompt for OAuth2 client secret for client credentials authentication")
     public boolean oauth2ClientSecret;
+
+    @PropertyMapping(OAUTH2_TOKEN_ENDPOINT)
+    @Option(names = "--oauth2-token-endpoint", paramLabel = "<tokenEndpoint>", description = "OAuth2 token endpoint URL for client credentials authentication")
+    public Optional<String> oauth2TokenEndpoint;
 
     @PropertyMapping(SOURCE)
     @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
@@ -457,6 +462,7 @@ public class ClientOptions
         if (oauth2ClientSecret) {
             builder.setOauth2ClientSecret(getClientSecret());
         }
+        oauth2TokenEndpoint.ifPresent(builder::setOauth2TokenEndpoint);
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
@@ -479,6 +485,11 @@ public class ClientOptions
                 throw new IllegalArgumentException(
                         "Setting the password in the URL parameter is not allowed, " +
                                 "use the `--password` option or the `TRINO_PASSWORD` environment variable");
+            }
+            if (e.getPropertyName() == PropertyName.OAUTH2_CLIENT_SECRET) {
+                throw new IllegalArgumentException(
+                        "Setting the OAuth2 client secret in the URL parameter is not allowed, " +
+                                "use the `--oauth2-client-secret` option or the `TRINO_OAUTH2_CLIENT_SECRET` environment variable");
             }
             throw new IllegalArgumentException(format(
                     "Connection property '%s' cannot be set in the URL when option '%s' is set",

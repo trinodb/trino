@@ -77,6 +77,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HO
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_ID;
 import static io.trino.client.uri.ConnectionProperties.OAUTH2_CLIENT_SECRET;
+import static io.trino.client.uri.ConnectionProperties.OAUTH2_TOKEN_ENDPOINT;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
@@ -400,6 +401,11 @@ public class TrinoUri
     public Optional<String> getOauth2ClientSecret()
     {
         return resolveOptional(OAUTH2_CLIENT_SECRET);
+    }
+
+    public Optional<String> getOauth2TokenEndpoint()
+    {
+        return resolveOptional(OAUTH2_TOKEN_ENDPOINT);
     }
 
     public boolean isClientCredentialsAuthenticationEnabled()
@@ -977,6 +983,11 @@ public class TrinoUri
         public Builder setOauth2ClientSecret(String clientSecret)
         {
             return setProperty(OAUTH2_CLIENT_SECRET, requireNonNull(clientSecret, "clientSecret is null"));
+        }
+
+        public Builder setOauth2TokenEndpoint(String tokenEndpoint)
+        {
+            return setProperty(OAUTH2_TOKEN_ENDPOINT, requireNonNull(tokenEndpoint, "tokenEndpoint is null"));
         }
 
         public Builder setExternalAuthenticationTimeout(Duration externalAuthenticationTimeout)

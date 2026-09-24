@@ -13,17 +13,34 @@
  */
 package io.trino.client.auth.external;
 
+import com.google.common.io.Resources;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 import mockwebserver3.junit5.StartStop;
+import okhttp3.FormBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -39,12 +56,47 @@ public class TestClientCredentialsAuthenticator
 {
     private static final String TOKEN_PATH = "/token";
     private static final String TRINO_PATH = "/v1/statement";
+    private static final char[] KEY_STORE_PASSWORD = "Pass1234".toCharArray();
 
     @StartStop
     private final MockWebServer idpServer = new MockWebServer();
 
     @StartStop
     private final MockWebServer trinoServer = new MockWebServer();
+
+    private X509TrustManager trustManager;
+    private SSLSocketFactory clientSocketFactory;
+    private final AtomicReference<FormBody> tokenRequestBody = new AtomicReference<>();
+
+    @BeforeEach
+    public void setupTls()
+            throws Exception
+    {
+        // The token endpoint carries the client secret, so the authenticator requires it to be https.
+        KeyStore keyStore = loadKeyStore();
+
+        KeyStore serverKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        serverKeyStore.load(null, null);
+        serverKeyStore.setKeyEntry(
+                "localhost",
+                keyStore.getKey("localhost", KEY_STORE_PASSWORD),
+                KEY_STORE_PASSWORD,
+                keyStore.getCertificateChain("localhost"));
+        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        keyManagerFactory.init(serverKeyStore, KEY_STORE_PASSWORD);
+
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(keyStore);
+        trustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
+
+        SSLContext serverContext = SSLContext.getInstance("TLS");
+        serverContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
+        idpServer.useHttps(serverContext.getSocketFactory());
+
+        SSLContext clientContext = SSLContext.getInstance("TLS");
+        clientContext.init(null, new TrustManager[] {trustManager}, new SecureRandom());
+        clientSocketFactory = clientContext.getSocketFactory();
+    }
 
     @Test
     public void testSuccessfulTokenFetchAndInjection()
@@ -69,6 +121,12 @@ public class TestClientCredentialsAuthenticator
         RecordedRequest tokenRequest = idpServer.takeRequest();
         assertThat(tokenRequest.getTarget()).isEqualTo(TOKEN_PATH);
         assertThat(tokenRequest.getMethod()).isEqualTo("POST");
+        assertThat(formFields(tokenRequestBody.get()))
+                .containsExactly(
+                        Map.entry("grant_type", "client_credentials"),
+                        Map.entry("client_id", "test-client"),
+                        Map.entry("client_secret", "test-secret"),
+                        Map.entry("scope", "openid"));
 
         // Verify Trino server
         assertThat(trinoServer.getRequestCount()).isEqualTo(2);
@@ -173,11 +231,94 @@ public class TestClientCredentialsAuthenticator
     }
 
     @Test
-    public void testMissingTokenEndpoint()
+    public void testChallengeWithoutTokenEndpointUsesConfiguredEndpoint()
+            throws Exception
     {
+        // The challenge omits x_token_endpoint; the authenticator falls back to the configured endpoint.
         trinoServer.enqueue(new MockResponse.Builder()
                 .code(HTTP_UNAUTHORIZED)
-                .addHeader("WWW-Authenticate", "Bearer x_redirect_server=\"https://localhost:443/oauth2/token/initiate/550e8400-e29b-41d4-a716-446655440000\", x_token_server=\"https://localhost:443/oauth2/token/550e8400-e29b-41d4-a716-446655440000\", scope=\"openid\"")
+                .addHeader("WWW-Authenticate", "Bearer scope=\"openid\"")
+                .build());
+        enqueueToken("configured-token", 3600);
+        trinoServer.enqueue(ok());
+
+        OkHttpClient client = buildTrinoClient();
+        Response response = client.newCall(trinoRequest()).execute();
+        response.close();
+
+        assertThat(response.code()).isEqualTo(HTTP_OK);
+        assertThat(idpServer.getRequestCount()).isEqualTo(1);
+        assertThat(idpServer.takeRequest().getTarget()).isEqualTo(TOKEN_PATH);
+    }
+
+    @Test
+    public void testUsesChallengeEndpointWhenNotConfigured()
+            throws Exception
+    {
+        // No configured endpoint: the authenticator uses the (https) endpoint from the challenge.
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
+        enqueueToken("challenge-token", 3600);
+        trinoServer.enqueue(ok());
+
+        OkHttpClient client = buildTrinoClient(Optional.empty());
+        Response response = client.newCall(trinoRequest()).execute();
+        response.close();
+
+        assertThat(response.code()).isEqualTo(HTTP_OK);
+        assertThat(idpServer.getRequestCount()).isEqualTo(1);
+        assertThat(idpServer.takeRequest().getTarget()).isEqualTo(TOKEN_PATH);
+    }
+
+    @Test
+    public void testRejectsPlainHttpChallengeEndpointWhenNotConfigured()
+    {
+        // No configured endpoint: a plain-HTTP endpoint from the challenge is refused.
+        String plainHttpEndpoint = "http://localhost:" + idpServer.getPort() + TOKEN_PATH;
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", "Bearer x_token_endpoint=\"" + plainHttpEndpoint + "\", scope=\"openid\"")
+                .build());
+
+        OkHttpClient client = buildTrinoClient(Optional.empty());
+        assertThatThrownBy(() -> client.newCall(trinoRequest()).execute())
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
+                .cause()
+                .hasMessageContaining("is not https")
+                .hasMessageContaining("refusing to send client credentials over an insecure connection");
+
+        assertThat(idpServer.getRequestCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testMissingTokenEndpointWhenNotConfigured()
+    {
+        // No configured endpoint and the challenge does not advertise one.
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", "Bearer scope=\"openid\"")
+                .build());
+
+        OkHttpClient client = buildTrinoClient(Optional.empty());
+        assertThatThrownBy(() -> client.newCall(trinoRequest()).execute())
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
+                .cause()
+                .hasMessageContaining("OAuth2 token endpoint is not available");
+
+        assertThat(idpServer.getRequestCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testRejectsChallengeTokenEndpointOnDifferentHost()
+    {
+        // A malicious server tries to redirect the client secret to a host it controls.
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", "Bearer x_token_endpoint=\"https://attacker.example.com/token\", scope=\"openid\"")
                 .build());
 
         OkHttpClient client = buildTrinoClient();
@@ -185,7 +326,55 @@ public class TestClientCredentialsAuthenticator
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
                 .cause()
-                .hasMessageContaining("OAuth2 token endpoint is not available");
+                .hasMessageContaining("does not match the configured oauth2TokenEndpoint")
+                .hasMessageContaining("refusing to send client credentials");
+
+        // The client secret was never sent anywhere.
+        assertThat(idpServer.getRequestCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testRejectsPlainHttpChallengeTokenEndpoint()
+    {
+        // Same host and path as the configured endpoint, but downgraded to plain HTTP.
+        String plainHttpEndpoint = "http://localhost:" + idpServer.getPort() + TOKEN_PATH;
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", "Bearer x_token_endpoint=\"" + plainHttpEndpoint + "\", scope=\"openid\"")
+                .build());
+
+        OkHttpClient client = buildTrinoClient();
+        assertThatThrownBy(() -> client.newCall(trinoRequest()).execute())
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
+                .cause()
+                .hasMessageContaining("does not match the configured oauth2TokenEndpoint");
+
+        assertThat(idpServer.getRequestCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testDoesNotFollowRedirectFromTokenEndpoint()
+    {
+        trinoServer.enqueue(new MockResponse.Builder()
+                .code(HTTP_UNAUTHORIZED)
+                .addHeader("WWW-Authenticate", fullChallenge())
+                .build());
+        // 307 preserves the POST body, so following it would resend the client credentials elsewhere.
+        idpServer.enqueue(new MockResponse.Builder()
+                .code(307)
+                .addHeader("Location", "https://localhost:" + idpServer.getPort() + "/elsewhere")
+                .build());
+
+        OkHttpClient client = buildTrinoClient();
+        assertThatThrownBy(() -> client.newCall(trinoRequest()).execute())
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Failed to obtain OAuth2 client credentials token")
+                .cause()
+                .hasMessageContaining("OAuth2 Client Credentials authentication failed, HTTP 307");
+
+        // The redirect was not followed: only the single token POST reached the IdP.
+        assertThat(idpServer.getRequestCount()).isEqualTo(1);
     }
 
     @Test
@@ -228,15 +417,41 @@ public class TestClientCredentialsAuthenticator
 
     private OkHttpClient buildTrinoClient()
     {
-        OkHttpClient baseClient = new OkHttpClient();
+        return buildTrinoClient(Optional.of(idpTokenUrl()));
+    }
+
+    private OkHttpClient buildTrinoClient(Optional<String> configuredTokenEndpoint)
+    {
+        OkHttpClient baseClient = new OkHttpClient.Builder()
+                .sslSocketFactory(clientSocketFactory, trustManager)
+                // Capture the form body of the token request so tests can assert on it without reading the
+                // recorded request body (which would require a direct dependency on okio).
+                .addInterceptor(chain -> {
+                    Request request = chain.request();
+                    if (request.url().encodedPath().equals(TOKEN_PATH) && request.body() instanceof FormBody) {
+                        tokenRequestBody.set((FormBody) request.body());
+                    }
+                    return chain.proceed(request);
+                })
+                .build();
         ClientCredentialsAuthenticator authenticator = new ClientCredentialsAuthenticator(
                 baseClient,
                 "test-client",
-                "test-secret");
+                "test-secret",
+                configuredTokenEndpoint);
         return baseClient.newBuilder()
                 .addNetworkInterceptor(authenticator)
                 .authenticator(authenticator)
                 .build();
+    }
+
+    private static Map<String, String> formFields(FormBody body)
+    {
+        Map<String, String> fields = new LinkedHashMap<>();
+        for (int i = 0; i < body.size(); i++) {
+            fields.put(body.name(i), body.value(i));
+        }
+        return fields;
     }
 
     private String fullChallenge()
@@ -249,7 +464,7 @@ public class TestClientCredentialsAuthenticator
 
     private String idpTokenUrl()
     {
-        return "http://" + idpServer.getHostName() + ":" + idpServer.getPort() + TOKEN_PATH;
+        return "https://localhost:" + idpServer.getPort() + TOKEN_PATH;
     }
 
     private Request trinoRequest()
@@ -267,6 +482,16 @@ public class TestClientCredentialsAuthenticator
                 .addHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .body("{\"access_token\":\"" + accessToken + "\",\"token_type\":\"Bearer\",\"expires_in\":" + expiresIn + "}")
                 .build());
+    }
+
+    private static KeyStore loadKeyStore()
+            throws Exception
+    {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        try (InputStream in = Resources.getResource("certs/certs.jks").openStream()) {
+            keyStore.load(in, KEY_STORE_PASSWORD);
+        }
+        return keyStore;
     }
 
     private static MockResponse ok()

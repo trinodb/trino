@@ -56,6 +56,7 @@ public enum PropertyName
     LOCALE("locale"),
     OAUTH2_CLIENT_ID("oauth2ClientId"),
     OAUTH2_CLIENT_SECRET("oauth2ClientSecret"),
+    OAUTH2_TOKEN_ENDPOINT("oauth2TokenEndpoint"),
     PASSWORD("password"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),

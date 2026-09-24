@@ -117,7 +117,8 @@ public class HttpClientFactory
             ClientCredentialsAuthenticator clientCredentialsAuthenticator = new ClientCredentialsAuthenticator(
                     builder.build(),
                     uri.getOauth2ClientId().get(),
-                    uri.getOauth2ClientSecret().get());
+                    uri.getOauth2ClientSecret().get(),
+                    uri.getOauth2TokenEndpoint());
             builder.addNetworkInterceptor(clientCredentialsAuthenticator);
             builder.authenticator(clientCredentialsAuthenticator);
         }
