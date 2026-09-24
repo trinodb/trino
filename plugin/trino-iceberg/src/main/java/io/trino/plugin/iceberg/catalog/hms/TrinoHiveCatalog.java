@@ -698,6 +698,33 @@ public class TrinoHiveCatalog
     }
 
     @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        Table existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+
+        if (!isTrinoMaterializedView(existing.getTableType(), existing.getParameters())) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
+        }
+        ConnectorMaterializedViewDefinition definition = doGetMaterializedView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
+                comment,
+                definition.getOwner(),
+                definition.getPath());
+
+        replaceMaterializedView(session, viewName, existing, newDefinition);
+    }
+
+    @Override
     public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         Table existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
