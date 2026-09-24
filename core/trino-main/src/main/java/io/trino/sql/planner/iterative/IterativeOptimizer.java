@@ -158,7 +158,7 @@ public class IterativeOptimizer
         return name;
     }
 
-    // Used for diagnostics.
+    // Used for diagnostics and to combine this optimizer's rules with another stage's
     public Set<Rule<?>> getRules()
     {
         return rules;

@@ -98,6 +98,17 @@ in an already heavily loaded system.
 The number of rows in [](/sql/values) below which the planner evaluates a filter
 on top of `VALUES` to optimize the query plan.
 
+## `optimizer.iterative-predicate-pushdown.enabled`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `iterative_predicate_pushdown_enabled`
+
+Push filters and join conditions further toward the tables they apply to, so
+queries such as long chains of joins read and join fewer rows. Plans can differ
+from previous releases. Set this property to `false` to restore the previous
+planning if a query plans worse or fails to plan.
+
 ## `optimizer.join-reordering-strategy`
 
 - **Type:** {ref}`prop-type-string`

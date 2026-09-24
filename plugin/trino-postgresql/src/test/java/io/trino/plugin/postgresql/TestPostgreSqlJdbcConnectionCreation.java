@@ -89,13 +89,13 @@ public class TestPostgreSqlJdbcConnectionCreation
     @Test
     public void testJdbcConnectionCreations()
     {
-        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation ORDER BY nationkey LIMIT 1", 2, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 2, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 5, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.columns", 1, Optional.empty());
