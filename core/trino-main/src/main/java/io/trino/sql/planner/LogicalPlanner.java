@@ -307,6 +307,10 @@ public class LogicalPlanner
         try (var _ = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
+        if (!SecureColumns.symbols(root).isEmpty()) {
+            // Value ranges downstream of a secure expression would reproduce its bounds
+            statsAndCosts = SecureColumns.withoutValueRanges(statsAndCosts);
+        }
         return new Plan(root, statsAndCosts);
     }
 

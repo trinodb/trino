@@ -27,11 +27,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -153,6 +157,32 @@ public class TestRemoveRedundantPredicateAboveTableScan
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),
+                                        ImmutableMap.of("nationkey", "nationkey"))));
+    }
+
+    @Test
+    public void wrapsNarrowedDomainOfSecureColumn()
+    {
+        // the narrowed domain may derive from the secure predicate, so it must not be rebuilt in clear text
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        Domain enforced = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 44L, true, 46L, true)), false);
+        Expression secure = new SecureExpression(between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L), new Constant(BIGINT, 46L)));
+        tester().assertThat(removeRedundantPredicateAboveTableScan)
+                .on(p -> p.filter(
+                        new Logical(AND, ImmutableList.of(secure, between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 40L), new Constant(BIGINT, 45L)))),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, enforced)))))
+                .matches(
+                        filter(
+                                new Logical(AND, ImmutableList.of(
+                                        new SecureExpression(between(new Reference(BIGINT, "nationkey"), new Constant(BIGINT, 44L), new Constant(BIGINT, 45L))),
+                                        secure)),
+                                constrainedTableScanWithTableLayout(
+                                        "nation",
+                                        ImmutableMap.of("nationkey", enforced),
                                         ImmutableMap.of("nationkey", "nationkey"))));
     }
 

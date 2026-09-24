@@ -34,6 +34,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverCase;
 import io.trino.sql.ir.optimizer.rule.DistributeComparisonOverMatch;
@@ -81,6 +82,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.sql.ir.SecureExpressions.redactFailure;
 
 public class IrExpressionOptimizer
 {
@@ -191,6 +193,7 @@ public class IrExpressionOptimizer
         return switch (expression) {
             case Reference _, Constant _ -> Optional.empty();
             case Cast cast -> process(cast.expression(), session, symbolAllocator, bindings).map(value -> new Cast(value, cast.type(), cast.kind()));
+            case SecureExpression secure -> processSecureExpression(secure, session, symbolAllocator, bindings);
             case IsNull isNull -> process(isNull.value(), session, symbolAllocator, bindings).map(value -> new IsNull(value));
             case Logical logical -> process(logical.terms(), session, symbolAllocator, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, symbolAllocator, bindings).map(arguments -> new Call(call.function(), arguments));
@@ -241,6 +244,19 @@ public class IrExpressionOptimizer
                         Optional.empty();
             }
         };
+    }
+
+    private Optional<Expression> processSecureExpression(SecureExpression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
+    {
+        Optional<Expression> optimized;
+        try {
+            optimized = process(expression.expression(), session, symbolAllocator, bindings);
+        }
+        catch (RuntimeException e) {
+            throw redactFailure(e);
+        }
+        // A folded mask can still contain a policy literal. Keep its reporting and failure boundary.
+        return optimized.map(SecureExpression::new);
     }
 
     /**

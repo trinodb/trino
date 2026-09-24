@@ -65,6 +65,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.TranslationMap.ParametersRow;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -392,6 +393,9 @@ class RelationPlanner
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
             Expression predicate = coerceIfNecessary(plannerContext, getCharVarcharCoercion(session), analysis, filter, planBuilder.rewrite(filter));
+            if (analysis.isSecureExpression(filter)) {
+                predicate = new SecureExpression(predicate);
+            }
             predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
@@ -457,6 +461,9 @@ class RelationPlanner
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
                 symbol = symbolAllocator.newSymbol(symbol);
                 projection = coerceIfNecessary(plannerContext, getCharVarcharCoercion(session), analysis, mask, planBuilder.rewrite(mask));
+                if (analysis.isSecureExpression(mask)) {
+                    projection = new SecureExpression(projection);
+                }
             }
 
             assignments.put(symbol, projection);

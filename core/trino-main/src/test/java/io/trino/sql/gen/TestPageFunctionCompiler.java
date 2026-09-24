@@ -56,6 +56,7 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -65,6 +66,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -87,10 +89,12 @@ import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_NAME;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -176,6 +180,23 @@ public class TestPageFunctionCompiler
         Page nullRlePage = createPageWithBlockAtChannel2(RunLengthEncodedBlock.create(values.getRegion(2, 1), 3));
         assertBlockValues(project(add10, nullRlePage, SelectedPositions.positionsRange(0, 3)), null, null, null);
         assertBlockValues(project(coalesce, nullRlePage, SelectedPositions.positionsRange(0, 3)), 42L, 42L, 42L);
+    }
+
+    @Test
+    public void testSecureExpressionFailureIsRedacted()
+    {
+        PageProjection projection = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(
+                        new SecureExpression(new Cast(new Constant(VARCHAR, utf8Slice("policy-secret")), BIGINT)),
+                        ImmutableMap.of(),
+                        SQL_STANDARD,
+                        Optional.empty())
+                .get();
+
+        assertTrinoExceptionThrownBy(() -> project(projection, new Page(1), SelectedPositions.positionsRange(0, 1)))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage(SecureExpression.REDACTED)
+                .hasNoCause();
     }
 
     @Test

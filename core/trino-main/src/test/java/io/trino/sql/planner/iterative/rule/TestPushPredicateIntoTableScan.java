@@ -50,9 +50,12 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.EngineExpressions;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.FilterNode;
@@ -63,7 +66,9 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -77,6 +82,8 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -107,6 +114,8 @@ public class TestPushPredicateIntoTableScan
             new MockConnectorTableHandle(new SchemaTableName("schema", "unpartitioned"));
     private static final ConnectorTableHandle CONNECTOR_LAMBDA_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName("schema", "lambda"));
+    private static final ConnectorTableHandle CONNECTOR_PARTIAL_PREDICATE_TABLE_HANDLE =
+            new MockConnectorTableHandle(new SchemaTableName("schema", "partial_predicate"));
     private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
     private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
 
@@ -230,6 +239,82 @@ public class TestPushPredicateIntoTableScan
                                         columnHandle, Domain.multipleValues(orderStatusType, ImmutableList.of(Slices.utf8Slice("O"), Slices.utf8Slice("P"))))))))
                 .matches(
                         constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
+    }
+
+    @Test
+    public void testSecurePredicateDerivesDomainAndStaysInFilter()
+    {
+        Type orderStatusType = createVarcharType(1);
+        Reference orderStatus = new Reference(orderStatusType, "orderstatus");
+        SecureExpression secure = new SecureExpression(comparison(EQUAL, orderStatus, new Constant(orderStatusType, utf8Slice("O"))));
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        secure,
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
+                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)),
+                                TupleDomain.all())))
+                .matches(
+                        // the connector enforces the derived domain, but the secure predicate is still evaluated by the engine
+                        filter(
+                                secure,
+                                constrainedTableScanWithTableLayout(
+                                        "orders",
+                                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
+                                        ImmutableMap.of("orderstatus", "orderstatus"))));
+    }
+
+    @Test
+    public void testSecureUnenforcedDomainIsNotRebuiltInClearText()
+    {
+        Type orderStatusType = createVarcharType(1);
+        Reference orderStatus = new Reference(orderStatusType, "orderstatus");
+        Reference custKey = new Reference(BIGINT, "custkey");
+        Expression custKeyAboveFive = comparison(GREATER_THAN, custKey, new Constant(BIGINT, 5L));
+        SecureExpression secure = new SecureExpression(Logical.and(
+                new In(orderStatus, ImmutableList.of(new Constant(orderStatusType, utf8Slice("O")), new Constant(orderStatusType, utf8Slice("F")))),
+                custKeyAboveFive));
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        Logical.and(secure, comparison(EQUAL, orderStatus, new Constant(orderStatusType, utf8Slice("O")))),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType), p.symbol("custkey", BIGINT)),
+                                ImmutableMap.of(
+                                        p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType),
+                                        p.symbol("custkey", BIGINT), new TpchColumnHandle("custkey", BIGINT)),
+                                TupleDomain.all())))
+                .matches(
+                        // orderstatus is enforced by the connector; the unenforced custkey domain comes back wrapped, not in clear text
+                        filter(
+                                Logical.and(new SecureExpression(custKeyAboveFive), secure),
+                                constrainedTableScanWithTableLayout(
+                                        "orders",
+                                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
+                                        ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))));
+    }
+
+    @Test
+    public void testPartiallyConsumedEngineExpressionKeepsSecureDomainsRedacted()
+    {
+        Session session = Session.builder(tester().getSession())
+                .setCatalog(MOCK_CATALOG)
+                .build();
+        Reference value = new Reference(BIGINT, "value");
+        SecureExpression secure = new SecureExpression(comparison(LESS_THAN_OR_EQUAL, value, new Constant(BIGINT, 987654321L)));
+        Expression publicPredicate = comparison(EQUAL, new Call(MODULO_BIGINT, ImmutableList.of(value, new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L));
+        tester().assertThat(new PushPredicateIntoTableScan(tester().getPlannerContext(), true))
+                .withSession(session)
+                .on(p -> p.filter(
+                        Logical.and(secure, publicPredicate),
+                        p.tableScan(
+                                mockTableHandle(CONNECTOR_PARTIAL_PREDICATE_TABLE_HANDLE),
+                                ImmutableList.of(p.symbol("value", BIGINT)),
+                                ImmutableMap.of(p.symbol("value", BIGINT), new MockConnectorColumnHandle("value", BIGINT)),
+                                TupleDomain.all())))
+                .matches(node(FilterNode.class, tableScan("partial_predicate"))
+                        .with(FilterNode.class, filter -> filter.getPredicate().equals(Logical.and(secure, publicPredicate))));
     }
 
     @Test
@@ -507,6 +592,19 @@ public class TestPushPredicateIntoTableScan
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
         builder
                 .withApplyFilter((_, tableHandle, constraint) -> {
+                    if (tableHandle.equals(CONNECTOR_PARTIAL_PREDICATE_TABLE_HANDLE)) {
+                        ConnectorExpression engine = extractConjuncts(constraint.getExpression()).stream()
+                                .filter(EngineExpressions::containsEngineExpression)
+                                .collect(onlyElement());
+                        // Consume the translated public conjunct and return only the engine payload.
+                        assertThat(engine).isNotEqualTo(constraint.getExpression());
+                        assertThat(constraint.getSummary().isAll()).isFalse();
+                        return Optional.of(new ConstraintApplicationResult<>(
+                                CONNECTOR_PARTIAL_PREDICATE_TABLE_HANDLE,
+                                TupleDomain.all(),
+                                engine,
+                                false));
+                    }
                     if (tableHandle.equals(CONNECTOR_LAMBDA_TABLE_HANDLE)) {
                         assertThat(constraint.getExpression()).isEqualTo(connectorAnyMatch(LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME));
                         return Optional.of(new ConstraintApplicationResult<>(

@@ -533,10 +533,10 @@ public class QueryMonitor
 
     private static void extractPlanNodeStats(StageInfo stageInfo, ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats)
     {
-        PlanFragment fragment = stageInfo.plan();
-        if (fragment == null) {
+        if (stageInfo.plan() == null) {
             return;
         }
+        PlanFragment fragment = stageInfo.plan().fragment();
 
         List<OperatorStats> operatorSummaries = stageInfo.stageStats().getOperatorSummaries();
         Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.stageStats().getSplitSourceMetrics();

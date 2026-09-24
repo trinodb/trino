@@ -57,6 +57,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -1056,6 +1057,15 @@ public final class ConnectorExpressionTranslator
 
             ConnectorExpression arrayExpression = new io.trino.spi.expression.Call(new ArrayType(node.value().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
             return Optional.of(new io.trino.spi.expression.Call(node.type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitSecureExpression(SecureExpression node, Context context)
+        {
+            // A connector may consume the expression and return TRUE from applyFilter. Unwrapping here
+            // would let PushPredicateIntoTableScan remove its secure marker and expose derived constraints.
+            // Preserve the marker until pushdown can retain it across connector rewrites.
+            return Optional.empty();
         }
 
         @Override
