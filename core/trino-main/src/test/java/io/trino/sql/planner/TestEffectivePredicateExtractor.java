@@ -554,6 +554,9 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testValues()
     {
+        assertThat(effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), new ValuesNode(newId(), ImmutableList.of())))
+                .isEqualTo(FALSE);
+
         // one column
         assertThat(effectivePredicateExtractor.extract(
                 SESSION,
