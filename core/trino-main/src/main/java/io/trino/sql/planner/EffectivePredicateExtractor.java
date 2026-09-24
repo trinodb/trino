@@ -291,10 +291,10 @@ public class EffectivePredicateExtractor
 
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
             if (useTableProperties) {
-                predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
+                // Connector table properties may omit constraints already enforced by the scan.
+                predicate = predicate.intersect(metadata.getTableProperties(session, node.getTable()).getPredicate());
             }
 
-            // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
             return domainTranslator.toPredicate(getCharVarcharCoercion(session), predicate.simplify()
                     .filter((columnHandle, _) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));

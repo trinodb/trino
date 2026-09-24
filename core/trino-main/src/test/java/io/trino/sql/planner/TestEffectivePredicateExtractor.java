@@ -486,6 +486,36 @@ public class TestEffectivePredicateExtractor
     }
 
     @Test
+    public void testTableScanIntersectsEnforcedConstraintAndTableProperties()
+    {
+        Symbol symbol = new Symbol(BIGINT, "a");
+        ColumnHandle column = scanAssignments.get(symbol);
+        TupleDomain<ColumnHandle> enforced = TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L))));
+        List<TupleDomain<ColumnHandle>> tablePredicates = ImmutableList.of(
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(2L, 3L)))),
+                TupleDomain.none());
+        for (TupleDomain<ColumnHandle> tablePredicate : tablePredicates) {
+            TableScanNode scan = new TableScanNode(
+                    newId(),
+                    makeTableHandle(tablePredicate),
+                    ImmutableList.of(symbol),
+                    ImmutableMap.of(symbol, column),
+                    enforced,
+                    Optional.empty(),
+                    false,
+                    Optional.empty());
+            Expression predicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), scan);
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, SESSION, predicate).tupleDomain())
+                    .isEqualTo(enforced.intersect(tablePredicate).transformKeys(_ -> symbol));
+
+            predicate = effectivePredicateExtractorWithoutTableProperties.extract(SESSION, emptySymbolAllocator(), scan);
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, SESSION, predicate).tupleDomain())
+                    .isEqualTo(enforced.transformKeys(_ -> symbol));
+        }
+    }
+
+    @Test
     public void testTableScan()
     {
         // Effective predicate is True if there is no effective predicate
