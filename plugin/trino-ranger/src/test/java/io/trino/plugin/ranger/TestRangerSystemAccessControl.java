@@ -302,12 +302,14 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanCreateMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1, ImmutableMap.of());
         accessControlManager.checkCanRefreshMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanSetMaterializedViewProperties(context(ALICE), VIEW_ALICE_SCH1_VW1, ImmutableMap.of());
+        accessControlManager.checkCanSetMaterializedViewComment(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanDropMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanRenameMaterializedView(context(ALICE), VIEW_ALICE_SCH1_VW1, newViewName);
 
         assertThatThrownBy(() -> accessControlManager.checkCanCreateMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRefreshMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetMaterializedViewProperties(context(BOB), VIEW_ALICE_SCH1_VW1, ImmutableMap.of())).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanSetMaterializedViewComment(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameMaterializedView(context(BOB), VIEW_ALICE_SCH1_VW1, newViewName)).isInstanceOf(AccessDeniedException.class);
     }

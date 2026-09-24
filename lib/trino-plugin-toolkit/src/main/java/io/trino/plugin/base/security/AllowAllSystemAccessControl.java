@@ -275,6 +275,9 @@ public class AllowAllSystemAccessControl
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties) {}
 
     @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView) {}
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName) {}
 
     @Override

@@ -52,6 +52,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
@@ -586,6 +587,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
             denySetMaterializedViewProperties(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
+            denyCommentMaterializedView(materializedViewName.toString());
         }
     }
 

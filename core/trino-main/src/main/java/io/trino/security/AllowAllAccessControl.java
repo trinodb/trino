@@ -191,6 +191,9 @@ public class AllowAllAccessControl
     public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties) {}
 
     @Override
+    public void checkCanSetMaterializedViewComment(SecurityContext context, QualifiedObjectName materializedViewName) {}
+
+    @Override
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         return true;

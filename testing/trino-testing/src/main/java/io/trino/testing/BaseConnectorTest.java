@@ -113,6 +113,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_AR
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
@@ -4844,6 +4845,57 @@ public abstract class BaseConnectorTest
         }
         finally {
             assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
+    }
+
+    @Test
+    public void testCommentMaterializedView()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW)) {
+            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+                QualifiedObjectName view = new QualifiedObjectName(catalog, schema, "test_comment_materialized_view_" + randomNameSuffix());
+                createTestingMaterializedView(view, Optional.empty());
+                try {
+                    assertQueryFails("COMMENT ON MATERIALIZED VIEW " + view + " IS 'new comment'", "This connector does not support setting materialized view comments");
+                }
+                finally {
+                    assertUpdate("DROP MATERIALIZED VIEW " + view);
+                }
+                return;
+            }
+            abort("Skipping as connector does not support CREATE MATERIALIZED VIEW");
+        }
+
+        QualifiedObjectName view = new QualifiedObjectName(catalog, schema, "test_comment_materialized_view_" + randomNameSuffix());
+        createTestingMaterializedView(view, Optional.of("old comment"));
+        try {
+            long rowCountBeforeCommentChange = (long) computeScalar("SELECT count(*) FROM " + view);
+
+            // comment set
+            assertUpdate("COMMENT ON MATERIALIZED VIEW " + view + " IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + view)).contains("COMMENT 'new comment'");
+            assertThat(getTableComment(view.objectName())).isEqualTo("new comment");
+
+            // comment deleted
+            assertUpdate("COMMENT ON MATERIALIZED VIEW " + view + " IS NULL");
+            assertThat(getTableComment(view.objectName())).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON MATERIALIZED VIEW " + view + " IS 'updated comment'");
+            assertThat(getTableComment(view.objectName())).isEqualTo("updated comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON MATERIALIZED VIEW " + view + " IS ''");
+            assertThat(getTableComment(view.objectName())).isEqualTo("");
+
+            // changing the comment must not touch the storage table backing the materialized view
+            assertThat((long) computeScalar("SELECT count(*) FROM " + view)).isEqualTo(rowCountBeforeCommentChange);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + view);
         }
     }
 

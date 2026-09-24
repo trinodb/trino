@@ -36,6 +36,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.tree.Comment.Type.COLUMN;
+import static io.trino.sql.tree.Comment.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.Comment.Type.TABLE;
 import static io.trino.sql.tree.Comment.Type.VIEW;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -77,7 +78,7 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
+                .hasMessageContaining("Table '%1$s' does not exist, but a materialized view with that name exists. Did you mean COMMENT ON MATERIALIZED VIEW %1$s IS ...?", materializedViewName);
     }
 
     @Test
@@ -110,7 +111,50 @@ public class TestCommentTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessageContaining("View '%s' does not exist, but a materialized view with that name exists. Setting comments on materialized views is unsupported.", materializedViewName);
+                .hasMessageContaining("View '%1$s' does not exist, but a materialized view with that name exists. Did you mean COMMENT ON MATERIALIZED VIEW %1$s IS ...?", materializedViewName);
+    }
+
+    @Test
+    public void testCommentMaterializedView()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isTrue();
+
+        getFutureValue(setComment(MATERIALIZED_VIEW, asQualifiedName(materializedViewName), Optional.of("new comment")));
+        assertThat(metadata.getMaterializedView(testSession, materializedViewName).get().getComment()).isEqualTo(Optional.of("new comment"));
+    }
+
+    @Test
+    public void testCommentMaterializedViewDoesNotExist()
+    {
+        QualifiedObjectName materializedViewName = qualifiedObjectName("missing_materialized_view");
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(MATERIALIZED_VIEW, asQualifiedName(materializedViewName), Optional.of("new comment"))))
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessageContaining("Materialized view '%s' does not exist", materializedViewName);
+    }
+
+    @Test
+    public void testCommentMaterializedViewOnTable()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(MATERIALIZED_VIEW, asQualifiedName(tableName), Optional.of("new comment"))))
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessageContaining("Materialized view '%1$s' does not exist, but a table with that name exists. Did you mean COMMENT ON TABLE %1$s IS ...?", tableName);
+    }
+
+    @Test
+    public void testCommentMaterializedViewOnView()
+    {
+        QualifiedObjectName viewName = qualifiedObjectName("existing_view");
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(MATERIALIZED_VIEW, asQualifiedName(viewName), Optional.of("new comment"))))
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessageContaining("Materialized view '%1$s' does not exist, but a view with that name exists. Did you mean COMMENT ON VIEW %1$s IS ...?", viewName);
     }
 
     @Test

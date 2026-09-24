@@ -128,6 +128,7 @@ final class TestOpaAccessControl
         testTableResourceActions("DropTable", OpaAccessControl::checkCanDropTable);
         testTableResourceActions("SetTableComment", OpaAccessControl::checkCanSetTableComment);
         testTableResourceActions("SetViewComment", OpaAccessControl::checkCanSetViewComment);
+        testTableResourceActions("SetMaterializedViewComment", OpaAccessControl::checkCanSetMaterializedViewComment);
         testTableResourceActions("SetColumnComment", OpaAccessControl::checkCanSetColumnComment);
         testTableResourceActions("ShowColumns", OpaAccessControl::checkCanShowColumns);
         testTableResourceActions("AddColumn", OpaAccessControl::checkCanAddColumn);

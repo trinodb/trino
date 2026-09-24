@@ -124,6 +124,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot drop materialized view .*";
     private static final String REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot refresh materialized view .*";
     private static final String SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE = "Cannot set properties of materialized view .*";
+    private static final String COMMENT_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot comment materialized view to .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot grant privilege DELETE on table .*";
     private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot deny privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege DELETE on table .*";
@@ -696,6 +697,30 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
                         ImmutableMap.of()),
                 SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSetMaterializedViewComment()
+            throws Exception
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetMaterializedViewComment(
+                ADMIN,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"));
+        accessControl.checkCanSetMaterializedViewComment(
+                ALICE,
+                new CatalogSchemaTableName("some-catalog", "aliceschema", "alice-materialized-view"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetMaterializedViewComment(
+                        ALICE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view")),
+                COMMENT_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanSetMaterializedViewComment(
+                        BOB,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view")),
+                COMMENT_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

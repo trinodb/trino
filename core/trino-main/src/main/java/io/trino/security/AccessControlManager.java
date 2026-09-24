@@ -917,6 +917,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SecurityContext securityContext, QualifiedObjectName materializedViewName)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(materializedViewName, "materializedViewName is null");
+
+        checkCanAccessCatalog(securityContext, materializedViewName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetMaterializedViewComment(securityContext.toSystemSecurityContext(), materializedViewName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(materializedViewName.catalogName(), securityContext, (control, context) -> control.checkCanSetMaterializedViewComment(context, materializedViewName.asSchemaTableName()));
+    }
+
+    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
