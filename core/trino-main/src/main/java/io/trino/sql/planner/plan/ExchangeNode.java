@@ -16,8 +16,10 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
@@ -26,6 +28,7 @@ import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -271,6 +274,17 @@ public class ExchangeNode
     public List<List<Symbol>> getInputs()
     {
         return inputs;
+    }
+
+    /// Maps each output symbol to the corresponding input symbol of the given source.
+    public Map<Symbol, Reference> sourceSymbolMap(int sourceIndex)
+    {
+        List<Symbol> outputs = getOutputSymbols();
+        ImmutableMap.Builder<Symbol, Reference> builder = ImmutableMap.builder();
+        for (int index = 0; index < outputs.size(); index++) {
+            builder.put(outputs.get(index), inputs.get(sourceIndex).get(index).toSymbolReference());
+        }
+        return builder.buildOrThrow();
     }
 
     @Override
