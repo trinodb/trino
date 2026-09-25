@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
 import io.trino.operator.aggregation.state.StateCompiler;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.AggregationFunction;
@@ -27,6 +28,8 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 @AggregationFunction("merge")
 public final class MergeHyperLogLogAggregation
@@ -57,7 +60,14 @@ public final class MergeHyperLogLogAggregation
         }
         else {
             state.addMemoryUsage(-previous.estimatedInMemorySize());
-            previous.mergeWith(input);
+            try {
+                previous.mergeWith(input);
+            }
+            catch (IllegalArgumentException e) {
+                // HyperLogLog sketches can only be merged when they share the same precision (bucket count).
+                // Mixing sketches produced with different approx_set maxStandardError values is a user error.
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+            }
             state.addMemoryUsage(previous.estimatedInMemorySize());
         }
     }

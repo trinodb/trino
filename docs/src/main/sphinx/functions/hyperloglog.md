@@ -51,11 +51,44 @@ WHERE visit_date >= current_date - interval '7' day;
 
 ## Functions
 
-:::{function} approx_set(x) -> HyperLogLog
-Returns the `HyperLogLog` sketch of the input data set of `x`. This
-data sketch underlies {func}`approx_distinct` and can be stored and
-used later by calling `cardinality()`.
+::::{function} approx_set(x) -> HyperLogLog
+Returns the `HyperLogLog` sketch of the input data set of `x`, using a fixed
+default precision. This data sketch underlies {func}`approx_distinct` and can
+be stored and used later by calling `cardinality()`.
+
+:::{note}
+The fixed default precision uses 4096 buckets, which corresponds to a standard
+error of approximately 1.6% (`1.04 / sqrt(4096)`). To produce a sketch with this
+same precision using the two-argument form, and thus one that can be merged with
+sketches from `approx_set(x)`, pass a `maxStandardError` of `0.01625`.
 :::
+::::
+
+::::{function} approx_set(x, maxStandardError) -> HyperLogLog
+:noindex: true
+
+Returns the `HyperLogLog` sketch of the input data set of `x`, with the
+precision of the sketch controlled by `maxStandardError`. This is the desired
+maximum standard error as a `double` between `0.0040625` and `0.26`, matching
+{func}`approx_distinct`. A smaller value produces a more accurate sketch at the
+cost of more memory during aggregation and a larger serialized size. Values
+outside the permitted range fail the query.
+
+:::{note}
+Sketches can only be merged with, and produce a correct `cardinality()` union
+for, other sketches of the **same** precision:
+
+* Sketches produced with different `maxStandardError` values cannot be merged
+  with each other. Every sketch that you intend to combine with {func}`merge`
+  must be produced with the same `maxStandardError`.
+* The single-argument `approx_set(x)` uses a fixed precision that generally
+  differs from any explicit `maxStandardError`, so sketches from the two forms
+  are generally not mergeable with each other.
+
+Attempting to {func}`merge` sketches of different precision fails the query.
+Reading a single stored sketch with `cardinality()` is unaffected.
+:::
+::::
 
 :::{function} cardinality(hll) -> bigint
 :noindex: true
@@ -68,7 +101,16 @@ This will perform {func}`approx_distinct` on the data summarized by the
 Returns an empty `HyperLogLog`.
 :::
 
-:::{function} merge(HyperLogLog) -> HyperLogLog
+::::{function} merge(HyperLogLog) -> HyperLogLog
 Returns the `HyperLogLog` of the aggregate union of the individual `hll`
 HyperLogLog structures.
+
+:::{note}
+All sketches passed to a single `merge` must share the same precision (the same
+number of buckets). This precision is determined by how each sketch was created:
+`approx_set(x)` uses a fixed default precision, while `approx_set(x,
+maxStandardError)` uses a precision derived from `maxStandardError`. Merging
+sketches of different precision fails the query. Ensure every sketch you intend
+to combine is produced the same way, with the same `maxStandardError`.
 :::
+::::
