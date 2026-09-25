@@ -21,8 +21,10 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
+import static com.google.common.math.LongMath.saturatedAdd;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.min;
 
 @ScalarFunction("slice")
 @Description("Subsets an array given an offset (1-indexed) and length")
@@ -50,7 +52,9 @@ public final class ArraySliceFunction
             fromIndex = size + fromIndex + 1;
         }
 
-        long toIndex = Math.min(fromIndex + length, size + 1);
+        // fromIndex + length can overflow for a large length, which would make toIndex wrap around to a
+        // negative value and produce an empty result instead of the trailing part of the array
+        long toIndex = min(saturatedAdd(fromIndex, length), size + 1);
 
         if (fromIndex >= toIndex || fromIndex < 1) {
             return type.createBlockBuilder(null, 0).build();
