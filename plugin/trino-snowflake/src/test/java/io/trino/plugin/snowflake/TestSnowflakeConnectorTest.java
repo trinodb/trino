@@ -35,6 +35,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,6 +53,7 @@ public class TestSnowflakeConnectorTest
             throws Exception
     {
         return SnowflakeQueryRunner.builder()
+                .addConnectorProperty("connection-password", requiredNonEmptySystemProperty("snowflake.test.server.password"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
