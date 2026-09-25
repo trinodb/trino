@@ -152,7 +152,8 @@ public abstract class BaseJdbcClient
         this.supportsRetries = supportsRetries;
     }
 
-    protected IdentifierMapping getIdentifierMapping()
+    @Override
+    public IdentifierMapping getIdentifierMapping()
     {
         return identifierMapping;
     }
@@ -1540,12 +1541,6 @@ public abstract class BaseJdbcClient
         return Optional.of(ImmutableList.of("TABLE", "VIEW"));
     }
 
-    protected String getTableRemoteSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_SCHEM");
-    }
-
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
@@ -1935,6 +1930,7 @@ public abstract class BaseJdbcClient
         return columnName;
     }
 
+    @Override
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
     {
         return jdbcRemoteIdentifiersFactory.createJdbcRemoteIdentifies(connection);

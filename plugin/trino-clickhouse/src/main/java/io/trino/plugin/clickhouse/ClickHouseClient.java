@@ -310,7 +310,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String getTableRemoteSchemaName(ResultSet resultSet)
+    public String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         return resultSet.getString("TABLE_CAT");

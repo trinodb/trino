@@ -500,7 +500,7 @@ public class MySqlClient
     }
 
     @Override
-    protected String getTableRemoteSchemaName(ResultSet resultSet)
+    public String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
         // MySQL uses catalogs instead of schemas
