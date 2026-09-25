@@ -42,14 +42,14 @@ public class TrinoResultSetMetaData
     public boolean isAutoIncrement(int column)
             throws SQLException
     {
-        return false;
+        return column(column).isAutoIncrement();
     }
 
     @Override
     public boolean isCaseSensitive(int column)
             throws SQLException
     {
-        return false;
+        return column(column).isCaseSensitive();
     }
 
     @Override
@@ -163,21 +163,21 @@ public class TrinoResultSetMetaData
     public boolean isReadOnly(int column)
             throws SQLException
     {
-        return true;
+        return column(column).isReadOnly();
     }
 
     @Override
     public boolean isWritable(int column)
             throws SQLException
     {
-        return false;
+        return !column(column).isReadOnly();
     }
 
     @Override
     public boolean isDefinitelyWritable(int column)
             throws SQLException
     {
-        return false;
+        return !column(column).isReadOnly();
     }
 
     @Override

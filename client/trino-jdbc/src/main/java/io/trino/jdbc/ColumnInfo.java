@@ -46,7 +46,10 @@ class ColumnInfo
     private final List<Integer> columnParameterTypes;
     private final ClientTypeSignature columnTypeSignature;
     private final Nullable nullable;
+    private final boolean autoIncrement;
+    private final boolean caseSensitive;
     private final boolean currency;
+    private final boolean readOnly;
     private final boolean signed;
     private final int precision;
     private final int scale;
@@ -68,7 +71,10 @@ class ColumnInfo
             List<Integer> columnParameterTypes,
             ClientTypeSignature columnTypeSignature,
             Nullable nullable,
+            boolean autoIncrement,
+            boolean caseSensitive,
             boolean currency,
+            boolean readOnly,
             boolean signed,
             int precision,
             int scale,
@@ -84,7 +90,10 @@ class ColumnInfo
         this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeSignature is null");
         this.nullable = requireNonNull(nullable, "nullable is null");
+        this.autoIncrement = autoIncrement;
+        this.caseSensitive = caseSensitive;
         this.currency = currency;
+        this.readOnly = readOnly;
         this.signed = signed;
         this.precision = precision;
         this.scale = scale;
@@ -314,9 +323,24 @@ class ColumnInfo
         return nullable;
     }
 
+    public boolean isAutoIncrement()
+    {
+        return autoIncrement;
+    }
+
+    public boolean isCaseSensitive()
+    {
+        return caseSensitive;
+    }
+
     public boolean isCurrency()
     {
         return currency;
+    }
+
+    public boolean isReadOnly()
+    {
+        return readOnly;
     }
 
     public boolean isSigned()
@@ -371,7 +395,10 @@ class ColumnInfo
         private List<Integer> columnParameterTypes;
         private ClientTypeSignature columnTypeSignature;
         private Nullable nullable;
+        private boolean autoIncrement;
+        private boolean caseSensitive;
         private boolean currency;
+        private boolean readOnly;
         private boolean signed;
         private int precision;
         private int scale;
@@ -418,9 +445,30 @@ class ColumnInfo
         }
 
         @CanIgnoreReturnValue
+        public Builder setAutoIncrement(boolean autoIncrement)
+        {
+            this.autoIncrement = autoIncrement;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setCaseSensitive(boolean caseSensitive)
+        {
+            this.caseSensitive = caseSensitive;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
         public Builder setCurrency(boolean currency)
         {
             this.currency = currency;
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setReadOnly(boolean readOnly)
+        {
+            this.readOnly = readOnly;
             return this;
         }
 
@@ -496,7 +544,10 @@ class ColumnInfo
                     columnParameterTypes,
                     columnTypeSignature,
                     nullable,
+                    autoIncrement,
+                    caseSensitive,
                     currency,
+                    readOnly,
                     signed,
                     precision,
                     scale,
