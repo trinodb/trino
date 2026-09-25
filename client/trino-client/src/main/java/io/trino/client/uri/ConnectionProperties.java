@@ -86,6 +86,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
     public static final ConnectionProperty<String, String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<String, Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
+    public static final ConnectionProperty<String, Boolean> KERBEROS_USE_NATIVE_GSS = new KerberosUseNativeGss();
     public static final ConnectionProperty<String, String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
     public static final ConnectionProperty<String, File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
     public static final ConnectionProperty<String, File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
@@ -154,6 +155,7 @@ final class ConnectionProperties
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
+            .add(KERBEROS_USE_NATIVE_GSS)
             .add(LOCALE)
             .add(PASSWORD)
             .add(RESOURCE_ESTIMATES)
@@ -613,7 +615,10 @@ final class ConnectionProperties
         return validator(ConnectionProperties::isKerberosEnabled, format("Connection property %s requires %s to be set", propertyName, PropertyName.KERBEROS_REMOTE_SERVICE_NAME))
                 .and(validator(
                         properties -> !KERBEROS_DELEGATION.getValueOrDefault(properties, false),
-                        format("Connection property %s cannot be set if %s is enabled", propertyName, PropertyName.KERBEROS_DELEGATION)));
+                        format("Connection property %s cannot be set if %s is enabled", propertyName, PropertyName.KERBEROS_DELEGATION)))
+                .and(validator(
+                        properties -> !KERBEROS_USE_NATIVE_GSS.getValueOrDefault(properties, false),
+                        format("Connection property %s cannot be set if %s is enabled", propertyName, PropertyName.KERBEROS_USE_NATIVE_GSS)));
     }
 
     private static Validator<Properties> validateKerberosWithDelegation(PropertyName propertyName)
@@ -648,6 +653,41 @@ final class ConnectionProperties
         public KerberosUseCanonicalHostname()
         {
             super(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME, Optional.of(true), ConnectionProperties::isKerberosEnabled, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class KerberosUseNativeGss
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public KerberosUseNativeGss()
+        {
+            super(PropertyName.KERBEROS_USE_NATIVE_GSS, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+
+        @Override
+        public Optional<RuntimeException> validate(Properties properties)
+        {
+            Optional<RuntimeException> error = super.validate(properties);
+            if (error.isPresent()) {
+                return error;
+            }
+            if (!getValueOrDefault(properties, false)) {
+                return Optional.empty();
+            }
+            if (!isKerberosEnabled(properties)) {
+                return Optional.of(new RuntimeException(format("Connection property %s requires %s to be set", PropertyName.KERBEROS_USE_NATIVE_GSS, PropertyName.KERBEROS_REMOTE_SERVICE_NAME)));
+            }
+            if (KERBEROS_DELEGATION.getValueOrDefault(properties, false)) {
+                return Optional.of(new RuntimeException(format("Connection property %s cannot be set if %s is enabled", PropertyName.KERBEROS_USE_NATIVE_GSS, PropertyName.KERBEROS_DELEGATION)));
+            }
+            if (!Boolean.getBoolean("sun.security.jgss.native")) {
+                return Optional.of(new RuntimeException(format("Connection property %s requires system property sun.security.jgss.native to be set to true", PropertyName.KERBEROS_USE_NATIVE_GSS)));
+            }
+            // JGSS treats the value case-insensitively, so values like FALSE must be accepted
+            if (!"false".equalsIgnoreCase(System.getProperty("javax.security.auth.useSubjectCredsOnly"))) {
+                return Optional.of(new RuntimeException(format("Connection property %s requires system property javax.security.auth.useSubjectCredsOnly to be set to false", PropertyName.KERBEROS_USE_NATIVE_GSS)));
+            }
+            return Optional.empty();
         }
     }
 
