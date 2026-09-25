@@ -196,6 +196,7 @@ public class LogicalPlanner
     private final SymbolAllocator symbolAllocator = new SymbolAllocator(ImmutableList.of());
     private final Metadata metadata;
     private final PlannerContext plannerContext;
+    private final ExpressionBindings expressionBindings;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -235,6 +236,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
+        this.expressionBindings = new ExpressionBindings(metadata, getCharVarcharCoercion(session), symbolAllocator);
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -568,7 +570,7 @@ public class LogicalPlanner
                 expression = coerceOrCastToTableType(input, tableType, queryType);
             }
             if (!column.isNullable()) {
-                expression = new Coalesce(expression, createNullNotAllowedFailExpression(column.getName(), tableType));
+                expression = nullNotAllowedColumn(expression, column.getName(), CONSTRAINT_VIOLATION);
             }
             assignments.put(output, expression);
             insertedColumnsBuilder.add(column);
@@ -652,9 +654,9 @@ public class LogicalPlanner
         return noTruncationCast(metadata, plannerContext.getTypeManager(), getCharVarcharCoercion(session), symbolAllocator, fieldMapping.toSymbolReference(), queryType, tableType);
     }
 
-    private Expression createNullNotAllowedFailExpression(String columnName, Type type)
+    private Expression nullNotAllowedColumn(Expression expression, String columnName, ErrorCodeSupplier errorCode)
     {
-        return new Cast(failFunction(metadata, getCharVarcharCoercion(session), CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), type);
+        return expressionBindings.nullNotAllowedColumn(expression, columnName, errorCode);
     }
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, CharVarcharCoercion charVarcharCoercion, ErrorCodeSupplier errorCode, String errorMessage)
