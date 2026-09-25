@@ -773,7 +773,10 @@ abstract class AbstractTrinoResultSet
 
     private static TrinoIntervalDayTime parseIntervalDayTime(String value)
     {
-        return new TrinoIntervalDayTime(IntervalDayTime.parseMillis(value));
+        long[] components = IntervalDayTime.parseToPicos(value);
+        int dot = value.indexOf('.');
+        int fractionalPrecision = dot < 0 ? 0 : value.length() - dot - 1;
+        return new TrinoIntervalDayTime(components[0], (int) components[1], fractionalPrecision);
     }
 
     @Override

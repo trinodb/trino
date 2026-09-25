@@ -37,21 +37,24 @@ import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SimpleIntervalQualifier;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -60,14 +63,17 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP;
 import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class TypeDescriptorTranslator
 {
+    /// The SQL standard's implicit leading-field precision for an interval type written without one
+    /// (ISO/IEC 9075-2 §6.1). Interval literals override this by inferring from the value.
+    private static final int IMPLICIT_LEADING_PRECISION = 2;
+
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private static final Cache<String, DataType> DATA_TYPE_CACHE = EvictableCacheBuilder.newBuilder()
@@ -153,9 +159,46 @@ public final class TypeDescriptorTranslator
             case GenericDataType genericDataType -> toTypeTemplate(genericDataType, typeVariables, numericVariables);
             case RowDataType rowDataType -> toTypeTemplate(rowDataType, typeVariables, numericVariables);
             case DateTimeDataType dateTimeDataType -> toTypeTemplate(dateTimeDataType, numericVariables);
-            // Interval types are always ground; lift the ground signature into a (variable-free) template.
-            case IntervalDataType intervalDataType -> TypeTemplates.fromTypeDescriptor(toTypeDescriptor(intervalDataType));
+            case IntervalDataType intervalDataType -> toTypeTemplate(intervalDataType, numericVariables);
         };
+    }
+
+    private static TypeTemplate toTypeTemplate(IntervalDataType type, Set<String> numericVariables)
+    {
+        IntervalParts parts = intervalParts(type);
+        NumericExpression precision;
+        if (parts.precision().isEmpty()) {
+            // A written interval type with no precision takes the SQL standard's implicit leading precision.
+            precision = new NumericExpression.Literal(IMPLICIT_LEADING_PRECISION);
+        }
+        else if (parts.precision().get() instanceof NumericParameter numeric) {
+            precision = new NumericExpression.Literal(validateLeadingPrecision(parts, numeric.getParsedValue()));
+        }
+        else if (parts.precision().get() instanceof io.trino.sql.tree.TypeParameter typeParameter) {
+            DataType value = typeParameter.getValue();
+            if (!(value instanceof GenericDataType genericDataType) || !genericDataType.getArguments().isEmpty()) {
+                throw new IllegalArgumentException("Parameter to interval type must be either a number or a variable");
+            }
+            String variable = genericDataType.getName().getValue();
+            checkArgument(numericVariables.contains(variable), "Parameter to interval type must be a number or a numeric variable: %s", variable);
+            precision = new NumericExpression.Variable(variable);
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected interval precision parameter: " + parts.precision().get());
+        }
+
+        if (parts.yearMonth()) {
+            return new TypeTemplate.TypeApplication(parts.base(), List.of(
+                    new TemplateParameter.NumericArgument(new NumericExpression.Literal(parts.startField().code())),
+                    new TemplateParameter.NumericArgument(new NumericExpression.Literal(parts.endField().code())),
+                    new TemplateParameter.NumericArgument(precision)));
+        }
+        // A day-time interval carries a fourth parameter, the fractional-seconds precision.
+        return new TypeTemplate.TypeApplication(parts.base(), List.of(
+                new TemplateParameter.NumericArgument(new NumericExpression.Literal(parts.startField().code())),
+                new TemplateParameter.NumericArgument(new NumericExpression.Literal(parts.endField().code())),
+                new TemplateParameter.NumericArgument(precision),
+                new TemplateParameter.NumericArgument(fractionalPrecision(parts, numericVariables))));
     }
 
     private static TypeTemplate toTypeTemplate(GenericDataType type, Set<String> typeVariables, Set<String> numericVariables)
@@ -242,24 +285,190 @@ public final class TypeDescriptorTranslator
         return new TypeTemplate.TypeApplication(base, parameters);
     }
 
-    private static TypeDescriptor toTypeDescriptor(IntervalDataType type)
+    /// The start field, end field, base name, (possibly variable) leading precision, and explicit
+    /// fractional-seconds precision of an interval qualifier. The fractional precision is present only
+    /// when the trailing field is `SECOND` and was written with a precision.
+    private record IntervalParts(io.trino.spi.type.IntervalField startField, io.trino.spi.type.IntervalField endField, boolean yearMonth, String base, Optional<DataTypeParameter> precision, Optional<DataTypeParameter> fractionalPrecision) {}
+
+    private static IntervalParts intervalParts(IntervalDataType type)
     {
-        if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
-                qualifier.getFrom() instanceof IntervalField.Year() &&
-                qualifier.getTo() instanceof IntervalField.Month &&
-                qualifier.getPrecision().isEmpty()) {
-            return INTERVAL_YEAR_MONTH.getTypeDescriptor();
+        IntervalField from;
+        IntervalField to;
+        Optional<DataTypeParameter> precision;
+        switch (type.qualifier()) {
+            case SimpleIntervalQualifier qualifier -> {
+                from = qualifier.getField();
+                to = qualifier.getField();
+                precision = qualifier.getPrecision();
+            }
+            case CompositeIntervalQualifier qualifier -> {
+                from = qualifier.getFrom();
+                to = qualifier.getTo();
+                precision = qualifier.getPrecision();
+            }
         }
 
-        if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
-                qualifier.getFrom() instanceof IntervalField.Day() &&
-                qualifier.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) &&
-                qualifier.getPrecision().isEmpty() &&
-                fractionalPrecision.isEmpty()) {
-            return INTERVAL_DAY_TIME.getTypeDescriptor();
-        }
+        Optional<DataTypeParameter> fractionalPrecision = to instanceof IntervalField.Second(Optional<DataTypeParameter> fractional) ? fractional : Optional.empty();
 
-        throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
+        io.trino.spi.type.IntervalField startField = toIntervalField(from);
+        io.trino.spi.type.IntervalField endField = toIntervalField(to);
+        boolean yearMonth = startField == io.trino.spi.type.IntervalField.YEAR || startField == io.trino.spi.type.IntervalField.MONTH;
+        String base = yearMonth ? INTERVAL_YEAR_TO_MONTH : INTERVAL_DAY_TO_SECOND;
+        return new IntervalParts(startField, endField, yearMonth, base, precision, fractionalPrecision);
+    }
+
+    /// The fractional-seconds precision an interval template carries: the written value (validated), a
+    /// numeric variable, or the trailing field's default when none was written. Mirrors the leading
+    /// precision, which is also a [DataTypeParameter] that may be a literal or a variable.
+    private static NumericExpression fractionalPrecision(IntervalParts parts, Set<String> numericVariables)
+    {
+        if (parts.fractionalPrecision().isEmpty()) {
+            return new NumericExpression.Literal(IntervalDayTimeType.defaultFractionalPrecision(parts.endField()));
+        }
+        DataTypeParameter parameter = parts.fractionalPrecision().get();
+        if (parameter instanceof NumericParameter numeric) {
+            long value = numeric.getParsedValue();
+            if (value < 0 || value > IntervalDayTimeType.MAX_FRACTIONAL_PRECISION) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("INTERVAL fractional seconds precision must be in range [0, %s]: %s", IntervalDayTimeType.MAX_FRACTIONAL_PRECISION, value));
+            }
+            return new NumericExpression.Literal(value);
+        }
+        if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
+            DataType value = typeParameter.getValue();
+            if (!(value instanceof GenericDataType genericDataType) || !genericDataType.getArguments().isEmpty()) {
+                throw new IllegalArgumentException("Parameter to interval type must be either a number or a variable");
+            }
+            String variable = genericDataType.getName().getValue();
+            checkArgument(numericVariables.contains(variable), "Parameter to interval type must be a number or a numeric variable: %s", variable);
+            return new NumericExpression.Variable(variable);
+        }
+        throw new IllegalArgumentException("Unexpected interval fractional precision parameter: " + parameter);
+    }
+
+    private static int validateLeadingPrecision(IntervalParts parts, long value)
+    {
+        int maxPrecision = parts.yearMonth() ? IntervalYearMonthType.maxLeadingPrecision(parts.startField()) : IntervalDayTimeType.maxLeadingPrecision(parts.startField());
+        if (value < 1 || value > maxPrecision) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("INTERVAL %s leading precision must be in range [1, %s]: %s", parts.startField().keyword(), maxPrecision, value));
+        }
+        return (int) value;
+    }
+
+    /// Whether the interval type's qualifier was written with an explicit leading-field precision.
+    /// A literal without one infers its precision from the value rather than taking the implicit default.
+    public static boolean intervalQualifierHasPrecision(IntervalDataType type)
+    {
+        return intervalParts(type).precision().isPresent();
+    }
+
+    /// Whether the interval qualifier is the bare single field `SECOND` written with no explicit
+    /// fractional-seconds precision. A literal in that case infers its fractional precision from the
+    /// value; a multi-field qualifier such as `DAY TO SECOND` keeps the SQL default instead.
+    public static boolean intervalQualifierHasInferableFractionalPrecision(IntervalDataType type)
+    {
+        IntervalParts parts = intervalParts(type);
+        return parts.startField() == io.trino.spi.type.IntervalField.SECOND && parts.fractionalPrecision().isEmpty();
+    }
+
+    /// Replaces a day-time interval descriptor's fractional-seconds precision with the number of
+    /// fractional digits in the literal value — e.g. `INTERVAL '1.123' SECOND` is `interval second(.., 3)`
+    /// and `INTERVAL '5' SECOND` is `interval second(.., 0)` — capped at the maximum. Called for a
+    /// `SECOND`-ending literal whose qualifier carried no explicit fractional precision.
+    public static TypeDescriptor inferIntervalFractionalPrecision(TypeDescriptor descriptor, String value)
+    {
+        List<TypeParameter> parameters = descriptor.getParameters();
+        int fractionalPrecision = Math.min(fractionalDigitCount(value), IntervalDayTimeType.MAX_FRACTIONAL_PRECISION);
+        return new TypeDescriptor(descriptor.getBase(), parameters.get(0), parameters.get(1), parameters.get(2), numericParameter(fractionalPrecision));
+    }
+
+    private static int fractionalDigitCount(String value)
+    {
+        int dot = value.indexOf('.');
+        if (dot < 0) {
+            return 0;
+        }
+        int digits = 0;
+        for (int index = dot + 1; index < value.length() && Character.isDigit(value.charAt(index)); index++) {
+            digits++;
+        }
+        return digits;
+    }
+
+    /// Replaces an interval descriptor's leading-field precision with the width of the literal value's
+    /// leading component — e.g. `INTERVAL '340' DAY` is `interval day(3)` — capped at the field's
+    /// maximum. Called for a literal whose qualifier carried no explicit precision.
+    public static TypeDescriptor inferIntervalLeadingPrecision(TypeDescriptor descriptor, String value)
+    {
+        List<TypeParameter> parameters = descriptor.getParameters();
+        io.trino.spi.type.IntervalField startField = io.trino.spi.type.IntervalField.fromCode((int) ((TypeParameter.Numeric) parameters.get(0)).value());
+        boolean yearMonth = startField == io.trino.spi.type.IntervalField.YEAR || startField == io.trino.spi.type.IntervalField.MONTH;
+        int maxPrecision = yearMonth ? IntervalYearMonthType.maxLeadingPrecision(startField) : IntervalDayTimeType.maxLeadingPrecision(startField);
+        int precision = Math.min(leadingDigitCount(value), maxPrecision);
+        // A day-time interval keeps its fourth parameter, the fractional-seconds precision.
+        if (parameters.size() > 3) {
+            return new TypeDescriptor(descriptor.getBase(), parameters.get(0), parameters.get(1), numericParameter(precision), parameters.get(3));
+        }
+        return new TypeDescriptor(descriptor.getBase(), parameters.get(0), parameters.get(1), numericParameter(precision));
+    }
+
+    private static int leadingDigitCount(String value)
+    {
+        int index = 0;
+        while (index < value.length() && !Character.isDigit(value.charAt(index))) {
+            index++;
+        }
+        int digits = 0;
+        while (index < value.length() && Character.isDigit(value.charAt(index))) {
+            digits++;
+            index++;
+        }
+        return Math.max(1, digits);
+    }
+
+    private static io.trino.spi.type.IntervalField toIntervalField(IntervalField field)
+    {
+        return switch (field) {
+            case IntervalField.Year _ -> io.trino.spi.type.IntervalField.YEAR;
+            case IntervalField.Month _ -> io.trino.spi.type.IntervalField.MONTH;
+            case IntervalField.Day _ -> io.trino.spi.type.IntervalField.DAY;
+            case IntervalField.Hour _ -> io.trino.spi.type.IntervalField.HOUR;
+            case IntervalField.Minute _ -> io.trino.spi.type.IntervalField.MINUTE;
+            case IntervalField.Second _ -> io.trino.spi.type.IntervalField.SECOND;
+        };
+    }
+
+    private static IntervalField toIntervalFieldNode(io.trino.spi.type.IntervalField field, Optional<DataTypeParameter> fractionalPrecision)
+    {
+        return switch (field) {
+            case YEAR -> new IntervalField.Year();
+            case MONTH -> new IntervalField.Month();
+            case DAY -> new IntervalField.Day();
+            case HOUR -> new IntervalField.Hour();
+            case MINUTE -> new IntervalField.Minute();
+            case SECOND -> new IntervalField.Second(fractionalPrecision);
+        };
+    }
+
+    private static IntervalDataType toIntervalDataType(TypeDescriptor typeDescriptor)
+    {
+        List<TypeParameter> parameters = typeDescriptor.getParameters();
+        io.trino.spi.type.IntervalField startField = io.trino.spi.type.IntervalField.fromCode((int) ((TypeParameter.Numeric) parameters.get(0)).value());
+        io.trino.spi.type.IntervalField endField = io.trino.spi.type.IntervalField.fromCode((int) ((TypeParameter.Numeric) parameters.get(1)).value());
+        long precision = parameters.size() > 2 ? ((TypeParameter.Numeric) parameters.get(2)).value() : IMPLICIT_LEADING_PRECISION;
+        Optional<DataTypeParameter> leadingPrecision = Optional.of(new NumericParameter(new NodeLocation(1, 1), Long.toString(precision)));
+        // A day-time interval ending in SECOND carries the fractional-seconds precision in its fourth parameter.
+        Optional<DataTypeParameter> fractionalPrecision = endField == io.trino.spi.type.IntervalField.SECOND && parameters.size() > 3
+                ? Optional.of(new NumericParameter(new NodeLocation(1, 1), Long.toString(((TypeParameter.Numeric) parameters.get(3)).value())))
+                : Optional.empty();
+
+        IntervalQualifier qualifier;
+        if (startField == endField) {
+            qualifier = new SimpleIntervalQualifier(new NodeLocation(1, 1), leadingPrecision, toIntervalFieldNode(startField, fractionalPrecision));
+        }
+        else {
+            qualifier = new CompositeIntervalQualifier(new NodeLocation(1, 1), leadingPrecision, toIntervalFieldNode(startField, Optional.empty()), toIntervalFieldNode(endField, fractionalPrecision));
+        }
+        return new IntervalDataType(Optional.empty(), qualifier);
     }
 
     private static String canonicalize(Identifier identifier)
@@ -275,20 +484,7 @@ public final class TypeDescriptorTranslator
     static DataType toDataType(TypeDescriptor typeDescriptor)
     {
         return switch (typeDescriptor.getBase()) {
-            case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(
-                    Optional.empty(),
-                    new CompositeIntervalQualifier(
-                            new NodeLocation(1, 1),
-                            OptionalInt.empty(),
-                            new IntervalField.Year(),
-                            new IntervalField.Month()));
-            case INTERVAL_DAY_TO_SECOND -> new IntervalDataType(
-                    Optional.empty(),
-                    new CompositeIntervalQualifier(
-                            new NodeLocation(1, 1),
-                            OptionalInt.empty(),
-                            new IntervalField.Day(),
-                            new IntervalField.Second(OptionalInt.empty())));
+            case INTERVAL_YEAR_TO_MONTH, INTERVAL_DAY_TO_SECOND -> toIntervalDataType(typeDescriptor);
             case TIMESTAMP_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,

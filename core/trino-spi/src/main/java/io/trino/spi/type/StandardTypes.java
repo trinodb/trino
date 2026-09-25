@@ -31,8 +31,8 @@ public final class StandardTypes
     public static final String TDIGEST = "tdigest";
     public static final String SET_DIGEST = "SetDigest";
     public static final String P4_HYPER_LOG_LOG = P4HyperLogLogType.NAME;
-    public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
-    public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";
+    public static final String INTERVAL_DAY_TO_SECOND = "$interval_day_time";
+    public static final String INTERVAL_YEAR_TO_MONTH = "$interval_year_month";
     public static final String TIMESTAMP = TimestampType.NAME;
     public static final String TIMESTAMP_WITH_TIME_ZONE = TimestampWithTimeZoneType.NAME;
     public static final String TIME = TimeType.NAME;

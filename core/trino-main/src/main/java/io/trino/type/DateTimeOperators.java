@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -28,56 +29,61 @@ import static io.trino.spi.function.OperatorType.SUBTRACT;
 
 public final class DateTimeOperators
 {
-    private static final DateTimeField MILLIS_OF_DAY = ISOChronology.getInstanceUTC().millisOfDay();
     private static final DateTimeField MONTH_OF_YEAR_UTC = ISOChronology.getInstanceUTC().monthOfYear();
 
     private DateTimeOperators() {}
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second") long interval)
     {
-        if (MILLIS_OF_DAY.get(interval) != 0) {
+        if (interval % TimeUnit.DAYS.toMicros(1) != 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
-        return date + TimeUnit.MILLISECONDS.toDays(interval);
+        return date + TimeUnit.MICROSECONDS.toDays(interval);
     }
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long intervalDayToSecondPlusDate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.DATE) long date)
+    public static long intervalDayToSecondPlusDate(@SqlType("interval day(q) to second") long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalDayToSecond(date, interval);
     }
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+    public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year(q) to month") long interval)
     {
         long millis = MONTH_OF_YEAR_UTC.add(TimeUnit.DAYS.toMillis(date), interval);
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
     @ScalarOperator(ADD)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long intervalYearToMonthPlusDate(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.DATE) long date)
+    public static long intervalYearToMonthPlusDate(@SqlType("interval year(q) to month") long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalYearToMonth(date, interval);
     }
 
     @ScalarOperator(SUBTRACT)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
+    public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType("interval day(q) to second") long interval)
     {
-        if (MILLIS_OF_DAY.get(interval) != 0) {
+        if (interval % TimeUnit.DAYS.toMicros(1) != 0) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
         }
-        return date - TimeUnit.MILLISECONDS.toDays(interval);
+        return date - TimeUnit.MICROSECONDS.toDays(interval);
     }
 
     @ScalarOperator(SUBTRACT)
+    @LiteralParameters("q")
     @SqlType(StandardTypes.DATE)
-    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
+    public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType("interval year(q) to month") long interval)
     {
         return datePlusIntervalYearToMonth(date, -interval);
     }
