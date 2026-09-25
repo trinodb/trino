@@ -16,8 +16,10 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 
@@ -36,9 +38,10 @@ public class TopNOperator
             PlanNodeId planNodeId,
             List<? extends Type> types,
             int n,
+            List<Integer> sortChannels,
             PageWithPositionComparator comparator)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, comparator));
     }
 
     private static class Factory
@@ -48,6 +51,7 @@ public class TopNOperator
         private final PlanNodeId planNodeId;
         private final List<Type> sourceTypes;
         private final int n;
+        private final List<Integer> sortChannels;
         private final PageWithPositionComparator comparator;
         private boolean closed;
 
@@ -56,12 +60,14 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
+                List<Integer> sortChannels,
                 PageWithPositionComparator comparator)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
+            this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.comparator = requireNonNull(comparator, "comparator is null");
         }
 
@@ -76,6 +82,7 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
+                    sortChannels,
                     comparator);
         }
 
@@ -106,30 +113,37 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, comparator);
         }
     }
 
+    @Nullable
+    private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
+    // masked input only helps when some channels are not sort channels and can be left undecoded
+    private final boolean hasNonSortChannels;
 
     private TopNOperator(
             OperatorContext operatorContext,
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
+            List<Integer> sortChannels,
             PageWithPositionComparator comparator)
     {
+        this.hasNonSortChannels = sortChannels.size() < types.size();
         if (n == 0) {
+            topNProcessor = null;
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.transform(
-                    new TopNPages(
-                            new TopNProcessor(
-                                    operatorContext.aggregateUserMemoryContext(),
-                                    types,
-                                    n,
-                                    comparator)));
+            topNProcessor = new TopNProcessor(
+                    operatorContext.aggregateUserMemoryContext(),
+                    types,
+                    n,
+                    sortChannels,
+                    comparator);
+            pages = sourcePages.transform(new TopNPages(topNProcessor));
         }
     }
 
@@ -137,6 +151,27 @@ public class TopNOperator
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
+    }
+
+    @Override
+    public boolean supportsMaskedInput()
+    {
+        return topNProcessor != null && hasNonSortChannels;
+    }
+
+    @Override
+    public void addMaskedInput(MaskedPage maskedPage)
+    {
+        topNProcessor.addMaskedInput(maskedPage);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        if (topNProcessor == null) {
+            return Metrics.EMPTY;
+        }
+        return topNProcessor.getMetrics();
     }
 
     private static final class TopNPages
