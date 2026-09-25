@@ -980,8 +980,6 @@ jobs:
           DATABRICKS_18_JDBC_URL: ${{ vars.DATABRICKS_18_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
-          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
           SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
           SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
@@ -1014,10 +1012,6 @@ jobs:
             availability_env=""
             required_env=()
             case "${suite}" in
-              SuiteGcs)
-                availability_env=GCP_CREDENTIALS_KEY
-                required_env+=(GCP_CREDENTIALS_KEY GCP_STORAGE_BUCKET)
-                ;;
               SuiteAzure)
                 availability_env=ABFS_ACCESS_KEY
                 required_env+=(ABFS_CONTAINER ABFS_ACCOUNT ABFS_ACCESS_KEY)
