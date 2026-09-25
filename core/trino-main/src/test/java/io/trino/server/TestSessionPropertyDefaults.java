@@ -23,7 +23,6 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
@@ -50,7 +49,7 @@ public class TestSessionPropertyDefaults
     @Test
     public void testApplyDefaultProperties()
     {
-        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new AllowAllAccessControl(), new SecretsResolver(ImmutableMap.of()));
+        SessionPropertyDefaults sessionPropertyDefaults = new SessionPropertyDefaults(TEST_NODE_INFO, new SecretsResolver(ImmutableMap.of()));
 
         List<PropertyMetadata<?>> catalogProperties = ImmutableList.of(
                 PropertyMetadata.stringProperty("explicit_set", "Test property", null, false),

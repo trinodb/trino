@@ -274,6 +274,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-session-property-managers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>test</scope>
         </dependency>
