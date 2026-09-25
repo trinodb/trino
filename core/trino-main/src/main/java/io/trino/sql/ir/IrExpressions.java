@@ -31,6 +31,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -50,6 +51,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -421,16 +423,17 @@ public final class IrExpressions
             // These expressions may return null based on their operands
             case Call e -> switch (matchComparison(e)) {
                 case null -> mayBeNull(plannerContext, charVarcharCoercion, e.function(), e.arguments(), referencesMayBeNull);
-                // IDENTICAL is null-safe; other comparisons return null only when one of their operands is null.
+                // IDENTICAL is null-safe; other comparisons can also return null for nested nulls.
                 case Comparison.Identical _ -> false;
-                case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
+                case Comparison comparison -> comparisonMayReturnNullOnNonNullInput(plannerContext, comparison.operator(), comparison.left().type()) ||
+                        mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
                         mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referencesMayBeNull);
             };
             case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
-            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
+            case In e -> comparisonMayReturnNullOnNonNullInput(plannerContext, EQUAL, e.value().type()) || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
             case Let e -> mayBeNull(plannerContext, charVarcharCoercion, e.body(), referencesMayBeNull || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
@@ -441,6 +444,28 @@ public final class IrExpressions
             case FieldReference _ -> true;
             case Reference _ -> referencesMayBeNull;
         };
+    }
+
+    /// Whether a comparison can return null even when both operands are non-null, for example
+    /// when rows or arrays contain null elements. Use the type's operators because the generic
+    /// comparison functions declare nullable returns even for primitive types.
+    public static boolean comparisonMayReturnNullOnNonNullInput(PlannerContext plannerContext, ComparisonOperator operator, Type type)
+    {
+        if (operator == ComparisonOperator.IDENTICAL) {
+            return false;
+        }
+        TypeOperatorDeclaration declaration = type.getTypeOperatorDeclaration(plannerContext.getTypeOperators());
+        if (declaration == null) {
+            return true;
+        }
+        var operators = switch (operator) {
+            case EQUAL, NOT_EQUAL -> declaration.getEqualOperators();
+            case LESS_THAN, GREATER_THAN -> declaration.getLessThanOperators();
+            case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> declaration.getLessThanOrEqualOperators();
+            case IDENTICAL -> throw new IllegalArgumentException("Unexpected operator: " + operator);
+        };
+        // Missing ordering operators are synthesized from the non-nullable comparison operator.
+        return operators.stream().anyMatch(method -> method.getCallingConvention().getReturnConvention() == NULLABLE_RETURN);
     }
 
     private static boolean mayBeNull(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, Cast cast, boolean referencesMayBeNull)

@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.SystemSessionProperties.USE_LEGACY_DECORRELATOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
@@ -77,7 +78,10 @@ public class TestTransformExistsApplyToCorrelatedJoin
     @Test
     public void testRewritesToLimit()
     {
+        // The marker-over-Limit rewrite is the legacy-decorrelator path; with the dependent-join framework active the rule always
+        // emits the default bool_or aggregation for the dependent-join framework to decorrelate.
         tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "true")
                 .on(p ->
                         p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(p.symbol("corr")),
@@ -94,6 +98,35 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                         project(
                                                 ImmutableMap.of("subquery", PlanMatchPattern.expression(TRUE)),
                                                 limit(1,
+                                                        project(ImmutableMap.of(),
+                                                                node(FilterNode.class,
+                                                                        values("column"))))))));
+    }
+
+    @Test
+    public void testRewritesToDefaultAggregationWithoutLegacyDecorrelator()
+    {
+        // with the dependent-join framework active, even equality-correlated EXISTS funnels through the bool_or aggregation
+        // (no marker-over-Limit, no PlanNodeDecorrelator) — the dependent-join framework owns the
+        // decorrelation.
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
+                .setSystemProperty(USE_LEGACY_DECORRELATOR, "false")
+                .on(p ->
+                        p.apply(ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
+                                ImmutableList.of(p.symbol("corr")),
+                                p.values(p.symbol("corr")),
+                                p.project(Assignments.of(),
+                                        p.filter(
+                                                comparison(EQUAL, new Reference(BIGINT, "corr"), new Reference(BIGINT, "column")),
+                                                p.values(p.symbol("column"))))))
+                .matches(
+                        correlatedJoin(
+                                ImmutableList.of("corr"),
+                                values("corr"),
+                                project(
+                                        ImmutableMap.of("b", PlanMatchPattern.expression(new Coalesce(new Reference(BOOLEAN, "aggrbool"), FALSE))),
+                                        aggregation(ImmutableMap.of("aggrbool", aggregationFunction("bool_or", ImmutableList.of("subquery"))),
+                                                project(ImmutableMap.of("subquery", PlanMatchPattern.expression(TRUE)),
                                                         project(ImmutableMap.of(),
                                                                 node(FilterNode.class,
                                                                         values("column"))))))));
