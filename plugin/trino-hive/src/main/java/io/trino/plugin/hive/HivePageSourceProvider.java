@@ -590,7 +590,8 @@ public class HivePageSourceProvider
                                 createTypeFromCoercer(typeManager, fromHiveTypeBase, columnHandle.getBaseHiveType(), coercionContext),
                                 newColumnProjectionInfo,
                                 columnHandle.getColumnType(),
-                                columnHandle.getComment());
+                                columnHandle.getComment(),
+                                columnHandle.isNullable());
                     })
                     .collect(toList());
         }
