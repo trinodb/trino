@@ -846,16 +846,22 @@ class TestHiveTransactionalTable
             env.executeTrinoUpdate(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
             verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(111L, "Katy", 57, "CA"), row(222L, "Joe", 72, "WA"));
 
-            env.executeTrinoUpdate(format("ALTER TABLE %s DROP COLUMN old_state", tableName));
-            log.info("This shows that neither Trino nor Hive see the old data after a column is dropped");
-            verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(111L, "Katy", 57), row(222L, "Joe", 72));
-
-            env.executeTrinoUpdate(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
-            verifySelectForTrinoAndHive(env, "SELECT * FROM " + tableName, row(111L, "Katy", 57), row(222L, "Joe", 72), row(333L, "Kelly", 45));
+            // ORC's SerDe (OrcSerde) is not in HiveMetadata.DROP_COLUMN_SUPPORTED_SERDES, so DROP COLUMN
+            // is now rejected. ADD COLUMN is still permitted — the guard is narrowly scoped to DROP.
+            // This test used to document the "old data resurfaces after drop-then-add" quirk on ORC;
+            // it is now inverted to assert the rejection and confirm ADD is unaffected.
+            assertThatThrownBy(() -> env.executeTrinoUpdate(format("ALTER TABLE %s DROP COLUMN old_state", tableName)))
+                    .hasMessageContaining("Dropping columns is not supported by table SerDe:");
+            // ADD COLUMN must still succeed — the guard is narrowly scoped to DROP.
 
             env.executeTrinoUpdate(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-            log.info("This shows that for ORC, Trino and Hive both see data inserted into a dropped column when a column of the same type but different name is added");
-            verifySelectForTrino(env, "SELECT * FROM " + tableName, row(111L, "Katy", 57, "CA"), row(222L, "Joe", 72, "WA"), row(333L, "Kelly", 45, null));
+            env.executeTrinoUpdate(format("INSERT INTO %s VALUES (333, 'Kelly', 45, 'CA', 'CA')", tableName));
+            verifySelectForTrinoAndHive(
+                    env,
+                    "SELECT * FROM " + tableName,
+                    row(111L, "Katy", 57, "CA", null),
+                    row(222L, "Joe", 72, "WA", null),
+                    row(333L, "Kelly", 45, "CA", "CA"));
         });
     }
 
