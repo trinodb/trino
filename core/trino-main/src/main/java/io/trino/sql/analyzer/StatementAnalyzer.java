@@ -758,9 +758,20 @@ class StatementAnalyzer
             QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName);
             checkStorageTableNotRedirected(targetTable);
 
-            // analyze the query that creates the data
+            // Analyze the definition query with the stored owner session, matching
+            // analyzeView. The delegated path above does not analyze the definition.
             Query query = parseView(view.getOriginalSql(), name, refreshMaterializedView);
-            Scope queryScope = process(query, scope);
+            ViewOwnerContext ownerContext = viewOwnerContext(view.getRunAsIdentity(), view.getCatalog(), view.getSchema(), view.getPath());
+            Scope queryScope;
+            try {
+                StatementAnalyzer analyzer = statementAnalyzerFactory
+                        .withSpecializedAccessControl(ownerContext.accessControl())
+                        .createStatementAnalyzer(analysis, ownerContext.session(), warningCollector, CorrelationSupport.ALLOWED);
+                queryScope = analyzer.analyze(query);
+            }
+            catch (RuntimeException e) {
+                throw semanticException(INVALID_VIEW, refreshMaterializedView, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+            }
 
             // verify the insert destination columns match the query
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
@@ -780,7 +791,8 @@ class StatementAnalyzer
                     refreshMaterializedView.getTable(),
                     targetTableHandle,
                     query,
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
+                    ownerContext.session()));
 
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.column(insertColumn).getType())
@@ -2789,13 +2801,18 @@ class StatementAnalyzer
                 }
 
                 analysis.registerTableForView(table, name, isMaterializedView);
-                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                ViewOwnerContext ownerContext = viewOwnerContext(owner, catalog, schema, path);
+                RelationType descriptor = analyzeView(query, name, ownerContext, table);
                 analysis.unregisterTableForView();
 
                 checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
                         .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
 
                 analysis.registerNamedQuery(table, query);
+                if (isMaterializedView) {
+                    // Plan the inlined definition as the owner. Regular views keep the caller session so current_user is the invoker.
+                    analysis.registerNamedQuerySession(table, ownerContext.session());
+                }
             }
 
             Scope accessControlScope = Scope.builder()
@@ -5716,38 +5733,13 @@ class StatementAnalyzer
         private RelationType analyzeView(
                 Query query,
                 QualifiedObjectName name,
-                Optional<String> catalog,
-                Optional<String> schema,
-                Optional<Identity> owner,
-                List<CatalogSchemaName> path,
+                ViewOwnerContext ownerContext,
                 Table node)
         {
             try {
-                // run view as view owner if set; otherwise, run as session user
-                Identity identity;
-                AccessControl viewAccessControl;
-                if (owner.isPresent()) {
-                    identity = Identity.from(owner.get())
-                            .withGroups(groupProvider.getGroups(owner.get().getUser()))
-                            .build();
-                    if (owner.get().getUser().equals(session.getIdentity().getUser())) {
-                        // View owner does not need GRANT OPTION to grant access themselves
-                        viewAccessControl = accessControl;
-                    }
-                    else {
-                        viewAccessControl = new ViewAccessControl(accessControl);
-                    }
-                }
-                else {
-                    identity = session.getIdentity();
-                    viewAccessControl = accessControl;
-                }
-
-                Session viewSession = session.createViewSession(catalog, schema, identity, path);
-
                 StatementAnalyzer analyzer = statementAnalyzerFactory
-                        .withSpecializedAccessControl(viewAccessControl)
-                        .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
+                        .withSpecializedAccessControl(ownerContext.accessControl())
+                        .createStatementAnalyzer(analysis, ownerContext.session(), warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query);
                 return queryScope.getRelationType().withAlias(name.objectName(), null);
             }
@@ -5755,6 +5747,36 @@ class StatementAnalyzer
                 throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
+
+        private ViewOwnerContext viewOwnerContext(
+                Optional<Identity> owner,
+                Optional<String> catalog,
+                Optional<String> schema,
+                List<CatalogSchemaName> path)
+        {
+            // run view as view owner if set; otherwise, run as session user
+            Identity identity;
+            AccessControl viewAccessControl;
+            if (owner.isPresent()) {
+                identity = Identity.from(owner.get())
+                        .withGroups(groupProvider.getGroups(owner.get().getUser()))
+                        .build();
+                if (owner.get().getUser().equals(session.getIdentity().getUser())) {
+                    // View owner does not need GRANT OPTION to grant access themselves
+                    viewAccessControl = accessControl;
+                }
+                else {
+                    viewAccessControl = new ViewAccessControl(accessControl);
+                }
+            }
+            else {
+                identity = session.getIdentity();
+                viewAccessControl = accessControl;
+            }
+            return new ViewOwnerContext(session.createViewSession(catalog, schema, identity, path), viewAccessControl);
+        }
+
+        private record ViewOwnerContext(Session session, AccessControl accessControl) {}
 
         private Query parseView(String view, QualifiedObjectName name, Node node)
         {
