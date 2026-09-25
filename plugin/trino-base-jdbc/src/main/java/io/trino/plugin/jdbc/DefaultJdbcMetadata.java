@@ -90,6 +90,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 
@@ -137,7 +138,7 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    protected final List<Runnable> rollbackActions = new ArrayList<>();
+    protected final List<Runnable> rollbackActions = new CopyOnWriteArrayList<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1262,12 +1263,11 @@ public class DefaultJdbcMetadata
     @Override
     public void rollback()
     {
-        if (rollbackActions.isEmpty()) {
-            return;
-        }
-
         List<Throwable> exceptions = new ArrayList<>();
-        for (Runnable action : rollbackActions) {
+        // Drain rather than iterate: an iterator over rollbackActions is a point-in-time snapshot, so an
+        // action added concurrently (by a begin*() call racing with this rollback()) would otherwise never run
+        while (!rollbackActions.isEmpty()) {
+            Runnable action = rollbackActions.removeFirst();
             try {
                 action.run();
             }
