@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.manager.FileSystemConfig;
+import io.trino.filesystem.s3.S3SecurityMappingProvider;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -48,6 +49,13 @@ public class IcebergRestCatalogModule
         binder.bind(IcebergRestCatalogPropertiesProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setBinding().to(IcebergRestCatalogFileSystemFactory.class).in(Scopes.SINGLETON);
+
+        if (icebergRestCatalogConfig.isVendedCredentialsEnabled()) {
+            newOptionalBinder(binder, S3SecurityMappingProvider.class)
+                    .setBinding()
+                    .to(VendedCredentialsS3SecurityMappingProvider.class)
+                    .in(Scopes.SINGLETON);
+        }
 
         validateConfiguration(icebergRestCatalogConfig);
     }
