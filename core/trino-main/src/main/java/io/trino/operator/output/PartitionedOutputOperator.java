@@ -15,6 +15,7 @@ package io.trino.operator.output;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -30,11 +31,11 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
-import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -284,11 +285,18 @@ public class PartitionedOutputOperator
     @Override
     public void finish()
     {
-        if (!finished) {
-            Metrics finalMetrics = pagePartitioner.prepareForRelease(operatorContext);
-            operatorContext.setLatestMetrics(finalMetrics);
-            pagePartitionerPool.release(pagePartitioner);
-            finished = true;
+        if (finished) {
+            return;
+        }
+        finished = true;
+
+        try (Closer closer = Closer.create()) {
+            // Closer runs in reverse registration order, so the partitioner is released even if the flush fails
+            closer.register(() -> pagePartitionerPool.release(pagePartitioner));
+            closer.register(() -> operatorContext.setLatestMetrics(pagePartitioner.prepareForRelease(operatorContext)));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
