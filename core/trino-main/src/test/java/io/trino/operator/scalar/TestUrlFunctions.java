@@ -102,6 +102,31 @@ public class TestUrlFunctions
     }
 
     @Test
+    public void testUrlExtractEncodedParameterName()
+    {
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?a%20b=first&a+b=second'", "'a b'"))
+                .isEqualTo("first");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?a+b=first&a%20b=second'", "'a b'"))
+                .isEqualTo("first");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?%61=first&a=second'", "'a'"))
+                .isEqualTo("first");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?a%26b%3Dc=value'", "'a&b=c'"))
+                .isEqualTo("value");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?a%2Bb=value'", "'a+b'"))
+                .isEqualTo("value");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?%E3%83%86=value'", "'テ'"))
+                .isEqualTo("value");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?%61&a=second'", "'a'"))
+                .isEqualTo("");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?%61=&a=second'", "'a'"))
+                .isEqualTo("");
+        assertThat(assertions.function("url_extract_parameter", "'http://example.com/?%2561=value'", "'%61'"))
+                .isEqualTo("value");
+        assertThat(assertions.expression("url_extract_parameter('http://example.com/?' || url_encode('a b') || '=ok', 'a b')"))
+                .isEqualTo("ok");
+    }
+
+    @Test
     public void testUrlEncode()
     {
         String[][] outputInputPairs = {
