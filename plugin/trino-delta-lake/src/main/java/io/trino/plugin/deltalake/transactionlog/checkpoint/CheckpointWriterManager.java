@@ -29,6 +29,7 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogCleanup;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -64,6 +65,7 @@ public class CheckpointWriterManager
     private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final String trinoVersion;
     private final TransactionLogAccess transactionLogAccess;
+    private final TransactionLogCleanup transactionLogCleanup;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final JsonCodec<LastCheckpoint> lastCheckpointCodec;
     private final Executor executorService;
@@ -76,6 +78,7 @@ public class CheckpointWriterManager
             DeltaLakeFileSystemFactory fileSystemFactory,
             NodeVersion nodeVersion,
             TransactionLogAccess transactionLogAccess,
+            TransactionLogCleanup transactionLogCleanup,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec,
             DeltaLakeConfig deltaLakeConfig,
@@ -86,6 +89,7 @@ public class CheckpointWriterManager
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.trinoVersion = nodeVersion.toString();
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.transactionLogCleanup = requireNonNull(transactionLogCleanup, "transactionLogCleanup is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.lastCheckpointCodec = requireNonNull(lastCheckpointCodec, "lastCheckpointCodec is null");
         this.executorService = requireNonNull(executorService, "ExecutorService is null");
@@ -175,6 +179,8 @@ public class CheckpointWriterManager
             Location checkpointPath = transactionLogDir.appendPath(LAST_CHECKPOINT_FILENAME);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath);
             outputFile.createOrOverwrite(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
+
+            transactionLogCleanup.cleanup(table, fileSystem, transactionLogDir, newCheckpointVersion, checkpointEntries.metadataEntry(), checkpointEntries.protocolEntry());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
