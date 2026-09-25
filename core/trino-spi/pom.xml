@@ -235,6 +235,14 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <!-- @JsonCreator moved to the 5-arg constructor when the optional transformationType field was added to ColumnDetail -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.eventlistener.ColumnDetail::&lt;init&gt;(java.lang.String, java.lang.String, java.lang.String, java.lang.String)</old>
+                                    <new>method void io.trino.spi.eventlistener.ColumnDetail::&lt;init&gt;(java.lang.String, java.lang.String, java.lang.String, java.lang.String)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                </item>
                                 <item>
                                     <code>java.method.returnTypeChanged</code>
                                     <old>method io.trino.spi.block.DictionaryBlock io.trino.spi.block.DictionaryBlock::compact()</old>
