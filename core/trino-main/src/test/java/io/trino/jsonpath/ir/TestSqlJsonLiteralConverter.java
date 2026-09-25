@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.TrinoNumber;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -51,6 +52,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -152,9 +154,9 @@ public class TestSqlJsonLiteralConverter
         assertThat(typedValueResult(BigIntegerNode.valueOf(BigInteger.valueOf(1000000000000000000L))))
                 .isEqualTo(new TypedValue(BIGINT, 1000000000000000000L));
 
-        assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue)))
-                .isInstanceOf(JsonLiteralConversionException.class)
-                .hasMessage("cannot convert 1000000000000000000000000000000000000 to Trino value (value too big)");
+        // an exact literal wider than BIGINT is converted to NUMBER
+        assertThat(typedValueResult(BigIntegerNode.valueOf(bigValue)))
+                .isEqualTo(TypedValue.fromValueAsObject(NUMBER, TrinoNumber.from(new BigDecimal(bigValue))));
 
         assertThat(typedValueResult(DecimalNode.valueOf(BigDecimal.ONE)))
                 .isEqualTo(new TypedValue(createDecimalType(1, 0), 1L));
@@ -162,9 +164,13 @@ public class TestSqlJsonLiteralConverter
         assertThat(typedValueResult(DecimalNode.valueOf(new BigDecimal(bigValue, 20))))
                 .isEqualTo(new TypedValue(createDecimalType(37, 20), Int128.valueOf(bigValue)));
 
-        assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue.multiply(bigValue))))
+        assertThat(typedValueResult(BigIntegerNode.valueOf(bigValue.multiply(bigValue))))
+                .isEqualTo(TypedValue.fromValueAsObject(NUMBER, TrinoNumber.from(new BigDecimal(bigValue.multiply(bigValue)))));
+
+        // a literal whose scale exceeds what NUMBER can hold is rejected
+        assertThatThrownBy(() -> getTypedValue(DecimalNode.valueOf(new BigDecimal(BigInteger.ONE, 100_000))))
                 .isInstanceOf(JsonLiteralConversionException.class)
-                .hasMessage("cannot convert 1000000000000000000000000000000000000000000000000000000000000000000000000 to Trino value (value too big)");
+                .hasMessageContaining("value too big");
 
         assertThat(typedValueResult(DoubleNode.valueOf(1e0)))
                 .isEqualTo(new TypedValue(DOUBLE, 1e0));
