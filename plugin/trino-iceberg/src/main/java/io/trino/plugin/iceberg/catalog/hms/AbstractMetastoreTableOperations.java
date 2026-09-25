@@ -27,6 +27,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
@@ -136,8 +137,8 @@ public abstract class AbstractMetastoreTableOperations
             // on a timeout, or when a retried request observes the table that the first (successful) attempt created
             // and reports AlreadyExists. Deleting the new metadata file in that case would corrupt the just-created
             // table, so the actual commit outcome is verified before any cleanup is performed.
-            switch (checkNewTableCommitStatus(newMetadataLocation)) {
-                // The table exists and references the metadata we wrote: the commit succeeded despite the exception.
+            switch (checkNewTableCommitStatus(newMetadataLocation, metadata.uuid())) {
+                // The table exists and is the one this operation created: the commit succeeded despite the exception.
                 case SUCCESS -> {
                     log.warn(e, "Received an error from metastore while creating table %s, but the table was actually created; treating the commit as successful", getSchemaTableName());
                     return;
@@ -148,9 +149,14 @@ public abstract class AbstractMetastoreTableOperations
                 case UNKNOWN -> throw new CommitStateUnknownException(e);
                 // The create did not happen (or another writer owns the name); the new metadata file is orphaned.
                 // Clean it up and wrap the failure in CleanableFailure so Iceberg also removes the manifest list
-                // and any data files.
+                // and any data files. A failed cleanup must not hide the create failure, so it is only logged.
                 case FAILURE -> {
-                    io().deleteFile(newMetadataLocation);
+                    try {
+                        io().deleteFile(newMetadataLocation);
+                    }
+                    catch (RuntimeException cleanupFailure) {
+                        log.warn(cleanupFailure, "Failed to clean up metadata file %s for table %s", newMetadataLocation, getSchemaTableName());
+                    }
                     throw new CreateTableException(e, getSchemaTableName());
                 }
             }
@@ -160,15 +166,20 @@ public abstract class AbstractMetastoreTableOperations
     /**
      * Determines whether a failed {@code createTable} call actually applied the commit, by re-reading the table from
      * the metastore and comparing its metadata location against the one this operation wrote. {@code newMetadataLocation}
-     * carries a freshly generated UUID, so an equal value can only mean this very operation created the table.
+     * carries a freshly generated UUID, so an equal value can only mean this very operation created the table. When the
+     * metastore already points at other metadata, that metadata is read and its table UUID is compared with the one this
+     * operation assigned: the UUID is set once at creation and carried over by every later commit (a replacement
+     * included), so a match means a later commit built on the table this operation created, and the create still counts
+     * as applied.
      * <p>
      * The check is biased towards {@link CommitStatus#UNKNOWN}: an orphaned metadata file is cheap to clean up later
      * (e.g. via {@code remove_orphan_files}), whereas deleting a file the metastore still references is an
      * unrecoverable data-integrity issue. A single read is enough because the metastore client already retries
      * transient failures internally.
      */
-    private CommitStatus checkNewTableCommitStatus(String newMetadataLocation)
+    private CommitStatus checkNewTableCommitStatus(String newMetadataLocation, String tableUuid)
     {
+        requireNonNull(tableUuid, "tableUuid is null");
         Optional<Table> table;
         try {
             metastore.invalidateTable(database, tableName);
@@ -183,9 +194,31 @@ public abstract class AbstractMetastoreTableOperations
             return CommitStatus.FAILURE;
         }
         String committedLocation = table.get().getParameters().get(METADATA_LOCATION_PROP);
-        // A matching location proves this operation committed; a different (or missing) location means another writer owns the name.
-        boolean committed = committedLocation != null && newMetadataLocation.equals(fixBrokenMetadataLocation(committedLocation));
-        return committed ? CommitStatus.SUCCESS : CommitStatus.FAILURE;
+        if (committedLocation == null) {
+            // Another writer owns the name, with a table that is not an Iceberg table.
+            return CommitStatus.FAILURE;
+        }
+        committedLocation = fixBrokenMetadataLocation(committedLocation);
+        // A matching location proves this operation committed.
+        if (newMetadataLocation.equals(committedLocation)) {
+            return CommitStatus.SUCCESS;
+        }
+        // The metastore points elsewhere: either another writer owns the name, or a later commit already built on the
+        // table this operation created. The table UUID of the current metadata tells the two apart.
+        TableMetadata committedMetadata;
+        try {
+            committedMetadata = TableMetadataParser.read(io(), committedLocation);
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not read current metadata %s of new table %s to determine commit status; treating commit state as unknown", committedLocation, getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        // Same UUID: the create was applied and a later commit built on it.
+        if (tableUuid.equals(committedMetadata.uuid())) {
+            return CommitStatus.SUCCESS;
+        }
+        // A different (or missing) UUID: the table under this name is not the one this operation created.
+        return CommitStatus.FAILURE;
     }
 
     private enum CommitStatus
