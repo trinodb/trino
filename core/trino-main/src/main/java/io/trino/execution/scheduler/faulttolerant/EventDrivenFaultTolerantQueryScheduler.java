@@ -168,7 +168,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
-import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
+import static io.trino.execution.BasicStageStats.aggregateFaultTolerantBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
@@ -549,7 +549,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             List<BasicStageStats> stageStats = stages.values().stream()
                     .map(SqlStage::getBasicStageStats)
                     .collect(toImmutableList());
-            return aggregateBasicStageStats(stageStats);
+            return aggregateFaultTolerantBasicStageStats(stageStats, plan.get().getAllFragments().size());
         }
 
         public long getUserMemoryReservation()
