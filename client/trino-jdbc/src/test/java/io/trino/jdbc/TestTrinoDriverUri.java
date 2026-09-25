@@ -184,6 +184,37 @@ public class TestTrinoDriverUri
         // legacy url
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
 
+        // client credentials: clientSecret without clientId
+        assertInvalid("jdbc:trino://localhost:8080?oauth2ClientSecret=secret", "Connection property oauth2ClientSecret requires oauth2ClientId to be set");
+
+        // client credentials: clientId without clientSecret
+        assertInvalid("jdbc:trino://localhost:8080?oauth2ClientId=id", "Connection property oauth2ClientId requires oauth2ClientSecret to be set");
+
+        // client credentials: tokenEndpoint without clientId
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2TokenEndpoint=https://idp.example.com/token",
+                "Connection property oauth2TokenEndpoint requires oauth2ClientId to be set");
+
+        // client credentials: tokenEndpoint must be https when set
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2ClientId=id&oauth2ClientSecret=secret&oauth2TokenEndpoint=http://idp.example.com/token",
+                "Connection property oauth2TokenEndpoint must be a valid https:// URL");
+
+        // client credentials: clientId cannot be combined with externalAuthentication
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2ClientId=id&externalAuthentication=true",
+                "Connection property oauth2ClientId cannot be set when externalAuthentication is enabled");
+
+        // client credentials: clientId cannot be combined with a password
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2ClientId=id&oauth2ClientSecret=secret&password=pw",
+                "Connection property oauth2ClientId cannot be set when password is set");
+
+        // client credentials: clientId cannot be combined with an access token
+        assertInvalid(
+                "jdbc:trino://localhost:8080?oauth2ClientId=id&oauth2ClientSecret=secret&accessToken=token",
+                "Connection property oauth2ClientId cannot be set when accessToken is set");
+
         // cannot set mutually exclusive properties for non-conforming clients to true
         assertInvalid(
                 "jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
@@ -467,6 +498,43 @@ public class TestTrinoDriverUri
                 .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
                 .hasRootCauseInstanceOf(ZoneRulesException.class)
                 .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
+    }
+
+    @Test
+    public void testClientCredentials()
+            throws SQLException
+    {
+        TrinoDriverUri uri = createDriverUri(
+                "jdbc:trino://localhost:8080?oauth2ClientId=my-client" +
+                        "&oauth2ClientSecret=my-secret" +
+                        "&oauth2TokenEndpoint=https://idp.example.com/token");
+        assertThat(uri.getOauth2ClientId()).hasValue("my-client");
+        assertThat(uri.getOauth2ClientSecret()).hasValue("my-secret");
+        assertThat(uri.getOauth2TokenEndpoint()).hasValue("https://idp.example.com/token");
+        assertThat(uri.isClientCredentialsAuthenticationEnabled()).isTrue();
+    }
+
+    @Test
+    public void testClientCredentialsWithoutTokenEndpoint()
+            throws SQLException
+    {
+        // The token endpoint is optional; when omitted the server-advertised endpoint is used.
+        TrinoDriverUri uri = createDriverUri(
+                "jdbc:trino://localhost:8080?oauth2ClientId=my-client&oauth2ClientSecret=my-secret");
+        assertThat(uri.getOauth2ClientId()).hasValue("my-client");
+        assertThat(uri.getOauth2TokenEndpoint()).isEmpty();
+        assertThat(uri.isClientCredentialsAuthenticationEnabled()).isTrue();
+    }
+
+    @Test
+    public void testExternalAuthenticationDoesNotRequireTokenEndpoint()
+            throws SQLException
+    {
+        // The token endpoint is only relevant to the client credentials flow. Browser-based external
+        // authentication must remain usable without it.
+        TrinoDriverUri uri = createDriverUri("jdbc:trino://localhost:8080?externalAuthentication=true");
+        assertThat(uri.getOauth2TokenEndpoint()).isEmpty();
+        assertThat(uri.isClientCredentialsAuthenticationEnabled()).isFalse();
     }
 
     @Test

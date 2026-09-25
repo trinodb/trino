@@ -25,6 +25,7 @@ import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
 import io.trino.client.uri.AbstractConnectionProperty.Validator;
+import okhttp3.HttpUrl;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -95,6 +96,9 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<String, Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<String, Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<String, String> OAUTH2_CLIENT_ID = new Oauth2ClientId();
+    public static final ConnectionProperty<String, String> OAUTH2_CLIENT_SECRET = new Oauth2ClientSecret();
+    public static final ConnectionProperty<String, String> OAUTH2_TOKEN_ENDPOINT = new Oauth2TokenEndpoint();
     public static final ConnectionProperty<String, List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<String, KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
@@ -155,6 +159,9 @@ final class ConnectionProperties
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(LOCALE)
+            .add(OAUTH2_CLIENT_ID)
+            .add(OAUTH2_CLIENT_SECRET)
+            .add(OAUTH2_TOKEN_ENDPOINT)
             .add(PASSWORD)
             .add(RESOURCE_ESTIMATES)
             .add(ROLES)
@@ -711,6 +718,77 @@ final class ConnectionProperties
         public ExternalAuthentication()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class Oauth2ClientId
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_NO_EXTERNAL_AUTHENTICATION = validator(
+                properties -> !EXTERNAL_AUTHENTICATION.getValueOrDefault(properties, false),
+                format("Connection property %s cannot be set when %s is enabled", PropertyName.OAUTH2_CLIENT_ID, PropertyName.EXTERNAL_AUTHENTICATION));
+
+        private static final Validator<Properties> VALIDATE_NO_PASSWORD = validator(
+                properties -> PASSWORD.getValue(properties).isEmpty(),
+                format("Connection property %s cannot be set when %s is set", PropertyName.OAUTH2_CLIENT_ID, PropertyName.PASSWORD));
+
+        private static final Validator<Properties> VALIDATE_NO_ACCESS_TOKEN = validator(
+                properties -> ACCESS_TOKEN.getValue(properties).isEmpty(),
+                format("Connection property %s cannot be set when %s is set", PropertyName.OAUTH2_CLIENT_ID, PropertyName.ACCESS_TOKEN));
+
+        private static final Validator<Properties> VALIDATE_CLIENT_SECRET_SET = validator(
+                properties -> OAUTH2_CLIENT_SECRET.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.OAUTH2_CLIENT_ID, PropertyName.OAUTH2_CLIENT_SECRET));
+
+        public Oauth2ClientId()
+        {
+            super(PropertyName.OAUTH2_CLIENT_ID,
+                    NOT_REQUIRED,
+                    VALIDATE_NO_EXTERNAL_AUTHENTICATION
+                            .and(VALIDATE_NO_PASSWORD)
+                            .and(VALIDATE_NO_ACCESS_TOKEN)
+                            .and(VALIDATE_CLIENT_SECRET_SET),
+                    STRING_CONVERTER);
+        }
+    }
+
+    private static class Oauth2ClientSecret
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_CLIENT_ID_SET = validator(
+                properties -> OAUTH2_CLIENT_ID.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.OAUTH2_CLIENT_SECRET, PropertyName.OAUTH2_CLIENT_ID));
+
+        public Oauth2ClientSecret()
+        {
+            super(PropertyName.OAUTH2_CLIENT_SECRET, NOT_REQUIRED, VALIDATE_CLIENT_ID_SET, STRING_CONVERTER);
+        }
+    }
+
+    private static class Oauth2TokenEndpoint
+            extends AbstractConnectionProperty<String, String>
+    {
+        private static final Validator<Properties> VALIDATE_NO_EXTERNAL_AUTHENTICATION = validator(
+                properties -> !EXTERNAL_AUTHENTICATION.getValueOrDefault(properties, false),
+                format("Connection property %s cannot be set when %s is enabled", PropertyName.OAUTH2_TOKEN_ENDPOINT, PropertyName.EXTERNAL_AUTHENTICATION));
+
+        private static final Validator<Properties> VALIDATE_CLIENT_ID_SET = validator(
+                properties -> OAUTH2_CLIENT_ID.getValue(properties).isPresent(),
+                format("Connection property %s requires %s to be set", PropertyName.OAUTH2_TOKEN_ENDPOINT, PropertyName.OAUTH2_CLIENT_ID));
+
+        private static final Validator<Properties> VALIDATE_HTTPS_URL = validator(
+                properties -> OAUTH2_TOKEN_ENDPOINT.getValue(properties).map(Oauth2TokenEndpoint::isHttpsUrl).orElse(true),
+                format("Connection property %s must be a valid https:// URL", PropertyName.OAUTH2_TOKEN_ENDPOINT));
+
+        public Oauth2TokenEndpoint()
+        {
+            super(PropertyName.OAUTH2_TOKEN_ENDPOINT, NOT_REQUIRED, VALIDATE_NO_EXTERNAL_AUTHENTICATION.and(VALIDATE_CLIENT_ID_SET).and(VALIDATE_HTTPS_URL), STRING_CONVERTER);
+        }
+
+        private static boolean isHttpsUrl(String value)
+        {
+            HttpUrl url = HttpUrl.parse(value);
+            return url != null && url.isHttps();
         }
     }
 
