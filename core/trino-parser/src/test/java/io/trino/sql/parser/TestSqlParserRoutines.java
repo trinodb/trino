@@ -366,6 +366,7 @@ class TestSqlParserRoutines
                         ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 Optional.empty(),
                 Optional.empty(),
