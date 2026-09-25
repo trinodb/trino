@@ -36,6 +36,8 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -74,6 +76,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
@@ -95,16 +99,23 @@ public class EffectivePredicateExtractor
 
     private final PlannerContext plannerContext;
     private final boolean useTableProperties;
+    private final Lookup lookup;
 
     public EffectivePredicateExtractor(PlannerContext plannerContext, boolean useTableProperties)
     {
+        this(plannerContext, useTableProperties, Lookup.noLookup());
+    }
+
+    public EffectivePredicateExtractor(PlannerContext plannerContext, boolean useTableProperties, Lookup lookup)
+    {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.useTableProperties = useTableProperties;
+        this.lookup = requireNonNull(lookup, "lookup is null");
     }
 
     public Expression extract(Session session, SymbolAllocator symbolAllocator, PlanNode node)
     {
-        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties), null);
+        return node.accept(new Visitor(plannerContext, session, symbolAllocator, useTableProperties, lookup), null);
     }
 
     private static class Visitor
@@ -116,8 +127,9 @@ public class EffectivePredicateExtractor
         private final SymbolAllocator symbolAllocator;
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
+        private final Lookup lookup;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
+        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties, Lookup lookup)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();
@@ -125,6 +137,13 @@ public class EffectivePredicateExtractor
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.useTableProperties = useTableProperties;
             this.domainTranslator = new DomainTranslator(metadata);
+            this.lookup = requireNonNull(lookup, "lookup is null");
+        }
+
+        @Override
+        public Expression visitGroupReference(GroupReference node, Void context)
+        {
+            return lookup.resolve(node).accept(this, context);
         }
 
         @Override
@@ -168,6 +187,9 @@ public class EffectivePredicateExtractor
         public Expression visitFilter(FilterNode node, Void context)
         {
             Expression underlyingPredicate = node.getSource().accept(this, context);
+            // Runtime filters are not static facts. Pulling them through an outer join can
+            // embed them in disjunctions that neither pushdown nor connector translation supports.
+            Expression predicate = combineConjuncts(extractDynamicFilters(node.getPredicate()).staticConjuncts());
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
@@ -176,10 +198,10 @@ public class EffectivePredicateExtractor
                 // In that case, ignore it and combine it into the filter directly
                 // See EffectivePredicateExtractor.Visitor#entryToEquality
                 // TODO: this should be removed once EffectivePredicate extraction is fixed for null handling
-                return combineConjuncts(underlyingPredicate, node.getPredicate());
+                return combineConjuncts(underlyingPredicate, predicate);
             }
 
-            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
+            DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(predicate));
             return combineConjuncts(
                     domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
                     underlying.remainingExpression(),
@@ -269,10 +291,10 @@ public class EffectivePredicateExtractor
 
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
             if (useTableProperties) {
-                predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
+                // Connector table properties may omit constraints already enforced by the scan.
+                predicate = predicate.intersect(metadata.getTableProperties(session, node.getTable()).getPredicate());
             }
 
-            // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
             return domainTranslator.toPredicate(getCharVarcharCoercion(session), predicate.simplify()
                     .filter((columnHandle, _) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
@@ -350,6 +372,9 @@ public class EffectivePredicateExtractor
         @Override
         public Expression visitValues(ValuesNode node, Void context)
         {
+            if (node.getRowCount() == 0) {
+                return FALSE;
+            }
             if (node.getOutputSymbols().isEmpty()) {
                 return TRUE;
             }

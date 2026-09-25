@@ -171,7 +171,7 @@ public class TestHivePlans
         // Such filter is more likely to cause optimizer to loop, as the connector can try to enforce the predicate, but will never see the actual one.
 
         // Test that the partition filter is fully subsumed into the partitioned table, while also being propagated into the other Join side.
-        // Join is important because it triggers PredicatePushDown logic (EffectivePredicateExtractor)
+        // Join is important because it triggers predicate inference (EffectivePredicateExtractor)
         assertDistributedPlan(
                 "SELECT l.int_col, r.int_col FROM table_str_partitioned l JOIN table_unpartitioned r ON l.str_part = r.str_col " +
                         "WHERE l.str_part LIKE 't%'",

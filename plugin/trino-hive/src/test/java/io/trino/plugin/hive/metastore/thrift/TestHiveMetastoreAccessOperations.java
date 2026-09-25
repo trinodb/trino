@@ -269,7 +269,7 @@ public class TestHiveMetastoreAccessOperations
                         .add(GET_TABLE)
                         .addCopies(GET_PARTITIONS_BY_NAMES, 5)
                         .add(GET_PARTITION_COLUMN_STATISTICS)
-                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .add(GET_PARTITION_NAMES_BY_FILTER)
                         .build());
 
         assertQuerySucceeds("CALL system.flush_metadata_cache()");
@@ -280,7 +280,7 @@ public class TestHiveMetastoreAccessOperations
                         .add(GET_TABLE)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .add(GET_PARTITION_COLUMN_STATISTICS)
-                        .addCopies(GET_PARTITION_NAMES_BY_FILTER, 2)
+                        .add(GET_PARTITION_NAMES_BY_FILTER)
                         .build());
     }
 

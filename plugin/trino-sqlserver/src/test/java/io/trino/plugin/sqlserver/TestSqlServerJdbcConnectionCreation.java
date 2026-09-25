@@ -89,7 +89,7 @@ public class TestSqlServerJdbcConnectionCreation
         assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 3, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 3, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 3, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 5, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());

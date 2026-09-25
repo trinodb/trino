@@ -20,9 +20,13 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
@@ -31,15 +35,29 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
-import org.junit.jupiter.api.Test;
+import io.trino.testing.PlanTester;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static io.trino.SystemSessionProperties.ITERATIVE_PREDICATE_PUSHDOWN_ENABLED;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -50,12 +68,14 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -67,8 +87,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.dynamicFilter;
 import static io.trino.sql.planner.assertions.SemiJoinDynamicFilterProducer.noDynamicFilter;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractPredicatePushdownTest
         extends BasePlanTest
@@ -85,6 +107,7 @@ public abstract class AbstractPredicatePushdownTest
     private static final ResolvedFunction MULTIPLY_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(DOUBLE, DOUBLE));
 
     private final boolean enableDynamicFiltering;
+    private Map<Boolean, PlanTester> planTesters;
 
     protected AbstractPredicatePushdownTest(boolean enableDynamicFiltering)
     {
@@ -92,16 +115,60 @@ public abstract class AbstractPredicatePushdownTest
         this.enableDynamicFiltering = enableDynamicFiltering;
     }
 
-    @Test
-    public abstract void testCoercions();
-
-    @Test
-    public void testPushDownToLhsOfSemiJoin()
+    @BeforeAll
+    public void setupPlanTesters()
     {
+        planTesters = ImmutableMap.of(
+                true, getPlanTester(),
+                false, createPlanTester(ImmutableMap.of(
+                        ENABLE_DYNAMIC_FILTERING, Boolean.toString(enableDynamicFiltering),
+                        ITERATIVE_PREDICATE_PUSHDOWN_ENABLED, "false")));
+    }
+
+    @AfterAll
+    public void closeLegacyPlanTester()
+    {
+        // BasePlanTest owns and closes the default implementation's tester.
+        closeAllRuntimeException(planTesters.get(false));
+        planTesters = null;
+    }
+
+    protected PlanTester getPlanTester(boolean iterativePredicatePushdown)
+    {
+        return planTesters.get(iterativePredicatePushdown);
+    }
+
+    protected static Stream<Arguments> allJoins()
+    {
+        return joins(Stream.of(JoinType.values()));
+    }
+
+    protected static Stream<Arguments> joinsWithPreservedInput()
+    {
+        return joins(Stream.of(JoinType.INNER, JoinType.LEFT, JoinType.RIGHT));
+    }
+
+    private static Stream<Arguments> joins(Stream<JoinType> joinTypes)
+    {
+        return joinTypes.flatMap(joinType -> Stream.of(
+                Arguments.of(true, joinType),
+                Arguments.of(false, joinType)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public abstract void testCoercions(boolean iterativePredicatePushdown);
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPushDownToLhsOfSemiJoin(boolean iterativePredicatePushdown)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders)) " +
                         "WHERE linenumber = 2",
-                noSemiJoinRewrite(),
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -125,11 +192,14 @@ public abstract class AbstractPredicatePushdownTest
                                 anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 
-    @Test
-    public void testNonDeterministicPredicatePropagatesOnlyToSourceSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNonDeterministicPredicatePropagatesOnlyToSourceSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -150,7 +220,7 @@ public abstract class AbstractPredicatePushdownTest
                                 node(ExchangeNode.class, // NO filter here
                                         tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
 
-        assertPlan("SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+        assertPlan(planTester, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -163,11 +233,14 @@ public abstract class AbstractPredicatePushdownTest
                                         tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 
-    @Test
-    public void testGreaterPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testGreaterPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -191,11 +264,14 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testEqualsPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testEqualsPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -220,10 +296,12 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinIfNotIn()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinIfNotIn(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -239,11 +317,14 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testGreaterPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testGreaterPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey > 2)",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey > 2)",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -268,11 +349,14 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testEqualPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testEqualPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = 2)",
-                noSemiJoinRewrite(),
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
+                "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = 2)",
+                noSemiJoinRewrite(planTester),
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -297,10 +381,12 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testPredicateFromSourceSideNotPropagatesToFilterSideOfSemiJoinIfNotIn()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateFromSourceSideNotPropagatesToFilterSideOfSemiJoinIfNotIn(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey > 2)",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey > 2)",
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -314,10 +400,12 @@ public abstract class AbstractPredicatePushdownTest
                                         tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
     }
 
-    @Test
-    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinUsedInProjection()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinUsedInProjection(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2) FROM lineitem",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2) FROM lineitem",
                 anyTree(
                         semiJoin("LINE_ORDER_KEY",
                                 "ORDERS_ORDER_KEY",
@@ -331,13 +419,16 @@ public abstract class AbstractPredicatePushdownTest
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 
-    @Test
-    public void testFilteredSelectFromPartitionedTable()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testFilteredSelectFromPartitionedTable(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         // use all optimizers, including AddExchanges
-        List<PlanOptimizer> allOptimizers = getPlanTester().getPlanOptimizers(false);
+        List<PlanOptimizer> allOptimizers = planTester.getPlanOptimizers(false);
 
         assertPlan(
+                planTester,
                 "SELECT DISTINCT orderstatus FROM orders",
                 // TODO this could be optimized to VALUES with values from partitions
                 anyTree(
@@ -345,6 +436,7 @@ public abstract class AbstractPredicatePushdownTest
                 allOptimizers);
 
         assertPlan(
+                planTester,
                 "SELECT orderstatus FROM orders WHERE orderstatus = 'O'",
                 // predicate matches exactly single partition, no FilterNode needed
                 output(
@@ -352,16 +444,19 @@ public abstract class AbstractPredicatePushdownTest
                 allOptimizers);
 
         assertPlan(
+                planTester,
                 "SELECT orderstatus FROM orders WHERE orderstatus = 'no_such_partition_value'",
                 output(
                         values("orderstatus")),
                 allOptimizers);
     }
 
-    @Test
-    public void testPredicatePushDownThroughMarkDistinct()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicatePushDownThroughMarkDistinct(boolean iterativePredicatePushdown)
     {
-        assertPlan(
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester,
                 "SELECT (SELECT a FROM (VALUES 1, 2, 3) t(a) WHERE a = b) FROM (VALUES 0, 1) p(b) WHERE b = 1",
                 // TODO this could be optimized to VALUES with values from partitions
                 anyTree(
@@ -371,11 +466,14 @@ public abstract class AbstractPredicatePushdownTest
                                 .right(values("B")))));
     }
 
-    @Test
-    public void testPredicatePushDownOverProjection()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicatePushDownOverProjection(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         // Non-singletons should not be pushed down
         assertPlan(
+                planTester,
                 "WITH t AS (SELECT orderkey * 2 x FROM orders) " +
                         "SELECT * FROM t WHERE x + x > 1",
                 anyTree(
@@ -386,6 +484,7 @@ public abstract class AbstractPredicatePushdownTest
 
         // constant non-singleton should be pushed down
         assertPlan(
+                planTester,
                 "with t AS (SELECT orderkey * 2 x, 1 y FROM orders) " +
                         "SELECT * FROM t WHERE x + y + y >1",
                 anyTree(
@@ -397,6 +496,7 @@ public abstract class AbstractPredicatePushdownTest
 
         // singletons should be pushed down
         assertPlan(
+                planTester,
                 "WITH t AS (SELECT orderkey * 2 x FROM orders) " +
                         "SELECT * FROM t WHERE x > 1",
                 anyTree(
@@ -408,6 +508,7 @@ public abstract class AbstractPredicatePushdownTest
 
         // composite singletons should be pushed down
         assertPlan(
+                planTester,
                 "with t AS (SELECT orderkey * 2 x, orderkey y FROM orders) " +
                         "SELECT * FROM t WHERE x + y > 1",
                 anyTree(
@@ -419,6 +520,7 @@ public abstract class AbstractPredicatePushdownTest
 
         // Identities should be pushed down
         assertPlan(
+                planTester,
                 "WITH t AS (SELECT orderkey x FROM orders) " +
                         "SELECT * FROM t WHERE x >1",
                 anyTree(
@@ -429,6 +531,7 @@ public abstract class AbstractPredicatePushdownTest
 
         // Non-deterministic predicate should not be pushed down
         assertPlan(
+                planTester,
                 "WITH t AS (SELECT rand() * orderkey x FROM orders) " +
                         "SELECT * FROM t WHERE x > 5000",
                 anyTree(
@@ -439,11 +542,14 @@ public abstract class AbstractPredicatePushdownTest
                                                 "orderkey", "orderkey"))))));
     }
 
-    @Test
-    public void testPredicatePushDownOverSymbolReferences()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicatePushDownOverSymbolReferences(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         // Identities should be pushed down
         assertPlan(
+                planTester,
                 "WITH t AS (SELECT orderkey x, (orderkey + 1) x2 FROM orders) " +
                         "SELECT * FROM t WHERE x > 1 OR x < 0",
                 anyTree(
@@ -453,10 +559,13 @@ public abstract class AbstractPredicatePushdownTest
                                         "orderkey", "orderkey")))));
     }
 
-    @Test
-    public void testConjunctsOrder()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testConjunctsOrder(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "select partkey " +
                         "from (" +
                         "  select" +
@@ -476,15 +585,18 @@ public abstract class AbstractPredicatePushdownTest
                                         "size", "size")))));
     }
 
-    @Test
-    public void testPredicateOnPartitionSymbolsPushedThroughWindow()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateOnPartitionSymbolsPushedThroughWindow(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         PlanMatchPattern tableScan = tableScan(
                 "orders",
                 ImmutableMap.of(
                         "CUST_KEY", "custkey",
                         "ORDER_KEY", "orderkey"));
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
                         "FROM orders" +
@@ -500,10 +612,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                 tableScan)))))));
     }
 
-    @Test
-    public void testPredicateOnPartitionSymbolsPushedThroughTopNRanking()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateOnPartitionSymbolsPushedThroughTopNRanking(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC) rank " +
                         "FROM orders " +
@@ -523,10 +638,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                                 "ORDER_KEY", "orderkey")))))))));
     }
 
-    @Test
-    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughWindow()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughWindow(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT random_column, orderkey, rank() OVER (PARTITION BY random_column  ORDER BY orderdate ASC)" +
                         "FROM (select round(custkey*rand()) random_column, * from orders) " +
@@ -542,10 +660,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 
-    @Test
-    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughTopNRanking()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateOnNonDeterministicSymbolsPushedDownThroughTopNRanking(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT random_column, orderkey, rank() OVER (PARTITION BY random_column  ORDER BY orderdate ASC) rank " +
                         "FROM (select round(custkey*rand()) random_column, * from orders) " +
@@ -561,10 +682,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 
-    @Test
-    public void testNonDeterministicPredicateNotPushedDownThroughWindow()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNonDeterministicPredicateNotPushedDownThroughWindow(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC)" +
                         "FROM orders" +
@@ -580,10 +704,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 
-    @Test
-    public void testNonDeterministicPredicateNotPushedDownThroughTopNRanking()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNonDeterministicPredicateNotPushedDownThroughTopNRanking(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT * FROM (" +
                         "SELECT custkey, orderkey, rank() OVER (PARTITION BY custkey  ORDER BY orderdate ASC) rank " +
                         "FROM orders" +
@@ -599,10 +726,13 @@ public abstract class AbstractPredicatePushdownTest
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 
-    @Test
-    public void testRemovesRedundantTableScanPredicate()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testRemovesRedundantTableScanPredicate(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 "SELECT t1.orderstatus " +
                         "FROM (SELECT orderstatus FROM orders WHERE rand() = orderkey AND orderkey = 123) t1, (VALUES 'F', 'K') t2(col) " +
                         "WHERE t1.orderstatus = t2.col AND (t2.col = 'F' OR t2.col = 'K') AND length(t1.orderstatus) < 42",
@@ -620,25 +750,182 @@ public abstract class AbstractPredicatePushdownTest
                                 values())));
     }
 
-    @Test
-    public void testTablePredicateIsExtracted()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testInferredPredicateThroughCaseProjectionSimplifiesToTrue(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
+                """
+                SELECT l.a, r.b
+                FROM (SELECT totalprice a FROM orders WHERE totalprice > DOUBLE '0') l
+                JOIN (
+                    SELECT CASE WHEN custkey > 0 THEN DOUBLE '1' ELSE DOUBLE '2' END b
+                    FROM orders
+                ) r ON l.a = r.b
+                """,
+                Session.builder(planTester.getDefaultSession())
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                        .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "3s")
+                        .build(),
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("orders")),
+                                anyTree(node(ProjectNode.class, tableScan("orders"))))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("joinsWithPreservedInput")
+    public void testInferredPredicateThroughNestedJoin(boolean iterativePredicatePushdown, JoinType joinType)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        String projectedInput = joinType == JoinType.RIGHT ? "r2" : "r1";
+        assertPlan(
+                planTester,
+                """
+                SELECT l.a, r.b
+                FROM (SELECT totalprice a FROM orders WHERE totalprice > DOUBLE '10') l
+                JOIN (
+                    SELECT CAST(%s.custkey AS DOUBLE) b
+                    FROM orders r1 %s JOIN orders r2 ON r1.custkey = r2.custkey
+                ) r ON l.a = r.b
+                """.formatted(projectedInput, joinType),
+                Session.builder(planTester.getDefaultSession())
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                        .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                        .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "3s")
+                        .build(),
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("orders")),
+                                anyTree(node(JoinNode.class,
+                                        anyTree(tableScan("orders")),
+                                        anyTree(tableScan("orders")))))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("joinsWithPreservedInput")
+    public void testStrongerPredicateThroughNestedJoin(boolean iterativePredicatePushdown, JoinType joinType)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        String constrainedInput = "(SELECT * FROM orders WHERE custkey > 20)";
+        assertNestedJoinConverges(
+                planTester,
+                """
+                SELECT l.a, r.b
+                FROM (SELECT totalprice a FROM orders WHERE totalprice > DOUBLE '10') l
+                JOIN (
+                    SELECT CAST(%s.custkey AS DOUBLE) b
+                    FROM %s r1 %s JOIN %s r2 ON r1.custkey = r2.custkey
+                ) r ON l.a = r.b
+                """.formatted(
+                        joinType == JoinType.RIGHT ? "r2" : "r1",
+                        joinType == JoinType.RIGHT ? "orders" : constrainedInput,
+                        joinType,
+                        joinType == JoinType.RIGHT ? constrainedInput : "orders"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("allJoins")
+    public void testCasePredicateThroughNestedJoin(boolean iterativePredicatePushdown, JoinType joinType)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertNestedJoinConverges(
+                planTester,
+                """
+                SELECT l.a, r.b
+                FROM (SELECT totalprice a FROM orders WHERE totalprice > DOUBLE '10') l
+                JOIN (
+                    SELECT CAST(CASE WHEN r1.custkey > 0 THEN r1.custkey ELSE r2.custkey END AS DOUBLE) b
+                    FROM orders r1 %s JOIN orders r2 ON r1.totalprice = r2.totalprice
+                ) r ON l.a = r.b
+                """.formatted(joinType));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicateEnforcedByNestedJoinFilter(boolean iterativePredicatePushdown)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertNestedJoinConverges(
+                planTester,
+                """
+                SELECT l.a, r.b
+                FROM (SELECT totalprice a FROM orders WHERE totalprice > DOUBLE '10') l
+                JOIN (
+                    SELECT CAST(COALESCE(r1.custkey, r2.custkey) AS DOUBLE) b
+                    FROM orders r1 JOIN orders r2 ON r1.totalprice = r2.totalprice
+                ) r ON l.a = r.b
+                """);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testPredicatePushdownAndColumnPruningConverge(boolean iterativePredicatePushdown)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        Session session = Session.builder(planTester.getDefaultSession())
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "3s")
+                .build();
+        // The filter on the ranking symbol cannot pass through TopNRanking. Column pruning
+        // must not keep reintroducing a projection below the filter as pushdown moves it above.
+        Plan plan = planTester.inTransaction(session, transactionSession -> planTester.createPlan(transactionSession,
+                """
+                SELECT orderkey
+                FROM (SELECT orderkey, row_number() OVER (PARTITION BY orderkey ORDER BY custkey) n FROM orders)
+                WHERE n = 1
+                """));
+        assertThat(searchFrom(plan.getRoot()).where(node -> node instanceof TopNRankingNode).count()).isEqualTo(1);
+    }
+
+    private void assertNestedJoinConverges(PlanTester planTester, String sql)
+    {
+        Session session = Session.builder(planTester.getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "3s")
+                .build();
+        Plan plan = planTester.inTransaction(session, transactionSession -> planTester.createPlan(transactionSession, sql));
+        assertThat(searchFrom(plan.getRoot()).where(node -> node instanceof JoinNode).count())
+                .as("join count for %s", sql)
+                .isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testTablePredicateIsExtracted(boolean iterativePredicatePushdown)
+    {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        PlanMatchPattern constrainedOrders = constrainedTableScan(
+                "orders",
+                ImmutableMap.of("orderstatus", Domain.create(ValueSet.ofRanges(Range.range(createVarcharType(1), Slices.utf8Slice("A"), true, Slices.utf8Slice("O"), true)), false)));
+        // The connector enforces the original range. Its table properties narrow the
+        // effective domain to F and O, which is then propagated to the other input.
+        Expression name = new Cast(new Reference(VARCHAR, "NAME"), createVarcharType(1));
+        Expression effectivePredicate = new In(name, ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("F")), new Constant(createVarcharType(1), Slices.utf8Slice("O"))));
+        PlanMatchPattern filteredOrders = iterativePredicatePushdown
+                ? (enableDynamicFiltering ? filter(TRUE, constrainedOrders) : constrainedOrders)
+                : filter(
+                new In(new Reference(createVarcharType(1), "ORDERSTATUS"), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("F")), new Constant(createVarcharType(1), Slices.utf8Slice("O")))),
+                tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus")));
+        assertPlan(planTester,
                 "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
                 anyTree(
                         node(JoinNode.class,
-                                filter(
-                                        new In(new Reference(createVarcharType(1), "ORDERSTATUS"), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("F")), new Constant(createVarcharType(1), Slices.utf8Slice("O")))),
-                                        tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"))),
+                                filteredOrders,
                                 anyTree(
                                         filter(
-                                                new In(new Cast(new Reference(VARCHAR, "NAME"), createVarcharType(1)), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("F")), new Constant(createVarcharType(1), Slices.utf8Slice("O")))),
+                                                iterativePredicatePushdown ? new Logical(AND, ImmutableList.of(
+                                                        comparison(LESS_THAN_OR_EQUAL, new Constant(createVarcharType(1), Slices.utf8Slice("A")), name),
+                                                        comparison(LESS_THAN_OR_EQUAL, name, new Constant(createVarcharType(1), Slices.utf8Slice("O"))),
+                                                        effectivePredicate)) : effectivePredicate,
                                                 tableScan(
                                                         "nation",
                                                         ImmutableMap.of("NAME", "name")))))));
 
         PlanMatchPattern ordersTableScan = tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"));
-        assertPlan(
+        assertPlan(planTester,
                 "SELECT * FROM orders JOIN nation ON orderstatus = CAST(nation.name AS varchar(1))",
                 anyTree(
                         node(JoinNode.class,
@@ -651,10 +938,13 @@ public abstract class AbstractPredicatePushdownTest
                                                         ImmutableMap.of("NAME", "name")))))));
     }
 
-    @Test
-    public void testOnlyNullPredicateIsPushDownThroughJoinFilters()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testOnlyNullPredicateIsPushDownThroughJoinFilters(boolean iterativePredicatePushdown)
     {
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
         assertPlan(
+                planTester,
                 """
                 WITH t(a) AS (VALUES 'a', 'b')
                 SELECT *
@@ -664,10 +954,12 @@ public abstract class AbstractPredicatePushdownTest
                 output(values("field", "field_0")));
     }
 
-    @Test
-    public void testSimplifyNonInferrableInheritedPredicate()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testSimplifyNonInferrableInheritedPredicate(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT * FROM (SELECT * FROM nation WHERE nationkey = regionkey AND regionkey = 5) a, nation b WHERE a.nationkey = b.nationkey AND a.nationkey + 11 > 15",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT * FROM (SELECT * FROM nation WHERE nationkey = regionkey AND regionkey = 5) a, nation b WHERE a.nationkey = b.nationkey AND a.nationkey + 11 > 15",
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria(ImmutableList.of())
@@ -682,10 +974,12 @@ public abstract class AbstractPredicatePushdownTest
                                                         tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey", "L_REGIONKEY", "regionkey"))))))));
     }
 
-    @Test
-    public void testDoesNotCreatePredicateFromInferredPredicate()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testDoesNotCreatePredicateFromInferredPredicate(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey2 = b.nationkey",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey2 = b.nationkey",
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria("L_NATIONKEY2", "R_NATIONKEY")
@@ -696,7 +990,7 @@ public abstract class AbstractPredicatePushdownTest
                                         anyTree(
                                                 tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey")))))));
 
-        assertPlan("SELECT * FROM (SELECT * FROM nation WHERE nationkey = 5) a JOIN (SELECT * FROM nation WHERE nationkey = 5) b ON a.nationkey = b.nationkey",
+        assertPlan(planTester, "SELECT * FROM (SELECT * FROM nation WHERE nationkey = 5) a JOIN (SELECT * FROM nation WHERE nationkey = 5) b ON a.nationkey = b.nationkey",
                 output(
                         join(INNER, builder -> builder
                                 .equiCriteria(ImmutableList.of())
@@ -711,10 +1005,12 @@ public abstract class AbstractPredicatePushdownTest
                                                         tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey"))))))));
     }
 
-    @Test
-    public void testSimplifiesStraddlingPredicate()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testSimplifiesStraddlingPredicate(boolean iterativePredicatePushdown)
     {
-        assertPlan("SELECT * FROM (SELECT * FROM NATION WHERE nationkey = 5) a JOIN nation b ON a.nationkey = b.nationkey AND a.nationkey = a.regionkey + b.regionkey",
+        PlanTester planTester = getPlanTester(iterativePredicatePushdown);
+        assertPlan(planTester, "SELECT * FROM (SELECT * FROM NATION WHERE nationkey = 5) a JOIN nation b ON a.nationkey = b.nationkey AND a.nationkey = a.regionkey + b.regionkey",
                 output(
                         filter(
                                 comparison(EQUAL, new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "L_REGIONKEY"), new Reference(BIGINT, "R_REGIONKEY"))), new Constant(BIGINT, 5L)),
@@ -731,9 +1027,9 @@ public abstract class AbstractPredicatePushdownTest
                                                                 tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey", "R_REGIONKEY", "regionkey")))))))));
     }
 
-    protected Session noSemiJoinRewrite()
+    protected Session noSemiJoinRewrite(PlanTester planTester)
     {
-        return Session.builder(getPlanTester().getDefaultSession())
+        return Session.builder(planTester.getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }

@@ -19,14 +19,22 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.Map;
+
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
+import static io.trino.SystemSessionProperties.ITERATIVE_PREDICATE_PUSHDOWN_ENABLED;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -34,29 +42,93 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestPredicatePushdown
 {
-    private final QueryAssertions assertions;
+    private Map<Boolean, QueryAssertions> assertionsByImplementation;
 
-    public TestPredicatePushdown()
+    @BeforeAll
+    public void setup()
     {
         Session session = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
-        QueryRunner runner = new StandaloneQueryRunner(session);
-        runner.installPlugin(new TpchPlugin());
-        runner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
-        assertions = new QueryAssertions(runner);
+        ImmutableMap.Builder<Boolean, QueryAssertions> assertions = ImmutableMap.builder();
+        for (boolean iterativePredicatePushdown : new boolean[] {true, false}) {
+            QueryRunner runner = new StandaloneQueryRunner(session, builder -> {
+                if (!iterativePredicatePushdown) {
+                    builder.addProperty("optimizer.iterative-predicate-pushdown.enabled", "false");
+                }
+            });
+            runner.installPlugin(new TpchPlugin());
+            runner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
+            assertions.put(iterativePredicatePushdown, new QueryAssertions(runner));
+        }
+        assertionsByImplementation = assertions.buildOrThrow();
     }
 
     @AfterAll
     public void teardown()
     {
-        assertions.close();
+        closeAllRuntimeException(assertionsByImplementation.get(true), assertionsByImplementation.get(false));
+        assertionsByImplementation = null;
     }
 
-    @Test
-    public void testConditionalExpressionWithFailingExpression()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testGroupingKeyPredicateThroughJoin(boolean iterativePredicatePushdown)
     {
+        QueryAssertions assertions = assertionsByImplementation.get(iterativePredicatePushdown);
+        Session session = assertions.sessionBuilder()
+                .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "3s")
+                .build();
+        assertThat(assertions.query(session,
+                """
+                SELECT *
+                FROM (
+                    SELECT l.custkey, l.orderstatus, sum(CAST(l.totalprice AS bigint)) totalprice, max(r.custkey) maxcustkey
+                    FROM orders l JOIN orders r ON l.orderkey = r.orderkey
+                    GROUP BY l.custkey, l.orderstatus
+                )
+                WHERE custkey = maxcustkey
+                    AND maxcustkey % 2 = 0
+                    AND orderstatus = 'F'
+                    AND totalprice > 10000
+                """))
+                .matches(
+                        """
+                        SELECT custkey, orderstatus, sum(CAST(totalprice AS bigint)), max(custkey)
+                        FROM orders
+                        WHERE custkey % 2 = 0 AND orderstatus = 'F'
+                        GROUP BY custkey, orderstatus
+                        HAVING sum(CAST(totalprice AS bigint)) > 10000
+                        """);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testImplementationSessionProperty(boolean iterativePredicatePushdown)
+    {
+        QueryAssertions assertions = assertionsByImplementation.get(iterativePredicatePushdown);
+        String configuredDefault = Boolean.toString(iterativePredicatePushdown);
+        assertThat(assertions.getQueryRunner().execute("SHOW SESSION LIKE 'iterative_predicate_pushdown_enabled'").getMaterializedRows())
+                .extracting(row -> row.getField(1), row -> row.getField(2))
+                .containsExactly(tuple(configuredDefault, configuredDefault));
+
+        for (boolean enabled : new boolean[] {true, false}) {
+            String sessionValue = Boolean.toString(enabled);
+            Session session = assertions.sessionBuilder()
+                    .setSystemProperty(ITERATIVE_PREDICATE_PUSHDOWN_ENABLED, sessionValue)
+                    .build();
+            assertThat(assertions.getQueryRunner().execute(session, "SHOW SESSION LIKE 'iterative_predicate_pushdown_enabled'").getMaterializedRows())
+                    .extracting(row -> row.getField(1), row -> row.getField(2))
+                    .containsExactly(tuple(sessionValue, configuredDefault));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testConditionalExpressionWithFailingExpression(boolean iterativePredicatePushdown)
+    {
+        QueryAssertions assertions = assertionsByImplementation.get(iterativePredicatePushdown);
         assertThat(assertions.query("" +
                 "WITH t (k, a) AS ( " +
                 "    VALUES " +
@@ -111,9 +183,11 @@ public class TestPredicatePushdown
                 .matches("VALUES (1, 1)");
     }
 
-    @Test
-    public void testNotBetweenOverExpression()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNotBetweenOverExpression(boolean iterativePredicatePushdown)
     {
+        QueryAssertions assertions = assertionsByImplementation.get(iterativePredicatePushdown);
         // The CAST in the SQLs below keeps the operand non-trivial so BETWEEN lowers to a Let; a bare column would inline and bypass the negation-dropping path under test.
         assertThat(assertions.query(
                 """
@@ -140,9 +214,11 @@ public class TestPredicatePushdown
                         """);
     }
 
-    @Test
-    public void testNotNullIfOverExpression()
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNotNullIfOverExpression(boolean iterativePredicatePushdown)
     {
+        QueryAssertions assertions = assertionsByImplementation.get(iterativePredicatePushdown);
         // The CAST in the SQLs below keeps the operand non-trivial so NULLIF lowers to a Let; a bare column would inline and bypass the negation-dropping path under test.
         assertThat(assertions.query(
                 """

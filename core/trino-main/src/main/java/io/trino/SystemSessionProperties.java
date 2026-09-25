@@ -142,6 +142,7 @@ public final class SystemSessionProperties
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
+    public static final String ITERATIVE_PREDICATE_PUSHDOWN_ENABLED = "iterative_predicate_pushdown_enabled";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
@@ -685,6 +686,11 @@ public final class SystemSessionProperties
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
+                        false),
+                booleanProperty(
+                        ITERATIVE_PREDICATE_PUSHDOWN_ENABLED,
+                        "Use iterative predicate pushdown instead of the legacy implementation",
+                        optimizerConfig.isIterativePredicatePushdownEnabled(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
@@ -1657,6 +1663,11 @@ public final class SystemSessionProperties
     public static boolean isComplexExpressionPushdown(Session session)
     {
         return session.getSystemProperty(COMPLEX_EXPRESSION_PUSHDOWN, Boolean.class);
+    }
+
+    public static boolean isIterativePredicatePushdownEnabled(Session session)
+    {
+        return session.getSystemProperty(ITERATIVE_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isPredicatePushdownUseTableProperties(Session session)

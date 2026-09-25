@@ -185,7 +185,7 @@ public class MultipleDistinctAggregationsToSubqueries
                 .mapToObj(i -> new EquiJoinClause(leftJoinSymbols.get(i), rightJoinSymbols.get(i)))
                 .collect(toImmutableList());
 
-        // TODO: we dont need dynamic filters for this join at all. We could add skipDf field to the JoinNode and make use of it in PredicatePushDown
+        // TODO: we dont need dynamic filters for this join at all. We could add skipDf field to the JoinNode and make use of it in Pushdown
         return new JoinNode(
                 context.getIdAllocator().getNextId(),
                 INNER,

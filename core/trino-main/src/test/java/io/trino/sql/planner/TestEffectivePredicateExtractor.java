@@ -52,10 +52,14 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
@@ -90,6 +94,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -100,6 +105,7 @@ import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -202,6 +208,41 @@ public class TestEffectivePredicateExtractor
                 Optional.empty());
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
+    }
+
+    @Test
+    public void testDynamicFilterIsNotEffectivePredicate()
+    {
+        Expression dynamicFilter = createDynamicFilterExpression(
+                metadata, getCharVarcharCoercion(SESSION), new DynamicFilterId("test"), BIGINT, new Reference(BIGINT, "a"));
+        assertThat(effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), filter(baseTableScan, dynamicFilter)))
+                .isEqualTo(TRUE);
+    }
+
+    @Test
+    public void testMemoTraversalObservesReplacements()
+    {
+        Symbol output = new Symbol(BIGINT, "output");
+        PlanNode plan = new ProjectNode(
+                newId(),
+                filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10))),
+                Assignments.of(output, new Reference(BIGINT, "a")));
+        Memo memo = new Memo(new PlanNodeIdAllocator(), plan);
+        Lookup lookup = Lookup.from(reference -> Stream.of(memo.resolve(reference)));
+        EffectivePredicateExtractor extractor = new EffectivePredicateExtractor(plannerContext, false, lookup);
+        ProjectNode root = (ProjectNode) memo.getNode(memo.getRootGroup());
+
+        assertThat(normalizeConjuncts(extractor.extract(SESSION, emptySymbolAllocator(), root)))
+                .isEqualTo(normalizeConjuncts(greaterThan(output.toSymbolReference(), bigintLiteral(10))));
+
+        GroupReference filterReference = (GroupReference) root.getSource();
+        FilterNode filter = (FilterNode) lookup.resolve(filterReference);
+        memo.replace(filterReference.getGroupId(),
+                new FilterNode(filter.getId(), filter.getSource(), greaterThan(new Reference(BIGINT, "a"), bigintLiteral(20))),
+                "replace input predicate");
+
+        assertThat(normalizeConjuncts(extractor.extract(SESSION, emptySymbolAllocator(), root)))
+                .isEqualTo(normalizeConjuncts(greaterThan(output.toSymbolReference(), bigintLiteral(20))));
     }
 
     @Test
@@ -445,6 +486,36 @@ public class TestEffectivePredicateExtractor
     }
 
     @Test
+    public void testTableScanIntersectsEnforcedConstraintAndTableProperties()
+    {
+        Symbol symbol = new Symbol(BIGINT, "a");
+        ColumnHandle column = scanAssignments.get(symbol);
+        TupleDomain<ColumnHandle> enforced = TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L))));
+        List<TupleDomain<ColumnHandle>> tablePredicates = ImmutableList.of(
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(2L, 3L)))),
+                TupleDomain.none());
+        for (TupleDomain<ColumnHandle> tablePredicate : tablePredicates) {
+            TableScanNode scan = new TableScanNode(
+                    newId(),
+                    makeTableHandle(tablePredicate),
+                    ImmutableList.of(symbol),
+                    ImmutableMap.of(symbol, column),
+                    enforced,
+                    Optional.empty(),
+                    false,
+                    Optional.empty());
+            Expression predicate = effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), scan);
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, SESSION, predicate).tupleDomain())
+                    .isEqualTo(enforced.intersect(tablePredicate).transformKeys(_ -> symbol));
+
+            predicate = effectivePredicateExtractorWithoutTableProperties.extract(SESSION, emptySymbolAllocator(), scan);
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, SESSION, predicate).tupleDomain())
+                    .isEqualTo(enforced.transformKeys(_ -> symbol));
+        }
+    }
+
+    @Test
     public void testTableScan()
     {
         // Effective predicate is True if there is no effective predicate
@@ -543,6 +614,9 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testValues()
     {
+        assertThat(effectivePredicateExtractor.extract(SESSION, emptySymbolAllocator(), new ValuesNode(newId(), ImmutableList.of())))
+                .isEqualTo(FALSE);
+
         // one column
         assertThat(effectivePredicateExtractor.extract(
                 SESSION,

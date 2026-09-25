@@ -44,6 +44,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
+import static io.trino.sql.planner.PlanOptimizers.predicatePushdownRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -342,10 +343,13 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),
-                new PredicatePushDown(
+                new IterativeOptimizer(
+                        "PushPredicatesBeforeReorderingWindows",
                         getPlanTester().getPlannerContext(),
-                        false,
-                        false),
+                        new RuleStatsRecorder(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
+                        predicatePushdownRules(getPlanTester().getPlannerContext(), false, false)),
                 new IterativeOptimizer(
                         "TestReorderWindows",
                         getPlanTester().getPlannerContext(),
