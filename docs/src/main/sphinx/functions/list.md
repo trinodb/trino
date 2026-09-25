@@ -95,6 +95,7 @@
 - [classifier](classifier-function)
 - [coalesce](coalesce-function)
 - {func}`codepoint`
+- {func}`collect`
 - {func}`color`
 - {func}`combinations`
 - {func}`concat`
@@ -141,6 +142,7 @@
 ## E
 
 - {func}`e`
+- {func}`element`
 - {func}`element_at`
 - {func}`empty_approx_set`
 - {func}`ends_with`
@@ -178,6 +180,7 @@
 - {func}`from_unixtime`
 - {func}`from_unixtime_nanos`
 - {func}`from_utf8`
+- {func}`fusion`
 
 ## G
 
@@ -209,6 +212,7 @@
 - [if](if-expression)
 - {func}`index`
 - {func}`infinity`
+- {func}`intersection`
 - {func}`intersection_cardinality`
 - {func}`inverse_beta_cdf`
 - {func}`inverse_normal_cdf`
@@ -216,6 +220,8 @@
 - {func}`is_infinite`
 - {func}`is_json_scalar`
 - {func}`is_nan`
+- [IS A SET](is-a-set-predicate)
+- [IS NOT A SET](is-a-set-predicate)
 - [IS NOT DISTINCT](is-distinct-operator)
 - [IS NOT NULL](is-null-operator)
 - [IS DISTINCT](is-distinct-operator)
@@ -288,6 +294,7 @@
 - {func}`max`
 - {func}`max_by`
 - {func}`md5`
+- [MEMBER OF](member-of-predicate)
 - {func}`merge`
 - {func}`merge_set_digest`
 - {func}`millisecond`
@@ -298,6 +305,9 @@
 - {func}`month`
 - {func}`multimap_agg`
 - {func}`multimap_from_entries`
+- [MULTISET EXCEPT](multiset-set-operators)
+- [MULTISET INTERSECT](multiset-set-operators)
+- [MULTISET UNION](multiset-set-operators)
 - {func}`murmur3`
 
 ## N
@@ -375,6 +385,7 @@
 - {func}`second`
 - {func}`sequence` (scalar function)
 - [sequence()](sequence-table-function) (table function)
+- {func}`set`
 - {func}`sha1`
 - {func}`sha256`
 - {func}`sha512`
@@ -480,6 +491,7 @@
 - {func}`stddev_pop`
 - {func}`stddev_samp`
 - {func}`strpos`
+- [SUBMULTISET](submultiset-predicate)
 - {func}`substr`
 - {func}`substring`
 - {func}`sum`

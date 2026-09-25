@@ -15,8 +15,9 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.ir.Array;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.ir.Bind;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -52,24 +53,24 @@ public class TestEvaluateBind
                         ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
-                                new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))))
+                                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))))
                 .isEqualTo(Optional.of(new Bind(
                         ImmutableList.of(new Reference(BIGINT, "x")),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "b")),
-                                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "b")))))));
+                                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "b")))))));
 
         assertThat(optimize(
                 new Bind(
                         ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c")),
-                                new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"), new Reference(BIGINT, "c")))))))
+                                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"), new Reference(BIGINT, "c")))))))
                 .isEqualTo(Optional.of(new Bind(
                         ImmutableList.of(new Reference(BIGINT, "x")),
                         new Lambda(
                                 ImmutableList.of(new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c")),
-                                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "b"), new Reference(BIGINT, "c")))))));
+                                new Collection(new ArrayType(BIGINT), ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "b"), new Reference(BIGINT, "c")))))));
 
         assertThat(optimize(
                 new Bind(
