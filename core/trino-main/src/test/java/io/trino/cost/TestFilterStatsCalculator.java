@@ -16,6 +16,7 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.json.JsonItems;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -374,7 +375,7 @@ public class TestFilterStatsCalculator
                 .symbolStats(new Symbol(DOUBLE, "y"), SymbolStatsAssertion::emptyRange);
 
         // first argument unknown
-        assertExpression(new Logical(AND, ImmutableList.of(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))), comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)))))
+        assertExpression(new Logical(AND, ImmutableList.of(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x"))), comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -383,7 +384,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0));
 
         // second argument unknown
-        assertExpression(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x"))))))
+        assertExpression(new Logical(AND, ImmutableList.of(comparison(LESS_THAN, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 0.0)), new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCount(337.5)
                 .symbolStats(new Symbol(DOUBLE, "x"), symbolAssert ->
                         symbolAssert.lowValue(-10)
@@ -393,8 +394,8 @@ public class TestFilterStatsCalculator
 
         // both arguments unknown
         assertExpression(new Logical(AND, ImmutableList.of(
-                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[11]"))), new Reference(DOUBLE, "x"))),
-                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]"))), new Reference(DOUBLE, "x"))))))
+                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[11]")))), new Reference(DOUBLE, "x"))),
+                new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]")))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCountUnknown();
 
         assertExpression(new Logical(AND, ImmutableList.of(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))), comparison(EQUAL, new Reference(DOUBLE, "unknownRange"), new Constant(DOUBLE, 3.0)))))
@@ -585,7 +586,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0))
                 .symbolStats(new Symbol(DOUBLE, "y"), symbolAssert -> symbolAssert.isEqualTo(yStats));
 
-        assertExpression(not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[]"))), new Reference(DOUBLE, "x")))))
+        assertExpression(not(new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonItems.fromText(JsonTypeUtil.jsonParse(Slices.utf8Slice("[]")))), new Reference(DOUBLE, "x")))))
                 .outputRowsCountUnknown();
     }
 

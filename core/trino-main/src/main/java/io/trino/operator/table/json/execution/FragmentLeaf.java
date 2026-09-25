@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import io.trino.json.Json;
 import io.trino.jsonpath.JsonPathEvaluator;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
@@ -43,7 +43,7 @@ public class FragmentLeaf
 
     private Page input;
     private int position;
-    private List<JsonNode> sequence;
+    private List<Json> sequence;
     private int nextItemIndex;
 
     public FragmentLeaf(
@@ -67,7 +67,7 @@ public class FragmentLeaf
     }
 
     @Override
-    public void reset(JsonNode item, Page input, int position)
+    public void reset(Json item, Page input, int position)
     {
         resetRoot(item, input, position, NO_PARAMETERS);
     }
@@ -77,7 +77,7 @@ public class FragmentLeaf
      * Prepares the root Fragment to produce rows for the new JSON item and a set of path parameters.
      */
     @Override
-    public void resetRoot(JsonNode item, Page input, int position, Object[] pathParameters)
+    public void resetRoot(Json item, Page input, int position, Object[] pathParameters)
     {
         requireNonNull(pathParameters, "pathParameters is null");
         this.input = requireNonNull(input, "input is null");
@@ -93,7 +93,7 @@ public class FragmentLeaf
             // fragment is finished
             return false;
         }
-        JsonNode currentItem = sequence.get(nextItemIndex);
+        Json currentItem = sequence.get(nextItemIndex);
         nextItemIndex++; // it is correct to pass the updated value to `column.evaluate()` because ordinality numbers are 1-based according to ISO/IEC 9075-2:2016(E) 7.11 <JSON table> p.461 General rules.
         for (Column column : columns) {
             newRow[column.getOutputIndex()] = column.evaluate(nextItemIndex, currentItem, input, position);

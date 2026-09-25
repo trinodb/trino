@@ -172,7 +172,7 @@ public class BigQueryArrowToPageConverter
             else if (type.getJavaType() == Int128.class) {
                 writeVectorValues(output, vector, index -> writeObjectLongDecimal(output, type, vector, index), offset, length);
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || typeManager.isJsonType(type)) {
                 writeVectorValues(output, vector, index -> writeSlice(output, type, vector, index), offset, length);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
