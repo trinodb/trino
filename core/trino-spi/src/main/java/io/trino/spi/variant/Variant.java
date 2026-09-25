@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -104,6 +105,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
+import static java.util.stream.Collectors.joining;
 
 public record Variant(Slice data, Metadata metadata, BasicType basicType, PrimitiveType primitiveType)
 {
@@ -1131,8 +1133,61 @@ public record Variant(Slice data, Metadata metadata, BasicType basicType, Primit
     @Override
     public String toString()
     {
+        String value;
+        try {
+            value = formatValue();
+        }
+        catch (RuntimeException e) {
+            // Decoding a malformed value must not hide the type information, which is all this method used to report
+            value = "<unreadable: " + e + ">";
+        }
         return "Variant[" +
                 "basicType=" + basicType + ", " +
-                "primitiveType=" + primitiveType + ']';
+                "primitiveType=" + primitiveType + ", " +
+                "value=" + value + ']';
+    }
+
+    /// Formats the value of this Variant, recursively for containers.
+    /// Strings are single quoted with embedded quotes doubled, and binary is Base64 encoded.
+    private String formatValue()
+    {
+        return switch (basicType) {
+            case PRIMITIVE -> formatPrimitiveValue();
+            case SHORT_STRING -> formatString(getStringUtf8());
+            case ARRAY -> arrayElements()
+                    .map(Variant::formatValue)
+                    .collect(joining(", ", "[", "]"));
+            case OBJECT -> objectFields()
+                    .map(field -> metadata.get(field.fieldId()).toStringUtf8() + "=" + field.value().formatValue())
+                    .collect(joining(", ", "{", "}"));
+        };
+    }
+
+    private String formatPrimitiveValue()
+    {
+        return switch (primitiveType) {
+            case NULL -> "null";
+            case BOOLEAN_TRUE -> "true";
+            case BOOLEAN_FALSE -> "false";
+            case INT8 -> String.valueOf(getByte());
+            case INT16 -> String.valueOf(getShort());
+            case INT32 -> String.valueOf(getInt());
+            case INT64 -> String.valueOf(getLong());
+            case FLOAT -> String.valueOf(getFloat());
+            case DOUBLE -> String.valueOf(getDouble());
+            case DECIMAL4, DECIMAL8, DECIMAL16 -> getDecimal().toString();
+            case DATE -> getLocalDate().toString();
+            case TIME_NTZ_MICROS -> getLocalTime().toString();
+            case TIMESTAMP_UTC_MICROS, TIMESTAMP_UTC_NANOS -> getInstant().toString();
+            case TIMESTAMP_NTZ_MICROS, TIMESTAMP_NTZ_NANOS -> getLocalDateTime().toString();
+            case BINARY -> Base64.getEncoder().encodeToString(getBinary().getBytes());
+            case STRING -> formatString(getStringUtf8());
+            case UUID -> getUuid().toString();
+        };
+    }
+
+    private static String formatString(String value)
+    {
+        return "'" + value.replace("'", "''") + "'";
     }
 }
