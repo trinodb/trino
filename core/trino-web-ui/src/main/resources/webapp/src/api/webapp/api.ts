@@ -185,7 +185,6 @@ export interface QueryInfoBase {
         name: string
     }
     warnings: Warning[]
-    failureInfo: StackInfo
 }
 
 export interface QueryInfo extends QueryInfoBase {
@@ -361,6 +360,7 @@ export interface QueryStages {
 }
 
 export interface QueryStatusInfo extends QueryInfoBase {
+    failureInfo: StackInfo
     session: Session
     query: string
     preparedQuery: string
