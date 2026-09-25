@@ -34,6 +34,7 @@ import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -50,8 +51,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveMetadataListing
         extends AbstractTestQueryFramework
@@ -147,6 +151,8 @@ public class TestHiveMetadataListing
             Optional.empty(),
             OptionalLong.empty());
 
+    private final TestingHiveMetastore metastore = new TestingHiveMetastore();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -155,8 +161,72 @@ public class TestHiveMetadataListing
                 .setCreateTpchSchemas(false)
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.hive-views.enabled", "true")
-                .setMetastore(_ -> new TestingHiveMetastore())
+                .addHiveProperty("hive.metastore-cache-ttl", "1d")
+                .setMetastore(_ -> metastore)
                 .build();
+    }
+
+    @Test
+    public void testSchemaComments()
+    {
+        String query = "SELECT comment FROM system.metadata.schema_comments WHERE catalog_name = 'hive' AND schema_name = 'database'";
+        Database originalDatabase = metastore.database;
+        try {
+            assertQuery(query, "VALUES 'schema comment'");
+
+            metastore.database = Database.builder(metastore.database)
+                    .setComment(Optional.of(""))
+                    .build();
+            assertQuery(query, "VALUES 'schema comment'");
+            assertUpdate("CALL hive.system.flush_metadata_cache()");
+            assertQuery(query, "VALUES ''");
+
+            metastore.database = Database.builder(metastore.database)
+                    .setComment(Optional.empty())
+                    .build();
+            assertQuery(query, "VALUES ''");
+            assertUpdate("CALL hive.system.flush_metadata_cache()");
+            assertQuery(query, "VALUES CAST(NULL AS varchar)");
+
+            metastore.database = Database.builder(metastore.database)
+                    .setComment(Optional.of("updated schema comment"))
+                    .build();
+            assertQuery(query, "VALUES CAST(NULL AS varchar)");
+            assertUpdate("CALL hive.system.flush_metadata_cache()");
+            assertQuery(query, "VALUES 'updated schema comment'");
+        }
+        finally {
+            metastore.database = originalDatabase;
+            assertUpdate("CALL hive.system.flush_metadata_cache()");
+        }
+    }
+
+    @Test
+    public void testGetSchemaCommentForMissingSchema()
+    {
+        TransactionalMetadata metadata = getConnectorService(getQueryRunner(), TransactionalMetadataFactory.class)
+                .create(SESSION.getIdentity(), true);
+        try {
+            assertThatThrownBy(() -> metadata.getSchemaComment(SESSION, "missing_schema"))
+                    .isInstanceOf(SchemaNotFoundException.class);
+        }
+        finally {
+            metadata.rollback();
+        }
+    }
+
+    @Test
+    public void testGetSchemaCommentForSystemSchema()
+    {
+        TransactionalMetadata metadata = getConnectorService(getQueryRunner(), TransactionalMetadataFactory.class)
+                .create(SESSION.getIdentity(), true);
+        try {
+            assertThat(metadata.getSchemaComment(SESSION, "information_schema")).isEmpty();
+            assertThat(metadata.getSchemaComment(SESSION, "sys")).isEmpty();
+        }
+        finally {
+            metadata.rollback();
+        }
     }
 
     @Test
@@ -225,6 +295,13 @@ public class TestHiveMetadataListing
     private static class TestingHiveMetastore
             implements HiveMetastore
     {
+        private volatile Database database = Database.builder()
+                .setDatabaseName(DATABASE_NAME)
+                .setOwnerName(Optional.empty())
+                .setOwnerType(Optional.empty())
+                .setComment(Optional.of("schema comment"))
+                .build();
+
         @Override
         public List<String> getAllDatabases()
         {
@@ -275,7 +352,10 @@ public class TestHiveMetadataListing
         @Override
         public Optional<Database> getDatabase(String databaseName)
         {
-            throw new UnsupportedOperationException();
+            if (databaseName.equals(DATABASE_NAME)) {
+                return Optional.of(database);
+            }
+            return Optional.empty();
         }
 
         @Override

@@ -994,6 +994,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<String> getSchemaComment(Session session, CatalogSchemaName schemaName)
+    {
+        Span span = startSpan("getSchemaComment", schemaName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getSchemaComment(session, schemaName);
+        }
+    }
+
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         Span span = startSpan("getSchemaOwner", schemaName);
