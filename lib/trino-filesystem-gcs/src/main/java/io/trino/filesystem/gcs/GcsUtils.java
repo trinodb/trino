@@ -28,6 +28,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -116,5 +117,16 @@ public class GcsUtils
         catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Optional<EncryptionKey> selectEncryptionKey(Blob blob, List<EncryptionKey> keys)
+    {
+        if (blob.getCustomerEncryption() == null) {
+            return Optional.empty();
+        }
+        String keySha256 = blob.getCustomerEncryption().getKeySha256();
+        return keys.stream()
+                .filter(key -> keySha256Checksum(key).equals(keySha256))
+                .findFirst();
     }
 }

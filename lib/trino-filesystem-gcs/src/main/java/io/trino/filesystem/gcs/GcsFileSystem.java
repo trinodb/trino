@@ -67,8 +67,10 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.filesystem.TrinoFileSystem.checkStartingFrom;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
+import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
 import static io.trino.filesystem.gcs.GcsUtils.keySha256Checksum;
+import static io.trino.filesystem.gcs.GcsUtils.selectEncryptionKey;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -82,8 +84,21 @@ public class GcsFileSystem
     private final int pageSize;
     private final int batchSize;
     private final Optional<String> endpoint;
+    private final Optional<String> sseKmsKeyName;
+    private final Optional<EncryptionKey> encryptionKey;
+    private final List<EncryptionKey> decryptionKeys;
 
-    public GcsFileSystem(ListeningExecutorService executorService, Storage storage, int readBlockSizeBytes, long writeBlockSizeBytes, int pageSize, int batchSize, Optional<String> endpoint)
+    public GcsFileSystem(
+            ListeningExecutorService executorService,
+            Storage storage,
+            int readBlockSizeBytes,
+            long writeBlockSizeBytes,
+            int pageSize,
+            int batchSize,
+            Optional<String> endpoint,
+            Optional<String> sseKmsKeyName,
+            Optional<EncryptionKey> encryptionKey,
+            List<EncryptionKey> decryptionKeys)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -92,6 +107,9 @@ public class GcsFileSystem
         this.pageSize = pageSize;
         this.batchSize = batchSize;
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.sseKmsKeyName = requireNonNull(sseKmsKeyName, "sseKmsKeyName is null");
+        this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+        this.decryptionKeys = ImmutableList.copyOf(requireNonNull(decryptionKeys, "decryptionKeys is null"));
     }
 
     @Override
@@ -99,7 +117,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), decryptionKeys);
     }
 
     @Override
@@ -107,7 +125,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), List.of(key));
     }
 
     @Override
@@ -115,7 +133,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), decryptionKeys);
     }
 
     @Override
@@ -123,7 +141,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), List.of(key));
     }
 
     @Override
@@ -131,7 +149,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), decryptionKeys);
     }
 
     @Override
@@ -139,7 +157,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), List.of(key));
     }
 
     @Override
@@ -147,7 +165,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty());
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, sseKmsKeyName, encryptionKey);
     }
 
     @Override
@@ -155,7 +173,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.of(key));
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty(), Optional.of(key));
     }
 
     @Override
@@ -357,7 +375,16 @@ public class GcsFileSystem
     public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
-        return preSignedUri(location, ttl, Optional.empty());
+        if (decryptionKeys.isEmpty()) {
+            return preSignedUri(location, ttl, Optional.empty());
+        }
+        GcsLocation gcsLocation = new GcsLocation(location);
+        Blob blob = getBlobOrThrow(storage, gcsLocation);
+        Optional<EncryptionKey> key = selectEncryptionKey(blob, decryptionKeys);
+        if (blob.getCustomerEncryption() != null && key.isEmpty()) {
+            return Optional.empty();
+        }
+        return preSignedUri(location, ttl, key);
     }
 
     @Override

@@ -14,25 +14,37 @@
 package io.trino.filesystem.gcs;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.GcsSseType.CUSTOMER;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.GcsSseType.KMS;
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.GcsSseType.NONE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGcsFileSystemConfig
 {
+    private static final String ENCRYPTION_KEY = Base64.getEncoder().encodeToString(new byte[32]);
+    private static final String DECRYPTION_KEY = Base64.getEncoder().encodeToString("01234567890123456789012345678901".getBytes(UTF_8));
+
     @Test
     void testDefaults()
     {
@@ -49,7 +61,11 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
-                .setApplicationId("Trino"));
+                .setApplicationId("Trino")
+                .setSseType(NONE)
+                .setSseKmsKeyName(null)
+                .setCustomerEncryptionKey(null)
+                .setCustomerDecryptionKey(null));
     }
 
     @Test
@@ -69,6 +85,9 @@ public class TestGcsFileSystemConfig
                 .put("gcs.client.min-backoff-delay", "20ms")
                 .put("gcs.client.max-backoff-delay", "20ms")
                 .put("gcs.application-id", "application id")
+                .put("gcs.sse.type", "CUSTOMER")
+                .put("gcs.customer-encryption-key", ENCRYPTION_KEY)
+                .put("gcs.customer-decryption-key", DECRYPTION_KEY)
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
@@ -84,8 +103,23 @@ public class TestGcsFileSystemConfig
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
-                .setApplicationId("application id");
-        assertFullMapping(properties, expected);
+                .setApplicationId("application id")
+                .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(ENCRYPTION_KEY)
+                .setCustomerDecryptionKey(DECRYPTION_KEY);
+        assertFullMapping(properties, expected, Set.of("gcs.sse.kms-key-name"));
+    }
+
+    @Test
+    void testKmsPropertyMapping()
+    {
+        GcsFileSystemConfig config = new ConfigurationFactory(ImmutableMap.of(
+                "gcs.sse.type", "KMS",
+                "gcs.sse.kms-key-name", "kmsKeyName"))
+                .build(GcsFileSystemConfig.class);
+
+        assertThat(config.getSseType()).isEqualTo(KMS);
+        assertThat(config.getSseKmsKeyName()).contains("kmsKeyName");
     }
 
     @Test
@@ -97,6 +131,77 @@ public class TestGcsFileSystemConfig
                         .setMaxBackoffDelay(new Duration(19, MILLISECONDS)),
                 "retryDelayValid",
                 "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay",
+                AssertTrue.class);
+    }
+
+    @Test
+    void testServerSideEncryptionValidation()
+    {
+        assertValidates(new GcsFileSystemConfig());
+        assertValidates(new GcsFileSystemConfig()
+                .setSseType(KMS)
+                .setSseKmsKeyName("kmsKeyName"));
+        assertValidates(new GcsFileSystemConfig()
+                .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(ENCRYPTION_KEY));
+        assertValidates(new GcsFileSystemConfig()
+                .setSseType(CUSTOMER)
+                .setCustomerEncryptionKey(ENCRYPTION_KEY)
+                .setCustomerDecryptionKey(DECRYPTION_KEY));
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setCustomerEncryptionKey(ENCRYPTION_KEY),
+                "customerEncryptionKeyConfigValid",
+                "gcs.customer-encryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setCustomerDecryptionKey(DECRYPTION_KEY),
+                "customerDecryptionKeyConfigValid",
+                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when set, and can only be set when gcs.sse.type=CUSTOMER",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseType(CUSTOMER)
+                        .setCustomerDecryptionKey(DECRYPTION_KEY),
+                "customerEncryptionKeyConfigValid",
+                "gcs.customer-encryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseType(CUSTOMER)
+                        .setCustomerEncryptionKey("not-base64")
+                        .setCustomerDecryptionKey(DECRYPTION_KEY),
+                "customerEncryptionKeyConfigValid",
+                "gcs.customer-encryption-key must be a Base64-encoded 256-bit key when, and only when, gcs.sse.type=CUSTOMER",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseType(CUSTOMER)
+                        .setCustomerEncryptionKey(ENCRYPTION_KEY)
+                        .setCustomerDecryptionKey(Base64.getEncoder().encodeToString(new byte[31])),
+                "customerDecryptionKeyConfigValid",
+                "gcs.customer-decryption-key must be a Base64-encoded 256-bit key when set, and can only be set when gcs.sse.type=CUSTOMER",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseKmsKeyName("kmsKeyName"),
+                "sseKmsKeyNameConfigValid",
+                "gcs.sse.kms-key-name must be set when, and only when, gcs.sse.type=KMS",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseType(KMS),
+                "sseKmsKeyNameConfigValid",
+                "gcs.sse.kms-key-name must be set when, and only when, gcs.sse.type=KMS",
+                AssertTrue.class);
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setSseType(KMS)
+                        .setSseKmsKeyName(" "),
+                "sseKmsKeyNameConfigValid",
+                "gcs.sse.kms-key-name must be set when, and only when, gcs.sse.type=KMS",
                 AssertTrue.class);
     }
 }
