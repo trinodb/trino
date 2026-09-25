@@ -923,6 +923,23 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testVarbinarySubstringLargeLength()
+    {
+        for (String length : new String[] {"2147483647", "9223372036854775807"}) {
+            assertThat(assertions.function("substr", "X'010203'", "2", length))
+                    .isEqualTo(sqlVarbinary(0x02, 0x03));
+            assertThat(assertions.function("substr", "X'010203'", "-1", length))
+                    .isEqualTo(sqlVarbinary(0x03));
+            assertThat(assertions.function("substr", "X'010203'", "1", length))
+                    .isEqualTo(sqlVarbinary(0x01, 0x02, 0x03));
+            assertThat(assertions.function("substr", "X'010203'", "4", length))
+                    .isEqualTo(sqlVarbinary(""));
+            assertThat(assertions.function("substr", "X'010203'", "-4", length))
+                    .isEqualTo(sqlVarbinary(""));
+        }
+    }
+
+    @Test
     public void testHmacMd5()
     {
         assertThat(assertions.function("hmac_md5", "CAST('' AS VARBINARY)", "CAST('key' AS VARBINARY)"))
