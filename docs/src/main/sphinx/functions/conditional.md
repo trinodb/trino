@@ -124,15 +124,15 @@ otherwise evaluates and returns `false_value`.
 
 The following `IF` and `CASE` expressions are equivalent:
 
-```sql
+```{try-sql}
 SELECT
   orderkey,
   totalprice,
   IF(totalprice >= 150000, 'High Value', 'Low Value')
-FROM tpch.sf1.orders;
+FROM tpch.sf1.orders
 ```
 
-```sql
+```{try-sql}
 SELECT
   orderkey,
   totalprice,
@@ -140,7 +140,7 @@ SELECT
     WHEN totalprice >= 150000 THEN 'High Value'
     ELSE 'Low Value'
   END
-FROM tpch.sf1.orders;
+FROM tpch.sf1.orders
 ```
 
 SQL UDFs can use [`IF` statements](/udf/sql/if) that use a slightly different
@@ -189,18 +189,14 @@ The following errors are handled by `TRY`:
 
 Source table with some invalid data:
 
-```sql
-SELECT * FROM shipping;
-```
-
-```text
- origin_state | origin_zip | packages | total_cost
---------------+------------+----------+------------
- California   |      94131 |       25 |        100
- California   |      P332a |        5 |         72
- California   |      94025 |        0 |        155
- New Jersey   |      08544 |      225 |        490
-(4 rows)
+```{try-sql}
+WITH shipping (origin_state, origin_zip, packages, total_cost) AS (
+  VALUES ('California', '94131', 25, 100),
+         ('California', 'P332a', 5, 72),
+         ('California', '94025', 0, 155),
+         ('New Jersey', '08544', 225, 490)
+)
+SELECT * FROM shipping
 ```
 
 Query failure without `TRY`:
@@ -215,18 +211,14 @@ Query failed: Cannot cast 'P332a' to BIGINT
 
 `NULL` values with `TRY`:
 
-```sql
-SELECT TRY(CAST(origin_zip AS BIGINT)) FROM shipping;
-```
-
-```text
- origin_zip
-------------
-      94131
- NULL
-      94025
-      08544
-(4 rows)
+```{try-sql}
+WITH shipping (origin_state, origin_zip, packages, total_cost) AS (
+  VALUES ('California', '94131', 25, 100),
+         ('California', 'P332a', 5, 72),
+         ('California', '94025', 0, 155),
+         ('New Jersey', '08544', 225, 490)
+)
+SELECT TRY(CAST(origin_zip AS BIGINT)) FROM shipping
 ```
 
 Query failure without `TRY`:
@@ -241,16 +233,12 @@ Query failed: Division by zero
 
 Default values with `TRY` and `COALESCE`:
 
-```sql
-SELECT COALESCE(TRY(total_cost / packages), 0) AS per_package FROM shipping;
-```
-
-```text
- per_package
--------------
-          4
-         14
-          0
-         19
-(4 rows)
+```{try-sql}
+WITH shipping (origin_state, origin_zip, packages, total_cost) AS (
+  VALUES ('California', '94131', 25, 100),
+         ('California', 'P332a', 5, 72),
+         ('California', '94025', 0, 155),
+         ('New Jersey', '08544', 225, 490)
+)
+SELECT COALESCE(TRY(total_cost / packages), 0) AS per_package FROM shipping
 ```

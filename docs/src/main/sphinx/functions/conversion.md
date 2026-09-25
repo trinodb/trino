@@ -25,36 +25,23 @@ Like {func}`cast`, but returns null if the cast fails.
 Returns a formatted string using the specified [format string](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/Formatter.html#syntax)
 and arguments:
 
-```
-SELECT format('%s%%', 123);
--- '123%'
-
-SELECT format('%.5f', pi());
--- '3.14159'
-
-SELECT format('%03d', 8);
--- '008'
-
-SELECT format('%,.2f', 1234567.89);
--- '1,234,567.89'
-
-SELECT format('%-7s,%7s', 'hello', 'world');
--- 'hello  ,  world'
-
-SELECT format('%2$s %3$s %1$s', 'a', 'b', 'c');
--- 'b c a'
-
-SELECT format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04');
--- 'Tuesday, July 4, 2006'
+```{try-sql}
+SELECT format('%s%%', 123),
+       format('%.5f', pi()),
+       format('%03d', 8),
+       format('%,.2f', 1234567.89),
+       format('%-7s,%7s', 'hello', 'world'),
+       format('%2$s %3$s %1$s', 'a', 'b', 'c'),
+       format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04')
 ```
 :::
 
 :::{function} format_number(number) -> varchar
 Returns a formatted string using a unit symbol:
 
-```
-SELECT format_number(123456); -- '123K'
-SELECT format_number(1000000); -- '1M'
+```{try-sql}
+SELECT format_number(123456),
+       format_number(1000000)
 ```
 :::
 
@@ -102,11 +89,11 @@ The `parse_data_size` function supports the following units:
 Parses `string` of format `value unit` into a number, where
 `value` is the fractional number of `unit` values:
 
-```
-SELECT parse_data_size('1B'); -- 1
-SELECT parse_data_size('1kB'); -- 1024
-SELECT parse_data_size('1MB'); -- 1048576
-SELECT parse_data_size('2.3MB'); -- 2411724
+```{try-sql}
+SELECT parse_data_size('1B'),
+       parse_data_size('1kB'),
+       parse_data_size('1MB'),
+       parse_data_size('2.3MB')
 ```
 :::
 
@@ -115,9 +102,9 @@ SELECT parse_data_size('2.3MB'); -- 2411724
 :::{function} typeof(expr) -> varchar
 Returns the name of the type of the provided expression:
 
-```
-SELECT typeof(123); -- integer
-SELECT typeof('cat'); -- varchar(3)
-SELECT typeof(cos(2) + 1.5); -- double
+```{try-sql}
+SELECT typeof(123),
+       typeof('cat'),
+       typeof(cos(2) + 1.5)
 ```
 :::

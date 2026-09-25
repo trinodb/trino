@@ -32,13 +32,12 @@ RETURN 42
 A full example of this UDF as inline UDF and usage in a string concatenation
 with a cast:
 
-```sql
+```{try-sql}
 WITH
   FUNCTION answer()
   RETURNS BIGINT
   RETURN 42
-SELECT 'The answer is ' || CAST(answer() as varchar);
--- The answer is 42
+SELECT 'The answer is ' || CAST(answer() as varchar)
 ```
 
 Provided the catalog `example` supports UDF storage in the `default` schema, you
@@ -86,13 +85,15 @@ SELECT answer() + 5; -- 47
 The result of calling the UDF `answer()` is always identical, so you can
 declare it as deterministic, and add some other information:
 
-```sql
-FUNCTION answer()
-LANGUAGE SQL
-DETERMINISTIC
-RETURNS BIGINT
-COMMENT 'Provide the answer to the question about life, the universe, and everything.'
-RETURN 42
+```{try-sql}
+WITH
+  FUNCTION answer()
+  RETURNS BIGINT
+  LANGUAGE SQL
+  DETERMINISTIC  
+  COMMENT 'Provide the answer to the question about life, the universe, and everything.'
+  RETURN 42
+SELECT answer()
 ```
 
 The comment and other information about the UDF is visible in the output of
@@ -101,10 +102,12 @@ The comment and other information about the UDF is visible in the output of
 A simple UDF that returns a greeting back to the input string `fullname`
 concatenating two strings and the input value:
 
-```sql
-FUNCTION hello(fullname VARCHAR)
-RETURNS VARCHAR
-RETURN 'Hello, ' || fullname || '!'
+```{try-sql}
+WITH
+  FUNCTION hello(fullname VARCHAR)
+  RETURNS VARCHAR
+  RETURN 'Hello, ' || fullname || '!'
+SELECT hello('Jane Doe')
 ```
 
 Following is an example invocation:
@@ -118,13 +121,15 @@ calculates the result of a multiplication of the input integer with `99`. The
 `bigint` data type is used for all variables and values. The value of integer
 `99` is cast to `bigint` in the default value assignment for the variable `x`:
 
-```sql
-FUNCTION times_ninety_nine(a bigint)
-RETURNS bigint
-BEGIN
-  DECLARE x bigint DEFAULT CAST(99 AS bigint);
-  RETURN x * a;
-END
+```{try-sql}
+WITH
+  FUNCTION times_ninety_nine(a bigint)
+  RETURNS bigint
+  BEGIN
+    DECLARE x bigint DEFAULT CAST(99 AS bigint);
+    RETURN x * a;
+  END
+SELECT times_ninety_nine(CAST(2 AS bigint))
 ```
 
 Following is an example invocation:
@@ -138,65 +143,104 @@ SELECT times_ninety_nine(CAST(2 as bigint)); -- 198
 A first example of conditional flow control in a SQL UDF using the `CASE`
 statement. The simple `bigint` input value is compared to a number of values:
 
-```sql
-FUNCTION simple_case(a bigint)
-RETURNS varchar
-BEGIN
-  CASE a
-    WHEN 0 THEN RETURN 'zero';
-    WHEN 1 THEN RETURN 'one';
-    WHEN 10 THEN RETURN 'ten';
-    WHEN 20 THEN RETURN 'twenty';
-    ELSE RETURN 'other';
-  END CASE;
-  RETURN NULL;
-END
+```{try-sql}
+WITH
+  FUNCTION simple_case(a bigint)
+  RETURNS varchar
+  BEGIN
+    CASE a
+      WHEN 0 THEN RETURN 'zero';
+      WHEN 1 THEN RETURN 'one';
+      WHEN 10 THEN RETURN 'ten';
+      WHEN 20 THEN RETURN 'twenty';
+      ELSE RETURN 'other';
+    END CASE;
+    RETURN NULL;
+  END
+SELECT simple_case(0) AS zero,
+       simple_case(10) AS ten,
+       simple_case(11) AS other
 ```
 
-Following are a couple of example invocations with result and explanation:
+Following are a couple of example invocations. Note that `simple_case(null)`
+falls through to the `ELSE` clause and returns `'other'`, not `NULL`, since the
+comparisons `null = 0`, `null = 1`, and so on never evaluate to `true`:
 
-```sql
-SELECT simple_case(0); -- zero
-SELECT simple_case(1); -- one
-SELECT simple_case(-1); -- other (from else clause)
-SELECT simple_case(10); -- ten
-SELECT simple_case(11); -- other (from else clause)
-SELECT simple_case(20); -- twenty
-SELECT simple_case(100); -- other (from else clause)
-SELECT simple_case(null); -- null .. but really??
+```{try-sql}
+WITH
+  FUNCTION simple_case(a bigint)
+  RETURNS varchar
+  BEGIN
+    CASE a
+      WHEN 0 THEN RETURN 'zero';
+      WHEN 1 THEN RETURN 'one';
+      WHEN 10 THEN RETURN 'ten';
+      WHEN 20 THEN RETURN 'twenty';
+      ELSE RETURN 'other';
+    END CASE;
+    RETURN NULL;
+  END
+SELECT simple_case(0)    AS zero,
+       simple_case(1)    AS one,
+       simple_case(-1)   AS negative,
+       simple_case(10)   AS ten,
+       simple_case(11)   AS eleven,
+       simple_case(20)   AS twenty,
+       simple_case(100)  AS hundred,
+       simple_case(null) AS null_input
 ```
 
 A second example of a SQL UDF with a `CASE` statement, this time with two
 parameters, showcasing the importance of the order of the conditions:
 
-```sql
-FUNCTION search_case(a bigint, b bigint)
-RETURNS varchar
-BEGIN
-  CASE
-    WHEN a = 0 THEN RETURN 'zero';
-    WHEN b = 1 THEN RETURN 'one';
-    WHEN a = DECIMAL '10.0' THEN RETURN 'ten';
-    WHEN b = 20.0E0 THEN RETURN 'twenty';
-    ELSE RETURN 'other';
-  END CASE;
-  RETURN NULL;
-END
+```{try-sql}
+WITH
+  FUNCTION search_case(a bigint, b bigint)
+  RETURNS varchar
+  BEGIN
+    CASE
+      WHEN a = 0 THEN RETURN 'zero';
+      WHEN b = 1 THEN RETURN 'one';
+      WHEN a = DECIMAL '10.0' THEN RETURN 'ten';
+      WHEN b = 20.0E0 THEN RETURN 'twenty';
+      ELSE RETURN 'other';
+    END CASE;
+    RETURN NULL;
+  END
+SELECT search_case(0, 0) AS zero,
+       search_case(10, 2) AS ten,
+       search_case(3, 20) AS twenty
 ```
 
-Following are a couple of example invocations with result and explanation:
+Following are a couple of example invocations. Note that the order of the
+`WHEN` clauses matters, so `a = 0` always wins over `b = 1` even when both are
+true, and `search_case(null, null)` falls through to the `ELSE` clause and
+returns `'other'`, not `NULL`:
 
-```sql
-SELECT search_case(0,0); -- zero
-SELECT search_case(1,1); -- one
-SELECT search_case(0,1); -- zero (not one since the second check is never reached)
-SELECT search_case(10,1); -- one (not ten since the third check is never reached)
-SELECT search_case(10,2); -- ten
-SELECT search_case(10,20); -- ten (not twenty)
-SELECT search_case(0,20); -- zero (not twenty)
-SELECT search_case(3,20); -- twenty
-SELECT search_case(3,21); -- other
-SELECT simple_case(null,null); -- null .. but really??
+```{try-sql}
+WITH
+  FUNCTION search_case(a bigint, b bigint)
+  RETURNS varchar
+  BEGIN
+    CASE
+      WHEN a = 0 THEN RETURN 'zero';
+      WHEN b = 1 THEN RETURN 'one';
+      WHEN a = DECIMAL '10.0' THEN RETURN 'ten';
+      WHEN b = 20.0E0 THEN RETURN 'twenty';
+      ELSE RETURN 'other';
+    END CASE;
+    RETURN NULL;
+  END
+SELECT search_case(0, 0)     AS zero,
+       search_case(1, 1)     AS one,
+       search_case(0, 1)     AS zero_not_one,
+       search_case(10, 1)    AS one_not_ten,
+       search_case(10, 2)    AS ten,
+       search_case(10, 20)   AS ten_not_twenty,
+       search_case(0, 20)    AS zero_not_twenty,
+       search_case(3, 20)    AS twenty,
+       search_case(3, 21)    AS other,
+       search_case(null, null) AS null_input
 ```
 
 ## Fibonacci example
@@ -211,38 +255,59 @@ the preceding to values, so it can calculate the sum, and finally return it.
 Note that processing the UDF takes longer and longer with higher `n` values, and
 the result is deterministic:
 
-```sql
-FUNCTION fib(n bigint)
-RETURNS bigint
-BEGIN
-  DECLARE a, b bigint DEFAULT 1;
-  DECLARE c bigint;
-  IF n <= 2 THEN
-    RETURN 1;
-  END IF;
-  WHILE n > 2 DO
-    SET n = n - 1;
-    SET c = a + b;
-    SET a = b;
-    SET b = c;
-  END WHILE;
-  RETURN c;
-END
+```{try-sql}
+WITH
+  FUNCTION fib(n bigint)
+  RETURNS bigint
+  BEGIN
+    DECLARE a, b bigint DEFAULT 1;
+    DECLARE c bigint;
+    IF n <= 2 THEN
+      RETURN 1;
+    END IF;
+    WHILE n > 2 DO
+      SET n = n - 1;
+      SET c = a + b;
+      SET a = b;
+      SET b = c;
+    END WHILE;
+    RETURN c;
+  END
+SELECT fib(1) AS fib_1,
+       fib(5) AS fib_5,
+       fib(8) AS fib_8
 ```
 
-Following are a couple of example invocations with result and explanation:
+Following are a couple of example invocations:
 
-```sql
-SELECT fib(-1); -- 1
-SELECT fib(0); -- 1
-SELECT fib(1); -- 1
-SELECT fib(2); -- 1
-SELECT fib(3); -- 2
-SELECT fib(4); -- 3
-SELECT fib(5); -- 5
-SELECT fib(6); -- 8
-SELECT fib(7); -- 13
-SELECT fib(8); -- 21
+```{try-sql}
+WITH
+  FUNCTION fib(n bigint)
+  RETURNS bigint
+  BEGIN
+    DECLARE a, b bigint DEFAULT 1;
+    DECLARE c bigint;
+    IF n <= 2 THEN
+      RETURN 1;
+    END IF;
+    WHILE n > 2 DO
+      SET n = n - 1;
+      SET c = a + b;
+      SET a = b;
+      SET b = c;
+    END WHILE;
+    RETURN c;
+  END
+SELECT fib(-1) AS fib_neg1,
+       fib(0)  AS fib_0,
+       fib(1)  AS fib_1,
+       fib(2)  AS fib_2,
+       fib(3)  AS fib_3,
+       fib(4)  AS fib_4,
+       fib(5)  AS fib_5,
+       fib(6)  AS fib_6,
+       fib(7)  AS fib_7,
+       fib(8)  AS fib_8
 ```
 
 ## Labels and loops
@@ -255,23 +320,25 @@ values `a=3`, `a=4`, `a=5`, `a=6`, and `a=7`, resulting in `b=5`. The `LEAVE`
 call then causes the exit of the block before a is increased further to `10` and
 therefore the result of the UDF is `5`:
 
-```sql
-FUNCTION labels()
-RETURNS bigint
-BEGIN
-  DECLARE a, b int DEFAULT 0;
-  top: WHILE a < 10 DO
-    SET a = a + 1;
-    IF a < 3 THEN
-      ITERATE top;
-    END IF;
-    SET b = b + 1;
-    IF a > 6 THEN
-      LEAVE top;
-    END IF;
-  END WHILE;
-  RETURN b;
-END
+```{try-sql}
+WITH
+  FUNCTION labels()
+  RETURNS bigint
+  BEGIN
+    DECLARE a, b int DEFAULT 0;
+    top: WHILE a < 10 DO
+      SET a = a + 1;
+      IF a < 3 THEN
+        ITERATE top;
+      END IF;
+      SET b = b + 1;
+      IF a > 6 THEN
+        LEAVE top;
+      END IF;
+    END WHILE;
+    RETURN b;
+  END
+SELECT labels()
 ```
 
 This SQL UDF implements calculating the `n` to the power of `p` by repeated
@@ -280,9 +347,10 @@ Note that this SQL UDF does not return the correct `0` for `p=0` since the `top`
 block is merely escaped and the value of `n` is returned. The same incorrect
 behavior happens for negative values of `p`:
 
-```sql
-FUNCTION power(n int, p int)
-RETURNS int
+```{try-sql}
+WITH
+  FUNCTION power(n int, p int)
+  RETURNS int
   BEGIN
     DECLARE r int DEFAULT n;
     top: LOOP
@@ -294,57 +362,80 @@ RETURNS int
     END LOOP;
     RETURN r;
   END
+SELECT power(2, 2) AS two_squared,
+       power(2, 8) AS two_to_the_eighth,
+       power(3, 3) AS three_cubed
 ```
 
-Following are a couple of example invocations with result and explanation:
+Following are a couple of example invocations. Note that `power(3, 0)` and
+`power(3, -2)` both incorrectly return `3`, since the `top` block is escaped
+immediately and the unmodified value of `n` is returned:
 
-```sql
-SELECT power(2, 2); -- 4
-SELECT power(2, 8); -- 256
-SELECT power(3, 3); -- 256
-SELECT power(3, 0); -- 3, which is wrong
-SELECT power(3, -2); -- 3, which is wrong
+```{try-sql}
+WITH
+  FUNCTION power(n int, p int)
+  RETURNS int
+  BEGIN
+    DECLARE r int DEFAULT n;
+    top: LOOP
+      IF p <= 1 THEN
+        LEAVE top;
+      END IF;
+      SET r = r * n;
+      SET p = p - 1;
+    END LOOP;
+    RETURN r;
+  END
+SELECT power(2, 2)  AS two_squared,
+       power(2, 8)  AS two_to_the_eighth,
+       power(3, 3)  AS three_cubed,
+       power(3, 0)  AS three_to_zero_wrong,
+       power(3, -2) AS three_to_neg2_wrong
 ```
 
 This SQL UDF returns `7` as a result of the increase of `b` in the loop from
 `a=3` to `a=10`:
 
-```sql
-FUNCTION test_repeat_continue()
-RETURNS bigint
-BEGIN
-  DECLARE a int DEFAULT 0;
-  DECLARE b int DEFAULT 0;
-  top: REPEAT
-    SET a = a + 1;
-    IF a <= 3 THEN
-      ITERATE top;
-    END IF;
-    SET b = b + 1;
-  UNTIL a >= 10
-  END REPEAT;
-  RETURN b;
-END
+```{try-sql}
+WITH
+  FUNCTION test_repeat_continue()
+  RETURNS bigint
+  BEGIN
+    DECLARE a int DEFAULT 0;
+    DECLARE b int DEFAULT 0;
+    top: REPEAT
+      SET a = a + 1;
+      IF a <= 3 THEN
+        ITERATE top;
+      END IF;
+      SET b = b + 1;
+    UNTIL a >= 10
+    END REPEAT;
+    RETURN b;
+  END
+SELECT test_repeat_continue()
 ```
 
 This SQL UDF returns `2` and shows that labels can be repeated and label usage
 within a block refers to the label of that block:
 
-```sql
-FUNCTION test()
-RETURNS int
-BEGIN
-  DECLARE r int DEFAULT 0;
-  abc: LOOP
-    SET r = r + 1;
-    LEAVE abc;
-  END LOOP;
-  abc: LOOP
-    SET r = r + 1;
-    LEAVE abc;
-  END LOOP;
-  RETURN r;
-END
+```{try-sql}
+WITH
+  FUNCTION test()
+  RETURNS int
+  BEGIN
+    DECLARE r int DEFAULT 0;
+    abc: LOOP
+      SET r = r + 1;
+      LEAVE abc;
+    END LOOP;
+    abc: LOOP
+      SET r = r + 1;
+      LEAVE abc;
+    END LOOP;
+    RETURN r;
+  END
+SELECT test()
 ```
 
 ## SQL UDFs and built-in functions
@@ -354,21 +445,23 @@ This SQL UDF shows that multiple data types and built-in functions like
 blocks also show how variable names are local within these blocks `x`, but the
 global `r` from the top-level block can be accessed in the nested blocks:
 
-```sql
-FUNCTION test()
-RETURNS bigint
-BEGIN
-  DECLARE r bigint DEFAULT 0;
+```{try-sql}
+WITH
+  FUNCTION test()
+  RETURNS bigint
   BEGIN
-    DECLARE x varchar DEFAULT 'hello';
-    SET r = r + length(x);
-  END;
-  BEGIN
-    DECLARE x array(int) DEFAULT array[1, 2, 3];
-    SET r = r + cardinality(x);
-  END;
-  RETURN r;
-END
+    DECLARE r bigint DEFAULT 0;
+    BEGIN
+      DECLARE x varchar DEFAULT 'hello';
+      SET r = r + length(x);
+    END;
+    BEGIN
+      DECLARE x array(int) DEFAULT array[1, 2, 3];
+      SET r = r + cardinality(x);
+    END;
+    RETURN r;
+  END
+SELECT test()
 ```
 
 ## Optional parameter example
@@ -382,15 +475,18 @@ optional parameter.
 The following SQL UDF truncates a string to the specified length including three
 dots at the end of the output:
 
-```sql
-FUNCTION dots(input varchar, length integer)
-RETURNS varchar
-BEGIN
-  IF length(input) > length THEN
-    RETURN substring(input, 1, length-3) || '...';
-  END IF;
-  RETURN input;
-END;
+```{try-sql}
+WITH
+  FUNCTION dots(input varchar, length integer)
+  RETURNS varchar
+  BEGIN
+    IF length(input) > length THEN
+      RETURN substring(input, 1, length-3) || '...';
+    END IF;
+    RETURN input;
+  END
+SELECT dots('A long string that will be shortened', 15) AS shortened,
+       dots('A short string', 15) AS unchanged
 ```
 
 Following are example invocations and output:
@@ -439,31 +535,48 @@ replacement for date string manipulation functions such as `date`, `date_parse`,
 Note that the UDF defaults the time value to `00:00:00.000` and the time
 zone to the session time zone:
 
-```sql
-FUNCTION from_date_string(date_string VARCHAR)
-RETURNS TIMESTAMP WITH TIME ZONE
-BEGIN
-  IF date_string like '%-%' THEN -- ISO 8601
-    RETURN from_iso8601_timestamp(date_string);
-  ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
-      RETURN date_parse(date_string, '%Y%m%d');
-  ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
-      RETURN date_parse(date_string, '%Y%m%d%H');
-  END IF;
-  RETURN NULL;
-END
+```{try-sql}
+WITH
+  FUNCTION from_date_string(date_string VARCHAR)
+  RETURNS TIMESTAMP WITH TIME ZONE
+  BEGIN
+    IF date_string like '%-%' THEN -- ISO 8601
+      RETURN from_iso8601_timestamp(date_string);
+    ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
+        RETURN date_parse(date_string, '%Y%m%d');
+    ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
+        RETURN date_parse(date_string, '%Y%m%d%H');
+    END IF;
+    RETURN NULL;
+  END
+SELECT from_date_string('2023-01-01') AS iso8601,
+       from_date_string('20230101') AS ymd,
+       from_date_string('2023010123') AS ymdh
 ```
 
-Following are a couple of example invocations with result and explanation:
+Following are a couple of example invocations:
 
-```sql
-SELECT from_date_string('2023-01-01'); -- 2023-01-01 00:00:00.000 UTC (using the ISO 8601 format)
-SELECT from_date_string('2023-01-01T23'); -- 2023-01-01 23:00:00.000 UTC (using the ISO 8601 format)
-SELECT from_date_string('2023-01-01T23:23:23'); -- 2023-01-01 23:23:23.000 UTC (using the ISO 8601 format)
-SELECT from_date_string('20230101'); -- 2023-01-01 00:00:00.000 UTC (using the YYYYmmdd format)
-SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the YYYYmmddHH format)
-SELECT from_date_string(NULL); -- NULL (handles NULL string)
-SELECT from_date_string('abc'); -- NULL (not matched to any format)
+```{try-sql}
+WITH
+  FUNCTION from_date_string(date_string VARCHAR)
+  RETURNS TIMESTAMP WITH TIME ZONE
+  BEGIN
+    IF date_string like '%-%' THEN -- ISO 8601
+      RETURN from_iso8601_timestamp(date_string);
+    ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
+        RETURN date_parse(date_string, '%Y%m%d');
+    ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
+        RETURN date_parse(date_string, '%Y%m%d%H');
+    END IF;
+    RETURN NULL;
+  END
+SELECT from_date_string('2023-01-01')          AS iso8601_date,
+       from_date_string('2023-01-01T23')       AS iso8601_hour,
+       from_date_string('2023-01-01T23:23:23') AS iso8601_full,
+       from_date_string('20230101')            AS ymd,
+       from_date_string('2023010123')          AS ymdh,
+       from_date_string(NULL)                  AS null_string,
+       from_date_string('abc')                 AS unmatched
 ```
 
 ## Human-readable days
@@ -471,18 +584,18 @@ SELECT from_date_string('abc'); -- NULL (not matched to any format)
 Trino includes a built-in function called {func}`human_readable_seconds` that
 formats a number of seconds into a string:
 
-```sql
-SELECT human_readable_seconds(134823);
--- 1 day, 13 hours, 27 minutes, 3 seconds
+```{try-sql}
+SELECT human_readable_seconds(134823)
 ```
 
 The example SQL UDF `hrd` formats a number of days into a human-readable text
 that provides the approximate number of years and months:
 
-```sql
-FUNCTION hrd(d integer)
-RETURNS VARCHAR
-BEGIN
+```{try-sql}
+WITH
+  FUNCTION hrd(d integer)
+  RETURNS VARCHAR
+  BEGIN
     DECLARE answer varchar default 'About ';
     DECLARE years real;
     DECLARE months real;
@@ -508,20 +621,53 @@ BEGIN
         SET answer = 'Less than 1 month';
     END IF;
     RETURN answer;
-END;
+  END
+SELECT hrd(10) AS days_10,
+       hrd(400) AS days_400,
+       hrd(5000) AS days_5000
 ```
 
 The following examples show the output for a range of values under one month,
 under one year, and various larger values:
 
-```sql
-SELECT hrd(10); -- Less than 1 month
-SELECT hrd(95); -- About 3 months
-SELECT hrd(400); -- About 1 year and 1 month
-SELECT hrd(369); -- About 1 year
-SELECT hrd(800); -- About 2 years and 2 months
-SELECT hrd(1100); -- About 3 years
-SELECT hrd(5000); -- About 13 years and 8 months
+```{try-sql}
+WITH
+  FUNCTION hrd(d integer)
+  RETURNS VARCHAR
+  BEGIN
+    DECLARE answer varchar default 'About ';
+    DECLARE years real;
+    DECLARE months real;
+    SET years = truncate(d/365);
+    IF years > 0 then
+        SET answer = answer || format('%1.0f', years) || ' year';
+    END IF;
+    IF years > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    SET d = d - cast( years AS integer) * 365 ;
+    SET months = truncate(d / 30);
+    IF months > 0 and years > 0 THEN
+        SET answer = answer || ' and ';
+    END IF;
+    IF months > 0 THEN
+        set answer = answer || format('%1.0f', months) || ' month';
+    END IF;
+    IF months > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    IF years < 1 and months < 1 THEN
+        SET answer = 'Less than 1 month';
+    END IF;
+    RETURN answer;
+  END
+SELECT hrd(10)   AS days_10,
+       hrd(95)   AS days_95,
+       hrd(400)  AS days_400,
+       hrd(369)  AS days_369,
+       hrd(800)  AS days_800,
+       hrd(1100) AS days_1100,
+       hrd(5000) AS days_5000
 ```
 
 Improvements of the SQL UDF could include the following modifications:
@@ -537,14 +683,17 @@ This example SQL UDF `strtrunc` truncates strings longer than 60 characters,
 leaving the first 30 and the last 25 characters, and cutting out extra
 characters in the middle:
 
-```sql
-FUNCTION strtrunc(input VARCHAR)
-RETURNS VARCHAR
-RETURN
+```{try-sql}
+WITH
+  FUNCTION strtrunc(input VARCHAR)
+  RETURNS VARCHAR
+  RETURN
     CASE WHEN length(input) > 60
     THEN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25)
     ELSE input
-    END;
+    END
+SELECT strtrunc('A short string') AS unchanged,
+       strtrunc('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible') AS truncated
 ```
 
 The preceding declaration is very compact and consists of only one complex
@@ -557,10 +706,11 @@ required `END CASE;`. The second `RETURN` statement is required, because a SQL
 UDF must end with a `RETURN` statement. As a result the `ELSE` clause can be
 omitted:
 
-```sql
-FUNCTION strtrunc(input VARCHAR)
-RETURNS VARCHAR
-BEGIN
+```{try-sql}
+WITH
+  FUNCTION strtrunc(input VARCHAR)
+  RETURNS VARCHAR
+  BEGIN
     CASE WHEN length(input) > 60
     THEN
         RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
@@ -568,21 +718,26 @@ BEGIN
         RETURN input;
     END CASE;
     RETURN input;
-END;
+  END
+SELECT strtrunc('A short string') AS unchanged,
+       strtrunc('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible') AS truncated
 ```
 
 The next example changes over from a `CASE` to an `IF` statement, and avoids the
 duplicate `RETURN`:
 
-```sql
-FUNCTION strtrunc(input VARCHAR)
-RETURNS VARCHAR
-BEGIN
+```{try-sql}
+WITH
+  FUNCTION strtrunc(input VARCHAR)
+  RETURNS VARCHAR
+  BEGIN
     IF length(input) > 60 THEN
         RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
     END IF;
     RETURN input;
-END;
+  END
+SELECT strtrunc('A short string') AS unchanged,
+       strtrunc('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible') AS truncated
 ```
 
 All the preceding examples create the same output. Following is an example query
@@ -627,9 +782,10 @@ Trino includes a built-in `format_number()` function. However, it is using units
 that do not work well with bytes. The following `format_data_size` SQL UDF can
 format large values of bytes into a human-readable string:
 
-```sql
-FUNCTION format_data_size(input BIGINT)
-RETURNS VARCHAR
+```{try-sql}
+WITH
+  FUNCTION format_data_size(input BIGINT)
+  RETURNS VARCHAR
   BEGIN
     DECLARE value DOUBLE DEFAULT CAST(input AS DOUBLE);
     DECLARE result BIGINT;
@@ -676,7 +832,10 @@ RETURNS VARCHAR
       SET format = '%.0f';
     END IF;
     RETURN format(format, value) || unit;
-  END;
+  END
+SELECT format_data_size(1000) AS bytes,
+       format_data_size(1000000) AS megabytes,
+       format_data_size(1000000000) AS gigabytes
 ```
 
 Below is a query that shows how it formats a wide range of values:
@@ -749,17 +908,21 @@ is using ANSI escape codes to output colors, and thus is only usable for
 displaying results in a terminal. The following example shows a similar SQL UDF
 that only uses ASCII characters:
 
-```sql
-FUNCTION ascii_bar(value DOUBLE)
-RETURNS VARCHAR
-BEGIN
-  DECLARE max_width DOUBLE DEFAULT 40.0;
-  RETURN array_join(
-    repeat('█',
-        greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
-        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█']
-        [cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
-END;
+```{try-sql}
+WITH
+  FUNCTION ascii_bar(value DOUBLE)
+  RETURNS VARCHAR
+  BEGIN
+    DECLARE max_width DOUBLE DEFAULT 40.0;
+    RETURN array_join(
+      repeat('█',
+          greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
+          || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█']
+          [cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
+  END
+SELECT ascii_bar(0.25) AS quarter,
+       ascii_bar(0.5) AS half,
+       ascii_bar(0.75) AS three_quarters
 ```
 
 It can be used to visualize a value:
@@ -822,10 +985,14 @@ The preceding query produces the following output:
 It is also possible to draw more compacted charts. Following is a SQL UDF
 drawing vertical bars:
 
-```sql
-FUNCTION vertical_bar(value DOUBLE)
-RETURNS VARCHAR
-RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)];
+```{try-sql}
+WITH
+  FUNCTION vertical_bar(value DOUBLE)
+  RETURNS VARCHAR
+  RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)]
+SELECT vertical_bar(0.25) AS quarter,
+       vertical_bar(0.5) AS half,
+       vertical_bar(0.75) AS three_quarters
 ```
 
 It can be used to draw a distribution of values, in a single column:
@@ -902,24 +1069,26 @@ on subsequent runs of the same query, and readers must still compare all
 frequencies to find the one most frequent value. The following is a SQL UDF that
 returns ordered results as a string:
 
-```sql
-FUNCTION format_topn(input map<varchar, bigint>)
-RETURNS VARCHAR
-NOT DETERMINISTIC
-BEGIN
-  DECLARE freq_separator VARCHAR DEFAULT '=';
-  DECLARE entry_separator VARCHAR DEFAULT ', ';
-  RETURN array_join(transform(
-    reverse(array_sort(transform(
-      transform(
-        map_entries(input),
-          r -> cast(r AS row(key varchar, value bigint))
-      ),
-      r -> cast(row(r.value, r.key) AS row(value bigint, key varchar)))
-    )),
-    r -> r.key || freq_separator || cast(r.value as varchar)),
-    entry_separator);
-END;
+```{try-sql}
+WITH
+  FUNCTION format_topn(input map(varchar, bigint))
+  RETURNS VARCHAR
+  NOT DETERMINISTIC
+  BEGIN
+    DECLARE freq_separator VARCHAR DEFAULT '=';
+    DECLARE entry_separator VARCHAR DEFAULT ', ';
+    RETURN array_join(transform(
+      reverse(array_sort(transform(
+        transform(
+          map_entries(input),
+            r -> cast(r AS row(key varchar, value bigint))
+        ),
+        r -> cast(row(r.value, r.key) AS row(value bigint, key varchar)))
+      )),
+      r -> r.key || freq_separator || cast(r.value as varchar)),
+      entry_separator);
+  END
+SELECT format_topn(MAP(ARRAY['AAA', 'BBB', 'CCC'], ARRAY[BIGINT '2', BIGINT '3', BIGINT '3']))
 ```
 
 Following is an example query to count generated strings:

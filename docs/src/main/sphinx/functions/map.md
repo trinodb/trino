@@ -6,32 +6,28 @@ values in the same order. Keys must be character-based and can not be null.
 
 Create an array with integer values
 
-```sql
-SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[2373, 3463, 45837]);
--- {key1=2373, key2=3463, key3=45837}
+```{try-sql}
+SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[2373, 3463, 45837])
 ```
 
 Create an array of character values:
 
-```sql
-SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', 'v2', 'v3']);
--- {key1=v1, key2=v2, key3=v3}
+```{try-sql}
+SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', 'v2', 'v3'])
 ```
 
 Values must use the same type or it must be possible to coerce values to a
 common type. The following example uses integer and decimal values and the
 resulting array contains decimals:
 
-```sql
-SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[23, 34.63, 45.837]);
--- {key1=23.000, key2=34.630, key3=45.837}
+```{try-sql}
+SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY[23, 34.63, 45.837])
 ```
 
 Null values are allowed:
 
-```sql
-SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', NULL, 'v3']);
--- {key1=v1, key2=NULL, key3=v3}
+```{try-sql}
+SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', NULL, 'v3'])
 ```
 
 ## Subscript operator: \[\]
@@ -47,9 +43,8 @@ SELECT name_to_age_map['Bob'] AS bob_age;
 The following example constructs a map and then accesses the element with 
 the key `key2`:
 
-```sql
-SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', 'v2', 'v3'])['key2'];
--- v2
+```{try-sql}
+SELECT MAP(ARRAY['key1', 'key2', 'key3' ], ARRAY['v1', 'v2', 'v3'])['key2']
 ```
 
 ## Map functions

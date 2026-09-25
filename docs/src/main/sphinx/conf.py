@@ -79,6 +79,7 @@ extensions = [
     'backquote',
     'download',
     'issue',
+    'trysql',
     'sphinx_copybutton',
     'redirects',
     'sphinxcontrib.jquery'
@@ -109,6 +110,12 @@ default_role = 'backquote'
 global_replacements = {
     "|trino_version|" : version
 }
+
+# Default Trino version used by the `try-sql` directive for trysql.io embeds.
+# trysql.io only serves released versions, so this is pinned to a known-good
+# release rather than the (possibly -SNAPSHOT) documentation build version.
+# Override per embed with the directive's `:version:` option.
+trysql_version = '482'
 
 myst_enable_extensions = [
     "colon_fence",

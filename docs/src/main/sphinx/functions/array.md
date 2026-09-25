@@ -5,32 +5,28 @@ with the data type constructor.
 
 Create an array of integer numbers:
 
-```sql
-SELECT ARRAY[1, 2, 4];
--- [1, 2, 4]
+```{try-sql}
+SELECT ARRAY[1, 2, 4]
 ```
 
 Create an array of character values:
 
-```sql
-SELECT ARRAY['foo', 'bar', 'bazz'];
--- [foo, bar, bazz]
+```{try-sql}
+SELECT ARRAY['foo', 'bar', 'bazz']
 ```
 
 Array elements must use the same type or it must be possible to coerce values to
 a common type. The following example uses integer and decimal values and the
 resulting array contains decimals:
 
-```sql
-SELECT ARRAY[1, 1.2, 4];
--- [1.0, 1.2, 4.0]
+```{try-sql}
+SELECT ARRAY[1, 1.2, 4]
 ```
 
 Null values are allowed:
 
-```sql
-SELECT ARRAY[1, 2, NULL, -4, NULL];
--- [1, 2, NULL, -4, NULL]
+```{try-sql}
+SELECT ARRAY[1, 2, NULL, -4, NULL]
 ```
 
 (subscript-operator)=
@@ -45,9 +41,8 @@ SELECT my_array[1] AS first_element
 
 The following example constructs an array and then accesses the second element:
 
-```sql
-SELECT ARRAY[1, 1.2, 4][2];
--- 1.2
+```{try-sql}
+SELECT ARRAY[1, 1.2, 4][2]
 ```
 
 (concatenation-operator)=
@@ -455,18 +450,16 @@ SELECT transform(ARRAY[ARRAY[1, NULL, 2], ARRAY[3, NULL]],
 :::{function} euclidean_distance(array(double), array(double)) -> double
 Calculates the euclidean distance:
 
-```sql
-SELECT euclidean_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
--- 2.8284271247461903
+```{try-sql}
+SELECT euclidean_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0])
 ```
 :::
 
 :::{function} dot_product(array(double), array(double)) -> double
 Calculates the dot product:
 
-```sql
-SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
--- 11.0
+```{try-sql}
+SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0])
 ```
 :::
 
