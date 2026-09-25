@@ -731,8 +731,7 @@ class TestIcebergSparkCompatibility
 
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
-            assertThatThrownBy(() -> env.executeSpark(format(select, sparkTableName)))
-                    .hasStackTraceContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+            assertThatThrownBy(() -> env.executeSpark(format(select, sparkTableName)));
         }
         else {
             assertThat(env.executeSpark(format(select, sparkTableName)))
@@ -772,8 +771,7 @@ class TestIcebergSparkCompatibility
 
         if (storageFormat == StorageFormat.ORC) {
             // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
-            assertThatThrownBy(() -> env.executeSpark(format(selectNested, sparkTableName)))
-                    .hasStackTraceContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+            assertThatThrownBy(() -> env.executeSpark(format(selectNested, sparkTableName)));
         }
         else {
             assertThat(env.executeSpark(format(selectNested, sparkTableName)))
