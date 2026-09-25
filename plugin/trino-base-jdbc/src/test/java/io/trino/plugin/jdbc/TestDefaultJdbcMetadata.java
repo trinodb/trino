@@ -43,6 +43,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -134,6 +135,22 @@ public class TestDefaultJdbcMetadata
     {
         database.close();
         database = null;
+    }
+
+    @Test
+    public void testRollbackRunsActionAddedWhileRollingBack()
+    {
+        // A rollback action can itself trigger another begin*() call (e.g. retrying a failed step),
+        // which adds a further rollback action while rollback() is still draining the list.
+        List<String> executed = new ArrayList<>();
+        metadata.rollbackActions.add(() -> {
+            executed.add("first");
+            metadata.rollbackActions.add(() -> executed.add("second"));
+        });
+
+        metadata.rollback();
+
+        assertThat(executed).containsExactly("first", "second");
     }
 
     @Test
