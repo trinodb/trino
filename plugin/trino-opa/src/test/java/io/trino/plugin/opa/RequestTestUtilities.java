@@ -20,6 +20,7 @@ import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.spi.security.Identity;
 
 import java.io.IOException;
+import java.security.Principal;
 import java.util.Collection;
 import java.util.Set;
 import java.util.function.Function;
@@ -65,6 +66,10 @@ public final class RequestTestUtilities
         return parsedRequest -> {
             if (!parsedRequest.at("/input/context/identity/user").asText().equals(expectedUser.getUser())) {
                 throw new AssertionError("Request had invalid user in the identity block");
+            }
+            String expectedPrincipal = expectedUser.getPrincipal().map(Principal::getName).orElseGet(expectedUser::getUser);
+            if (!parsedRequest.at("/input/context/identity/principal").asText().equals(expectedPrincipal)) {
+                throw new AssertionError("Request had invalid principal in the identity block");
             }
             ImmutableSet.Builder<String> groupsInRequestBuilder = ImmutableSet.builder();
             parsedRequest.at("/input/context/identity/groups").iterator().forEachRemaining(node -> groupsInRequestBuilder.add(node.asText()));
