@@ -883,6 +883,7 @@ public interface ConnectorMetadata
      * {@code refreshType} is a signal from the engine to the connector whether the MV refresh could be done incrementally or only fully, based on the plan.
      * The connector is not obligated to perform the refresh in the fashion prescribed by {@code refreshType}, this is merely a hint from the engine that the refresh could be append-only.
      */
+    @Deprecated(since = "484", forRemoval = true)
     default ConnectorInsertTableHandle beginRefreshMaterializedView(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -895,8 +896,42 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Same as {@link #beginRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, List, boolean, RetryMode, RefreshType)},
+     * with the addition of {@code materializedViewHandle} (the handle of the
+     * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
+            RetryMode retryMode,
+            RefreshType refreshType)
+    {
+        return beginRefreshMaterializedView(session, storageTableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
+    }
+
+    /**
+     * Returns a handle for the specified view or materialized view name, or {@link Optional#empty()}
+     * if this connector doesn't support it.
+     *
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    default Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Finish materialized view query
      */
+    @Deprecated(since = "484", forRemoval = true)
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -909,6 +944,41 @@ public interface ConnectorMetadata
             boolean hasNonDeterministicFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
+    }
+
+    /**
+     * Finish materialized view query.
+     * <p>
+     * Same as {@link #finishRefreshMaterializedView(ConnectorSession, ConnectorTableHandle, ConnectorInsertTableHandle, Collection, Collection, List, boolean, boolean, boolean)},
+     * with the addition of {@code materializedViewHandle} (the handle of the
+     * materialized view being refreshed; {@code storageTableHandle} identifies its storage table,
+     * not the materialized view itself), {@code sourceViewHandles} and {@code hasForeignSourceViews}, the
+     * view-level counterparts of {@code sourceTableHandles} and {@code hasForeignSourceTables}.
+     */
+    default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
+            ConnectorTableHandle storageTableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceTables,
+            boolean hasForeignSourceViews,
+            boolean hasSourceTableFunctions,
+            boolean hasNonDeterministicFunctions)
+    {
+        return finishRefreshMaterializedView(
+                session,
+                storageTableHandle,
+                insertHandle,
+                fragments,
+                computedStatistics,
+                sourceTableHandles,
+                hasForeignSourceTables,
+                hasSourceTableFunctions,
+                hasNonDeterministicFunctions);
     }
 
     /**

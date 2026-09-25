@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
@@ -147,11 +148,12 @@ public class TestIcebergMaterializedView
             IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
             SchemaTableName storageTableName = metadata.getMaterializedView(SESSION, new SchemaTableName("tpch", materializedViewName))
                     .orElseThrow().getStorageTable().orElseThrow().getSchemaTableName();
+            ConnectorViewHandle materializedViewHandle = metadata.getViewHandle(SESSION, new SchemaTableName("tpch", materializedViewName)).orElseThrow();
             ConnectorTableHandle storageTable = metadata.getTableHandle(SESSION, storageTableName, Optional.empty(), Optional.empty());
             List<ConnectorTableHandle> sourceTables = List.of(metadata.getTableHandle(
                     SESSION, new SchemaTableName("tpch", sourceTableName), Optional.empty(), Optional.empty()));
             IcebergWritableTableHandle insertHandle = (IcebergWritableTableHandle) metadata.beginRefreshMaterializedView(
-                    SESSION, storageTable, sourceTables, false, NO_RETRIES, INCREMENTAL);
+                    SESSION, materializedViewHandle, storageTable, sourceTables, List.of(), false, false, NO_RETRIES, INCREMENTAL);
             assertThat(metadata.getIncrementalRefreshFromSnapshot()).isPresent();
 
             // Prepare one refresh's output before another refresh commits the same source rows.
@@ -168,7 +170,7 @@ public class TestIcebergMaterializedView
                 assertUpdate("REFRESH MATERIALIZED VIEW " + qualifiedMaterializedViewName, emptyFullRefresh ? 0 : 1);
 
                 assertTrinoExceptionThrownBy(() -> metadata.finishRefreshMaterializedView(
-                        SESSION, storageTable, insertHandle, fragments, List.of(), sourceTables, false, false, false))
+                        SESSION, materializedViewHandle, storageTable, insertHandle, fragments, List.of(), sourceTables, List.of(), false, false, false, false))
                         .hasErrorCode(ICEBERG_COMMIT_ERROR)
                         .hasMessageContaining("Materialized view storage table changed during incremental refresh");
 
