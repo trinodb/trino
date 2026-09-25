@@ -31,7 +31,9 @@
 - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
 - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
 - { modules: plugin/trino-bigquery }
-- { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
+# `when.impacted: false` means this profile isn't run just because trino-bigquery changed, so it only runs on its default triggers (nightly schedule, or manual dispatch), not the merge queue.
+# C07ABNN828M is the #core-dev Slack channel.
+- { modules: plugin/trino-bigquery, profile: cloud-tests-2, when: { impacted: false, scheduled: nightly }, notify-channels: [C07ABNN828M] }
 - { modules: plugin/trino-cassandra }
 - { modules: plugin/trino-clickhouse }
 - { modules: plugin/trino-delta-lake }
