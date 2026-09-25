@@ -18,11 +18,12 @@ import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDbSessionPropertyManagerConfig
@@ -32,26 +33,32 @@ public class TestDbSessionPropertyManagerConfig
     {
         assertRecordedDefaults(recordDefaults(DbSessionPropertyManagerConfig.class)
                 .setConfigDbUrl(null)
-                .setUsername(null)
-                .setPassword(null)
-                .setSpecsRefreshPeriod(new Duration(10, SECONDS)));
+                .setConfigDbUser(null)
+                .setConfigDbPassword(null)
+                .setMaxRefreshInterval(new Duration(1, HOURS))
+                .setRefreshInterval(new Duration(1, SECONDS))
+                .setRunMigrationsEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("session-property-manager.db.url", "foo")
-                .put("session-property-manager.db.username", "bar")
-                .put("session-property-manager.db.password", "pass")
-                .put("session-property-manager.db.refresh-period", "50s")
+                .put("session-property-manager.config-db-url", "foo")
+                .put("session-property-manager.config-db-user", "bar")
+                .put("session-property-manager.config-db-password", "pass")
+                .put("session-property-manager.max-refresh-interval", "1m")
+                .put("session-property-manager.refresh-interval", "2s")
+                .put("session-property-manager.db-migrations-enabled", "false")
                 .buildOrThrow();
 
         DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
                 .setConfigDbUrl("foo")
-                .setUsername("bar")
-                .setPassword("pass")
-                .setSpecsRefreshPeriod(new Duration(50, TimeUnit.SECONDS));
+                .setConfigDbUser("bar")
+                .setConfigDbPassword("pass")
+                .setMaxRefreshInterval(new Duration(1, MINUTES))
+                .setRefreshInterval(new Duration(2, SECONDS))
+                .setRunMigrationsEnabled(false);
 
         assertFullMapping(properties, expected);
     }
