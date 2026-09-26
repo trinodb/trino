@@ -103,6 +103,9 @@ public class CachingCostProvider
 
     private PlanCostEstimate calculateCost(PlanNode node)
     {
-        return costCalculator.calculateCost(node, statsProvider, this, session);
+        PlanCostEstimate cost = costCalculator.calculateCost(node, statsProvider, this, session);
+        // statistics confidence is already the weakest of everything below this node, so it describes
+        // how much the whole subplan this cost covers can be trusted
+        return cost.withConfidence(statsProvider.getStats(node).getConfidence());
     }
 }

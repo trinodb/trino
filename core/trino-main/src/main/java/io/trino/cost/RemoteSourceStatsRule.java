@@ -141,6 +141,8 @@ public class RemoteSourceStatsRule
             result.addSymbolStatistics(outputSymbol, symbolStatistics);
         }
 
-        return result.build();
+        // the row count is measured, but the symbol statistics still come from the estimate,
+        // so the result is no more trustworthy than the estimate was
+        return result.build().degradeConfidenceTo(estimateStats.getConfidence());
     }
 }

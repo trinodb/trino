@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.sql.planner.OptimizerConfig;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.getLowConfidenceCostMargin;
 import static java.util.Objects.requireNonNull;
 
 public class CostComparator
@@ -67,6 +68,17 @@ public class CostComparator
         double rightCost = right.getCpuCost() * cpuWeight
                 + right.getMaxMemory() * memoryWeight
                 + right.getNetworkCost() * networkWeight;
+
+        // A cost derived from guessed statistics can be wrong by an unbounded factor, so a plan
+        // resting on one has to be decisively cheaper rather than merely cheaper on paper.
+        // Estimates that were not guessed are all trusted alike, however they were obtained.
+        double margin = getLowConfidenceCostMargin(session);
+        if (left.getConfidence() == EstimateConfidence.LOW && right.getConfidence() != EstimateConfidence.LOW) {
+            leftCost *= margin;
+        }
+        else if (right.getConfidence() == EstimateConfidence.LOW && left.getConfidence() != EstimateConfidence.LOW) {
+            rightCost *= margin;
+        }
 
         return Double.compare(leftCost, rightCost);
     }

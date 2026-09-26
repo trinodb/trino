@@ -75,6 +75,7 @@ public class AggregationStatsRule
     {
         // Used to estimate FINAL or SINGLE step aggregations
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setConfidence(sourceStats.getConfidence());
         if (groupBySymbols.isEmpty()) {
             result.setOutputRowCount(1);
         }
@@ -108,6 +109,7 @@ public class AggregationStatsRule
         // even though partial aggregations are added after the CBO rules have been run.
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(sourceStats.getOutputRowCount());
+        result.setConfidence(sourceStats.getConfidence());
         result.addSymbolStatistics(getGroupBySymbolsStatistics(sourceStats, groupBySymbols));
         for (Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addSymbolStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));

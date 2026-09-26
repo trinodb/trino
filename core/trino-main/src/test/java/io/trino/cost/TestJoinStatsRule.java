@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.SystemSessionProperties.JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -107,6 +108,30 @@ public class TestJoinStatsRule
                 RIGHT_OTHER_COLUMN_STATS);
 
         assertJoinStats(INNER, LEFT_STATS, RIGHT_STATS, innerJoinStats);
+    }
+
+    @Test
+    public void testInnerJoinOnKeyWithUnknownDistinctValuesCountIsNotTrusted()
+    {
+        PlanNodeStatsEstimate leftStatsWithoutNdv = planNodeStats(
+                LEFT_ROWS_COUNT,
+                symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS, NaN),
+                LEFT_OTHER_COLUMN_STATS);
+
+        tester().assertStatsFor(pb -> {
+                    Symbol leftJoinColumnSymbol = pb.symbol(LEFT_JOIN_COLUMN, DOUBLE);
+                    Symbol rightJoinColumnSymbol = pb.symbol(RIGHT_JOIN_COLUMN, DOUBLE);
+                    Symbol leftOtherColumnSymbol = pb.symbol(LEFT_OTHER_COLUMN, DOUBLE);
+                    Symbol rightOtherColumnSymbol = pb.symbol(RIGHT_OTHER_COLUMN, DOUBLE);
+                    return pb.join(
+                            INNER,
+                            pb.values(leftJoinColumnSymbol, leftOtherColumnSymbol),
+                            pb.values(rightJoinColumnSymbol, rightOtherColumnSymbol),
+                            new EquiJoinClause(leftJoinColumnSymbol, rightJoinColumnSymbol));
+                })
+                .withSourceStats(0, leftStatsWithoutNdv)
+                .withSourceStats(1, RIGHT_STATS)
+                .check(stats -> stats.confidence(LOW));
     }
 
     @Test
@@ -272,7 +297,9 @@ public class TestJoinStatsRule
                 LEFT_ROWS_COUNT * (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4),
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, LEFT_JOIN_COLUMN_NULLS / (LEFT_JOIN_COLUMN_NULLS + LEFT_JOIN_COLUMN_NON_NULLS / 4), 5),
                 LEFT_OTHER_COLUMN_STATS)
-                .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT);
+                .mapOutputRowCount(rowCount -> rowCount / UNKNOWN_FILTER_COEFFICIENT)
+                // the second clause was accounted for with a guessed selectivity
+                .degradeConfidenceTo(LOW);
         PlanNodeStatsEstimate actual = JOIN_STATS_RULE.calculateJoinComplementStats(
                 Optional.empty(),
                 ImmutableList.of(new EquiJoinClause(new Symbol(DOUBLE, LEFT_JOIN_COLUMN), new Symbol(DOUBLE, RIGHT_JOIN_COLUMN)), new EquiJoinClause(new Symbol(DOUBLE, LEFT_OTHER_COLUMN), new Symbol(DOUBLE, RIGHT_OTHER_COLUMN))),
