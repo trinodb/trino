@@ -24,6 +24,7 @@ import io.trino.spi.Unstable;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
@@ -108,5 +109,11 @@ public interface ConnectorContext
     default ConnectorCacheFactory getCacheFactory()
     {
         return _ -> Optional.empty();
+    }
+
+    @Unstable
+    default CredentialResolver getCredentialResolver()
+    {
+        throw new UnsupportedOperationException();
     }
 }

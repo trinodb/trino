@@ -157,3 +157,9 @@ More information is available with the documentation for individual
 
 {doc}`Secrets management <secrets>` can be used for the catalog properties files
 content.
+
+(security-credential-providers)=
+## Credential providers
+
+Connectors may support the usage of one or more {doc}`credential providers 
+<credential-providers>` to provide authentication to connector data sources.

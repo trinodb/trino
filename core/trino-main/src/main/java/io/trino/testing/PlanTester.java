@@ -141,6 +141,8 @@ import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.GroupProviderManager;
+import io.trino.security.credential.CredentialProviderRegistry;
+import io.trino.security.credential.CredentialProviderStore;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
@@ -351,6 +353,7 @@ public class PlanTester
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final JsonCodec<Expression> expressionCodec;
     private final InternalConnectorExpressionEvaluator evaluator;
+    private final CredentialProviderRegistry credentialProviderRegistry;
     private boolean printPlan;
 
     public static PlanTester create(Session defaultSession)
@@ -443,6 +446,10 @@ public class PlanTester
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer, expressionCodec);
         this.evaluator = new InternalConnectorExpressionEvaluator(plannerContext);
+
+        CredentialProviderStore credentialProviderStore = new TestingCredentialProviderStore();
+        this.credentialProviderRegistry = new CredentialProviderRegistry(credentialProviderStore);
+
         NodeInfo nodeInfo = new NodeInfo("test");
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
                 metadata,
@@ -460,7 +467,8 @@ public class PlanTester
                 optimizerConfig,
                 secretsResolver,
                 evaluator,
-                cacheManagerRegistry));
+                cacheManagerRegistry,
+                credentialProviderRegistry));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -531,6 +539,7 @@ public class PlanTester
                 new SpoolingEnabledConfig(),
                 noop(),
                 noopTracer());
+
         this.pluginManager = new PluginManager(
                 (_, _) -> {},
                 Optional.empty(),
@@ -550,7 +559,8 @@ public class PlanTester
                 new HandleResolver(),
                 exchangeManagerRegistry,
                 spoolingManagerRegistry,
-                cacheManagerRegistry);
+                cacheManagerRegistry,
+                credentialProviderRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
