@@ -509,8 +509,8 @@ public class IcebergMetadata
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
     // Any procedure added here that commits a NEW snapshot must call
     // IcebergMaterializedViewSummary.carryForwardMaterializedViewDependencies on its SnapshotUpdate before
-    // committing, otherwise the materialized view's dependency summary is dropped and the next refresh is
-    // demoted from incremental to full.
+    // committing when it runs on a materialized view storage table, otherwise the materialized view's
+    // dependency summary is dropped and the next refresh is demoted from incremental to full.
     private static final Set<IcebergTableProcedureId> MATERIALIZED_VIEW_STORAGE_ALLOWED_PROCEDURES = Sets.immutableEnumSet(
             OPTIMIZE,
             OPTIMIZE_MANIFESTS,
@@ -1860,8 +1860,8 @@ public class IcebergMetadata
         }
 
         return switch (procedureId) {
-            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, icebergTable, executeProperties);
-            case OPTIMIZE_MANIFESTS -> getTableHandleForOptimizeManifests(session, tableHandle);
+            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, icebergTable, executeProperties, isExecutedOnMaterializedViewStorageTable);
+            case OPTIMIZE_MANIFESTS -> getTableHandleForOptimizeManifests(session, tableHandle, isExecutedOnMaterializedViewStorageTable);
             case DROP_EXTENDED_STATS -> getTableHandleForDropExtendedStats(session, tableHandle);
             case ROLLBACK_TO_SNAPSHOT -> getTableHandleForRollbackToSnapshot(session, tableHandle, executeProperties);
             case EXPIRE_SNAPSHOTS -> getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
@@ -1874,7 +1874,8 @@ public class IcebergMetadata
     private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(
             IcebergTableHandle tableHandle,
             Table icebergTable,
-            Map<String, Object> executeProperties)
+            Map<String, Object> executeProperties,
+            boolean isMaterializedViewStorage)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
         SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder());
@@ -1905,18 +1906,19 @@ public class IcebergMetadata
                         sortInfo.sortOrderId(),
                         getFileFormat(tableHandle.getStorageProperties()),
                         tableHandle.getStorageProperties(),
-                        maxScannedFileSize),
+                        maxScannedFileSize,
+                        isMaterializedViewStorage),
                 tableHandle.getTableLocation()));
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimizeManifests(ConnectorSession session, IcebergTableHandle tableHandle)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimizeManifests(ConnectorSession session, IcebergTableHandle tableHandle, boolean isMaterializedViewStorage)
     {
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE_MANIFESTS,
-                new IcebergOptimizeManifestsHandle(),
+                new IcebergOptimizeManifestsHandle(isMaterializedViewStorage),
                 icebergTable.location()));
     }
 
@@ -2272,7 +2274,9 @@ public class IcebergMetadata
         rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         rewriteFiles.scanManifestsWith(icebergScanExecutor);
-        carryForwardMaterializedViewDependencies(rewriteFiles);
+        if (optimizeHandle.isMaterializedViewStorage()) {
+            carryForwardMaterializedViewDependencies(rewriteFiles);
+        }
         commitUpdate(rewriteFiles, session, "optimize");
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -2357,8 +2361,9 @@ public class IcebergMetadata
     private Map<String, Long> executeOptimizeManifests(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergOptimizeManifestsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
+        IcebergOptimizeManifestsHandle optimizeManifestsHandle = (IcebergOptimizeManifestsHandle) executeHandle.procedureHandle();
         BaseTable icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-        return optimizeManifests(icebergTable, icebergScanExecutor);
+        return optimizeManifests(icebergTable, icebergScanExecutor, optimizeManifestsHandle.isMaterializedViewStorage());
     }
 
     private Map<String, Long> executeDropExtendedStats(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
