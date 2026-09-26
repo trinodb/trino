@@ -5,6 +5,8 @@ on:
   merge_group:
   repository_dispatch:
     types: [test-with-secrets-command]
+  schedule:
+    - cron: '0 0 * * *' # nightly at 00:00 UTC
 
 # Default for all jobs; jobs that need more declare their own permissions block, which fully replaces this one.
 permissions:
@@ -814,6 +816,15 @@ jobs:
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      - name: Notify Slack on nightly failure
+        if: failure() && github.event_name == 'schedule' && matrix.notify-channels
+        uses: archive/github-actions-slack@433fef9978d3adae73168bfc9c5a7ce722780231 # v3.1.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_TOKEN }}
+          slack-channel: ${{ join(matrix.notify-channels, ',') }}
+          slack-text: |
+            :x: Nightly test failed: `${{ matrix.name }}`
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
