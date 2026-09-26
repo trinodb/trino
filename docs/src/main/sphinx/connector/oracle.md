@@ -147,6 +147,36 @@ To access the clicks table in the web database, run the following:
 SELECT * FROM example.web.clicks;
 ```
 
+(oracle-table-properties)=
+## Table properties
+
+Table property usage example:
+
+```sql
+CREATE TABLE example.web.clicks (
+  id INT,
+  click_date DATE,
+  url VARCHAR
+)
+WITH (
+  index = ARRAY['idx_id(id)', 'idx_date(click_date)']
+);
+```
+
+The following are supported Oracle table properties:
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `index`
+  - No
+  - List of index definitions to create on the table. Each entry specifies an index definition with the format `index_name(column1, column2, ...)`. Supported for both `CREATE TABLE` and `CREATE TABLE AS`. Currently only supports non-unique B-tree index.
+:::
+
 (oracle-type-mapping)=
 ## Type mapping
 
