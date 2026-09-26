@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.cost.CostComparator;
@@ -49,8 +48,13 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -59,15 +63,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.powerSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinReorderingStrategy;
@@ -94,12 +94,16 @@ import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
 
 public class ReorderJoins
         implements Rule<JoinNode>
 {
     private static final Logger log = Logger.get(ReorderJoins.class);
+
+    // Join order enumeration is driven by 64-bit masks over the sources, so at most 63 of them
+    // can be reordered as one group. max-reordered-joins is bounded to this, and JoinNodeFlattener
+    // caps each group at that value, so the enumerator only asserts the invariant.
+    private static final int MAX_ENUMERATED_SOURCES = 63;
 
     // We check that join distribution type is absent because we only want
     // to do this transformation once (reordered joins will have distribution type already set).
@@ -160,9 +164,10 @@ public class ReorderJoins
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 costComparator,
                 multiJoinNode.getFilter(),
+                multiJoinNode.getSources(),
                 context,
                 plannerContext);
-        return joinEnumerator.choose(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols());
+        return joinEnumerator.choose(multiJoinNode.getOutputSymbols());
     }
 
     @VisibleForTesting
@@ -179,11 +184,17 @@ public class ReorderJoins
         private final Lookup lookup;
         private final Context context;
 
-        private final Map<Set<PlanNode>, JoinEnumerationResult> memo = new HashMap<>();
+        private final Long2ObjectMap<JoinEnumerationResult> memo = new Long2ObjectOpenHashMap<>();
+        private final Long2ObjectMap<EqualityInference> joinInferences = new Long2ObjectOpenHashMap<>();
+        private final Long2ObjectMap<Set<Symbol>> outputSymbolsCache = new Long2ObjectOpenHashMap<>();
         private final List<Expression> residuals;
+        // sources indexed by their position in the bit masks used to drive the enumeration
+        private final List<PlanNode> sources;
+        // for each source, the mask of sources it can be joined with directly
+        private final long[] neighbors;
 
         @VisibleForTesting
-        JoinEnumerator(CostComparator costComparator, Expression filter, Context context, PlannerContext plannerContext)
+        JoinEnumerator(CostComparator costComparator, Expression filter, LinkedHashSet<PlanNode> sources, Context context, PlannerContext plannerContext)
         {
             this.context = requireNonNull(context);
             this.session = requireNonNull(context.getSession(), "session is null");
@@ -207,12 +218,61 @@ public class ReorderJoins
 
             this.residuals = residuals.build();
             this.allFilterInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), inferenceCandidates);
+            this.sources = ImmutableList.copyOf(sources);
+            checkArgument(this.sources.size() <= MAX_ENUMERATED_SOURCES, "too many sources to enumerate: %s", this.sources.size());
+            this.neighbors = buildJoinGraph(this.sources, allFilterInference);
         }
 
-        public JoinEnumerationResult choose(LinkedHashSet<PlanNode> sources, List<Symbol> outputSymbols)
+        /**
+         * Derives the join graph: two sources are adjacent when an equality is known between
+         * expressions over their symbols, which is what {@link #createJoin} needs to produce an
+         * equi-join clause. Every source referenced by an equivalence class is connected to every
+         * other one, because equality is transitive.
+         * <p>
+         * The graph is deliberately permissive: it connects sources whose symbols merely appear in
+         * the same class, even when no plain symbol-to-symbol equality can be derived across a
+         * particular cut. Over-approximating only costs a partition that is evaluated and rejected,
+         * whereas missing an edge would drop join orders from the search space.
+         * <p>
+         * No edge is missed because a derived equality only ever equates members of one equality
+         * class: whenever {@link #createJoin} can derive an equi-join clause between two sources,
+         * some class mentions a symbol of each, and this connects them.
+         */
+        @VisibleForTesting
+        static long[] buildJoinGraph(List<PlanNode> sources, EqualityInference inference)
+        {
+            Map<Symbol, Integer> sourceIndexes = new HashMap<>();
+            for (int index = 0; index < sources.size(); index++) {
+                for (Symbol symbol : sources.get(index).getOutputSymbols()) {
+                    Integer previous = sourceIndexes.put(symbol, index);
+                    checkState(previous == null, "symbol %s is produced by more than one source", symbol);
+                }
+            }
+
+            long[] neighbors = new long[sources.size()];
+            for (Collection<Expression> equalitySet : inference.getEqualitySets()) {
+                long referenced = 0;
+                for (Expression expression : equalitySet) {
+                    for (Symbol symbol : extractUnique(expression)) {
+                        Integer index = sourceIndexes.get(symbol);
+                        if (index != null) {
+                            referenced |= 1L << index;
+                        }
+                    }
+                }
+
+                for (long remaining = referenced; remaining != 0; remaining &= remaining - 1) {
+                    int index = Long.numberOfTrailingZeros(remaining);
+                    neighbors[index] |= referenced & ~(1L << index);
+                }
+            }
+            return neighbors;
+        }
+
+        public JoinEnumerationResult choose(List<Symbol> outputSymbols)
         {
             JoinEnumerationResult result = chooseJoinOrder(
-                    sources,
+                    allNodes(sources.size()),
                     ImmutableSet.<Symbol>builder()
                             .addAll(outputSymbols)
                             .addAll(residuals.stream().flatMap(e -> extractAll(e).stream()).toList())
@@ -238,20 +298,18 @@ public class ReorderJoins
             return result;
         }
 
-        private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, Set<Symbol> requiredOutputs)
+        private JoinEnumerationResult chooseJoinOrder(long nodes, Set<Symbol> requiredOutputs)
         {
             context.checkTimeoutNotExhausted();
 
-            Set<PlanNode> multiJoinKey = ImmutableSet.copyOf(sources);
-            JoinEnumerationResult bestResult = memo.get(multiJoinKey);
+            JoinEnumerationResult bestResult = memo.get(nodes);
             if (bestResult == null) {
-                checkState(sources.size() > 1, "sources size is less than or equal to one");
+                checkState(Long.bitCount(nodes) > 1, "sources size is less than or equal to one");
                 ImmutableList.Builder<JoinEnumerationResult> resultBuilder = ImmutableList.builder();
-                Set<Set<Integer>> partitions = generatePartitions(sources.size());
-                for (Set<Integer> partition : partitions) {
-                    JoinEnumerationResult result = createJoinAccordingToPartitioning(sources, requiredOutputs, partition);
+                for (long partition : generatePartitions(nodes, neighbors)) {
+                    JoinEnumerationResult result = createJoinAccordingToPartitioning(nodes, requiredOutputs, partition);
                     if (result.equals(UNKNOWN_COST_RESULT)) {
-                        memo.put(multiJoinKey, result);
+                        memo.put(nodes, result);
                         return result;
                     }
                     if (!result.equals(INFINITE_COST_RESULT)) {
@@ -261,12 +319,12 @@ public class ReorderJoins
 
                 List<JoinEnumerationResult> results = resultBuilder.build();
                 if (results.isEmpty()) {
-                    memo.put(multiJoinKey, INFINITE_COST_RESULT);
+                    memo.put(nodes, INFINITE_COST_RESULT);
                     return INFINITE_COST_RESULT;
                 }
 
                 bestResult = resultComparator.min(results);
-                memo.put(multiJoinKey, bestResult);
+                memo.put(nodes, bestResult);
             }
 
             bestResult.planNode.ifPresent(planNode -> log.debug("Least cost join was: %s", planNode));
@@ -274,73 +332,135 @@ public class ReorderJoins
         }
 
         /**
-         * This method generates all the ways of dividing totalNodes into two sets
-         * each containing at least one node. It will generate one set for each
-         * possible partitioning. The other partition is implied in the absent values.
-         * In order not to generate the inverse of any set, we always include the 0th
-         * node in our sets.
-         *
-         * @return A set of sets each of which defines a partitioning of totalNodes
+         * Generates the ways of dividing {@code nodes} into two sets, each containing at least one
+         * node and each connected in the join graph. Only the set containing the lowest node is
+         * returned; the other one is implied by the absent nodes.
+         * <p>
+         * Requiring both sides to be connected does not remove any join order: a set of sources
+         * that is disconnected cannot be joined without a cross join at some level, and
+         * {@link #createJoin} rejects those with {@link #INFINITE_COST_RESULT}. Skipping them turns
+         * enumeration of all {@code 2^n} partitions of every subset into an enumeration of the
+         * connected subgraph pairs only, which for anything sparser than a clique is dramatically
+         * fewer. A clique — the shape that joining several tables on one shared key produces — is
+         * not improved at all.
+         * <p>
+         * Partitions are returned in ascending mask order, which is the order in which a plain
+         * enumeration of all subsets would have evaluated them.
          */
         @VisibleForTesting
-        static Set<Set<Integer>> generatePartitions(int totalNodes)
+        static long[] generatePartitions(long nodes, long[] neighbors)
         {
-            checkArgument(totalNodes > 1, "totalNodes must be greater than 1");
-            Set<Integer> numbers = IntStream.range(0, totalNodes)
-                    .boxed()
-                    .collect(toImmutableSet());
-            return powerSet(numbers).stream()
-                    .filter(subSet -> subSet.contains(0))
-                    .filter(subSet -> subSet.size() < numbers.size())
-                    .collect(toImmutableSet());
+            checkArgument(Long.bitCount(nodes) > 1, "nodes must contain more than one node");
+
+            long seed = Long.lowestOneBit(nodes);
+            LongArrayList subgraphs = new LongArrayList();
+            subgraphs.add(seed);
+            expandConnectedSubgraphs(seed, seed, nodes, neighbors, subgraphs);
+
+            LongArrayList partitions = new LongArrayList();
+            for (int i = 0; i < subgraphs.size(); i++) {
+                long subgraph = subgraphs.getLong(i);
+                long complement = nodes & ~subgraph;
+                // the complement is reachable from the subgraph unless nodes itself is disconnected,
+                // which can only happen for the complete set of sources
+                if (complement != 0 && (neighborhood(subgraph, neighbors) & complement) != 0 && isConnected(complement, neighbors)) {
+                    partitions.add(subgraph);
+                }
+            }
+
+            long[] result = partitions.toLongArray();
+            Arrays.sort(result);
+            return result;
+        }
+
+        /**
+         * Grows a connected subgraph by every non-empty subset of its neighborhood, recursively.
+         * Nodes already offered as growth candidates are excluded from deeper levels, so that every
+         * connected subgraph containing the initial one is produced exactly once.
+         */
+        private static void expandConnectedSubgraphs(long subgraph, long excluded, long nodes, long[] neighbors, LongArrayList result)
+        {
+            long candidates = neighborhood(subgraph, neighbors) & nodes & ~excluded;
+            for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
+                result.add(subgraph | subset);
+            }
+            for (long subset = candidates; subset != 0; subset = (subset - 1) & candidates) {
+                expandConnectedSubgraphs(subgraph | subset, excluded | candidates, nodes, neighbors, result);
+            }
+        }
+
+        private static long neighborhood(long nodes, long[] neighbors)
+        {
+            long result = 0;
+            for (long remaining = nodes; remaining != 0; remaining &= remaining - 1) {
+                result |= neighbors[Long.numberOfTrailingZeros(remaining)];
+            }
+            return result & ~nodes;
         }
 
         @VisibleForTesting
-        JoinEnumerationResult createJoinAccordingToPartitioning(LinkedHashSet<PlanNode> sources, Set<Symbol> requiredOutputs, Set<Integer> partitioning)
+        static boolean isConnected(long nodes, long[] neighbors)
         {
-            List<PlanNode> sourceList = ImmutableList.copyOf(sources);
-            LinkedHashSet<PlanNode> leftSources = partitioning.stream()
-                    .map(sourceList::get)
-                    .collect(toCollection(LinkedHashSet::new));
-            LinkedHashSet<PlanNode> rightSources = sources.stream()
-                    .filter(source -> !leftSources.contains(source))
-                    .collect(toCollection(LinkedHashSet::new));
-            return createJoin(leftSources, rightSources, requiredOutputs);
+            long reached = Long.lowestOneBit(nodes);
+            long frontier = reached;
+            while (frontier != 0) {
+                frontier = neighborhood(reached, neighbors) & nodes;
+                reached |= frontier;
+            }
+            return reached == nodes;
         }
 
-        private JoinEnumerationResult createJoin(LinkedHashSet<PlanNode> leftSources, LinkedHashSet<PlanNode> rightSources, Set<Symbol> requiredOutputs)
+        private static long allNodes(int count)
         {
-            Set<Symbol> leftSymbols = leftSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
-                    .collect(toImmutableSet());
-            Set<Symbol> rightSymbols = rightSources.stream()
-                    .flatMap(node -> node.getOutputSymbols().stream())
-                    .collect(toImmutableSet());
+            return (1L << count) - 1;
+        }
 
-            List<Expression> joinPredicates = getJoinPredicates(leftSymbols, rightSymbols);
-            List<EquiJoinClause> joinConditions = joinPredicates.stream()
-                    .map(JoinEnumerator::asJoinEqualityCondition)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(equality -> toEquiJoinClause(equality, leftSymbols))
-                    .collect(toImmutableList());
+        @VisibleForTesting
+        JoinEnumerationResult createJoinAccordingToPartitioning(long nodes, Set<Symbol> requiredOutputs, long partitioning)
+        {
+            return createJoin(partitioning, nodes & ~partitioning, requiredOutputs);
+        }
+
+        private JoinEnumerationResult createJoin(long leftSources, long rightSources, Set<Symbol> requiredOutputs)
+        {
+            Set<Symbol> leftSymbols = outputSymbols(leftSources);
+            Set<Symbol> rightSymbols = outputSymbols(rightSources);
+
+            List<Expression> joinPredicates = getJoinPredicates(leftSources | rightSources, leftSymbols);
+            ImmutableList.Builder<EquiJoinClause> joinConditionsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> joinFiltersBuilder = ImmutableList.builder();
+            for (Expression predicate : joinPredicates) {
+                Optional<Comparison.Equal> equality = asJoinEqualityCondition(predicate);
+                if (equality.isPresent()) {
+                    joinConditionsBuilder.add(toEquiJoinClause(equality.get(), leftSymbols));
+                }
+                else {
+                    joinFiltersBuilder.add(predicate);
+                }
+            }
+            List<EquiJoinClause> joinConditions = joinConditionsBuilder.build();
             if (joinConditions.isEmpty()) {
                 return INFINITE_COST_RESULT;
             }
-            List<Expression> joinFilters = joinPredicates.stream()
-                    .filter(predicate -> !isJoinEqualityCondition(predicate))
-                    .collect(toImmutableList());
+            List<Expression> joinFilters = joinFiltersBuilder.build();
 
             Set<Symbol> requiredJoinSymbols = ImmutableSet.<Symbol>builder()
                     .addAll(requiredOutputs)
                     .addAll(extractUnique(joinPredicates))
                     .build();
 
-            JoinEnumerationResult leftResult = getJoinSource(
-                    leftSources,
-                    requiredJoinSymbols.stream()
-                            .filter(leftSymbols::contains)
-                            .collect(toImmutableSet()));
+            ImmutableSet.Builder<Symbol> leftRequiredBuilder = ImmutableSet.builder();
+            ImmutableSet.Builder<Symbol> rightRequiredBuilder = ImmutableSet.builder();
+            for (Symbol symbol : requiredJoinSymbols) {
+                if (leftSymbols.contains(symbol)) {
+                    leftRequiredBuilder.add(symbol);
+                }
+                if (rightSymbols.contains(symbol)) {
+                    rightRequiredBuilder.add(symbol);
+                }
+            }
+
+            JoinEnumerationResult leftResult = getJoinSource(leftSources, leftRequiredBuilder.build());
             if (leftResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -350,11 +470,7 @@ public class ReorderJoins
 
             PlanNode left = leftResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            JoinEnumerationResult rightResult = getJoinSource(
-                    rightSources,
-                    requiredJoinSymbols.stream()
-                            .filter(rightSymbols::contains)
-                            .collect(toImmutableSet()));
+            JoinEnumerationResult rightResult = getJoinSource(rightSources, rightRequiredBuilder.build());
             if (rightResult.equals(UNKNOWN_COST_RESULT)) {
                 return UNKNOWN_COST_RESULT;
             }
@@ -364,12 +480,8 @@ public class ReorderJoins
 
             PlanNode right = rightResult.planNode.orElseThrow(() -> new VerifyException("Plan node is not present"));
 
-            List<Symbol> leftOutputSymbols = left.getOutputSymbols().stream()
-                    .filter(requiredOutputs::contains)
-                    .collect(toImmutableList());
-            List<Symbol> rightOutputSymbols = right.getOutputSymbols().stream()
-                    .filter(requiredOutputs::contains)
-                    .collect(toImmutableList());
+            List<Symbol> leftOutputSymbols = retainRequired(left.getOutputSymbols(), requiredOutputs);
+            List<Symbol> rightOutputSymbols = retainRequired(right.getOutputSymbols(), requiredOutputs);
 
             return setJoinNodeProperties(new JoinNode(
                     idAllocator.getNextId(),
@@ -387,36 +499,57 @@ public class ReorderJoins
                     Optional.empty()));
         }
 
-        private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)
+        private static List<Symbol> retainRequired(List<Symbol> symbols, Set<Symbol> requiredOutputs)
         {
-            ImmutableList.Builder<Expression> joinPredicatesBuilder = ImmutableList.builder();
-
-            // create equality inference on available symbols
-            // TODO: make generateEqualitiesPartitionedBy take left and right scope
-            List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).scopeEqualities();
-            EqualityInference joinInference = new EqualityInference(plannerContext, getCharVarcharCoercion(session), joinEqualities);
-            joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities());
-
-            return joinPredicatesBuilder.build();
+            ImmutableList.Builder<Symbol> required = ImmutableList.builder();
+            for (Symbol symbol : symbols) {
+                if (requiredOutputs.contains(symbol)) {
+                    required.add(symbol);
+                }
+            }
+            return required.build();
         }
 
-        private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, Set<Symbol> requiredOutputs)
+        private List<Expression> getJoinPredicates(long nodes, Set<Symbol> leftSymbols)
         {
-            if (nodes.size() == 1) {
-                PlanNode planNode = getOnlyElement(nodes);
+            // TODO: make generateEqualitiesPartitionedBy take left and right scope
+            return joinInference(nodes).generateEqualitiesPartitionedBy(leftSymbols).scopeStraddlingEqualities();
+        }
+
+        /**
+         * The equalities available to join a set of sources depend only on which sources are
+         * present, not on how they are split. Every partition of a set would otherwise re-derive
+         * them, and building an inference is far from free.
+         */
+        private EqualityInference joinInference(long nodes)
+        {
+            return joinInferences.computeIfAbsent(nodes, mask ->
+                    new EqualityInference(plannerContext, getCharVarcharCoercion(session), allFilterInference.generateScopeEqualities(outputSymbols(mask))));
+        }
+
+        private Set<Symbol> outputSymbols(long nodes)
+        {
+            return outputSymbolsCache.computeIfAbsent(nodes, mask -> {
+                ImmutableSet.Builder<Symbol> symbols = ImmutableSet.builder();
+                for (long remaining = mask; remaining != 0; remaining &= remaining - 1) {
+                    symbols.addAll(sources.get(Long.numberOfTrailingZeros(remaining)).getOutputSymbols());
+                }
+                return symbols.build();
+            });
+        }
+
+        private JoinEnumerationResult getJoinSource(long nodes, Set<Symbol> requiredOutputs)
+        {
+            if (Long.bitCount(nodes) == 1) {
+                PlanNode planNode = sources.get(Long.numberOfTrailingZeros(nodes));
                 Set<Symbol> scope = ImmutableSet.copyOf(requiredOutputs);
-                Expression filter = combineConjuncts(allFilterInference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
+                Expression filter = combineConjuncts(allFilterInference.generateScopeEqualities(scope));
                 if (!TRUE.equals(filter)) {
                     planNode = new FilterNode(idAllocator.getNextId(), planNode, filter);
                 }
                 return createJoinEnumerationResult(planNode);
             }
             return chooseJoinOrder(nodes, requiredOutputs);
-        }
-
-        private static boolean isJoinEqualityCondition(Expression expression)
-        {
-            return asJoinEqualityCondition(expression).isPresent();
         }
 
         private static Optional<Comparison.Equal> asJoinEqualityCondition(Expression expression)
@@ -445,8 +578,10 @@ public class ReorderJoins
             }
             List<JoinEnumerationResult> possibleJoinNodes = getPossibleJoinNodes(joinNode, getJoinDistributionType(session));
             verify(!possibleJoinNodes.isEmpty(), "possibleJoinNodes is empty");
-            if (possibleJoinNodes.stream().anyMatch(UNKNOWN_COST_RESULT::equals)) {
-                return UNKNOWN_COST_RESULT;
+            for (JoinEnumerationResult possibleJoinNode : possibleJoinNodes) {
+                if (possibleJoinNode.equals(UNKNOWN_COST_RESULT)) {
+                    return UNKNOWN_COST_RESULT;
+                }
             }
             return resultComparator.min(possibleJoinNodes);
         }
@@ -455,31 +590,36 @@ public class ReorderJoins
         {
             checkArgument(joinNode.getType() == INNER, "unexpected join node type: %s", joinNode.getType());
 
+            JoinNode flipped = joinNode.flipChildren();
+
             if (joinNode.isCrossJoin()) {
-                return getPossibleJoinNodes(joinNode, REPLICATED);
+                return getPossibleJoinNodes(joinNode, flipped, REPLICATED);
             }
 
             return switch (distributionType) {
-                case PARTITIONED -> getPossibleJoinNodes(joinNode, PARTITIONED);
-                case BROADCAST -> getPossibleJoinNodes(joinNode, REPLICATED);
+                case PARTITIONED -> getPossibleJoinNodes(joinNode, flipped, PARTITIONED);
+                case BROADCAST -> getPossibleJoinNodes(joinNode, flipped, REPLICATED);
                 case AUTOMATIC -> ImmutableList.<JoinEnumerationResult>builder()
-                        .addAll(getPossibleJoinNodes(joinNode, PARTITIONED))
-                        .addAll(getPossibleJoinNodes(joinNode, REPLICATED, node -> canReplicate(node, context)))
+                        .addAll(getPossibleJoinNodes(joinNode, flipped, PARTITIONED))
+                        .addAll(getPossibleJoinNodes(joinNode, flipped, REPLICATED, node -> canReplicate(node, context)))
                         .build();
             };
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinNode flipped, DistributionType distributionType)
         {
-            return getPossibleJoinNodes(joinNode, distributionType, _ -> true);
+            return getPossibleJoinNodes(joinNode, flipped, distributionType, _ -> true);
         }
 
-        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, DistributionType distributionType, Predicate<JoinNode> isAllowed)
+        private List<JoinEnumerationResult> getPossibleJoinNodes(JoinNode joinNode, JoinNode flipped, DistributionType distributionType, Predicate<JoinNode> isAllowed)
         {
-            List<JoinNode> nodes = ImmutableList.of(
-                    joinNode.withDistributionType(distributionType),
-                    joinNode.flipChildren().withDistributionType(distributionType));
-            return nodes.stream().filter(isAllowed).map(this::createJoinEnumerationResult).collect(toImmutableList());
+            ImmutableList.Builder<JoinEnumerationResult> results = ImmutableList.builder();
+            for (JoinNode node : ImmutableList.of(joinNode.withDistributionType(distributionType), flipped.withDistributionType(distributionType))) {
+                if (isAllowed.test(node)) {
+                    results.add(createJoinEnumerationResult(node));
+                }
+            }
+            return results.build();
         }
 
         private JoinEnumerationResult createJoinEnumerationResult(JoinNode joinNode)

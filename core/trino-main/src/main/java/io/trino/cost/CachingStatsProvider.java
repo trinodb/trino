@@ -15,19 +15,27 @@ package io.trino.cost;
 
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isEnableStatsCalculator;
 import static io.trino.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.Objects.requireNonNull;
 
 public final class CachingStatsProvider
@@ -43,6 +51,10 @@ public final class CachingStatsProvider
     private final RuntimeInfoProvider runtimeInfoProvider;
 
     private final Map<PlanNode, PlanNodeStatsEstimate> cache = new IdentityHashMap<>(0);
+    // JoinStatsRule reads only join type, children, criteria and filter, so copies of a join node
+    // that differ only in the other fields can share an estimate. The identity cache above misses
+    // on each copy the join enumerator builds, so those fall back to this lookup.
+    private final Map<JoinStatsKey, PlanNodeStatsEstimate> joinCache = new HashMap<>(0);
 
     public CachingStatsProvider(StatsCalculator statsCalculator, Session session, TableStatsProvider tableStatsProvider)
     {
@@ -84,7 +96,9 @@ public final class CachingStatsProvider
                 return stats;
             }
 
-            stats = statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, tableStatsProvider, runtimeInfoProvider));
+            stats = node instanceof JoinNode joinNode
+                    ? getJoinStats(joinNode)
+                    : statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, tableStatsProvider, runtimeInfoProvider));
             verify(cache.put(node, stats) == null, "Stats already set");
             return stats;
         }
@@ -94,6 +108,39 @@ public final class CachingStatsProvider
                 return PlanNodeStatsEstimate.unknown();
             }
             throw e;
+        }
+    }
+
+    private PlanNodeStatsEstimate getJoinStats(JoinNode node)
+    {
+        JoinStatsKey key = JoinStatsKey.of(node);
+        PlanNodeStatsEstimate stats = joinCache.get(key);
+        if (stats == null && node.getType() == INNER) {
+            stats = joinCache.get(key.flipped());
+        }
+        if (stats == null) {
+            stats = statsCalculator.calculateStats(node, new StatsCalculator.Context(this, lookup, session, tableStatsProvider, runtimeInfoProvider));
+            joinCache.put(key, stats);
+        }
+        return stats;
+    }
+
+    // PlanNode does not override equals, so left and right compare by identity
+    private record JoinStatsKey(JoinType type, PlanNode left, PlanNode right, List<EquiJoinClause> criteria, Optional<Expression> filter)
+    {
+        static JoinStatsKey of(JoinNode node)
+        {
+            return new JoinStatsKey(node.getType(), node.getLeft(), node.getRight(), node.getCriteria(), node.getFilter());
+        }
+
+        JoinStatsKey flipped()
+        {
+            return new JoinStatsKey(
+                    type,
+                    /* left= */ right,
+                    /* right= */ left,
+                    criteria.stream().map(EquiJoinClause::flip).collect(toImmutableList()),
+                    filter);
         }
     }
 
