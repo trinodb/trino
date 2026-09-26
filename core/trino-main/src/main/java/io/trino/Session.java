@@ -91,6 +91,7 @@ public final class Session
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
     private final Optional<String> queryDataEncoding;
+    private final Optional<String> nodeGroup;
 
     public Session(
             QueryId queryId,
@@ -119,7 +120,8 @@ public final class Session
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
             Optional<Slice> exchangeEncryptionKey,
-            Optional<String> queryDataEncoding)
+            Optional<String> queryDataEncoding,
+            Optional<String> nodeGroup)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -147,6 +149,7 @@ public final class Session
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
         this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
+        this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
 
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -324,6 +327,15 @@ public final class Session
         return queryDataEncoding;
     }
 
+    /**
+     * Node group this query is restricted to. Resolved from the resource group on the coordinator,
+     * so it is absent from {@link SessionRepresentation}.
+     */
+    public Optional<String> getNodeGroup()
+    {
+        return nodeGroup;
+    }
+
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
@@ -395,7 +407,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncoding);
+                queryDataEncoding,
+                nodeGroup);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -450,7 +463,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncoding);
+                queryDataEncoding,
+                nodeGroup);
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
@@ -483,7 +497,42 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 Optional.of(encryptionKey),
-                queryDataEncoding);
+                queryDataEncoding,
+                nodeGroup);
+    }
+
+    public Session withNodeGroup(Optional<String> nodeGroup)
+    {
+        requireNonNull(nodeGroup, "nodeGroup is null");
+        return new Session(
+                queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                catalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding,
+                nodeGroup);
     }
 
     public Session withoutSpooling()
@@ -515,7 +564,8 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                Optional.empty());
+                Optional.empty(),
+                nodeGroup);
     }
 
     public ConnectorSession toConnectorSession()
@@ -702,6 +752,7 @@ public final class Session
         private Set<String> clientTags = ImmutableSet.of();
         private Set<String> clientCapabilities = ImmutableSet.of();
         private Optional<String> queryDataEncoding = Optional.empty();
+        private Optional<String> nodeGroup = Optional.empty();
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
@@ -737,6 +788,7 @@ public final class Session
             this.clientInfo = session.clientInfo.orElse(null);
             this.clientCapabilities = ImmutableSet.copyOf(session.clientCapabilities);
             this.queryDataEncoding = session.queryDataEncoding;
+            this.nodeGroup = session.nodeGroup;
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
@@ -991,6 +1043,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setNodeGroup(Optional<String> nodeGroup)
+        {
+            this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -1020,7 +1078,8 @@ public final class Session
                     preparedStatements,
                     protocolHeaders,
                     Optional.empty(),
-                    queryDataEncoding);
+                    queryDataEncoding,
+                    nodeGroup);
         }
     }
 

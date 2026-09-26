@@ -21,12 +21,14 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -38,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,7 +48,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.addExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
@@ -148,6 +154,37 @@ public class NodeScheduler
         }
 
         return ImmutableList.copyOf(chosen);
+    }
+
+    public static TrinoException noNodesAvailable(Split split, Optional<String> nodeGroup)
+    {
+        if (nodeGroup.isPresent() && !split.isRemotelyAccessible()) {
+            return nodeAddressedSplitsNotSupported(Optional.of(split.getCatalogHandle()), nodeGroup.get());
+        }
+        return noNodesAvailable(nodeGroup);
+    }
+
+    public static TrinoException noNodesAvailable(Optional<String> nodeGroup)
+    {
+        return new TrinoException(NO_NODES_AVAILABLE, nodeGroup
+                .map("No nodes available to run query in node group '%s'"::formatted)
+                .orElse("No nodes available to run query"));
+    }
+
+    /**
+     * Connectors address splits from the cluster-wide node list, so a query restricted to a node group
+     * cannot run them.
+     */
+    public static TrinoException nodeAddressedSplitsNotSupported(Optional<CatalogHandle> catalogHandle, String nodeGroup)
+    {
+        return new TrinoException(NOT_SUPPORTED, catalogHandle
+                .map(handle -> format(
+                        "Catalog '%s' addresses splits to specific nodes, which is not supported for a query restricted to node group '%s'",
+                        handle.getCatalogName(),
+                        nodeGroup))
+                .orElseGet(() -> format(
+                        "Splits are addressed to specific nodes, which is not supported for a query restricted to node group '%s'",
+                        nodeGroup)));
     }
 
     public static SplitPlacementResult selectDistributionNodes(

@@ -30,6 +30,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Response;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
@@ -48,6 +49,7 @@ public class ServerInfoResource
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
+    private final Set<String> nodeGroups;
     private final NodeStateManager nodeStateManager;
     private final StartupStatus startupStatus;
     private final Optional<QueryIdGenerator> queryIdGenerator;
@@ -66,6 +68,7 @@ public class ServerInfoResource
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
         this.coordinator = serverConfig.isCoordinator();
+        this.nodeGroups = serverConfig.getNodeGroups();
         this.nodeStateManager = requireNonNull(nodeStateManager, "nodeStateManager is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
@@ -85,7 +88,8 @@ public class ServerInfoResource
                 coordinator,
                 queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
                 starting,
-                nanosSince(startTime));
+                nanosSince(startTime),
+                nodeGroups);
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

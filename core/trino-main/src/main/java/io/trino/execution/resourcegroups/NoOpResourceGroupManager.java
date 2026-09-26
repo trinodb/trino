@@ -54,6 +54,12 @@ public final class NoOpResourceGroupManager
     }
 
     @Override
+    public Optional<String> getNodeGroup(SelectionContext<Void> selectionContext)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public SelectionContext<Void> selectGroup(SelectionCriteria criteria)
     {
         throw new UnsupportedOperationException();
