@@ -179,6 +179,14 @@ values. Typical usage does not require you to configure them.
   - Target maximum size of written files; the actual size could be larger. The
     equivalent catalog session property is `target_max_file_size`.
   - `1GB`
+* - `delta.object-store-layout.enabled`
+  - Default value of the `object_store_layout_enabled` table property for new
+    tables. The table property is stored as `delta.randomizeFilePrefixes` in
+    Delta Lake metadata and controls the layout for subsequent writes. When
+    enabled, data and change data files use deterministic binary hash directory
+    prefixes. The binary layout always uses 20 bits split into `4/4/4/8`
+    directory components, independent of `delta.randomPrefixLength`.
+  - `false`
 * - `delta.unique-table-location`
   - Use randomized, unique table locations.
   - `true`
@@ -788,6 +796,11 @@ The following table properties are available for use:
     Defaults to `NONE`.
 * - `deletion_vectors_enabled`
   - Enables deletion vectors.
+* - `object_store_layout_enabled`
+  - Enables deterministic binary hash directory prefixes for data and change
+    data files. The value is persisted as `delta.randomizeFilePrefixes` in Delta
+    Lake metadata and controls subsequent writes by Trino. Defaults to the
+    `delta.object-store-layout.enabled` catalog configuration property.
 :::
 
 The following example uses all available table properties:
@@ -800,7 +813,8 @@ WITH (
   checkpoint_interval = 5,
   change_data_feed_enabled = false,
   column_mapping_mode = 'name',
-  deletion_vectors_enabled = false
+  deletion_vectors_enabled = false,
+  object_store_layout_enabled = true
 )
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```

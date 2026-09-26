@@ -190,7 +190,8 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                            a_varchar varchar
                         )
                         WITH (
-                           location = '%s'
+                           location = '%s',
+                           object_store_layout_enabled = false
                         )""";
                 assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
             }

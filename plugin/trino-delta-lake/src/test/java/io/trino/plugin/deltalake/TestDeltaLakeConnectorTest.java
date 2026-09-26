@@ -322,7 +322,8 @@ public class TestDeltaLakeConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   location = \\E'.*/test_schema/orders.*'\n\\Q" +
+                        "   location = \\E'.*/test_schema/orders.*',\n\\Q" +
+                        "   object_store_layout_enabled = false\n" +
                         ")");
     }
 
@@ -1643,6 +1644,7 @@ public class TestDeltaLakeConnectorTest
                     .matches("VALUES " +
                             "('delta.enableChangeDataFeed', 'true')," +
                             "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.randomizeFilePrefixes', 'false')," +
                             "('delta.minReaderVersion', '1')," +
                             "('delta.minWriterVersion', '4')," +
                             "('location', '" + getTableLocation(table.getName()) + "')");
@@ -1655,6 +1657,7 @@ public class TestDeltaLakeConnectorTest
                     .matches("VALUES " +
                             "('delta.enableChangeDataFeed', 'true')," +
                             "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.randomizeFilePrefixes', 'false')," +
                             "('delta.minReaderVersion', '3')," +
                             "('delta.minWriterVersion', '7')," +
                             "('delta.feature.timestampNtz', 'supported')," +
@@ -1833,6 +1836,7 @@ public class TestDeltaLakeConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.randomizeFilePrefixes', 'false')," +
                             "('delta.columnMapping.mode', 'name')," +
                             "('delta.columnMapping.maxColumnId', '1')," +
                             "('delta.minReaderVersion', '2')," +
@@ -1846,6 +1850,7 @@ public class TestDeltaLakeConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.randomizeFilePrefixes', 'false')," +
                             "('delta.columnMapping.mode', 'name')," +
                             "('delta.columnMapping.maxColumnId', '1')," +
                             "('delta.minReaderVersion', '3')," +
@@ -2344,7 +2349,8 @@ public class TestDeltaLakeConnectorTest
                             "   b varchar\n" +
                             "\\)\n" +
                             "WITH \\(\n" +
-                            "   location = '.*'\n" +
+                            "   location = '.*',\n" +
+                            "   object_store_layout_enabled = false\n" +
                             "\\)");
         }
     }
@@ -4460,6 +4466,7 @@ public class TestDeltaLakeConnectorTest
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")
                             .put("delta.enableDeletionVectors", "false")
+                            .put("delta.randomizeFilePrefixes", "false")
                             .put("delta.minReaderVersion", "1")
                             .put("delta.minWriterVersion", "4")
                             .put("location", getTableLocation(table.getName()))
@@ -4472,6 +4479,7 @@ public class TestDeltaLakeConnectorTest
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")
                             .put("delta.enableDeletionVectors", "false")
+                            .put("delta.randomizeFilePrefixes", "false")
                             .put("delta.feature.changeDataFeed", "supported")
                             .put("delta.feature.timestampNtz", "supported")
                             .put("delta.minReaderVersion", "3")
