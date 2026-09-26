@@ -121,6 +121,16 @@ public class TestTrinoRestCatalog
     private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)
             throws IOException
     {
+        return createTrinoRestCatalog(useUniqueTableLocations, properties, Security.NONE, false);
+    }
+
+    private static TrinoRestCatalog createTrinoRestCatalog(
+            boolean useUniqueTableLocations,
+            Map<String, String> properties,
+            Security security,
+            boolean serverAssignedTableLocationEnabled)
+            throws IOException
+    {
         Path warehouseLocation = Files.createTempDirectory(null);
 
         String catalogName = "iceberg_rest";
@@ -131,7 +141,16 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return createTrinoRestCatalog(useUniqueTableLocations, restSessionCatalog, false, false);
+        return createTrinoRestCatalog(
+                useUniqueTableLocations,
+                restSessionCatalog,
+                false,
+                false,
+                security,
+                NONE,
+                Optional.empty(),
+                Optional.empty(),
+                serverAssignedTableLocationEnabled);
     }
 
     private static TrinoRestCatalog createTrinoRestCatalog(
@@ -145,9 +164,11 @@ public class TestTrinoRestCatalog
                 restSessionCatalog,
                 nestedNamespaceEnabled,
                 caseInsensitiveNameMatching,
+                Security.NONE,
                 NONE,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     private static TrinoRestCatalog createTrinoRestCatalog(
@@ -159,12 +180,35 @@ public class TestTrinoRestCatalog
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache)
     {
+        return createTrinoRestCatalog(
+                useUniqueTableLocations,
+                restSessionCatalog,
+                nestedNamespaceEnabled,
+                caseInsensitiveNameMatching,
+                Security.NONE,
+                sessionType,
+                namespaceTableListingCache,
+                namespaceViewListingCache,
+                false);
+    }
+
+    private static TrinoRestCatalog createTrinoRestCatalog(
+            boolean useUniqueTableLocations,
+            RESTSessionCatalog restSessionCatalog,
+            boolean nestedNamespaceEnabled,
+            boolean caseInsensitiveNameMatching,
+            Security security,
+            SessionType sessionType,
+            Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
+            Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache,
+            boolean serverAssignedTableLocationEnabled)
+    {
         String catalogName = "iceberg_rest";
         return new TrinoRestCatalog(
                 new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 restSessionCatalog,
                 new CatalogName(catalogName),
-                Security.NONE,
+                security,
                 sessionType,
                 ImmutableMap.of(),
                 nestedNamespaceEnabled,
@@ -177,7 +221,17 @@ public class TestTrinoRestCatalog
                 namespaceTableListingCache,
                 namespaceViewListingCache,
                 true,
-                false);
+                serverAssignedTableLocationEnabled);
+    }
+
+    @Test
+    void testSupportsPropertyRemovalWhenPropertyIsMissing()
+            throws IOException
+    {
+        assertThat(createTrinoRestCatalog(false, ImmutableMap.of(), Security.GOOGLE, true)
+                .supportsPropertyRemovalWhenPropertyIsMissing()).isFalse();
+        assertThat(createTrinoRestCatalog(false, ImmutableMap.of(), Security.GOOGLE, false)
+                .supportsPropertyRemovalWhenPropertyIsMissing()).isTrue();
     }
 
     private static Cache<NamespaceListingKey, List<TableIdentifier>> createNamespaceListingCache()

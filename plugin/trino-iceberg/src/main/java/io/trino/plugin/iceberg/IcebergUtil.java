@@ -992,7 +992,8 @@ public final class IcebergUtil
         // If user doesn't set compression-codec for parquet, we need to remove write.parquet.compression-codec property,
         // Otherwise Iceberg will set write.parquet.compression-codec to zstd by default.
         String parquetCompressionValue = transaction.table().properties().get(PARQUET_COMPRESSION);
-        if (parquetCompressionValue != null && parquetCompressionValue.isEmpty()) {
+        if (parquetCompressionValue != null && parquetCompressionValue.isEmpty() &&
+                catalog.supportsPropertyRemovalWhenPropertyIsMissing()) {
             transaction.updateProperties()
                     .remove(PARQUET_COMPRESSION)
                     .commit();
