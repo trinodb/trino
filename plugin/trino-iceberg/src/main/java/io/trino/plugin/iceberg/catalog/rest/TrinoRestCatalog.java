@@ -196,6 +196,13 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public boolean supportsPropertyRemovalWhenPropertyIsMissing()
+    {
+        // BigLake treats empty properties as absent and rejects removing them.
+        return !(security == Security.GOOGLE && serverAssignedTableLocationEnabled);
+    }
+
+    @Override
     public Metrics getMetrics()
     {
         return apiCallStats.toMetrics("metastore");
