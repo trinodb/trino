@@ -338,13 +338,18 @@ public class ClickHouseClient
     @Override
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
-        // ClickHouse does not support `create table tbl as select * from tbl2 where 0=1`
-        // ClickHouse supports the following two methods to copy schema
-        // 1. create table tbl as tbl2
-        // 2. create table tbl1 ENGINE=<engine> as select * from tbl2
+        // `CREATE TABLE tbl AS tbl2` copies the source table's engine. For a Distributed source that makes the
+        // temporary table point at the same underlying tables, so the staged rows are already visible in the target
+        // and are inserted a second time, duplicating every row. A replicated MergeTree source fails instead, because
+        // the temporary table reuses the source's replica identity (REPLICA_IS_ALREADY_EXIST). Create the temporary
+        // table with an explicit engine so that it is independent of the source, which is all that staging requires.
         String sql = format(
-                "CREATE TABLE %s AS %s ",
+                "CREATE TABLE %s ENGINE = %s AS SELECT %s FROM %s WHERE 0 = 1",
                 quoted(null, schemaName, newTableName),
+                ClickHouseTableProperties.DEFAULT_TABLE_ENGINE.getEngineType(),
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
                 quoted(null, schemaName, tableName));
         try {
             execute(session, connection, sql);
