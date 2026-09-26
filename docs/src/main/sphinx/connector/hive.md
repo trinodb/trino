@@ -714,6 +714,17 @@ CALL system.create_empty_partition(
     partition_values => ARRAY['2016-08-09', 'US']);
 ```
 
+Add an empty partition at an explicit location:
+
+```
+CALL system.create_empty_partition(
+    schema_name => 'web',
+    table_name => 'page_views',
+    partition_columns => ARRAY['ds', 'country'],
+    partition_values => ARRAY['2016-08-09', 'US'],
+    location => 's3://web-bucket/page_views/custom/ds=2016-08-09/country=US');
+```
+
 Drop stats for a partition of the `page_views` table:
 
 ```
@@ -749,9 +760,13 @@ CALL web.system.example_procedure()
 
 The following procedures are available:
 
-- `system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)`
+- `system.create_empty_partition(schema_name, table_name, partition_columns, partition_values, location)`
 
-  Create an empty partition in the specified table.
+  Create an empty partition in the specified table. The `location` argument is
+  optional; when provided, the partition is created at the given location
+  instead of the default location computed by the connector. Note that some
+  metastores restrict which partition locations are allowed, for example for
+  managed tables.
 
 - `system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)`
 
