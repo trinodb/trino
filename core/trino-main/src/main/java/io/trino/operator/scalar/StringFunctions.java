@@ -98,7 +98,7 @@ public final class StringFunctions
     }
 
     @Description("Count of code points of the given string")
-    @ScalarFunction(neverFails = true)
+    @ScalarFunction(alias = {"character_length", "char_length"}, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long length(@SqlType("varchar(x)") Slice slice)
@@ -107,7 +107,7 @@ public final class StringFunctions
     }
 
     @Description("Count of code points of the given string")
-    @ScalarFunction(value = "length", neverFails = true)
+    @ScalarFunction(value = "length", alias = {"character_length", "char_length"}, neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)

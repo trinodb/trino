@@ -507,6 +507,8 @@ For more details, see {doc}`setdigest`
 
 For more details, see {doc}`string`
 
+- {func}`char_length`
+- {func}`character_length`
 - {func}`chr`
 - {func}`codepoint`
 - {func}`concat`
