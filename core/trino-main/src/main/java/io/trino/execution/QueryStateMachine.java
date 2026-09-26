@@ -208,7 +208,16 @@ public class QueryStateMachine
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
 
+    private final AtomicReference<FinalizationState> finalizationState = new AtomicReference<>(FinalizationState.OPEN);
+
     private final NodeVersion version;
+
+    private enum FinalizationState
+    {
+        OPEN,
+        COMMITTING,
+        FAILING,
+    }
 
     private QueryStateMachine(
             String query,
@@ -1275,7 +1284,18 @@ public class QueryStateMachine
 
         Optional<TransactionInfo> transaction = session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
-            ListenableFuture<Void> commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
+            if (!finalizationState.compareAndSet(FinalizationState.OPEN, FinalizationState.COMMITTING)) {
+                return true;
+            }
+
+            ListenableFuture<Void> commitFuture;
+            try {
+                commitFuture = transactionManager.asyncCommit(transaction.get().getTransactionId());
+            }
+            catch (RuntimeException e) {
+                transitionToFailedDuringCommit(e);
+                return true;
+            }
             Futures.addCallback(commitFuture, new FutureCallback<>()
             {
                 @Override
@@ -1288,7 +1308,7 @@ public class QueryStateMachine
                 @Override
                 public void onFailure(Throwable throwable)
                 {
-                    transitionToFailed(throwable);
+                    transitionToFailedDuringCommit(throwable);
                 }
             }, directExecutor());
         }
@@ -1322,7 +1342,14 @@ public class QueryStateMachine
 
     public boolean transitionToCanceled()
     {
-        return transitionToFailed(new TrinoException(USER_CANCELED, "Query was canceled"), false);
+        consumed.set(true);
+
+        boolean canceled = transitionToFailed(
+                new TrinoException(USER_CANCELED, "Query was canceled"),
+                false);
+
+        transitionToFinishedIfReady();
+        return canceled;
     }
 
     public boolean transitionToFailed(Throwable throwable)
@@ -1330,14 +1357,32 @@ public class QueryStateMachine
         return transitionToFailed(throwable, true);
     }
 
+    private boolean transitionToFailedDuringCommit(Throwable throwable)
+    {
+        return transitionToFailed(throwable, true, true);
+    }
+
     private boolean transitionToFailed(Throwable throwable, boolean log)
     {
+        return transitionToFailed(throwable, log, false);
+    }
+
+    private boolean transitionToFailed(Throwable throwable, boolean log, boolean commitFailure)
+    {
+        requireNonNull(throwable, "throwable is null");
+
+        FinalizationState expectedState = commitFailure
+                ? FinalizationState.COMMITTING
+                : FinalizationState.OPEN;
+        if (!finalizationState.compareAndSet(expectedState, FinalizationState.FAILING)) {
+            return false;
+        }
+
         queryStateTimer.endQuery();
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
-        requireNonNull(throwable, "throwable is null");
         failureCause.compareAndSet(null, toFailure(throwable));
 
         cleanupQueryQuietly();
