@@ -2135,12 +2135,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.pcollections</groupId>
-                <artifactId>pcollections</artifactId>
-                <version>5.0.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>42.7.14</version>
