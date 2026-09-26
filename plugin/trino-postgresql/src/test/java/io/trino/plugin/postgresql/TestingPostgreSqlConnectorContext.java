@@ -33,8 +33,10 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.security.credential.CredentialResolver;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
+import io.trino.testing.TestingCredentialResolver;
 import io.trino.type.InternalTypeManager;
 import io.trino.util.EmbedVersion;
 
@@ -113,5 +115,11 @@ public class TestingPostgreSqlConnectorContext
     public BlocksHashFactory getBlocksHashFactory()
     {
         return flatHashStrategyCompiler.createBlocksHashFactory();
+    }
+
+    @Override
+    public CredentialResolver getCredentialResolver()
+    {
+        return new TestingCredentialResolver();
     }
 }
