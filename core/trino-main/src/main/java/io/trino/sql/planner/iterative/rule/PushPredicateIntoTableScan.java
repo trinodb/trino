@@ -40,6 +40,7 @@ import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EngineExpressions;
+import io.trino.sql.planner.SecureColumns;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
@@ -47,6 +48,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,7 +161,7 @@ public class PushPredicateIntoTableScan
 
         SplitExpression splitExpression = splitExpression(filterNode.getPredicate());
 
-        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResultForPushdown(
                 plannerContext,
                 session,
                 splitExpression.deterministicPredicate());
@@ -278,7 +280,7 @@ public class PushPredicateIntoTableScan
                 session,
                 symbolAllocator,
                 splitExpression.dynamicFilter(),
-                new DomainTranslator(plannerContext.getMetadata()).toPredicate(getCharVarcharCoercion(session), remainingFilter.transformKeys(assignments::get)),
+                unenforcedPredicate(plannerContext, getCharVarcharCoercion(session), remainingFilter.transformKeys(assignments::get), splitExpression.deterministicPredicate()),
                 splitExpression.nonDeterministicPredicate(),
                 remainingDecomposedPredicate);
 
@@ -287,6 +289,12 @@ public class PushPredicateIntoTableScan
         }
 
         return Optional.of(tableScan);
+    }
+
+    // Domains derived from secure expressions must not be rebuilt in clear text
+    private static Expression unenforcedPredicate(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion, TupleDomain<Symbol> unenforced, Expression predicate)
+    {
+        return SecureColumns.toPredicate(new DomainTranslator(plannerContext.getMetadata()), charVarcharCoercion, unenforced, SecureColumns.symbols(predicate));
     }
 
     // PushPredicateIntoTableScan might be executed after AddExchanges and DetermineTableScanNodePartitioning.

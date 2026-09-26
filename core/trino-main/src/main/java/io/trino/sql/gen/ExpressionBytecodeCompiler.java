@@ -24,9 +24,11 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.control.TryCatch;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -48,6 +50,8 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
+import io.trino.sql.ir.SecureExpressions;
 import io.trino.sql.ir.WhenClause;
 import io.trino.type.CharVarcharCoercion;
 
@@ -57,6 +61,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
@@ -353,6 +358,23 @@ public class ExpressionBytecodeCompiler
             context.scope().releaseTempVariableForReuse(valueTemp);
             context.scope().releaseTempVariableForReuse(wasNullTemp);
             return block;
+        }
+
+        @Override
+        protected BytecodeNode visitSecureExpression(SecureExpression node, Context context)
+        {
+            try {
+                return new TryCatch(
+                        process(node.expression(), context),
+                        ImmutableList.of(new TryCatch.CatchBlock(
+                                new BytecodeBlock()
+                                        .invokeStatic(SecureExpressions.class, "redactFailure", TrinoException.class, RuntimeException.class)
+                                        .throwObject(),
+                                ImmutableList.of(type(RuntimeException.class)))));
+            }
+            catch (RuntimeException e) {
+                throw SecureExpressions.redactFailure(e);
+            }
         }
     }
 

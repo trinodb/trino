@@ -30,6 +30,7 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -152,6 +153,24 @@ public class TestScalarStatsCalculator
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(0.0);
+    }
+
+    @Test
+    public void testSecureExpressionIsCalculatedThroughMarker()
+    {
+        SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+                .setLowValue(-1)
+                .setHighValue(10)
+                .setDistinctValuesCount(4)
+                .setNullsFraction(0.1)
+                .setAverageRowSize(2.0)
+                .build();
+        PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(INTEGER, "x"), xStats)
+                .build();
+
+        // A secure mask must be estimated as its child, not return unknown.
+        assertCalculate(new SecureExpression(new Reference(INTEGER, "x")), inputStatistics).isEqualTo(xStats);
     }
 
     @Test

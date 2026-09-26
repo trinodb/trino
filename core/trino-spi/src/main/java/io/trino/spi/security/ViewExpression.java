@@ -27,14 +27,16 @@ public class ViewExpression
     private final Optional<String> schema;
     private final String expression;
     private final List<CatalogSchemaName> path;
+    private final boolean secure;
 
-    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression, List<CatalogSchemaName> path)
+    private ViewExpression(Optional<String> identity, Optional<String> catalog, Optional<String> schema, String expression, List<CatalogSchemaName> path, boolean secure)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.expression = requireNonNull(expression, "expression is null");
         this.path = List.copyOf(path);
+        this.secure = secure;
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -70,6 +72,14 @@ public class ViewExpression
         return path;
     }
 
+    /**
+     * Returns whether this access-control expression should be redacted from observable query details.
+     */
+    public boolean isSecure()
+    {
+        return secure;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -82,6 +92,7 @@ public class ViewExpression
         private String schema;
         private String expression;
         private List<CatalogSchemaName> path = List.of();
+        private boolean secure;
 
         private Builder() {}
 
@@ -114,6 +125,15 @@ public class ViewExpression
             this.path = List.copyOf(path);
         }
 
+        /**
+         * Marks this access-control expression for redaction. The default is {@code false}.
+         */
+        public Builder secure(boolean secure)
+        {
+            this.secure = secure;
+            return this;
+        }
+
         public ViewExpression build()
         {
             return new ViewExpression(
@@ -121,7 +141,8 @@ public class ViewExpression
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
                     expression,
-                    path);
+                    path,
+                    secure);
         }
     }
 }

@@ -408,6 +408,24 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitSecureExpression(SecureExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteSecureExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression expression = rewrite(node.expression(), context.get());
+            if (node.expression() != expression) {
+                return new SecureExpression(expression);
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

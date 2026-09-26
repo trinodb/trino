@@ -39,7 +39,6 @@ import io.trino.execution.TaskInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.spi.NodeVersion;
@@ -66,6 +65,9 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor.RedactedColumnHandle;
+import io.trino.sql.planner.PlanFragmentRedactor.RedactedTableHandle;
+import io.trino.sql.planner.SecureColumns;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -194,6 +196,7 @@ public class PlanPrinter
     private static final CatalogSchemaFunctionName COUNT_NAME = builtinFunctionName("count");
 
     private final PlanRepresentation representation;
+    private final Set<Symbol> secureSymbols;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final Map<PlanNodeId, Long> getSplitsTotalTimeNanos;
@@ -224,7 +227,11 @@ public class PlanPrinter
         requireNonNull(stats, "stats is null");
         requireNonNull(anonymizer, "anonymizer is null");
 
-        this.tableInfoSupplier = tableInfoSupplier;
+        secureSymbols = SecureColumns.symbols(planRoot);
+        this.tableInfoSupplier = node -> {
+            TableInfo tableInfo = tableInfoSupplier.apply(node);
+            return new TableInfo(tableInfo.connectorName(), tableInfo.tableName(), SecureColumns.redact(tableInfo.predicate(), node, secureSymbols));
+        };
         this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
         this.getSplitsTotalTimeNanos = ImmutableMap.copyOf(getSplitsTotalTimeNanos);
         this.splitSourceMetrics = ImmutableMap.copyOf(splitSourceMetrics);
@@ -1199,13 +1206,12 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Context context)
         {
-            TableHandle table = node.getTable();
             TableInfo tableInfo = tableInfoSupplier.apply(node);
             NodeRepresentation nodeOutput;
             nodeOutput = addNode(
                     node,
                     "TableScan",
-                    ImmutableMap.of("table", anonymizer.anonymize(table, tableInfo)),
+                    ImmutableMap.of("table", tableLabel(node, tableInfo)),
                     splitSourceMetrics.getOrDefault(node.getId(), Metrics.EMPTY),
                     context);
             printTableScanInfo(nodeOutput, node, tableInfo);
@@ -1302,7 +1308,7 @@ public class PlanPrinter
 
             if (scanNode.isPresent()) {
                 operatorName += "Scan";
-                descriptor.put("table", anonymizer.anonymize(scanNode.get().getTable(), tableInfoSupplier.apply(scanNode.get())));
+                descriptor.put("table", tableLabel(scanNode.get(), tableInfoSupplier.apply(scanNode.get())));
             }
 
             List<DynamicFilters.Descriptor> dynamicFilters = ImmutableList.of();
@@ -1435,6 +1441,14 @@ public class PlanPrinter
                     .collect(joining(", ", "{", "}"));
         }
 
+        private String tableLabel(TableScanNode node, TableInfo tableInfo)
+        {
+            if (node.getTable().connectorHandle() instanceof RedactedTableHandle || node.getAssignments().keySet().stream().anyMatch(secureSymbols::contains)) {
+                return anonymizer.anonymize(tableInfo.tableName());
+            }
+            return anonymizer.anonymize(node.getTable(), tableInfo);
+        }
+
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, TableInfo tableInfo)
         {
             TupleDomain<ColumnHandle> predicate = tableInfo.predicate();
@@ -1445,6 +1459,9 @@ public class PlanPrinter
             else {
                 // first, print output columns and their constraints
                 for (Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                    if (assignment.getValue() instanceof RedactedColumnHandle || secureSymbols.contains(assignment.getKey())) {
+                        continue;
+                    }
                     ColumnHandle column = assignment.getValue();
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(assignment.getKey()), anonymizer.anonymize(column));
                     printConstraint(nodeOutput, column, predicate);

@@ -35,6 +35,7 @@ import io.trino.sql.tree.Statement;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.SystemSessionProperties.isSecureExpressionRedactionEnabled;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -92,6 +93,7 @@ public class Analyzer
     {
         Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
+        analysis.setSecureExpressionRedactionEnabled(isSecureExpressionRedactionEnabled(session));
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
         try (var _ = scopedSpan(tracer, "analyze")) {

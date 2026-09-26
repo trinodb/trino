@@ -31,6 +31,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
@@ -90,6 +91,13 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitReference(Reference node, Void context)
         {
             return input.getSymbolStatistics(Symbol.from(node));
+        }
+
+        @Override
+        protected SymbolStatsEstimate visitSecureExpression(SecureExpression node, Void context)
+        {
+            // Semantically identical to the wrapped expression
+            return process(node.expression());
         }
 
         @Override

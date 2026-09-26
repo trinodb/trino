@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -81,12 +82,30 @@ public record StageInfo(
                 failureCause);
     }
 
+    public StageInfo withState(StageState state)
+    {
+        if (this.state == state) {
+            return this;
+        }
+        return new StageInfo(
+                stageId,
+                state,
+                plan,
+                coordinatorOnly,
+                types,
+                stageStats,
+                tasks,
+                subStages,
+                tables,
+                failureCause);
+    }
+
     public static StageInfo createInitial(QueryId queryId, StageState state, PlanFragment fragment)
     {
         return new StageInfo(
                 StageId.create(queryId, fragment.getId()),
                 state,
-                fragment,
+                PlanFragmentRedactor.redact(fragment, ImmutableMap.of()),
                 fragment.getPartitioning().isCoordinatorOnly(),
                 fragment.getTypes(),
                 StageStats.createInitial(),

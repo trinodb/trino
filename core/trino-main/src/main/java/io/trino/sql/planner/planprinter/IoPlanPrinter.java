@@ -31,6 +31,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.SecureColumns;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -84,7 +86,7 @@ public class IoPlanPrinter
     private String print()
     {
         IoPlanBuilder ioPlanBuilder = new IoPlanBuilder(plan);
-        plan.getRoot().accept(new IoPlanVisitor(), ioPlanBuilder);
+        plan.getRoot().accept(new IoPlanVisitor(SecureColumns.symbols(plan.getRoot())), ioPlanBuilder);
         return jsonCodec(IoPlan.class).toJson(ioPlanBuilder.build());
     }
 
@@ -656,6 +658,13 @@ public class IoPlanPrinter
     private class IoPlanVisitor
             extends PlanVisitor<Void, IoPlanBuilder>
     {
+        private final Set<Symbol> secureSymbols;
+
+        private IoPlanVisitor(Set<Symbol> secureSymbols)
+        {
+            this.secureSymbols = ImmutableSet.copyOf(requireNonNull(secureSymbols, "secureSymbols is null"));
+        }
+
         @Override
         protected Void visitPlan(PlanNode node, IoPlanBuilder context)
         {
@@ -736,7 +745,7 @@ public class IoPlanPrinter
                                     tableName.getCatalogName(),
                                     tableName.getSchemaTableName().getSchemaName(),
                                     tableName.getSchemaTableName().getTableName()),
-                            parseConstraint(table, predicateDomain.intersect(filterDomain)),
+                            parseConstraint(table, SecureColumns.redact(predicateDomain.intersect(filterDomain), tableScan, secureSymbols)),
                             estimatedStatsAndCost));
         }
 

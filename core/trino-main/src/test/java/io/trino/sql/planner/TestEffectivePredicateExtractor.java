@@ -36,7 +36,9 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -52,6 +54,7 @@ import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
@@ -281,6 +284,54 @@ public class TestEffectivePredicateExtractor
 
         // Non-deterministic functions should be purged
         assertThat(normalizeConjuncts(effectivePredicate)).isEqualTo(normalizeConjuncts(lessThan(new Reference(BIGINT, "b"), bigintLiteral(10))));
+    }
+
+    @Test
+    public void testFilterWithSecureExpression()
+    {
+        // The scan's constraint on "a" was derived from the secure predicate, so it must come back wrapped
+        Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"))));
+        TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                scanAssignments.get(new Symbol(BIGINT, "a")), Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 10L, true)), false),
+                scanAssignments.get(new Symbol(BIGINT, "b")), Domain.singleValue(BIGINT, 2L)));
+        Expression secure = new SecureExpression(between(new Reference(BIGINT, "a"), bigintLiteral(1), bigintLiteral(10)));
+        TableScanNode scan = new TableScanNode(
+                newId(),
+                makeTableHandle(predicate),
+                ImmutableList.copyOf(assignments.keySet()),
+                assignments,
+                predicate,
+                Optional.empty(),
+                false,
+                Optional.empty());
+        PlanNode node = filter(scan, secure);
+
+        Symbol projected = new Symbol(DOUBLE, "projected");
+        Constant nan = new Constant(DOUBLE, Double.NaN);
+        ProjectNode sourceWithNaN = new ProjectNode(
+                newId(),
+                scan,
+                Assignments.builder()
+                        .put(new Symbol(BIGINT, "a"), new Reference(BIGINT, "a"))
+                        .put(new Symbol(BIGINT, "b"), new Reference(BIGINT, "b"))
+                        .put(projected, nan)
+                        .build());
+
+        for (EffectivePredicateExtractor extractor : ImmutableList.of(effectivePredicateExtractor, effectivePredicateExtractorWithoutTableProperties)) {
+            Expression effectivePredicate = extractor.extract(SESSION, emptySymbolAllocator(), node);
+            assertThat(normalizeConjuncts(effectivePredicate)).isEqualTo(normalizeConjuncts(
+                    equals(bigintLiteral(2), new Reference(BIGINT, "b")),
+                    secure));
+
+            // The projected NaN produces a NONE domain, exercising the null-handling fallback.
+            Expression underlyingPredicate = extractor.extract(SESSION, emptySymbolAllocator(), sourceWithNaN);
+            assertThat(DomainTranslator.getExtractionResult(plannerContext, SESSION, underlyingPredicate).tupleDomain().isNone()).isTrue();
+            assertThat(normalizeConjuncts(extractor.extract(SESSION, emptySymbolAllocator(), filter(sourceWithNaN, secure))))
+                    .isEqualTo(normalizeConjuncts(
+                            equals(bigintLiteral(2), new Reference(BIGINT, "b")),
+                            equals(nan, projected.toSymbolReference()),
+                            secure));
+        }
     }
 
     @Test

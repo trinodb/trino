@@ -50,8 +50,10 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -77,6 +79,7 @@ import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
+import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.comparison;
@@ -230,6 +233,60 @@ public class TestPushPredicateIntoTableScan
                                         columnHandle, Domain.multipleValues(orderStatusType, ImmutableList.of(Slices.utf8Slice("O"), Slices.utf8Slice("P"))))))))
                 .matches(
                         constrainedTableScanWithTableLayout("orders", filterConstraint, ImmutableMap.of("orderstatus", "orderstatus")));
+    }
+
+    @Test
+    public void testSecurePredicateDerivesDomainAndStaysInFilter()
+    {
+        Type orderStatusType = createVarcharType(1);
+        Reference orderStatus = new Reference(orderStatusType, "orderstatus");
+        SecureExpression secure = new SecureExpression(comparison(EQUAL, orderStatus, new Constant(orderStatusType, utf8Slice("O"))));
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        secure,
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType)),
+                                ImmutableMap.of(p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType)),
+                                TupleDomain.all())))
+                .matches(
+                        // the connector enforces the derived domain, but the secure predicate is still evaluated by the engine
+                        filter(
+                                secure,
+                                constrainedTableScanWithTableLayout(
+                                        "orders",
+                                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
+                                        ImmutableMap.of("orderstatus", "orderstatus"))));
+    }
+
+    @Test
+    public void testSecureUnenforcedDomainIsNotRebuiltInClearText()
+    {
+        Type orderStatusType = createVarcharType(1);
+        Reference orderStatus = new Reference(orderStatusType, "orderstatus");
+        Reference custKey = new Reference(BIGINT, "custkey");
+        Expression custKeyAboveFive = comparison(GREATER_THAN, custKey, new Constant(BIGINT, 5L));
+        SecureExpression secure = new SecureExpression(Logical.and(
+                new In(orderStatus, ImmutableList.of(new Constant(orderStatusType, utf8Slice("O")), new Constant(orderStatusType, utf8Slice("F")))),
+                custKeyAboveFive));
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.filter(
+                        Logical.and(secure, comparison(EQUAL, orderStatus, new Constant(orderStatusType, utf8Slice("O")))),
+                        p.tableScan(
+                                ordersTableHandle,
+                                ImmutableList.of(p.symbol("orderstatus", orderStatusType), p.symbol("custkey", BIGINT)),
+                                ImmutableMap.of(
+                                        p.symbol("orderstatus", orderStatusType), new TpchColumnHandle("orderstatus", orderStatusType),
+                                        p.symbol("custkey", BIGINT), new TpchColumnHandle("custkey", BIGINT)),
+                                TupleDomain.all())))
+                .matches(
+                        // orderstatus is enforced by the connector; the unenforced custkey domain comes back wrapped, not in clear text
+                        filter(
+                                Logical.and(new SecureExpression(custKeyAboveFive), secure),
+                                constrainedTableScanWithTableLayout(
+                                        "orders",
+                                        ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
+                                        ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))));
     }
 
     @Test

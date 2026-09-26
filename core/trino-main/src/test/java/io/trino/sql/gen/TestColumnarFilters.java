@@ -28,6 +28,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
@@ -51,6 +52,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.RedactingFilterEvaluator;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -58,6 +60,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpression;
 import io.trino.sql.planner.Symbol;
 import io.trino.testing.TestingSession;
 import io.trino.type.CharVarcharCoercion;
@@ -78,6 +81,7 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.block.Bitmap.set;
 import static io.trino.spi.block.Bitmap.wordsForBits;
@@ -102,6 +106,7 @@ import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Math.toIntExact;
@@ -152,6 +157,7 @@ public class TestColumnarFilters
             .scalar(ConnectorSessionFunction.class)
             .scalar(InstanceFactoryFunction.class)
             .scalar(CustomIsDistinctFrom.class)
+            .scalar(FailingFunction.class)
             .build();
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution(FUNCTION_BUNDLE);
     private static final ColumnarFilterCompiler COMPILER = FUNCTION_RESOLUTION.getColumnarFilterCompiler();
@@ -1002,6 +1008,45 @@ public class TestColumnarFilters
         assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isPresent();
     }
 
+    @Test
+    public void testSecureExpressionIsEvaluatedColumnarlyWhenChildIs()
+    {
+        // evaluates columnarly and selects the same rows as the row-oriented path
+        Expression secureFilter = new SecureExpression(comparison(GREATER_THAN, new Reference(BIGINT, COL_ROW_NUM), new Constant(BIGINT, 10L)));
+        assertThatColumnarFilterEvaluationIsSupported(secureFilter);
+        verifyFilter(createInputPages(NullsProvider.RANDOM_NULLS, false), secureFilter);
+
+        // falls back to the row-oriented path when the child has no columnar form
+        assertThatColumnarFilterEvaluationIsNotSupported(new SecureExpression(
+                comparison(ComparisonOperator.NOT_EQUAL, new Constant(INTEGER, CONSTANT), new Reference(INTEGER, COL_INT_A))));
+    }
+
+    @Test
+    public void testSecureExpressionRedactsColumnarFailure()
+    {
+        String column = "$col_0";
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, column), 0);
+        Expression failing = call(
+                FUNCTION_RESOLUTION.functionCallBuilder("custom_fail_if_positive")
+                        .addArgument(BIGINT, new Reference(BIGINT, column))
+                        .build()
+                        .function(),
+                new Reference(BIGINT, column));
+        SourcePage page = SourcePage.create(new Page(createLongSequenceBlock(1, 101)));
+
+        FilterEvaluator plainEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, failing, layout, COMPILER, true, false).orElseThrow().get();
+        assertTrinoExceptionThrownBy(() -> plainEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), page))
+                .hasErrorCode(DIVISION_BY_ZERO)
+                .hasMessage("columnar-policy-secret");
+
+        FilterEvaluator secureEvaluator = createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, new SecureExpression(failing), layout, COMPILER, true, false).orElseThrow().get();
+        assertThat(secureEvaluator).isInstanceOf(RedactingFilterEvaluator.class);
+        assertTrinoExceptionThrownBy(() -> secureEvaluator.evaluate(FULL_CONNECTOR_SESSION, SelectedPositions.positionsRange(0, 100), page))
+                .hasErrorCode(DIVISION_BY_ZERO)
+                .hasMessage(SecureExpression.REDACTED)
+                .hasNoCause();
+    }
+
     private static void assertThatColumnarFilterEvaluationIsNotSupported(Expression filterExpression)
     {
         assertThat(createColumnarFilterEvaluator(CHAR_VARCHAR_COERCION, filterExpression, LAYOUT, COMPILER, true, false)).isEmpty();
@@ -1036,6 +1081,21 @@ public class TestColumnarFilters
                 return true;
             }
             return left.equals(right);
+        }
+    }
+
+    @ScalarFunction("custom_fail_if_positive")
+    public static final class FailingFunction
+    {
+        private FailingFunction() {}
+
+        @SqlType(StandardTypes.BOOLEAN)
+        public static boolean failIfPositive(@SqlType(StandardTypes.BIGINT) long value)
+        {
+            if (value > 0) {
+                throw new TrinoException(DIVISION_BY_ZERO, "columnar-policy-secret");
+            }
+            return true;
         }
     }
 

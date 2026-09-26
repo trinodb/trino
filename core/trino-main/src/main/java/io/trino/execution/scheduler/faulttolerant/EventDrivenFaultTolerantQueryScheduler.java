@@ -453,17 +453,18 @@ public class EventDrivenFaultTolerantQueryScheduler
         return stageRegistry.getTotalCpuTime();
     }
 
+    @VisibleForTesting
     @ThreadSafe
-    private static class StageRegistry
+    static class StageRegistry
     {
         private final QueryStateMachine queryStateMachine;
-        private final AtomicReference<SubPlan> plan;
+        private final AtomicReference<PlanState> plan;
         private final Map<StageId, SqlStage> stages = new ConcurrentHashMap<>();
 
         public StageRegistry(QueryStateMachine queryStateMachine, SubPlan plan)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-            this.plan = new AtomicReference<>(requireNonNull(plan, "plan is null"));
+            this.plan = new AtomicReference<>(new PlanState(plan));
         }
 
         public void add(SqlStage stage)
@@ -473,7 +474,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void updatePlan(SubPlan plan)
         {
-            this.plan.set(requireNonNull(plan, "plan is null"));
+            this.plan.set(new PlanState(plan));
         }
 
         public StagesInfo getStages()
@@ -481,12 +482,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             Map<PlanFragmentId, StageInfo> stageInfos = stages.values().stream()
                     .collect(toImmutableMap(stage -> stage.getFragment().getId(), SqlStage::getStageInfo));
             // make sure that plan is not staler than stageInfos since `getStageInfo` is called asynchronously
-            SubPlan plan = requireNonNull(this.plan.get(), "plan is null");
+            PlanState plan = this.plan.get();
             return getStages(plan, stageInfos);
         }
 
-        private StagesInfo getStages(SubPlan plan, Map<PlanFragmentId, StageInfo> infos)
+        private StagesInfo getStages(PlanState planState, Map<PlanFragmentId, StageInfo> infos)
         {
+            SubPlan plan = planState.plan();
             Map<PlanFragmentId, PlanFragment> fragments = new HashMap<>();
             collectFragments(plan, fragments);
 
@@ -500,10 +502,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             fragmentsToChildrenMap.keySet().forEach(fragmentId -> {
                 StageInfo stageInfo = infos.get(fragmentId);
                 if (stageInfo == null) {
-                    stageInfo = StageInfo.createInitial(
-                            queryStateMachine.getQueryId(),
-                            queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
-                            fragments.get(fragmentId));
+                    stageInfo = planState.initialStageInfos().computeIfAbsent(
+                                    fragmentId,
+                                    _ -> StageInfo.createInitial(queryStateMachine.getQueryId(), PLANNED, fragments.get(fragmentId)))
+                            .withState(queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED);
                 }
                 reportedStageInfos.put(fragmentId, stageInfo);
             });
@@ -523,6 +525,16 @@ public class EventDrivenFaultTolerantQueryScheduler
             // todo: handle stages which are no longer part of the plan
 
             return new StagesInfo(reportedStageInfos.get(plan.getFragment().getId()).stageId(), ImmutableList.copyOf(reportedStageInfos.values()));
+        }
+
+        // Publish the plan and its cache together so a concurrent reader cannot use initial info from another plan.
+        // Replacing the plan also releases its cache once readers of that plan finish.
+        private record PlanState(SubPlan plan, Map<PlanFragmentId, StageInfo> initialStageInfos)
+        {
+            private PlanState(SubPlan plan)
+            {
+                this(requireNonNull(plan, "plan is null"), new ConcurrentHashMap<>());
+            }
         }
 
         private void collectFragments(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragments)
