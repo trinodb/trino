@@ -986,6 +986,31 @@ ALTER TABLE test_table EXECUTE optimize
 WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
 ```
 
+After [changing the partitioning](iceberg-alter-table-set-properties) of a
+table, use a `"$spec_id"` filter to rewrite the files still written with an
+older partition specification into the current partitioning, one specification
+at a time. Files without delete files that are larger than `file_size_threshold`
+are not rewritten, so set a threshold larger than the largest file to migrate
+every file of the specification:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '1TB')
+WHERE "$spec_id" = 0;
+```
+
+A `"$spec_id"` filter also lets you use a column that only some of the partition
+specifications partition by, because the filter restricts the operation to the
+specifications that do:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$spec_id" = 0 AND partition_key = 1;
+```
+
+The `WHERE` clause can only use fields of the `"$partition"` metadata column,
+the `"$path"`, `"$file_modified_time"`, and `"$spec_id"` metadata columns, and
+columns that every partition specification selected for rewriting partitions by.
+
 (iceberg-optimize-manifests)=
 ##### optimize_manifests
 
@@ -1555,6 +1580,7 @@ The output of the query has the following columns:
   - Partition range metadata.
 :::
 
+(iceberg-partitions-table)=
 ##### `$partitions` table
 
 The `$partitions` table provides a detailed overview of the partitions of the
@@ -1843,17 +1869,22 @@ The output of the query has the following columns:
 In addition to the defined columns, the Iceberg connector automatically exposes
 path metadata as a hidden column in each table:
 
-- `$partition`: Partition path for this row
+- `$partition`: Partition values for this row as a `ROW` with one field per
+  partition field across all partition specs, matching the `partition` column
+  of the [`$partitions`](iceberg-partitions-table) table. Fields not in the
+  row's partition spec are `NULL`. Not exposed for tables that have never been
+  partitioned.
 - `$path`: Full file system path name of the file for this row
 - `$file_modified_time`: Timestamp of the last modification of the file for
   this row
+- `$spec_id`: Iceberg partition specification ID of the file for this row
 
 You can use these columns in your SQL statements like any other column. This can
 be selected directly, or used in conditional statements. For example, you can
 inspect the file path for each record:
 
 ```sql
-SELECT *, "$partition", "$path", "$file_modified_time"
+SELECT *, "$partition", "$path", "$file_modified_time", "$spec_id"
 FROM example.web.page_views;
 ```
 
@@ -1865,6 +1896,19 @@ FROM example.web.page_views
 WHERE "$path" = '/usr/iceberg/table/web.page_views/data/file_01.parquet'
 ```
 
+Retrieve all records that belong to a specific partition using a filter on a
+field of `"$partition"`. Filters on partition fields are pushed down, including
+for transforms such as `bucket`:
+
+```sql
+SELECT *
+FROM example.web.page_views
+WHERE "$partition".user_id_bucket = 3
+```
+
+Filters on the whole `"$partition"` row are not used to skip files, and do not
+satisfy the `query_partition_filter_required` session property.
+
 Retrieve all records that belong to a specific file using
 `"$file_modified_time"` filter:
 
@@ -1872,6 +1916,17 @@ Retrieve all records that belong to a specific file using
 SELECT *
 FROM example.web.page_views
 WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)
+```
+
+Retrieve all records written with a specific partition specification using a
+`"$spec_id"` filter, for example to find the files still written with an older
+specification after [changing the
+partitioning](iceberg-alter-table-set-properties) of a table:
+
+```sql
+SELECT *
+FROM example.web.page_views
+WHERE "$spec_id" = 0
 ```
 
 (iceberg-system-tables)=

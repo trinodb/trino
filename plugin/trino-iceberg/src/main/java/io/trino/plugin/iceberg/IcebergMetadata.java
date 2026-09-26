@@ -289,6 +289,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNum
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.specIdColumnHandle;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.toIcebergLiteral;
@@ -311,7 +312,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
@@ -324,6 +325,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsO
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
+import static io.trino.plugin.iceberg.IcebergSplitSource.fileMatchesMetadataColumnPredicates;
 import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
@@ -364,11 +366,14 @@ import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileScanPartitionSpec;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
@@ -994,11 +999,19 @@ public class IcebergMetadata
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
-        // Predicates on hidden columns are enforced by the split source and cannot be applied to a scan
-        boolean hasHiddenColumnPredicate = !enforcedPredicate.filter((column, _) -> isMetadataColumnId(column.getId())).isAll();
-
+        // Metadata column predicates are enforced by the split source per file, so the partitions are only known
+        // after applying them to each file below. Only the predicates checked by fileMatchesMetadataColumnPredicates
+        // are applied, so the discrete predicates are skipped for any other, such as $file_modified_time, which needs
+        // a file system call per file and is too expensive during planning.
+        boolean hasUncheckedMetadataColumnPredicate = !enforcedPredicate
+                .filter((column, _) -> column.isMetadataColumn() && !column.isSpecIdColumn() && !column.isPartitionField() && !column.isPathColumn())
+                .isAll();
         DiscretePredicates discretePredicates = null;
-        if (!partitionSourceIds.isEmpty() && !hasHiddenColumnPredicate) {
+        if (!partitionSourceIds.isEmpty() && !enforcedPredicate.isNone() && !hasUncheckedMetadataColumnPredicate) {
+            Domain specIdDomain = getSpecIdDomain(enforcedPredicate);
+            PartitionFieldPredicate partitionFieldPredicate = PartitionFieldPredicate.fromPredicate(enforcedPredicate);
+            Domain pathDomain = getPathDomain(enforcedPredicate);
+
             // Extract identity partition columns
             Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
@@ -1006,7 +1019,7 @@ public class IcebergMetadata
             Supplier<Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec>> lazyUniquePartitions = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().orElseThrow())
-                        .filter(toIcebergExpression(enforcedPredicate))
+                        .filter(toIcebergExpression(enforcedPredicate.filter((column, _) -> !column.isMetadataColumn())))
                         .planWith(icebergPlanningExecutor);
 
                 Map<Integer, PartitionSpec> specsById = icebergTable.specs();
@@ -1014,6 +1027,9 @@ public class IcebergMetadata
                     Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec> partitions = new HashMap<>();
                     for (FileScanTask fileScanTask : fileScanTasks) {
                         PartitionSpec spec = getFileScanPartitionSpec(fileScanTask, specsById);
+                        if (!fileMatchesMetadataColumnPredicates(specIdDomain, partitionFieldPredicate, pathDomain, spec, fileScanTask.partition(), fileScanTask.file().location())) {
+                            continue;
+                        }
                         StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(spec, fileScanTask.file().partition());
                         partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, spec);
                     }
@@ -1133,7 +1149,7 @@ public class IcebergMetadata
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         BaseTable icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager, tableHandle.getFormatVersion());
+        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), getPartitionColumn(tableHandle, typeManager), typeManager, tableHandle.getFormatVersion());
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
@@ -1168,9 +1184,10 @@ public class IcebergMetadata
             columnHandles.putIfAbsent(ROW_ID.getColumnName(), rowIdColumnHandle());
             columnHandles.putIfAbsent(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName(), lastUpdatedSequenceNumberColumnHandle());
         }
-        columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle());
+        getPartitionColumn(table, typeManager).ifPresent(partitionColumn -> columnHandles.putIfAbsent(PARTITION.getColumnName(), partitionColumnHandle(partitionColumn)));
         columnHandles.putIfAbsent(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.putIfAbsent(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
+        columnHandles.putIfAbsent(SPEC_ID.getColumnName(), specIdColumnHandle());
         return ImmutableMap.copyOf(columnHandles);
     }
 
@@ -1182,7 +1199,7 @@ public class IcebergMetadata
 
         // Look up write-default from the table schema
         Optional<String> defaultValue = Optional.empty();
-        if (!isMetadataColumnId(column.getId())) {
+        if (!column.isMetadataColumn()) {
             Schema tableSchema = SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson());
             NestedField field = tableSchema.findField(column.getId());
             if (field != null) {
@@ -1195,7 +1212,7 @@ public class IcebergMetadata
                 .setType(column.getType())
                 .setNullable(column.isNullable())
                 .setComment(column.getComment())
-                .setHidden(isMetadataColumnId(column.getId()))
+                .setHidden(column.isMetadataColumn())
                 .setDefaultValue(defaultValue)
                 .build();
     }
@@ -1214,6 +1231,8 @@ public class IcebergMetadata
             }
             Set<Integer> columnsWithPredicates = new HashSet<>();
             table.getConstraintColumns().stream()
+                    // Metadata column ids may collide with the ids of partition source columns
+                    .filter(column -> !column.isMetadataColumn())
                     .map(IcebergColumnHandle::getId)
                     .forEach(columnsWithPredicates::add);
             table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
@@ -1287,7 +1306,7 @@ public class IcebergMetadata
                             .map(tableName -> (Callable<Optional<TableColumnsMetadata>>) () -> {
                                 try {
                                     Table icebergTable = catalog.loadTable(session, tableName);
-                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager, formatVersion(icebergTable));
+                                    List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), getPartitionColumn(icebergTable.schema(), icebergTable.specs(), typeManager), typeManager, formatVersion(icebergTable));
                                     return Optional.of(TableColumnsMetadata.forTable(tableName, columns));
                                 }
                                 catch (TableNotFoundException e) {
@@ -2623,7 +2642,7 @@ public class IcebergMetadata
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
             List<String> parquetBloomFilterColumns = getProperty(properties, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
+            validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(table, typeManager), typeManager, table.getFormatVersion()), parquetBloomFilterColumns);
 
             Set<String> existingParquetBloomFilterColumns = icebergTable.properties().keySet().stream()
                     .filter(key -> key.startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX))
@@ -2641,7 +2660,7 @@ public class IcebergMetadata
                 updateProperties.remove(ORC_BLOOM_FILTER_COLUMNS);
             }
             else {
-                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
+                validateOrcBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), getPartitionColumn(table, typeManager), typeManager, table.getFormatVersion()), orcBloomFilterColumns);
                 updateProperties.set(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             }
         }
@@ -3307,7 +3326,7 @@ public class IcebergMetadata
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> column.isMetadataColumn());
         if (!medataColumnPredicate.isAll()) {
             return Optional.empty();
         }
@@ -3492,7 +3511,7 @@ public class IcebergMetadata
             }
         }
 
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !column.isMetadataColumn());
         TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
         effectivePredicate = effectivePredicate.intersect(domainCollector.domains());
         effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
@@ -3766,26 +3785,39 @@ public class IcebergMetadata
         else {
             Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
-            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId());
+            // A constraint only has to be enforceable in the specs that are actually scanned, which $spec_id narrows:
+            // a column which spec 0 partitions by and spec 1 does not is enforceable when $spec_id selects spec 0.
+            Domain specIdDomain = getSpecIdDomain(predicate).intersect(getSpecIdDomain(table.getEnforcedPredicate()));
+            Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId()).stream()
+                    .filter(specId -> specIdDomain.includesNullableValue((long) specId))
+                    .collect(toImmutableSet());
+            // A $spec_id filter that matches no spec in the snapshot leaves no file to scan, so every data column
+            // constraint holds trivially. Determined here rather than in canEnforceColumnConstraintInSpecs, which
+            // treats an empty set as "unknown" and falls back to the current spec. That fallback would reject a
+            // repeated OPTIMIZE WHERE "$spec_id" = <old spec> AND <old spec partition column> once no files of the
+            // old spec remain, since the current spec need not partition by that column.
+            boolean scanIsEmpty = !specIdDomain.isAll() && partitionSpecIds.isEmpty();
 
             Map<IcebergColumnHandle, Domain> unsupported = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newEnforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> newUnenforced = new LinkedHashMap<>();
             Map<IcebergColumnHandle, Domain> domains = predicate.getDomains().orElseThrow(() -> new VerifyException("No domains"));
             domains.forEach((columnHandle, domain) -> {
-                if (!isConvertibleToIcebergExpression(domain)) {
-                    unsupported.put(columnHandle, domain);
-                }
-                else if (canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
-                    newEnforced.put(columnHandle, domain);
-                }
-                else if (isMetadataColumnId(columnHandle.getId())) {
-                    if (columnHandle.isPartitionColumn() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn()) {
+                if (columnHandle.isMetadataColumn()) {
+                    // Metadata columns are enforced by the split source, so their domains need not convert to Iceberg expressions.
+                    // Comparisons on the whole $partition row are left to the engine, as row comparison semantics differ from domain membership
+                    if (columnHandle.isPartitionField() || columnHandle.isPathColumn() || columnHandle.isFileModifiedTimeColumn() || columnHandle.isSpecIdColumn()) {
                         newEnforced.put(columnHandle, domain);
                     }
                     else {
                         unsupported.put(columnHandle, domain);
                     }
+                }
+                else if (!isConvertibleToIcebergExpression(domain)) {
+                    unsupported.put(columnHandle, domain);
+                }
+                else if (scanIsEmpty || canEnforceColumnConstraintInSpecs(typeManager.getTypeOperators(), icebergTable, partitionSpecIds, columnHandle, domain)) {
+                    newEnforced.put(columnHandle, domain);
                 }
                 else {
                     newUnenforced.put(columnHandle, domain);
@@ -3854,6 +3886,8 @@ public class IcebergMetadata
         // Since we're primarily concerned about predicate pushdown on partitioning
         // of the data files, there's no need to consider delete manifests
         return loadDataManifestsFromSnapshot(icebergTable, snapshot).stream()
+                // remove any manifests that don't have any existing or added files
+                .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
                 .map(ManifestFile::partitionSpecId)
                 .collect(toImmutableSet());
     }

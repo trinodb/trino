@@ -192,9 +192,29 @@ public class TestMetadataQueryOptimization
                 .setSystemProperty("optimize_metadata_queries", "true")
                 .build();
 
-        // Metadata column predicates are enforced by the split source, so the scan must not be replaced with partition values
+        // Metadata column predicates are applied to each file when enumerating partitions
         assertPlan(
-                format("SELECT DISTINCT b, c FROM %s WHERE \"$path\" IS NOT NULL", testTable),
+                format("SELECT DISTINCT b, c FROM %s WHERE \"$partition\".b = 6 AND \"$partition\".c = 7", testTable),
+                session,
+                anyTree(values(
+                        ImmutableList.of("b", "c"),
+                        ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L))))));
+        assertPlan(
+                format("SELECT DISTINCT b, c FROM %s WHERE \"$spec_id\" = 0", testTable),
+                session,
+                anyTree(values(
+                        ImmutableList.of("b", "c"),
+                        ImmutableList.of(
+                                ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L)),
+                                ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L))))));
+        assertPlan(
+                format("SELECT DISTINCT b, c FROM %s WHERE \"$spec_id\" = 99", testTable),
+                session,
+                anyTree(values(ImmutableList.of("b", "c"), ImmutableList.of())));
+
+        // $file_modified_time needs a file system call per file, so the scan is kept
+        assertPlan(
+                format("SELECT DISTINCT b, c FROM %s WHERE \"$file_modified_time\" > TIMESTAMP '2000-01-01 00:00:00 UTC'", testTable),
                 session,
                 anyTree(tableScan(testTable)));
     }

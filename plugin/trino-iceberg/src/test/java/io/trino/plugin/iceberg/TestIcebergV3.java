@@ -370,6 +370,47 @@ public class TestIcebergV3
     }
 
     @Test
+    void testOptimizeWithSpecIdColumnRemovesDeletionVectors()
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_spec_id_deletion_vectors_", "(id INT, part INT) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (2, 10)", 2);
+            assertUpdate("ALTER TABLE " + testTable.getName() + " SET PROPERTIES partitioning = ARRAY['part']");
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (3, 20), (4, 20)", 2);
+
+            // One deletion vector per data file: one for the spec 0 file, one for the spec 1 file. Content 0 is data
+            // and content 1 is position deletes, which v3 stores as deletion vectors in Puffin files.
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE id = 1", 1);
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE id = 3", 1);
+            assertQuery(
+                    "SELECT content, file_format, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content, file_format",
+                    "VALUES (0, 'PARQUET', 2), (1, 'PUFFIN', 2)");
+
+            // A $spec_id filter selects whole partitions of a spec, so OPTIMIZE cleans up the deletion vector of the spec 1
+            // file it rewrites, while the deletion vector of the spec 0 file, which is not scanned, is untouched
+            Session singleWriter = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriter,
+                    "ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 1",
+                    "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
+            assertQuery(
+                    "SELECT content, file_format, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content, file_format",
+                    "VALUES (0, 'PARQUET', 2), (1, 'PUFFIN', 1)");
+            assertQuery("SELECT id, \"$spec_id\" FROM " + testTable.getName(), "VALUES (2, 0), (4, 1)");
+
+            assertUpdate(
+                    singleWriter,
+                    "ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE WHERE \"$spec_id\" = 0",
+                    "VALUES ('rewritten_data_files_count', 1), ('removed_delete_files_count', 1), ('added_data_files_count', 1)");
+            assertQuery(
+                    "SELECT content, file_format, count(*) FROM \"" + testTable.getName() + "$files\" GROUP BY content, file_format",
+                    "VALUES (0, 'PARQUET', 2)");
+            assertQuery("SELECT id, \"$spec_id\" FROM " + testTable.getName(), "VALUES (2, 1), (4, 1)");
+        }
+    }
+
+    @Test
     void testOptimizePreservesRowLineage()
     {
         String tableName = "test_optimize_preserves_row_lineage_" + randomNameSuffix();
