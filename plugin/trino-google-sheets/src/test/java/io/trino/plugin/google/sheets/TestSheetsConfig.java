@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -50,6 +51,7 @@ public class TestSheetsConfig
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
                 .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
+                .setMaxRows(10_000)
                 .setConnectionTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setReadTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setWriteTimeout(new Duration(20, TimeUnit.SECONDS)));
@@ -67,6 +69,7 @@ public class TestSheetsConfig
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
+                .put("gsheets.max-rows", "20000")
                 .put("gsheets.connection-timeout", "1m")
                 .put("gsheets.read-timeout", "2m")
                 .put("gsheets.write-timeout", "3m")
@@ -81,6 +84,7 @@ public class TestSheetsConfig
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
+        assertThat(config.getMaxRows()).isEqualTo(20000);
         assertThat(config.getConnectionTimeout()).isEqualTo(Duration.valueOf("1m"));
         assertThat(config.getReadTimeout()).isEqualTo(Duration.valueOf("2m"));
         assertThat(config.getWriteTimeout()).isEqualTo(Duration.valueOf("3m"));
@@ -95,6 +99,7 @@ public class TestSheetsConfig
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
+                .put("gsheets.max-rows", "0")
                 .put("gsheets.read-timeout", "1m")
                 .buildOrThrow();
 
@@ -107,6 +112,7 @@ public class TestSheetsConfig
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
+        assertThat(config.getMaxRows()).isEqualTo(0);
         assertThat(config.getReadTimeout()).isEqualTo(Duration.valueOf("1m"));
     }
 
@@ -131,6 +137,19 @@ public class TestSheetsConfig
                 .buildOrThrow();
 
         assertDeprecatedEquivalence(SheetsConfig.class, properties, oldProperties);
+    }
+
+    @Test
+    public void testMaxRowsValidation()
+    {
+        assertValidates(new SheetsConfig().setCredentialsKey(BASE_64_ENCODED_TEST_KEY).setMaxRows(0));
+        assertValidates(new SheetsConfig().setCredentialsKey(BASE_64_ENCODED_TEST_KEY).setMaxRows(1));
+
+        assertFailsValidation(
+                new SheetsConfig().setCredentialsKey(BASE_64_ENCODED_TEST_KEY).setMaxRows(-1),
+                "maxRows",
+                "must be greater than or equal to 0",
+                Min.class);
     }
 
     @Test
