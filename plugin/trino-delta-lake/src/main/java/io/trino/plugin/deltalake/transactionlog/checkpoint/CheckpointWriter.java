@@ -351,8 +351,8 @@ public class CheckpointWriter
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
                 DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
                         parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
+                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values, false)),
+                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values, true)),
                         parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)),
                         parquetFileStatistics.getTightBounds());
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
@@ -417,8 +417,8 @@ public class CheckpointWriter
         ((RowBlockBuilder) entryBlockBuilder).buildEntry(fieldBuilders -> {
             if (stats instanceof DeltaLakeParquetFileStatistics) {
                 writeLong(fieldBuilders.get(0), statsType, 0, "numRecords", stats.getNumRecords().orElse(null));
-                writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false);
-                writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false);
+                writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false, false);
+                writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false, true);
                 writeNullCountAsFields(fieldBuilders.get(3), statsType, 3, "nullCount", stats.getNullCount());
                 writeBoolean(fieldBuilders.get(4), statsType, 4, "tightBounds", stats.getTightBounds().orElse(null));
             }
@@ -429,11 +429,11 @@ public class CheckpointWriter
                 internalFieldId++;
 
                 if (statsType.getFields().stream().anyMatch(field -> field.getName().orElseThrow().equals("minValues"))) {
-                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "minValues", stats.getMinValues(), true);
+                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "minValues", stats.getMinValues(), true, false);
                     internalFieldId++;
                 }
                 if (statsType.getFields().stream().anyMatch(field -> field.getName().orElseThrow().equals("maxValues"))) {
-                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "maxValues", stats.getMaxValues(), true);
+                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "maxValues", stats.getMaxValues(), true, true);
                     internalFieldId++;
                 }
                 writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount());
@@ -461,11 +461,18 @@ public class CheckpointWriter
         });
     }
 
-    private void writeMinMaxMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson)
+    private void writeMinMaxMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson, boolean roundUp)
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
+        Optional<Map<String, Object>> preprocessed;
+        if (isJson) {
+            preprocessed = preprocessJsonMinMaxValues(valuesFieldType, values, roundUp);
+        }
+        else {
+            preprocessed = preprocessParsedMinMaxValues(valuesFieldType, values);
+        }
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessed);
     }
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -492,37 +499,49 @@ public class CheckpointWriter
         });
     }
 
-    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
+    private Optional<Map<String, Object>> preprocessJsonMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean roundUp)
     {
-        return valuesOptional.map(
-                values -> {
-                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toImmutableMap(
-                            // anonymous row fields are not expected here
-                            field -> field.getName().orElseThrow(),
-                            RowType.Field::getType));
+        return valuesOptional.map(values -> {
+            Map<String, Type> fieldTypes = statisticsFieldTypes(valuesType);
+            return values.entrySet().stream()
+                    .collect(toMap(
+                            Entry::getKey,
+                            entry -> jsonValueToTrinoValue(fieldTypes.get(entry.getKey()), entry.getValue(), roundUp)));
+        });
+    }
 
-                    return values.entrySet().stream()
-                            .collect(toMap(
-                                    Entry::getKey,
-                                    entry -> {
-                                        Type type = fieldTypes.get(entry.getKey());
-                                        Object value = entry.getValue();
-                                        if (isJson) {
-                                            return jsonValueToTrinoValue(type, value);
-                                        }
-                                        if (type == TIMESTAMP_MILLIS) {
-                                            // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
-                                            // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
-                                        }
-                                        if (type == TIMESTAMP_MICROS) {
-                                            // This is TIMESTAMP_NTZ type in Delta Lake
-                                            return value;
-                                        }
-                                        checkState(Primitives.wrap(type.getJavaType()).isInstance(value), "Unexpected value class for type %s, expected %s, got %s", type, type.getJavaType(), value.getClass());
-                                        return value;
-                                    }));
-                });
+    private Optional<Map<String, Object>> preprocessParsedMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional)
+    {
+        return valuesOptional.map(values -> {
+            Map<String, Type> fieldTypes = statisticsFieldTypes(valuesType);
+            return values.entrySet().stream()
+                    .collect(toMap(
+                            Entry::getKey,
+                            entry -> parsedStatisticValue(fieldTypes.get(entry.getKey()), entry.getValue())));
+        });
+    }
+
+    private static Map<String, Type> statisticsFieldTypes(RowType valuesType)
+    {
+        return valuesType.getFields().stream().collect(toImmutableMap(
+                // anonymous row fields are not expected here
+                field -> field.getName().orElseThrow(),
+                RowType.Field::getType));
+    }
+
+    private static Object parsedStatisticValue(Type type, Object value)
+    {
+        if (type == TIMESTAMP_MILLIS) {
+            // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
+            // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
+            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
+        }
+        if (type == TIMESTAMP_MICROS) {
+            // This is TIMESTAMP_NTZ type in Delta Lake
+            return value;
+        }
+        checkState(Primitives.wrap(type.getJavaType()).isInstance(value), "Unexpected value class for type %s, expected %s, got %s", type, type.getJavaType(), value.getClass());
+        return value;
     }
 
     private Optional<Map<String, Object>> preprocessNullCount(Optional<Map<String, Object>> valuesOptional)

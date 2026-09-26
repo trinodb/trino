@@ -16,8 +16,10 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RowType;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
@@ -27,12 +29,14 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -122,11 +126,11 @@ public class TestDeltaLakeParquetStatisticsUtils
     @Test
     public void testTimestampJsonValueToTrinoValue()
     {
-        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123Z"))
+        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123Z", false))
                 .isEqualTo(Instant.parse("2020-08-26T01:02:03.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
-        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123111Z"))
+        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123111Z", false))
                 .isEqualTo(Instant.parse("2020-08-26T01:02:03Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123111);
-        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123999Z"))
+        assertThat(jsonValueToTrinoValue(TIMESTAMP_MICROS, "2020-08-26T01:02:03.123999Z", false))
                 .isEqualTo(Instant.parse("2020-08-26T01:02:03Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123999);
     }
 
@@ -202,6 +206,70 @@ public class TestDeltaLakeParquetStatisticsUtils
 
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
         assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+    }
+
+    @Test
+    public void testNestedTimestampMaximumRoundsUp()
+    {
+        RowType rowType = RowType.rowType(RowType.field("ts", TIMESTAMP_MILLIS));
+        String json = "2024-01-15T10:30:00.123456Z";
+
+        assertThat(nestedTimestamp(rowType, json, false)).isEqualTo(Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
+        assertThat(nestedTimestamp(rowType, json, true)).isEqualTo(Instant.parse("2024-01-15T10:30:00.124Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
+    }
+
+    private static long nestedTimestamp(RowType rowType, String json, boolean roundUp)
+    {
+        SqlRow row = (SqlRow) jsonValueToTrinoValue(rowType, new HashMap<>(ImmutableMap.of("ts", json)), roundUp);
+        return TIMESTAMP_MILLIS.getLong(row.getRawFieldBlock(0), row.getRawIndex());
+    }
+
+    @Test
+    public void testTimestampComputedStatisticsRoundsMaxUp()
+    {
+        long value = Instant.parse("2024-01-15T10:30:00Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 123_456;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, false)).isEqualTo("2024-01-15T10:30:00.123Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, value, true)).isEqualTo("2024-01-15T10:30:00.124Z");
+
+        long exactMillis = Instant.parse("2024-01-15T10:30:00.123Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, exactMillis, true)).isEqualTo("2024-01-15T10:30:00.123Z");
+
+        // pre-1970 values are why the conversion uses floorDiv/floorMod rather than / and %
+        long negative = Instant.parse("1952-04-03T01:02:03.456789Z").getEpochSecond() * MICROSECONDS_PER_SECOND + 456_789;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, negative, false)).isEqualTo("1952-04-03T01:02:03.456Z");
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, negative, true)).isEqualTo("1952-04-03T01:02:03.457Z");
+
+        long negativeExactMillis = Instant.parse("1969-12-31T23:59:59.999Z").toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        assertThat(DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, negativeExactMillis, true)).isEqualTo("1969-12-31T23:59:59.999Z");
+    }
+
+    @Test
+    public void testJsonEncodeAgreesWithToJsonValue()
+    {
+        String columnName = "t_timestamp";
+        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT64, columnName);
+
+        for (String literal : new String[] {
+                "2024-01-15T10:30:00.123456",
+                "2024-01-15T10:30:00.123",
+                "1952-04-03T01:02:03.456789",
+                "1969-12-31T23:59:59.999",
+        }) {
+            LocalDateTime value = LocalDateTime.parse(literal);
+            long epochMicros = value.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + value.getNano() / NANOSECONDS_PER_MICROSECOND;
+            Statistics<?> stats = Statistics.getBuilderForReading(type)
+                    .withMin(timestampToBytes(value))
+                    .withMax(timestampToBytes(value))
+                    .withNumNulls(0)
+                    .build();
+
+            assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_MICROS)))
+                    .as("max encoders disagree for %s", literal)
+                    .isEqualTo(ImmutableMap.of(columnName, DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, epochMicros, true)));
+            assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_MICROS)))
+                    .as("min encoders disagree for %s", literal)
+                    .isEqualTo(ImmutableMap.of(columnName, DeltaLakeParquetStatisticsUtils.toJsonValue(TIMESTAMP_MICROS, epochMicros, false)));
+        }
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)

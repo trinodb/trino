@@ -72,6 +72,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -80,6 +81,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -105,7 +107,7 @@ public final class DeltaLakeParquetStatisticsUtils
     }
 
     @Nullable
-    public static Object jsonValueToTrinoValue(Type type, @Nullable Object jsonValue)
+    public static Object jsonValueToTrinoValue(Type type, @Nullable Object jsonValue, boolean roundUp)
     {
         if (jsonValue == null) {
             return null;
@@ -146,7 +148,12 @@ public final class DeltaLakeParquetStatisticsUtils
             return LocalDate.parse((String) jsonValue).toEpochDay();
         }
         if (type == TIMESTAMP_MILLIS) {
-            return Instant.parse((String) jsonValue).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+            Instant instant = Instant.parse((String) jsonValue);
+            long epochMillis = instant.toEpochMilli();
+            if (roundUp && instant.getNano() % NANOSECONDS_PER_MILLISECOND != 0) {
+                epochMillis++;
+            }
+            return multiplyExact(epochMillis, MICROSECONDS_PER_MILLISECOND);
         }
         if (type == TIMESTAMP_MICROS) {
             Instant instant = Instant.parse((String) jsonValue);
@@ -159,7 +166,7 @@ public final class DeltaLakeParquetStatisticsUtils
                 for (int i = 0; i < values.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
                     String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
-                    Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
+                    Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName), roundUp);
                     writeNativeValue(fieldType, fields.get(i), fieldValue);
                 }
                 checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
@@ -169,7 +176,7 @@ public final class DeltaLakeParquetStatisticsUtils
         throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 
-    public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values)
+    public static Map<String, Object> toJsonValues(Map<String, Type> columnTypeMapping, Map<String, Object> values, boolean roundUp)
     {
         Map<String, Object> jsonValues = new HashMap<>();
         for (Entry<String, Object> value : values.entrySet()) {
@@ -177,13 +184,13 @@ public final class DeltaLakeParquetStatisticsUtils
             if (type instanceof ArrayType || type instanceof MapType) {
                 continue;
             }
-            jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue()));
+            jsonValues.put(value.getKey(), toJsonValue(columnTypeMapping.get(value.getKey()), value.getValue(), roundUp));
         }
         return jsonValues;
     }
 
     @Nullable
-    public static Object toJsonValue(Type type, @Nullable Object value)
+    public static Object toJsonValue(Type type, @Nullable Object value, boolean roundUp)
     {
         if (value == null) {
             return null;
@@ -213,10 +220,11 @@ public final class DeltaLakeParquetStatisticsUtils
         }
         if (type == TIMESTAMP_MICROS) {
             long epochMicros = (long) value;
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-            return ISO_INSTANT.format(ZonedDateTime.ofInstant(instant.truncatedTo(MILLIS), UTC));
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            if (roundUp && floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) > 0) {
+                epochMillis++;
+            }
+            return ISO_INSTANT.format(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), UTC));
         }
         if (type == TIMESTAMP_TZ_MILLIS) {
             Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
@@ -229,7 +237,7 @@ public final class DeltaLakeParquetStatisticsUtils
             for (int i = 0; i < row.getFieldCount(); i++) {
                 RowType.Field field = rowType.getFields().get(i);
                 Object fieldValue = readNativeValue(field.getType(), row.getRawFieldBlock(i), rawIndex);
-                Object jsonValue = toJsonValue(field.getType(), fieldValue);
+                Object jsonValue = toJsonValue(field.getType(), fieldValue, roundUp);
                 if (jsonValue != null) {
                     fieldValues.put(field.getName().orElseThrow(), jsonValue);
                 }
