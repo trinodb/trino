@@ -141,6 +141,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testCreateViewIfNotExists()
+    {
+        testFailsDueToReadOnlyCatalog(super::testCreateViewIfNotExists);
+    }
+
+    @Test
+    @Override
     public void testView()
     {
         testFailsDueToReadOnlyCatalog(super::testView);

@@ -819,12 +819,22 @@ public class TracingConnectorMetadata
         }
     }
 
+    @Deprecated
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         Span span = startSpan("createView", viewName);
         try (var _ = scopedSpan(span)) {
             delegate.createView(session, viewName, definition, viewProperties, replace);
+        }
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        Span span = startSpan("createView", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.createView(session, viewName, definition, viewProperties, saveMode);
         }
     }
 
