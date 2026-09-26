@@ -230,7 +230,7 @@ public class IgniteClient
             case Types.FLOAT -> Optional.of(realColumnMapping());
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.DECIMAL -> {
-                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int decimalDigits = typeHandle.decimalDigits().orElse(0);
                 int precision = typeHandle.requiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
