@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -24,6 +25,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
@@ -32,8 +34,8 @@ public class CheckpointBuilder
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
     private final Map<String, TransactionEntry> transactionEntries = new HashMap<>();
-    private final Map<String, AddFileEntry> addFileEntries = new HashMap<>();
-    private final Map<String, RemoveFileEntry> removeFileEntries = new HashMap<>();
+    private final Map<FileEntryKey, AddFileEntry> addFileEntries = new HashMap<>();
+    private final Map<FileEntryKey, RemoveFileEntry> removeFileEntries = new HashMap<>();
 
     public void addLogEntry(DeltaLakeTransactionLogEntry logEntry)
     {
@@ -69,8 +71,9 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        addFileEntries.put(entry.getPath(), entry);
-        removeFileEntries.remove(entry.getPath());
+        FileEntryKey key = new FileEntryKey(entry.getPath(), entry.getDeletionVector().map(DeletionVectorEntry::uniqueId));
+        addFileEntries.put(key, entry);
+        removeFileEntries.remove(key);
     }
 
     private void handleRemoveFileEntry(@Nullable RemoveFileEntry entry)
@@ -78,8 +81,9 @@ public class CheckpointBuilder
         if (entry == null) {
             return;
         }
-        removeFileEntries.put(entry.path(), entry);
-        addFileEntries.remove(entry.path());
+        FileEntryKey key = new FileEntryKey(entry.path(), entry.deletionVector().map(DeletionVectorEntry::uniqueId));
+        removeFileEntries.put(key, entry);
+        addFileEntries.remove(key);
     }
 
     public CheckpointEntries build()
@@ -93,4 +97,6 @@ public class CheckpointBuilder
                 ImmutableSet.copyOf(addFileEntries.values()),
                 ImmutableSet.copyOf(removeFileEntries.values()));
     }
+
+    private record FileEntryKey(String path, Optional<String> deletionVectorId) {}
 }
