@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.plugin.lakehouse.TableType.HIVE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLakehouseHiveConnectorSmokeTest
@@ -76,5 +77,20 @@ public class TestLakehouseHiveConnectorSmokeTest
                 .failure().hasMessageMatching(".* Table .* does not exist");
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
                 .failure().hasMessageMatching(".* Table .* does not exist");
+    }
+
+    @Test
+    void testExtraPropertiesOnView()
+    {
+        String viewName = "test_view_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) AS SELECT 1 AS col_a".formatted(viewName));
+        try {
+            assertQuery(
+                    "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(viewName),
+                    "SELECT 'one', 'two'");
+        }
+        finally {
+            assertUpdate("DROP VIEW " + viewName);
+        }
     }
 }

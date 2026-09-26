@@ -340,6 +340,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanRenameMaterializedView(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), new SchemaTableName("aliceschema", "newaliceaterializedview"));
         accessControl.checkCanSetMaterializedViewProperties(ADMIN, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of());
         accessControl.checkCanSetMaterializedViewProperties(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"), ImmutableMap.of());
+        accessControl.checkCanSetMaterializedViewComment(ADMIN, new SchemaTableName("bobschema", "bobmaterializedview"));
+        accessControl.checkCanSetMaterializedViewComment(ALICE, new SchemaTableName("aliceschema", "alicevaterializediew"));
         accessControl.checkCanSetViewComment(ALICE, new SchemaTableName("aliceschema", "aliceview"));
 
         accessControl.checkCanAlterColumn(ADMIN, bobTable);
@@ -366,6 +368,8 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanRenameMaterializedView(ALICE, aliceTable, new SchemaTableName("bobschema", "newaliceaterializedview")));
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(ALICE, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(BOB, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewComment(ALICE, new SchemaTableName("bobschema", "bobmaterializedview")));
+        assertDenied(() -> accessControl.checkCanSetMaterializedViewComment(BOB, new SchemaTableName("bobschema", "bobmaterializedview")));
 
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user")));

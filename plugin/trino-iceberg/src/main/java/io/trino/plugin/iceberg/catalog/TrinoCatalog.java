@@ -205,6 +205,8 @@ public interface TrinoCatalog
             boolean replace,
             boolean ignoreExisting);
 
+    void updateMaterializedViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
+
     void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);

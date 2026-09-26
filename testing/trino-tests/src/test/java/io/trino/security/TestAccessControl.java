@@ -94,6 +94,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -930,6 +931,16 @@ public class TestAccessControl
         assertUpdate("CREATE MATERIALIZED VIEW mock.default." + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
         assertUpdate(getSession(), "COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'");
+    }
+
+    @Test
+    public void testCommentMaterializedView()
+    {
+        reset();
+
+        String viewName = "test_materialized_view";
+        assertAccessDenied("COMMENT ON MATERIALIZED VIEW mock.default." + viewName + " IS 'new comment'", "Cannot comment materialized view to .*", privilege(viewName, COMMENT_MATERIALIZED_VIEW));
+        assertAccessAllowed("COMMENT ON MATERIALIZED VIEW mock.default." + viewName + " IS 'new comment'");
     }
 
     @Test

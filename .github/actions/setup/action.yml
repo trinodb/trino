@@ -55,6 +55,7 @@ runs:
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
+          cache-jdk: true
       - name: Get Bun version from parent pom
         shell: bash
         id: bun-version

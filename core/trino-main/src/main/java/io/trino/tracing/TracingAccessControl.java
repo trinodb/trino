@@ -486,6 +486,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SecurityContext context, QualifiedObjectName materializedViewName)
+    {
+        Span span = startSpan("checkCanSetMaterializedViewComment");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanSetMaterializedViewComment(context, materializedViewName);
+        }
+    }
+
+    @Override
     public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantSchemaPrivilege");

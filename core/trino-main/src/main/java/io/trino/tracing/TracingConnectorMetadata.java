@@ -472,6 +472,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        Span span = startSpan("setMaterializedViewComment", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewComment(session, viewName, comment);
+        }
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         Span span = startSpan("setMaterializedViewColumnComment", viewName);

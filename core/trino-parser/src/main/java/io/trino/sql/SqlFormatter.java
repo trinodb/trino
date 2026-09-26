@@ -1873,6 +1873,7 @@ public final class SqlFormatter
             String type = switch (node.getType()) {
                 case TABLE -> "TABLE";
                 case VIEW -> "VIEW";
+                case MATERIALIZED_VIEW -> "MATERIALIZED VIEW";
                 case COLUMN -> "COLUMN";
             };
 

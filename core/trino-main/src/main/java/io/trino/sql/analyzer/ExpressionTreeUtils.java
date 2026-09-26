@@ -138,7 +138,7 @@ public final class ExpressionTreeUtils
     public static Optional<Location> extractLocation(Node node)
     {
         return node.getLocation()
-                .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()));
+                .map(location -> new Location(location.line(), location.column()));
     }
 
     public static QualifiedName asQualifiedName(Expression expression)

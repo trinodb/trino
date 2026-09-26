@@ -31,7 +31,6 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
-import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
@@ -768,16 +767,16 @@ public final class MetadataManager
 
     private static void handleListingError(RuntimeException e, QualifiedTablePrefix tablePrefix)
     {
-        boolean silent = false;
-        if (e instanceof TrinoException trinoException) {
-            ErrorCode errorCode = trinoException.getErrorCode();
-            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
-                    // e.g. table deleted concurrently
-                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
-                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
-                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
-                    errorCode.getType() == EXTERNAL;
-        }
+        // Unlike in MetadataListing, a failure that carries no error code is not assumed to be
+        // external here, so that unexpected failures stay visible in the logs
+        boolean silent = MetadataListing.findListingErrorCode(e)
+                .map(errorCode -> errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                        // e.g. table deleted concurrently
+                        errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
+                        errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                        // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                        errorCode.getType() == EXTERNAL)
+                .orElse(false);
         if (silent) {
             log.debug(e, "Failed to get metadata for table: %s", tablePrefix);
         }
@@ -1977,6 +1976,15 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
         metadata.setMaterializedViewProperties(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), properties);
+    }
+
+    @Override
+    public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        metadata.setMaterializedViewComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), comment);
     }
 
     @Override

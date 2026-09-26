@@ -701,6 +701,15 @@
                                     <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int)</old>
                                     <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.airlift.slice.Slice::indexOfByte(byte, int, int)</old>
+                                    <new>method int io.airlift.slice.Slice::indexOfByte(byte, int, int)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>New Slice methods</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

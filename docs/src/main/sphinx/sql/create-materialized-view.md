@@ -164,6 +164,7 @@ SELECT * FROM system.metadata.materialized_views;
 
 ## See also
 
+- {doc}`comment`
 - {doc}`drop-materialized-view`
 - {doc}`show-create-materialized-view`
 - {doc}`refresh-materialized-view`

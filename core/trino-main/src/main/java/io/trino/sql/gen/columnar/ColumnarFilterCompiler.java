@@ -48,7 +48,6 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import jakarta.annotation.Nullable;
 import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
@@ -175,7 +174,7 @@ public class ColumnarFilterCompiler
         InputChannels inputChannels = result.inputChannels();
 
         if (dynamicFilter && filter instanceof In in) {
-            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, charVarcharCoercion, functionManager);
+            Optional<InSetDynamicFilterGenerator> generator = InSetDynamicFilterGenerator.tryCreate(in, compactLayout, metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators());
             if (generator.isPresent()) {
                 return Optional.of(compileInSetDynamicFilter(generator.get(), inputChannels));
             }
@@ -214,7 +213,7 @@ public class ColumnarFilterCompiler
     // for the current filter. The generator decides eligibility; this only handles reuse and instantiation.
     private Supplier<ColumnarFilter> compileInSetDynamicFilter(InSetDynamicFilterGenerator generator, InputChannels inputChannels)
     {
-        Class<? extends LongSet> setClass = generator.setClass();
+        Class<?> setClass = generator.setClass();
         Class<? extends ColumnarFilter> clazz;
         try {
             clazz = inSetDynamicFilterCache.get(new InSetDynamicFilterKey(generator.valueType(), setClass), generator::generateColumnarFilter);
@@ -222,7 +221,7 @@ public class ColumnarFilterCompiler
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
         }
-        LongSet valueSet = generator.valueSet();
+        Set<?> valueSet = generator.valueSet();
         MethodHandle constructor = filterConstructor(clazz, InputChannels.class, setClass);
         return () -> {
             try {
@@ -239,7 +238,7 @@ public class ColumnarFilterCompiler
         return constructorMethodHandle(COMPILER_ERROR, filterClass, parameterTypes);
     }
 
-    private record InSetDynamicFilterKey(Type valueType, Class<? extends LongSet> setClass) {}
+    private record InSetDynamicFilterKey(Type valueType, Class<?> setClass) {}
 
     private record CacheKey(Expression expression, CharVarcharCoercion charVarcharCoercion) {}
 
@@ -262,7 +261,7 @@ public class ColumnarFilterCompiler
                     yield Optional.of(new CallColumnarFilterGenerator(call.function(), call.arguments(), layout, functionManager).generateColumnarFilter(filterTemplates, call));
                 }
                 case IsNull isNull -> Optional.of(createIsNullColumnarFilter(isNull));
-                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, charVarcharCoercion, functionManager).generateColumnarFilter(filterTemplates, in));
+                case In in -> Optional.of(new InColumnarFilterGenerator(in, layout, metadata, charVarcharCoercion, functionManager, plannerContext.getTypeOperators()).generateColumnarFilter(filterTemplates, in));
                 case Reference reference when reference.type().equals(BOOLEAN) -> Optional.of(BooleanColumnarFilter.class);
                 default -> Optional.empty();
             };

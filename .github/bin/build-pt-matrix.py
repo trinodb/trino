@@ -10,6 +10,8 @@ from pathlib import Path
 
 SUITE_DIR = Path("testing/trino-product-tests/src/test/java/io/trino/tests/product/suite")
 SUITE_HELPERS = {"SuiteRunner", "SuiteTag"}
+# TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
+DISABLED_SUITES = {"SuiteSnowflake"}
 
 SUITES = [
     "SuiteMysql",
@@ -19,7 +21,7 @@ SUITES = [
     "SuiteTpch",
     "SuiteTpcds",
     "SuiteExasol",
-    "SuiteSnowflake",
+    # "SuiteSnowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
     "SuiteCassandra",
     "SuiteClickhouse",
     "SuiteBlackHole",
@@ -127,7 +129,7 @@ JDBC_CONNECTOR_SUITES = ALL_CONNECTORS_SMOKE | {
     "SuiteMysql",
     "SuitePostgresql",
     "SuiteRanger",
-    "SuiteSnowflake",
+    # "SuiteSnowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
     "SuiteSqlServer",
 }
 
@@ -182,7 +184,7 @@ MODULE_TO_SUITES = {
     "plugin/trino-redis": ALL_CONNECTORS_SMOKE,
     "plugin/trino-redshift": ALL_CONNECTORS_SMOKE,
     "plugin/trino-singlestore": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-snowflake": ALL_CONNECTORS_SMOKE | {"SuiteSnowflake"},
+    # "plugin/trino-snowflake": ALL_CONNECTORS_SMOKE | {"SuiteSnowflake"}, TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
     "plugin/trino-sqlserver": ALL_CONNECTORS_SMOKE | {"SuiteSqlServer"},
     "plugin/trino-tpcds": ALL_CONNECTORS_SMOKE | {"SuiteFunctions", "SuiteParquet", "SuiteTpcds"},
     "plugin/trino-thrift": ALL_CONNECTORS_SMOKE,
@@ -278,7 +280,7 @@ def validate_configuration(suite_dir=SUITE_DIR):
     if duplicate_suites:
         raise ValueError(f"Suites declared more than once: {', '.join(duplicate_suites)}")
 
-    actual_suites = {path.stem for path in suite_dir.glob("Suite*.java")} - SUITE_HELPERS
+    actual_suites = {path.stem for path in suite_dir.glob("Suite*.java")} - SUITE_HELPERS - DISABLED_SUITES
     missing_suites = sorted(set(declared_suites) - actual_suites)
     if missing_suites:
         raise ValueError(f"Declared product test suites are missing: {', '.join(missing_suites)}")
@@ -336,7 +338,7 @@ class TestBuildMatrix(unittest.TestCase):
             "plugin/trino-postgresql",
             "plugin/trino-redshift",
             "plugin/trino-singlestore",
-            "plugin/trino-snowflake",
+            # "plugin/trino-snowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
             "plugin/trino-sqlserver",
         }
         matrix = build_matrix(impacted_modules)

@@ -81,6 +81,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
@@ -660,6 +661,14 @@ public class RangerSystemAccessControl
     {
         if (!hasPermission(createTableResource(materializedView), context, ALTER, "SetMaterializedViewProperties")) {
             denySetMaterializedViewProperties(materializedView.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        if (!hasPermission(createTableResource(materializedView), context, ALTER, "SetMaterializedViewComment")) {
+            denyCommentMaterializedView(materializedView.toString());
         }
     }
 

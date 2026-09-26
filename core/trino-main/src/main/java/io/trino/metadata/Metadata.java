@@ -881,6 +881,11 @@ public interface Metadata
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
 
     /**
+     * Sets the comment of the specified materialized view.
+     */
+    void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
+
+    /**
      * Comments to the specified materialized view column.
      */
     void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);

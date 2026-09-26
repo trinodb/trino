@@ -138,17 +138,17 @@ public class SimplifyFilterPredicate
             // if-like expression
             return simplify(
                     session,
-                    caseExpression.whenClauses().getFirst().getOperand(),
-                    caseExpression.whenClauses().getFirst().getResult(),
+                    caseExpression.whenClauses().getFirst().operand(),
+                    caseExpression.whenClauses().getFirst().result(),
                     caseExpression.defaultValue());
         }
 
         List<Expression> operands = caseExpression.whenClauses().stream()
-                .map(WhenClause::getOperand)
+                .map(WhenClause::operand)
                 .collect(toImmutableList());
 
         List<Expression> results = caseExpression.whenClauses().stream()
-                .map(WhenClause::getResult)
+                .map(WhenClause::result)
                 .collect(toImmutableList());
         long trueResultsCount = results.stream()
                 .filter(result -> result.equals(TRUE))
@@ -168,8 +168,8 @@ public class SimplifyFilterPredicate
         if (trueResultsCount == 1 && notTrueResultsCount == results.size() - 1 && isNotTrue(caseExpression.defaultValue())) {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
             for (WhenClause whenClause : caseExpression.whenClauses()) {
-                Expression operand = whenClause.getOperand();
-                Expression result = whenClause.getResult();
+                Expression operand = whenClause.operand();
+                Expression result = whenClause.result();
                 if (isNotTrue(result)) {
                     builder.add(isFalseOrNullPredicate(session, operand));
                 }
@@ -188,12 +188,12 @@ public class SimplifyFilterPredicate
         // skip clauses with not true conditions
         List<WhenClause> whenClauses = new ArrayList<>();
         for (WhenClause whenClause : caseExpression.whenClauses()) {
-            Expression operand = whenClause.getOperand();
+            Expression operand = whenClause.operand();
             if (operand.equals(TRUE)) {
                 if (whenClauses.isEmpty()) {
-                    return Optional.of(whenClause.getResult());
+                    return Optional.of(whenClause.result());
                 }
-                return Optional.of(new Case(whenClauses, whenClause.getResult()));
+                return Optional.of(new Case(whenClauses, whenClause.result()));
             }
             if (!isNotTrue(operand)) {
                 whenClauses.add(whenClause);

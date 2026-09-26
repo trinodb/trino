@@ -298,10 +298,10 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(Case expression, Session session, Map<String, Object> bindings)
     {
         for (WhenClause whenClause : expression.whenClauses()) {
-            Object operand = evaluate(whenClause.getOperand(), session, bindings);
+            Object operand = evaluate(whenClause.operand(), session, bindings);
 
             if (Boolean.TRUE.equals(operand)) {
-                return evaluate(whenClause.getResult(), session, bindings);
+                return evaluate(whenClause.result(), session, bindings);
             }
         }
 

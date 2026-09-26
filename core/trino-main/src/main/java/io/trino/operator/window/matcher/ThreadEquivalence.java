@@ -234,8 +234,8 @@ public class ThreadEquivalence
             }
             case JUMP -> reachableLabels.addAll(reachableLabels(program, ((Jump) instruction).getTarget(), visited));
             case SPLIT -> {
-                reachableLabels.addAll(reachableLabels(program, ((Split) instruction).getFirst(), visited));
-                reachableLabels.addAll(reachableLabels(program, ((Split) instruction).getSecond(), visited));
+                reachableLabels.addAll(reachableLabels(program, ((Split) instruction).first(), visited));
+                reachableLabels.addAll(reachableLabels(program, ((Split) instruction).second(), visited));
             }
             case MATCH_START, MATCH_END, SAVE -> reachableLabels.addAll(reachableLabels(program, instructionIndex + 1, visited));
             case DONE -> {

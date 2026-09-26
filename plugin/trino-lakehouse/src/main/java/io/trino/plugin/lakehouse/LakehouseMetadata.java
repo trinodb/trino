@@ -436,6 +436,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        icebergMetadata.setMaterializedViewComment(session, viewName, comment);
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         icebergMetadata.setMaterializedViewColumnComment(session, viewName, columnName, comment);

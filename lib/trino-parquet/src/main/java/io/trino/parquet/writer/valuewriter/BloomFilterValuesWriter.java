@@ -55,12 +55,16 @@ public class BloomFilterValuesWriter
         return writer.getBufferedSize();
     }
 
-    public long getEstimatedBufferedSize()
+    @Override
+    public long getEstimatedDataPageSize()
     {
-        return switch (writer) {
-            case DictionaryFallbackValuesWriter dictionaryFallbackValuesWriter -> dictionaryFallbackValuesWriter.getEstimatedBufferedSize();
-            default -> writer.getBufferedSize();
-        };
+        return writer.getEstimatedDataPageSize();
+    }
+
+    @Override
+    public long getEstimatedDictionaryPageSize()
+    {
+        return writer.getEstimatedDictionaryPageSize();
     }
 
     @Override

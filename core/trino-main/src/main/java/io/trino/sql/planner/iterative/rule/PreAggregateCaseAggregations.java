@@ -421,8 +421,8 @@ public class PreAggregateCaseAggregations
                     resolvedFunction,
                     cumulativeFunction,
                     name,
-                    caseExpression.whenClauses().get(0).getOperand(),
-                    caseExpression.whenClauses().get(0).getResult(),
+                    caseExpression.whenClauses().get(0).operand(),
+                    caseExpression.whenClauses().get(0).result(),
                     cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), caseExpression.defaultValue(), aggregationType)));
         }
 

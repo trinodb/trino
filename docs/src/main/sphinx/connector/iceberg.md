@@ -1229,6 +1229,11 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     written by this table.
     Defaults to the value of the `parquet.writer.row-group-size` Parquet
     writer configuration property.
+* - `gc_enabled`
+  - Allows garbage collection operations such as expiring snapshots and
+    removing orphan files. Defaults to `true`. See Iceberg's
+    [`gc.enabled`](https://iceberg.apache.org/docs/latest/configuration/?h=gc.enabled#table-behavior-properties)
+    for details.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.

@@ -846,6 +846,18 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCommentMaterializedView(SqlBaseParser.CommentMaterializedViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(visitString(context.string()).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.MATERIALIZED_VIEW, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
     public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
     {
         Optional<String> comment = Optional.empty();
@@ -4780,8 +4792,8 @@ class AstBuilder
         requireNonNull(token, "token is null");
         return baseLocation
                 .map(location -> new NodeLocation(
-                        token.getLine() + location.getLineNumber() - 1,
-                        token.getCharPositionInLine() + 1 + (token.getLine() == 1 ? location.getColumnNumber() : 0)))
+                        token.getLine() + location.line() - 1,
+                        token.getCharPositionInLine() + 1 + (token.getLine() == 1 ? location.column() : 0)))
                 .orElse(new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1));
     }
 

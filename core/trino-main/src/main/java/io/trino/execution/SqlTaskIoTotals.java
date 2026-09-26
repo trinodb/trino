@@ -11,13 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.delete;
+package io.trino.execution;
 
-import io.trino.plugin.iceberg.IcebergColumnHandle;
-
-import java.util.List;
-
-public interface DeleteFilter
+public record SqlTaskIoTotals(long inputDataSize, long inputPositions, long outputDataSize, long outputPositions)
 {
-    PageFilter createPageFilter(List<IcebergColumnHandle> columns, long dataSequenceNumber);
+    public static final SqlTaskIoTotals EMPTY = new SqlTaskIoTotals(0, 0, 0, 0);
+
+    public SqlTaskIoTotals add(SqlTaskIoTotals other)
+    {
+        return new SqlTaskIoTotals(
+                inputDataSize + other.inputDataSize,
+                inputPositions + other.inputPositions,
+                outputDataSize + other.outputDataSize,
+                outputPositions + other.outputPositions);
+    }
 }

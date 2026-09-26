@@ -175,8 +175,8 @@ public class SqlParser
             }
             catch (ParsingException e) {
                 location.ifPresent(statementLocation -> {
-                    int line = statementLocation.getLineNumber();
-                    int column = statementLocation.getColumnNumber();
+                    int line = statementLocation.line();
+                    int column = statementLocation.column();
                     throw new ParsingException(
                             e.getErrorMessage(),
                             (RecognitionException) e.getCause(),

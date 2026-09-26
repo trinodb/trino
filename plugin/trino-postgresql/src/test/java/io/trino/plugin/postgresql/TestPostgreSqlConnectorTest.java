@@ -1121,6 +1121,10 @@ public class TestPostgreSqlConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES 'cba', NULL")
                     .isFullyPushedDown();
+            assertThat(query("SELECT varchar_col.reverse() FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES 'cba', NULL")
+                    .isFullyPushedDown();
 
             assertThat(query("SELECT reverse(varchar_col) FROM " + table.getName() + " WHERE id = 1"))
                     .skippingTypesCheck()

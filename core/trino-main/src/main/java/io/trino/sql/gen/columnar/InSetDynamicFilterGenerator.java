@@ -27,7 +27,11 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.project.InputChannels;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -35,14 +39,12 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
-import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
@@ -56,11 +58,9 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.sql.gen.BytecodeUtils.generateToString;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstanceDirect;
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
-import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterListMethod;
-import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterRangeMethod;
+import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterMethods;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.util.Objects.requireNonNull;
@@ -71,16 +71,21 @@ public final class InSetDynamicFilterGenerator
 {
     private final Reference valueReference;
     private final Map<Symbol, Integer> layout;
+    private final TypeOperators typeOperators;
     private final Type valueType;
-    private final Class<? extends LongSet> setClass;
-    private final LongSet valueSet;
-    private final int valueChannel;
+    private final Class<?> setClass;
+    private final Set<?> valueSet;
 
-    // Returns empty when the IN predicate is not an eligible long-backed dynamic filter, so the caller
+    // Returns empty when the IN predicate is not an eligible dynamic filter, so the caller
     // falls back to the shared cache path.
-    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager)
+    public static Optional<InSetDynamicFilterGenerator> tryCreate(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
     {
-        if (!(in.value() instanceof Reference valueReference) || valueReference.type().getJavaType() != long.class) {
+        if (!(in.value() instanceof Reference valueReference)) {
+            return Optional.empty();
+        }
+        Type valueType = valueReference.type();
+        // FastutilSetHelper does not handle indeterminate values in structural types
+        if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
             return Optional.empty();
         }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
@@ -95,7 +100,6 @@ public final class InSetDynamicFilterGenerator
             return Optional.empty();
         }
 
-        Type valueType = valueReference.type();
         // Small integer IN lists compile to a lookupswitch with tiny baked data; leave them on the
         // shared cache path where the switch is faster and retention is not a concern.
         if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
@@ -105,20 +109,18 @@ public final class InSetDynamicFilterGenerator
         ResolvedFunction resolvedHashCode = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         MethodHandle equalsHandle = functionManager.getScalarFunctionImplementation(resolvedEquals, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle hashCodeHandle = functionManager.getScalarFunctionImplementation(resolvedHashCode, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-        LongSet valueSet = (LongSet) toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
-        return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet));
+        Set<?> valueSet = toFastutilHashSet(values, valueType, hashCodeHandle, equalsHandle);
+        return Optional.of(new InSetDynamicFilterGenerator(valueReference, layout, valueSet, typeOperators));
     }
 
-    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, LongSet valueSet)
+    private InSetDynamicFilterGenerator(Reference valueReference, Map<Symbol, Integer> layout, Set<?> valueSet, TypeOperators typeOperators)
     {
         this.valueReference = requireNonNull(valueReference, "valueReference is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.valueSet = requireNonNull(valueSet, "valueSet is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.valueType = valueReference.type();
-        this.setClass = valueSet.getClass().asSubclass(LongSet.class);
-        Integer channel = layout.get(Symbol.from(valueReference));
-        checkState(channel != null, "Reference not in layout: %s", valueReference.name());
-        valueChannel = channel;
+        this.setClass = valueSet.getClass();
     }
 
     public Type valueType()
@@ -126,12 +128,12 @@ public final class InSetDynamicFilterGenerator
         return valueType;
     }
 
-    public Class<? extends LongSet> setClass()
+    public Class<?> setClass()
     {
         return setClass;
     }
 
-    public LongSet valueSet()
+    public Set<?> valueSet()
     {
         return valueSet;
     }
@@ -149,16 +151,13 @@ public final class InSetDynamicFilterGenerator
         FieldDefinition valueSetField = classDefinition.declareField(a(PRIVATE, FINAL), "valueSet", setClass);
         generateConstructor(classDefinition, inputChannelsField, valueSetField, setClass);
 
-        generateInFilterRangeMethod(
+        generateInFilterMethods(
                 classDefinition,
+                callSiteBinder,
+                typeOperators,
                 valueReference,
                 layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, valueSetField, scope, position, result));
-        generateInFilterListMethod(
-                classDefinition,
-                valueReference,
-                layout,
-                (scope, position, result) -> generateSetContainsCall(callSiteBinder, valueSetField, scope, position, result));
+                (scope, value, result) -> generateSetContainsCall(valueSetField, scope, value, result));
 
         // like every other columnar filter class, describe itself in debuggers and logs; the
         // bound value set is not included, since it can be arbitrarily large and this class is
@@ -169,7 +168,7 @@ public final class InSetDynamicFilterGenerator
         return createClassInstanceDirect(callSiteBinder, classDefinition);
     }
 
-    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField, FieldDefinition valueSetField, Class<? extends LongSet> setClass)
+    private static void generateConstructor(ClassDefinition classDefinition, FieldDefinition inputChannelsField, FieldDefinition valueSetField, Class<?> setClass)
     {
         Parameter inputChannelsParam = arg("inputChannels", InputChannels.class);
         Parameter valueSetParam = arg("valueSet", setClass);
@@ -186,15 +185,16 @@ public final class InSetDynamicFilterGenerator
         body.ret();
     }
 
-    private BytecodeBlock generateSetContainsCall(CallSiteBinder binder, FieldDefinition valueSetField, Scope scope, BytecodeExpression position, Variable result)
+    private BytecodeBlock generateSetContainsCall(FieldDefinition valueSetField, Scope scope, BytecodeExpression value, Variable result)
     {
-        Type valueType = valueReference.type();
-        BytecodeExpression value = constantType(binder, valueType)
-                .invoke("getLong", long.class, scope.getVariable("block_" + valueChannel), position);
+        BytecodeExpression element = value;
+        if (!valueType.getJavaType().isPrimitive()) {
+            element = value.cast(Object.class);
+        }
         return new BytecodeBlock()
-                .comment("valueSet.contains(<stackValue>)")
+                .comment("valueSet.contains(value)")
                 .append(result.set(scope.getThis()
                         .getField(valueSetField)
-                        .invoke("contains", boolean.class, value)));
+                        .invoke("contains", boolean.class, element)));
     }
 }

@@ -528,6 +528,12 @@ public sealed class OpaAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewComment(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        checkTableOperation(context, "SetMaterializedViewComment", materializedView, AccessDeniedException::denyCommentMaterializedView);
+    }
+
+    @Override
     public void checkCanDropMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         checkTableOperation(context, "DropMaterializedView", materializedView, AccessDeniedException::denyDropMaterializedView);

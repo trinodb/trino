@@ -27,6 +27,7 @@ import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
@@ -105,6 +106,20 @@ public final class IrExpressions
     private static Call operatorCall(Metadata metadata, CharVarcharCoercion charVarcharCoercion, OperatorType operator, Expression left, Expression right)
     {
         return call(metadata.resolveOperator(charVarcharCoercion, operator, ImmutableList.of(left.type(), right.type())), left, right);
+    }
+
+    /// Whether the call is `at_timezone` over a `timestamp with time zone` value. `at_timezone` changes
+    /// only the zone the value is rendered in, never its instant, so instant-based comparisons over it
+    /// constrain the underlying value exactly as a direct comparison would. Restricted to
+    /// `timestamp with time zone`: the `time with time zone` variant interacts with comparison
+    /// semantics differently. Both the varchar-zone and interval-offset overloads qualify; the
+    /// argument type check excludes any form that changes precision.
+    public static boolean isAtTimeZone(Call call)
+    {
+        return call.function().name().equals(builtinFunctionName("at_timezone")) &&
+                call.arguments().size() == 2 &&
+                call.type() instanceof TimestampWithTimeZoneType &&
+                call.arguments().getFirst().type().equals(call.type());
     }
 
     /// Decodes the canonical IR form of a comparison back into its operator and operands, or
@@ -334,10 +349,10 @@ public final class IrExpressions
             return null;
         }
         WhenClause when = caseExpression.whenClauses().get(0);
-        if (!(matchComparison(when.getOperand()) instanceof Comparison.Equal(Expression left, Expression right))) {
+        if (!(matchComparison(when.operand()) instanceof Comparison.Equal(Expression left, Expression right))) {
             return null;
         }
-        if (!isConstantNull(when.getResult())) {
+        if (!isConstantNull(when.result())) {
             return null;
         }
         if (!caseExpression.defaultValue().equals(left)) {
@@ -426,7 +441,7 @@ public final class IrExpressions
                 case Comparison comparison -> mayBeNull(plannerContext, charVarcharCoercion, comparison.left(), referencesMayBeNull) ||
                         mayBeNull(plannerContext, charVarcharCoercion, comparison.right(), referencesMayBeNull);
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.getResult(), referencesMayBeNull)) ||
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
@@ -481,7 +496,7 @@ public final class IrExpressions
                 case null -> mayFail(e) || e.arguments().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
                 case Comparison comparison -> mayFail(plannerContext, charVarcharCoercion, comparison.left()) || mayFail(plannerContext, charVarcharCoercion, comparison.right());
             };
-            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.getOperand()) || mayFail(plannerContext, charVarcharCoercion, clause.getResult())) ||
+            case Case e -> e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, charVarcharCoercion, clause.operand()) || mayFail(plannerContext, charVarcharCoercion, clause.result())) ||
                     mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
             case Cast e -> mayFail(plannerContext, charVarcharCoercion, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
