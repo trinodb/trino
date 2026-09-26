@@ -63,7 +63,7 @@ public class RenameViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName viewName = metadata.getWriteRedirectedTableName(session, createQualifiedObjectName(session, statement, statement.getSource()));
         if (metadata.isMaterializedView(session, viewName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -86,7 +86,7 @@ public class RenameViewTask
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
-        QualifiedObjectName target = createTargetQualifiedObjectName(viewName, statement.getTarget());
+        QualifiedObjectName target = metadata.getWriteRedirectedTableName(session, createTargetQualifiedObjectName(viewName, statement.getTarget()));
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }
