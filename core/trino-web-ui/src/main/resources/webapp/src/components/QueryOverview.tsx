@@ -573,6 +573,13 @@ export const QueryOverview = () => {
                                             <TableCell sx={{ fontWeight: 'bold' }}>Queued time</TableCell>
                                             <TableCell>{queryStatusInfo.queryStats.queuedTime}</TableCell>
                                         </TableRow>
+                                        {queryStatusInfo.state === 'QUEUED' &&
+                                            queryStatusInfo.queuePosition != null && (
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>Position in queue</TableCell>
+                                                    <TableCell>{queryStatusInfo.queuePosition}</TableCell>
+                                                </TableRow>
+                                            )}
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 'bold' }}>Elapsed time</TableCell>
                                             <TableCell>{queryStatusInfo.queryStats.elapsedTime}</TableCell>
