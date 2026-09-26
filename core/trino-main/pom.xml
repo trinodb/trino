@@ -235,10 +235,6 @@
             <exclusions>
                 <exclusion>
                     <groupId>com.squareup.okhttp3</groupId>
-                    <artifactId>okhttp</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.squareup.okhttp3</groupId>
                     <artifactId>okhttp-urlconnection</artifactId>
                 </exclusion>
             </exclusions>

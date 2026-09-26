@@ -189,16 +189,6 @@
             <artifactId>json-serde</artifactId>
             <version>1.3.9-e.12</version>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-exec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.hive</groupId>
-                    <artifactId>hive-serde</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
