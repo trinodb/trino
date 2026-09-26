@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.system;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.type.RowType;

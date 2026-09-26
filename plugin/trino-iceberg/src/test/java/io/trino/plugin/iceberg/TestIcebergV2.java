@@ -740,12 +740,12 @@ public class TestIcebergV2
                     .returnsEmptyResult();
 
             // verify equality deletes work with nested field and querying metadata columns
-            assertThat(query("SELECT \"$partition\" FROM " + tableName))
-                    .matches("VALUES VARCHAR ''");
-            assertThat(query("SELECT root.nested, \"$partition\" FROM " + tableName))
-                    .matches("VALUES (BIGINT '10', VARCHAR '')");
-            assertThat(query("SELECT \"$partition\", root.nested FROM " + tableName))
-                    .matches("VALUES (VARCHAR '', BIGINT '10')");
+            assertThat(query("SELECT \"$path\" IS NOT NULL FROM " + tableName))
+                    .matches("VALUES true");
+            assertThat(query("SELECT root.nested, \"$path\" IS NOT NULL FROM " + tableName))
+                    .matches("VALUES (BIGINT '10', true)");
+            assertThat(query("SELECT \"$path\" IS NOT NULL, root.nested FROM " + tableName))
+                    .matches("VALUES (true, BIGINT '10')");
         }
     }
 

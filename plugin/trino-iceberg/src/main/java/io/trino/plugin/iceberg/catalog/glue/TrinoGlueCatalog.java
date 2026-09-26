@@ -141,6 +141,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREV
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -469,7 +470,7 @@ public class TrinoGlueCatalog
             List<ColumnMetadata> columns;
             try {
                 org.apache.iceberg.Table icebergTable = loadTable(session, tableName);
-                columns = getColumnMetadatas(icebergTable.schema(), typeManager, TableUtil.formatVersion(icebergTable));
+                columns = getColumnMetadatas(icebergTable.schema(), getPartitionColumn(icebergTable.schema(), icebergTable.specs(), typeManager), typeManager, TableUtil.formatVersion(icebergTable));
             }
             catch (RuntimeException e) {
                 logSkippedRelation(e, tableName);
