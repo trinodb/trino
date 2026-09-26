@@ -144,7 +144,7 @@ public abstract class AbstractTestQueryFramework
     private void checkQueryMemoryReleased()
     {
         tryGetDistributedQueryRunner().ifPresent(runner -> assertEventually(
-                new Duration(30, SECONDS),
+                getMemoryReleaseTimeout(),
                 new Duration(1, SECONDS),
                 () -> {
                     List<TestingTrinoServer> servers = runner.getServers();
@@ -157,6 +157,15 @@ public abstract class AbstractTestQueryFramework
                             .describedAs("cluster memory reservation")
                             .isZero();
                 }));
+    }
+
+    /**
+     * Maximum time to wait, during teardown, for query memory to be released.
+     * Override for execution modes that need longer (e.g. fault-tolerant execution).
+     */
+    protected Duration getMemoryReleaseTimeout()
+    {
+        return new Duration(30, SECONDS);
     }
 
     private void assertMemoryPoolReleased(TestingTrinoServer coordinator, TestingTrinoServer server, long serverId)

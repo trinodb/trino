@@ -13,7 +13,11 @@
  */
 package io.trino.testing;
 
+import io.airlift.units.Duration;
+
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public abstract class AbstractTestFaultTolerantExecutionJoinQueries
         extends AbstractTestJoinQueries
@@ -27,4 +31,11 @@ public abstract class AbstractTestFaultTolerantExecutionJoinQueries
 
     protected abstract QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception;
+
+    @Override
+    protected Duration getMemoryReleaseTimeout()
+    {
+        // Filesystem-exchange cleanup can push memory release past the default timeout.
+        return new Duration(60, SECONDS);
+    }
 }
