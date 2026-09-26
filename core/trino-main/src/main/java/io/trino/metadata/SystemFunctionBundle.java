@@ -168,6 +168,9 @@ import io.trino.operator.scalar.MultimapFromEntriesFunction;
 import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.RegulatorRegexpCasts;
+import io.trino.operator.scalar.RegulatorRegexpFunctions;
+import io.trino.operator.scalar.RegulatorRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
@@ -277,9 +280,11 @@ import io.trino.type.IntervalDayTimeOperators;
 import io.trino.type.IntervalYearMonthOperators;
 import io.trino.type.IpAddressOperators;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePatternFunctions;
 import io.trino.type.NumberOperators;
 import io.trino.type.QuantileDigestOperators;
 import io.trino.type.RealOperators;
+import io.trino.type.RegulatorLikePatternFunctions;
 import io.trino.type.SmallintOperators;
 import io.trino.type.TDigestOperators;
 import io.trino.type.TinyintOperators;
@@ -533,6 +538,7 @@ public final class SystemFunctionBundle
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
+                .scalars(RegulatorRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharToVarcharCast.class)
                 .scalars(LuhnCheckFunction.class)
@@ -788,10 +794,19 @@ public final class SystemFunctionBundle
                 builder.scalars(JoniRegexpFunctions.class);
                 builder.scalar(JoniRegexpReplaceLambdaFunction.class);
             }
+            case REGULATOR -> {
+                builder.scalars(RegulatorRegexpFunctions.class);
+                builder.scalar(RegulatorRegexpReplaceLambdaFunction.class);
+            }
             case RE2J -> {
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
             }
+        }
+
+        switch (featuresConfig.getLikeLibrary()) {
+            case TRINO -> builder.scalars(LikePatternFunctions.class);
+            case REGULATOR -> builder.scalars(RegulatorLikePatternFunctions.class);
         }
 
         return builder.build();

@@ -11,23 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.query;
+package io.trino.likematcher;
 
-import org.junit.jupiter.api.Test;
+import io.trino.type.LikePattern;
 
-import static io.trino.sql.analyzer.RegexLibrary.JONI;
+import java.util.Optional;
 
-public class TestJsonExistsFunction
-        extends AbstractTestJsonExistsFunction
+import static io.trino.type.LikeLibrary.REGULATOR;
+
+public class TestRegulatorLikeMatcher
+        extends AbstractTestLikeMatcher
 {
-    public TestJsonExistsFunction()
+    @Override
+    protected LikePattern compile(String pattern, Optional<Character> escape)
     {
-        super(JONI);
-    }
-
-    @Test
-    public void testMultilineBeginLineOperations()
-    {
-        assertMultilineBeginLineOperations();
+        return LikePattern.compile(pattern, escape, REGULATOR);
     }
 }

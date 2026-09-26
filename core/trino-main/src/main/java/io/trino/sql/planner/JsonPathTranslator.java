@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.jsonpath.JsonPathRegex;
 import io.trino.jsonpath.XQueryRegex;
 import io.trino.jsonpath.ir.IrAbsMethod;
 import io.trino.jsonpath.ir.IrArithmeticBinary;
@@ -92,6 +93,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.jsonpath.ir.IrArithmeticBinary.Operator.ADD;
 import static io.trino.jsonpath.ir.IrArithmeticBinary.Operator.DIVIDE;
 import static io.trino.jsonpath.ir.IrArithmeticBinary.Operator.MODULO;
@@ -132,6 +134,8 @@ class JsonPathTranslator
             extends JsonPathTreeVisitor<IrPathNode, Void>
     {
         private final LiteralInterpreter literalInterpreter;
+        private final Session session;
+        private final PlannerContext plannerContext;
         private final JsonPathAnalysis pathAnalysis;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
@@ -144,6 +148,8 @@ class JsonPathTranslator
             requireNonNull(pathAnalysis, "pathAnalysis is null");
             requireNonNull(parametersOrder, "parametersOrder is null");
 
+            this.session = session;
+            this.plannerContext = plannerContext;
             this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
             this.pathAnalysis = pathAnalysis;
             this.types = pathAnalysis.getTypes();
@@ -390,11 +396,11 @@ class JsonPathTranslator
             checkArgument(BOOLEAN.equals(types.get(PathNodeRef.of(node))), "Wrong predicate type. Expected BOOLEAN");
 
             IrPathNode path = process(node.getPath());
-            // Translate XQuery→Java regex syntax once at planning time. The translated pattern
-            // rides in the IR; JsonPathAnalyzer has already validated both the flag set and the
-            // regex syntax, so reaching here means the pattern is well-formed.
+            // Encode the XQuery flags in the pattern once at planning time. The pattern rides in
+            // the IR; JsonPathAnalyzer has already validated both the flag set and the regex
+            // syntax, so reaching here means the pattern is well-formed.
             String translated = XQueryRegex.patternWithFlags(node.getPattern(), XQueryRegex.parseFlags(node.getFlag().orElse("")));
-            return new IrLikeRegexPredicate(path, translated);
+            return new IrLikeRegexPredicate(path, translated, JsonPathRegex.resolveRegexType(plannerContext.getMetadata(), getCharVarcharCoercion(session)));
         }
 
         @Override

@@ -11,33 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.scalar;
+package io.trino.type;
 
+import io.airlift.regulator.TrinoRegexp;
 import io.airlift.slice.Slice;
-import io.trino.sql.query.QueryAssertions;
-import io.trino.type.LikePattern;
-import io.trino.type.LikePatternFunctions;
 
-import java.util.Optional;
+import static java.util.Objects.requireNonNull;
 
-public class TestLikeFunctions
-        extends AbstractTestLikeFunctions
+public final class RegulatorRegexp
 {
-    @Override
-    protected QueryAssertions createQueryAssertions()
+    private final Slice pattern;
+    private final TrinoRegexp regex;
+
+    public RegulatorRegexp(Slice pattern, TrinoRegexp regex)
     {
-        return new QueryAssertions();
+        this.pattern = requireNonNull(pattern, "pattern is null");
+        this.regex = requireNonNull(regex, "regex is null");
+    }
+
+    public Slice pattern()
+    {
+        return pattern;
+    }
+
+    public TrinoRegexp regex()
+    {
+        return regex;
     }
 
     @Override
-    protected LikePattern compilePattern(String pattern, Optional<Character> escape)
+    public String toString()
     {
-        return LikePattern.compile(pattern, escape);
-    }
-
-    @Override
-    protected LikePattern likePattern(Slice pattern, Slice escape)
-    {
-        return LikePatternFunctions.likePattern(pattern, escape);
+        return pattern.toStringUtf8();
     }
 }

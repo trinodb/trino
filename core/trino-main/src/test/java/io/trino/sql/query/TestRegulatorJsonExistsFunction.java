@@ -15,19 +15,30 @@ package io.trino.sql.query;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.sql.analyzer.RegexLibrary.JONI;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
+import static io.trino.sql.analyzer.RegexLibrary.REGULATOR;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestJsonExistsFunction
+public class TestRegulatorJsonExistsFunction
         extends AbstractTestJsonExistsFunction
 {
-    public TestJsonExistsFunction()
+    public TestRegulatorJsonExistsFunction()
     {
-        super(JONI);
+        super(REGULATOR);
     }
 
     @Test
     public void testMultilineBeginLineOperations()
     {
         assertMultilineBeginLineOperations();
+    }
+
+    @Test
+    public void testUnsupportedPatternFailsDuringAnalysis()
+    {
+        assertThat(assertions.query("SELECT json_exists('\"a\"', 'lax $ ? (@ like_regex \"a{1001}\")' TRUE ON ERROR)"))
+                .failure()
+                .hasErrorCode(INVALID_PATH)
+                .hasMessageContaining("invalid like_regex pattern");
     }
 }

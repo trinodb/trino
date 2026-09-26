@@ -1,17 +1,59 @@
-# Regular expression function properties
+# Regular expression function and LIKE operator properties
 
-These properties allow tuning the {doc}`/functions/regexp`.
+These properties configure {doc}`/functions/regexp` and the SQL `LIKE` operator.
 
 ## `regex-library`
 
 - **Type:** {ref}`prop-type-string`
-- **Allowed values:** `JONI`, `RE2J`
+- **Allowed values:** `JONI`, `REGULATOR`, `RE2J`
 - **Default value:** `JONI`
 
-Which library to use for regular expression functions.
-`JONI` is generally faster for common usage, but can require exponential
-time for certain expression patterns. `RE2J` uses a different algorithm,
-which guarantees linear time, but is often slower.
+Selects the regular expression engine for the server, including JSON path
+`like_regex` predicates. Set the same value on the coordinator and all workers.
+There is no session override. For example, to use Regulator:
+
+```properties
+regex-library=REGULATOR
+```
+
+`JONI` uses Trino's fork of Joni. It supports backtracking, which can require
+exponential time for some patterns. `REGULATOR` uses Airlift Regulator 1.1 and
+provides linear-time matching with bounded memory. It operates directly on
+Trino's UTF-8 strings. `RE2J` remains available as a legacy option.
+
+Regulator supports the regular subset of Trino's regex language. It rejects
+lookahead, lookbehind, backreferences, atomic groups, possessive quantifiers,
+`\G`, `\Z`, and repetition counts above 1,000. Unsupported patterns fail with
+an error; the server does not fall back to Joni. Supported patterns can also
+differ in Unicode case folding and capture-sensitive loops that match empty
+input. See the [Regulator 1.1 language reference](https://github.com/airlift/regulator/blob/1.1/docs/reference/languages/TRINO_REGEXP.md)
+for the full compatibility details.
+
+The former `deprecated.regex-library` property is accepted as an alias.
+
+## `like-library`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `TRINO`, `REGULATOR`
+- **Default value:** `TRINO`
+
+Selects the engine for SQL `LIKE` and `NOT LIKE` expressions. `TRINO` uses the
+existing Trino LIKE matcher. `REGULATOR` uses Airlift Regulator's dedicated LIKE
+matcher, which supports `%`, `_`, and escape characters directly.
+
+This setting is independent of `regex-library` and has no session override.
+Set the same value on the coordinator and all workers. To use Regulator for
+both regular expressions and LIKE:
+
+```properties
+regex-library=REGULATOR
+like-library=REGULATOR
+```
+
+Both engines preserve Trino's CHAR padding and escape validation. As with the
+Trino matcher, escape characters outside the Unicode Basic Multilingual Plane
+are rejected. Regulator LIKE does not translate patterns to regular expressions
+or fall back to the Trino matcher.
 
 ## `re2j.dfa-states-limit`
 

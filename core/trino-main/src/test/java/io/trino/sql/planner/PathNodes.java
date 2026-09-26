@@ -66,6 +66,7 @@ import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.LESS_THAN_OR_E
 import static io.trino.jsonpath.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
 import static io.trino.jsonpath.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 
 public class PathNodes
 {
@@ -275,12 +276,12 @@ public class PathNodes
 
     public static IrPredicate likeRegex(IrPathNode path, String pattern)
     {
-        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags("")));
+        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags("")), JONI_REGEXP);
     }
 
     public static IrPredicate likeRegex(IrPathNode path, String pattern, String flag)
     {
-        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags(flag)));
+        return new IrLikeRegexPredicate(path, XQueryRegex.patternWithFlags(pattern, XQueryRegex.parseFlags(flag)), JONI_REGEXP);
     }
 
     public static IrPredicate negation(IrPredicate predicate)
