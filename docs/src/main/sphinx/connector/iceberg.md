@@ -267,6 +267,11 @@ implementation is used:
   - Number of threads to use for deleting files when running the `expire_snapshots`
     or `remove_orphan_files` procedure, or when executing `DROP TABLE` queries.
   - Double the number of processors on the coordinator node.
+* - `iceberg.delete-loading-threads`
+  - Number of threads used per catalog per node to load position and equality delete
+    files in parallel. The default matches `task.max-worker-threads`,
+    consider raising this property if that property has been increased.
+  - Double the number of processors on the worker node.
 * - `iceberg.bucket-execution`
   - Enable bucket-aware execution. This allows the engine to use physical
     bucketing information to optimize queries by reducing data exchanges.
