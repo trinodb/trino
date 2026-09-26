@@ -16,15 +16,19 @@ package io.trino.operator.scalar.timestamp;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -37,22 +41,15 @@ public final class FormatDateTime
 {
     private FormatDateTime() {}
 
-    @LiteralParameters({"x", "p"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
+    private static Slice format(ConnectorSession session, long timestamp, DateTimeFormatter formatter)
     {
         // TODO: currently, date formatting only supports up to millis, so we round to that unit
         timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
 
-        if (datetimeFormatSpecifiesZone(formatString)) {
-            // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
-        }
         ISOChronology chronology = ISOChronology.getInstanceUTC();
 
         try {
-            return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
-                    .withChronology(chronology)
+            return utf8Slice(formatter.withChronology(chronology)
                     .withLocale(session.getLocale())
                     .print(timestamp));
         }
@@ -61,12 +58,18 @@ public final class FormatDateTime
         }
     }
 
-    @LiteralParameters({"x", "p"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice formatDatetime(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
+    private static DateTimeFormatter createFormatter(Slice formatString)
     {
-        // Currently, date formatting only supports up to millis, so anything in the microsecond fraction is irrelevant
-        return format(session, timestamp.getEpochMicros(), formatString);
+        if (datetimeFormatSpecifiesZone(formatString)) {
+            // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+        }
+        try {
+            return DateTimeFormat.forPattern(formatString.toStringUtf8());
+        }
+        catch (Exception e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     /**
@@ -95,5 +98,50 @@ public final class FormatDateTime
             }
         }
         return false;
+    }
+
+    @ScalarFunctionImplementationChoice
+    public static final class Row
+    {
+        private Row() {}
+
+        @LiteralParameters({"x", "p"})
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
+        {
+            return FormatDateTime.format(session, timestamp, createFormatter(formatString));
+        }
+
+        @LiteralParameters({"x", "p"})
+        @SqlType(StandardTypes.VARCHAR)
+        public static Slice formatDatetime(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
+        {
+            return FormatDateTime.format(session, timestamp.getEpochMicros(), createFormatter(formatString));
+        }
+    }
+
+    @ConstantSpecialization(arguments = 1)
+    public static final class ConstantFormat
+    {
+        private final DateTimeFormatter formatter;
+
+        public ConstantFormat(@ConstantArgument(1) Slice formatString)
+        {
+            formatter = createFormatter(formatString);
+        }
+
+        @LiteralParameters("p")
+        @SqlType(StandardTypes.VARCHAR)
+        public Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+        {
+            return FormatDateTime.format(session, timestamp, formatter);
+        }
+
+        @LiteralParameters("p")
+        @SqlType(StandardTypes.VARCHAR)
+        public Slice formatDatetime(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+        {
+            return FormatDateTime.format(session, timestamp.getEpochMicros(), formatter);
+        }
     }
 }

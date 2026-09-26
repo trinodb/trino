@@ -14,11 +14,15 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.function.ConstantArgument;
+import io.trino.spi.function.ConstantSpecialization;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementationChoice;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
+import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
@@ -31,30 +35,63 @@ public final class DateTrunc
 {
     private DateTrunc() {}
 
-    @LiteralParameters({"x", "p"})
-    @SqlType("timestamp(p)")
-    public static long truncate(
-            @SqlType("varchar(x)") Slice unit,
-            @SqlType("timestamp(p)") long timestamp)
+    private static long truncate(DateTimeField field, long timestamp)
     {
         timestamp = scaleEpochMicrosToMillis(timestamp);
-
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(timestamp);
-
+        long result = field.roundFloor(timestamp);
         return scaleEpochMillisToMicros(result);
     }
 
-    @LiteralParameters({"x", "p"})
-    @SqlType("timestamp(p)")
-    public static LongTimestamp truncate(
-            @SqlType("varchar(x)") Slice unit,
-            @SqlType("timestamp(p)") LongTimestamp timestamp)
+    private static LongTimestamp truncate(DateTimeField field, LongTimestamp timestamp)
     {
         long epochMillis = scaleEpochMicrosToMillis(timestamp.getEpochMicros());
-
-        long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(epochMillis);
-
+        long result = field.roundFloor(epochMillis);
         // smallest unit of truncation is "millisecond", so the fraction is always 0
         return new LongTimestamp(scaleEpochMillisToMicros(result), 0);
+    }
+
+    @ScalarFunctionImplementationChoice
+    public static final class Row
+    {
+        private Row() {}
+
+        @LiteralParameters({"x", "p"})
+        @SqlType("timestamp(p)")
+        public static long truncate(@SqlType("varchar(x)") Slice unit, @SqlType("timestamp(p)") long timestamp)
+        {
+            return DateTrunc.truncate(getTimestampField(ISOChronology.getInstanceUTC(), unit), timestamp);
+        }
+
+        @LiteralParameters({"x", "p"})
+        @SqlType("timestamp(p)")
+        public static LongTimestamp truncate(@SqlType("varchar(x)") Slice unit, @SqlType("timestamp(p)") LongTimestamp timestamp)
+        {
+            return DateTrunc.truncate(getTimestampField(ISOChronology.getInstanceUTC(), unit), timestamp);
+        }
+    }
+
+    @ConstantSpecialization(arguments = 0)
+    public static final class ConstantUnit
+    {
+        private final DateTimeField field;
+
+        public ConstantUnit(@ConstantArgument(0) Slice unit)
+        {
+            field = getTimestampField(ISOChronology.getInstanceUTC(), unit);
+        }
+
+        @LiteralParameters("p")
+        @SqlType("timestamp(p)")
+        public long truncate(@SqlType("timestamp(p)") long timestamp)
+        {
+            return DateTrunc.truncate(field, timestamp);
+        }
+
+        @LiteralParameters("p")
+        @SqlType("timestamp(p)")
+        public LongTimestamp truncate(@SqlType("timestamp(p)") LongTimestamp timestamp)
+        {
+            return DateTrunc.truncate(field, timestamp);
+        }
     }
 }
