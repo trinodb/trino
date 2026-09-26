@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -82,6 +83,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -258,6 +260,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // NaN payloads may hash differently, so the bloom filter cannot eliminate this overlap.
+            if (effectivePredicateDomain.getValues() instanceof FloatingPointValueSet floatingPoint && floatingPoint.isNaNAllowed()) {
+                continue;
+            }
+
             Optional<Collection<Object>> discreteValues = extractDiscreteValues(domainCompactionThreshold, effectivePredicateDomain.getValues());
             // values are not discrete, so bloom filter isn't helpful
             if (discreteValues.isEmpty()) {
@@ -415,7 +422,7 @@ public class TupleDomainParquetPredicate
 
                 rangesBuilder.addRangeInclusive((long) floatToRawIntBits(min), (long) floatToRawIntBits(max));
             }
-            return Domain.create(rangesBuilder.build(), hasNullValue);
+            return Domain.create(new FloatingPointValueSet(rangesBuilder.build(), true), hasNullValue);
         }
 
         if (type.equals(DOUBLE)) {
@@ -430,7 +437,7 @@ public class TupleDomainParquetPredicate
 
                 rangesBuilder.addRangeInclusive(min, max);
             }
-            return Domain.create(rangesBuilder.build(), hasNullValue);
+            return Domain.create(new FloatingPointValueSet(rangesBuilder.build(), true), hasNullValue);
         }
 
         if (type instanceof VarcharType) {
@@ -652,6 +659,15 @@ public class TupleDomainParquetPredicate
         }
 
         // TODO: when min == max (i.e., singleton ranges, the construction of Domains can be done more efficiently
+        // A complete dictionary establishes NaN membership, unlike min/max statistics.
+        if (type.equals(DOUBLE)) {
+            return Domain.create(ValueSet.copyOf(type, values), dictionaryDescriptor.isNullAllowed());
+        }
+        if (type.equals(REAL)) {
+            return Domain.create(ValueSet.copyOf(type, values.stream()
+                    .map(value -> (long) floatToRawIntBits((float) value))
+                    .toList()), dictionaryDescriptor.isNullAllowed());
+        }
         return getDomain(columnDescriptor, type, values, values, dictionaryDescriptor.isNullAllowed(), timeZone);
     }
 
@@ -701,6 +717,11 @@ public class TupleDomainParquetPredicate
     @VisibleForTesting
     public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
     {
+        // Different NaN payloads have the same Trino membership but may hash differently.
+        if (isFloatingPointNaN(sqlType, predicateValue)) {
+            return true;
+        }
+
         // TODO: Support TIMESTAMP, CHAR and DECIMAL
         if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == DATE) {
             return bloomFilter.findHash(bloomFilter.hash(toIntExact(((Number) predicateValue).longValue())));

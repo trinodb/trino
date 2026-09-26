@@ -96,6 +96,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -227,8 +228,8 @@ public class IgniteClient
             case Types.SMALLINT -> Optional.of(smallintColumnMapping());
             case Types.INTEGER -> Optional.of(integerColumnMapping());
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
-            case Types.FLOAT -> Optional.of(realColumnMapping());
-            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.FLOAT -> Optional.of(realColumnMapping(FLOATING_POINT_PUSHDOWN));
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping(FLOATING_POINT_PUSHDOWN));
             case Types.DECIMAL -> {
                 int decimalDigits = typeHandle.requiredDecimalDigits();
                 int precision = typeHandle.requiredColumnSize();

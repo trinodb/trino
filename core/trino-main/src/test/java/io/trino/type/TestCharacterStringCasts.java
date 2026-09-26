@@ -13,6 +13,14 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
+import io.trino.Session;
+import io.trino.metadata.FunctionPreimages;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
+import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,11 +29,13 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
-import static io.trino.operator.scalar.LegacyVarcharToCharSaturatedFloorCast.varcharToCharSaturatedFloorCast;
+import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingSession.testSession;
+import static io.trino.type.CharVarcharCoercion.LEGACY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -192,95 +202,75 @@ public class TestCharacterStringCasts
     }
 
     @Test
-    public void testLegacyVarcharToCharSaturatedFloorCast()
+    public void testLegacyCharPreimages()
     {
         String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
         String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
 
-        assertThat(varcharToCharSaturatedFloorCast(
-                5L,
-                utf8Slice("123" + new String(Character.toChars(0xE000))))).isEqualTo(utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
+        assertLegacyCharPreimage(5, utf8Slice("123" + new String(Character.toChars(0xE000))), utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
 
         // Truncation
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12345"))).isEqualTo(utf8Slice("1234"));
+        assertLegacyCharPreimage(4, utf8Slice("12345"), utf8Slice("1234"));
 
         // Size fits, preserved
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1234"))).isEqualTo(utf8Slice("1234"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("123" + NON_BMP_CHARACTER));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("12" + NON_BMP_CHARACTER + "3"));
+        assertLegacyCharPreimage(4, utf8Slice("1234"), utf8Slice("1234"));
+        assertLegacyCharPreimage(4, utf8Slice("123" + NON_BMP_CHARACTER), utf8Slice("123" + NON_BMP_CHARACTER));
+        assertLegacyCharPreimage(4, utf8Slice("12" + NON_BMP_CHARACTER + "3"), utf8Slice("12" + NON_BMP_CHARACTER + "3"));
 
         // Size fits, preserved except char(4) representation has trailing spaces removed
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123 "))).isEqualTo(utf8Slice("123"));
+        assertLegacyCharPreimage(4, utf8Slice("123 "), utf8Slice("123"));
 
         // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), so last character needs decrementing
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("123"))).isEqualTo(utf8Slice("122" + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12 "))).isEqualTo(utf8Slice("12" + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1  "))).isEqualTo(utf8Slice("1 " + codePointBeforeSpace + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice(" "))).isEqualTo(utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12" + NON_BMP_CHARACTER))).isEqualTo(utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1" + NON_BMP_CHARACTER + "3"))).isEqualTo(utf8Slice("1" + NON_BMP_CHARACTER + "2" + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("123"), utf8Slice("122" + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("12 "), utf8Slice("12" + codePointBeforeSpace + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("1  "), utf8Slice("1 " + codePointBeforeSpace + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice(" "), utf8Slice(codePointBeforeSpace + maxCodePoint + maxCodePoint + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("12" + NON_BMP_CHARACTER), utf8Slice("12" + nonBmpCharacterMinusOne + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("1" + NON_BMP_CHARACTER + "3"), utf8Slice("1" + NON_BMP_CHARACTER + "2" + maxCodePoint));
 
         // Too short, casted back would be padded with ' ' and thus made greater (VarcharOperators.lessThan), previous to last needs decrementing since last is \0
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("12\0"))).isEqualTo(utf8Slice("11" + maxCodePoint + maxCodePoint));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("1\0"))).isEqualTo(utf8Slice("0" + maxCodePoint + maxCodePoint + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("12\0"), utf8Slice("11" + maxCodePoint + maxCodePoint));
+        assertLegacyCharPreimage(4, utf8Slice("1\0"), utf8Slice("0" + maxCodePoint + maxCodePoint + maxCodePoint));
 
         // Smaller than any char(4) casted back to varchar, so the result is lowest char(4) possible
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice("\0\0"))).isEqualTo(utf8Slice("\0\0\0\0"));
-        assertThat(varcharToCharSaturatedFloorCast(
-                4L,
-                utf8Slice(""))).isEqualTo(utf8Slice("\0\0\0\0"));
+        assertLegacyCharPreimage(4, utf8Slice("\0"), utf8Slice("\0\0\0\0"));
+        assertLegacyCharPreimage(4, utf8Slice("\0\0"), utf8Slice("\0\0\0\0"));
+        assertLegacyCharPreimage(4, utf8Slice(""), utf8Slice("\0\0\0\0"));
     }
 
     @Test
-    public void testVarcharToVarcharSaturatedFloorCast()
+    public void testVarcharPreimages()
     {
-        assertVarcharToVarcharSaturatedFloorCast(4L, "12345", "1234");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "12345", "12345");
-        assertVarcharToVarcharSaturatedFloorCast(6L, "12345", "12345");
+        assertVarcharPreimage(4L, "12345", "1234");
+        assertVarcharPreimage(5L, "12345", "12345");
+        assertVarcharPreimage(6L, "12345", "12345");
 
-        assertVarcharToVarcharSaturatedFloorCast(4L, "123  ", "123 ");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "123  ", "123  ");
+        assertVarcharPreimage(4L, "123  ", "123 ");
+        assertVarcharPreimage(5L, "123  ", "123  ");
 
-        assertVarcharToVarcharSaturatedFloorCast(4L, "1234" + NON_BMP_CHARACTER, "1234");
-        assertVarcharToVarcharSaturatedFloorCast(5L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
-        assertVarcharToVarcharSaturatedFloorCast(6L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
+        assertVarcharPreimage(4L, "1234" + NON_BMP_CHARACTER, "1234");
+        assertVarcharPreimage(5L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
+        assertVarcharPreimage(6L, "1234" + NON_BMP_CHARACTER, "1234" + NON_BMP_CHARACTER);
     }
 
-    private void assertVarcharToVarcharSaturatedFloorCast(long length, String baseString, String expected)
+    private void assertVarcharPreimage(long length, String baseString, String expected)
     {
-        assertThat(varcharToVarcharSaturatedFloorCast(length, utf8Slice(baseString)))
-                .isEqualTo(utf8Slice(expected));
+        Domain result = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice(baseString))), false);
+        var source = createVarcharType((int) length);
+        assertThat(new FunctionPreimages(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeManager(), testSession()).castPreimage(result, source))
+                .isEqualTo(Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(source, utf8Slice(expected))), false));
+    }
+
+    private void assertLegacyCharPreimage(int length, Slice value, Slice expectedBound)
+    {
+        Session session = Session.builder(testSession()).setSystemProperty(LEGACY_VARCHAR_TO_CHAR_COERCION, "true").build();
+        CharType source = createCharType(length);
+        Domain result = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, value)), false);
+        Slice roundTrip = (Slice) new InterpretedFunctionInvoker(PLANNER_CONTEXT.getFunctionManager()).invoke(
+                PLANNER_CONTEXT.getMetadata().getCoercion(LEGACY, source, VARCHAR), session.toConnectorSession(), expectedBound);
+        Domain expected = roundTrip.compareTo(value) > 0 ? Domain.none(source) : Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(source, expectedBound)), false);
+        assertThat(new FunctionPreimages(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getFunctionManager(), PLANNER_CONTEXT.getTypeManager(), session).castPreimage(result, source))
+                .isEqualTo(expected);
     }
 }

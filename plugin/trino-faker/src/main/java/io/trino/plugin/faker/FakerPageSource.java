@@ -28,6 +28,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -168,6 +169,10 @@ class FakerPageSource
             List<Object> values = column.domain().getValues().getDiscreteSet();
             ObjectWriter singleValueWriter = objectWriter(column.type());
             return blockBuilder -> singleValueWriter.accept(blockBuilder, values.get(random.nextInt(values.size())));
+        }
+        if (column.domain().getValues() instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                (floatingPoint.asRanges().isEmpty() || floatingPoint.isAllOrderedValues())) {
+            throw new TrinoException(INVALID_ROW_FILTER, "Non-discrete NaN constraints are not supported for generated columns");
         }
         Generator generator;
         if (!column.step().isNone()) {

@@ -35,7 +35,7 @@ public final class OperatorValidator
             case ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 2);
             }
-            case NEGATION, CAST, SATURATED_FLOOR_CAST -> {
+            case NEGATION, CAST -> {
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
             }
             case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL,

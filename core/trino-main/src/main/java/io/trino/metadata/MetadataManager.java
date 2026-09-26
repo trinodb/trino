@@ -97,6 +97,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -2727,9 +2728,9 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(charVarcharCoercion, operatorType, fromType, toType);
+        return functionResolver.resolveCoercion(charVarcharCoercion, fromType, toType);
     }
 
     @Override
@@ -2802,6 +2803,15 @@ public final class MetadataManager
                 .forEach(functions::add);
 
         return functions.build();
+    }
+
+    @Override
+    public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
+    {
+        if (isTrinoSqlLanguageFunction(resolvedFunction.functionId()) || !resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            return Optional.empty();
+        }
+        return functions.getFunctionMetadata(resolvedFunction.functionId()).getDomainProjection();
     }
 
     @Override

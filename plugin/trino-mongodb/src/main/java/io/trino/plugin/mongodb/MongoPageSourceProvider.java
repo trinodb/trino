@@ -30,7 +30,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
+import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedDomain;
 import static java.util.Objects.requireNonNull;
 
 public class MongoPageSourceProvider
@@ -69,15 +69,15 @@ public class MongoPageSourceProvider
         TupleDomain<MongoColumnHandle> dynamicPredicate = dynamicFilter
                 .getCurrentPredicate()
                 .transformKeys(MongoColumnHandle.class::cast)
-                .filter((mongoColumnHandle, _) -> isPushdownSupportedType(mongoColumnHandle.type()));
+                .simplify(MONGO_DOMAIN_COMPACTION_THRESHOLD)
+                .filter((_, domain) -> isPushdownSupportedDomain(domain));
 
         MongoTableHandle newTableHandle = tableHandle;
 
         if (!dynamicPredicate.isAll() && tableHandle.limit().isEmpty()) {
             TupleDomain<ColumnHandle> newDomain = tableHandle
                     .constraint()
-                    .intersect(dynamicPredicate)
-                    .simplify(MONGO_DOMAIN_COMPACTION_THRESHOLD);
+                    .intersect(dynamicPredicate);
 
             newTableHandle = tableHandle.withConstraint(newDomain);
         }

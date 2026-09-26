@@ -19,6 +19,7 @@ import io.trino.plugin.thrift.api.datatypes.TrinoThriftBigint;
 import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftMarker;
 import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftRange;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.Test;
 
@@ -29,10 +30,23 @@ import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.Trin
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftValueSet.fromValueSet;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTrinoThriftRangeValueSet
 {
+    @Test
+    public void testFloatingPointRepresentation()
+    {
+        assertThat(fromValueSet(ValueSet.all(DOUBLE))).isEqualTo(fromValueSet(SortedRangeSet.copyOf(DOUBLE, ImmutableList.of(Range.all(DOUBLE)))));
+        assertThat(fromValueSet(ValueSet.none(DOUBLE))).isEqualTo(fromValueSet(SortedRangeSet.copyOf(DOUBLE, ImmutableList.of())));
+        assertThat(fromValueSet(ValueSet.of(DOUBLE, 1.0))).isEqualTo(fromValueSet(SortedRangeSet.copyOf(DOUBLE, ImmutableList.of(Range.equal(DOUBLE, 1.0)))));
+        assertThatThrownBy(() -> fromValueSet(ValueSet.of(DOUBLE, Double.NaN)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("NaN-containing set cannot be represented by Thrift ranges");
+    }
+
     @Test
     public void testFromValueSetAll()
     {

@@ -96,6 +96,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
@@ -1408,17 +1409,16 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, Type fromType, Type toType)
-    {
-        // no tracing since it doesn't call any connector
-        return delegate.getCoercion(charVarcharCoercion, operatorType, fromType, toType);
-    }
-
-    @Override
     public ResolvedFunction getCoercion(CharVarcharCoercion charVarcharCoercion, CatalogSchemaFunctionName name, Type fromType, Type toType)
     {
         // no tracing since it doesn't call any connector
         return delegate.getCoercion(charVarcharCoercion, name, fromType, toType);
+    }
+
+    @Override
+    public Optional<DomainProjection> getDomainProjection(Session session, ResolvedFunction resolvedFunction)
+    {
+        return delegate.getDomainProjection(session, resolvedFunction);
     }
 
     @Override

@@ -13,10 +13,12 @@
  */
 package io.trino.type;
 
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.preimage.IntegralCastPreimage;
+import io.trino.operator.scalar.preimage.IntegralToFloatingPointCastPreimage;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -37,7 +39,6 @@ import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
 import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -133,12 +134,14 @@ public final class IntegerOperators
 
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BIGINT)
+    @FunctionPreimage(IntegralCastPreimage.class)
     public static long castToBigint(@SqlType(StandardTypes.INTEGER) long value)
     {
         return value;
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.INTEGER) long value)
@@ -150,6 +153,7 @@ public final class IntegerOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.INTEGER) long value)
@@ -160,6 +164,7 @@ public final class IntegerOperators
         return (byte) value;
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean castToBoolean(@SqlType(StandardTypes.INTEGER) long value)
@@ -167,6 +172,7 @@ public final class IntegerOperators
         return value != 0;
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.INTEGER) long value)
@@ -174,6 +180,7 @@ public final class IntegerOperators
         return value;
     }
 
+    @FunctionPreimage(IntegralToFloatingPointCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.INTEGER) long value)
@@ -181,6 +188,7 @@ public final class IntegerOperators
         return floatToRawIntBits((float) value);
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.NUMBER)
     public static TrinoNumber castToNumber(@SqlType(StandardTypes.INTEGER) long value)
@@ -189,6 +197,7 @@ public final class IntegerOperators
     }
 
     // fallible
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
@@ -200,19 +209,5 @@ public final class IntegerOperators
         }
 
         throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.SMALLINT)
-    public static long saturatedFloorCastToSmallint(@SqlType(StandardTypes.INTEGER) long value)
-    {
-        return Shorts.saturatedCast(value);
-    }
-
-    @ScalarOperator(SATURATED_FLOOR_CAST)
-    @SqlType(StandardTypes.TINYINT)
-    public static long saturatedFloorCastToTinyint(@SqlType(StandardTypes.INTEGER) long value)
-    {
-        return SignedBytes.saturatedCast(value);
     }
 }

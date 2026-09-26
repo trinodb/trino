@@ -14,20 +14,15 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceUtf8;
-import io.airlift.slice.Slices;
+import io.trino.operator.scalar.preimage.OrderPreservingCastPreimage;
+import io.trino.operator.scalar.preimage.VarcharToCharPreimage;
+import io.trino.spi.function.FunctionPreimage;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 
-import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.airlift.slice.SliceUtf8.getCodePointAt;
-import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
@@ -36,6 +31,7 @@ public final class CharacterStringCasts
 {
     private CharacterStringCasts() {}
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("varchar(y)")
     @LiteralParameters({"x", "y"})
@@ -47,6 +43,7 @@ public final class CharacterStringCasts
         return slice;
     }
 
+    @FunctionPreimage(OrderPreservingCastPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
@@ -58,62 +55,12 @@ public final class CharacterStringCasts
         return slice;
     }
 
+    @FunctionPreimage(VarcharToCharPreimage.class)
     @ScalarOperator(value = OperatorType.CAST, neverFails = true)
     @SqlType("char(y)")
     @LiteralParameters({"x", "y"})
     public static Slice varcharToCharCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
     {
         return truncateToLengthAndTrimSpaces(slice, toIntExact(y));
-    }
-
-    @ScalarOperator(OperatorType.SATURATED_FLOOR_CAST)
-    @SqlType("varchar(y)")
-    @LiteralParameters({"x", "y"})
-    public static Slice varcharToVarcharSaturatedFloorCast(@LiteralParameter("y") long y, @SqlType("varchar(x)") Slice slice)
-    {
-        if (countCodePoints(slice) <= y) {
-            return slice;
-        }
-
-        IntList codePoints = toCodePoints(slice);
-        codePoints.size(toIntExact(y));
-        return codePointsToSliceUtf8(codePoints);
-    }
-
-    static void trimTrailing(IntList codePoints, int codePointToTrim)
-    {
-        int endIndex = codePoints.size();
-        while (endIndex > 0 && codePoints.getInt(endIndex - 1) == codePointToTrim) {
-            endIndex--;
-        }
-        codePoints.size(endIndex);
-    }
-
-    static IntList toCodePoints(Slice slice)
-    {
-        IntList codePoints = new IntArrayList(slice.length());
-        for (int offset = 0; offset < slice.length(); ) {
-            int codePoint = getCodePointAt(slice, offset);
-            offset += lengthOfCodePoint(slice, offset);
-            codePoints.add(codePoint);
-        }
-        return codePoints;
-    }
-
-    public static Slice codePointsToSliceUtf8(IntList codePoints)
-    {
-        int bufferLength = 0;
-        for (int codePoint : codePoints) {
-            bufferLength += SliceUtf8.lengthOfCodePoint(codePoint);
-        }
-
-        Slice result = Slices.wrappedBuffer(new byte[bufferLength]);
-        int offset = 0;
-        for (int codePoint : codePoints) {
-            setCodePointAt(codePoint, result, offset);
-            offset += lengthOfCodePoint(codePoint);
-        }
-
-        return result;
     }
 }

@@ -213,6 +213,151 @@ on the underlying `byte[]`, which have much better performance. This function
 has no `@SqlNullable` annotations, meaning that if the argument is `NULL`,
 the result will automatically be `NULL` (the function will not be called).
 
+## Domain preimages
+
+A scalar function can declare how a set of its results maps back to a set of its
+inputs. The optimizer uses this *preimage* to expose columns and ranges to predicate
+pushdown. For example, the preimage of `2025` through `year(date)` is the range from
+the beginning of 2025 to the beginning of 2026.
+
+Attach `@FunctionPreimage(Provider.class)` to the same
+method or class as the scalar function declaration. Cast operators use the same
+annotation. The provider implements `DomainPreimage` and has a public
+no-argument constructor. Programmatic declarations use
+`FunctionMetadata.Builder.domainProjection(new DomainProjection(provider))`.
+The registry associates this metadata with the function identity, including its
+aliases; unrelated functions with the same name do not acquire the projection.
+
+The contract requires a deterministic scalar function of fixed arity, a
+non-nullable return, and null-propagating arguments. The resolved signature must
+preserve the result of every successful original evaluation. A rewrite may
+eliminate an original failure, but must never introduce one. Projection does not
+require a `neverFails` declaration. Known failures of planning-time boundary
+conversions cause the provider to decline the rewrite. All arguments other than the projected argument must be
+non-null constants. For such a call the function result is null if and only if the
+projected argument is null. Unsupported signatures and parameters retain the
+original expression.
+
+Registration does not specify an argument position. After constant folding, the
+consumer nominates the call's sole nonconstant SQL argument. It declines calls with
+multiple nonconstant arguments or null parameters; all-constant calls use ordinary
+constant folding. The candidate can be an arbitrary expression and retains the
+usual single-evaluation guarantees.
+
+Every provider entry point must validate `context.inputArgument()` before
+reading constant parameters or computing results. For example, the date-truncation
+provider accepts argument 1 and declines a varying unit at argument 0. Unsupported
+candidates return an empty optional, or false from `isComparisonIdentity`. A provider
+may support different argument positions depending on the bound call. The inferred
+index belongs to the per-call context; no argument annotation is required.
+
+The provider receives a `DomainPreimage.Context` describing the function call and a
+`Domain` describing the requested result values. The context supplies the
+session, concrete SQL argument and result types, fixed argument values, the
+`inputArgument` index, and the required exactness. Its function helpers evaluate
+the same function on constants, supply casts and result ordering, and check implicit
+coercions. Only the selected input has no constant value. Providers are registered
+against function metadata, so they do not need a separate function identifier. The provider returns an optional `PreimageResult`:
+
+- `EXACT` means precisely the inputs whose function result belongs to the result
+  domain, among inputs on which the original function succeeds.
+- `CONSERVATIVE` means a proven superset of those inputs. Subsets are never valid.
+- An empty optional means unsupported. `Domain.none(inputType)` means a proven
+  empty preimage.
+
+The returned domain must use the projected argument type. Null allowance describes
+membership of the null value, independently of SQL's unknown Boolean result.
+The shared [value-domain model](value-domains.md) represents NaN membership explicitly
+for `REAL`, `DOUBLE`, and `NUMBER`; providers use the same `Domain` set operations
+as predicate extraction and runtime filtering. Providers processing ordered ranges
+must handle NaN separately through `FloatingPointValueSet`.
+Providers are trusted semantic implementations; incorrect results can produce
+incorrect query answers. They must not reinterpret arbitrary exceptions as
+unsupported input.
+
+Failing inputs do not constrain an exact projection. If independently projected
+true and false domains overlap, expression rewriting declines the pair; domain
+extraction can still consume a single projection. The large-`IN` shortcut also
+declines projected NaN singletons, which SQL equality cannot match.
+
+The dependency helper supplies a lazily resolved native comparator for non-null
+function results, with unordered values sorted last. Providers reuse it for the
+bound call when comparing constants and calculating boundaries.
+
+Timestamp-to-timestamp-with-time-zone projections decline boundaries in either
+occurrence of a repeated local time in the session zone. Reversing a boundary in
+the occurrence that the ordinary cast cannot produce can otherwise exclude matching
+inputs. Runtime domain consumers perform no pruning when this projection declines.
+Admission uses `java.time` zone rules to detect gaps and overlaps. Regional-zone
+bounds before 1970 decline projection because their historical rules can differ
+from those used by the legacy casts. Fixed-offset zones have no such restriction. DATE-to-timestamp-with-time-zone projection checks adjacent
+dates through the ordinary forward cast: midnight offset changes can make a reverse
+cast return the wrong date, or make multiple dates produce the same result. If the
+adjacent results do not strictly bracket the boundary, projection declines.
+
+Expression replacement requires exact preimages for both the true and false result
+domains. Inputs in neither domain produce unknown. `NOT` swaps the domains; `AND`
+intersects true domains and unions false domains; `OR` unions true domains and
+intersects false domains. Thus `year(d) IN (2025, NULL)` is true in the 2025 range
+and unknown elsewhere. Its false domain is empty, and negating it does not admit
+any rows. `BETWEEN` applies the same rules to its two comparisons, including null
+bounds. Nontrivial projected arguments are bound when needed to avoid repeated evaluation.
+
+`DomainTranslator` consumes only the true domain of the complete filtering
+predicate. It permits conservative preimages while retaining the original predicate
+as a residual. In nested projections, any conservative step requires that residual,
+even if later steps are exact. Negation selects the false result domain before
+projection; neither the complement of a true domain nor the complement of a
+conservative preimage is a valid general substitute.
+
+Built-in providers cover `year(date)`, `year(timestamp)`, eligible `date_trunc`
+units, instant-preserving `at_timezone` calls, and eligible numeric, character,
+temporal casts, and exact array, row, and map constant mappings. All comparison unwrapping uses `UnwrapFunctionInComparison`,
+including predicates exposed by inlining project assignments during predicate
+pushdown. Projection lookup currently supports global function bundles.
+
+`Domain` represents NaN independently of ordered values. True and false sets
+account for ordinary comparisons, `IDENTICAL`, and nulls independently. Domain
+extraction preserves these sets exactly; the shared renderer uses `IDENTICAL` to
+express NaN membership. Connectors receive complete domains and choose whether to
+enforce them, push a conservative superset with the required residual, or decline
+pushdown. See [](value-domains) for the connector contract.
+Providers return `isComparisonIdentity(context) == true` only
+when a validated call preserves comparisons with arbitrary expressions of the same
+type; this permits removing `at_timezone` even when neither comparison operand is
+constant.
+
+For comparisons that can return null for non-null operands, a provider may implement
+`comparisonConstant(context, constant)`. The mapped input constant must preserve
+every supported native comparison operator, including unknown results, for every successful
+original evaluation. The common rule retains the native operator. Array, row, and map
+casts use recursive exact mappings that preserve nested nulls; lossy constants and
+unsupported element coercions decline. `IN` maps every item without repeating the
+input. This contract does not imply that domain extraction can represent the
+comparison's truth sets.
+
+The common consumer declines unsupported comparisons, nonconstant parameters,
+expansions of lists longer than ten items, and truth domains exceeding a combined
+32 ranges. Point-to-point `IN` rewrites that preserve the list size do not require
+expansion.
+Providers return domains or typed constants, never planner expressions; the comparison rule and domain
+translator share value-set rendering while owning their respective null semantics.
+
+`FunctionPreimages` binds the same providers for runtime domains without planner IR.
+Dynamic filters project collected comparison domains backward through probe-side
+casts, accepting conservative supersets because the join still verifies matches.
+Unsupported projections perform no pruning. Provider availability replaces the
+saturated-floor capability check; the `SATURATED_FLOOR_CAST` operator is removed.
+Domain extraction also uses providers for exact cast projection; conservative
+fallbacks retain residual predicates.
+
+Integer-to-floating providers account for all source values that round to a boundary,
+using at most the source bit width in bisection steps where direct conversion is not
+exact. Runtime domains keep dynamic filtering's size limits rather than expression
+expansion budgets. NaN representation and rendering support REAL, DOUBLE, and NUMBER.
+Providers collect projected ranges and normalize them together when constructing the
+value set, keeping large collected domains from repeatedly rebuilding prior ranges.
+
 ## Aggregation function implementation
 
 Aggregation functions use a similar framework to scalar functions, but are

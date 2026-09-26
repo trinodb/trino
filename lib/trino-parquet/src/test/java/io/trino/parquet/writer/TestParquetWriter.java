@@ -82,7 +82,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
 import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
@@ -355,7 +354,7 @@ public class TestParquetWriter
 
         String threeByteCodePoint = new String(Character.toChars(0x20AC));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
-        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
+        Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(400)); // truncation in middle of unicode bytes
         Block blockB = VARCHAR.createBlockBuilder(null, 2)
                 .writeEntry(minB)
                 // start with maxCodePoint to make it max value in stats
@@ -380,7 +379,7 @@ public class TestParquetWriter
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());
 
         chunkMetaData = blockMetaData.columns().get(1);
-        Slice truncatedMin = varcharToVarcharSaturatedFloorCast(1024, minB);
+        Slice truncatedMin = Slices.utf8Slice(threeByteCodePoint.repeat(341));
         assertThat(chunkMetaData.getStatistics().getMinBytes()).isEqualTo(truncatedMin.getBytes());
         truncatedMax = Slices.utf8Slice(maxCodePoint + "d".repeat(1016) + "e");
         assertThat(chunkMetaData.getStatistics().getMaxBytes()).isEqualTo(truncatedMax.getBytes());

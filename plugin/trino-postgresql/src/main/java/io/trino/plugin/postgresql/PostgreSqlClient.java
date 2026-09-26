@@ -171,6 +171,7 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -620,9 +621,9 @@ public class PostgreSqlClient
 
             case Types.BIGINT -> Optional.of(bigintColumnMapping());
 
-            case Types.REAL -> Optional.of(realColumnMapping());
+            case Types.REAL -> Optional.of(realColumnMapping(FLOATING_POINT_PUSHDOWN));
 
-            case Types.DOUBLE -> Optional.of(doubleColumnMapping());
+            case Types.DOUBLE -> Optional.of(doubleColumnMapping(FLOATING_POINT_PUSHDOWN));
 
             case Types.NUMERIC -> {
                 int columnSize = typeHandle.requiredColumnSize();

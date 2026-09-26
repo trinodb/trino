@@ -48,7 +48,7 @@ public final class Domain
 
     private Domain(ValueSet values, boolean nullAllowed)
     {
-        this.values = requireNonNull(values, "values is null");
+        this.values = ValueSet.normalize(values);
         this.nullAllowed = nullAllowed;
     }
 
@@ -294,6 +294,13 @@ public final class Domain
 
     public Domain simplify(int threshold)
     {
+        if (values instanceof FloatingPointValueSet floatingPoint) {
+            SortedRangeSet ordered = floatingPoint.getOrderedValues();
+            if (ordered.getRangeCount() > threshold) {
+                return new Domain(new FloatingPointValueSet(SortedRangeSet.of(ordered.getSpan()), floatingPoint.isNaNAllowed()), nullAllowed);
+            }
+            return this;
+        }
         Optional<ValueSet> simplifiedValueSet = values.getValuesProcessor().transform(
                 ranges -> {
                     if (ranges.getRangeCount() <= threshold) {

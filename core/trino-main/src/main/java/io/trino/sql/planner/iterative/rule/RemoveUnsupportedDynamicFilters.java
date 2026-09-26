@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
@@ -52,7 +52,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.operator.join.JoinUtils.getJoinDynamicFilters;
 import static io.trino.operator.join.JoinUtils.getSemiJoinDynamicFilterId;
-import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.spi.function.PreimageResult.Exactness.CONSERVATIVE;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.DynamicFilters.getDescriptor;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -93,10 +93,12 @@ public class RemoveUnsupportedDynamicFilters
     {
         private final CharVarcharCoercion charVarcharCoercion;
         private final TypeCoercion typeCoercion;
+        private final FunctionPreimages preimages;
 
         public Rewriter(Session session)
         {
             this.charVarcharCoercion = getCharVarcharCoercion(session);
+            this.preimages = new FunctionPreimages(plannerContext.getMetadata(), plannerContext.getFunctionManager(), plannerContext.getTypeManager(), session);
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);
         }
 
@@ -319,18 +321,7 @@ public class RemoveUnsupportedDynamicFilters
             if (!typeCoercion.canCoerce(castSourceType, castTargetType)) {
                 return false;
             }
-            return doesSaturatedFloorCastOperatorExist(castTargetType, castSourceType);
-        }
-
-        private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
-        {
-            try {
-                plannerContext.getMetadata().getCoercion(charVarcharCoercion, SATURATED_FLOOR_CAST, fromType, toType);
-            }
-            catch (OperatorNotFoundException e) {
-                return false;
-            }
-            return true;
+            return preimages.bindCast(castSourceType, castTargetType, CONSERVATIVE).isPresent();
         }
 
         private Expression removeAllDynamicFilters(Expression expression)
