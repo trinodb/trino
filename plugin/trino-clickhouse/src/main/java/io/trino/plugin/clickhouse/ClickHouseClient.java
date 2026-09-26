@@ -16,6 +16,7 @@ package io.trino.plugin.clickhouse;
 import com.clickhouse.client.ClickHouseVersionUtils;
 import com.clickhouse.data.ClickHouseColumn;
 import com.clickhouse.data.ClickHouseDataType;
+import com.clickhouse.jdbc.JdbcTypeMapping;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -62,6 +64,8 @@ import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -70,6 +74,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -89,8 +94,10 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -98,6 +105,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -117,6 +125,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
@@ -187,6 +196,7 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
@@ -211,6 +221,9 @@ public class ClickHouseClient
     private static final String NO_COMMENT = "";
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
+
+    // ClickHouse has no documented nesting depth limit; this is a Trino-side safety guard to prevent unbounded recursion
+    private static final int MAX_ARRAY_NESTING_DEPTH = 10;
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -480,8 +493,8 @@ public class ClickHouseClient
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ");
-        if (column.isNullable()) {
-            // set column nullable property explicitly
+        if (column.isNullable() && !(column.getType() instanceof ArrayType)) {
+            // ClickHouse does not support Nullable(Array(T)); use Array(Nullable(T)) instead
             sb.append("Nullable(").append(toWriteMapping(session, column.getType()).getDataType()).append(")");
         }
         else {
@@ -744,6 +757,16 @@ public class ClickHouseClient
                 }
                 yield Optional.empty();
             }
+            case Types.ARRAY -> {
+                Optional<ColumnMapping> columnMapping = arrayToTrinoType(session, connection, typeHandle);
+                if (columnMapping.isPresent()) {
+                    yield columnMapping;
+                }
+                if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+                    yield mapToUnboundedVarchar(typeHandle);
+                }
+                yield Optional.empty();
+            }
             default -> {
                 if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
                     yield mapToUnboundedVarchar(typeHandle);
@@ -800,6 +823,31 @@ public class ClickHouseClient
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
+        }
+        if (type.equals(ipAddressType)) {
+            // Required for array(ipaddress) write: toWriteMapping recurses on element types,
+            // and without this mapping, writing Array(IPv6) columns would throw NOT_SUPPORTED
+            return WriteMapping.sliceMapping("IPv6", ipAddressWriteFunction("IPv6"));
+        }
+        if (type instanceof ArrayType arrayType) {
+            WriteMapping elementMapping = toWriteMapping(session, arrayType.getElementType());
+            String elementDataType = elementMapping.getDataType();
+            // ClickHouse does not support Nullable(Array(T)) at column level; nested array elements
+            // cannot be Nullable, but scalar elements support Array(Nullable(T))
+            boolean isNestedArray = arrayType.getElementType() instanceof ArrayType;
+            String columnType;
+            String writeElementType;
+            if (isNestedArray) {
+                columnType = "Array(%s)".formatted(elementDataType);
+                writeElementType = elementDataType;
+            }
+            else {
+                // Wrap scalar elements in Nullable so null values are stored correctly;
+                // createArrayOf("Float64", [null]) would silently convert null to 0.0
+                columnType = "Array(Nullable(%s))".formatted(elementDataType);
+                writeElementType = "Nullable(%s)".formatted(elementDataType);
+            }
+            return WriteMapping.objectMapping(columnType, arrayWriteFunction(arrayType.getElementType(), writeElementType));
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
@@ -1007,6 +1055,305 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    private Optional<ColumnMapping> arrayToTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        String typeName = typeHandle.jdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        ClickHouseColumn column = ClickHouseColumn.of("", typeName);
+        if (!column.isArray()) {
+            return Optional.empty();
+        }
+        ClickHouseColumn baseColumn = column.getArrayBaseColumn();
+        if (baseColumn == null) {
+            return Optional.empty();
+        }
+        int arrayLevel = column.getArrayNestedLevel();
+
+        JdbcTypeHandle baseElementTypeHandle = new JdbcTypeHandle(
+                JdbcTypeMapping.getDefaultMapping().toSqlType(baseColumn, null),
+                Optional.of(baseColumn.getOriginalTypeName()),
+                baseColumn.getPrecision() > 0 ? Optional.of(baseColumn.getPrecision()) : Optional.empty(),
+                baseColumn.getPrecision() > 0 ? Optional.of(baseColumn.getScale()) : Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        Optional<ColumnMapping> baseElementMapping = toColumnMapping(session, connection, baseElementTypeHandle);
+        if (baseElementMapping.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Type elementType = baseElementMapping.get().getType();
+        // Use Nullable element type for createArrayOf so null values are stored correctly;
+        // createArrayOf("Float64", null) would silently convert null to 0.0
+        String elementWriteTypeName = "Nullable(" + baseColumn.getOriginalTypeName() + ")";
+        ArrayType arrayType = new ArrayType(elementType);
+        ColumnMapping arrayColumnMapping = arrayColumnMapping(arrayType, elementWriteTypeName);
+        for (int i = 1; i < arrayLevel; i++) {
+            elementWriteTypeName = "Array(" + elementWriteTypeName + ")";
+            arrayType = new ArrayType(arrayType);
+            arrayColumnMapping = arrayColumnMapping(arrayType, elementWriteTypeName);
+        }
+        return Optional.of(arrayColumnMapping);
+    }
+
+    private ColumnMapping arrayColumnMapping(ArrayType arrayType, String baseElementJdbcTypeName)
+    {
+        return ColumnMapping.objectMapping(
+                arrayType,
+                arrayReadFunction(arrayType.getElementType()),
+                arrayWriteFunction(arrayType.getElementType(), baseElementJdbcTypeName),
+                DISABLE_PUSHDOWN);
+    }
+
+    private ObjectReadFunction arrayReadFunction(Type elementType)
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            Array array = resultSet.getArray(columnIndex);
+            if (array == null) {
+                return elementType.createBlockBuilder(null, 0).build();
+            }
+            return buildArrayBlock(elementType, array.getArray(), 0);
+        });
+    }
+
+    private Block buildArrayBlock(Type elementType, Object javaArray, int depth)
+            throws SQLException
+    {
+        if (depth >= MAX_ARRAY_NESTING_DEPTH) {
+            throw new TrinoException(NOT_SUPPORTED, "Array nesting depth exceeds maximum of %d".formatted(MAX_ARRAY_NESTING_DEPTH));
+        }
+        if (javaArray == null) {
+            return elementType.createBlockBuilder(null, 0).build();
+        }
+        int length;
+        try {
+            length = java.lang.reflect.Array.getLength(javaArray);
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(JDBC_ERROR, "Unexpected array value from ClickHouse JDBC: %s".formatted(javaArray.getClass()), e);
+        }
+        BlockBuilder builder = elementType.createBlockBuilder(null, length);
+        for (int i = 0; i < length; i++) {
+            appendArrayElement(elementType, builder, java.lang.reflect.Array.get(javaArray, i), depth);
+        }
+        return builder.build();
+    }
+
+    private void appendArrayElement(Type type, BlockBuilder builder, Object value, int depth)
+            throws SQLException
+    {
+        if (value == null) {
+            builder.appendNull();
+            return;
+        }
+        if (type instanceof ArrayType arrayType) {
+            // ClickHouse JDBC may return nested arrays as java.sql.Array or as Java arrays
+            Object innerArray;
+            if (value instanceof Array sqlArray) {
+                innerArray = sqlArray.getArray();
+            }
+            else {
+                innerArray = value;
+            }
+            type.writeObject(builder, buildArrayBlock(arrayType.getElementType(), innerArray, depth + 1));
+            return;
+        }
+        if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(builder, (Boolean) value);
+        }
+        else if (type.getJavaType() == long.class) {
+            if (value instanceof BigDecimal bigDecimal && type instanceof DecimalType decimalType) {
+                // ClickHouse JDBC returns BigDecimal for short Decimal(p,s) array elements
+                type.writeLong(builder, bigDecimal.setScale(decimalType.getScale(), UNNECESSARY).unscaledValue().longValueExact());
+            }
+            else if (value instanceof LocalDate date) {
+                type.writeLong(builder, date.toEpochDay());
+            }
+            else if (value instanceof Date sqlDate) {
+                type.writeLong(builder, sqlDate.toLocalDate().toEpochDay());
+            }
+            else if (value instanceof Float floatValue) {
+                type.writeLong(builder, floatToRawIntBits(floatValue));
+            }
+            else if (value instanceof LocalDateTime dateTime) {
+                if (TIMESTAMP_TZ_SECONDS.equals(type)) {
+                    // DateTime('tz') elements: TIMESTAMP_TZ_SECONDS requires packDateTimeWithZone encoding
+                    type.writeLong(builder, packDateTimeWithZone(dateTime.toEpochSecond(UTC) * 1000, "UTC"));
+                }
+                else {
+                    type.writeLong(builder, dateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + dateTime.getNano() / NANOSECONDS_PER_MICROSECOND);
+                }
+            }
+            else if (value instanceof OffsetDateTime offsetDateTime) {
+                // Some JDBC drivers (e.g. Altinity) return OffsetDateTime for DateTime-with-timezone array elements
+                type.writeLong(builder, packDateTimeWithZone(offsetDateTime.toInstant().toEpochMilli(), offsetDateTime.getOffset().getId()));
+            }
+            else if (value instanceof Byte byteValue) {
+                // UInt8 (maps to SMALLINT) returns raw signed bytes; Int8 (maps to TINYINT) is already signed
+                type.writeLong(builder, type.equals(SMALLINT) ? Byte.toUnsignedLong(byteValue) : byteValue.longValue());
+            }
+            else if (value instanceof Short shortValue) {
+                // UInt16 (maps to INTEGER) returns raw signed shorts; Int16 (maps to SMALLINT) is already signed
+                type.writeLong(builder, type.equals(INTEGER) ? Short.toUnsignedLong(shortValue) : shortValue.longValue());
+            }
+            else if (value instanceof Integer intValue) {
+                // UInt32 (maps to BIGINT) returns raw signed ints; Int32 (maps to INTEGER) is already signed
+                type.writeLong(builder, type.equals(BIGINT) ? Integer.toUnsignedLong(intValue) : intValue.longValue());
+            }
+            else {
+                type.writeLong(builder, ((Number) value).longValue());
+            }
+        }
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(builder, ((Number) value).doubleValue());
+        }
+        else if (type.getJavaType() == Slice.class) {
+            if (value instanceof byte[] bytes) {
+                type.writeSlice(builder, wrappedBuffer(bytes));
+            }
+            else if (type.equals(uuidType)) {
+                // UUID uses binary encoding in Trino; java.util.UUID from JDBC must be converted
+                type.writeSlice(builder, javaUuidToTrinoUuid((UUID) value));
+            }
+            else if (type.equals(ipAddressType)) {
+                // InetAddress.toString() returns "/ip" prefix; use InetAddresses.toAddrString() to avoid it
+                String ipStr;
+                if (value instanceof InetAddress inetAddress) {
+                    ipStr = InetAddresses.toAddrString(inetAddress);
+                }
+                else {
+                    ipStr = value.toString();
+                }
+                type.writeSlice(builder, wrappedBuffer(ipAddressStringToBytes(ipStr)));
+            }
+            else {
+                type.writeSlice(builder, utf8Slice(value.toString()));
+            }
+        }
+        else if (type instanceof DecimalType decimalType) {
+            // Only LongDecimalType (precision > 18) reaches here; ShortDecimalType has getJavaType() == long.class
+            // and is handled by the long.class branch above.
+            // UInt64 arrays: ClickHouseObjectValue.asObject() returns raw long[] so elements arrive as boxed Long.
+            // Long.toUnsignedString() reinterprets the signed bits as unsigned for UInt64 elements.
+            BigDecimal bigDecimal;
+            if (value instanceof BigDecimal bigDecimalValue) {
+                bigDecimal = bigDecimalValue;
+            }
+            else if (value instanceof Long longValue) {
+                bigDecimal = new BigDecimal(Long.toUnsignedString(longValue));
+            }
+            else {
+                bigDecimal = new BigDecimal(value.toString());
+            }
+            type.writeObject(builder, Decimals.encodeScaledValue(bigDecimal, decimalType.getScale()));
+        }
+        else {
+            type.writeObject(builder, value);
+        }
+    }
+
+    private static byte[] ipAddressStringToBytes(String ipString)
+    {
+        byte[] raw = InetAddress.ofLiteral(ipString).getAddress();
+        if (raw.length == 4) {
+            byte[] bytes16 = new byte[16];
+            bytes16[10] = (byte) 0xFF;
+            bytes16[11] = (byte) 0xFF;
+            arraycopy(raw, 0, bytes16, 12, 4);
+            return bytes16;
+        }
+        return raw;
+    }
+
+    private ObjectWriteFunction arrayWriteFunction(Type elementType, String baseElementJdbcTypeName)
+    {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
+            Object[] elements = toJdbcObjectArray(elementType, block);
+            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, elements);
+            statement.setArray(index, jdbcArray);
+        });
+    }
+
+    private Object[] toJdbcObjectArray(Type elementType, Block block)
+    {
+        int positionCount = block.getPositionCount();
+        Object[] values = new Object[positionCount];
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = toJdbcObjectValue(elementType, block, i);
+        }
+        return values;
+    }
+
+    private Object toJdbcObjectValue(Type type, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            return null;
+        }
+        if (BOOLEAN.equals(type)) {
+            return type.getBoolean(block, position);
+        }
+        if (TINYINT.equals(type)) {
+            return (byte) type.getLong(block, position);
+        }
+        if (SMALLINT.equals(type)) {
+            return Shorts.checkedCast(type.getLong(block, position));
+        }
+        if (INTEGER.equals(type)) {
+            return toIntExact(type.getLong(block, position));
+        }
+        if (BIGINT.equals(type)) {
+            return type.getLong(block, position);
+        }
+        if (REAL.equals(type)) {
+            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        }
+        if (DOUBLE.equals(type)) {
+            return type.getDouble(block, position);
+        }
+        if (DATE.equals(type)) {
+            return LocalDate.ofEpochDay(type.getLong(block, position));
+        }
+        if (TIMESTAMP_SECONDS.equals(type)) {
+            long epochMicros = type.getLong(block, position);
+            return LocalDateTime.ofEpochSecond(floorDiv(epochMicros, MICROSECONDS_PER_SECOND), 0, UTC);
+        }
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                BigInteger unscaled = BigInteger.valueOf(type.getLong(block, position));
+                return new BigDecimal(unscaled, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+            }
+            BigInteger unscaled = ((Int128) type.getObject(block, position)).toBigInteger();
+            return new BigDecimal(unscaled, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+        }
+        if (type instanceof VarcharType || type instanceof CharType) {
+            return ((Slice) type.getObject(block, position)).toStringUtf8();
+        }
+        if (type instanceof VarbinaryType) {
+            return ((Slice) type.getObject(block, position)).getBytes();
+        }
+        if (type.equals(uuidType)) {
+            return trinoUuidToJavaUuid((Slice) type.getObject(block, position));
+        }
+        if (type.equals(ipAddressType)) {
+            // Convert Trino 16-byte IP representation to dotted-decimal / colon-hex string for ClickHouse
+            byte[] bytes = ((Slice) type.getObject(block, position)).getBytes();
+            try {
+                if (bytes.length == 16 && bytes[10] == (byte) 0xFF && bytes[11] == (byte) 0xFF) {
+                    byte[] ipv4 = {bytes[12], bytes[13], bytes[14], bytes[15]};
+                    return InetAddresses.toAddrString(InetAddress.getByAddress(ipv4));
+                }
+                return InetAddresses.toAddrString(InetAddress.getByAddress(bytes));
+            }
+            catch (UnknownHostException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        if (type instanceof ArrayType arrayType) {
+            return toJdbcObjectArray(arrayType.getElementType(), (Block) type.getObject(block, position));
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported element type for ClickHouse array write: %s".formatted(type));
     }
 
     public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context)

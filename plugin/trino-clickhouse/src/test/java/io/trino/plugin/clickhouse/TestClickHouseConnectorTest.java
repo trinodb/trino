@@ -77,7 +77,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
                  SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                  SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_MAP_TYPE,
@@ -571,10 +570,89 @@ public class TestClickHouseConnectorTest
     @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
+        // Point is a ClickHouse geometry type not supported by the connector
         return new TestTable(
                 onRemoteDatabase(),
                 "tpch.test_unsupported_column_present",
-                "(one bigint, two Array(UInt8), three String) ENGINE=Log");
+                "(one bigint, two Point, three String) ENGINE=Log");
+    }
+
+    @Test
+    @Override
+    public void testInsertArray()
+    {
+        // ClickHouse stores omitted non-nullable Array columns as [] (empty array) by default.
+        // Trino throws on out-of-bounds array subscript access (b[1] on an empty array), so both columns must be set.
+        try (TestTable table = newTrinoTable("test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[null], ARRAY[null])", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
+            assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (null, null), (12.3, 12)");
+        }
+    }
+
+    @Test
+    public void testInsertArrayNullableElements()
+    {
+        // Array(Nullable(T)) preserves null elements; plain Array(T) in ClickHouse converts null to the type default (e.g. 0 for numbers).
+        // This test verifies that our Array(Nullable(T)) write mapping correctly preserves mixed null/non-null elements.
+        try (TestTable table = newTrinoTable("test_insert_array_nullable_", "(col ARRAY<INTEGER>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[1, null, 3])", 1);
+            assertQuery("SELECT col[1], col[2], col[3] FROM " + table.getName(), "VALUES (1, null, 3)");
+        }
+    }
+
+    @Test
+    public void testInsertArrayPrimitiveTypes()
+    {
+        try (TestTable table = newTrinoTable("test_insert_array_boolean_", "(col ARRAY<BOOLEAN>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[true, false])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES (true, false)");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_integer_", "(col ARRAY<INTEGER>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[-2147483648, 2147483647])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES (-2147483648, 2147483647)");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_tinyint_", "(col ARRAY<TINYINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[TINYINT '-128', TINYINT '127'])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES (-128, 127)");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_smallint_", "(col ARRAY<SMALLINT>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[SMALLINT '-32768', SMALLINT '32767'])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES (-32768, 32767)");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_real_", "(col ARRAY<REAL>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[REAL '1.5', REAL '-2.5'])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES (1.5, -2.5)");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_date_", "(col ARRAY<DATE>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[DATE '2024-01-01'])", 1);
+            assertQuery("SELECT col[1] FROM " + table.getName(), "VALUES (DATE '2024-01-01')");
+        }
+        try (TestTable table = newTrinoTable("test_insert_array_varchar_", "(col ARRAY<VARCHAR>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[VARCHAR 'hello', VARCHAR 'world'])", 1);
+            assertQuery("SELECT col[1], col[2] FROM " + table.getName(), "VALUES ('hello', 'world')");
+        }
+    }
+
+    @Test
+    public void testInsertNestedArray()
+    {
+        try (TestTable table = newTrinoTable("test_insert_nested_array_", "(a ARRAY<ARRAY<INTEGER>>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[ARRAY[1, 2], ARRAY[3, 4]])", 1);
+            assertQuery("SELECT a[1][1], a[1][2], a[2][1] FROM " + table.getName(), "VALUES (1, 2, 3)");
+        }
+    }
+
+    @Test
+    public void testInsertArrayIpAddress()
+    {
+        // Verifies that toWriteMapping(ipAddressType) → IPv6 is correctly wired,
+        // which is required when toWriteMapping(ArrayType) recurses over element types.
+        // Table creation exercises getColumnDefinitionSql → toWriteMapping(array(ipaddress)) → toWriteMapping(ipAddressType).
+        try (TestTable table = newTrinoTable("test_insert_array_ipaddress_", "(col ARRAY<IPADDRESS>)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (ARRAY[IPADDRESS '1.2.3.4', IPADDRESS '::1'])", 1);
+            assertQuerySucceeds("SELECT col[1], col[2] FROM " + table.getName());
+        }
     }
 
     @Override
