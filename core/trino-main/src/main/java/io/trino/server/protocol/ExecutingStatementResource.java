@@ -169,6 +169,19 @@ public class ExecutingStatementResource
         throw new NotFoundException("Query not found");
     }
 
+    public void checkQueryOwner(QueryId queryId, String slug, long token, String user)
+    {
+        try {
+            if (!queryManager.getQuerySlug(queryId).isValid(EXECUTING_QUERY, slug, token) ||
+                    !queryManager.getQuerySession(queryId).getUser().equals(user)) {
+                throw new NotFoundException("Query not found");
+            }
+        }
+        catch (NoSuchElementException e) {
+            throw new NotFoundException("Query not found");
+        }
+    }
+
     protected Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
