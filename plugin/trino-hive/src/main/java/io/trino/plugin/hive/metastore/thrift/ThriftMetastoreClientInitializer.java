@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import org.apache.thrift.transport.TTransportException;
+import org.apache.thrift.TException;
 
-import java.net.URI;
-import java.util.Optional;
-
-public interface ThriftMetastoreClientFactory
+@FunctionalInterface
+public interface ThriftMetastoreClientInitializer
 {
-    ThriftMetastoreClient create(URI uri, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
-            throws TTransportException;
+    void initialize(ThriftMetastoreClient client) throws TException;
 }

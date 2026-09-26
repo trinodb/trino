@@ -83,7 +83,7 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         requireNonNull(client, "client is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = _ -> client;
+        tokenAwareMetastoreClientFactory = (_, _) -> client;
         return this;
     }
 

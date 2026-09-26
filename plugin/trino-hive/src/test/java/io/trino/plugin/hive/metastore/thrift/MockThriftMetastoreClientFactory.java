@@ -34,7 +34,7 @@ public class MockThriftMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TTransportException
     {
         checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
