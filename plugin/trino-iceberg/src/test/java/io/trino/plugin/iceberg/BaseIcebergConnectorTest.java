@@ -1833,7 +1833,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testOptimizeWithSortOrder()
+    public void testOptimizeWithSortOrderTableProperty()
     {
         try (TestTable table = newTrinoTable(
                 "test_optimize_with_sort_order",
@@ -1844,6 +1844,27 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
             assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
+                assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();
+                assertThat(((Integer) row.getField(1))).isEqualTo(1);
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSortOrderProperty()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_with_sort_order",
+                "AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey < 10", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            assertUpdate(withSingleWriterPerTask(getSession()), "ALTER TABLE " + table.getName() + " EXECUTE optimize (sorted_by => ARRAY['comment'])");
 
             for (MaterializedRow row : computeActual("SELECT file_path, sort_order_id from \"" + table.getName() + "$files\"").getMaterializedRows()) {
                 assertThat(isFileSorted((String) row.getField(0), "comment")).isTrue();

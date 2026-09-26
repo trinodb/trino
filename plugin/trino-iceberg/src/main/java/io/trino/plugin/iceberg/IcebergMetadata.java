@@ -1877,13 +1877,17 @@ public class IcebergMetadata
             Map<String, Object> executeProperties)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
-        SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder());
         int specId = tableHandle.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
 
         String tableSchemaJson = tableHandle.getTableSchemaJson();
+        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson);
+
+        @SuppressWarnings("unchecked")
+        List<String> sortedBy = (List<String>) executeProperties.get("sorted_by");
+        SortOrder sortOrder = sortedBy != null ? parseSortFields(tableSchema, sortedBy) : icebergTable.sortOrder();
+        SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), sortOrder);
 
         if (tableHandle.getFormatVersion() >= 3) {
-            Schema tableSchema = SchemaParser.fromJson(tableSchemaJson);
             // The order of ROW_ID and LAST_UPDATED_SEQUENCE_NUMBER must match the order in getColumnHandles method
             tableSchema = new Schema(
                     ImmutableList.<NestedField>builder()

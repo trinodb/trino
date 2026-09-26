@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.procedure;
+package io.trino.plugin.lakehouse.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Provider;
@@ -22,6 +22,7 @@ import io.trino.spi.type.ArrayType;
 
 import java.util.List;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
@@ -36,13 +37,13 @@ public class OptimizeTableProcedure
         return new TableProcedureMetadata(
                 OPTIMIZE.name(),
                 distributedWithFilteringAndRepartitioning(),
-                ImmutableList.of(
-                        dataSizeProperty(
+                ImmutableList.<PropertyMetadata<?>>builder()
+                        .add(dataSizeProperty(
                                 "file_size_threshold",
                                 "Only compact files smaller than given threshold in bytes",
-                                DataSize.of(100, DataSize.Unit.MEGABYTE),
-                                false),
-                        new PropertyMetadata<>(
+                                DataSize.of(100, MEGABYTE),
+                                false))
+                        .add(new PropertyMetadata<>(
                                 "sorted_by",
                                 "Sorted columns",
                                 new ArrayType(VARCHAR),
@@ -50,6 +51,7 @@ public class OptimizeTableProcedure
                                 null,
                                 false,
                                 value -> (List<?>) value,
-                                value -> value)));
+                                value -> value))
+                        .build());
     }
 }

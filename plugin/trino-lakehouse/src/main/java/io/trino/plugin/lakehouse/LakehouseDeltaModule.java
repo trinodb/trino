@@ -41,7 +41,6 @@ import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
-import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
 import io.trino.plugin.deltalake.procedure.RegisterTableProcedure;
 import io.trino.plugin.deltalake.procedure.UnregisterTableProcedure;
 import io.trino.plugin.deltalake.procedure.VacuumProcedure;
@@ -61,6 +60,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.metastore.MetastoreTypeConfig;
+import io.trino.plugin.lakehouse.procedure.OptimizeTableProcedure;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 
