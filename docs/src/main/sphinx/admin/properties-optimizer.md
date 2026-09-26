@@ -102,6 +102,21 @@ original table order as much as possible. `AUTOMATIC` enumerates possible orders
 statistics-based cost estimation to determine the least cost order. If stats are not available, or if
 for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strategy is used.
 
+## `optimizer.filter-out-null-join-keys`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `false`
+- **Session property:** `filter_out_null_join_keys`
+
+Add filters below joins that reject rows with null equi-join keys, when the
+keys are not provably non-null. Rows with a null join key cannot match, so
+filtering them at the source - and inside the connector, once predicate
+pushdown turns the filter into a `NOT NULL` scan constraint - avoids
+scanning, shuffling, and hashing rows that the join discards. Unlike dynamic
+filtering, this also applies to the build side of a join. Columns that the
+connector declares `NOT NULL`, or that an existing predicate already
+guards, are not filtered again.
+
 ## `optimizer.max-reordered-joins`
 
 - **Type:** {ref}`prop-type-integer`

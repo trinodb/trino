@@ -35,6 +35,9 @@ import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import io.trino.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.optimizations.CachingNonNullProvider;
+import io.trino.sql.planner.optimizations.NonNullDerivation;
+import io.trino.sql.planner.optimizations.NonNullProvider;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -130,6 +133,7 @@ public class TestJoinEnumerator
                 statsProvider,
                 Optional.empty(),
                 planTester.getDefaultSession());
+        NonNullProvider nonNullProvider = new CachingNonNullProvider(new NonNullDerivation(planTester.getPlannerContext()), Optional.empty(), planTester.getDefaultSession());
 
         return new Rule.Context()
         {
@@ -167,6 +171,12 @@ public class TestJoinEnumerator
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public NonNullProvider getNonNullProvider()
+            {
+                return nonNullProvider;
             }
 
             @Override

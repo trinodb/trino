@@ -20,6 +20,7 @@ import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -132,6 +133,7 @@ public class Memo
         group.membership = node;
         decrementReferenceCounts(old, groupId);
         evictStatisticsAndCost(group);
+        evictNonNullSymbols(group);
 
         return node;
     }
@@ -145,6 +147,28 @@ public class Memo
                 evictStatisticsAndCost(getGroup(parentGroup));
             }
         }
+    }
+
+    // Non-null symbols depend on the whole subtree, so a membership change invalidates this group
+    // and all of its ancestors, exactly like stats and cost.
+    private void evictNonNullSymbols(Group group)
+    {
+        group.nonNullSymbols = null;
+        for (int parentGroup : group.incomingReferences.elementSet()) {
+            if (parentGroup != ROOT_GROUP_REF) {
+                evictNonNullSymbols(getGroup(parentGroup));
+            }
+        }
+    }
+
+    public Optional<Set<Symbol>> getNonNullSymbols(int group)
+    {
+        return Optional.ofNullable(getGroup(group).nonNullSymbols);
+    }
+
+    public void storeNonNullSymbols(int group, Set<Symbol> nonNullSymbols)
+    {
+        getGroup(group).nonNullSymbols = requireNonNull(nonNullSymbols, "nonNullSymbols is null");
     }
 
     public Optional<PlanNodeStatsEstimate> getStats(int group)
@@ -258,6 +282,7 @@ public class Memo
         private final Multiset<Integer> incomingReferences = HashMultiset.create();
         @Nullable
         private PlanNodeStatsEstimate stats;
+        private Set<Symbol> nonNullSymbols;
         @Nullable
         private PlanCostEstimate cost;
 
