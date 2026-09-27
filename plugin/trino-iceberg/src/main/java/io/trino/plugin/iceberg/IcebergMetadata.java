@@ -538,6 +538,7 @@ public class IcebergMetadata
     private final IcebergTableCredentialsProvider tableCredentialsProvider;
     private final DeletionVectorWriter deletionVectorWriter;
     private final ConnectorExpressionEvaluator evaluator;
+    private final Set<IcebergWritableTableHandle> insertAppendsAddedToTransaction = new HashSet<>();
 
     private Transaction transaction;
     private OptionalLong fromSnapshotForRefresh = OptionalLong.empty();
@@ -1743,31 +1744,36 @@ public class IcebergMetadata
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         Table icebergTable = transaction.table();
 
-        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
-        Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
-        PartitionSpec partitionSpec = icebergTable.spec();
-        // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
-        for (Slice fragment : fragments) {
-            CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
-            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
-                    .withPath(task.path())
-                    .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withFormat(table.fileFormat().toIceberg())
-                    .withMetrics(task.metrics().metrics())
-                    .withSortOrder(sortOrders.get(task.sortOrderId()));
-            task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
+        // TableFinish may be retried after a later operation fails. Keep the append staged in the
+        // Iceberg transaction, but do not add its files a second time on retry.
+        if (!insertAppendsAddedToTransaction.contains(table)) {
+            AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+            Map<Integer, SortOrder> sortOrders = icebergTable.sortOrders();
+            PartitionSpec partitionSpec = icebergTable.spec();
+            // Commit tasks are deserialized and converted one at a time to bound coordinator memory for writes producing many files
+            for (Slice fragment : fragments) {
+                CommitTaskData task = commitTaskCodec.fromJson(fragment.getInput());
+                DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                        .withPath(task.path())
+                        .withFileSizeInBytes(task.fileSizeInBytes())
+                        .withFormat(table.fileFormat().toIceberg())
+                        .withMetrics(task.metrics().metrics())
+                        .withSortOrder(sortOrders.get(task.sortOrderId()));
+                task.fileSplitOffsets().ifPresent(builder::withSplitOffsets);
 
-            if (partitionSpec.isPartitioned()) {
-                String partitionDataJson = task.partitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                if (partitionSpec.isPartitioned()) {
+                    String partitionDataJson = task.partitionDataJson()
+                            .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                    builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionSpec));
+                }
+
+                appendFiles.appendFile(builder.build());
             }
 
-            appendFiles.appendFile(builder.build());
+            appendFiles.scanManifestsWith(icebergScanExecutor);
+            commitUpdate(appendFiles, session, "insert");
+            insertAppendsAddedToTransaction.add(table);
         }
-
-        appendFiles.scanManifestsWith(icebergScanExecutor);
-        commitUpdate(appendFiles, session, "insert");
 
         if (isS3Tables(icebergTable.location())) {
             log.debug("S3 Tables do not support statistics: %s", table.name());
@@ -1788,6 +1794,7 @@ public class IcebergMetadata
         }
         commitTransaction(transaction, "insert");
         transaction = null;
+        insertAppendsAddedToTransaction.remove(table);
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         if (summary == null) {
@@ -3697,6 +3704,7 @@ public class IcebergMetadata
     public void rollback()
     {
         // TODO: cleanup open transaction
+        insertAppendsAddedToTransaction.clear();
     }
 
     @Override
