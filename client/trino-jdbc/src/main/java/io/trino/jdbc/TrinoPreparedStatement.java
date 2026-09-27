@@ -66,8 +66,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
-import static io.trino.jdbc.AbstractTrinoResultSet.TIMESTAMP_FORMATTER;
-import static io.trino.jdbc.AbstractTrinoResultSet.TIME_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
 import static io.trino.jdbc.ObjectCasts.castToBigint;
@@ -83,6 +81,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoPreparedStatement
@@ -108,6 +107,19 @@ public class TrinoPreparedStatement
             new DateTimeFormatterBuilder()
                     .append(ISO_LOCAL_TIME)
                     .appendOffset("+HH:mm", "+00:00")
+                    .toFormatter();
+
+    private static final DateTimeFormatter TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(NANO_OF_SECOND, 3, 9, true)
+                    .toFormatter();
+
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .append(ISO_LOCAL_DATE)
+                    .appendLiteral(' ')
+                    .append(TIME_FORMATTER)
                     .toFormatter();
 
     private static final Pattern TOP_LEVEL_TYPE_PATTERN = Pattern.compile("(.+?)\\((.+)\\)");
@@ -352,7 +364,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIME_FORMATTER.format(toLocalDateTime((java.util.Date) value, DateTimeZone.getDefault()));
         }
         if (value instanceof LocalTime) {
             return ISO_LOCAL_TIME.format((LocalTime) value);
@@ -415,7 +427,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIMESTAMP_FORMATTER.format(toLocalDateTime((java.util.Date) value, DateTimeZone.getDefault()));
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -425,6 +437,13 @@ public class TrinoPreparedStatement
             return (String) value;
         }
         throw invalidConversion(value, "timestamp");
+    }
+
+    private static LocalDateTime toLocalDateTime(java.util.Date value, DateTimeZone zone)
+    {
+        // java.sql.Date and java.sql.Time throw on toInstant()
+        Instant instant = value instanceof Timestamp ? ((Timestamp) value).toInstant() : Instant.ofEpochMilli(value.getTime());
+        return LocalDateTime.ofInstant(instant.plusMillis(zone.getOffset(instant.toEpochMilli())), ZoneOffset.UTC);
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -459,7 +478,7 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
+            String formattedDateTime = TIMESTAMP_FORMATTER.format(toLocalDateTime(x, DateTimeZone.forTimeZone(cal.getTimeZone())));
             setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }

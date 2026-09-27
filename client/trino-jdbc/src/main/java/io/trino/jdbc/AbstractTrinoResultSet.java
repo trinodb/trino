@@ -30,7 +30,6 @@ import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
-import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -131,8 +130,6 @@ abstract class AbstractTrinoResultSet
     private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
-    static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
