@@ -482,6 +482,7 @@ public class ArrayType
             slice[offset] = 1;
         }
         else {
+            slice[offset] = 0;
             elementWriteFlat.invokeExact(
                     array,
                     index,
