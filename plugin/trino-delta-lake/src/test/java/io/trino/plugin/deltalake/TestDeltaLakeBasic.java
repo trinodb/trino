@@ -650,6 +650,87 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testCheckpointDropsEntriesSupersededAfterPreviousCheckpoint()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_checkpoint_superseded_entries", "(x int) WITH (checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet")).exists();
+
+            // version 3 removes the file holding 1 and 2, and adds a file holding only 2
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 4", 1);
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet")).exists();
+
+            // metadata, protocol, three adds and one remove
+            assertThat(JSON_MAPPER.readTree(Files.readString(tableLocation.resolve("_delta_log/_last_checkpoint"))).get("size").asLong())
+                    .isEqualTo(6);
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(table.getName()));
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 2, 3, 4");
+        }
+    }
+
+    @Test
+    void testCheckpointKeepsDeletionVectorEntriesDistinctByVector()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_checkpoint_deletion_vector_entries", "(x int) WITH (checkpoint_interval = 2, deletion_vectors_enabled = true)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            // version 2 removes the plain file and adds it back with a deletion vector
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat(Files.readString(tableLocation.resolve("_delta_log/00000000000000000002.json"))).contains("\"deletionVector\"");
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet")).exists();
+
+            // version 3 removes the file with the first deletion vector and adds it with a second one
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+            assertThat(Files.readString(tableLocation.resolve("_delta_log/00000000000000000003.json"))).contains("\"deletionVector\"");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 4", 1);
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet")).exists();
+
+            // metadata, protocol, the plain file remove, the first vector remove, the second vector add and the new file add
+            assertThat(JSON_MAPPER.readTree(Files.readString(tableLocation.resolve("_delta_log/_last_checkpoint"))).get("size").asLong())
+                    .isEqualTo(6);
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(table.getName()));
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 3, 4");
+        }
+    }
+
+    @Test
+    void testCheckpointCarriesTransactionEntriesFromPreviousCheckpoint()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_checkpoint_transaction_entries", "(x int) WITH (checkpoint_interval = 3)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            Files.writeString(
+                    tableLocation.resolve("_delta_log/00000000000000000002.json"),
+                    "{\"commitInfo\":{\"timestamp\":1,\"operation\":\"STREAMING UPDATE\"}}\n{\"txn\":{\"appId\":\"streaming-app\",\"version\":7,\"lastUpdated\":1}}\n");
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(table.getName()));
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000003.checkpoint.parquet")).exists();
+            // metadata, protocol, one transaction and two adds
+            assertThat(JSON_MAPPER.readTree(Files.readString(tableLocation.resolve("_delta_log/_last_checkpoint"))).get("size").asLong())
+                    .isEqualTo(5);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 4", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 5", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 6", 1);
+            assertThat(tableLocation.resolve("_delta_log/00000000000000000006.checkpoint.parquet")).exists();
+            // the transaction entry read from the previous checkpoint is carried into the new one
+            assertThat(JSON_MAPPER.readTree(Files.readString(tableLocation.resolve("_delta_log/_last_checkpoint"))).get("size").asLong())
+                    .isEqualTo(8);
+            assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(table.getName()));
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 1, 3, 4, 5, 6");
+        }
+    }
+
+    @Test
     void testCreateOrReplacePreservesFeatures()
             throws Exception
     {

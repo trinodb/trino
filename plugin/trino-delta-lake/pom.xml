@@ -416,6 +416,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-parquet</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
