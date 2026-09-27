@@ -597,6 +597,40 @@ public class TestCheckpointWriter
         assertThat(tightBoundsByPath(readCheckpoint(parsedOnlyPath, parsedOnlyMetadata, protocolEntry, true))).isEqualTo(expectedTightBounds);
     }
 
+    @Test
+    void testStreamingWriterCountsEntries(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = MetadataEntry.builder()
+                .setSchemaString("{\"type\":\"struct\",\"fields\":[{\"name\":\"x\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")
+                .setConfiguration(ImmutableMap.of())
+                .build();
+        ProtocolEntry protocolEntry = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
+        AddFileEntry firstAdd = fileWithTightBounds("first.parquet", Optional.empty());
+        AddFileEntry secondAdd = fileWithTightBounds("second.parquet", Optional.empty());
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry("removed.parquet", ImmutableMap.of(), 1000, true, Optional.empty());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String checkpointPath = directory.resolve("streamed.checkpoint.parquet").toUri().toString();
+        try (CheckpointWriter.CheckpointFileWriter checkpointFileWriter = writer.createWriter(metadataEntry, protocolEntry, createOutputFile(checkpointPath))) {
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(2);
+            checkpointFileWriter.writeTransaction(transactionEntry);
+            checkpointFileWriter.writeAddFile(firstAdd);
+            checkpointFileWriter.writeRemoveFile(removeFileEntry);
+            checkpointFileWriter.writeAddFile(secondAdd);
+            checkpointFileWriter.finish();
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(6);
+        }
+
+        CheckpointEntries readEntries = readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true);
+        assertThat(readEntries.metadataEntry()).isEqualTo(metadataEntry);
+        assertThat(readEntries.protocolEntry()).isEqualTo(protocolEntry);
+        assertThat(readEntries.transactionEntries()).containsExactly(transactionEntry);
+        assertThat(readEntries.addFileEntries().stream().map(AddFileEntry::getPath)).containsExactlyInAnyOrder("first.parquet", "second.parquet");
+        assertThat(readEntries.removeFileEntries()).containsExactly(removeFileEntry);
+    }
+
     private static Map<String, Optional<Boolean>> tightBoundsByPath(CheckpointEntries entries)
     {
         return entries.addFileEntries().stream()
