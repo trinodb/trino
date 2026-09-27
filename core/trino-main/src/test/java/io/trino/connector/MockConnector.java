@@ -612,7 +612,12 @@ public class MockConnector
         public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
         {
             MockConnectorColumnHandle mockColumnHandle = (MockConnectorColumnHandle) columnHandle;
-            return new ColumnMetadata(mockColumnHandle.name(), mockColumnHandle.type());
+            MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+            // Preserve the full metadata (e.g. the nullability flag) declared via withGetColumns
+            return getColumns.apply(table.getTableName()).stream()
+                    .filter(column -> column.getName().equals(mockColumnHandle.name()))
+                    .findFirst()
+                    .orElseGet(() -> new ColumnMetadata(mockColumnHandle.name(), mockColumnHandle.type()));
         }
 
         @Override

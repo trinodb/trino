@@ -40,6 +40,9 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
+import io.trino.sql.planner.optimizations.CachingNonNullProvider;
+import io.trino.sql.planner.optimizations.NonNullDerivation;
+import io.trino.sql.planner.optimizations.NonNullProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -77,6 +80,7 @@ public class IterativeOptimizer
     private final RuleIndex ruleIndex;
     private final Predicate<Session> useLegacyRules;
     private final PlannerContext plannerContext;
+    private final NonNullDerivation nonNullDerivation;
 
     public IterativeOptimizer(String name, PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
@@ -91,6 +95,7 @@ public class IterativeOptimizer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.useLegacyRules = requireNonNull(useLegacyRules, "useLegacyRules is null");
+        this.nonNullDerivation = new NonNullDerivation(plannerContext);
         this.rules = requireNonNull(newRules, "rules is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
@@ -281,6 +286,7 @@ public class IterativeOptimizer
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.tableStatsProvider, context.runtimeStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
+        NonNullProvider nonNullProvider = new CachingNonNullProvider(nonNullDerivation, Optional.of(context.memo), context.session);
 
         return new Rule.Context()
         {
@@ -318,6 +324,12 @@ public class IterativeOptimizer
             public CostProvider getCostProvider()
             {
                 return costProvider;
+            }
+
+            @Override
+            public NonNullProvider getNonNullProvider()
+            {
+                return nonNullProvider;
             }
 
             @Override

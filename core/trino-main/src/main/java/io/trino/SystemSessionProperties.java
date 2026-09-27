@@ -148,6 +148,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
+    public static final String FILTER_OUT_NULL_JOIN_KEYS = "filter_out_null_join_keys";
     public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
@@ -720,6 +721,11 @@ public final class SystemSessionProperties
                         FILTERING_SEMI_JOIN_TO_INNER,
                         "Rewrite semi join in filtering context to inner join",
                         optimizerConfig.isRewriteFilteringSemiJoinToInnerJoin(),
+                        false),
+                booleanProperty(
+                        FILTER_OUT_NULL_JOIN_KEYS,
+                        "Add filters rejecting rows with null equi-join keys below joins when the keys are not provably non-null",
+                        optimizerConfig.isFilterOutNullJoinKeys(),
                         false),
                 booleanProperty(
                         OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS,
@@ -1692,6 +1698,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteFilteringSemiJoinToInnerJoin(Session session)
     {
         return session.getSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, Boolean.class);
+    }
+
+    public static boolean isFilterOutNullJoinKeys(Session session)
+    {
+        return session.getSystemProperty(FILTER_OUT_NULL_JOIN_KEYS, Boolean.class);
     }
 
     public static boolean isOptimizeDuplicateInsensitiveJoins(Session session)

@@ -438,14 +438,46 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCountOverNonNullColumnRewrittenToCountStar()
+    {
+        // Every TPCH column is declared NOT NULL, so count(orderkey) is equivalent to count(*).
+        // SimplifyCountOverNonNull drops the argument, which also lets orderkey be pruned from the scan.
+        assertPlan(
+                "SELECT count(orderkey) FROM orders",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
+                                node(TableScanNode.class))));
+    }
+
+    @Test
+    public void testCountOverNullExtendedColumnNotRewritten()
+    {
+        // l.orderkey comes from the null-extended side of a LEFT join, so it may be null even though
+        // the underlying column is NOT NULL; count(l.orderkey) must keep its argument (not become count(*)).
+        assertPlan(
+                "SELECT count(l.orderkey) FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of(),
+                                aggregationNode -> aggregationNode.getStep() == PARTIAL &&
+                                        aggregationNode.getAggregations().values().stream().anyMatch(aggregation -> aggregation.getArguments().size() == 1),
+                                join(LEFT, builder -> builder
+                                        .equiCriteria("o_orderkey", "l_orderkey")
+                                        .left(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey")))
+                                        .right(anyTree(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))))));
+    }
+
+    @Test
     public void testSingleDistinct()
     {
         assertPlan("SELECT custkey, orderstatus, COUNT(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus",
                 anyTree(
                         aggregation(
                                 singleGroupingSet("custkey", "orderstatus"),
-                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of("orderkey"))),
-                                aggregation(
+                                // orderkey is a non-null grouping key of the inner aggregation, so count(orderkey) becomes count(*)
+                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
+                                project(aggregation(
                                         singleGroupingSet("custkey", "orderstatus", "orderkey"),
                                         ImmutableMap.of(),
                                         Optional.empty(),
@@ -457,7 +489,7 @@ public class TestLogicalPlanner
                                                 PARTIAL,
                                                 tableScan(
                                                         "orders",
-                                                        ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey", "orderkey", "orderkey"))))))));
+                                                        ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey", "orderkey", "orderkey")))))))));
     }
 
     @Test
@@ -1387,6 +1419,9 @@ public class TestLogicalPlanner
                                                 join(LEFT, leftJoinBuilder -> leftJoinBuilder
                                                         .equiCriteria("c_custkey", "o_custkey")
                                                         .left(tableScan("customer", ImmutableMap.of("c_custkey", "custkey")))
+                                                        // count(DISTINCT orderkey) keeps its argument: it is the non-null marker the
+                                                        // decorrelated aggregation needs, so SimplifyCountOverNonNull (which runs after
+                                                        // decorrelation) does not rewrite it to count(*)
                                                         .right(aggregation(
                                                                 singleGroupingSet("o_custkey"),
                                                                 ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
@@ -1424,12 +1459,10 @@ public class TestLogicalPlanner
                                                                 "unique",
                                                                 tableScan("customer", ImmutableMap.of("c_custkey", "custkey"))))
                                                 .right(
+                                                        // count(DISTINCT orderkey) becomes count(*) because orderkey is a non-null grouping key of the dedup aggregation
                                                         project(aggregation(
-                                                                singleGroupingSet("o_orderstatus", "o_custkey"),
-                                                                ImmutableMap.of(Optional.of("count"), aggregationFunction("count", ImmutableList.of("o_orderkey"))),
-                                                                Optional.empty(),
-                                                                SINGLE,
-                                                                aggregation(
+                                                                ImmutableMap.of("count", aggregationFunction("count", ImmutableList.of())),
+                                                                anyTree(aggregation(
                                                                         singleGroupingSet("o_orderstatus", "o_orderkey", "o_custkey"),
                                                                         ImmutableMap.of(),
                                                                         Optional.empty(),
@@ -1442,7 +1475,7 @@ public class TestLogicalPlanner
                                                                                         PARTIAL,
                                                                                         tableScan(
                                                                                                 "orders",
-                                                                                                ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey")))))))))))))));
+                                                                                                ImmutableMap.of("o_orderkey", "orderkey", "o_orderstatus", "orderstatus", "o_custkey", "custkey"))))))))))))))));
     }
 
     @Test
@@ -1621,9 +1654,12 @@ public class TestLogicalPlanner
                 joinBuildSideWithRemoteExchange,
                 validateSingleRemoteExchange.andThen(validateSingleStreamingAggregation));
 
-        // orders is naturally partitioned, AssignUniqueId should not overwrite its natural partitioning
+        // orders is naturally partitioned, AssignUniqueId should not overwrite its natural partitioning.
+        // The outer aggregation must consume the subquery value with a null-sensitive function (sum):
+        // count(count) would be rewritten to count(*) since the scalar count(*) subquery is derived
+        // non-null, letting the planner prune the correlated subquery entirely.
         assertPlanWithSession(
-                "SELECT count(count) " +
+                "SELECT sum(count) " +
                         "FROM (SELECT o1.orderkey orderkey, (SELECT count(*) FROM orders o2 WHERE o2.orderkey > o1.orderkey) count FROM orders o1) " +
                         "GROUP BY orderkey",
                 broadcastJoin,
@@ -2354,7 +2390,8 @@ public class TestLogicalPlanner
                                                         REMOTE,
                                                         REPARTITION,
                                                         aggregation(
-                                                                ImmutableMap.of("partial_count", aggregationFunction("count", ImmutableList.of("CONSTANT"))),
+                                                                // count(DISTINCT k) over the constant k=1 becomes count(*): k is a non-null grouping key of the dedup aggregation
+                                                                ImmutableMap.of("partial_count", aggregationFunction("count", ImmutableList.of())),
                                                                 PARTIAL,
                                                                 anyTree(
                                                                         project(
