@@ -502,6 +502,7 @@ public class RowType
                 fixedSizeSlice[fixedSizeOffset] = 1;
             }
             else {
+                fixedSizeSlice[fixedSizeOffset] = 0;
                 fieldWriteFlatMethods.get(fieldIndex).invokeExact((Block) fieldBlock, rawIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
                 if (fieldType.isFlatVariableWidth()) {
                     variableSizeOffset += fieldType.getFlatVariableWidthLength(fixedSizeSlice, fixedSizeOffset + 1);
