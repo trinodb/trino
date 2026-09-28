@@ -37,6 +37,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest
@@ -147,7 +148,8 @@ public class TestPruneCountAggregationOverScalar
                                                     new TableHandle(
                                                             TEST_CATALOG_HANDLE,
                                                             new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                                            TpchTransactionHandle.INSTANCE),
+                                                            TpchTransactionHandle.INSTANCE,
+                                                            TEST_RESOLVING_IDENTITY),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.name(), DOUBLE))))));
 

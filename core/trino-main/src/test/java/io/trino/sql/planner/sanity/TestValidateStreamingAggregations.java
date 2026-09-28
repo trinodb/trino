@@ -33,6 +33,7 @@ import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateStreamingAggregations
@@ -51,7 +52,8 @@ public class TestValidateStreamingAggregations
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
     }
 
     @Test

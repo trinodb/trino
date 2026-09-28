@@ -103,6 +103,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -351,7 +352,8 @@ public abstract class BaseDataDefinitionTaskTest
                     .map(_ -> new TableHandle(
                             TEST_CATALOG_HANDLE,
                             new TestingTableHandle(tableName.asSchemaTableName()),
-                            TestingConnectorTransactionHandle.INSTANCE));
+                            TestingConnectorTransactionHandle.INSTANCE,
+                            TEST_RESOLVING_IDENTITY));
         }
 
         @Override

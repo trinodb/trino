@@ -57,6 +57,7 @@ import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.combineDisjuncts;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -85,14 +86,16 @@ public class TestDynamicFiltersChecker
         TableHandle lineitemTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "lineitem", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
         lineitemOrderKeySymbol = builder.symbol("LINEITEM_OK", BIGINT);
         lineitemTableScanNode = builder.tableScan(lineitemTableHandle, ImmutableList.of(lineitemOrderKeySymbol), ImmutableMap.of(lineitemOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
 
         TableHandle ordersTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "orders", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);
         ordersTableScanNode = builder.tableScan(ordersTableHandle, ImmutableList.of(ordersOrderKeySymbol), ImmutableMap.of(ordersOrderKeySymbol, new TpchColumnHandle("orderkey", BIGINT)));
     }

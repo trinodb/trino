@@ -146,6 +146,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
@@ -605,7 +606,7 @@ public class PlanBuilder
     public static class TableScanBuilder
     {
         private final PlanNodeIdAllocator idAllocator;
-        private TableHandle tableHandle = new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(), TestingTransactionHandle.create());
+        private TableHandle tableHandle = new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(), TestingTransactionHandle.create(), TEST_RESOLVING_IDENTITY);
         private List<Symbol> symbols;
         private Map<Symbol, ColumnHandle> assignments;
         private TupleDomain<ColumnHandle> enforcedConstraint = TupleDomain.all();
@@ -775,7 +776,8 @@ public class PlanBuilder
                 new TableHandle(
                         TEST_CATALOG_HANDLE,
                         new TestingTableHandle(),
-                        TestingTransactionHandle.create()),
+                        TestingTransactionHandle.create(),
+                        TEST_RESOLVING_IDENTITY),
                 Optional.empty(),
                 schemaTableName,
                 mergeParadigmAndTypes,
