@@ -120,6 +120,7 @@ class ScheduleConfigItem:
     module_sets: list[list[str]]
     profiles: list[str] = field(default_factory=list)
     runners: list[str] = field(default_factory=list)
+    timeout_minutes: int | None = None
     notify_channels: list[str] = field(default_factory=list)
     when: ScheduleFilter | None = None
     matrix_properties: dict[str, Any] = field(default_factory=dict)
@@ -154,6 +155,8 @@ class ScheduleConfigItem:
                 include["profile"] = profile
             if self.runners:
                 include["runners"] = self.runners
+            if self.timeout_minutes is not None:
+                include["timeout-minutes"] = self.timeout_minutes
             if self.notify_channels:
                 include["notify-channels"] = self.notify_channels
             if self.matrix_properties:
@@ -207,6 +210,15 @@ def load_schedule_configs(stream) -> list[ScheduleConfigItem]:
             _require_type(profile, str, "profile")
         profiles = [profile] if profile is not None else []
         runners = _expect_str_list(item, "runners")
+        timeout_minutes = item.get("timeout-minutes")
+        if "timeout-minutes" in item and (
+            isinstance(timeout_minutes, bool)
+            or not isinstance(timeout_minutes, int)
+            or timeout_minutes <= 0
+        ):
+            raise ValueError(
+                f"timeout-minutes should be a positive integer, was {timeout_minutes}"
+            )
         notify_channels = _expect_str_list(item, "notify-channels")
         when = (
             load_when(_require_type(item["when"], dict, "when"))
@@ -223,6 +235,7 @@ def load_schedule_configs(stream) -> list[ScheduleConfigItem]:
                 module_sets,
                 profiles=profiles,
                 runners=runners,
+                timeout_minutes=timeout_minutes,
                 notify_channels=notify_channels,
                 when=when,
                 matrix_properties=matrix_properties,
@@ -233,7 +246,14 @@ def load_schedule_configs(stream) -> list[ScheduleConfigItem]:
 
 def check_matrix_properties(matrix_properties: dict[str, Any]) -> None:
     """Validate that the matrix-properties object doesn't override reserved matrix keys."""
-    reserved = {"modules", "profile", "runners", "notify-channels", "name"}
+    reserved = {
+        "modules",
+        "profile",
+        "runners",
+        "timeout-minutes",
+        "notify-channels",
+        "name",
+    }
     conflicts = reserved.intersection(matrix_properties.keys())
     if conflicts:
         raise ValueError(
@@ -452,6 +472,8 @@ class TestBuild(unittest.TestCase):
                                      bar: baz
                                  - modules: [q, r, s]
                                  - modules: t
+                                 - modules: [u]
+                                   timeout-minutes: 45
                                 """)
         with tempfile.TemporaryFile("w+") as config_file:
             config_file.write(configs)
@@ -479,8 +501,19 @@ class TestBuild(unittest.TestCase):
                 ),
                 ScheduleConfigItem([["q", "r", "s"]]),
                 ScheduleConfigItem([["t"]]),
+                ScheduleConfigItem([["u"]], timeout_minutes=45),
             ],
         )
+
+    def test_load_schedule_configs_invalid_timeout(self):
+        for timeout in ["null", "0", "-1", "true", "'45'", "4.5"]:
+            with self.subTest(timeout=timeout):
+                with self.assertRaisesRegex(
+                    ValueError, "timeout-minutes should be a positive integer"
+                ):
+                    load_schedule_configs(
+                        f"- {{ modules: a, timeout-minutes: {timeout} }}"
+                    )
 
     def test_matches_scheduled(self):
         nightly_workflow = {
@@ -574,6 +607,7 @@ class TestBuild(unittest.TestCase):
             ScheduleConfigItem(
                 [["a"]],
                 profiles=["foo-profile"],
+                timeout_minutes=45,
                 notify_channels=["foo", "bar"],
                 matrix_properties={"buildAll": True},
             )
@@ -585,6 +619,7 @@ class TestBuild(unittest.TestCase):
                     {
                         "modules": "a",
                         "profile": "foo-profile",
+                        "timeout-minutes": 45,
                         "notify-channels": ["foo", "bar"],
                         "buildAll": True,
                         "name": "test (a, foo-profile, buildAll=True)",

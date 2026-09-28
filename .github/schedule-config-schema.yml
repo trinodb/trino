@@ -41,6 +41,12 @@ items:
       type: array
       items:
         type: string
+    timeout-minutes:
+      description: >-
+        Timeout of the jobs created by this set of tests, in minutes. Defaults to the timeout of
+        the test job in ci.yml.
+      type: integer
+      minimum: 1
     notify-channels:
       description: Slack channel IDs to notify when tests fail on master or release branches
       type: array
