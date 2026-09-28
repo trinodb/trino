@@ -115,6 +115,7 @@ import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -1171,7 +1172,8 @@ public class TestEffectivePredicateExtractor
         return new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new PredicatedTableHandle(predicate),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
     }
 
     /**

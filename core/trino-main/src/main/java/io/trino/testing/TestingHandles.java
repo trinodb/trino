@@ -15,8 +15,10 @@ package io.trino.testing;
 
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableHandle.ResolvingIdentity;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
@@ -28,10 +30,14 @@ public final class TestingHandles
     private static final CatalogVersion TEST_CATALOG_VERSION = new CatalogVersion("test");
     public static final String TEST_CATALOG_NAME = "test_catalog";
     public static final CatalogHandle TEST_CATALOG_HANDLE = createTestCatalogHandle(TEST_CATALOG_NAME);
+    // The identity of the user of the default test session
+    public static final ResolvingIdentity TEST_RESOLVING_IDENTITY = ResolvingIdentity.from(ConnectorIdentity.ofUser("user"));
+
     public static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
             TEST_CATALOG_HANDLE,
             new TestingTableHandle(),
-            TestingTransactionHandle.create());
+            TestingTransactionHandle.create(),
+            TEST_RESOLVING_IDENTITY);
 
     public static CatalogHandle createTestCatalogHandle(String catalogName)
     {

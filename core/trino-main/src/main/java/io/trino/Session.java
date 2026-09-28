@@ -26,6 +26,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
@@ -443,6 +444,40 @@ public final class Session
         return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
     }
 
+    public Session withIdentity(Identity identity)
+    {
+        return new Session(
+                queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                defaultedSystemProperties,
+                catalogProperties,
+                defaultedCatalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding);
+    }
+
     public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
     {
         return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
@@ -560,14 +595,55 @@ public final class Session
         return new FullConnectorSession(this, identity.toConnectorIdentity());
     }
 
+    /**
+     * Creates a connector session with the session identity, for an operation which is not bound to a table, or which
+     * always runs as the querying user, such as a write or a DDL statement on a table. Reading a table, including the
+     * pushdown into its scan, uses {@link #toTableConnectorSession(TableHandle)}.
+     */
     public ConnectorSession toConnectorSession(CatalogHandle catalogHandle)
+    {
+        return toConnectorSession(catalogHandle, identity);
+    }
+
+    /**
+     * Creates a connector session with the identity the table was resolved as: the owner of a SECURITY DEFINER view for
+     * the tables of its definition, otherwise the session identity.
+     */
+    public ConnectorSession toTableConnectorSession(TableHandle tableHandle)
+    {
+        return toConnectorSession(tableHandle.catalogHandle(), tableIdentity(tableHandle));
+    }
+
+    /**
+     * Returns this session with the identity the table was resolved as, for resolving other objects by name on behalf of
+     * the table, such as the destination of a table scan redirection.
+     */
+    public Session withTableIdentity(TableHandle tableHandle)
+    {
+        Identity tableIdentity = tableIdentity(tableHandle);
+        if (tableIdentity == identity) {
+            return this;
+        }
+        return withIdentity(tableIdentity);
+    }
+
+    // A table resolved as the session identity uses that identity, including the extra credentials a table handle does not carry
+    private Identity tableIdentity(TableHandle tableHandle)
+    {
+        if (tableHandle.isResolvedAs(identity)) {
+            return identity;
+        }
+        return tableHandle.resolvingIdentity().toIdentity(tableHandle.catalogHandle().getCatalogName().toString());
+    }
+
+    private ConnectorSession toConnectorSession(CatalogHandle catalogHandle, Identity effectiveIdentity)
     {
         requireNonNull(catalogHandle, "catalogHandle is null");
 
         String catalogName = catalogHandle.getCatalogName().toString();
         return new FullConnectorSession(
                 this,
-                identity.toConnectorIdentity(catalogName),
+                effectiveIdentity.toConnectorIdentity(catalogName),
                 catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogHandle,
                 catalogName,

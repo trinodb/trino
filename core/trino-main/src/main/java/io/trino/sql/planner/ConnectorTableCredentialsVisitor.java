@@ -49,7 +49,7 @@ public final class ConnectorTableCredentialsVisitor
     public Void visitMergeWriter(MergeWriterNode node, Void context)
     {
         TableWriterNode.MergeTarget target = node.getTarget();
-        extract(builder, node, metadata.getTableCredentials(session, target.getHandle().catalogHandle(), target.getHandle().connectorHandle()));
+        extract(builder, node, metadata.getTableCredentials(session, target.getHandle()));
         return super.visitMergeWriter(node, context);
     }
 
@@ -65,8 +65,8 @@ public final class ConnectorTableCredentialsVisitor
     public Void visitTableWriter(TableWriterNode node, Void context)
     {
         switch (node.getTarget()) {
-            case TableWriterNode.MergeTarget mergeTarget -> extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle().catalogHandle(), mergeTarget.getHandle().connectorHandle()));
-            case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget -> extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle().catalogHandle(), materializedViewTarget.getTableHandle().connectorHandle()));
+            case TableWriterNode.MergeTarget mergeTarget -> extract(builder, node, metadata.getTableCredentials(session, mergeTarget.getHandle()));
+            case TableWriterNode.RefreshMaterializedViewTarget materializedViewTarget -> extract(builder, node, metadata.getTableCredentials(session, materializedViewTarget.getTableHandle()));
             case TableWriterNode.TableExecuteTarget tableExecuteTarget -> extract(builder, node, metadata.getTableCredentials(session, tableExecuteTarget.getExecuteHandle().catalogHandle(), tableExecuteTarget.getExecuteHandle().connectorHandle()));
             case TableWriterNode.CreateTarget createTarget -> extract(builder, node, metadata.getTableCredentials(session, createTarget.getHandle().catalogHandle(), createTarget.getHandle().connectorHandle()));
             case TableWriterNode.InsertTarget insertTarget -> extract(builder, node, metadata.getTableCredentials(session, insertTarget.getHandle().catalogHandle(), insertTarget.getHandle().connectorHandle()));
@@ -79,7 +79,7 @@ public final class ConnectorTableCredentialsVisitor
     public Void visitTableScan(TableScanNode node, Void context)
     {
         TableHandle table = node.getTable();
-        extract(builder, node, metadata.getTableCredentials(session, table.catalogHandle(), table.connectorHandle()));
+        extract(builder, node, metadata.getTableCredentials(session, table));
         return super.visitTableScan(node, context);
     }
 

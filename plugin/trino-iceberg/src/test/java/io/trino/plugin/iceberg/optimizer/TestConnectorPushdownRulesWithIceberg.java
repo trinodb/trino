@@ -78,6 +78,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -178,7 +179,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.of(false));
-        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -208,7 +209,8 @@ public class TestConnectorPushdownRulesWithIceberg
                                         new TableHandle(
                                                 catalogHandle,
                                                 icebergTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
-                                                new HiveTransactionHandle(false)),
+                                                new HiveTransactionHandle(false),
+                                                TEST_RESOLVING_IDENTITY),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
@@ -263,7 +265,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.of(false));
-        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         IcebergColumnHandle column = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
 
@@ -315,7 +317,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.of(false));
-        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         IcebergColumnHandle columnA = IcebergColumnHandle.optional(primitiveColumnIdentity(0, "a")).columnType(INTEGER).build();
         IcebergColumnHandle columnB = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "b")).columnType(INTEGER).build();
@@ -377,7 +379,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 ImmutableSet.of(),
                 Optional.of(false));
-        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         IcebergColumnHandle bigintColumn = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "just_bigint")).columnType(BIGINT).build();
         IcebergColumnHandle partialColumn = IcebergColumnHandle.optional(new ColumnIdentity(3, "struct_of_bigint", STRUCT, ImmutableList.of(primitiveColumnIdentity(1, "a"), primitiveColumnIdentity(2, "b"))))

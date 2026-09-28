@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.IndexHandle;
+import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -36,9 +37,9 @@ public class IndexManager
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
     }
 
-    public ConnectorIndex getIndex(Session session, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
+    public ConnectorIndex getIndex(Session session, TableHandle tableHandle, IndexHandle indexHandle, List<ColumnHandle> lookupSchema, List<ColumnHandle> outputSchema)
     {
-        ConnectorSession connectorSession = session.toConnectorSession(indexHandle.catalogHandle());
+        ConnectorSession connectorSession = session.toTableConnectorSession(tableHandle);
         ConnectorIndexProvider provider = indexProvider.getService(indexHandle.catalogHandle());
         return provider.getIndex(indexHandle.transactionHandle(), connectorSession, indexHandle.connectorHandle(), lookupSchema, outputSchema);
     }
