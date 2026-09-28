@@ -327,6 +327,7 @@ statements, the connector supports the following features:
 - [](sql-schema-table-management), see also:
   - [](clickhouse-alter-table)
 - [](clickhouse-procedures)
+- [](clickhouse-alter-table-execute)
 - [](clickhouse-table-functions)
 
 (clickhouse-insert)=
@@ -344,6 +345,44 @@ statements, the connector supports the following features:
 ```
 ```{include} procedures-execute.fragment
 ```
+
+(clickhouse-alter-table-execute)=
+### Table procedures
+
+#### ALTER TABLE EXECUTE
+
+The connector supports the following commands for use with {ref}`ALTER TABLE
+EXECUTE <alter-table-execute>`.
+
+(clickhouse-drop-partition)=
+##### drop_partition
+
+Drops a single partition from a table. The following example drops the partition
+holding January 2020 from `example_schema.example_table` in the `example`
+catalog:
+
+```sql
+ALTER TABLE example.example_schema.example_table EXECUTE drop_partition('202001');
+```
+
+In ClickHouse dropping a partition is a metadata operation, so it is much
+cheaper than deleting the same rows with `DELETE FROM`.
+
+The `partition` argument is the value of the table's partition expression, as
+reported by the `partition` column of the `system.parts` table. It is passed as
+a string and ClickHouse casts it to the type of the expression, so a partition
+key of `toYYYYMM(date)` takes `'202001'` while one of `toDate(date)` takes
+`'2020-01-01'`.
+
+Note the following:
+
+* Dropping a partition that does not exist is a no-op rather than an error, so
+  the command is safe to run more than once, but a value that is misspelled
+  rather than wrong fails silently.
+* A composite partition key such as `PARTITION BY (toYYYYMM(date), region)` is
+  identified by a tuple, which a single value cannot express. Use the
+  `system.execute` procedure with an explicit
+  `ALTER TABLE ... DROP PARTITION (202001, 'us')` for such tables.
 
 (clickhouse-table-functions)=
 ### Table functions
