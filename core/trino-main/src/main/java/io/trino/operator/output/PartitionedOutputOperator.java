@@ -15,7 +15,6 @@ package io.trino.operator.output;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -35,7 +34,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -289,15 +287,7 @@ public class PartitionedOutputOperator
             return;
         }
         finished = true;
-
-        try (Closer closer = Closer.create()) {
-            // Closer runs in reverse registration order, so the partitioner is released even if the flush fails
-            closer.register(() -> pagePartitionerPool.release(pagePartitioner));
-            closer.register(() -> operatorContext.setLatestMetrics(pagePartitioner.prepareForRelease(operatorContext)));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        operatorContext.setLatestMetrics(pagePartitionerPool.release(pagePartitioner, operatorContext));
     }
 
     @Override
