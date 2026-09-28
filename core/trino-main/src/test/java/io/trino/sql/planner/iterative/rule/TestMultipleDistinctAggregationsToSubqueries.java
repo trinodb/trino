@@ -82,6 +82,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestMultipleDistinctAggregationsToSubqueries
@@ -1122,7 +1123,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
 
     private static TableHandle testTableHandle(RuleTester ruleTester)
     {
-        return new TableHandle(ruleTester.getCurrentCatalogHandle(), new MockConnectorTableHandle(TABLE_SCHEMA, TupleDomain.all(), Optional.empty()), TestingTransactionHandle.create());
+        return new TableHandle(ruleTester.getCurrentCatalogHandle(), new MockConnectorTableHandle(TABLE_SCHEMA, TupleDomain.all(), Optional.empty()), TestingTransactionHandle.create(), TEST_RESOLVING_IDENTITY);
     }
 
     private static RuleTester tester(boolean allowSplittingReadIntoMultipleSubQueries)
