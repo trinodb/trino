@@ -119,6 +119,86 @@ public class TestResourceGroups
 
     @Test
     @Timeout(10)
+    public void testGetQueryPositionWhenQueuedQueryFails()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(0);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withQueryId("query1").build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().withQueryId("query2").build();
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().withQueryId("query3").build();
+        root.run(query1);
+        root.run(query2);
+        root.run(query3);
+
+        assertThat(query1.getState()).isEqualTo(QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
+
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(2));
+        assertThat(root.getQueryPosition(new QueryId("query3"))).isEqualTo(Optional.of(3));
+
+        // Canceling a queued query shifts the positions
+        query2.fail(new RuntimeException("cancelled"));
+        assertThat(query2.getState()).isEqualTo(FAILED);
+
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.empty());
+        assertThat(root.getQueryPosition(new QueryId("query3"))).isEqualTo(Optional.of(2));
+    }
+
+    @Test
+    @Timeout(10)
+    public void testGetQueryPositionRefreshOnEnqueue()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(0);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withQueryId("query1").build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(QUEUED);
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+
+        // Enqueueing another query refreshes the previously cached positions
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().withQueryId("query2").build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(2));
+    }
+
+    @Test
+    @Timeout(10)
+    public void testGetQueryPositionAfterSchedulingPolicyChange()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(0);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withQueryId("query1").withPriority(1).build();
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().withQueryId("query2").withPriority(10).build();
+        root.run(query1);
+        root.run(query2);
+
+        assertThat(query1.getState()).isEqualTo(QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(1));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(2));
+
+        root.setSchedulingPolicy(QUERY_PRIORITY);
+        assertThat(root.getQueryPosition(new QueryId("query1"))).isEqualTo(Optional.of(2));
+        assertThat(root.getQueryPosition(new QueryId("query2"))).isEqualTo(Optional.of(1));
+    }
+
+    @Test
+    @Timeout(10)
     public void testFairEligibility()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
