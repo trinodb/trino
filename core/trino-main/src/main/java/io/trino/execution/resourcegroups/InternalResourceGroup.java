@@ -129,6 +129,10 @@ public class InternalResourceGroup
     private final Set<InternalResourceGroup> dirtySubGroups = ConcurrentHashMap.newKeySet();
     @GuardedBy("root")
     private UpdateablePriorityQueue<ManagedQueryExecution> queuedQueries = new FifoQueue<>();
+    @GuardedBy("root")
+    private final Map<QueryId, Integer> queuePositions = new HashMap<>();
+    @GuardedBy("root")
+    private boolean queuePositionsStale = true;
     private final Map<ManagedQueryExecution, StagedResourceUsage> runningQueries = new ConcurrentHashMap<>();
     @GuardedBy("root")
     private int descendantRunningQueries;
@@ -271,16 +275,31 @@ public class InternalResourceGroup
         requireNonNull(queryId, "queryId is null");
         synchronized (root) {
             if (!(queuedQueries instanceof StochasticPriorityQueue)) {
-                int position = 1;
-                for (ManagedQueryExecution query : queuedQueries) {
-                    if (query.getSession().getQueryId().equals(queryId)) {
-                        return Optional.of(position);
-                    }
-                    position++;
+                if (queuePositionsStale) {
+                    rebuildQueuePositions();
                 }
+                return Optional.ofNullable(queuePositions.get(queryId));
             }
             return Optional.empty();
         }
+    }
+
+    private void rebuildQueuePositions()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to rebuild queue positions");
+        queuePositions.clear();
+        int position = 1;
+        for (ManagedQueryExecution query : queuedQueries) {
+            queuePositions.put(query.getSession().getQueryId(), position);
+            position++;
+        }
+        queuePositionsStale = false;
+    }
+
+    private void invalidateQueuePositions()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to invalidate queue positions");
+        queuePositionsStale = true;
     }
 
     @Managed
@@ -635,6 +654,7 @@ public class InternalResourceGroup
                 queryQueue.addOrUpdate(query, getQueryPriority(query.getSession()));
             }
             queuedQueries = queryQueue;
+            invalidateQueuePositions();
         }
     }
 
@@ -728,6 +748,7 @@ public class InternalResourceGroup
         checkState(Thread.holdsLock(root), "Must hold lock to enqueue a query");
         synchronized (root) {
             queuedQueries.addOrUpdate(query, getQueryPriority(query.getSession()));
+            invalidateQueuePositions();
             InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
                 group.parent.get().descendantQueuedQueries++;
@@ -898,6 +919,7 @@ public class InternalResourceGroup
             else {
                 // The query must be queued
                 queuedQueries.remove(query);
+                invalidateQueuePositions();
                 InternalResourceGroup group = this;
                 while (group.parent.isPresent()) {
                     group.parent.get().descendantQueuedQueries--;
@@ -991,6 +1013,7 @@ public class InternalResourceGroup
             }
             ManagedQueryExecution query = queuedQueries.poll();
             if (query != null) {
+                invalidateQueuePositions();
                 startInBackground(query);
                 return true;
             }
