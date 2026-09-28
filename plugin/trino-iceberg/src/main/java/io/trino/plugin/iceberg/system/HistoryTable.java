@@ -24,7 +24,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TimeZoneKey;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
@@ -36,6 +35,7 @@ import java.util.Set;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
@@ -76,14 +76,13 @@ public class HistoryTable
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(COLUMNS);
 
         Set<Long> ancestorIds = ImmutableSet.copyOf(SnapshotUtil.currentAncestorIds(icebergTable));
-        TimeZoneKey timeZoneKey = session.getTimeZoneKey();
         for (HistoryEntry historyEntry : icebergTable.history()) {
             long snapshotId = historyEntry.snapshotId();
             // Null when the log references a snapshot missing from the metadata
             Snapshot snapshot = icebergTable.snapshot(snapshotId);
 
             table.addRow(
-                    packDateTimeWithZone(historyEntry.timestampMillis(), timeZoneKey),
+                    packDateTimeWithZone(historyEntry.timestampMillis(), UTC_KEY),
                     snapshotId,
                     snapshot != null ? snapshot.parentId() : null,
                     ancestorIds.contains(snapshotId));
