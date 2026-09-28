@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
@@ -62,6 +63,8 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_
 public class GlueIcebergTableOperations
         extends AbstractIcebergTableOperations
 {
+    private static final Logger log = Logger.get(GlueIcebergTableOperations.class);
+
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final StatsRecordingGlueClient glueClient;
@@ -134,12 +137,28 @@ public class GlueIcebergTableOperations
         }
         catch (GlueException e) {
             switch (e) {
+                // A retried request can observe the table that the first (successful) attempt created and report
+                // AlreadyExists. Deleting the new metadata file in that case would corrupt the just-created table, so
+                // the actual commit outcome is verified before any cleanup is performed.
+                case AlreadyExistsException _ -> {
+                    switch (checkNewTableCommitStatus(newMetadataLocation, metadata.uuid(), this::committedMetadataLocation)) {
+                        case SUCCESS -> {
+                            log.warn(e, "Received an error from Glue while creating table %s, but the table was actually created; treating the commit as successful", getSchemaTableName());
+                            shouldRefresh = true;
+                            return;
+                        }
+                        // Cannot determine whether the create was applied. Preserve every new file so the table
+                        // remains recoverable; CommitStateUnknownException stops the Iceberg transaction layer from
+                        // cleaning them up.
+                        case UNKNOWN -> throw new CommitStateUnknownException(e);
+                        case FAILURE -> throw deleteOrphanedMetadata(newMetadataLocation, e);
+                    }
+                }
                 // clean up metadata files corresponding to the current transaction
-                case AlreadyExistsException _,
-                     EntityNotFoundException _,
+                case EntityNotFoundException _,
                      InvalidInputException _,
                      ResourceNumberLimitExceededException _,
-                     ValidationException _ -> io().deleteFile(newMetadataLocation);
+                     ValidationException _ -> throw deleteOrphanedMetadata(newMetadataLocation, e);
                 default -> {}
             }
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
@@ -213,6 +232,16 @@ public class GlueIcebergTableOperations
             throw new CommitStateUnknownException(e);
         }
         shouldRefresh = true;
+    }
+
+    private Optional<String> committedMetadataLocation()
+    {
+        try {
+            return Optional.ofNullable(getTable(database, tableName, true).parameters().get(METADATA_LOCATION_PROP));
+        }
+        catch (TableNotFoundException e) {
+            return Optional.empty();
+        }
     }
 
     private Table getTable(String database, String tableName, boolean invalidateCaches)
