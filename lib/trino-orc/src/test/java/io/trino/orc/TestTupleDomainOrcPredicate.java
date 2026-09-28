@@ -554,6 +554,10 @@ public class TestTupleDomainOrcPredicate
         assertThat(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, null, "999.99"))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(SHORT_DECIMAL, shortDecimal("999.99"))), false));
         assertThat(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, "-999.99", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(SHORT_DECIMAL, shortDecimal("-999.99"))), false));
 
+        // A file can record more decimal places than the column it is read as. The statistics have
+        // to round like the values do, or the domain would not describe what the reader returns.
+        assertThat(getDomain(SHORT_DECIMAL, 10, decimalColumnStats(10L, "10.233", "10.236"))).isEqualTo(create(ValueSet.ofRanges(range(SHORT_DECIMAL, shortDecimal("10.23"), true, shortDecimal("10.24"), true)), false));
+
         assertThat(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, "-1234567890.0987654321", "1234567890.0987654321"))).isEqualTo(create(ValueSet.ofRanges(range(LONG_DECIMAL, longDecimal("-1234567890.0987654321"), true, longDecimal("1234567890.0987654321"), true)), false));
         assertThat(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, null, "1234567890.0987654321"))).isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(LONG_DECIMAL, longDecimal("1234567890.0987654321"))), false));
         assertThat(getDomain(LONG_DECIMAL, 10, decimalColumnStats(10L, "-1234567890.0987654321", null))).isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(LONG_DECIMAL, longDecimal("-1234567890.0987654321"))), false));

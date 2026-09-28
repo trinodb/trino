@@ -28,6 +28,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -37,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -66,6 +68,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate
@@ -228,10 +231,10 @@ public class TupleDomainOrcPredicate
             }
         }
         else if (type instanceof DecimalType decimalType && decimalType.isShort() && columnStatistics.getDecimalStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, decimalType).unscaledValue().longValue());
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescaleStatistics(value, decimalType).unscaledValue().longValue());
         }
         else if (type instanceof DecimalType decimalType && !decimalType.isShort() && columnStatistics.getDecimalStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescale(value, decimalType).unscaledValue()));
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescaleStatistics(value, decimalType).unscaledValue()));
         }
         else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
@@ -293,6 +296,17 @@ public class TupleDomainOrcPredicate
             return createDomain(type, hasNullValue, columnStatistics.getDoubleStatistics(), value -> (long) floatToRawIntBits(value.floatValue()));
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
+    }
+
+    /**
+     * The statistics of a file can carry more decimal places than the column it is read as, the
+     * same way the values can, so they have to be rounded the same way the reader rounds them.
+     * {@link Decimals#rescale(BigDecimal, DecimalType)} alone rejects that: it scales without
+     * rounding and fails when digits would be lost.
+     */
+    private static BigDecimal rescaleStatistics(BigDecimal value, DecimalType type)
+    {
+        return rescale(value.setScale(type.getScale(), HALF_UP), type);
     }
 
     private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
