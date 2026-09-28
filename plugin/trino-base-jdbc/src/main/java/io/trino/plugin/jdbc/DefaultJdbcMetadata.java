@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.filter.UtcConstraintExtractor.ExtractionResult;
@@ -137,7 +138,10 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    protected final List<Runnable> rollbackActions = new ArrayList<>();
+    @GuardedBy("this")
+    private final List<Runnable> rollbackActions = new ArrayList<>();
+    @GuardedBy("this")
+    private boolean rolledBack;
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1200,8 +1204,8 @@ public class DefaultJdbcMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata, rollbackActions::add);
-        rollbackActions.add(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata, this::addRollbackAction);
+        addRollbackAction(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
         return handle;
     }
 
@@ -1259,15 +1263,29 @@ public class DefaultJdbcMetadata
         }
     }
 
+    protected void addRollbackAction(Runnable action)
+    {
+        synchronized (this) {
+            if (!rolledBack) {
+                rollbackActions.add(action);
+                return;
+            }
+        }
+        // rollback() has already taken its snapshot and will never see this action
+        action.run();
+    }
+
     @Override
     public void rollback()
     {
-        if (rollbackActions.isEmpty()) {
-            return;
+        List<Runnable> actions;
+        synchronized (this) {
+            rolledBack = true;
+            actions = ImmutableList.copyOf(rollbackActions);
         }
 
         List<Throwable> exceptions = new ArrayList<>();
-        for (Runnable action : rollbackActions) {
+        for (Runnable action : actions) {
             try {
                 action.run();
             }
@@ -1291,7 +1309,7 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        rollbackActions.add(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
+        addRollbackAction(() -> jdbcClient.rollbackTemporaryTableCreation(session, handle));
         return handle;
     }
 
@@ -1348,7 +1366,7 @@ public class DefaultJdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
 
-        return jdbcClient.beginMerge(session, handle, updateColumnHandles, rollbackActions::add, retryMode);
+        return jdbcClient.beginMerge(session, handle, updateColumnHandles, this::addRollbackAction, retryMode);
     }
 
     @Override
