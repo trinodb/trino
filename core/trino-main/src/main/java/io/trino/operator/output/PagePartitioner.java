@@ -202,7 +202,7 @@ public class PagePartitioner
      * that amount in {@link #outputSizeReportedBeforeRelease}. If the {@link PagePartitioner} is reused after having reported buffered bytes eagerly,
      * we then have to subtract that same amount from the subsequent output bytes to avoid double counting them.
      */
-    public Metrics prepareForRelease(OperatorContext operatorContext)
+    Metrics prepareForRelease(OperatorContext operatorContext)
     {
         long bufferedSizeInBytes = 0;
         long outputSizeInBytes = 0;
