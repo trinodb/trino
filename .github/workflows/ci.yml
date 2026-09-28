@@ -521,7 +521,7 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout-minutes || 60 }}
     env:
       MATRIX_MODULES: ${{ matrix.modules }}
       MATRIX_PROFILE: ${{ matrix.profile }}
