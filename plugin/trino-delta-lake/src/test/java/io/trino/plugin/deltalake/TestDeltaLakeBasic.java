@@ -141,6 +141,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
+            new ResourceTable("liquid_clustering_multi_column", "deltalake/liquid_clustering_multi_column"),
             new ResourceTable("region_91_lts", "databricks91/region"),
             new ResourceTable("region_104_lts", "databricks104/region"),
             new ResourceTable("region_113_lts", "databricks113/region"),
@@ -1984,6 +1985,31 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
 
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
+    }
+
+    /**
+     * @see deltalake.liquid_clustering_multi_column
+     */
+    @Test
+    public void testLiquidClusteringMultiColumn()
+    {
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column", "VALUES 300");
+        assertQuery(
+                "SELECT year, count(*) FROM liquid_clustering_multi_column GROUP BY year ORDER BY year",
+                "VALUES (2021, 100), (2022, 100), (2023, 100)");
+
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column WHERE year = 2022", "VALUES 100");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column WHERE year IN (2021, 2023)", "VALUES 200");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column WHERE year = 2022 AND month = 3", "VALUES 9");
+        assertQuery("SELECT DISTINCT data FROM liquid_clustering_multi_column WHERE year = 2022 AND month = 3", "VALUES 'row 2022-3'");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column WHERE month = 1", "VALUES 27");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM liquid_clustering_multi_column FOR VERSION AS OF 0");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column FOR VERSION AS OF 1", "VALUES 100");
+        assertQuery("SELECT DISTINCT year FROM liquid_clustering_multi_column FOR VERSION AS OF 1", "VALUES 2021");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column FOR VERSION AS OF 2", "VALUES 100");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column FOR VERSION AS OF 3", "VALUES 200");
+        assertQuery("SELECT count(*) FROM liquid_clustering_multi_column FOR VERSION AS OF 4", "VALUES 300");
     }
 
     /**
