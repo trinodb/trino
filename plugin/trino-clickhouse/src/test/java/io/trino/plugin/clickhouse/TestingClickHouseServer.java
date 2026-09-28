@@ -60,9 +60,23 @@ public class TestingClickHouseServer
 
     public TestingClickHouseServer(DockerImageName image)
     {
-        dockerContainer = new ClickHouseContainer(image)
+        this(image, false);
+    }
+
+    /**
+     * @param clusterEnabled also configure ClickHouse Keeper and a cluster named
+     *         {@code test_cluster} containing this node, which is what
+     *         {@code clickhouse.cluster-name} requires
+     */
+    public TestingClickHouseServer(DockerImageName image, boolean clusterEnabled)
+    {
+        ClickHouseContainer container = new ClickHouseContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
+        if (clusterEnabled) {
+            container.withCopyFileToContainer(forClasspathResource("cluster.xml"), "/etc/clickhouse-server/config.d/cluster.xml");
+        }
+        dockerContainer = container;
 
         dockerContainer.start();
     }
