@@ -70,6 +70,31 @@ driver documentation](https://clickhouse.com/docs/en/interfaces/jdbc/)
 ```{include} jdbc-authentication.fragment
 ```
 
+(clickhouse-cluster-mode)=
+### Cluster mode
+
+If the server in `connection-url` belongs to a ClickHouse cluster, set
+`clickhouse.cluster-name` to the name of that cluster:
+
+```properties
+clickhouse.cluster-name=example_cluster
+```
+
+The connector then appends `ON CLUSTER` to every DDL statement it issues, so
+that the statement is applied by every node of the cluster instead of only by
+the node that happens to receive it. This covers the DDL behind `CREATE TABLE`,
+`ALTER TABLE`, `DROP TABLE`, `COMMENT ON` and `CREATE`/`ALTER`/`DROP SCHEMA`,
+as well as the temporary table that `INSERT` uses to stage rows.
+
+The name must match a cluster defined in the `remote_servers` section of the
+ClickHouse configuration, and it is case-sensitive. Note that a cluster-wide DDL
+statement is not atomic: ClickHouse queues it in ClickHouse Keeper and each node
+applies it independently, so a failure on one node leaves the cluster partially
+updated.
+
+When `clickhouse.cluster-name` is not set, no `ON CLUSTER` clause is added, which
+is what a standalone server requires.
+
 ### Multiple ClickHouse servers
 
 If you have multiple ClickHouse servers you need to configure one
