@@ -101,7 +101,7 @@ public class TestDeltaLakeFileStatistics
     void testMissingTightBounds()
             throws Exception
     {
-        DeltaLakeJsonFileStatistics statistics = new DeltaLakeJsonFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty());
+        DeltaLakeJsonFileStatistics statistics = new DeltaLakeJsonFileStatistics(Optional.of(5L), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         assertThat(statistics.getTightBounds()).isEmpty();
         assertThat(serializeStatsAsJson(statistics)).doesNotContain("tightBounds");
         assertThat(DeltaLakeJsonFileStatistics.create("{\"numRecords\":5}")).isEqualTo(statistics);

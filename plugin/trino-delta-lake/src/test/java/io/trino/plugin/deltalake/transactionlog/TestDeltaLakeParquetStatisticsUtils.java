@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertParquetToJsonStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValueUpperBound;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.tightBounds;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValue;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValueUpperBound;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -50,6 +52,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -337,6 +340,14 @@ public class TestDeltaLakeParquetStatisticsUtils
         DeltaLakeJsonFileStatistics jsonStatistics = convertParquetToJsonStatistics(ImmutableMap.of("ts", TIMESTAMP_MICROS), statistics);
         assertThat(jsonStatistics.getMinValues()).contains(ImmutableMap.of("ts", "2024-01-15T10:30:00.123Z"));
         assertThat(jsonStatistics.getMaxValues()).contains(ImmutableMap.of("ts", "2024-01-15T10:30:00.124Z"));
+    }
+
+    @Test
+    public void testTightBounds()
+    {
+        assertThat(tightBounds(ImmutableList.of(IntegerType.INTEGER, TIMESTAMP_TZ_MILLIS))).isEmpty();
+        assertThat(tightBounds(ImmutableList.of(IntegerType.INTEGER, TIMESTAMP_MICROS))).contains(false);
+        assertThat(tightBounds(ImmutableList.of(TIMESTAMP_TZ_MICROS))).contains(false);
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)

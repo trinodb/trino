@@ -62,6 +62,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.hasInvalidStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMax;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.tightBounds;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -224,11 +225,13 @@ public final class DeltaLakeWriter
                 .filter(entry -> entry.getValue().isPresent())
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get().getNumNulls()));
 
+        Map<String, Object> maxValues = jsonEncodeMax(statsForColumn, typeForColumn);
         return new DeltaLakeJsonFileStatistics(
                 Optional.of(rowCount),
                 Optional.of(jsonEncodeMin(statsForColumn, typeForColumn)),
-                Optional.of(jsonEncodeMax(statsForColumn, typeForColumn)),
-                Optional.of(nullCount));
+                Optional.of(maxValues),
+                Optional.of(nullCount),
+                tightBounds(maxValues.keySet().stream().map(typeForColumn::get).toList()));
     }
 
     private static Optional<Statistics<?>> mergeMetadataList(Collection<ColumnChunkMetadata> metadataList)

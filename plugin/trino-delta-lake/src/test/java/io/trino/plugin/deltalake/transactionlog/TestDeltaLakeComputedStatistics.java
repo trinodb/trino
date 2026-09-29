@@ -50,6 +50,23 @@ public class TestDeltaLakeComputedStatistics
 
         assertThat(statistics.getMinValues().orElseThrow()).isEqualTo(ImmutableMap.of(COLUMN_NAME, "2024-01-15T10:30:00.123Z"));
         assertThat(statistics.getMaxValues().orElseThrow()).isEqualTo(ImmutableMap.of(COLUMN_NAME, "2024-01-15T10:30:00.124Z"));
+        assertThat(statistics.getTightBounds()).contains(false);
+    }
+
+    @Test
+    public void testTimestampColumnWithoutMaximumKeepsTightBounds()
+    {
+        ComputedStatistics computedStatistics = ComputedStatistics.builder(ImmutableList.of(), ImmutableList.of())
+                .addTableStatistic(ROW_COUNT, singleValueBlock(BIGINT, 1))
+                .addColumnStatistic(new ColumnStatisticMetadata("id", MIN_VALUE), singleValueBlock(BIGINT, 1))
+                .addColumnStatistic(new ColumnStatisticMetadata("id", MAX_VALUE), singleValueBlock(BIGINT, 1))
+                .build();
+
+        DeltaLakeJsonFileStatistics statistics = DeltaLakeComputedStatistics.toDeltaLakeJsonFileStatistics(
+                computedStatistics,
+                ImmutableMap.of("id", column("id", BIGINT), COLUMN_NAME, column(COLUMN_NAME, TIMESTAMP_MICROS)));
+
+        assertThat(statistics.getTightBounds()).isEmpty();
     }
 
     private static DeltaLakeJsonFileStatistics toStatistics(long minEpochMicros, long maxEpochMicros)
@@ -60,16 +77,12 @@ public class TestDeltaLakeComputedStatistics
                 .addColumnStatistic(new ColumnStatisticMetadata(COLUMN_NAME, MAX_VALUE), singleValueBlock(TIMESTAMP_MICROS, maxEpochMicros))
                 .build();
 
-        DeltaLakeColumnHandle column = new DeltaLakeColumnHandle(
-                COLUMN_NAME,
-                TIMESTAMP_MICROS,
-                OptionalInt.empty(),
-                COLUMN_NAME,
-                TIMESTAMP_MICROS,
-                REGULAR,
-                Optional.empty());
+        return DeltaLakeComputedStatistics.toDeltaLakeJsonFileStatistics(computedStatistics, ImmutableMap.of(COLUMN_NAME, column(COLUMN_NAME, TIMESTAMP_MICROS)));
+    }
 
-        return DeltaLakeComputedStatistics.toDeltaLakeJsonFileStatistics(computedStatistics, ImmutableMap.of(COLUMN_NAME, column));
+    private static DeltaLakeColumnHandle column(String name, Type type)
+    {
+        return new DeltaLakeColumnHandle(name, type, OptionalInt.empty(), name, type, REGULAR, Optional.empty());
     }
 
     private static Block singleValueBlock(Type type, long value)
