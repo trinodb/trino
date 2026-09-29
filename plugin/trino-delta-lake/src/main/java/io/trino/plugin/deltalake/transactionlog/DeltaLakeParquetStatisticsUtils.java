@@ -329,6 +329,23 @@ public final class DeltaLakeParquetStatisticsUtils
         return Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
     }
 
+    public static Optional<Boolean> tightBounds(Collection<Type> columnTypes)
+    {
+        if (columnTypes.stream().anyMatch(DeltaLakeParquetStatisticsUtils::isSubMillisecondTimestamp)) {
+            return Optional.of(false); // we round up the maximum so it is a wide bound
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isSubMillisecondTimestamp(Type type)
+    {
+        return switch (type) {
+            case TimestampType timestampType -> timestampType.getPrecision() > TIMESTAMP_MILLIS.getPrecision();
+            case TimestampWithTimeZoneType timestampWithTimeZoneType -> timestampWithTimeZoneType.getPrecision() > TIMESTAMP_TZ_MILLIS.getPrecision();
+            default -> false;
+        };
+    }
+
     public static Map<String, Object> jsonEncodeMin(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn)
     {
         return jsonEncode(stats, typeForColumn, DeltaLakeParquetStatisticsUtils::getMin);

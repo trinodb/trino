@@ -76,15 +76,6 @@ public class DeltaLakeJsonFileStatistics
         return parseJson(JSON_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }
 
-    public DeltaLakeJsonFileStatistics(
-            Optional<Long> numRecords,
-            Optional<Map<String, Object>> minValues,
-            Optional<Map<String, Object>> maxValues,
-            Optional<Map<String, Object>> nullCount)
-    {
-        this(numRecords, minValues, maxValues, nullCount, Optional.empty());
-    }
-
     @JsonCreator
     public DeltaLakeJsonFileStatistics(
             @JsonProperty("numRecords") Optional<Long> numRecords,

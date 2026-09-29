@@ -160,7 +160,8 @@ public class TestDeltaLakeSchemaSupport
                         Optional.of(100L),
                         Optional.of(ImmutableMap.of("c", 42)),
                         Optional.of(ImmutableMap.of("c", 51)),
-                        Optional.of(ImmutableMap.of("c", 1L))))).isEqualTo("{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
+                        Optional.of(ImmutableMap.of("c", 1L)),
+                        Optional.empty()))).isEqualTo("{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
     }
 
     @Test
@@ -181,7 +182,8 @@ public class TestDeltaLakeSchemaSupport
                         Optional.of(1L),
                         Optional.of(minValues),
                         Optional.of(maxValues),
-                        Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L))))).isEqualTo("{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
+                        Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L)),
+                        Optional.empty()))).isEqualTo("{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
     }
 
     @Test
