@@ -20,6 +20,8 @@ import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.spi.exchange.ExchangeManager;
 import org.junit.jupiter.api.AfterAll;
 
+import java.net.URI;
+
 import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static java.util.UUID.randomUUID;
 
@@ -37,6 +39,12 @@ public class TestS3FileSystemExchangeManager
         return new FileSystemExchangeManagerFactory().create(
                 storage.getExchangeManagerProperties(),
                 new TestExchangeManagerContext());
+    }
+
+    @Override
+    protected void deleteFile(URI file)
+    {
+        storage.deleteObject(file);
     }
 
     @Override

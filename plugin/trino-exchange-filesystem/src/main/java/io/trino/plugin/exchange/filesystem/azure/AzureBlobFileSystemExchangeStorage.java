@@ -71,6 +71,7 @@ import reactor.core.publisher.Mono;
 import reactor.netty.resources.ConnectionProvider;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -479,7 +480,8 @@ public class AzureBlobFileSystemExchangeStorage
     }
 
     @ThreadSafe
-    private static class AzureExchangeStorageReader
+    @VisibleForTesting
+    static class AzureExchangeStorageReader
             implements ExchangeStorageReader
     {
         private static final int INSTANCE_SIZE = instanceSize(AzureExchangeStorageReader.class);
@@ -533,8 +535,11 @@ public class AzureBlobFileSystemExchangeStorage
             try {
                 getFutureValue(inProgressReadFuture);
             }
+            catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
             catch (RuntimeException e) {
-                throw toReadFailure(e, currentFile.getFileUri());
+                throw new IOException(e);
             }
 
             if (sliceSize < 0) {
@@ -624,9 +629,10 @@ public class AzureBlobFileSystemExchangeStorage
                     }
                 }
 
+                URI fileUri = currentFile.getFileUri();
                 BlockBlobAsyncClient blockBlobAsyncClient = blobServiceAsyncClient
-                        .getBlobContainerAsyncClient(getContainerName(currentFile.getFileUri()))
-                        .getBlobAsyncClient(getPath(currentFile.getFileUri()))
+                        .getBlobContainerAsyncClient(getContainerName(fileUri))
+                        .getBlobAsyncClient(getPath(fileUri))
                         .getBlockBlobAsyncClient();
                 for (int i = 0; i < readableBlocks && fileOffset < fileSize; ++i) {
                     int length = (int) min(blockSize, fileSize - fileOffset);
@@ -634,7 +640,7 @@ public class AzureBlobFileSystemExchangeStorage
                     int finalBufferFill = bufferFill;
                     FluentFuture<Void> downloadFuture = FluentFuture.from(toListenableFuture(blockBlobAsyncClient.downloadStreamWithResponse(new BlobRange(fileOffset, (long) length), null, null, false).toFuture()))
                             .transformAsync(response -> toListenableFuture(response.getValue().collectList().toFuture()), directExecutor())
-                            .transform(byteBuffers -> {
+                            .<Void>transform(byteBuffers -> {
                                 int offset = finalBufferFill;
                                 for (ByteBuffer byteBuffer : byteBuffers) {
                                     int readableBytes = byteBuffer.remaining();
@@ -647,6 +653,10 @@ public class AzureBlobFileSystemExchangeStorage
                                     offset += readableBytes;
                                 }
                                 return null;
+                            }, directExecutor())
+                            // A single buffer fill spans multiple files, so the failed file is only known when the request is issued
+                            .catching(RuntimeException.class, failure -> {
+                                throw new UncheckedIOException(toReadFailure(failure, fileUri));
                             }, directExecutor());
                     downloadFutures.add(downloadFuture);
                     bufferFill += length;
