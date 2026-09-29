@@ -111,6 +111,22 @@ public abstract class BaseSharedMetastoreTest
     }
 
     @Test
+    void testShowBranches()
+    {
+        assertThat(query("SHOW BRANCHES IN TABLE iceberg." + tpchSchema + ".nation"))
+                .skippingTypesCheck()
+                .matches("VALUES 'main'");
+        assertThat(query("SHOW BRANCHES IN TABLE iceberg_with_redirections." + tpchSchema + ".nation"))
+                .skippingTypesCheck()
+                .matches("VALUES 'main'");
+        assertThat(query("SHOW BRANCHES IN TABLE iceberg_with_redirections." + tpchSchema + ".region"))
+                .returnsEmptyResult();
+
+        assertThat(query("SHOW BRANCHES IN TABLE iceberg." + tpchSchema + ".region"))
+                .failure().hasMessageContaining("Not an Iceberg table");
+    }
+
+    @Test
     public void testShowTables()
     {
         assertQuery("SHOW TABLES FROM iceberg." + tpchSchema, "VALUES 'region', 'nation'");

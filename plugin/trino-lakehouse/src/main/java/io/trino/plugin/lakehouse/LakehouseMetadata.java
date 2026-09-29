@@ -87,6 +87,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
@@ -794,6 +795,30 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+    {
+        forHandle(tableHandle).createBranch(session, tableHandle, branch, fromBranch, saveMode, properties);
+    }
+
+    @Override
+    public void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        forHandle(tableHandle).dropBranch(session, tableHandle, branch);
+    }
+
+    @Override
+    public Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        return forTableName(tableName).listBranches(session, tableName);
+    }
+
+    @Override
+    public boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        return forTableName(tableName).branchExists(session, tableName, branch);
+    }
+
+    @Override
     public boolean roleExists(ConnectorSession session, String role)
     {
         return hiveMetadata.roleExists(session, role);
@@ -1031,6 +1056,23 @@ public class LakehouseMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return forHandle(tableHandle).getInsertWriterScalingOptions(session, tableHandle);
+    }
+
+    private ConnectorMetadata forTableName(SchemaTableName tableName)
+    {
+        Table table = hiveMetadata.getMetastore()
+                .getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        if (isIcebergTable(table)) {
+            return icebergMetadata;
+        }
+        if (isDeltaLakeTable(table)) {
+            return deltaMetadata;
+        }
+        if (isHudiTable(table)) {
+            return hudiMetadata;
+        }
+        return hiveMetadata;
     }
 
     private ConnectorMetadata forHandle(ConnectorTableHandle handle)

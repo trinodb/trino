@@ -29,6 +29,8 @@ import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.lakehouse.TableType.ICEBERG;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLakehouseIcebergConnectorSmokeTest
@@ -92,5 +94,22 @@ public class TestLakehouseIcebergConnectorSmokeTest
 
         assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
                 .failure().hasMessageMatching(".* Table .* does not exist");
+    }
+
+    @Test
+    void testBranches()
+    {
+        assertThat(query("SHOW BRANCHES IN TABLE region"))
+                .skippingTypesCheck()
+                .matches("VALUES 'main'");
+
+        assertThat(query("INSERT INTO region@main VALUES (5, 'name', 'comment')"))
+                .failure()
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Writing to Iceberg branches is not supported");
+        assertThat(query("INSERT INTO region@missing_branch VALUES (5, 'name', 'comment')"))
+                .failure()
+                .hasErrorCode(BRANCH_NOT_FOUND)
+                .hasMessage("line 1:1: Branch 'missing_branch' does not exist");
     }
 }
