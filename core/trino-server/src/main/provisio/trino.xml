@@ -112,6 +112,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/http-extra-credentials">
+        <artifact id="${project.groupId}:trino-http-extra-credentials:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/hudi">
         <artifact id="${project.groupId}:trino-hudi:zip:${project.version}">
             <unpack />
