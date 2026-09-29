@@ -7153,9 +7153,14 @@ public class TestAnalyzer
                 .hasMessage("line 1:70: Invalid argument INPUT. Table argument using table metadata does not support views");
 
         // materialized views are not supported
-        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(fresh_materialized_view)))")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:70: Table 'tpch.s1.fresh_materialized_view' does not exist");
+        assertFails("SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(fresh_materialized_view_when_stale_inline)))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:70: Invalid argument INPUT. Table argument using table metadata does not support materialized views");
+
+        // a WITH query is not accepted for this argument kind
+        assertFails("WITH t1 AS (SELECT 1 a) SELECT * FROM TABLE(system.table_metadata_argument_function(input => TABLE(t1)))")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:85: Invalid argument INPUT. Table argument using table metadata cannot reference a WITH query");
     }
 
     @Test
