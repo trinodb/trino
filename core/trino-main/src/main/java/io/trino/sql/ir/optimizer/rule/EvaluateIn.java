@@ -38,7 +38,7 @@ import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
 
 /**
- * Evaluates a constant IN expression
+ * Evaluates or simplifies an IN expression with a constant value
  */
 public class EvaluateIn
         implements IrOptimizerRule
@@ -59,10 +59,6 @@ public class EvaluateIn
             return Optional.empty();
         }
 
-        if (!list.stream().allMatch(Constant.class::isInstance)) {
-            return Optional.empty();
-        }
-
         if (list.isEmpty()) {
             return Optional.of(FALSE);
         }
@@ -74,18 +70,33 @@ public class EvaluateIn
         ResolvedFunction equalsOperator = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(value.type(), value.type()));
         ConnectorSession connectorSession = session.toConnectorSession();
 
-        boolean nullMatch = false;
+        ImmutableList.Builder<Expression> remainingItems = ImmutableList.builder();
         for (Expression item : list) {
-            Constant constantItem = (Constant) item;
-            Boolean equal = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, value.value(), constantItem.value());
-            if (Boolean.TRUE.equals(equal)) {
-                return Optional.of(TRUE);
+            if (item instanceof Constant constantItem) {
+                Boolean equal = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, value.value(), constantItem.value());
+                if (Boolean.TRUE.equals(equal)) {
+                    return Optional.of(TRUE);
+                }
+                if (Boolean.FALSE.equals(equal)) {
+                    continue;
+                }
             }
-            else if (equal == null) {
-                nullMatch = true;
-            }
+            remainingItems.add(item);
+        }
+        List<Expression> remaining = remainingItems.build();
+
+        if (remaining.isEmpty()) {
+            return Optional.of(FALSE);
         }
 
-        return Optional.of(nullMatch ? NULL_BOOLEAN : FALSE);
+        if (remaining.stream().allMatch(Constant.class::isInstance)) {
+            return Optional.of(NULL_BOOLEAN);
+        }
+
+        if (remaining.size() == list.size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new In(value, remaining));
     }
 }
