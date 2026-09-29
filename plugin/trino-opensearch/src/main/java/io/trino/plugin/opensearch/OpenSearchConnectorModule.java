@@ -19,6 +19,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.opensearch.client.OpenSearchClient;
 import io.trino.plugin.opensearch.ptf.RawQuery;
+import io.trino.plugin.opensearch.ptf.Search;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Optional;
@@ -50,6 +51,7 @@ public class OpenSearchConnectorModule
 
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(OpenSearchSessionProperties.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Search.class).in(Scopes.SINGLETON);
 
         Optional<OpenSearchConfig.Security> security = buildConfigObject(OpenSearchConfig.class).getSecurity();
         if (security.isPresent()) {
