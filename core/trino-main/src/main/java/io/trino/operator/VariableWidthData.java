@@ -131,6 +131,10 @@ public final class VariableWidthData
             chunksRetainedSizeInBytes = addExact(chunksRetainedSizeInBytes, sizeOf(openChunk));
             openChunkOffset = 0;
         }
+        else {
+            // the space may hold a freed value
+            Arrays.fill(openChunk, openChunkOffset, openChunkOffset + size, (byte) 0);
+        }
 
         writePointer(
                 pointer,

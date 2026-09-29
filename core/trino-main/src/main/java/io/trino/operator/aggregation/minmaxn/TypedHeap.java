@@ -224,6 +224,8 @@ public final class TypedHeap
     private void set(int index, ValueBlock block, int position)
     {
         int recordOffset = getRecordOffset(index);
+        // the record may hold a replaced value
+        Arrays.fill(fixedChunk, recordOffset, recordOffset + recordSize, (byte) 0);
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
         int variableWidthChunkOffset = 0;
