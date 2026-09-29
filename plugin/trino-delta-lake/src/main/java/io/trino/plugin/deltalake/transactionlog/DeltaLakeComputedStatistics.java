@@ -28,6 +28,7 @@ import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValue;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValueUpperBound;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
@@ -87,7 +88,13 @@ public final class DeltaLakeComputedStatistics
         }
 
         Object value = readNativeValue(columnType, statistics.getValue(), 0);
-        Object jsonValue = toJsonValue(columnType, value);
+        Object jsonValue;
+        if (statistics.getKey().getStatisticType() == MAX_VALUE) {
+            jsonValue = toJsonValueUpperBound(columnType, value);
+        }
+        else {
+            jsonValue = toJsonValue(columnType, value);
+        }
         if (jsonValue != null) {
             return Optional.of(Map.entry(physicalName, jsonValue));
         }
