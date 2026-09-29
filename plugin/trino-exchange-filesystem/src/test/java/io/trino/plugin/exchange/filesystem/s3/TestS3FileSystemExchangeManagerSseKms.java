@@ -20,6 +20,8 @@ import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.spi.exchange.ExchangeManager;
 import org.junit.jupiter.api.AfterAll;
 
+import java.net.URI;
+
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.KMS;
 import static java.util.UUID.randomUUID;
@@ -38,6 +40,12 @@ public class TestS3FileSystemExchangeManagerSseKms
         return new FileSystemExchangeManagerFactory().create(
                 storage.getExchangeManagerProperties(),
                 new TestExchangeManagerContext());
+    }
+
+    @Override
+    protected void deleteFile(URI file)
+    {
+        storage.deleteObject(file);
     }
 
     @AfterAll

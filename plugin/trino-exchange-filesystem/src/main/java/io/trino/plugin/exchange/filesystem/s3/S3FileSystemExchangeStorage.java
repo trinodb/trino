@@ -98,6 +98,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -530,7 +531,8 @@ public class S3FileSystemExchangeStorage
     }
 
     @ThreadSafe
-    private static class S3ExchangeStorageReader
+    @VisibleForTesting
+    static class S3ExchangeStorageReader
             implements ExchangeStorageReader
     {
         private static final int INSTANCE_SIZE = instanceSize(S3ExchangeStorageReader.class);
@@ -591,8 +593,11 @@ public class S3FileSystemExchangeStorage
             try {
                 getFutureValue(inProgressReadFuture);
             }
+            catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
             catch (RuntimeException e) {
-                throw toReadFailure(e, currentFile.getFileUri());
+                throw new IOException(e);
             }
 
             if (sliceSize < 0) {
@@ -682,8 +687,9 @@ public class S3FileSystemExchangeStorage
                     }
                 }
 
-                String key = keyFromUri(currentFile.getFileUri());
-                String bucketName = getBucketName(currentFile.getFileUri());
+                URI fileUri = currentFile.getFileUri();
+                String key = keyFromUri(fileUri);
+                String bucketName = getBucketName(fileUri);
                 for (int i = 0; i < readableParts && fileOffset < fileSize; ++i) {
                     int length = (int) min(partSize, fileSize - fileOffset);
 
@@ -698,7 +704,7 @@ public class S3FileSystemExchangeStorage
                     stats.getGetObject().record(getObjectFuture);
                     stats.getGetObjectDataSizeInBytes().add(length);
                     recordDistributionMetric(getObjectFuture, s3GetObjectRequestsSuccessMetric, s3GetObjectRequestsFailedMetric);
-                    getObjectFutures.add(getObjectFuture);
+                    getObjectFutures.add(mapReadFailure(getObjectFuture, fileUri));
                     bufferFill += length;
                     fileOffset += length;
                 }
@@ -735,6 +741,14 @@ public class S3FileSystemExchangeStorage
             {
                 failureMetric.add(stopwatch.elapsed(MILLISECONDS));
             }
+        }, directExecutor());
+    }
+
+    // A single buffer fill spans multiple files, so the failed file is only known when the request is issued
+    private static <T> ListenableFuture<T> mapReadFailure(ListenableFuture<T> future, URI file)
+    {
+        return Futures.catching(future, RuntimeException.class, failure -> {
+            throw new UncheckedIOException(toReadFailure(failure, file));
         }, directExecutor());
     }
 

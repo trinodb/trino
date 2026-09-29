@@ -18,9 +18,13 @@ import io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType;
 import io.trino.testing.containers.Floci;
 import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.kms.model.CreateKeyRequest;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
+import java.net.URI;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.KMS;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
@@ -70,6 +74,17 @@ public final class FlociStorage
             properties.put("exchange.s3.sse.kms-key-id", kmsKeyId);
         }
         return properties.buildOrThrow();
+    }
+
+    public void deleteObject(URI file)
+    {
+        checkArgument(file.getHost().equals(bucketName), "File %s is not in bucket %s", file, bucketName);
+        try (S3Client s3 = floci.createS3Client()) {
+            s3.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(file.getPath().substring(1))
+                    .build());
+        }
     }
 
     @Override
