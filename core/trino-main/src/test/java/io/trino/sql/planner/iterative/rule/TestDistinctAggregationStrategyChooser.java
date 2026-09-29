@@ -28,6 +28,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -401,6 +402,12 @@ public class TestDistinctAggregationStrategyChooser
             public Lookup getLookup()
             {
                 return Lookup.noLookup();
+            }
+
+            @Override
+            public EffectivePredicateProvider getEffectivePredicateProvider()
+            {
+                throw new UnsupportedOperationException();
             }
 
             @Override
