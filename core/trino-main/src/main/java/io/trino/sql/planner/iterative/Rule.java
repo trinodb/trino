@@ -19,6 +19,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.PlanNode;
@@ -44,6 +45,8 @@ public interface Rule<T>
     interface Context
     {
         Lookup getLookup();
+
+        EffectivePredicateProvider getEffectivePredicateProvider();
 
         PlanNodeIdAllocator getIdAllocator();
 

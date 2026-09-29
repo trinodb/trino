@@ -30,8 +30,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.planner.EffectivePredicateExtractor;
+import io.trino.sql.planner.EffectivePredicateProvider;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.RecursiveEffectivePredicateProvider;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Lookup;
@@ -236,6 +239,12 @@ public class TestJoinEnumerator
             public Lookup getLookup()
             {
                 return noLookup();
+            }
+
+            @Override
+            public EffectivePredicateProvider getEffectivePredicateProvider()
+            {
+                return new RecursiveEffectivePredicateProvider(new EffectivePredicateExtractor(planTester.getPlannerContext(), false), getSession(), symbolAllocator, noLookup());
             }
 
             @Override
