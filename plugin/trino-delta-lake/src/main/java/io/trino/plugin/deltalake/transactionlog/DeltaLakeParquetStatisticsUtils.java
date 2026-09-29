@@ -40,6 +40,7 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 
 import java.math.BigDecimal;
@@ -82,14 +83,13 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_INSTANT;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.temporal.ChronoUnit.MICROS;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 
@@ -248,11 +248,7 @@ public final class DeltaLakeParquetStatisticsUtils
             return LocalDate.ofEpochDay((long) value).format(ISO_LOCAL_DATE);
         }
         if (type == TIMESTAMP_MICROS) {
-            long epochMicros = (long) value;
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-            return ISO_INSTANT.format(ZonedDateTime.ofInstant(instant.truncatedTo(MILLIS), UTC));
+            return toJsonTimestamp(Instant.EPOCH.plus((long) value, MICROS));
         }
         if (type == TIMESTAMP_TZ_MILLIS) {
             Instant ts = Instant.ofEpochMilli(unpackMillisUtc((long) value));
@@ -274,6 +270,31 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
+    }
+
+    private static String toJsonTimestamp(Instant instant)
+    {
+        return ISO_INSTANT.format(instant.truncatedTo(MILLIS));
+    }
+
+    private static String toJsonTimestampUpperBound(Instant instant)
+    {
+        return ISO_INSTANT.format(roundUpToMillisecond(instant));
+    }
+
+    private static Instant roundUpToMillisecond(Instant instant)
+    {
+        Instant truncated = instant.truncatedTo(MILLIS);
+        if (truncated.equals(instant)) {
+            return truncated;
+        }
+        return truncated.plusMillis(1);
+    }
+
+    private static Instant int96StatisticToInstant(Binary timestampBinary)
+    {
+        DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(timestampBinary);
+        return Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
     }
 
     public static Map<String, Object> jsonEncodeMin(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn)
@@ -347,16 +368,10 @@ public final class DeltaLakeParquetStatisticsUtils
         if (type instanceof TimestampType) {
             // Spark truncates the timestamp to milliseconds. The connector follows the same behavior.
             if (statistics instanceof LongStatistics longStatistics) {
-                long epochMicros = longStatistics.genericGetMin();
-                long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-                int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-                Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(instant, UTC).truncatedTo(MILLIS)));
+                return Optional.of(toJsonTimestamp(Instant.EPOCH.plus(longStatistics.genericGetMin(), MICROS)));
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMin());
-                Instant instant = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(instant, UTC).truncatedTo(MILLIS)));
+                return Optional.of(toJsonTimestamp(int96StatisticToInstant(binaryStatistics.genericGetMin())));
             }
         }
 
@@ -366,9 +381,7 @@ public final class DeltaLakeParquetStatisticsUtils
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMin());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
-                return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
+                return Optional.of(toJsonTimestamp(int96StatisticToInstant(binaryStatistics.genericGetMin())));
             }
         }
 
@@ -440,28 +453,14 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         if (type instanceof TimestampType timestampType) {
-            // Spark truncates the timestamp to milliseconds. The connector follows the same behavior.
+            // Statistics is millisecond precision, so the maximum rounds up to stay at or above the values in a file
             checkArgument(timestampType.getPrecision() >= TIMESTAMP_MILLIS.getPrecision(), "type precision must be at least milliseconds");
 
             if (statistics instanceof LongStatistics longStatistics) {
-                long epochMicros = longStatistics.genericGetMax();
-                long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-                int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-                Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-                Instant truncatedToMillis = instant.truncatedTo(MILLIS);
-                if (truncatedToMillis.isBefore(instant)) {
-                    truncatedToMillis = truncatedToMillis.plusMillis(1);
-                }
-                return Optional.of(ISO_INSTANT.format(truncatedToMillis));
+                return Optional.of(toJsonTimestampUpperBound(Instant.EPOCH.plus(longStatistics.genericGetMax(), MICROS)));
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMax());
-                Instant instant = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
-                Instant truncatedToMillis = instant.truncatedTo(MILLIS);
-                if (truncatedToMillis.isBefore(instant)) {
-                    truncatedToMillis = truncatedToMillis.plusMillis(1);
-                }
-                return Optional.of(ISO_INSTANT.format(truncatedToMillis));
+                return Optional.of(toJsonTimestampUpperBound(int96StatisticToInstant(binaryStatistics.genericGetMax())));
             }
         }
 
@@ -471,14 +470,7 @@ public final class DeltaLakeParquetStatisticsUtils
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
             if (statistics instanceof BinaryStatistics binaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMax());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
-                ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
-                ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
-                if (truncatedToMillis.isBefore(zonedDateTime)) {
-                    truncatedToMillis = truncatedToMillis.plus(1, MILLIS);
-                }
-                return Optional.of(ISO_INSTANT.format(truncatedToMillis));
+                return Optional.of(toJsonTimestampUpperBound(int96StatisticToInstant(binaryStatistics.genericGetMax())));
             }
         }
 
