@@ -33,4 +33,13 @@ final class TestIcebergRestCatalogPropertiesProvider
         assertThat(loadMetricsReporter(catalogPropertiesProvider.catalogProperties()))
                 .isInstanceOf(TrinoMetricsReporter.class);
     }
+
+    @Test
+    void testAccessDelegationHeader()
+    {
+        assertThat(IcebergRestCatalogPropertiesProvider.accessDelegationHeader(false, false)).isEmpty();
+        assertThat(IcebergRestCatalogPropertiesProvider.accessDelegationHeader(true, false)).contains("vended-credentials");
+        assertThat(IcebergRestCatalogPropertiesProvider.accessDelegationHeader(false, true)).contains("remote-signing");
+        assertThat(IcebergRestCatalogPropertiesProvider.accessDelegationHeader(true, true)).contains("vended-credentials,remote-signing");
+    }
 }

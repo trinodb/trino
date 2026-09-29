@@ -528,6 +528,9 @@ following properties:
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
+* - `iceberg.rest-catalog.remote-signing-enabled`
+  - Use the REST backend to sign S3 requests. Requires `fs.s3.enabled=true`.
+    Defaults to `false`.
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
@@ -594,6 +597,46 @@ The REST catalog supports [view management](sql-view-management)
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 
 The REST catalog does not support [materialized view management](sql-materialized-view-management).
+
+#### Remote signing
+
+Enable Iceberg REST remote signing for S3-compatible storage with:
+
+```properties
+iceberg.rest-catalog.remote-signing-enabled=true
+fs.s3.enabled=true
+s3.region=us-east-1
+```
+
+For Ceph or another custom S3 service, also configure `s3.endpoint` and
+`s3.path-style-access` for that service. The REST catalog must return
+`s3.remote-signing-enabled=true` in the table configuration. Trino sends each
+storage request's method, URI, region, and headers to the signer, then sends
+the returned signed request to storage. Object data travels directly between
+Trino and storage. Trino does not need AWS storage credentials for this path.
+
+If the REST catalog enables `s3.remote-signing-enabled` in catalog or table
+configuration, Trino requires `iceberg.rest-catalog.remote-signing-enabled=true`,
+even when storage credentials are configured. Earlier versions ignored this
+server setting when using native S3.
+
+The signer endpoint is taken from `signer.uri` and `signer.endpoint` in the
+table configuration. The legacy `s3.signer.uri` and `s3.signer.endpoint` keys
+are also accepted. Without an explicit endpoint, Trino uses `v1/aws/s3/sign`
+under the REST catalog URI. Signer requests use REST catalog authentication,
+including a table-specific bearer token when supplied.
+
+Remote signing supports `iceberg.rest-catalog.security=NONE` and `OAUTH2`.
+The `SIGV4` and `GOOGLE` REST catalog authentication modes are not supported.
+This restriction applies to authentication with the catalog and signer;
+the signed S3 storage requests still use AWS Signature Version 4.
+
+Remote signing requires `iceberg.rest-catalog.session=NONE`, which is the
+default. User-specific catalog sessions are not yet propagated to the signer.
+Remote signing also does not support `s3.cross-region-access`, the `register_table`
+procedure, or generating presigned URLs. A signer error stops the storage
+operation without falling back to local AWS credentials. Signatures are not
+cached, so each storage request requires a signer request.
 
 #### Databricks Unity Catalog
 

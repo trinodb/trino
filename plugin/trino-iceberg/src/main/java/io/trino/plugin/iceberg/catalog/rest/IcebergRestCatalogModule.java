@@ -17,6 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.manager.FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3RemoteSignerProvider;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -27,6 +29,9 @@ import java.util.Optional;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security.NONE;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security.OAUTH2;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.USER;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
@@ -49,11 +54,34 @@ public class IcebergRestCatalogModule
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setBinding().to(IcebergRestCatalogFileSystemFactory.class).in(Scopes.SINGLETON);
 
+        if (icebergRestCatalogConfig.isRemoteSigningEnabled()) {
+            newOptionalBinder(binder, S3RemoteSignerProvider.class)
+                    .setBinding()
+                    .to(IcebergRestCatalogS3RemoteSignerProvider.class)
+                    .in(Scopes.SINGLETON);
+        }
         validateConfiguration(icebergRestCatalogConfig);
     }
 
     private void validateConfiguration(IcebergRestCatalogConfig restCatalogConfig)
     {
+        if (restCatalogConfig.isRemoteSigningEnabled()) {
+            if (restCatalogConfig.getSecurity() != NONE && restCatalogConfig.getSecurity() != OAUTH2) {
+                throw new TrinoException(NOT_SUPPORTED, "Remote signing supports only NONE or OAUTH2 REST catalog authentication");
+            }
+            if (restCatalogConfig.getSessionType() == USER) {
+                throw new TrinoException(NOT_SUPPORTED, "Remote signing does not support iceberg.rest-catalog.session=USER");
+            }
+            if (!buildConfigObject(FileSystemConfig.class).isS3Enabled()) {
+                throw new TrinoException(NOT_SUPPORTED, "Remote signing requires the native S3 file system");
+            }
+            if (buildConfigObject(IcebergConfig.class).isRegisterTableProcedureEnabled()) {
+                throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with remote signing is currently not supported");
+            }
+            if (buildConfigObject(S3FileSystemConfig.class).isCrossRegionAccessEnabled()) {
+                throw new TrinoException(NOT_SUPPORTED, "Remote signing does not support s3.cross-region-access");
+            }
+        }
         if (restCatalogConfig.isVendedCredentialsEnabled()) {
             IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
             if (icebergConfig.isRegisterTableProcedureEnabled()) {
