@@ -117,6 +117,7 @@ public class SparkIcebergEnvironment
                 .withHdfsConfiguration(hadoop.getHdfsClientSiteXml())
                 .withCatalog("iceberg", icebergCatalog("thrift://" + HadoopContainer.HOST_NAME + ":" + HadoopContainer.HIVE_METASTORE_PORT)
                         .withHadoopFileSystem()
+                        .put("iceberg.object-store-layout.enabled", "true")
                         .put("iceberg.register-table-procedure.enabled", "true")
                         .put("iceberg.allowed-extra-properties", "custom.table-property")
                         .put("iceberg.encryption.kms-type", "AWS")
