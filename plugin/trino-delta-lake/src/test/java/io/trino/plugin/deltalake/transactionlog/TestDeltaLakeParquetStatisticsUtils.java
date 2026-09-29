@@ -220,6 +220,23 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.988Z"));
     }
 
+    @Test
+    public void testTimestampStatisticsBeforeEpoch()
+    {
+        String columnName = "t_timestamp";
+        PrimitiveType type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT64, columnName);
+        Statistics<?> stats = Statistics.getBuilderForReading(type)
+                .withMin(timestampToBytes(LocalDateTime.parse("1952-04-03T01:02:03.456789")))
+                .withMax(timestampToBytes(LocalDateTime.parse("1969-12-31T23:59:59.999999")))
+                .withNumNulls(0)
+                .build();
+
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "1952-04-03T01:02:03.456Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_MICROS)))
+                .isEqualTo(ImmutableMap.of(columnName, "1970-01-01T00:00:00Z"));
+    }
+
     private static byte[] timestampToBytes(LocalDateTime localDateTime)
     {
         long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
