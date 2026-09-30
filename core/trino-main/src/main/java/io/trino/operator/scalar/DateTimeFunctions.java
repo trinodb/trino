@@ -40,6 +40,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
@@ -56,15 +57,18 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static java.lang.Math.abs;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -184,7 +188,22 @@ public final class DateTimeFunctions
         if (Double.isNaN(unixTime)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid unixtime: NaN");
         }
-        return Math.round(unixTime * 1000);
+        double millis = unixTime * MILLISECONDS_PER_SECOND;
+        if (abs(millis) >= 0x1p52) {
+            // Integral and too large to pack; the saturating cast keeps it so
+            return (long) millis;
+        }
+        // Round the shortest decimal representation of unixTime half away from zero, as CAST(unixTime AS decimal(p, 3))
+        // does. That value and the exact product are within 1.5 ulp of millis, so away from a midpoint millis rounds the same.
+        double floor = Math.floor(millis);
+        double fraction = millis - floor;
+        if (abs(fraction - 0.5) > 2 * Math.ulp(millis)) {
+            if (fraction < 0.5) {
+                return (long) floor;
+            }
+            return (long) floor + 1;
+        }
+        return BigDecimal.valueOf(unixTime).setScale(3, HALF_UP).unscaledValue().longValueExact();
     }
 
     @ScalarFunction("from_unixtime_nanos")
