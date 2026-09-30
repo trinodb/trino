@@ -47,6 +47,7 @@ import org.apache.parquet.format.TimeUnit;
 import org.apache.parquet.format.TimestampType;
 import org.apache.parquet.format.Type;
 import org.apache.parquet.format.UUIDType;
+import org.apache.parquet.format.VariantType;
 import org.apache.parquet.internal.column.columnindex.BinaryTruncator;
 import org.apache.parquet.internal.column.columnindex.ColumnIndexBuilder;
 import org.apache.parquet.internal.column.columnindex.OffsetIndexBuilder;
@@ -69,6 +70,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.StringLogicalTypeAnnotati
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
@@ -520,6 +522,14 @@ public final class ParquetMetadataConverter
         public Optional<LogicalType> visit(ListLogicalTypeAnnotation type)
         {
             return Optional.of(LogicalType.LIST(new ListType()));
+        }
+
+        @Override
+        public Optional<LogicalType> visit(VariantLogicalTypeAnnotation type)
+        {
+            VariantType variant = new VariantType();
+            variant.setSpecification_version(type.getSpecVersion());
+            return Optional.of(LogicalType.VARIANT(variant));
         }
 
         @Override
