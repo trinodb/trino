@@ -23,9 +23,16 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
+import java.lang.invoke.MethodHandle;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.FlatHashStrategyCompiler.compileFlatHashStrategy;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.spi.variant.Metadata.EMPTY_METADATA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -117,6 +124,41 @@ class TestVariantType
             BlockBuilder[] blockBuilders = {VARIANT.createBlockBuilder(null, 1)};
             flatHashStrategy.readFlat(fixedChunk, 0, variableChunk, 0, blockBuilders);
             assertThat(VARIANT.getObject(blockBuilders[0].build(), 0)).isEqualTo(VARIANT.getObject(region, position));
+        }
+    }
+
+    @Test
+    public void testFlatWriteFromStackMatchesBlock()
+            throws Throwable
+    {
+        MethodHandle writeFlatFromStack = TYPE_OPERATORS.getReadValueOperator(VARIANT, simpleConvention(FLAT_RETURN, NEVER_NULL));
+        MethodHandle writeFlatFromBlock = TYPE_OPERATORS.getReadValueOperator(VARIANT, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL));
+
+        // a container without field names uses the shared empty metadata instance
+        Variant arrayWithoutFieldNames = Variant.ofArray(ImmutableList.of(Variant.ofInt(1), Variant.ofString("two")));
+        assertThat(arrayWithoutFieldNames.metadata()).isSameAs(EMPTY_METADATA);
+
+        ImmutableList<Variant> values = ImmutableList.of(
+                Variant.ofInt(7),
+                Variant.ofString("hello"),
+                arrayWithoutFieldNames,
+                Variant.ofObject(ImmutableMap.of(utf8Slice("key"), Variant.ofString("value"))));
+        for (Variant value : values) {
+            BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, 1);
+            VARIANT.writeObject(blockBuilder, value);
+            ValueBlock block = blockBuilder.buildValueBlock();
+            int variableWidth = VARIANT.getFlatVariableWidthSize(block, 0);
+
+            byte[] stackFixed = new byte[VARIANT.getFlatFixedSize()];
+            byte[] stackVariable = new byte[variableWidth];
+            writeFlatFromStack.invoke(value, stackFixed, 0, stackVariable, 0);
+            assertThat(VARIANT.getFlatVariableWidthLength(stackFixed, 0)).isEqualTo(variableWidth);
+
+            byte[] blockFixed = new byte[VARIANT.getFlatFixedSize()];
+            byte[] blockVariable = new byte[variableWidth];
+            writeFlatFromBlock.invoke(block, 0, blockFixed, 0, blockVariable, 0);
+            assertThat(stackFixed).isEqualTo(blockFixed);
+            assertThat(stackVariable).isEqualTo(blockVariable);
         }
     }
 }
