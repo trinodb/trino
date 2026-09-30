@@ -44,6 +44,8 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
+import io.trino.spi.variant.Header;
+import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -52,7 +54,9 @@ import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.assertj.core.data.Percentage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -63,6 +67,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -98,9 +103,13 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.variantType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
@@ -108,6 +117,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetWriter
 {
+    private static final MessageType VARIANT_SCHEMA = Types.buildMessage()
+            .optionalGroup().as(variantType(Header.VERSION))
+            .required(BINARY).named("metadata")
+            .required(BINARY).named("value")
+            .named("v")
+            .named("trino_schema");
+
     @Test
     public void testCreatedByIsParsable()
             throws VersionParser.VersionParseException, IOException
@@ -946,6 +962,85 @@ public class TestParquetWriter
             }
             assertThat(readBackBuilder.build()).describedAs("precision %s", precision).isEqualTo(values);
         }
+    }
+
+    @Test
+    public void testVariantMetadataFirstRoundTrip()
+            throws IOException
+    {
+        // The spec identifies the fields by name. This file lists metadata before value, as in the spec's example schema.
+        List<Variant> values = ImmutableList.of(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                Variant.ofInt(42),
+                Variant.ofString("hello"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, variantBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantMetadataFirstShortStringReadAsJson()
+            throws IOException
+    {
+        // A short string whose length is a multiple of 4 has a value header that also passes the metadata version check,
+        // so reading the fields swapped returns an empty string instead of failing
+        List<Variant> values = ImmutableList.of(Variant.ofString("abcd"), Variant.ofString("abcdefgh"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), JSON, variantBlock(values)))
+                .containsExactly("\"abcd\"", "\"abcdefgh\"");
+    }
+
+    @Test
+    public void testVariantMetadataFirstReadAsJson()
+            throws IOException
+    {
+        // The reader grows its batches from a single row, so the null is followed by a value in the same batch
+        List<Variant> values = Arrays.asList(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                null,
+                Variant.ofInt(42),
+                Variant.ofString("hello"));
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), JSON, variantBlock(values)))
+                .containsExactly("{\"key\":\"value\"}", null, "42", "\"hello\"");
+    }
+
+    private static Block variantBlock(List<Variant> values)
+    {
+        BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, values.size());
+        values.forEach(value -> writeVariant(blockBuilder, value));
+        return blockBuilder.build();
+    }
+
+    private static void writeVariant(BlockBuilder blockBuilder, Variant value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else {
+            VARIANT.writeObject(blockBuilder, value);
+        }
+    }
+
+    private static List<Object> writeAndReadColumn(MessageType schema, Map<List<String>, Type> primitiveTypes, Type type, Block block)
+            throws IOException
+    {
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), schema, primitiveTypes, ImmutableList.of(new Page(block))),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        String columnName = getOnlyElement(schema.getFields()).getName();
+        List<Object> values = new ArrayList<>();
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(type), ImmutableList.of(columnName))) {
+            SourcePage page;
+            while ((page = reader.nextPage()) != null) {
+                Block readBlock = page.getBlock(0);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    values.add(type.getObjectValue(readBlock, position));
+                }
+            }
+        }
+        return values;
     }
 
     private static List<Int128> longDecimalBoundaryValues(int precision)
