@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.apache.iceberg.Schema;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
@@ -47,39 +47,31 @@ import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
 {
-    private final Schema deleteSchema;
+    private final List<Integer> deleteFieldIds;
     private final EqualityDeleteIndex index;
 
-    private EqualityDeleteFilter(Schema deleteSchema, EqualityDeleteIndex index)
+    private EqualityDeleteFilter(List<Integer> deleteFieldIds, EqualityDeleteIndex index)
     {
-        this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
+        this.deleteFieldIds = requireNonNull(deleteFieldIds, "deleteFieldIds is null");
         this.index = requireNonNull(index, "index is null");
     }
 
     public PageFilter createPageFilter(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
-        // Deduplicate by base column ID to handle nested field projections where multiple
-        // nested fields from the same base struct appear (e.g., root.a, root.b, root all reference base column "root")
-        // The base struct wins if it appears anywhere in the projections list.
-        Map<Integer, Integer> dataChannelsByBaseId = new HashMap<>();
+        // Key by the leaf field ID: a nested key field is read through its own dereference column
+        Map<Integer, Integer> dataChannelsByFieldId = new HashMap<>();
         for (int channel = 0; channel < columns.size(); channel++) {
             IcebergColumnHandle column = columns.get(channel);
             if (isMetadataColumnId(column.getId())) {
                 continue;
             }
-            int baseId = column.getBaseColumnIdentity().getId();
-            if (column.isBaseColumn()) {
-                dataChannelsByBaseId.put(baseId, channel);
-            }
-            else {
-                dataChannelsByBaseId.putIfAbsent(baseId, channel);
-            }
+            dataChannelsByFieldId.putIfAbsent(column.getId(), channel);
         }
         // map from delete schema channel to data page channel
-        int[] channels = new int[deleteSchema.columns().size()];
-        for (int deleteChannel = 0; deleteChannel < deleteSchema.columns().size(); deleteChannel++) {
-            int fieldId = deleteSchema.columns().get(deleteChannel).fieldId();
-            Integer channel = dataChannelsByBaseId.get(fieldId);
+        int[] channels = new int[deleteFieldIds.size()];
+        for (int deleteChannel = 0; deleteChannel < deleteFieldIds.size(); deleteChannel++) {
+            int fieldId = deleteFieldIds.get(deleteChannel);
+            Integer channel = dataChannelsByFieldId.get(fieldId);
             if (channel == null) {
                 throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain equality delete field ID %s".formatted(fieldId));
             }
@@ -113,9 +105,9 @@ public final class EqualityDeleteFilter
         }
     }
 
-    public static EqualityDeleteFilterBuilder builder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory)
+    public static EqualityDeleteFilterBuilder builder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory)
     {
-        return new FlatHashEqualityDeleteFilterBuilder(deleteSchema, columnTypes, blocksHashFactory);
+        return new FlatHashEqualityDeleteFilterBuilder(deleteColumns, blocksHashFactory);
     }
 
     /**
@@ -188,31 +180,32 @@ public final class EqualityDeleteFilter
         private static final int EXPECTED_SIZE = 1024;
         private static final boolean CACHE_HASH_VALUES = true;
 
-        private final Schema deleteSchema;
+        private final List<IcebergColumnHandle> deleteColumns;
         private final EqualityDeleteIndex index;
         private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
 
-        private FlatHashEqualityDeleteFilterBuilder(Schema deleteSchema, List<Type> columnTypes, BlocksHashFactory blocksHashFactory)
+        private FlatHashEqualityDeleteFilterBuilder(List<IcebergColumnHandle> deleteColumns, BlocksHashFactory blocksHashFactory)
         {
-            this.deleteSchema = requireNonNull(deleteSchema, "deleteSchema is null");
-            BlocksHash blocksHash = requireNonNull(blocksHashFactory, "blocksHashFactory is null").create(requireNonNull(columnTypes, "columnTypes is null"), CACHE_HASH_VALUES, EXPECTED_SIZE);
+            this.deleteColumns = ImmutableList.copyOf(requireNonNull(deleteColumns, "deleteColumns is null"));
+            List<Type> columnTypes = this.deleteColumns.stream()
+                    .map(IcebergColumnHandle::getType)
+                    .collect(toImmutableList());
+            BlocksHash blocksHash = requireNonNull(blocksHashFactory, "blocksHashFactory is null").create(columnTypes, CACHE_HASH_VALUES, EXPECTED_SIZE);
             this.index = new EqualityDeleteIndex(blocksHash, new LongArrayList(EXPECTED_SIZE));
         }
 
         @Override
-        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
+        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider)
         {
-            verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
-
             // ensure only one thread loads the file
             ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
                     deleteFile.path(),
-                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
+                    _ -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deletePageSourceProvider), null));
             futureTask.run();
             return Futures.nonCancellationPropagating(futureTask);
         }
 
-        private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
+        private void readEqualityDeletesInternal(DeleteFile deleteFile, DeletePageSourceProvider deletePageSourceProvider)
         {
             long deleteSequenceNumber = deleteFile.dataSequenceNumber();
             try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
@@ -238,7 +231,7 @@ public final class EqualityDeleteFilter
         @Override
         public EqualityDeleteFilter build()
         {
-            return new EqualityDeleteFilter(deleteSchema, index);
+            return new EqualityDeleteFilter(deleteColumns.stream().map(IcebergColumnHandle::getId).collect(toImmutableList()), index);
         }
 
         @Override
