@@ -161,10 +161,10 @@ public final class VariantType
         if (variantBlock.getBasicType(rawPosition).isContainer()) {
             long length = Integer.BYTES;
             length += getSliceLength(variantBlock.getRawMetadata(), rawPosition);
-            length += getSliceLength(variantBlock.getValues(), rawPosition);
+            length += getSliceLength(variantBlock.getRawValues(), rawPosition);
             return toIntExact(length);
         }
-        return getSliceLength(variantBlock.getValues(), rawPosition);
+        return getSliceLength(variantBlock.getRawValues(), rawPosition);
     }
 
     private static int getSliceLength(Block nestedBlock, int position)
