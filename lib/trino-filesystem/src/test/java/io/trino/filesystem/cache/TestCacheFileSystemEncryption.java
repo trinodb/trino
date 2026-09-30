@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -31,7 +32,6 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 import org.junit.jupiter.api.Test;
 
-import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Collection;
@@ -274,7 +274,7 @@ final class TestCacheFileSystemEncryption
         public void createOrOverwrite(byte[] data) {}
 
         @Override
-        public OutputStream create(AggregatedMemoryContext memoryContext)
+        public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
         {
             throw new UnsupportedOperationException();
         }

@@ -768,6 +768,34 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testOutputStreamAbort()
+            throws IOException
+    {
+        // likely larger than any internal buffering or potential multipart threshold a filesystem may have
+        byte[] largerData = new byte[toIntExact(LARGER_FILE_DATA_SIZE.toBytes())];
+        try (TempBlob tempBlob = randomBlobLocation("outputStreamAbort")) {
+            try (TrinoOutputStream outputStream = tempBlob.outputFile().create()) {
+                outputStream.write(largerData);
+                outputStream.abort();
+
+                assertThatThrownBy(() -> outputStream.write(42))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+            }
+            assertThat(tempBlob.exists()).isFalse();
+
+            if (!isCreateExclusive()) {
+                tempBlob.createOrOverwrite("initial");
+                try (TrinoOutputStream outputStream = tempBlob.outputFile().create()) {
+                    outputStream.write(largerData);
+                    outputStream.abort();
+                }
+                assertThat(tempBlob.read()).isEqualTo("initial");
+            }
+        }
+    }
+
+    @Test
     public void testPaths()
             throws IOException
     {

@@ -16,11 +16,11 @@ package io.trino.filesystem.gcs;
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.StorageException;
 import com.google.common.primitives.Ints;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.FileAlreadyExistsException;
 
@@ -30,7 +30,7 @@ import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class GcsOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     private static final int BUFFER_SIZE = 8192;
 
@@ -149,6 +149,16 @@ public class GcsOutputStream
             finally {
                 memoryContext.close();
             }
+        }
+    }
+
+    @Override
+    public void abort()
+    {
+        if (!closed) {
+            closed = true;
+            // the object is created only when the write channel is closed
+            memoryContext.close();
         }
     }
 
