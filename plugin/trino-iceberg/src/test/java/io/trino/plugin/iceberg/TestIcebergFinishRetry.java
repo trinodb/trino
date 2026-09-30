@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -33,7 +34,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -393,7 +393,7 @@ final class TestIcebergFinishRetry
             implements TrinoOutputFile
     {
         @Override
-        public OutputStream create(AggregatedMemoryContext memoryContext)
+        public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
                 throws IOException
         {
             throw new IOException("Simulated failure writing " + location);

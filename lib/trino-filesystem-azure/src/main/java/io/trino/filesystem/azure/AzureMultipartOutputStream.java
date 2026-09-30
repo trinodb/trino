@@ -18,13 +18,13 @@ import com.azure.storage.blob.specialized.BlobOutputStream;
 import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -46,7 +46,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class AzureMultipartOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     private final AzureLocation location;
     private final BlockBlobClient blockClient;
@@ -247,6 +247,26 @@ public class AzureMultipartOutputStream
         }
         catch (IOException | RuntimeException e) {
             throw handleAzureException(e, "upload", location);
+        }
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        buffer = null;
+
+        // staged blocks are discarded unless the block list is committed
+        try {
+            waitForUploadsToFinish();
+        }
+        finally {
+            memoryContext.setBytes(0);
+            memoryContext.close();
         }
     }
 }

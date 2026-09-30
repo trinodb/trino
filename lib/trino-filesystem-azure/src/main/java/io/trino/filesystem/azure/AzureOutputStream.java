@@ -18,6 +18,7 @@ import com.azure.storage.blob.models.BlobRequestConditions;
 import com.azure.storage.blob.models.ParallelTransferOptions;
 import com.azure.storage.blob.options.BlockBlobOutputStreamOptions;
 import com.azure.storage.common.implementation.Constants.HeaderConstants;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 
@@ -32,7 +33,7 @@ import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 class AzureOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     private static final int BUFFER_SIZE = 8192;
 
@@ -152,6 +153,16 @@ class AzureOutputStream
             finally {
                 memoryContext.close();
             }
+        }
+    }
+
+    @Override
+    public void abort()
+    {
+        if (!closed) {
+            closed = true;
+            // staged blocks are discarded unless the block list is committed when the stream is closed
+            memoryContext.close();
         }
     }
 
