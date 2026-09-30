@@ -549,6 +549,10 @@ public class CheckpointWriter
                 Field field = fields.get(i);
                 BlockBuilder fieldBlockBuilder = fieldBuilders.get(i);
                 Object value = values.get().get(field.getName().orElseThrow());
+                if (value instanceof Map<?, ?> && field.getType() instanceof RowType rowType) {
+                    // JSON statistics store the null counts of a struct column as a nested object
+                    value = jsonValueToTrinoValue(rowType, value);
+                }
                 writeNativeValue(field.getType(), fieldBlockBuilder, value);
             }
         });
