@@ -76,6 +76,8 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IC
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IDENTITY_COLUMNS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.INVARIANTS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_RANDOM_PREFIX_LENGTH_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -172,14 +174,18 @@ public final class DeltaLakeSchemaSupport
 
     public static int getRandomPrefixLength(MetadataEntry metadataEntry)
     {
-        boolean randomizeFilePrefixes = parseBoolean(metadataEntry.getConfiguration().get("delta.randomizeFilePrefixes"));
-        if (randomizeFilePrefixes) {
+        if (isRandomizeFilePrefixesEnabled(metadataEntry)) {
             // 2 is the default value in Delta Lake
-            int randomPrefixLength = Integer.parseInt(metadataEntry.getConfiguration().getOrDefault("delta.randomPrefixLength", "2"));
+            int randomPrefixLength = Integer.parseInt(metadataEntry.getConfiguration().getOrDefault(DELTA_RANDOM_PREFIX_LENGTH_PROPERTY, "2"));
             checkArgument(randomPrefixLength >= 0, "randomPrefixLength must be >= 0: %s", randomPrefixLength);
             return randomPrefixLength;
         }
         return 0;
+    }
+
+    public static boolean isRandomizeFilePrefixesEnabled(MetadataEntry metadataEntry)
+    {
+        return parseBoolean(metadataEntry.getConfiguration().get(DELTA_RANDOMIZE_FILE_PREFIXES_PROPERTY));
     }
 
     public static List<String> enabledUniversalFormats(MetadataEntry metadataEntry)
