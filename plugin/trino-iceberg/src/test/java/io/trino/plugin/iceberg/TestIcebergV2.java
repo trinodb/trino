@@ -750,6 +750,68 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testEqualityDeletesWithDistinctNestedKeys()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_deletes_distinct_nested_keys_", "(id BIGINT, root ROW(nested BIGINT))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10)), (2, row(20)), (3, row(30))", 3);
+            Table icebergTable = loadTable(tableName);
+
+            Schema deleteRowSchema = icebergTable.schema().select("root.nested");
+            List<Integer> equalityFieldIds = ImmutableList.of(deleteRowSchema.findField("root.nested").fieldId());
+            for (long key : ImmutableList.of(20L, 30L)) {
+                Record nestedStruct = GenericRecord.create((Types.StructType) deleteRowSchema.findField("root").type());
+                nestedStruct.setField("nested", key);
+                writeEqualityDeleteToNationTableWithDeleteColumns(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("root", nestedStruct),
+                        deleteRowSchema,
+                        equalityFieldIds);
+            }
+
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
+        }
+    }
+
+    @Test
+    public void testEqualityDeleteOnNestedKeyWithComment()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_delete_nested_key_with_comment_", "(id BIGINT, root ROW(nested BIGINT))")) {
+            String tableName = table.getName();
+            // the handle built for the equality delete key carries the field comment, the one built for the query projection does not
+            loadTable(tableName).updateSchema()
+                    .updateColumnDoc("root.nested", "key comment")
+                    .commit();
+            // single INSERT so both rows share one data file and the equality delete is applied to it
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10)), (2, row(20))", 2);
+
+            Table icebergTable = loadTable(tableName);
+            Schema deleteRowSchema = icebergTable.schema().select("root.nested");
+            Record root = GenericRecord.create(deleteRowSchema.findField("root").type().asStructType());
+            root.setField("nested", 20L);
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("root", root),
+                    deleteRowSchema,
+                    ImmutableList.of(deleteRowSchema.findField("root.nested").fieldId()));
+
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
+            assertThat(query("SELECT root.nested FROM " + tableName))
+                    .matches("VALUES BIGINT '10'");
+            assertThat(query("SELECT id, root.nested FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', BIGINT '10')");
+        }
+    }
+
+    @Test
     public void testEqualityDeletesWithStructColumnAsKey()
             throws Exception
     {
