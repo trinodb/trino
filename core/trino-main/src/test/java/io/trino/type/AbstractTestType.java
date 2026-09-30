@@ -271,8 +271,11 @@ public abstract class AbstractTestType
             }
         }
 
+        // flat writers must not assume the backing arrays are zeroed, since callers reuse memory
         byte[] fixed = new byte[expectedStackValues.size() * flatFixedSize];
         byte[] variable = new byte[IntStream.of(variableLengths).sum()];
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
         int variableOffset = 0;
         for (int i = 0; i < expectedStackValues.size(); i++) {
             writeFlatMethod.invoke(expectedStackValues.get(i), fixed, i * flatFixedSize, variable, variableOffset);
@@ -281,8 +284,8 @@ public abstract class AbstractTestType
         }
         assertFlat(fixed, 0, variable, 0);
 
-        Arrays.fill(fixed, (byte) 0);
-        Arrays.fill(variable, (byte) 0);
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
         variableOffset = 0;
         for (int i = 0; i < expectedStackValues.size(); i++) {
             writeBlockToFlatMethod.invokeExact(testBlock, i, fixed, i * flatFixedSize, variable, variableOffset);
@@ -292,17 +295,24 @@ public abstract class AbstractTestType
 
         // test relocation
         byte[] newFixed = new byte[fixed.length + 73];
+        fillWithGarbage(newFixed);
         System.arraycopy(fixed, 0, newFixed, 73, fixed.length);
         byte[] newVariable = new byte[variable.length + 101];
+        fillWithGarbage(newVariable);
         System.arraycopy(variable, 0, newVariable, 101, variable.length);
-        Arrays.fill(fixed, (byte) 0);
-        Arrays.fill(variable, (byte) 0);
+        fillWithGarbage(fixed);
+        fillWithGarbage(variable);
 
         for (int i = 0; i < expectedStackValues.size(); i++) {
             int variableSize = type.getFlatVariableWidthLength(newFixed, 73 + i * flatFixedSize);
             assertThat(variableSize).isEqualTo(variableLengths[i]);
         }
         assertFlat(newFixed, 73, newVariable, 101);
+    }
+
+    private static void fillWithGarbage(byte[] bytes)
+    {
+        Arrays.fill(bytes, (byte) 0xFF);
     }
 
     private void assertFlat(byte[] fixed, int fixedOffset, byte[] variable, int variableOffset)
