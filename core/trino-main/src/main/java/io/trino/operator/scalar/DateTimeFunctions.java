@@ -145,7 +145,7 @@ public final class DateTimeFunctions
     {
         // TODO (https://github.com/trinodb/trino/issues/5781)
         try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), session.getTimeZoneKey());
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), session.getTimeZoneKey());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -159,7 +159,7 @@ public final class DateTimeFunctions
         TimeZoneKey timeZoneKey;
         try {
             timeZoneKey = getTimeZoneKeyForOffset((hoursOffset * 60) + minutesOffset);
-            return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), timeZoneKey);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -172,11 +172,19 @@ public final class DateTimeFunctions
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
         try {
-            return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+            return packDateTimeWithZone(unixTimeToEpochMillis(unixTime), zoneId.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
+    }
+
+    private static long unixTimeToEpochMillis(double unixTime)
+    {
+        if (Double.isNaN(unixTime)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid unixtime: NaN");
+        }
+        return Math.round(unixTime * 1000);
     }
 
     @ScalarFunction("from_unixtime_nanos")
