@@ -388,7 +388,7 @@ public class TestIcebergPlugin
                         new TestingConnectorContext())
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
-                .hasMessageContaining("Using the `register_table` procedure with remote signing is currently not supported");
+                .hasMessageContaining("Remote signing does not support the `register_table` procedure");
     }
 
     @Test

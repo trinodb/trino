@@ -76,7 +76,7 @@ public class IcebergRestCatalogModule
                 throw new TrinoException(NOT_SUPPORTED, "Remote signing requires the native S3 file system");
             }
             if (buildConfigObject(IcebergConfig.class).isRegisterTableProcedureEnabled()) {
-                throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with remote signing is currently not supported");
+                throw new TrinoException(NOT_SUPPORTED, "Remote signing does not support the `register_table` procedure");
             }
             if (buildConfigObject(S3FileSystemConfig.class).isCrossRegionAccessEnabled()) {
                 throw new TrinoException(NOT_SUPPORTED, "Remote signing does not support s3.cross-region-access");

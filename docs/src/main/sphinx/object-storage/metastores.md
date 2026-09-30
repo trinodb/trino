@@ -608,35 +608,34 @@ fs.s3.enabled=true
 s3.region=us-east-1
 ```
 
-For Ceph or another custom S3 service, also configure `s3.endpoint` and
-`s3.path-style-access` for that service. The REST catalog must return
-`s3.remote-signing-enabled=true` in the table configuration. Trino sends each
-storage request's method, URI, region, and headers to the signer, then sends
-the returned signed request to storage. Object data travels directly between
-Trino and storage. Trino does not need AWS storage credentials for this path.
+For Ceph or other S3-compatible storage, configure `s3.endpoint` and
+`s3.path-style-access`. Trino sends each storage request's method, URI, region,
+and headers to the signer, then uses the returned URI and headers to access
+storage. Object data travels directly between Trino and storage. Trino needs
+no local AWS credentials.
 
-If the REST catalog enables `s3.remote-signing-enabled` in catalog or table
-configuration, Trino requires `iceberg.rest-catalog.remote-signing-enabled=true`,
-even when storage credentials are configured. Earlier versions ignored this
-server setting when using native S3.
+The REST catalog must return `s3.remote-signing-enabled=true` in the table
+configuration. If it enables this setting in catalog or table configuration,
+Trino requires `iceberg.rest-catalog.remote-signing-enabled=true`, even if
+storage credentials are configured. Earlier versions of native S3 ignored
+this server setting.
 
-The signer endpoint is taken from `signer.uri` and `signer.endpoint` in the
-table configuration. The legacy `s3.signer.uri` and `s3.signer.endpoint` keys
-are also accepted. Without an explicit endpoint, Trino uses `v1/aws/s3/sign`
-under the REST catalog URI. Signer requests use REST catalog authentication,
-including a table-specific bearer token when supplied.
+Trino reads `signer.uri` and `signer.endpoint` from the table configuration.
+It also accepts the legacy keys `s3.signer.uri` and `s3.signer.endpoint`.
+The default endpoint is `v1/aws/s3/sign` under the REST catalog URI. Signer
+requests use REST catalog authentication, including a table-specific bearer
+token when supplied.
 
-Remote signing supports `iceberg.rest-catalog.security=NONE` and `OAUTH2`.
-The `SIGV4` and `GOOGLE` REST catalog authentication modes are not supported.
-This restriction applies to authentication with the catalog and signer;
-the signed S3 storage requests still use AWS Signature Version 4.
+Catalog and signer authentication supports only `iceberg.rest-catalog.security=NONE`
+and `OAUTH2`, not `SIGV4` or `GOOGLE`. Storage requests still use AWS Signature
+Version 4.
 
-Remote signing requires `iceberg.rest-catalog.session=NONE`, which is the
-default. User-specific catalog sessions are not yet propagated to the signer.
-Remote signing also does not support `s3.cross-region-access`, the `register_table`
-procedure, or generating presigned URLs. A signer error stops the storage
-operation without falling back to local AWS credentials. Signatures are not
-cached, so each storage request requires a signer request.
+Remote signing requires the default `iceberg.rest-catalog.session=NONE`.
+User-session authentication is not passed to the signer. Cross-region access
+(`s3.cross-region-access`), `register_table`, and presigned URLs are unsupported.
+A signer error stops the storage operation without falling back to local AWS
+credentials. Trino does not cache signatures, so each storage request requires
+a signer request.
 
 #### Databricks Unity Catalog
 
