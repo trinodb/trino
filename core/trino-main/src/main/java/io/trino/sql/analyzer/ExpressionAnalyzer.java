@@ -4066,8 +4066,8 @@ public class ExpressionAnalyzer
                     throw semanticException(NOT_SUPPORTED, parameter, "%s is not supported as JSON path parameter", parameter.getClass().getSimpleName());
                 }
                 Type parameterType = process(parameter, context);
-                // SQL/JSON-returning functions are consumed as JSON by default.
-                if (parameterFormat.isEmpty() && (parameter instanceof JsonQuery ||
+                // JSON-typed values and SQL/JSON-returning functions are consumed as JSON by default.
+                if (parameterFormat.isEmpty() && (parameterType.equals(JSON) || parameter instanceof JsonQuery ||
                         parameter instanceof JsonObject ||
                         parameter instanceof JsonArray)) {
                     parameterFormat = Optional.of(JsonFormat.JSON);
@@ -4229,8 +4229,8 @@ public class ExpressionAnalyzer
                 // - all other values are cast to VARCHAR
 
                 Type valueType = process(value, context);
-                // SQL/JSON-returning functions are consumed as JSON by default.
-                if (format.isEmpty() && (value instanceof JsonQuery ||
+                // JSON-typed values and SQL/JSON-returning functions are consumed as JSON by default.
+                if (format.isEmpty() && (valueType.equals(JSON) || value instanceof JsonQuery ||
                         value instanceof JsonObject ||
                         value instanceof JsonArray)) {
                     format = Optional.of(JsonFormat.JSON);
@@ -4344,8 +4344,8 @@ public class ExpressionAnalyzer
                 // - all other values are cast to VARCHAR
 
                 Type elementType = process(element, context);
-                // SQL/JSON-returning functions are consumed as JSON by default.
-                if (format.isEmpty() && (element instanceof JsonQuery ||
+                // JSON-typed values and SQL/JSON-returning functions are consumed as JSON by default.
+                if (format.isEmpty() && (elementType.equals(JSON) || element instanceof JsonQuery ||
                         element instanceof JsonObject ||
                         element instanceof JsonArray)) {
                     format = Optional.of(JsonFormat.JSON);

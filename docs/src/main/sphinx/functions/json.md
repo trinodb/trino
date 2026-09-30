@@ -706,6 +706,23 @@ method, the item `"a"` causes type mismatch.
 <path>.floor() --> ERROR
 ```
 
+(json-typed-arguments)=
+## JSON-typed arguments
+
+`JSON_ARRAY`, `JSON_OBJECT`, and SQL/JSON `PASSING` clauses consume values of type
+`JSON` directly, without requiring `FORMAT JSON`:
+
+```sql
+SELECT json_array(JSON '1', JSON '[2,3]'); -- '[1,[2,3]]'
+SELECT json_object('value': JSON '{"x":1}'); -- '{"value":{"x":1}}'
+SELECT json_query('{}', 'strict $p.x' PASSING JSON '{"x":1}' AS "p"); -- '1'
+```
+
+Earlier versions cast these arguments to `VARCHAR`. Scalar values could therefore
+become JSON strings, while object and array values could fail that cast. To request
+the scalar string behavior explicitly, cast the JSON value to `VARCHAR` before
+passing it: `json_array(CAST(JSON '1' AS VARCHAR))` returns `'["1"]'`.
+
 (json-simplified-accessor)=
 ## JSON simplified accessor
 
@@ -1577,8 +1594,9 @@ SELECT json_array(true, 12e-1, 'text')
 --> '[true,1.2,"text"]'
 ```
 
-Additionally to SQL values, you can pass JSON values. They are character or
-binary strings with a specified format and optional encoding:
+Values of type `JSON` are consumed as JSON without a `FORMAT` clause. This also
+applies to JSON-typed columns and expressions. Character or binary strings require
+a specified format and optional encoding to be interpreted as JSON:
 
 ```
 SELECT json_array(
@@ -1712,8 +1730,9 @@ SELECT json_object('x' : true, 'y' : 12e-1, 'z' : 'text')
 --> '{"x":true,"y":1.2,"z":"text"}'
 ```
 
-Additionally to SQL values, you can pass JSON values. They are character or
-binary strings with a specified format and optional encoding:
+Values of type `JSON` are consumed as JSON without a `FORMAT` clause. This also
+applies to JSON-typed columns and expressions. Character or binary strings require
+a specified format and optional encoding to be interpreted as JSON:
 
 ```
 SELECT json_object(
