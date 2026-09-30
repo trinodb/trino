@@ -57,6 +57,7 @@ import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.CompressionCodec;
+import org.apache.parquet.format.LogicalTypes;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
@@ -1173,6 +1174,41 @@ public class TestParquetWriter
 
         assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("m", "key_value", "key"), VARCHAR), mapType, blockBuilder.build()))
                 .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testWriteVariantLogicalType()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optionalGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .named("r")
+                .named("trino_schema");
+        RowBlockBuilder rowBuilder = rowType(field("v", VARIANT)).createBlockBuilder(null, 1);
+        rowBuilder.buildEntry(fieldBuilders -> writeVariant(fieldBuilders.getFirst(), Variant.ofInt(42)));
+        Page page = new Page(variantBlock(ImmutableList.of(Variant.ofInt(42))), rowBuilder.build());
+
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(ParquetWriterOptions.builder().build(), schema, ImmutableMap.of(), ImmutableList.of(page)),
+                ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+
+        // Readers that infer the schema from the footer need the annotation to recognize the group as a variant
+        assertThat(parquetMetadata.getParquetMetadata().getSchema())
+                .filteredOn(element -> element.getName().equals("v"))
+                .hasSize(2)
+                .allSatisfy(element -> assertThat(element.getLogicalType()).isEqualTo(LogicalTypes.VARIANT(Header.VERSION)));
+        MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
+        assertThat(fileSchema.getType("v").getLogicalTypeAnnotation()).isEqualTo(variantType(Header.VERSION));
+        assertThat(fileSchema.getType("r").asGroupType().getType("v").getLogicalTypeAnnotation()).isEqualTo(variantType(Header.VERSION));
     }
 
     private static Block variantBlock(List<Variant> values)
