@@ -62,6 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -168,7 +169,14 @@ public final class DeltaLakeParquetStatisticsUtils
             return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
         }
         if (type instanceof RowType rowType) {
-            Map<?, ?> values = (Map<?, ?>) jsonValue;
+            // Row field names are lowercase, while the statistics keep the original case of the nested field names.
+            // Copy the map with canonical names, the fields are removed from it below
+            Map<String, Object> values = new HashMap<>();
+            for (Entry<?, ?> entry : ((Map<?, ?>) jsonValue).entrySet()) {
+                String fieldName = canonicalizeColumnName((String) entry.getKey());
+                checkState(!values.containsKey(fieldName), "Duplicate field %s in statistics: %s", fieldName, jsonValue);
+                values.put(fieldName, entry.getValue());
+            }
             List<Type> fieldTypes = rowType.getFieldTypes();
             return buildRowValue(rowType, fields -> {
                 for (int i = 0; i < fieldTypes.size(); ++i) {
@@ -320,6 +328,10 @@ public final class DeltaLakeParquetStatisticsUtils
             RowType.Field field = fields.get(i);
             Block fieldBlock = row.getRawFieldBlock(i);
             int fieldBlockIndex = row.getRawIndex();
+            if (fieldBlock.isNull(fieldBlockIndex)) {
+                // Null count is unknown
+                continue;
+            }
             String fieldName = field.getName().orElseThrow();
             if (field.getType() instanceof RowType fieldRowType) {
                 nullCounts.put(fieldName, toNullCount(fieldRowType, fieldRowType.getObject(fieldBlock, fieldBlockIndex)));

@@ -464,7 +464,9 @@ public class CheckpointWriter
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
     {
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(values));
+        RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
+        RowType valuesFieldType = (RowType) valuesField.getType();
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(valuesFieldType, values));
     }
 
     private void writeObjectMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -519,20 +521,30 @@ public class CheckpointWriter
                 });
     }
 
-    private Optional<Map<String, Object>> preprocessNullCount(Optional<Map<String, Object>> valuesOptional)
+    private Optional<Map<String, Object>> preprocessNullCount(RowType valuesType, Optional<Map<String, Object>> valuesOptional)
     {
         return valuesOptional.map(
-                values ->
-                        values.entrySet().stream()
-                                .collect(toMap(
-                                        Entry::getKey,
-                                        entry -> {
-                                            Object value = entry.getValue();
-                                            if (value instanceof Integer) {
-                                                return (long) (int) value;
-                                            }
-                                            return value;
-                                        })));
+                values -> {
+                    Map<String, Type> fieldTypes = valuesType.getFields().stream().collect(toImmutableMap(
+                            // anonymous row fields are not expected here
+                            field -> field.getName().orElseThrow(),
+                            RowType.Field::getType));
+
+                    return values.entrySet().stream()
+                            .collect(toMap(
+                                    Entry::getKey,
+                                    entry -> {
+                                        Object value = entry.getValue();
+                                        if (value instanceof Integer) {
+                                            return (long) (int) value;
+                                        }
+                                        if (value instanceof Map<?, ?> && fieldTypes.get(entry.getKey()) instanceof RowType rowType) {
+                                            // JSON statistics store the null counts of a struct column as a nested object
+                                            return jsonValueToTrinoValue(rowType, value);
+                                        }
+                                        return value;
+                                    }));
+                });
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
