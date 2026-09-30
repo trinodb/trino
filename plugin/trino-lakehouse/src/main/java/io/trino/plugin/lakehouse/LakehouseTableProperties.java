@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -39,10 +40,13 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 public class LakehouseTableProperties
 {
     public static final String TABLE_TYPE_PROPERTY = "type";
+    private static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
     private final PropertyMetadata<?> hiveFormatProperty;
     private final PropertyMetadata<?> icebergFormatProperty;
+    private final PropertyMetadata<?> icebergObjectStoreLayoutEnabledProperty;
+    private final PropertyMetadata<?> deltaObjectStoreLayoutEnabledProperty;
 
     @Inject
     public LakehouseTableProperties(
@@ -67,6 +71,12 @@ public class LakehouseTableProperties
                 "",
                 false));
 
+        tableProperties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, booleanProperty(
+                OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
+                "Set to true to enable object store file layout",
+                null,
+                false));
+
         tableProperties.put("sorted_by", new PropertyMetadata<>(
                 "sorted_by",
                 "Sorted columns",
@@ -83,6 +93,7 @@ public class LakehouseTableProperties
                         deltaTableProperties.getTableProperties().stream(),
                         hudiTableProperties.getTableProperties().stream())
                 .filter(property -> !property.getName().equals("format"))
+                .filter(property -> !property.getName().equals(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY))
                 .filter(property -> !property.getName().equals("sorted_by"))
                 .toList();
 
@@ -122,6 +133,14 @@ public class LakehouseTableProperties
         this.icebergFormatProperty = icebergTableProperties.getTableProperties().stream()
                 .filter(property -> property.getName().equals("format"))
                 .collect(onlyElement());
+
+        this.icebergObjectStoreLayoutEnabledProperty = icebergTableProperties.getTableProperties().stream()
+                .filter(property -> property.getName().equals(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY))
+                .collect(onlyElement());
+
+        this.deltaObjectStoreLayoutEnabledProperty = deltaTableProperties.getTableProperties().stream()
+                .filter(property -> property.getName().equals(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY))
+                .collect(onlyElement());
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -137,6 +156,14 @@ public class LakehouseTableProperties
             case ICEBERG -> decodeProperty(icebergFormatProperty, value);
             case DELTA, HUDI -> value;
         });
+        properties.computeIfAbsent(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, _ -> getObjectStoreLayoutEnabledDefault(getTableType(properties)).orElse(null));
+        return properties;
+    }
+
+    public Map<String, Optional<Object>> unwrapUpdatedProperties(TableType tableType, Map<String, Optional<Object>> wrappedProperties)
+    {
+        Map<String, Optional<Object>> properties = new HashMap<>(wrappedProperties);
+        properties.computeIfPresent(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, (_, value) -> value.or(() -> getObjectStoreLayoutEnabledDefault(tableType)));
         return properties;
     }
 
@@ -155,6 +182,15 @@ public class LakehouseTableProperties
     public static TableType getTableType(Map<String, Object> tableProperties)
     {
         return (TableType) tableProperties.get(TABLE_TYPE_PROPERTY);
+    }
+
+    private Optional<Object> getObjectStoreLayoutEnabledDefault(TableType tableType)
+    {
+        return switch (tableType) {
+            case ICEBERG -> Optional.ofNullable(icebergObjectStoreLayoutEnabledProperty.getDefaultValue());
+            case DELTA -> Optional.ofNullable(deltaObjectStoreLayoutEnabledProperty.getDefaultValue());
+            case HIVE, HUDI -> Optional.empty();
+        };
     }
 
     private static <T> Object decodeProperty(PropertyMetadata<T> property, Object value)

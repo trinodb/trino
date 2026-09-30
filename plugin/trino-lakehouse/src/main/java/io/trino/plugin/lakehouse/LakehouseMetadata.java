@@ -414,7 +414,7 @@ public class LakehouseMetadata
     @Override
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
-        forHandle(tableHandle).setTableProperties(session, tableHandle, properties);
+        forHandle(tableHandle).setTableProperties(session, tableHandle, tableProperties.unwrapUpdatedProperties(tableTypeForHandle(tableHandle), properties));
     }
 
     @Override
