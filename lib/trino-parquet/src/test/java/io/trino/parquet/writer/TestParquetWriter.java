@@ -35,15 +35,22 @@ import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Header;
 import io.trino.spi.variant.Variant;
 import org.apache.parquet.VersionParser;
@@ -70,6 +77,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -99,6 +107,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -108,6 +118,9 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.listType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.mapType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.variantType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -123,6 +136,7 @@ public class TestParquetWriter
             .required(BINARY).named("value")
             .named("v")
             .named("trino_schema");
+    private static final RowType VARIANT_ROW_TYPE = rowType(field("v", VARIANT), field("i", INTEGER));
 
     @Test
     public void testCreatedByIsParsable()
@@ -1005,10 +1019,197 @@ public class TestParquetWriter
                 .containsExactly("{\"key\":\"value\"}", null, "42", "\"hello\"");
     }
 
+    @Test
+    public void testVariantNullRoundTrip()
+            throws IOException
+    {
+        List<Variant> values = Arrays.asList(
+                Variant.ofObject(ImmutableMap.of(Slices.utf8Slice("key"), Variant.ofString("value"))),
+                null,
+                Variant.ofInt(42),
+                Variant.ofString("hello"),
+                null);
+
+        assertThat(writeAndReadColumn(VARIANT_SCHEMA, ImmutableMap.of(), VARIANT, variantBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantArrayNullElementRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(listType())
+                .repeatedGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("element")
+                .named("list")
+                .named("a")
+                .named("trino_schema");
+        List<List<Variant>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), null, Variant.ofString("hello")),
+                null,
+                ImmutableList.of(),
+                Arrays.asList(null, Variant.ofInt(2)));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(), new ArrayType(VARIANT), variantArrayBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantArrayRequiredElementRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(listType())
+                .repeatedGroup()
+                .requiredGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("element")
+                .named("list")
+                .named("a")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so the empty and null arrays are each followed by values in the same batch
+        List<List<Variant>> values = Arrays.asList(
+                ImmutableList.of(Variant.ofInt(1)),
+                ImmutableList.of(),
+                ImmutableList.of(Variant.ofInt(2), Variant.ofString("hello")),
+                null,
+                ImmutableList.of(Variant.ofInt(3)));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(), new ArrayType(VARIANT), variantArrayBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantRowFieldNullRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup()
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optional(INT32).named("i")
+                .named("r")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so the null variant and the null row are each followed by a value in the same batch
+        List<List<Object>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), 1),
+                Arrays.asList(null, 2),
+                Arrays.asList(Variant.ofString("hello"), 3),
+                null,
+                Arrays.asList(Variant.ofInt(4), 4));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("r", "i"), INTEGER), VARIANT_ROW_TYPE, variantRowBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantRowRequiredFieldRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup()
+                .requiredGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("v")
+                .optional(INT32).named("i")
+                .named("r")
+                .named("trino_schema");
+        // The reader grows its batches from a single row, so each null row is followed by a value in the same batch
+        List<List<Object>> values = Arrays.asList(
+                Arrays.asList(Variant.ofInt(1), 1),
+                null,
+                Arrays.asList(Variant.ofString("hello"), 3),
+                null,
+                Arrays.asList(Variant.ofInt(4), 4));
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("r", "i"), INTEGER), VARIANT_ROW_TYPE, variantRowBlock(values)))
+                .containsExactlyElementsOf(values);
+    }
+
+    @Test
+    public void testVariantMapNullValueRoundTrip()
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .optionalGroup().as(mapType())
+                .repeatedGroup()
+                .required(BINARY).as(stringType()).named("key")
+                .optionalGroup().as(variantType(Header.VERSION))
+                .required(BINARY).named("metadata")
+                .required(BINARY).named("value")
+                .named("value")
+                .named("key_value")
+                .named("m")
+                .named("trino_schema");
+        MapType mapType = new MapType(VARCHAR, VARIANT, new TypeOperators());
+        Map<String, Variant> nullValueFirst = new LinkedHashMap<>();
+        nullValueFirst.put("a", null);
+        nullValueFirst.put("b", Variant.ofInt(2));
+        List<Map<String, Variant>> values = Arrays.asList(
+                nullValueFirst,
+                null,
+                ImmutableMap.of(),
+                ImmutableMap.of("c", Variant.ofString("hello")));
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, values.size());
+        for (Map<String, Variant> map : values) {
+            if (map == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry((keyBuilder, valueBuilder) -> map.forEach((key, value) -> {
+                    VARCHAR.writeSlice(keyBuilder, Slices.utf8Slice(key));
+                    writeVariant(valueBuilder, value);
+                }));
+            }
+        }
+
+        assertThat(writeAndReadColumn(schema, ImmutableMap.of(ImmutableList.of("m", "key_value", "key"), VARCHAR), mapType, blockBuilder.build()))
+                .containsExactlyElementsOf(values);
+    }
+
     private static Block variantBlock(List<Variant> values)
     {
         BlockBuilder blockBuilder = VARIANT.createBlockBuilder(null, values.size());
         values.forEach(value -> writeVariant(blockBuilder, value));
+        return blockBuilder.build();
+    }
+
+    private static Block variantArrayBlock(List<List<Variant>> values)
+    {
+        ArrayBlockBuilder blockBuilder = new ArrayType(VARIANT).createBlockBuilder(null, values.size());
+        for (List<Variant> array : values) {
+            if (array == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry(elementBuilder -> array.forEach(element -> writeVariant(elementBuilder, element)));
+            }
+        }
+        return blockBuilder.build();
+    }
+
+    private static Block variantRowBlock(List<List<Object>> values)
+    {
+        RowBlockBuilder blockBuilder = VARIANT_ROW_TYPE.createBlockBuilder(null, values.size());
+        for (List<Object> row : values) {
+            if (row == null) {
+                blockBuilder.appendNull();
+            }
+            else {
+                blockBuilder.buildEntry(fieldBuilders -> {
+                    writeVariant(fieldBuilders.get(0), (Variant) row.get(0));
+                    INTEGER.writeLong(fieldBuilders.get(1), (Integer) row.get(1));
+                });
+            }
+        }
         return blockBuilder.build();
     }
 
