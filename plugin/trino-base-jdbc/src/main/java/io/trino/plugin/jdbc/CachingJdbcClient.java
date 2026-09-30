@@ -25,6 +25,8 @@ import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.plugin.base.cache.identity.IdentityCacheMapping.IdentityCacheKey;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -281,6 +283,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException
+    {
+        delegate.execute(session, connection, query);
+    }
+
+    @Override
     public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
@@ -478,6 +487,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
+            throws SQLException
+    {
+        return delegate.getConnection(session, readOnly);
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
@@ -626,6 +642,37 @@ public class CachingJdbcClient
     public String quoted(RemoteTableName remoteTableName)
     {
         return delegate.quoted(remoteTableName);
+    }
+
+    @Override
+    public IdentifierMapping getIdentifierMapping()
+    {
+        return delegate.getIdentifierMapping();
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return delegate.getRemoteIdentifiers(connection);
+    }
+
+    @Override
+    public Optional<String> getRemoteSchemaName(Optional<String> remoteSchemaName)
+    {
+        return delegate.getRemoteSchemaName(remoteSchemaName);
+    }
+
+    @Override
+    public RemoteTableName getRemoteTableName(RemoteTableName remoteTableName)
+    {
+        return delegate.getRemoteTableName(remoteTableName);
+    }
+
+    @Override
+    public String getTableRemoteSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        return delegate.getTableRemoteSchemaName(resultSet);
     }
 
     @Override

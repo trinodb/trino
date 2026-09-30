@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.TrinoException;
@@ -121,6 +123,9 @@ public interface JdbcClient
             throws SQLException;
 
     void execute(ConnectorSession session, String query);
+
+    void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException;
 
     default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
@@ -243,7 +248,13 @@ public interface JdbcClient
 
     String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
 
-    Connection getConnection(ConnectorSession session)
+    default Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
+        return getConnection(session, true);
+    }
+
+    Connection getConnection(ConnectorSession session, boolean readOnly)
             throws SQLException;
 
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
@@ -268,6 +279,26 @@ public interface JdbcClient
     String quoted(String name);
 
     String quoted(RemoteTableName remoteTableName);
+
+    IdentifierMapping getIdentifierMapping();
+
+    RemoteIdentifiers getRemoteIdentifiers(Connection connection);
+
+    default Optional<String> getRemoteSchemaName(Optional<String> remoteSchemaName)
+    {
+        return remoteSchemaName;
+    }
+
+    default RemoteTableName getRemoteTableName(RemoteTableName remoteTableName)
+    {
+        return remoteTableName;
+    }
+
+    default String getTableRemoteSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        return resultSet.getString("TABLE_SCHEM");
+    }
 
     Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle);
 
