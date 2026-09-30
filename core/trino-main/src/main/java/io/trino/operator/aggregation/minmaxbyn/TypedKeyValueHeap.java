@@ -294,10 +294,9 @@ public final class TypedKeyValueHeap
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
-        if (valueBlock.isNull(valuePosition)) {
-            fixedChunk[recordOffset + recordValueNullOffset] = 1;
-        }
-        else {
+        boolean valueIsNull = valueBlock.isNull(valuePosition);
+        fixedChunk[recordOffset + recordValueNullOffset] = (byte) (valueIsNull ? 1 : 0);
+        if (!valueIsNull) {
             try {
                 valueWriteFlat.invokeExact(
                         valueBlock,

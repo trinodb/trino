@@ -168,8 +168,9 @@ public class FlatArrayBuilder
             LONG_HANDLE.set(records, recordOffset + recordNextIndexOffset, -1L);
         }
 
-        if (block.isNull(position)) {
-            records[recordOffset + recordNullOffset] = 1;
+        boolean valueIsNull = block.isNull(position);
+        records[recordOffset + recordNullOffset] = (byte) (valueIsNull ? 1 : 0);
+        if (valueIsNull) {
             return;
         }
 
