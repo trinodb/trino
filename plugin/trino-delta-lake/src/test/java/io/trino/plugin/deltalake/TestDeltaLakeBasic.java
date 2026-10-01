@@ -1957,6 +1957,30 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    void testOptimizeWithDeletionVectors()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_dv", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            String transactionLogDir = getTableLocation(table.getName()) + "/_delta_log";
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3, 4", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            DeletionVectorEntry deletionVector = getEntriesFromJson(3, transactionLogDir).stream()
+                    .filter(entry -> entry.getAdd() != null)
+                    .map(entry -> entry.getAdd().getDeletionVector().orElseThrow())
+                    .collect(onlyElement());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            assertThat(getEntriesFromJson(4, transactionLogDir))
+                    .filteredOn(entry -> entry.getRemove() != null)
+                    .extracting(entry -> entry.getRemove().deletionVector())
+                    .containsExactlyInAnyOrder(Optional.of(deletionVector), Optional.empty());
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 2, 3, 4");
+        }
+    }
+
+    @Test
     void testMetadataDeleteWithDeletionVectors()
     {
         try (TestTable table = newTrinoTable("test_metadata_delete_dv", "(x int) WITH (deletion_vectors_enabled = true)", List.of("1", "2", "3", "4", "5"))) {
