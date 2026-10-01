@@ -196,7 +196,7 @@ public class TrinoRestCatalog
     public boolean supportsPropertyRemovalWhenPropertyIsMissing()
     {
         // BigLake treats empty properties as absent and rejects removing them.
-        return security != Security.GOOGLE || !serverAssignedTableLocationEnabled;
+        return !(security == Security.GOOGLE && serverAssignedTableLocationEnabled);
     }
 
     @Override

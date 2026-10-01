@@ -232,6 +232,8 @@ public class TestTrinoRestCatalog
                 .supportsPropertyRemovalWhenPropertyIsMissing()).isFalse();
         assertThat(createTrinoRestCatalog(false, ImmutableMap.of(), Security.GOOGLE, false)
                 .supportsPropertyRemovalWhenPropertyIsMissing()).isTrue();
+        assertThat(createTrinoRestCatalog(false, ImmutableMap.of(), Security.NONE, true)
+                .supportsPropertyRemovalWhenPropertyIsMissing()).isTrue();
     }
 
     private static Cache<NamespaceListingKey, List<TableIdentifier>> createNamespaceListingCache()
