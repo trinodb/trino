@@ -11,13 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
-
-import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoOutputFile;
+package io.trino.filesystem;
 
 import java.io.IOException;
 import java.time.Instant;
