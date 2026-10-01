@@ -86,11 +86,15 @@
             <exclusions>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
-                    <artifactId>*</artifactId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java-util</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>io.confluent</groupId>
-                    <artifactId>*</artifactId>
+                    <artifactId>kafka-schema-registry-client</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
