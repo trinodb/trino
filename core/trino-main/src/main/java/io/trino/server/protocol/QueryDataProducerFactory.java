@@ -19,15 +19,24 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
-public class QueryDataProducerFactory
+/**
+ * Chooses how a query's result pages are turned into the {@link io.trino.client.QueryData} that a
+ * client protocol expects. The output columns are only known once the query starts producing
+ * results, so the choice is made then rather than at dispatch time.
+ */
+public interface QueryDataProducerFactory
 {
-    private QueryDataProducerFactory() {}
+    QueryDataProducer create(Session session, List<String> columnNames, List<Type> columnTypes);
 
-    public static QueryDataProducer create(Session session, List<Type> types)
-    {
+    /**
+     * Spooled segments when the client negotiated an encoding, inline JSON otherwise. Note that
+     * the engine clears the encoding for statements it does not spool, so an empty encoding here
+     * does not mean the client failed to ask for one.
+     */
+    QueryDataProducerFactory DEFAULT = (session, _, columnTypes) -> {
         if (session.getQueryDataEncoding().isEmpty()) {
-            return new JsonBytesQueryDataProducer(session, types);
+            return new JsonBytesQueryDataProducer(session, columnTypes);
         }
         return new SpoolingQueryDataProducer(session.getQueryDataEncoding().orElseThrow());
-    }
+    };
 }
