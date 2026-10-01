@@ -45,7 +45,7 @@ import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.azure.adlsv2.ADLSFileIO;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
-import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
+import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -117,7 +117,7 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
             }
         };
 
-        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()

@@ -70,7 +70,7 @@ public class DelegatingRestSessionCatalog
                 .setHttpAcceptorThreads(4)
                 .setAcceptQueueSize(10);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(httpConfig), Optional.empty(), nodeInfo);
-        RESTCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         return new TestingHttpServer(
                 "rest-catalog",
