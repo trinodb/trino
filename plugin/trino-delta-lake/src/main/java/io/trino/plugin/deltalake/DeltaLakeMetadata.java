@@ -3259,7 +3259,7 @@ public class DeltaLakeMetadata
                     createPartitionValuesMap(canonicalPartitionValues),
                     writeTimestamp,
                     false,
-                    Optional.empty()));
+                    scannedFile.deletionVector()));
         }
 
         // Note: during writes we want to preserve original case of partition columns
