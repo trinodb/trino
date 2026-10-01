@@ -36,7 +36,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.apache.iceberg.gcp.gcs.GCSFileIO;
 import org.apache.iceberg.jdbc.JdbcCatalog;
-import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
+import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Network;
@@ -108,7 +108,7 @@ final class TestIcebergGcsVendingRestCatalogConnectorSmokeTest
             }
         };
 
-        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()
