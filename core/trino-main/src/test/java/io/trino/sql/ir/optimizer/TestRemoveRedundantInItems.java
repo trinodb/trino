@@ -17,7 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeDescriptorProvider;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -27,10 +32,14 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.NumberType.NUMBER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
@@ -55,88 +64,107 @@ public class TestRemoveRedundantInItems
     void test()
     {
         assertThat(optimize(
-                new In(new Reference(BIGINT, "x"), ImmutableList.of(new Reference(BIGINT, "y")))))
+                new In(new Reference(BIGINT, "x"), new Array(BIGINT, ImmutableList.of(new Reference(BIGINT, "y"))))))
                 .isEqualTo(Optional.of(comparison(EQUAL, new Reference(BIGINT, "x"), new Reference(BIGINT, "y"))));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Reference(BIGINT, "x"),
-                                new Reference(BIGINT, "y")))))
+                                new Reference(BIGINT, "y"))))))
                 .describedAs("exact match, no item can fail")
                 .isEqualTo(Optional.of(ifExpression(new Call(IS_INDETERMINATE, ImmutableList.of(new Reference(BIGINT, "x"))), NULL_BOOLEAN, TRUE)));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Reference(BIGINT, "y"),
                                 new Reference(BIGINT, "z"),
-                                new Reference(BIGINT, "y")))))
+                                new Reference(BIGINT, "y"))))))
                 .describedAs("no exact match, no item can fail")
                 .isEqualTo(Optional.of(new In(
                         new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Reference(BIGINT, "y"),
-                                new Reference(BIGINT, "z")))));
+                                new Reference(BIGINT, "z"))))));
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Reference(BIGINT, "x"),
-                                new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
+                                new Cast(new Reference(VARCHAR, "y"), BIGINT))))))
                 .describedAs("exact match found, another item can fail")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(BIGINT, "x"),
-                        ImmutableList.of(
+                        new Array(BIGINT, ImmutableList.of(
                                 new Reference(BIGINT, "x"),
                                 new Cast(new Reference(VARCHAR, "y"), BIGINT),
-                                new Cast(new Reference(VARCHAR, "y"), BIGINT)))))
+                                new Cast(new Reference(VARCHAR, "y"), BIGINT))))))
                 .describedAs("exact match found, another item can fail, duplicate removed")
                 .isEqualTo(Optional.of(
                         new In(new Reference(BIGINT, "x"),
-                                ImmutableList.of(
+                                new Array(BIGINT, ImmutableList.of(
                                         new Reference(BIGINT, "x"),
-                                        new Cast(new Reference(VARCHAR, "y"), BIGINT)))));
+                                        new Cast(new Reference(VARCHAR, "y"), BIGINT))))));
 
         assertThat(optimize(
                 new In(new Reference(TINYINT, "x"),
-                        ImmutableList.of(
+                        new Array(TINYINT, ImmutableList.of(
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)))))))
                 .describedAs("non-deterministic items")
                 .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 new In(new Reference(TINYINT, "x"),
-                        ImmutableList.of(
+                        new Array(TINYINT, ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Reference(TINYINT, "x"),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)))))))
                 .describedAs("non-deterministic items")
                 .isEqualTo(Optional.of(new In(
                         new Reference(TINYINT, "x"),
-                        ImmutableList.of(
+                        new Array(TINYINT, ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)))))));
 
         assertThat(optimize(
                 new In(new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                        ImmutableList.of(
+                        new Array(TINYINT, ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Reference(TINYINT, "x"),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))))
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)))))))
                 .describedAs("non-deterministic value")
                 .isEqualTo(Optional.of(new In(
                         new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                        ImmutableList.of(
+                        new Array(TINYINT, ImmutableList.of(
                                 new Reference(TINYINT, "x"),
                                 new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)),
-                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND))))));
+                                new Call(RANDOM, ImmutableList.of(RANDOM_BOUND)))))));
+    }
+
+    @Test
+    void testExactMatchWithNaNCapableType()
+    {
+        for (Type type : List.of(DOUBLE, REAL, NUMBER)) {
+            for (Type valueType : List.of(
+                    type,
+                    new ArrayType(type),
+                    new ArrayType(new ArrayType(type)),
+                    RowType.anonymous(List.of(BIGINT, type)),
+                    new MapType(BIGINT, type, PLANNER_CONTEXT.getTypeOperators()))) {
+                Reference value = new Reference(valueType, "value");
+                Reference other = new Reference(valueType, "other");
+                assertThat(optimize(new In(value, new Array(valueType, List.of(value, other)))))
+                        .describedAs("identity does not imply SQL equality for %s", valueType)
+                        .isEmpty();
+            }
+        }
     }
 
     private Optional<Expression> optimize(Expression expression)

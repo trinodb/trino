@@ -48,6 +48,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TrinoNumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -97,6 +98,7 @@ import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.between;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.planner.DomainTranslator.getExtractionResult;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.sql.planner.iterative.rule.UnwrapFunctionInComparison.unwrap;
@@ -203,11 +205,11 @@ public class TestComparisonPreimages
                 List.<Expression>of(new Constant(BIGINT, 2025L), new Constant(BIGINT, 2026L)),
                 List.<Expression>of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null)),
                 List.<Expression>of(new Constant(BIGINT, null)))) {
-            Expression predicate = new In(year(DATE_INPUT), items);
+            Expression predicate = new In(year(DATE_INPUT), new Array(BIGINT, items));
             assertEquivalent(predicate, DATES);
             assertEquivalent(negate(predicate), DATES);
         }
-        Expression nullBearing = new In(year(DATE_INPUT), List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null)));
+        Expression nullBearing = new In(year(DATE_INPUT), new Array(BIGINT, List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, null))));
         var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, negate(nullBearing));
         assertThat(extracted.tupleDomain().isNone()).isTrue();
         assertThat(extracted.remainingExpression()).isEqualTo(TRUE);
@@ -229,7 +231,7 @@ public class TestComparisonPreimages
     void testNontrivialInputIsEvaluatedOnce()
     {
         Expression counter = call("preimage_counter_date");
-        Expression original = new In(year(counter), List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, 2026L), new Constant(BIGINT, null)));
+        Expression original = new In(year(counter), new Array(BIGINT, List.of(new Constant(BIGINT, 2025L), new Constant(BIGINT, 2026L), new Constant(BIGINT, null))));
         Expression rewritten = rewrite(original);
         assertThat(rewritten).isInstanceOf(Let.class);
         EVALUATIONS.set(0);
@@ -247,7 +249,7 @@ public class TestComparisonPreimages
     void testRewriteMayEliminateFailure()
     {
         Expression input = call("preimage_fail_date", DATE_INPUT);
-        Expression unknown = new In(year(input), List.of(new Constant(BIGINT, null)));
+        Expression unknown = new In(year(input), new Array(BIGINT, List.of(new Constant(BIGINT, null))));
         assertThat(preimages.rewrite(SESSION, functionPreimages, unknown, emptySymbolAllocator())).contains(new Constant(BOOLEAN, null));
         Expression rewritten = rewrite(compare(EQUAL, year(input), new Constant(BIGINT, Long.MAX_VALUE)));
         assertThatThrownBy(() -> evaluator.evaluate(rewritten, SESSION, Map.of("value", 0L)))
@@ -276,7 +278,7 @@ public class TestComparisonPreimages
     {
         Reference input = new Reference(DOUBLE, "value");
         Expression function = call("preimage_nan_to_one", input);
-        Expression predicate = new In(function, List.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0)));
+        Expression predicate = new In(function, new Array(DOUBLE, List.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0))));
         Domain expected = Domain.multipleValues(DOUBLE, List.of(Double.NaN, 3.0));
         var extraction = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
         assertThat(extraction.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(Map.of(Symbol.from(input), expected)));
@@ -402,7 +404,7 @@ public class TestComparisonPreimages
     void testExpansionLimit()
     {
         List<Expression> items = LongStream.range(2000, 2011).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
-        Expression predicate = new In(year(DATE_INPUT), items);
+        Expression predicate = new In(year(DATE_INPUT), new Array(BIGINT, items));
         assertThat(preimages.rewrite(SESSION, functionPreimages, predicate, emptySymbolAllocator())).isEmpty();
         var extracted = getExtractionResult(FUNCTIONS.getPlannerContext(), SESSION, predicate);
         assertThat(extracted.tupleDomain()).isEqualTo(TupleDomain.withColumnDomains(Map.of(Symbol.from(DATE_INPUT), Domain.create(ValueSet.ofRanges(Range.range(DATE, date("2000-01-01"), true, date("2011-01-01"), false)), false))));
@@ -548,14 +550,14 @@ public class TestComparisonPreimages
             if (withNull) {
                 values.add(new Constant(BIGINT, null));
             }
-            Expression original = new In(call("preimage_identity", BIGINT_INPUT), values);
+            Expression original = new In(call("preimage_identity", BIGINT_INPUT), new Array(BIGINT, values));
             assertThat(preimages.rewrite(SESSION, functionPreimages, original, emptySymbolAllocator())).hasValueSatisfying(rewritten -> {
                 assertThat(rewritten).isInstanceOf(In.class);
-                assertThat(((In) rewritten).valueList()).hasSizeLessThanOrEqualTo(values.size());
+                assertThat(extractArrayElements(((In) rewritten).valueList()).orElseThrow()).hasSizeLessThanOrEqualTo(values.size());
             });
             assertEquivalent(original, List.of(-1L, 0L, 25L, 49L, 50L));
             assertEquivalent(negate(original), List.of(-1L, 0L, 25L, 49L, 50L));
-            assertThat(preimages.rewrite(SESSION, functionPreimages, new In(call("preimage_nonnegative", BIGINT_INPUT), values), emptySymbolAllocator())).isEmpty();
+            assertThat(preimages.rewrite(SESSION, functionPreimages, new In(call("preimage_nonnegative", BIGINT_INPUT), new Array(BIGINT, values)), emptySymbolAllocator())).isEmpty();
         }
     }
 
@@ -627,7 +629,7 @@ public class TestComparisonPreimages
                 constants.add(new Constant(DOUBLE, (double) value));
             }
             if (size == 10) {
-                assertEquivalent(new In(function, constants), List.of(Double.NaN, 0.0, 1.0, 2.0, 3.0, 12.0));
+                assertEquivalent(new In(function, new Array(function.type(), constants)), List.of(Double.NaN, 0.0, 1.0, 2.0, 3.0, 12.0));
             }
             else {
                 for (boolean withNull : List.of(false, true)) {
@@ -635,10 +637,13 @@ public class TestComparisonPreimages
                     if (withNull) {
                         items.add(new Constant(DOUBLE, null));
                     }
-                    Expression original = new In(function, items);
+                    Expression original = new In(function, new Array(function.type(), items));
                     Expression rewritten = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), original);
                     assertThat(evaluator.evaluate(rewritten, SESSION, Map.of("value", Double.NaN))).isEqualTo(true);
-                    assertThat(rewritten).isEqualTo(original);
+                    assertThat(rewritten).isInstanceOfSatisfying(In.class, in -> {
+                        assertThat(in.value()).isEqualTo(function);
+                        assertThat(extractArrayElements(in.valueList()).orElseThrow()).isEqualTo(items);
+                    });
                     Expression negated = unwrap(FUNCTIONS.getPlannerContext(), SESSION, emptySymbolAllocator(), negate(original));
                     assertThat(evaluator.evaluate(negated, SESSION, Map.of("value", Double.NaN))).isEqualTo(false);
                 }
@@ -677,7 +682,7 @@ public class TestComparisonPreimages
         for (List<Expression> items : List.of(
                 List.<Expression>of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, Double.NaN)),
                 List.<Expression>of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null)))) {
-            Expression predicate = new In(new Cast(input, DOUBLE), items);
+            Expression predicate = new In(new Cast(input, DOUBLE), new Array(DOUBLE, items));
             assertEquivalent(predicate, values);
             assertEquivalent(negate(predicate), values);
         }
@@ -733,7 +738,7 @@ public class TestComparisonPreimages
     void testLargeInWithoutExpansion()
     {
         List<Expression> constants = LongStream.range(0, 100).mapToObj(value -> (Expression) new Constant(BIGINT, value)).toList();
-        Expression original = new In(new Cast(SMALLINT_INPUT, BIGINT), constants);
+        Expression original = new In(new Cast(SMALLINT_INPUT, BIGINT), new Array(BIGINT, constants));
         assertThat(preimages.rewrite(SESSION, functionPreimages, original, emptySymbolAllocator())).hasValueSatisfying(value -> assertThat(value).isInstanceOf(In.class));
         assertEquivalent(original, List.of(-1L, 0L, 50L, 99L, 100L));
     }
@@ -846,7 +851,7 @@ public class TestComparisonPreimages
                 if (nullItem) {
                     constants.add(new Constant(target, null));
                 }
-                In original = new In(new Cast(new Reference(source, "value"), target), constants);
+                In original = new In(new Cast(new Reference(source, "value"), target), new Array(target, constants));
                 assertEquivalent(original, inputs);
                 assertEquivalent(negate(original), inputs);
             }

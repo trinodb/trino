@@ -26,6 +26,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
@@ -65,6 +66,7 @@ import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -229,8 +231,11 @@ public final class ComparisonPreimages
 
         public Optional<Expression> rewrite(Expression expression, SymbolAllocator allocator)
         {
-            if (expression instanceof In in && in.valueList().size() > MAX_IN_LIST_SIZE) {
-                return rewriteLargeIn(in).or(() -> rewriteComparisonConstants(expression));
+            if (expression instanceof In in) {
+                Optional<List<Expression>> items = extractArrayElements(in.valueList());
+                if (items.isPresent() && items.get().size() > MAX_IN_LIST_SIZE) {
+                    return rewriteLargeIn(in, items.get()).or(() -> rewriteComparisonConstants(expression));
+                }
             }
             var comparison = matchComparison(expression);
             Optional<Predicate> predicate;
@@ -308,8 +313,12 @@ public final class ComparisonPreimages
                         value));
             }
             if (expression instanceof In in) {
+                Optional<List<Expression>> items = extractArrayElements(in.valueList());
+                if (items.isEmpty()) {
+                    return Optional.empty();
+                }
                 List<Expression> values = new ArrayList<>();
-                for (Expression item : in.valueList()) {
+                for (Expression item : items.get()) {
                     if (!(item instanceof Constant constant)) {
                         return Optional.empty();
                     }
@@ -319,13 +328,13 @@ public final class ComparisonPreimages
                     }
                     values.add(value.get());
                 }
-                return Optional.of(new In(bound.get().input(), values));
+                return Optional.of(new In(bound.get().input(), new Array(bound.get().input().type(), values)));
             }
             return Optional.empty();
         }
 
         /// A point-to-point IN rewrite keeps its original size and needs no expansion budget.
-        private Optional<Expression> rewriteLargeIn(In in)
+        private Optional<Expression> rewriteLargeIn(In in, List<Expression> items)
         {
             Optional<BoundProjection> bound = bind(in.value(), EXACT);
             if (bound.isEmpty()) {
@@ -334,7 +343,7 @@ public final class ComparisonPreimages
             List<Object> resultValues = new ArrayList<>();
             boolean nullAllowed = false;
             Type inputType = bound.get().input().type();
-            for (Expression item : in.valueList()) {
+            for (Expression item : items) {
                 if (!(item instanceof Constant constant)) {
                     return Optional.empty();
                 }
@@ -374,7 +383,7 @@ public final class ComparisonPreimages
                 Optional<Constant> point = range.isSingleValue()
                         ? Optional.of(new Constant(inputType, range.getSingleValue()))
                         : singleton(Domain.create(ValueSet.ofRanges(range), false));
-                if (point.isEmpty() || values.size() >= in.valueList().size()) {
+                if (point.isEmpty() || values.size() >= items.size()) {
                     return Optional.empty();
                 }
                 values.add(point.get());
@@ -382,10 +391,10 @@ public final class ComparisonPreimages
             if (nullAllowed) {
                 values.add(new Constant(inputType, null));
             }
-            if (values.isEmpty() || values.size() > in.valueList().size()) {
+            if (values.isEmpty() || values.size() > items.size()) {
                 return Optional.empty();
             }
-            return Optional.of(new In(bound.get().input(), values));
+            return Optional.of(new In(bound.get().input(), new Array(inputType, values)));
         }
 
         public Optional<ProjectedDomain> extract(Expression expression, boolean complement)
@@ -511,11 +520,12 @@ public final class ComparisonPreimages
                 return Optional.empty();
             }
             if (expression instanceof In in && in.value().equals(operand)) {
-                if (in.valueList().isEmpty() || in.valueList().size() > MAX_IN_LIST_SIZE) {
+                Optional<List<Expression>> items = extractArrayElements(in.valueList());
+                if (items.isEmpty() || items.get().isEmpty() || items.get().size() > MAX_IN_LIST_SIZE) {
                     return Optional.empty();
                 }
                 TruthDomains domains = new TruthDomains(Domain.none(operand.type()), Domain.all(operand.type()));
-                for (Expression item : in.valueList()) {
+                for (Expression item : items.get()) {
                     if (!(item instanceof Constant constant)) {
                         return Optional.empty();
                     }
@@ -583,7 +593,7 @@ public final class ComparisonPreimages
                     values.add(new Constant(operand.type(), value));
                 }
                 values.add(new Constant(operand.type(), null));
-                return new In(operand, values);
+                return new In(operand, new Array(operand.type(), values));
             }
             if (falseDomain.isNone()) {
                 return ifExpression(membership(trueDomain, operand), TRUE, UNKNOWN);

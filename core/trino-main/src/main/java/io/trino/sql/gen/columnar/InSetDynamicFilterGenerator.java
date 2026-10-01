@@ -64,6 +64,7 @@ import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.createClassInstan
 import static io.trino.sql.gen.columnar.ColumnarFilterCompiler.generateGetInputChannels;
 import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.MAX_SWITCH_CASE_VALUES;
 import static io.trino.sql.gen.columnar.InColumnarFilterGenerator.generateInFilterMethods;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.util.Objects.requireNonNull;
@@ -86,8 +87,12 @@ public final class InSetDynamicFilterGenerator
         if (!(in.value() instanceof Reference valueReference)) {
             return Optional.empty();
         }
+        Optional<List<Expression>> elements = extractArrayElements(in.valueList());
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
-        for (Expression expression : in.valueList()) {
+        for (Expression expression : elements.get()) {
             if (!(expression instanceof Constant constant) || constant.value() == null) {
                 return Optional.empty();
             }
