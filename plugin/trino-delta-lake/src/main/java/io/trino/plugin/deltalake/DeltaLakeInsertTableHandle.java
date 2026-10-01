@@ -31,7 +31,6 @@ public record DeltaLakeInsertTableHandle(
         ProtocolEntry protocolEntry,
         List<DeltaLakeColumnHandle> inputColumns,
         long readVersion,
-        boolean retriesEnabled,
         VendedCredentialsHandle credentialsHandle)
         implements ConnectorInsertTableHandle
 {
