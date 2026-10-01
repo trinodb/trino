@@ -8726,6 +8726,30 @@ public class TestSqlParser
     }
 
     @Test
+    public void testQueryPeriodRange()
+    {
+        for (String rangeType : ImmutableList.of("TIMESTAMP", "VERSION")) {
+            String start = rangeType.equals("TIMESTAMP") ? "TIMESTAMP '2021-03-01 00:00:01'" : "'version1'";
+            String end = rangeType.equals("TIMESTAMP") ? "TIMESTAMP '2021-03-02 00:00:01'" : "'version2'";
+            Query query = (Query) SQL_PARSER.createStatement("SELECT * FROM t FOR " + rangeType + " FROM " + start + " TO " + end);
+            Table table = (Table) ((QuerySpecification) query.getQueryBody()).getFrom().orElseThrow();
+            QueryPeriod period = table.getQueryPeriod().orElseThrow();
+            assertThat(period.getRangeType()).isEqualTo(QueryPeriod.RangeType.valueOf(rangeType));
+            assertThat(period.getStart()).contains(SQL_PARSER.createExpression(start));
+            assertThat(period.getEnd()).contains(SQL_PARSER.createExpression(end));
+            assertThat(period.getChildren()).containsExactly(period.getStart().orElseThrow(), period.getEnd().orElseThrow());
+            assertThat(statement("SELECT * FROM t FOR " + rangeType + " FROM " + start + " TO " + end))
+                    .isEqualTo(query);
+        }
+
+        assertThat(statement("SELECT * FROM t FOR VERSION FROM 1 + 2 TO 4 + 5 AS r WHERE x = 1"))
+                .isEqualTo(SQL_PARSER.createStatement("SELECT * FROM t FOR VERSION FROM 1 + 2 TO 4 + 5 AS r WHERE x = 1"));
+        assertStatementIsInvalid("SELECT * FROM t FOR VERSION FROM 1");
+        assertStatementIsInvalid("SELECT * FROM t FOR VERSION FROM 1 TO");
+        assertStatementIsInvalid("SELECT * FROM t FOR VERSION FROM TO 2");
+    }
+
+    @Test
     public void testListagg()
     {
         assertThat(expression("LISTAGG(x) WITHIN GROUP (ORDER BY x)")).isEqualTo(
