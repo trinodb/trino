@@ -42,9 +42,16 @@ final class TestFakerQueries
     }
 
     @Test
+    void testShowSchemas()
+    {
+        // Using 'contains' method because other tests may create schemas concurrently
+        assertThat(computeActual("SHOW SCHEMAS FROM faker").getOnlyColumnAsSet())
+                .contains("default", "information_schema");
+    }
+
+    @Test
     void testShowTables()
     {
-        assertQuery("SHOW SCHEMAS FROM faker", "VALUES 'default', 'information_schema'");
         assertUpdate("CREATE TABLE faker.default.test (id INTEGER, name VARCHAR)");
         assertTableColumnNames("faker.default.test", "id", "name");
     }
