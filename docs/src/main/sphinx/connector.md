@@ -45,6 +45,7 @@ System          <connector/system>
 Thrift          <connector/thrift>
 TPC-DS           <connector/tpcds>
 TPC-H            <connector/tpch>
+Trino            <connector/trino>
 ```
 
 ```{toctree}
