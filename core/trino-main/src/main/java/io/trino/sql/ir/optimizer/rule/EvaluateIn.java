@@ -55,9 +55,19 @@ public class EvaluateIn
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In(Constant value, List<Expression> list))) {
+        if (!(expression instanceof In in) || !(in.value() instanceof Constant value)) {
             return Optional.empty();
         }
+
+        if (in.valueList() instanceof Constant constant && constant.value() == null) {
+            return Optional.of(NULL_BOOLEAN);
+        }
+
+        Optional<List<Expression>> elements = in.valueListElements();
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Expression> list = elements.get();
 
         if (!list.stream().allMatch(Constant.class::isInstance)) {
             return Optional.empty();

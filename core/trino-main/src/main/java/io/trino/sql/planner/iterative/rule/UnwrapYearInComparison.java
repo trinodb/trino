@@ -149,6 +149,10 @@ public class UnwrapYearInComparison
         {
             In in = treeRewriter.defaultRewrite(node, null);
             Expression value = in.value();
+            Optional<List<Expression>> elements = in.valueListElements();
+            if (elements.isEmpty()) {
+                return in;
+            }
 
             if (!(value instanceof Call call) ||
                     !call.function().name().equals(builtinFunctionName("year")) ||
@@ -160,8 +164,8 @@ public class UnwrapYearInComparison
 
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
-            List<Expression> comparisonExpressions = new ArrayList<>(node.valueList().size());
-            for (Expression rightExpression : node.valueList()) {
+            List<Expression> comparisonExpressions = new ArrayList<>(elements.get().size());
+            for (Expression rightExpression : elements.get()) {
                 Optional<Expression> unwrappedExpression = tryUnwrapYear(EQUAL, value, rightExpression);
                 if (unwrappedExpression.isEmpty()) {
                     return in;

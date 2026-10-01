@@ -41,6 +41,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -88,8 +89,12 @@ public final class InSetDynamicFilterGenerator
         if (valueType instanceof ArrayType || valueType instanceof MapType || valueType instanceof RowType) {
             return Optional.empty();
         }
+        Optional<List<Expression>> elements = in.valueListElements();
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
         ImmutableSet.Builder<Object> valuesBuilder = ImmutableSet.builder();
-        for (Expression expression : in.valueList()) {
+        for (Expression expression : elements.get()) {
             if (!(expression instanceof Constant constant) || constant.value() == null) {
                 return Optional.empty();
             }
@@ -102,7 +107,7 @@ public final class InSetDynamicFilterGenerator
 
         // Small integer IN lists compile to a lookupswitch with tiny baked data; leave them on the
         // shared cache path where the switch is faster and retention is not a concern.
-        if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, in.valueList())) {
+        if (InColumnarFilterGenerator.useSwitchCaseGeneration(valueType, elements.get())) {
             return Optional.empty();
         }
         ResolvedFunction resolvedEquals = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));

@@ -659,9 +659,9 @@ public class TranslationMap
                 }
                 io.trino.sql.ir.Expression in = new In(
                         value,
-                        valueList.getValues().stream()
+                        new io.trino.sql.ir.Array(value.type(), valueList.getValues().stream()
                                 .map(this::translateExpression)
-                                .collect(toImmutableList()));
+                                .collect(toImmutableList())));
                 yield predicate.isNegated() ? not(plannerContext.getMetadata(), getCharVarcharCoercion(session), in) : in;
             }
             case IsNullPredicate predicate -> {

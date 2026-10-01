@@ -39,6 +39,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
@@ -617,7 +618,7 @@ public final class ConnectorExpressionTranslator
             Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values, lambdaArguments);
 
             if (translatedValue.isPresent() && translatedValues.isPresent()) {
-                return Optional.of(new In(translatedValue.get(), translatedValues.get()));
+                return Optional.of(new In(translatedValue.get(), new Array(translatedValue.get().type(), translatedValues.get())));
             }
 
             return Optional.empty();
@@ -1032,14 +1033,18 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitIn(In node, Context context)
         {
+            Optional<List<Expression>> elements = node.valueListElements();
+            if (elements.isEmpty()) {
+                return Optional.empty();
+            }
             Optional<ConnectorExpression> valueExpression = process(node.value(), context);
 
             if (valueExpression.isEmpty()) {
                 return Optional.empty();
             }
 
-            ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(node.valueList().size());
-            for (Expression value : node.valueList()) {
+            ImmutableList.Builder<ConnectorExpression> values = ImmutableList.builderWithExpectedSize(elements.get().size());
+            for (Expression value : elements.get()) {
                 // TODO: NULL should be eliminated on the engine side (within a rule)
                 if (value == null) {
                     return Optional.empty();

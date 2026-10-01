@@ -23,8 +23,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -1165,14 +1167,22 @@ public class TestDomainTranslator
     @Test
     public void testFromUnprocessableInPredicate()
     {
-        assertUnsupportedPredicate(new In(unprocessableExpression1(C_BIGINT), ImmutableList.of(TRUE)));
-        assertUnsupportedPredicate(new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN))));
+        assertUnsupportedPredicate(new In(unprocessableExpression1(C_BIGINT), new Array(BOOLEAN, ImmutableList.of(TRUE))));
+        assertUnsupportedPredicate(new In(C_BOOLEAN.toSymbolReference(), new Array(BOOLEAN, ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))));
         assertUnsupportedPredicate(
-                new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(TRUE, unprocessableExpression1(C_BOOLEAN))));
+                new In(C_BOOLEAN.toSymbolReference(), new Array(BOOLEAN, ImmutableList.of(TRUE, unprocessableExpression1(C_BOOLEAN)))));
         assertPredicateTranslates(
-                not(new In(C_BOOLEAN.toSymbolReference(), ImmutableList.of(unprocessableExpression1(C_BOOLEAN)))),
+                not(new In(C_BOOLEAN.toSymbolReference(), new Array(BOOLEAN, ImmutableList.of(unprocessableExpression1(C_BOOLEAN))))),
                 tupleDomain(C_BOOLEAN, Domain.notNull(BOOLEAN)),
                 not(equal(C_BOOLEAN, unprocessableExpression1(C_BOOLEAN))));
+    }
+
+    @Test
+    void testInRuntimeArray()
+    {
+        Expression predicate = new In(C_BIGINT.toSymbolReference(), new Reference(new ArrayType(BIGINT), "values"));
+        assertPredicateTranslates(predicate, TupleDomain.all(), predicate);
+        assertPredicateTranslates(not(predicate), TupleDomain.all(), not(predicate));
     }
 
     @Test
@@ -1430,11 +1440,11 @@ public class TestDomainTranslator
     {
         assertPredicateIsAlwaysFalse(new In(
                 C_BIGINT.toSymbolReference(),
-                ImmutableList.of(new Constant(BIGINT, null))));
+                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null)))));
 
         assertUnsupportedPredicate(not(new In(
                 cast(C_SMALLINT, BIGINT),
-                ImmutableList.of(new Constant(BIGINT, null)))));
+                new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     @Test
@@ -2126,11 +2136,11 @@ public class TestDomainTranslator
     {
         return new In(
                 expression,
-                values.stream()
+                new Array(expression.type(), values.stream()
                         .map(value -> value instanceof Expression valueExpression ?
                                 valueExpression :
                                 new Constant(type, value))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList())));
     }
 
     private static Expression between(Expression expression, Expression min, Expression max)

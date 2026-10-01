@@ -51,6 +51,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -517,7 +518,7 @@ public class TestColumnarFilters
                 new Constant(INTEGER, CONSTANT + 1),
                 new Constant(INTEGER, CONSTANT + 5),
                 new Constant(INTEGER, CONSTANT + 10));
-        Expression inFilter = new In(new Reference(INTEGER, COL_INT_A), valueList);
+        Expression inFilter = new In(new Reference(INTEGER, COL_INT_A), new Array(INTEGER, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -529,7 +530,7 @@ public class TestColumnarFilters
                 .addAll(buildConstantsList(INTEGER, 100))
                 .add(new Constant(INTEGER, CONSTANT + 110))
                 .build();
-        inFilter = new In(new Reference(INTEGER, COL_INT_A), valueList);
+        inFilter = new In(new Reference(INTEGER, COL_INT_A), new Array(INTEGER, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -541,7 +542,7 @@ public class TestColumnarFilters
                 .addAll(buildConstantsList(INTEGER, 100))
                 .add(new Constant(INTEGER, CONSTANT + 1073741824))
                 .build();
-        inFilter = new In(new Reference(INTEGER, COL_INT_A), valueList);
+        inFilter = new In(new Reference(INTEGER, COL_INT_A), new Array(INTEGER, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -550,13 +551,13 @@ public class TestColumnarFilters
                 .add(constantNull(INTEGER))
                 .addAll(buildConstantsList(INTEGER, 100))
                 .build();
-        inFilter = new In(new Reference(INTEGER, COL_INT_A), valueList);
+        inFilter = new In(new Reference(INTEGER, COL_INT_A), new Array(INTEGER, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
         // INTEGER type with only null constant
         valueList = ImmutableList.of(constantNull(INTEGER));
-        inFilter = new In(new Reference(INTEGER, COL_INT_A), valueList);
+        inFilter = new In(new Reference(INTEGER, COL_INT_A), new Array(INTEGER, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -568,7 +569,7 @@ public class TestColumnarFilters
                 .addAll(buildConstantsList(REAL, 100))
                 .add(new Constant(REAL, CONSTANT + 110))
                 .build();
-        inFilter = new In(new Reference(REAL, COL_REAL), valueList);
+        inFilter = new In(new Reference(REAL, COL_REAL), new Array(REAL, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -577,7 +578,7 @@ public class TestColumnarFilters
                 .add(constantNull(VARCHAR))
                 .addAll(buildConstantsList(VARCHAR, 3))
                 .build();
-        inFilter = new In(new Reference(VARCHAR, COL_STRING), valueList);
+        inFilter = new In(new Reference(VARCHAR, COL_STRING), new Array(VARCHAR, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
@@ -586,7 +587,7 @@ public class TestColumnarFilters
                 .add(constantNull(VARCHAR))
                 .addAll(buildConstantsList(VARCHAR, 100))
                 .build();
-        inFilter = new In(new Reference(VARCHAR, COL_STRING), valueList);
+        inFilter = new In(new Reference(VARCHAR, COL_STRING), new Array(VARCHAR, valueList));
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
     }
@@ -603,7 +604,7 @@ public class TestColumnarFilters
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT, null)),
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT + 2)),
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT, CONSTANT + 1)));
-        Expression inFilter = new In(new Reference(ARRAY_CHANNEL_TYPE, COL_ARRAY), valueList);
+        Expression inFilter = new In(new Reference(ARRAY_CHANNEL_TYPE, COL_ARRAY), new Array(ARRAY_CHANNEL_TYPE, valueList));
         // Structural types in "IN" clause are not supported for columnar evaluation yet
         assertThatColumnarFilterEvaluationIsNotSupported(inFilter);
         verifyFilter(inputPages, inFilter);
@@ -619,7 +620,7 @@ public class TestColumnarFilters
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT + 2, null)),
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT - 2, CONSTANT, CONSTANT - 1)),
                 new Constant(ARRAY_CHANNEL_TYPE, createIntArray(CONSTANT, CONSTANT + 1)));
-        inFilter = new In(new Reference(ARRAY_CHANNEL_TYPE, COL_ARRAY), valueList);
+        inFilter = new In(new Reference(ARRAY_CHANNEL_TYPE, COL_ARRAY), new Array(ARRAY_CHANNEL_TYPE, valueList));
         // Structural types in "IN" clause are not supported for columnar evaluation yet
         assertThatColumnarFilterEvaluationIsNotSupported(inFilter);
         verifyFilter(inputPages, inFilter);

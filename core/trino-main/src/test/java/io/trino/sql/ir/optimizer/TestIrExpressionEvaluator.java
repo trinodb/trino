@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -30,15 +31,15 @@ public class TestIrExpressionEvaluator
     @Test
     void testIn()
     {
-        assertThat(evaluate(new In(new Constant(BIGINT, null), ImmutableList.of())))
+        assertThat(evaluate(new In(new Constant(BIGINT, null), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("null value, empty list")
                 .isEqualTo(false);
 
-        assertThat(evaluate(new In(new Constant(BIGINT, 1L), ImmutableList.of())))
+        assertThat(evaluate(new In(new Constant(BIGINT, 1L), new Array(BIGINT, ImmutableList.of()))))
                 .describedAs("empty list")
                 .isEqualTo(false);
 
-        assertThat(evaluate(new In(new Constant(BIGINT, null), ImmutableList.of(new Constant(BIGINT, 1L)))))
+        assertThat(evaluate(new In(new Constant(BIGINT, null), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L))))))
                 .describedAs("null value")
                 .isNull();
     }

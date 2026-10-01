@@ -26,6 +26,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
@@ -333,7 +334,7 @@ public class TestFilterStatsCalculator
                                 .distinctValuesCount(2)
                                 .nullsFraction(0));
 
-        assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)))), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
+        assertExpression(new Logical(OR, ImmutableList.of(comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 1.0)), new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), new Array(createVarcharType(3), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))), comparison(EQUAL, new Reference(DOUBLE, "x"), new Constant(DOUBLE, 3.0)))))
                 .equalTo(standardInputStatistics);
     }
 
@@ -397,7 +398,7 @@ public class TestFilterStatsCalculator
                 new Call(JSON_ARRAY_CONTAINS, ImmutableList.of(new Constant(JSON, JsonTypeUtil.jsonParse(Slices.utf8Slice("[13]"))), new Reference(DOUBLE, "x"))))))
                 .outputRowsCountUnknown();
 
-        assertExpression(new Logical(AND, ImmutableList.of(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))), comparison(EQUAL, new Reference(DOUBLE, "unknownRange"), new Constant(DOUBLE, 3.0)))))
+        assertExpression(new Logical(AND, ImmutableList.of(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Array(VarcharType.VARCHAR, ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c"))))), comparison(EQUAL, new Reference(DOUBLE, "unknownRange"), new Constant(DOUBLE, 3.0)))))
                 .outputRowsCount(0);
 
         assertExpression(new Logical(AND, ImmutableList.of(new Constant(BOOLEAN, null), new Constant(BOOLEAN, null)))).equalTo(zeroStatistics);
@@ -524,10 +525,10 @@ public class TestFilterStatsCalculator
 
         assertExpression(
                 new Logical(AND, ImmutableList.of(
-                        new In(new Reference(DOUBLE, "x"), ImmutableList.of(
+                        new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(
                                 new Cast(new Constant(INTEGER, 0L), DOUBLE),
                                 new Cast(new Constant(INTEGER, 1L), DOUBLE),
-                                new Cast(new Constant(INTEGER, 2L), DOUBLE))),
+                                new Cast(new Constant(INTEGER, 2L), DOUBLE)))),
                         new Logical(OR, ImmutableList.of(
                                 comparison(EQUAL, new Reference(DOUBLE, "x"), new Cast(new Constant(INTEGER, 0L), DOUBLE)),
                                 new Logical(AND, ImmutableList.of(
@@ -717,12 +718,12 @@ public class TestFilterStatsCalculator
                                 .highValue(xStats.getHighValue())
                                 .nullsFraction(xStats.getNullsFraction()));
 
-        assertExpression(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b"))))).equalTo(standardInputStatistics);
-        assertExpression(new In(new Constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("a")), new Constant(createVarcharType(1), Slices.utf8Slice("b")), new Constant(createVarcharType(1), null)))).equalTo(standardInputStatistics);
-        assertExpression(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c"))))).outputRowsCount(0);
-        assertExpression(new In(new Constant(createVarcharType(1), Slices.utf8Slice("a")), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("b")), new Constant(createVarcharType(1), Slices.utf8Slice("c")), new Constant(createVarcharType(1), null)))).outputRowsCount(0);
-        assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).equalTo(standardInputStatistics);
-        assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")), createVarcharType(3)), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3))))).outputRowsCount(0);
+        assertExpression(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Array(VarcharType.VARCHAR, ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")))))).equalTo(standardInputStatistics);
+        assertExpression(new In(new Constant(createVarcharType(1), Slices.utf8Slice("a")), new Array(createVarcharType(1), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("a")), new Constant(createVarcharType(1), Slices.utf8Slice("b")), new Constant(createVarcharType(1), null))))).equalTo(standardInputStatistics);
+        assertExpression(new In(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), new Array(VarcharType.VARCHAR, ImmutableList.of(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")))))).outputRowsCount(0);
+        assertExpression(new In(new Constant(createVarcharType(1), Slices.utf8Slice("a")), new Array(createVarcharType(1), ImmutableList.of(new Constant(createVarcharType(1), Slices.utf8Slice("b")), new Constant(createVarcharType(1), Slices.utf8Slice("c")), new Constant(createVarcharType(1), null))))).outputRowsCount(0);
+        assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)), new Array(createVarcharType(3), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)))))).equalTo(standardInputStatistics);
+        assertExpression(new In(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("c")), createVarcharType(3)), new Array(createVarcharType(3), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("a")), createVarcharType(3)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("b")), createVarcharType(3)))))).outputRowsCount(0);
     }
 
     @Test
@@ -743,28 +744,28 @@ public class TestFilterStatsCalculator
     public void testInPredicateFilter()
     {
         // One value in range
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, 7.5))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, 7.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -7.5))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -7.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(-7.5)
                                 .highValue(-7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Call(ADD_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 5.5))))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Call(ADD_DOUBLE, ImmutableList.of(new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 5.5)))))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
                                 .lowValue(7.5)
                                 .highValue(7.5)
                                 .nullsFraction(0.0));
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -7.5))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -7.5)))))
                 .outputRowsCount(18.75)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(1.0)
@@ -773,7 +774,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in range
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -788,7 +789,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.5));
 
         // Multiple values some in some out of range
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -797,7 +798,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values some including NULL
-        assertExpression(new In(new Reference(DOUBLE, "x"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0), new Constant(DOUBLE, null))))
+        assertExpression(new In(new Reference(DOUBLE, "x"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0), new Constant(DOUBLE, null)))))
                 .outputRowsCount(56.25)
                 .symbolStats("x", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -806,7 +807,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Multiple values in unknown range
-        assertExpression(new In(new Reference(DOUBLE, "unknownRange"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0))))
+        assertExpression(new In(new Reference(DOUBLE, "unknownRange"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 1.5), new Constant(DOUBLE, 2.5), new Constant(DOUBLE, 7.5), new Constant(DOUBLE, 314.0)))))
                 .outputRowsCount(90.0)
                 .symbolStats("unknownRange", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -815,25 +816,25 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Casted literals as value
-        assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), MEDIUM_VARCHAR_TYPE))))
+        assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), new Array(MEDIUM_VARCHAR_TYPE, ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), MEDIUM_VARCHAR_TYPE)))))
                 .outputRowsCount(4)
                 .symbolStats("mediumVarchar", MEDIUM_VARCHAR_TYPE, symbolStats ->
                         symbolStats.distinctValuesCount(1)
                                 .nullsFraction(0.0));
 
-        assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), createVarcharType(100)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("def")), createVarcharType(100)))))
+        assertExpression(new In(new Reference(MEDIUM_VARCHAR_TYPE, "mediumVarchar"), new Array(MEDIUM_VARCHAR_TYPE, ImmutableList.of(new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("abc")), createVarcharType(100)), new Cast(new Constant(VarcharType.VARCHAR, Slices.utf8Slice("def")), createVarcharType(100))))))
                 .outputRowsCount(8)
                 .symbolStats("mediumVarchar", MEDIUM_VARCHAR_TYPE, symbolStats ->
                         symbolStats.distinctValuesCount(2)
                                 .nullsFraction(0.0));
 
         // No value in range
-        assertExpression(new In(new Reference(DOUBLE, "y"), ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 31.1341), new Constant(DOUBLE, -0.000000002), new Constant(DOUBLE, 314.0))))
+        assertExpression(new In(new Reference(DOUBLE, "y"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -42.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 31.1341), new Constant(DOUBLE, -0.000000002), new Constant(DOUBLE, 314.0)))))
                 .outputRowsCount(0.0)
                 .symbolStats("y", DOUBLE, SymbolStatsAssertion::empty);
 
         // More values in range than distinct values
-        assertExpression(new In(new Reference(DOUBLE, "z"), ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 3.14), new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 3.0), new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 5.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 7.0), new Constant(DOUBLE, 8.0), new Constant(DOUBLE, -2.0))))
+        assertExpression(new In(new Reference(DOUBLE, "z"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 3.14), new Constant(DOUBLE, 0.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 2.0), new Constant(DOUBLE, 3.0), new Constant(DOUBLE, 4.0), new Constant(DOUBLE, 5.0), new Constant(DOUBLE, 6.0), new Constant(DOUBLE, 7.0), new Constant(DOUBLE, 8.0), new Constant(DOUBLE, -2.0)))))
                 .outputRowsCount(900.0)
                 .symbolStats("z", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(5.0)
@@ -842,7 +843,7 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Values in weird order
-        assertExpression(new In(new Reference(DOUBLE, "z"), ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 0.0))))
+        assertExpression(new In(new Reference(DOUBLE, "z"), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, -1.0), new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 0.0)))))
                 .outputRowsCount(540.0)
                 .symbolStats("z", DOUBLE, symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
@@ -864,7 +865,7 @@ public class TestFilterStatsCalculator
 
         // For sparse columns (few distinct values over a large range), range-based estimation makes IN predicates look almost empty.
         // This causes the optimizer to think that filtering removes all rows, which is incorrect.
-        assertExpression(new In(new Reference(BIGINT, "platform_id"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L), new Constant(BIGINT, 4L))),
+        assertExpression(new In(new Reference(BIGINT, "platform_id"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L), new Constant(BIGINT, 4L)))),
                 PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(1000000)
                         .addSymbolStatistics(new Symbol(BIGINT, "platform_id"), platformStats)
@@ -905,7 +906,7 @@ public class TestFilterStatsCalculator
         Constant b = new Constant(type, Slices.utf8Slice("b"));
 
         // NOT IN on an unknown column yields an unknown estimate rather than a fabricated row count.
-        assertExpression(not(new In(ref, ImmutableList.of(a, b))), input).outputRowsCountUnknown();
+        assertExpression(not(new In(ref, new Array(ref.type(), ImmutableList.of(a, b)))), input).outputRowsCountUnknown();
     }
 
     private PlanNodeStatsAssertion assertExpression(Expression expression)

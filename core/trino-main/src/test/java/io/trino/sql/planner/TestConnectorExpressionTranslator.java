@@ -35,6 +35,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -712,7 +713,7 @@ public class TestConnectorExpressionTranslator
         String value = "value_1";
         assertTranslationRoundTrips(
                 new In(new Reference(VARCHAR, "varchar_symbol_1"),
-                        List.of(new Reference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value)))),
+                        new Array(VARCHAR, List.of(new Reference(VARCHAR, "varchar_symbol_1"), new Constant(VARCHAR, utf8Slice(value))))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
                         StandardFunctions.IN_PREDICATE_FUNCTION_NAME,
