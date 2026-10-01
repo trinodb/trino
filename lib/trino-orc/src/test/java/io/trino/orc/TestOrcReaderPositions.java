@@ -74,6 +74,7 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
 
 public class TestOrcReaderPositions
@@ -330,6 +331,31 @@ public class TestOrcReaderPositions
                 assertThat(block.getPositionCount()).isEqualTo(2);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(3);
                 assertThat(BIGINT.getLong(block, 1)).isEqualTo(5);
+            }
+        }
+    }
+
+    @Test
+    public void testSelectPositionsValidatesSelectedPositions()
+            throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            createSequentialFile(tempFile.getFile(), 1000);
+
+            try (OrcRecordReader reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, MAX_BATCH_SIZE)) {
+                SourcePage page = reader.nextPage();
+                assertThatThrownBy(() -> page.selectPositions(new int[] {1000}, 0, 1))
+                        .isInstanceOf(IndexOutOfBoundsException.class);
+
+                // the offset into the positions array is independent of the page size
+                int[] positions = new int[2000];
+                positions[1500] = 10;
+                positions[1501] = 20;
+                page.selectPositions(positions, 1500, 2);
+                Block block = page.getBlock(0);
+                assertThat(block.getPositionCount()).isEqualTo(2);
+                assertThat(BIGINT.getLong(block, 0)).isEqualTo(10);
+                assertThat(BIGINT.getLong(block, 1)).isEqualTo(20);
             }
         }
     }

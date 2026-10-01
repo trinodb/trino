@@ -621,14 +621,16 @@ public class OrcRecordReader
         {
             if (this.positions == null) {
                 for (int i = 0; i < size; i++) {
-                    checkIndex(offset + i, positionCount);
+                    checkIndex(positions[offset + i], positionCount);
                 }
                 return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
             }
 
             int[] newPositions = new int[size];
             for (int i = 0; i < size; i++) {
-                newPositions[i] = this.positions[positions[offset + i]];
+                int selectedPosition = positions[offset + i];
+                checkIndex(selectedPosition, positionCount);
+                newPositions[i] = this.positions[selectedPosition];
             }
             return new SelectedPositions(size, newPositions);
         }
