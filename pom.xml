@@ -2043,6 +2043,12 @@
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-format-structures</artifactId>
                 <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
