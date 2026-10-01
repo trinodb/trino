@@ -30,7 +30,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
@@ -180,10 +179,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -347,7 +344,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
-import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
@@ -2474,10 +2470,10 @@ public class DeltaLakeMetadata
         // This check acts as a safeguard in cases where the input columns may differ from the table metadata case-sensitively
         checkAllColumnsPassedOnInsert(tableMetadata, inputColumns);
 
-        return createInsertHandle(retryMode, table, inputColumns);
+        return createInsertHandle(table, inputColumns);
     }
 
-    private DeltaLakeInsertTableHandle createInsertHandle(RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
+    private DeltaLakeInsertTableHandle createInsertHandle(DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
     {
         String tableLocation = table.getLocation();
         return new DeltaLakeInsertTableHandle(
@@ -2487,7 +2483,6 @@ public class DeltaLakeMetadata
                 table.getProtocolEntry(),
                 inputColumns,
                 table.getReadVersion(),
-                retryMode != NO_RETRIES,
                 table.toCredentialsHandle());
     }
 
@@ -2521,10 +2516,6 @@ public class DeltaLakeMetadata
                 .map(Slice::getInput)
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
-
-        if (shouldCleanExtraOutputFiles(handle.retriesEnabled(), handle.metadataEntry())) {
-            cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(handle.location()), dataFileInfos);
-        }
 
         boolean writeCommitted = false;
         try {
@@ -2802,7 +2793,7 @@ public class DeltaLakeMetadata
                 .filter(column -> column.columnType() != SYNTHESIZED)
                 .collect(toImmutableList());
 
-        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(retryMode, handle, inputColumns);
+        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(handle, inputColumns);
 
         Map<String, DeletionVectorEntry> deletionVectors = loadDeletionVectors(session, handle);
         return new DeltaLakeMergeTableHandle(handle.forMerge(), insertHandle, deletionVectors, findShallowCloneSourceTableLocation(session, handle));
@@ -2903,10 +2894,6 @@ public class DeltaLakeMetadata
                 .map(DeltaLakeMergeResult::newFile)
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
-
-        if (shouldCleanExtraOutputFiles(mergeHandle.insertTableHandle().retriesEnabled(), handle.getMetadataEntry())) {
-            cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(handle.getLocation()), allFiles);
-        }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
 
@@ -3063,11 +3050,11 @@ public class DeltaLakeMetadata
         }
 
         return switch (procedureId) {
-            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
+            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, executeProperties);
         };
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(DeltaLakeTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(DeltaLakeTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         checkWriteSupported(tableHandle);
 
@@ -3087,7 +3074,6 @@ public class DeltaLakeMetadata
                         tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                         maxScannedFileSize,
                         Optional.empty(),
-                        retryMode != NO_RETRIES,
                         tableHandle.getEnforcedPartitionConstraint(),
                         tableHandle.toCredentialsHandle()),
                 tableHandle.getLocation()));
@@ -3179,10 +3165,6 @@ public class DeltaLakeMetadata
                 .map(Slice::getInput)
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
-
-        if (shouldCleanExtraOutputFiles(optimizeHandle.isRetriesEnabled(), optimizeHandle.getMetadataEntry())) {
-            cleanExtraOutputFiles(fileSystemFactory.create(session, tableCredentials), session.getQueryId(), Location.of(executeHandle.tableLocation()), dataFileInfos);
-        }
 
         boolean writeCommitted = false;
         try {
@@ -4431,70 +4413,6 @@ public class DeltaLakeMetadata
             return requireNonNull(physicalColumnName, () -> "%s doesn't exist in %s".formatted(columnName, physicalColumnNameMapping));
         }
         return originalColumnName;
-    }
-
-    private void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location baseLocation, List<DataFileInfo> validDataFiles)
-    {
-        Set<Location> writtenFilePaths = validDataFiles.stream()
-                .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.path()))
-                .collect(toImmutableSet());
-
-        cleanExtraOutputFiles(fileSystem, queryId, writtenFilePaths);
-    }
-
-    private static boolean shouldCleanExtraOutputFiles(boolean retriesEnabled, MetadataEntry metadataEntry)
-    {
-        // Object store layout gives files near-unique parent directories, so these scans are expensive and cannot find
-        // failed-attempt files in sibling hash directories.
-        return retriesEnabled && !isRandomizeFilePrefixesEnabled(metadataEntry);
-    }
-
-    private void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Set<Location> validWrittenFilePaths)
-    {
-        Set<Location> fileLocations = validWrittenFilePaths.stream()
-                .map(Location::parentDirectory)
-                .collect(toImmutableSet());
-
-        for (Location location : fileLocations) {
-            cleanExtraOutputFiles(fileSystem, queryId, location, validWrittenFilePaths);
-        }
-    }
-
-    private void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location location, Set<Location> filesToKeep)
-    {
-        Deque<Location> filesToDelete = new ArrayDeque<>();
-        try {
-            LOG.debug("Deleting failed attempt files from %s for query %s", location, queryId);
-
-            // files within given partition are written flat into location; we need to list recursively
-            FileIterator iterator = fileSystem.listFiles(location);
-            while (iterator.hasNext()) {
-                Location file = iterator.next().location();
-                if (!file.parentDirectory().equals(location)) {
-                    // we do not want recursive listing
-                    continue;
-                }
-                if (isFileCreatedByQuery(file, queryId) && !filesToKeep.contains(file)) {
-                    filesToDelete.add(file);
-                }
-            }
-
-            if (filesToDelete.isEmpty()) {
-                return;
-            }
-
-            LOG.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), filesToKeep.size(), location, queryId);
-            fileSystem.deleteFiles(filesToDelete);
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to clean up extraneous output files", e);
-        }
-    }
-
-    private static boolean isFileCreatedByQuery(Location file, String queryId)
-    {
-        verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
-        return file.fileName().startsWith(queryId + "-");
     }
 
     @Override
