@@ -89,6 +89,13 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- tries to bring it Confluence-versioned (${dep.confluent.version}-ccs) -->
+                    <groupId>org.apache.kafka</groupId>
+                    <artifactId>kafka-clients</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
