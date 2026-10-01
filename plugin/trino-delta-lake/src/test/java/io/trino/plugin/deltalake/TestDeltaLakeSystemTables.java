@@ -199,6 +199,27 @@ public class TestDeltaLakeSystemTables
         }
     }
 
+    @Test
+    public void testPartitionsTableWithDeletionVectors()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_partitions_table_deletion_vectors_",
+                "(value INTEGER, part INTEGER) WITH (partitioned_by = ARRAY['part'], deletion_vectors_enabled = true)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1), (2, 1), (3, 2)", 3);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE value = 1", 1);
+
+            assertQuery(
+                    "SELECT partition.part, file_count, total_size > 0, data.value.min, data.value.max, data.value.null_count " +
+                            "FROM \"" + table.getName() + "$partitions\" ORDER BY partition.part",
+                    """
+                    VALUES
+                    (1, 1, true, 1, 2, 0),
+                    (2, 1, true, 3, 3, 0)
+                    """);
+        }
+    }
+
     /**
      * @see databricks133.partition_values_parsed_case_sensitive
      */
