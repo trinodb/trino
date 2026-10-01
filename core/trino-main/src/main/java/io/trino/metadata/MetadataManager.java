@@ -170,6 +170,7 @@ import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractVariables;
 import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
@@ -575,9 +576,16 @@ public final class MetadataManager
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
         Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
 
+        Map<String, String> originalNames = new HashMap<>();
         ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
         for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
-            map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
+            String name = mapEntry.getKey().toLowerCase(ENGLISH);
+            String existing = originalNames.putIfAbsent(name, mapEntry.getKey());
+            if (existing != null) {
+                // TODO (https://github.com/trinodb/trino/issues/17) remove once case-sensitive identifiers are supported
+                throw new TrinoException(AMBIGUOUS_COLUMN_NAME, format("Table %s has multiple columns with the same name after lower-case normalization: '%s' and '%s'", getTableName(session, tableHandle), existing, mapEntry.getKey()));
+            }
+            map.put(name, mapEntry.getValue());
         }
         return map.buildOrThrow();
     }
