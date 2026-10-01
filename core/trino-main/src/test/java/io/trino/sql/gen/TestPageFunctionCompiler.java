@@ -56,6 +56,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
@@ -507,9 +508,9 @@ public class TestPageFunctionCompiler
     {
         Expression filter = new In(
                 new Reference(BIGINT, "$col_0"),
-                Arrays.stream(values)
+                new Array(BIGINT, Arrays.stream(values)
                         .map(value -> (Expression) new Constant(BIGINT, value))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList())));
         PageFilter compiled = compiler.compileFilter(filter, LAYOUT, SQL_STANDARD, Optional.empty()).get();
         SourcePage inputPage = compiled.getInputChannels().getInputChannels(SourcePage.create(page));
         return compiled.filter(SESSION, inputPage);

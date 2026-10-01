@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -950,17 +951,17 @@ public class TestUnwrapCastInComparison
     public void testIn()
     {
         // widening cast: the list unwraps onto the source type
-        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
-        testUnwrap("bigint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(BIGINT, "a"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 3L))));
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), new Array(SMALLINT, ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L)))));
+        testUnwrap("bigint", "a IN (DOUBLE '1', DOUBLE '3')", new In(new Reference(BIGINT, "a"), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 3L)))));
 
         // an item no source value can match contributes nothing to the disjunction and drops out of the list
-        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '2.5', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '2.5', DOUBLE '3')", new In(new Reference(SMALLINT, "a"), new Array(SMALLINT, ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L)))));
         testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '40000')", comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L)));
         // no item can match: false for a non-null source
         testUnwrap("smallint", "a IN (DOUBLE '40000', DOUBLE '50000')", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
 
         // a null item stays in the list, as a null of the source type
-        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3', NULL)", new In(new Reference(SMALLINT, "a"), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L), new Constant(SMALLINT, null))));
+        testUnwrap("smallint", "a IN (DOUBLE '1', DOUBLE '3', NULL)", new In(new Reference(SMALLINT, "a"), new Array(SMALLINT, ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L), new Constant(SMALLINT, null)))));
         // the only item the source could match drops out, leaving the null: the predicate is null for every source value
         testUnwrap("smallint", "a IN (DOUBLE '40000', NULL)", new Constant(BOOLEAN, null));
 
@@ -974,7 +975,7 @@ public class TestUnwrapCastInComparison
                         comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-24 00:00:00.000"))))))));
 
         // narrowing cast is not unwrapped
-        testUnwrap("integer", "CAST(a AS smallint) IN (SMALLINT '1', SMALLINT '3')", new In(new Cast(new Reference(INTEGER, "a"), SMALLINT), ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L))));
+        testUnwrap("integer", "CAST(a AS smallint) IN (SMALLINT '1', SMALLINT '3')", new In(new Cast(new Reference(INTEGER, "a"), SMALLINT), new Array(SMALLINT, ImmutableList.of(new Constant(SMALLINT, 1L), new Constant(SMALLINT, 3L)))));
     }
 
     @Test
@@ -983,21 +984,21 @@ public class TestUnwrapCastInComparison
         // A rebuilt IN references the source exactly once, just as the original does, so the cast is unwrapped
         // however expensive or non-deterministic the source is.
         Expression real = new Cast(new Call(RANDOM, ImmutableList.of()), REAL);
-        In equalities = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0)));
+        In equalities = new In(new Cast(real, DOUBLE), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, 3.0))));
         assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), equalities))
-                .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, toReal(3.0f)))));
+                .isEqualTo(new In(real, new Array(real.type(), ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, toReal(3.0f))))));
 
         // A null item keeps its place in the list, so it does not push the rewrite onto the disjunction path.
-        In withNull = new In(new Cast(real, DOUBLE), ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null)));
+        In withNull = new In(new Cast(real, DOUBLE), new Array(DOUBLE, ImmutableList.of(new Constant(DOUBLE, 1.0), new Constant(DOUBLE, null))));
         assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), withNull))
-                .isEqualTo(new In(real, ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, null))));
+                .isEqualTo(new In(real, new Array(real.type(), ImmutableList.of(new Constant(REAL, toReal(1.0f)), new Constant(REAL, null)))));
 
         // Items that unwrap to ranges make the result a disjunction, which references the source once per item.
         // A non-deterministic source would then be evaluated once per item and the items would no longer test a
         // single value, so the IN is left alone.
         ResolvedFunction fromUnixtime = FUNCTIONS.resolveFunction("from_unixtime", fromTypes(DOUBLE));
         Expression timestamp = new Cast(new Call(fromUnixtime, ImmutableList.of(new Call(RANDOM, ImmutableList.of()))), createTimestampType(6));
-        In ranges = new In(new Cast(timestamp, DATE), ImmutableList.of(date("1981-06-22"), date("1981-07-23")));
+        In ranges = new In(new Cast(timestamp, DATE), new Array(DATE, ImmutableList.of(date("1981-06-22"), date("1981-07-23"))));
         assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), ranges)).isEqualTo(ranges);
     }
 
@@ -1011,14 +1012,14 @@ public class TestUnwrapCastInComparison
                 .mapToObj(day -> date("1981-06-%02d".formatted(day)))
                 .collect(toImmutableList());
 
-        In atLimit = new In(source, dates.subList(0, 10));
+        In atLimit = new In(source, new Array(source.type(), dates.subList(0, 10)));
         assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), atLimit))
                 .isInstanceOfSatisfying(Logical.class, disjunction -> {
                     assertThat(disjunction.operator()).isEqualTo(OR);
                     assertThat(disjunction.terms()).hasSize(10);
                 });
 
-        In tooLong = new In(source, dates);
+        In tooLong = new In(source, new Array(source.type(), dates));
         assertThat(unwrapCasts(TEST_SESSION, FUNCTIONS.getPlannerContext(), emptySymbolAllocator(), tooLong)).isEqualTo(tooLong);
     }
 

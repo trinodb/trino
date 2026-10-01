@@ -41,6 +41,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -552,7 +553,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3))))))).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
+                                new Row(ImmutableList.of(bigintLiteral(3))))))).isEqualTo(new In(new Reference(BIGINT, "a"), new Array(BIGINT, ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))));
 
         // one column with null
         assertThat(effectivePredicateExtractor.extract(
@@ -567,7 +568,7 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
                         new IsNull(new Reference(BIGINT, "a")),
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))));
+                        new In(new Reference(BIGINT, "a"), new Array(BIGINT, ImmutableList.of(bigintLiteral(1), bigintLiteral(3))))));
 
         // all nulls
         assertThat(effectivePredicateExtractor.extract(
@@ -677,8 +678,8 @@ public class TestEffectivePredicateExtractor
                                 new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
                                 new Row(ImmutableList.of(bigintLiteral(3), bigintLiteral(200)))))))
                 .isEqualTo(and(
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))),
-                        new In(new Reference(BIGINT, "b"), ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
+                        new In(new Reference(BIGINT, "a"), new Array(BIGINT, ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))),
+                        new In(new Reference(BIGINT, "b"), new Array(BIGINT, ImmutableList.of(bigintLiteral(100), bigintLiteral(200))))));
 
         // multiple columns with null
         assertThat(effectivePredicateExtractor.extract(
