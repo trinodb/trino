@@ -78,8 +78,8 @@
 
 ## SQL Server connector
 
-## TPC-H connector
-
 ## TPC-DS connector
+
+## TPC-H connector
 
 ## SPI
