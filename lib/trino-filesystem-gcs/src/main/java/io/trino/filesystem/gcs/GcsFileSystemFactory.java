@@ -21,6 +21,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -61,5 +62,11 @@ public class GcsFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new GcsFileSystem(executorService, storageFactory.create(identity), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
+    }
+
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        return new GcsFileSystem(executorService, storageFactory.create(identitySupplier), readBlockSizeBytes, writeBlockSizeBytes, pageSize, batchSize, endpoint);
     }
 }
