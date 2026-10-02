@@ -718,7 +718,7 @@ public class AzureFileSystem
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());
         // SAS tokens are scoped to an existing container; directory-scoped tokens cannot perform container-level operations
-        if (!(azureAuth instanceof AzureAuthSasToken)) {
+        if (!(azureAuth instanceof AzureAuthSasToken || azureAuth instanceof AzureAuthRefreshingSasToken)) {
             if (!fileSystemClient.exists()) {
                 throw new IllegalArgumentException();
             }
