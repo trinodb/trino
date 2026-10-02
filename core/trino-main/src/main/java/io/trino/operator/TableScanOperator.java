@@ -276,6 +276,27 @@ public class TableScanOperator
     @Override
     public Page getOutput()
     {
+        SourcePage sourcePage = getNextSourcePage();
+        if (source == null) {
+            return null;
+        }
+        Page page = null;
+        if (sourcePage != null) {
+            page = sourcePage.getPage();
+        }
+        int positionCount = 0;
+        long sizeInBytes = 0;
+        if (page != null) {
+            positionCount = page.getPositionCount();
+            sizeInBytes = page.getSizeInBytes();
+        }
+        recordStats(positionCount, sizeInBytes);
+        return page;
+    }
+
+    @Nullable
+    private SourcePage getNextSourcePage()
+    {
         if (split == null) {
             return null;
         }
@@ -285,18 +306,13 @@ public class TableScanOperator
                 return null;
             }
         }
+        return source.getNextSourcePage();
+    }
 
-        SourcePage sourcePage = source.getNextSourcePage();
-        Page page = null;
-        if (sourcePage != null) {
-            page = sourcePage.getPage();
-        }
-
-        // update operator stats
+    private void recordStats(long positionCount, long sizeInBytes)
+    {
         long endCompletedBytes = source.getCompletedBytes();
         long endReadTimeNanos = source.getReadTimeNanos();
-        long positionCount = page == null ? 0 : page.getPositionCount();
-        long sizeInBytes = page == null ? 0 : page.getSizeInBytes();
         long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
         operatorContext.recordPhysicalInputWithTiming(
                 endCompletedBytes - completedBytes,
@@ -308,6 +324,5 @@ public class TableScanOperator
         readTimeNanos = endReadTimeNanos;
 
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
-        return page;
     }
 }
