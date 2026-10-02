@@ -538,7 +538,7 @@ jobs:
       - uses: ./.github/actions/setup
         timeout-minutes: 15
         with:
-          cache: restore
+          cache: false
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle' || matrix.modules == 'plugin/trino-iceberg' || matrix.modules == 'plugin/trino-lakehouse') }}
       - name: Maven Install
         run: |
