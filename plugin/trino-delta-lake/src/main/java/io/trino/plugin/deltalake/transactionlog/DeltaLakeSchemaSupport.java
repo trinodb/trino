@@ -172,10 +172,8 @@ public final class DeltaLakeSchemaSupport
 
     public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(DELETION_VECTORS_FEATURE_NAME)) {
-            return false;
-        }
-        return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
+        // Legacy protocols without table features never support deletion vectors
+        return isDeletionVectorSupported(protocolEntry) && parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
     }
 
     public static int getRandomPrefixLength(MetadataEntry metadataEntry)

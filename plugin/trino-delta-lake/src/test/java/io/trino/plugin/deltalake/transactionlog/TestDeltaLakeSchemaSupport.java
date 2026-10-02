@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTable;
@@ -47,6 +48,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorSupported;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -302,5 +305,32 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators()))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS)))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_SECONDS))).hasMessage("Unsupported type: timestamp(0) with time zone");
+    }
+
+    @Test
+    public void testIsDeletionVectorEnabled()
+    {
+        MetadataEntry enabled = metadataEntry(ImmutableMap.of("delta.enableDeletionVectors", "true"));
+        MetadataEntry disabled = metadataEntry(ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        MetadataEntry unset = metadataEntry(ImmutableMap.of());
+
+        ProtocolEntry legacy = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
+        ProtocolEntry withoutFeature = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        ProtocolEntry withFeature = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
+
+        assertThat(isDeletionVectorEnabled(enabled, legacy)).isFalse();
+        assertThat(isDeletionVectorEnabled(enabled, withoutFeature)).isFalse();
+        assertThat(isDeletionVectorEnabled(enabled, withFeature)).isTrue();
+        assertThat(isDeletionVectorEnabled(disabled, withFeature)).isFalse();
+        assertThat(isDeletionVectorEnabled(unset, withFeature)).isFalse();
+
+        assertThat(isDeletionVectorSupported(legacy)).isFalse();
+        assertThat(isDeletionVectorSupported(withoutFeature)).isFalse();
+        assertThat(isDeletionVectorSupported(withFeature)).isTrue();
+    }
+
+    private static MetadataEntry metadataEntry(Map<String, String> configuration)
+    {
+        return new MetadataEntry("id", "name", "description", new MetadataEntry.Format("parquet", ImmutableMap.of()), "{}", ImmutableList.of(), configuration, 0);
     }
 }
