@@ -21,6 +21,7 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,12 @@ public final class SwitchingFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new SwitchingFileSystem(Optional.empty(), Optional.of(identity), loader);
+        return new SwitchingFileSystem(Optional.empty(), Optional.of(() -> identity), loader);
+    }
+
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        return new SwitchingFileSystem(Optional.empty(), Optional.of(identitySupplier), loader);
     }
 }
