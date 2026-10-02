@@ -57,6 +57,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
     protected String warehouseLocation;
     private VendedCredentialsRestCatalogServlet servlet;
     protected final AtomicReference<Instant> sessionTokenExpirationTime = new AtomicReference<>(Instant.now().plus(1, ChronoUnit.HOURS));
+    protected final AtomicReference<Instant> refreshedTokenExpirationTime = new AtomicReference<>(Instant.now().plus(1, ChronoUnit.HOURS));
 
     protected abstract String setupStorageAndGetWarehouseLocation()
             throws Exception;
@@ -119,6 +120,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
     {
         // Simulate a real-world expiration time of the token ~ 1 hour
         sessionTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
+        refreshedTokenExpirationTime.set(Instant.now().plus(1, ChronoUnit.HOURS));
     }
 
     @Test
@@ -138,6 +140,28 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
             refreshCount = servlet.getVendedCredentialsRefreshCount();
             assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithVendedTokenWithinGoogleAuthExpirationMargin()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_expiring_token", "(id bigint, name varchar)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT regionkey, name FROM region", 5);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT regionkey, name FROM region", 5);
+
+            Instant expiringTokenExpirationTime = Instant.now().plus(1, ChronoUnit.MINUTES);
+            sessionTokenExpirationTime.set(expiringTokenExpirationTime);
+            refreshedTokenExpirationTime.set(expiringTokenExpirationTime);
+            icebergRestCatalogFileSystemFactory(getQueryRunner()).flushVendedCredentialsCache();
+            int refreshCount = servlet.getVendedCredentialsRefreshCount();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            assertThat(servlet.getVendedCredentialsRefreshCount()).isGreaterThan(refreshCount);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT regionkey, name FROM region UNION ALL SELECT regionkey, name FROM region");
         }
     }
 
