@@ -575,6 +575,7 @@ public class OrcRecordReader
         public void selectPositions(int[] positions, int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            sizeInBytes = 0;
             retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
@@ -582,6 +583,7 @@ public class OrcRecordReader
                     // loaded blocks already reflect the previous selection, so the incoming
                     // positions apply to them directly
                     block = block.getPositions(positions, offset, size);
+                    sizeInBytes += block.getSizeInBytes();
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }
@@ -592,12 +594,14 @@ public class OrcRecordReader
         public void selectPositions(int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(offset, size);
+            sizeInBytes = 0;
             retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
                     // loaded blocks already reflect the previous selection, so the incoming range applies to them directly
                     block = block.getRegion(offset, size);
+                    sizeInBytes += block.getSizeInBytes();
                     retainedSizeInBytes += block.getRetainedSizeInBytes();
                     blocks[i] = block;
                 }

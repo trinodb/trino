@@ -59,10 +59,12 @@ final class TestRcFilePageSource
 
             page.selectPositions(new int[] {1, 3, 5, 7}, 0, 4);
             assertThat(blockValues(page.getBlock(0))).containsExactly(1L, 3L, 5L, 7L);
+            long sizeInBytes = page.getSizeInBytes();
 
             // select again with positions relative to the previous selection
             page.selectPositions(new int[] {1, 2}, 0, 2);
             assertThat(page.getPositionCount()).isEqualTo(2);
+            assertThat(page.getSizeInBytes()).isLessThan(sizeInBytes);
             // columnA was loaded before the second selection, columnB is loaded after it
             assertThat(blockValues(page.getBlock(0))).containsExactly(3L, 5L);
             assertThat(blockValues(page.getBlock(1))).containsExactly(30L, 50L);

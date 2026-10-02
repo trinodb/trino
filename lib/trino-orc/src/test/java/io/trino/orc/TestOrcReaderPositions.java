@@ -329,11 +329,13 @@ public class TestOrcReaderPositions
                 assertThat(block.getPositionCount()).isEqualTo(4);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(1);
                 assertThat(BIGINT.getLong(block, 3)).isEqualTo(7);
+                long sizeInBytes = page.getSizeInBytes();
 
                 // select again with positions relative to the previous selection, on an already loaded block
                 page.selectPositions(new int[] {1, 2}, 0, 2);
                 block = page.getBlock(0);
                 assertThat(block.getPositionCount()).isEqualTo(2);
+                assertThat(page.getSizeInBytes()).isLessThan(sizeInBytes);
                 assertThat(BIGINT.getLong(block, 0)).isEqualTo(3);
                 assertThat(BIGINT.getLong(block, 1)).isEqualTo(5);
             }
