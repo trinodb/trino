@@ -13,39 +13,71 @@
  */
 package io.trino.filesystem.azure;
 
+import com.azure.core.client.traits.AzureSasCredentialTrait;
+import com.azure.core.client.traits.HttpTrait;
+import com.azure.core.credential.AzureSasCredential;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
+
+import static java.util.Objects.requireNonNull;
 
 public final class AzureAuthSasToken
         implements AzureAuth
 {
     private final Map<String, String> sasTokens;
+    private final Optional<Supplier<Map<String, String>>> credentialsRefresher;
 
     public AzureAuthSasToken(Map<String, String> sasTokens)
     {
+        this(sasTokens, Optional.empty());
+    }
+
+    public AzureAuthSasToken(Map<String, String> sasTokens, Optional<Supplier<Map<String, String>>> credentialsRefresher)
+    {
         this.sasTokens = ImmutableMap.copyOf(sasTokens);
+        this.credentialsRefresher = requireNonNull(credentialsRefresher, "credentialsRefresher is null");
     }
 
     @Override
     public void setAuth(String storageAccount, BlobContainerClientBuilder builder)
     {
-        String sasToken = sasTokens.get(storageAccount);
-        if (sasToken == null) {
-            throw new IllegalStateException("No SAS token provided for storage account: " + storageAccount);
+        if (credentialsRefresher.isPresent()) {
+            installCredentialRefresher(storageAccount, builder, credentialsRefresher.get());
         }
-        builder.sasToken(sasToken);
+        else {
+            builder.sasToken(sasToken(storageAccount));
+        }
     }
 
     @Override
     public void setAuth(String storageAccount, DataLakeServiceClientBuilder builder)
     {
+        if (credentialsRefresher.isPresent()) {
+            installCredentialRefresher(storageAccount, builder, credentialsRefresher.get());
+        }
+        else {
+            builder.sasToken(sasToken(storageAccount));
+        }
+    }
+
+    private <T extends HttpTrait<T> & AzureSasCredentialTrait<T>> void installCredentialRefresher(String storageAccount, T builder, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        AzureSasCredential credential = new AzureSasCredential(sasToken(storageAccount));
+        builder.credential(credential);
+        builder.addPolicy(new SasTokenRefreshHttpPipelinePolicy(storageAccount, credential, credentialsRefresher));
+    }
+
+    private String sasToken(String storageAccount)
+    {
         String sasToken = sasTokens.get(storageAccount);
         if (sasToken == null) {
             throw new IllegalStateException("No SAS token provided for storage account: " + storageAccount);
         }
-        builder.sasToken(sasToken);
+        return sasToken;
     }
 }
