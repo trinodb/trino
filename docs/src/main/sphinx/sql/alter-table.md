@@ -76,20 +76,26 @@ ALTER TABLE example.test.test_table EXECUTE optimize(file_size_threshold => '16M
 
 Rename table `users` to `people`:
 
-```
-ALTER TABLE users RENAME TO people;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE memory.default.users RENAME TO memory.default.people
 ```
 
 Rename table `users` to `people` if table `users` exists:
 
-```
-ALTER TABLE IF EXISTS users RENAME TO people;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE IF EXISTS memory.default.users RENAME TO memory.default.people
 ```
 
 Add column `zip` to the `users` table:
 
-```
-ALTER TABLE users ADD COLUMN zip varchar;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE memory.default.users ADD COLUMN zip varchar
 ```
 
 Add column `zip` to the `users` table with default value of `90210`:
@@ -101,8 +107,10 @@ ALTER TABLE users ADD COLUMN zip varchar DEFAULT '90210';
 Add column `zip` to the `users` table if table `users` exists and column `zip`
 not already exists:
 
-```
-ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS zip varchar;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE IF EXISTS memory.default.users ADD COLUMN IF NOT EXISTS zip varchar
 ```
 
 Add column `id` as the first column to the `users` table:
@@ -119,28 +127,36 @@ ALTER TABLE users ADD COLUMN zip varchar AFTER country;
 
 Drop column `zip` from the `users` table:
 
-```
-ALTER TABLE users DROP COLUMN zip;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, zip varchar);
+---
+ALTER TABLE memory.default.users DROP COLUMN zip
 ```
 
 Drop column `zip` from the `users` table if table `users` and column `zip`
 exists:
 
-```
-ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS zip;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, zip varchar);
+---
+ALTER TABLE IF EXISTS memory.default.users DROP COLUMN IF EXISTS zip
 ```
 
 Rename column `id` to `user_id` in the `users` table:
 
-```
-ALTER TABLE users RENAME COLUMN id TO user_id;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE memory.default.users RENAME COLUMN id TO user_id
 ```
 
 Rename column `id` to `user_id` in the `users` table if table `users` and column
 `id` exists:
 
-```
-ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
+```{try-sql}
+CREATE TABLE memory.default.users (id integer, name varchar);
+---
+ALTER TABLE IF EXISTS memory.default.users RENAME column IF EXISTS id to user_id
 ```
 
 Change type of column `id` to `bigint` in the `users` table:

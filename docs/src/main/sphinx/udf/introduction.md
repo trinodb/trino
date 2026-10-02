@@ -26,13 +26,12 @@ An inline user-defined function (inline UDF) declares and uses the UDF within a
 query processing context. The UDF is declared in a `WITH` block before the
 query:
 
-```sql
+```{try-sql}
 WITH
   FUNCTION doubleup(x integer)
     RETURNS integer
     RETURN x * 2
-SELECT doubleup(21);
--- 42
+SELECT doubleup(21)
 ```
 
 Inline UDF names must follow SQL identifier naming conventions, and cannot
@@ -46,7 +45,7 @@ Multiple inline UDF declarations are comma-separated, and can include UDFs
 calling each other, as long as a called UDF is declared before the first
 invocation.
 
-```sql
+```{try-sql}
 WITH
   FUNCTION doubleup(x integer)
     RETURNS integer
@@ -54,18 +53,17 @@ WITH
   FUNCTION doubleupplusone(x integer)
     RETURNS integer
     RETURN doubleup(x) + 1
-SELECT doubleupplusone(21);
--- 43
+SELECT doubleupplusone(21)
 ```
 
 Note that inline UDFs can mask and override the meaning of a built-in function:
 
-```sql
+```{try-sql}
 WITH
   FUNCTION abs(x integer)
     RETURNS integer
     RETURN x * 2
-SELECT abs(-10); -- -20, not 10!
+SELECT abs(-10)
 ```
 
 (udf-catalog)=

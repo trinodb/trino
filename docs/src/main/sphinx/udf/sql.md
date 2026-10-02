@@ -44,13 +44,12 @@ A minimal example declares the UDF `doubleup` that returns the input integer
 value `x` multiplied by two. The example shows declaration as [](udf-inline) and
 invocation with the value 21 to yield the result 42:
 
-```sql
+```{try-sql}
 WITH
   FUNCTION doubleup(x integer)
     RETURNS integer
     RETURN x * 2
-SELECT doubleup(21);
--- 42
+SELECT doubleup(21)
 ```
 
 The same UDF can also be declared as [](udf-catalog).
@@ -67,7 +66,7 @@ the named-argument form `name => value` in addition to passing arguments by
 position. Named arguments can appear in any order, and you can mix positional
 arguments (which must come first) with named ones:
 
-```sql
+```{try-sql}
 WITH
   FUNCTION clamp(value bigint, lo bigint, hi bigint)
     RETURNS bigint
@@ -77,9 +76,9 @@ WITH
         ELSE value
     END
 SELECT
-    clamp(7, 0, 5),                       -- positional: 5
-    clamp(value => 7, lo => 0, hi => 5),  -- all named: 5
-    clamp(7, hi => 5, lo => 0);           -- mixed: 5
+    clamp(7, 0, 5),                       -- positional
+    clamp(value => 7, lo => 0, hi => 5),  -- all named
+    clamp(7, hi => 5, lo => 0)            -- mixed
 ```
 
 If you pass a name the function does not declare, the query fails with a

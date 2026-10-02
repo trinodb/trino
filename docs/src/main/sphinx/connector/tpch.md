@@ -34,24 +34,8 @@ tpch.column-naming=STANDARD
 
 The TPC-H connector supplies several schemas:
 
-```
-SHOW SCHEMAS FROM example;
-```
-
-```text
-       Schema
---------------------
- information_schema
- sf1
- sf100
- sf1000
- sf10000
- sf100000
- sf300
- sf3000
- sf30000
- tiny
-(11 rows)
+```{try-sql}
+SHOW SCHEMAS FROM tpch
 ```
 
 Ignore the standard schema `information_schema`, which exists in every

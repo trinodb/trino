@@ -36,14 +36,16 @@ used:
 
 The following example computes the value `42`:
 
-```sql
-FUNCTION meaning_of_life()
+```{try-sql}
+WITH
+  FUNCTION meaning_of_life()
   RETURNS integer
   BEGIN
     DECLARE a integer DEFAULT 6;
     DECLARE b integer DEFAULT 7;
     RETURN a * b;
   END
+SELECT meaning_of_life()
 ```
 
 Further examples of varying complexity that cover usage of the `BEGIN` statement

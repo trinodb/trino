@@ -15,39 +15,40 @@ following sections.
 A very simple Python UDF that returns the static int value `42` without
 requiring any input:
 
-```text
-FUNCTION answer()
-LANGUAGE PYTHON
-RETURNS int
-WITH (handler='theanswer')
-AS $$
-def theanswer():
-    return 42
-$$
+```{try-sql}
+WITH
+    FUNCTION answer()
+    RETURNS int
+    LANGUAGE PYTHON
+    WITH (handler='theanswer')
+    AS $$
+    def theanswer():
+        return 42
+    $$
+SELECT theanswer();    
 ```
 
 A full example of this UDF as inline UDF and usage in a string concatenation
 with a cast:
 
-```text
+```{try-sql}
 WITH
   FUNCTION answer()
   RETURNS int
-  LANGUAGE PYTHON
+  LANGUAGE PYTHON  
   WITH (handler='theanswer')
   AS $$
   def theanswer():
       return 42
   $$
 SELECT 'The answer is ' || CAST(answer() as varchar);
--- The answer is 42
 ```
 
 Provided the catalog `example` supports UDF storage in the `default` schema, you
 can use the following:
 
-```text
-CREATE FUNCTION example.default.answer()
+```{try-sql}
+CREATE FUNCTION memory.default.answer()
   RETURNS int
   LANGUAGE PYTHON
   WITH (handler='theanswer')
@@ -55,6 +56,8 @@ CREATE FUNCTION example.default.answer()
   def theanswer():
       return 42
   $$;
+--
+SELECT memory.default.theanswer();
 ```
 
 With the UDF stored in the catalog, you can run the UDF multiple times without

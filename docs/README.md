@@ -65,6 +65,45 @@ Linux](https://docs.docker.com/engine/install/). No other tools are required.
 The default formal build of the docs is performed with Apache Maven, which requires an
 installation of a Java Development Kit.
 
+## Interactive SQL examples
+
+Runnable SQL examples can be embedded with the `try-sql` directive, which renders
+an interactive editor backed by [trysql.io](https://trysql.io). Use it for any
+self-contained, read-only example:
+
+````markdown
+```{try-sql}
+SELECT 3 BETWEEN 2 AND 6
+```
+````
+
+Guidelines:
+
+- Only embed queries that run on the trysql.io sandbox: scalar expressions,
+  `VALUES`, and reads from the `tpch` / `tpcds` catalogs. Qualify sample tables
+  fully, for example `tpch.tiny.nation`. Drop expected-result comments — the
+  embed shows the result when the reader runs the query.
+- For examples that need data, put setup statements (`CREATE TABLE`, `INSERT`,
+  ...) before a line containing only `---`; they run before the query. The
+  writable catalog is `memory.default`:
+
+  ````markdown
+  ```{try-sql}
+  CREATE TABLE memory.default.cities (id integer, name varchar);
+  ---
+  INSERT INTO memory.default.cities VALUES (1, 'San Francisco')
+  ```
+  ````
+
+- Leave connector-specific DDL/DML, row-level `DELETE`/`UPDATE`/`MERGE`, and
+  examples that depend on a specific connector as static ` ```sql ` blocks —
+  they cannot run on the sandbox.
+- The Trino version used by the embeds is pinned with `trysql_version` in
+  `conf.py`; bump it as new releases become available on trysql.io. Override per
+  example with the `:version:` option, and the editor height with `:height:`.
+
+The directive is implemented in `src/main/sphinx/ext/trysql.py`.
+
 ## Fast doc build option
 
 For fast local build times when writing documentation, you can run the Sphinx
