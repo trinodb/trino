@@ -19,6 +19,8 @@ import io.trino.plugin.base.metrics.ApiCallStats;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class MeasuredTrinoFileSystemFactory
@@ -43,5 +45,11 @@ public class MeasuredTrinoFileSystemFactory
     public TrinoFileSystem create(ConnectorSession session)
     {
         return new MeasuredTrinoFileSystem(delegate.create(session), apiCallStats);
+    }
+
+    @Override
+    public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        return new MeasuredTrinoFileSystem(delegate.create(identitySupplier), apiCallStats);
     }
 }
