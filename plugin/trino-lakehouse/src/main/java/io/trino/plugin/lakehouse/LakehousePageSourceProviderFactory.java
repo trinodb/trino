@@ -22,6 +22,7 @@ import io.trino.plugin.hudi.HudiPageSourceProvider;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableHandle;
+import io.trino.plugin.iceberg.system.entries.EntriesTableSplit;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -95,7 +96,7 @@ public class LakehousePageSourceProviderFactory
 
     private ConnectorPageSourceProvider forHandle(ConnectorSplit split, ConnectorTableHandle handle, MemoryContext sharedMemoryContext)
     {
-        if (split instanceof FilesTableSplit || handle instanceof IcebergTableHandle) {
+        if (split instanceof FilesTableSplit || split instanceof EntriesTableSplit || handle instanceof IcebergTableHandle) {
             return icebergPageSourceProviderFactory.createPageSourceProvider(sharedMemoryContext);
         }
         return switch (handle) {
