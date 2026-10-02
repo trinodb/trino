@@ -80,6 +80,7 @@ public final class IcebergQueryRunner
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.iceberg", Level.OFF);
+        logging.setLevel("org.apache.parquet.filter2.compat.FilterCompat", Level.OFF);
         logging.setLevel("net.snowflake.client.internal.core", Level.WARN);
     }
 
