@@ -14,6 +14,7 @@
 package io.trino.filesystem.gcs;
 
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -86,6 +88,17 @@ public class GcsStorageFactory
         return createStorage(identity);
     }
 
+    public Storage create(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        ConnectorIdentity identity = identitySupplier.get();
+        if (!identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
+            return create(identity);
+        }
+        StorageOptions.Builder builder = StorageOptions.newBuilder();
+        setOAuthCredentials(builder, identity, new IdentityOAuthCredentials(identitySupplier));
+        return createStorage(builder);
+    }
+
     @PreDestroy
     public void stop()
             throws Exception
@@ -104,54 +117,60 @@ public class GcsStorageFactory
 
     private Storage createStorage(ConnectorIdentity identity)
     {
-        try {
-            StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
-
-            if (!setOAuthCredentials(storageOptionsBuilder, identity)) {
-                if (projectId != null) {
-                    storageOptionsBuilder.setProjectId(projectId);
-                }
-                gcsAuth.setAuth(storageOptionsBuilder, identity);
-            }
-
-            endpoint.ifPresent(storageOptionsBuilder::setHost);
-
-            // Note: without uniform strategy we cannot retry idempotent operations.
-            // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
-            return storageOptionsBuilder
-                    .setStorageRetryStrategy(getUniformStorageRetryStrategy())
-                    .setRetrySettings(RetrySettings.newBuilder()
-                            .setMaxAttempts(maxRetries + 1)
-                            .setRetryDelayMultiplier(backoffScaleFactor)
-                            .setTotalTimeoutDuration(maxRetryTime)
-                            .setInitialRetryDelayDuration(minBackoffDelay)
-                            .setMaxRetryDelayDuration(maxBackoffDelay)
-                            .build())
-                    .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
-                    .build()
-                    .getService();
+        StorageOptions.Builder builder = StorageOptions.newBuilder();
+        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
+            setOAuthCredentials(builder, identity, GoogleCredentials.create(toAccessToken(identity.getExtraCredentials())));
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
+        else {
+            if (projectId != null) {
+                builder.setProjectId(projectId);
+            }
+            try {
+                gcsAuth.setAuth(builder, identity);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return createStorage(builder);
+    }
+
+    private Storage createStorage(StorageOptions.Builder builder)
+    {
+        endpoint.ifPresent(builder::setHost);
+
+        // Note: without uniform strategy we cannot retry idempotent operations.
+        // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
+        return builder
+                .setStorageRetryStrategy(getUniformStorageRetryStrategy())
+                .setRetrySettings(RetrySettings.newBuilder()
+                        .setMaxAttempts(maxRetries + 1)
+                        .setRetryDelayMultiplier(backoffScaleFactor)
+                        .setTotalTimeoutDuration(maxRetryTime)
+                        .setInitialRetryDelayDuration(minBackoffDelay)
+                        .setMaxRetryDelayDuration(maxBackoffDelay)
+                        .build())
+                .setHeaderProvider(() -> Map.of(USER_AGENT, StorageOptions.getLibraryName() + "/" + StorageOptions.version() + " " + applicationId))
+                .build()
+                .getService();
+    }
+
+    private void setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity, Credentials credentials)
+    {
+        builder.setCredentials(credentials);
+        String effectiveProjectId = identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, projectId);
+        if (effectiveProjectId != null) {
+            builder.setProjectId(effectiveProjectId);
         }
     }
 
-    private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity)
+    private static AccessToken toAccessToken(Map<String, String> extraCredentials)
     {
-        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
-            String accessToken = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
-            Optional<Date> expireAt = Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY))
-                    .map(Long::parseLong)
-                    .map(Instant::ofEpochMilli)
-                    .map(Date::from);
-            builder.setCredentials(GoogleCredentials.create(new AccessToken(accessToken, expireAt.orElse(null))));
-
-            String effectiveProjectId = identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, projectId);
-            if (effectiveProjectId != null) {
-                builder.setProjectId(effectiveProjectId);
-            }
-            return true;
-        }
-        return false;
+        String accessToken = extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
+        Optional<Date> expireAt = Optional.ofNullable(extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY))
+                .map(Long::parseLong)
+                .map(Instant::ofEpochMilli)
+                .map(Date::from);
+        return new AccessToken(accessToken, expireAt.orElse(null));
     }
 }
