@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -34,13 +35,17 @@ public class TopNProcessor
     private final LocalMemoryContext localUserMemoryContext;
 
     private final GroupedTopNRowNumberBuilder topNBuilder;
+    private final Optional<TopNDynamicFilter> dynamicFilter;
+    private final int firstSortChannel;
     private Iterator<Page> outputIterator;
 
     public TopNProcessor(
             AggregatedMemoryContext aggregatedMemoryContext,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> dynamicFilter,
+            int firstSortChannel)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         checkArgument(n > 0, "n must be > 0, found: %s", n);
@@ -53,6 +58,8 @@ public class TopNProcessor
                 false,
                 new int[0],
                 new NoChannelGroupByHash());
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.firstSortChannel = firstSortChannel;
     }
 
     public void addInput(Page page)
@@ -60,6 +67,10 @@ public class TopNProcessor
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
+        if (dynamicFilter.isPresent()) {
+            topNBuilder.getLowestRankedRow(0)
+                    .ifPresent(row -> dynamicFilter.get().tighten(row.page().getBlock(firstSortChannel), row.position()));
+        }
         updateMemoryReservation();
     }
 

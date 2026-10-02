@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -36,9 +37,11 @@ public class TopNOperator
             PlanNodeId planNodeId,
             List<? extends Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> dynamicFilter,
+            int firstSortChannel)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, comparator, dynamicFilter, firstSortChannel));
     }
 
     private static class Factory
@@ -49,6 +52,8 @@ public class TopNOperator
         private final List<Type> sourceTypes;
         private final int n;
         private final PageWithPositionComparator comparator;
+        private final Optional<TopNDynamicFilter> dynamicFilter;
+        private final int firstSortChannel;
         private boolean closed;
 
         private Factory(
@@ -56,13 +61,17 @@ public class TopNOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
                 int n,
-                PageWithPositionComparator comparator)
+                PageWithPositionComparator comparator,
+                Optional<TopNDynamicFilter> dynamicFilter,
+                int firstSortChannel)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.n = n;
             this.comparator = requireNonNull(comparator, "comparator is null");
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.firstSortChannel = firstSortChannel;
         }
 
         @Override
@@ -76,7 +85,9 @@ public class TopNOperator
                     sourcePages,
                     sourceTypes,
                     n,
-                    comparator);
+                    comparator,
+                    dynamicFilter,
+                    firstSortChannel);
         }
 
         @Override
@@ -106,7 +117,7 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, comparator, dynamicFilter, firstSortChannel);
         }
     }
 
@@ -117,7 +128,9 @@ public class TopNOperator
             WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
-            PageWithPositionComparator comparator)
+            PageWithPositionComparator comparator,
+            Optional<TopNDynamicFilter> dynamicFilter,
+            int firstSortChannel)
     {
         if (n == 0) {
             pages = WorkProcessor.of();
@@ -129,7 +142,9 @@ public class TopNOperator
                                     operatorContext.aggregateUserMemoryContext(),
                                     types,
                                     n,
-                                    comparator)));
+                                    comparator,
+                                    dynamicFilter,
+                                    firstSortChannel)));
         }
     }
 

@@ -60,6 +60,7 @@ public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableDynamicRowFiltering = true;
+    private boolean enableTopNDynamicFiltering = true;
     private double dynamicRowFilterSelectivityThreshold = 0.7;
 
     /*
@@ -106,6 +107,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableDynamicRowFiltering(boolean enableDynamicRowFiltering)
     {
         this.enableDynamicRowFiltering = enableDynamicRowFiltering;
+        return this;
+    }
+
+    public boolean isEnableTopNDynamicFiltering()
+    {
+        return enableTopNDynamicFiltering;
+    }
+
+    @Config("enable-top-n-dynamic-filtering")
+    @ConfigDescription("Enable filtering of rows in the scan operator using the lowest ranked row held by a TopN")
+    public DynamicFilterConfig setEnableTopNDynamicFiltering(boolean enableTopNDynamicFiltering)
+    {
+        this.enableTopNDynamicFiltering = enableTopNDynamicFiltering;
         return this;
     }
 

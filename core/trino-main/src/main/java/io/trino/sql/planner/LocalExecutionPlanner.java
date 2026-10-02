@@ -98,6 +98,7 @@ import io.trino.operator.TableMutationOperator.TableMutationOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import io.trino.operator.TaskContext;
+import io.trino.operator.TopNDynamicFilter;
 import io.trino.operator.TopNOperator;
 import io.trino.operator.TopNRankingOperator;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
@@ -338,6 +339,7 @@ import static io.trino.SystemSessionProperties.isAdaptiveFilterReorderingEnabled
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
 import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
+import static io.trino.SystemSessionProperties.isEnableTopNDynamicFiltering;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -377,6 +379,7 @@ import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static io.trino.sql.planner.IntersectionDynamicFilter.intersect;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -680,6 +683,15 @@ public class LocalExecutionPlanner
         return operation instanceof SpooledPhysicalOperation;
     }
 
+    private record TopNDynamicFilterTarget(PlanNodeId tableScanId, ColumnHandle column)
+    {
+        private TopNDynamicFilterTarget
+        {
+            requireNonNull(tableScanId, "tableScanId is null");
+            requireNonNull(column, "column is null");
+        }
+    }
+
     private static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
@@ -690,6 +702,8 @@ public class LocalExecutionPlanner
         private final AtomicInteger nextPipelineId;
         // this is shared with all subContexts; see AssignUniqueIdOperator.Factory for the rationale
         private final AtomicLong assignUniqueIdValuePool;
+        // this is shared with all subContexts; maps a table scan to the dynamic filter of the TopN it feeds
+        private final Map<PlanNodeId, TopNDynamicFilter> topNDynamicFilters;
 
         private int nextOperatorId;
         private boolean inputDriver = true;
@@ -701,7 +715,8 @@ public class LocalExecutionPlanner
                     new ArrayList<>(),
                     Optional.empty(),
                     new AtomicInteger(0),
-                    new AtomicLong());
+                    new AtomicLong(),
+                    new HashMap<>());
         }
 
         private LocalExecutionPlanContext(
@@ -709,13 +724,15 @@ public class LocalExecutionPlanner
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
                 AtomicInteger nextPipelineId,
-                AtomicLong assignUniqueIdValuePool)
+                AtomicLong assignUniqueIdValuePool,
+                Map<PlanNodeId, TopNDynamicFilter> topNDynamicFilters)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
             this.assignUniqueIdValuePool = assignUniqueIdValuePool;
+            this.topNDynamicFilters = topNDynamicFilters;
         }
 
         public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
@@ -789,6 +806,17 @@ public class LocalExecutionPlanner
                     difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
+        // Called during TopN planning (no need to be synchronized as local planning is single threaded)
+        private boolean registerTopNDynamicFilter(PlanNodeId tableScanId, TopNDynamicFilter dynamicFilter)
+        {
+            return topNDynamicFilters.putIfAbsent(tableScanId, dynamicFilter) == null;
+        }
+
+        private Optional<TopNDynamicFilter> getTopNDynamicFilter(PlanNodeId tableScanId)
+        {
+            return Optional.ofNullable(topNDynamicFilters.get(tableScanId));
+        }
+
         private TaskContext getTaskContext()
         {
             return taskContext;
@@ -827,12 +855,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, assignUniqueIdValuePool);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, assignUniqueIdValuePool, topNDynamicFilters);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, assignUniqueIdValuePool);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, assignUniqueIdValuePool, topNDynamicFilters);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1838,6 +1866,8 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTopN(TopNNode node, LocalExecutionPlanContext context)
         {
+            // the dynamic filter must be registered before the table scan feeding the TopN is planned
+            Optional<TopNDynamicFilter> dynamicFilter = createTopNDynamicFilter(node, context);
             PhysicalOperation source = node.getSource().accept(this, context);
 
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
@@ -1857,9 +1887,57 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                    dynamicFilter,
+                    sortChannels.getFirst());
 
             return new PhysicalOperation(operator, source.getLayout(), source);
+        }
+
+        private Optional<TopNDynamicFilter> createTopNDynamicFilter(TopNNode node, LocalExecutionPlanContext context)
+        {
+            if (!isEnableTopNDynamicFiltering(session)) {
+                return Optional.empty();
+            }
+            List<Symbol> orderBy = node.getOrderingScheme().orderBy();
+            Symbol sortSymbol = orderBy.getFirst();
+            if (!TopNDynamicFilter.isSupportedType(sortSymbol.type())) {
+                return Optional.empty();
+            }
+            Optional<TopNDynamicFilterTarget> target = findTopNDynamicFilterTarget(node.getSource(), sortSymbol);
+            if (target.isEmpty()) {
+                return Optional.empty();
+            }
+            TopNDynamicFilter dynamicFilter = new TopNDynamicFilter(
+                    target.get().column(),
+                    sortSymbol.type(),
+                    node.getOrderingScheme().ordering(sortSymbol),
+                    // rows tied on the first sort key can be ranked above the lowest ranked row by the other sort keys
+                    orderBy.size() > 1,
+                    plannerContext.getTypeOperators());
+            if (!context.registerTopNDynamicFilter(target.get().tableScanId(), dynamicFilter)) {
+                return Optional.empty();
+            }
+            return Optional.of(dynamicFilter);
+        }
+
+        /**
+         * Finds the table scan column that the symbol is read from, if the table scan feeds the node
+         * within the same task and the symbol is passed through without being modified.
+         */
+        private Optional<TopNDynamicFilterTarget> findTopNDynamicFilterTarget(PlanNode node, Symbol symbol)
+        {
+            return switch (node) {
+                case TableScanNode tableScan -> Optional.ofNullable(tableScan.getAssignments().get(symbol))
+                        .map(column -> new TopNDynamicFilterTarget(tableScan.getId(), column));
+                case FilterNode filter -> findTopNDynamicFilterTarget(filter.getSource(), symbol);
+                case ProjectNode project when project.getAssignments().get(symbol) instanceof Reference reference -> findTopNDynamicFilterTarget(project.getSource(), Symbol.from(reference));
+                case ExchangeNode exchange when exchange.getScope() == LOCAL && exchange.getSources().size() == 1 -> {
+                    int index = exchange.getOutputSymbols().indexOf(symbol);
+                    yield findTopNDynamicFilterTarget(exchange.getSources().getFirst(), exchange.getInputs().getFirst().get(index));
+                }
+                default -> Optional.empty();
+            };
         }
 
         @Override
@@ -2102,6 +2180,9 @@ public class LocalExecutionPlanner
                     .filter(_ -> sourceNode instanceof TableScanNode)
                     .map(expression -> getDynamicFilter((TableScanNode) sourceNode, expression, context))
                     .orElse(DynamicFilter.EMPTY);
+            Optional<TopNDynamicFilter> topNDynamicFilter = Optional.of(sourceNode)
+                    .filter(TableScanNode.class::isInstance)
+                    .flatMap(tableScan -> context.getTopNDynamicFilter(tableScan.getId()));
 
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
@@ -2112,7 +2193,7 @@ public class LocalExecutionPlanner
                 boolean columnarFilterEvaluationEnabled = isColumnarFilterEvaluationEnabled(session);
                 boolean filterReorderingEnabled = isAdaptiveFilterReorderingEnabled(session);
                 Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
-                if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
+                if ((dynamicFilter != DynamicFilter.EMPTY || topNDynamicFilter.isPresent()) && isEnableDynamicRowFiltering(session)) {
                     dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
                             plannerContext,
                             session,
@@ -2142,7 +2223,7 @@ public class LocalExecutionPlanner
                             table,
                             tableCredentials,
                             columns,
-                            dynamicFilter,
+                            createOperatorDynamicFilter(dynamicFilter, topNDynamicFilter),
                             getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session),
@@ -2179,6 +2260,12 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableScan(TableScanNode node, LocalExecutionPlanContext context)
         {
+            if (context.getTopNDynamicFilter(node.getId()).isPresent()) {
+                // the table scan operator does not support dynamic filters, so plan the scan with an identity projection
+                List<Symbol> outputSymbols = node.getOutputSymbols();
+                return visitScanFilterAndProject(context, node.getId(), node, Optional.empty(), Assignments.identity(outputSymbols), outputSymbols);
+            }
+
             PlanNodeId planNodeId = node.getId();
             ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -2209,6 +2296,15 @@ public class LocalExecutionPlanner
                 return Optional.empty();
             }
             return Optional.of(staticFilter);
+        }
+
+        private static Supplier<DynamicFilter> createOperatorDynamicFilter(DynamicFilter dynamicFilter, Optional<TopNDynamicFilter> topNDynamicFilter)
+        {
+            if (topNDynamicFilter.isEmpty()) {
+                return () -> dynamicFilter;
+            }
+            TopNDynamicFilter filter = topNDynamicFilter.get();
+            return () -> intersect(dynamicFilter, filter.snapshot());
         }
 
         private DynamicFilter getDynamicFilter(

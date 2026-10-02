@@ -26,6 +26,8 @@ import jakarta.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -109,6 +111,20 @@ public class GroupedTopNRowNumberBuilder
                 + (groupByHash == null ? 0L : groupByHash.getEstimatedSize())
                 + pageManager.sizeOf()
                 + groupedTopNRowNumberAccumulator.sizeOf();
+    }
+
+    /**
+     * Returns the lowest ranked row of the group, if the group is already full.
+     */
+    public Optional<PagePosition> getLowestRankedRow(int groupId)
+    {
+        OptionalLong rowId = groupedTopNRowNumberAccumulator.findLowestRankedRowIdIfFull(groupId);
+        if (rowId.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PagePosition(
+                pageManager.getPage(rowId.getAsLong()),
+                pageManager.getPosition(rowId.getAsLong())));
     }
 
     private void processPage(Page newPage, int groupCount, int[] groupIds)
@@ -195,6 +211,14 @@ public class GroupedTopNRowNumberBuilder
                 return endOfData();
             }
             return pageBuilder.build();
+        }
+    }
+
+    public record PagePosition(Page page, int position)
+    {
+        public PagePosition
+        {
+            requireNonNull(page, "page is null");
         }
     }
 }

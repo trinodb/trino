@@ -39,6 +39,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -104,7 +105,9 @@ public class BenchmarkTopNOperator
                     orderingCompiler.compilePageWithPositionComparator(
                             sortTypes,
                             sortChannels,
-                            ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST)));
+                            ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST)),
+                    Optional.empty(),
+                    sortChannels.get(0));
         }
 
         @TearDown

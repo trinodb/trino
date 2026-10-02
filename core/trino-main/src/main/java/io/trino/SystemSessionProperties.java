@@ -144,6 +144,7 @@ public final class SystemSessionProperties
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
+    public static final String ENABLE_TOP_N_DYNAMIC_FILTERING = "enable_top_n_dynamic_filtering";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
@@ -698,6 +699,11 @@ public final class SystemSessionProperties
                         ENABLE_DYNAMIC_ROW_FILTERING,
                         "Enable fine-grained filtering of rows in the scan operator using dynamic filters",
                         dynamicFilterConfig.isEnableDynamicRowFiltering(),
+                        false),
+                booleanProperty(
+                        ENABLE_TOP_N_DYNAMIC_FILTERING,
+                        "Enable filtering of rows in the scan operator using the lowest ranked row held by a TopN",
+                        dynamicFilterConfig.isEnableTopNDynamicFiltering(),
                         false),
                 doubleProperty(
                         DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD,
@@ -1675,6 +1681,11 @@ public final class SystemSessionProperties
     public static boolean isEnableDynamicRowFiltering(Session session)
     {
         return session.getSystemProperty(ENABLE_DYNAMIC_ROW_FILTERING, Boolean.class);
+    }
+
+    public static boolean isEnableTopNDynamicFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_TOP_N_DYNAMIC_FILTERING, Boolean.class);
     }
 
     public static double getDynamicRowFilterSelectivityThreshold(Session session)

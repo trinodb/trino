@@ -14,10 +14,16 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
+import io.trino.connector.TestingColumnHandle;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.OrderingCompiler;
@@ -29,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -105,6 +112,42 @@ public class TestTopNOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testDynamicFilter()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(1L, 0.1)
+                .pageBreak()
+                .row(2L, 0.2)
+                .row(-1L, -0.1)
+                .pageBreak()
+                .row(4L, 0.4)
+                .row(null, 0.0)
+                .pageBreak()
+                .row(5L, 0.5)
+                .row(3L, 0.3)
+                .row(6L, 0.6)
+                .build();
+
+        TestingColumnHandle column = new TestingColumnHandle("column");
+        TopNDynamicFilter dynamicFilter = new TopNDynamicFilter(column, BIGINT, DESC_NULLS_LAST, false, new TypeOperators());
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT, DOUBLE),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                Optional.of(dynamicFilter));
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                .row(6L, 0.6)
+                .row(5L, 0.5)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertThat(dynamicFilter.snapshot().getCurrentPredicate())
+                .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(column, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 5L)), false))));
     }
 
     @Test
@@ -216,6 +259,16 @@ public class TestTopNOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
+        return topNOperatorFactory(types, n, sortChannels, sortOrders, Optional.empty());
+    }
+
+    private OperatorFactory topNOperatorFactory(
+            List<Type> types,
+            int n,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders,
+            Optional<TopNDynamicFilter> dynamicFilter)
+    {
         List<Type> sortTypes = sortChannels.stream()
                 .map(types::get)
                 .collect(toImmutableList());
@@ -224,6 +277,8 @@ public class TestTopNOperator
                 new PlanNodeId("test"),
                 types,
                 n,
-                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
+                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders),
+                dynamicFilter,
+                sortChannels.getFirst());
     }
 }

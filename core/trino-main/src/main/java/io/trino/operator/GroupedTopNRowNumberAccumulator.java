@@ -20,6 +20,7 @@ import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
 import jakarta.annotation.Nullable;
 
+import java.util.OptionalLong;
 import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +139,17 @@ public class GroupedTopNRowNumberAccumulator
             heapPop(groupId, null);
         }
         return heapSize;
+    }
+
+    /**
+     * Returns the row ID of the lowest ranked row of the group if the group already holds topN rows.
+     */
+    public OptionalLong findLowestRankedRowIdIfFull(int groupId)
+    {
+        if (groupId >= groupIdToHeapBuffer.getTotalGroups() || calculateRootRowNumber(groupId) < topN) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(peekRootRowId(groupId));
     }
 
     private long calculateRootRowNumber(int groupId)
