@@ -1,0 +1,42 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.filesystem.azure;
+
+import com.azure.storage.blob.BlobContainerClientBuilder;
+import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.security.ConnectorIdentity;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.filesystem.azure.AzureFileSystemConstants.EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+final class TestAzureAuthRefreshingSasToken
+{
+    @Test
+    void testMissingSasTokenThrowsException()
+    {
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account1", "sas-token-1"))
+                .build();
+        AzureAuthRefreshingSasToken auth = new AzureAuthRefreshingSasToken(identity, () -> identity);
+
+        assertThatThrownBy(() -> auth.setAuth("nonexistent", new BlobContainerClientBuilder()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No SAS token provided for storage account: nonexistent");
+        assertThatThrownBy(() -> auth.setAuth("nonexistent", new DataLakeServiceClientBuilder()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No SAS token provided for storage account: nonexistent");
+    }
+}
