@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.json.JsonInputConversionException;
+import io.trino.operator.scalar.json.JsonInputFunctions;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -25,6 +26,8 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeDescriptor;
+
+import java.io.IOException;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.jsonpath.JsonInputErrorNode.JSON_ERROR;
@@ -67,9 +70,9 @@ public class Json2016Type
             return JSON_ERROR;
         }
         try {
-            return MAPPER.readTree(json);
+            return JsonInputFunctions.readTree(json);
         }
-        catch (JsonProcessingException e) {
+        catch (IOException e) {
             throw new JsonInputConversionException(e);
         }
     }

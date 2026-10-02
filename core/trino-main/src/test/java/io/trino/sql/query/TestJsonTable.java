@@ -850,6 +850,43 @@ public class TestJsonTable
     }
 
     @Test
+    public void testNumberValueColumn()
+    {
+        // a literal written without an exponent is exact, so no digits are lost
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        '[1234567890123456789.1]',
+                        'lax $'
+                        COLUMNS(a number PATH 'lax $[0]'))
+                """))
+                .matches("VALUES NUMBER '1234567890123456789.1'");
+
+        // an exact literal is not limited to the precision of decimal
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        '[12345678901234567890123456789012345678901]',
+                        'lax $'
+                        COLUMNS(a number PATH 'lax $[0]'))
+                """))
+                .matches("VALUES NUMBER '12345678901234567890123456789012345678901'");
+
+        // a literal written with an exponent is approximate
+        assertThat(assertions.query(
+                """
+                 SELECT *
+                 FROM JSON_TABLE(
+                        '[1e-324]',
+                        'lax $'
+                        COLUMNS(a double PATH 'lax $[0]'))
+                """))
+                .matches("VALUES DOUBLE '0.0'");
+    }
+
+    @Test
     public void testQueryColumnFormat()
     {
         assertThat(assertions.query(

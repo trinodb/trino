@@ -117,6 +117,24 @@ public class TestJsonArrayFunction
                 "SELECT json_array(1e0)"))
                 .matches("VALUES VARCHAR '[1.0]'");
 
+        // number is rendered as a JSON number, like other numeric types
+        assertThat(assertions.query(
+                "SELECT json_array(NUMBER '1.2')"))
+                .matches("VALUES VARCHAR '[1.2]'");
+
+        assertThat(assertions.query(
+                "SELECT json_array(CAST(1 AS number))"))
+                .matches("VALUES VARCHAR '[1]'");
+
+        // a magnitude held with a negative scale is rendered as digits, not in scientific notation
+        assertThat(assertions.query(
+                "SELECT json_array(NUMBER '10')"))
+                .matches("VALUES VARCHAR '[10]'");
+
+        assertThat(assertions.query(
+                "SELECT json_array(CAST(nan() AS number), CAST(infinity() AS number), CAST(-infinity() AS number))"))
+                .matches("VALUES VARCHAR '[\"NaN\",\"+Infinity\",\"-Infinity\"]'");
+
         // uuid can be cast to varchar
         assertThat(assertions.query(
                 "SELECT json_array(UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')"))
@@ -137,14 +155,14 @@ public class TestJsonArrayFunction
     @Test
     public void testNumberElement()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number is cast to varchar, so it is rendered as a JSON string instead of a JSON number
+        // a number is rendered as a JSON number, like other numeric types
         assertThat(assertions.query(
                 "SELECT json_array(CAST(1 AS number))"))
-                .matches("VALUES VARCHAR '[\"1\"]'");
+                .matches("VALUES VARCHAR '[1]'");
 
         assertThat(assertions.query(
                 "SELECT json_array(CAST(1.5 AS number))"))
-                .matches("VALUES VARCHAR '[\"1.5\"]'");
+                .matches("VALUES VARCHAR '[1.5]'");
     }
 
     @Test

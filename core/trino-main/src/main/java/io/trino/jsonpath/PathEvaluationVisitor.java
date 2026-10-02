@@ -63,6 +63,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.NumberType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeType;
@@ -70,6 +71,10 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.TrinoNumber;
+import io.trino.spi.type.TrinoNumber.BigDecimalValue;
+import io.trino.spi.type.TrinoNumber.Infinity;
+import io.trino.spi.type.TrinoNumber.NotANumber;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
@@ -82,6 +87,8 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.LongUnaryOperator;
@@ -222,6 +229,14 @@ class PathEvaluationVisitor
                     throw new PathEvaluationException(e);
                 }
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case NotANumber _ -> number;
+                    case Infinity _ -> TrinoNumber.from(new Infinity(false));
+                    case BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.abs());
+                });
+            }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };
     }
@@ -340,7 +355,7 @@ class PathEvaluationVisitor
             else {
                 value = (TypedValue) object;
                 Type type = value.getType();
-                if (!type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT) && !type.equals(DOUBLE) && !type.equals(REAL) && !(type instanceof DecimalType)) {
+                if (!type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT) && !type.equals(DOUBLE) && !type.equals(REAL) && !(type instanceof DecimalType) && !(type instanceof NumberType)) {
                     throw itemTypeError("NUMBER", type.getDisplayName());
                 }
             }
@@ -375,6 +390,14 @@ class PathEvaluationVisitor
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case NotANumber _ -> number;
+                    case Infinity(boolean negative) -> TrinoNumber.from(new Infinity(!negative));
+                    case BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.negate());
+                });
             }
             default -> throw new IllegalStateException("unexpected type " + type.getDisplayName());
         };
@@ -556,6 +579,13 @@ class PathEvaluationVisitor
                     throw new PathEvaluationException(e);
                 }
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case NotANumber _, Infinity _ -> number;
+                    case BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.setScale(0, RoundingMode.CEILING));
+                });
+            }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };
     }
@@ -711,6 +741,14 @@ class PathEvaluationVisitor
                 Int128 tenToScale = Int128Math.powerOfTen(DecimalConversions.intScale(scale));
                 yield new TypedValue(DOUBLE, longDecimalToDouble((Int128) typedValue.getObjectValue(), precision, scale, tenToScale));
             }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(DOUBLE, switch (number.toBigDecimal()) {
+                    case NotANumber _ -> Double.NaN;
+                    case Infinity(boolean negative) -> negative ? Double.NEGATIVE_INFINITY : Double.POSITIVE_INFINITY;
+                    case BigDecimalValue(BigDecimal decimal) -> decimal.doubleValue();
+                });
+            }
             case VarcharType _, CharType _ -> {
                 try {
                     yield new TypedValue(DOUBLE, VarcharOperators.castToDouble((Slice) typedValue.getObjectValue()));
@@ -791,6 +829,13 @@ class PathEvaluationVisitor
                 catch (Exception e) {
                     throw new PathEvaluationException(e);
                 }
+            }
+            case NumberType _ -> {
+                TrinoNumber number = (TrinoNumber) typedValue.getObjectValue();
+                yield new TypedValue(type, switch (number.toBigDecimal()) {
+                    case NotANumber _, Infinity _ -> number;
+                    case BigDecimalValue(BigDecimal decimal) -> TrinoNumber.from(decimal.setScale(0, RoundingMode.FLOOR));
+                });
             }
             default -> throw itemTypeError("NUMBER", type.getDisplayName());
         };
@@ -978,7 +1023,7 @@ class PathEvaluationVisitor
             }
             else {
                 Type type = ((TypedValue) object).getType();
-                if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType) {
+                if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) || type.equals(DOUBLE) || type.equals(REAL) || type instanceof DecimalType || type instanceof NumberType) {
                     outputSequence.add(new TypedValue(resultType, utf8Slice("number")));
                 }
                 else if (type instanceof VarcharType || type instanceof CharType) {

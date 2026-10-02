@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -48,10 +49,12 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestJsonInputFunctions
 {
+    // the value is stored as text, so the exponent is not part of the stored form and the value
+    // reads back as exact. see JsonInputFunctions#readTree
     private static final String INPUT = "{\"key1\" : 1e0, \"key2\" : true, \"key3\" : null}";
     private static final JsonNode JSON_OBJECT = new ObjectNode(
             JsonNodeFactory.instance,
-            ImmutableMap.of("key1", DoubleNode.valueOf(1e0), "key2", BooleanNode.TRUE, "key3", NullNode.instance));
+            ImmutableMap.of("key1", DecimalNode.valueOf(new BigDecimal("1.0")), "key2", BooleanNode.TRUE, "key3", NullNode.instance));
     private static final String ERROR_INPUT = "[...";
 
     private QueryAssertions assertions;

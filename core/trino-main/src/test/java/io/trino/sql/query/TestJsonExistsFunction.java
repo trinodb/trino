@@ -214,14 +214,14 @@ public class TestJsonExistsFunction
     @Test
     public void testNumberParameter()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number parameter is cast to varchar, so it is a JSON string in the path, not a JSON number
+        // a number parameter is a JSON number in the path
         assertThat(assertions.query(
                 "SELECT json_exists('1', 'lax $?(@ == $parameter)' PASSING CAST(1 AS number) AS \"parameter\")"))
-                .matches("VALUES false");
+                .matches("VALUES true");
 
         assertThat(assertions.query(
                 "SELECT json_exists('\"1\"', 'lax $?(@ == $parameter)' PASSING CAST(1 AS number) AS \"parameter\")"))
-                .matches("VALUES true");
+                .matches("VALUES false");
     }
 
     @Test

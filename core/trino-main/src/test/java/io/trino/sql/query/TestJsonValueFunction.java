@@ -258,6 +258,54 @@ public class TestJsonValueFunction
     }
 
     @Test
+    public void testNumberParameter()
+    {
+        // ERROR ON ERROR is used so that a path operation which does not support the type
+        // fails instead of being reported as a null result
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n' PASSING NUMBER '-1.2' AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES NUMBER '-1.2'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.abs()' PASSING NUMBER '-1.2' AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES NUMBER '1.2'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax -$n' PASSING NUMBER '1.2' AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES NUMBER '-1.2'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.floor()' PASSING NUMBER '1.7' AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES NUMBER '1'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.ceiling()' PASSING NUMBER '1.2' AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES NUMBER '2'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.double()' PASSING NUMBER '1.2' AS \"n\" RETURNING double ERROR ON ERROR)"))
+                .matches("VALUES DOUBLE '1.2'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.type()' PASSING NUMBER '1.2' AS \"n\" ERROR ON ERROR)"))
+                .matches("VALUES VARCHAR 'number'");
+
+        // NaN and infinity are preserved by the arithmetic path operations
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.abs()' PASSING CAST(-infinity() AS number) AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES CAST(infinity() AS number)");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax -$n' PASSING CAST(infinity() AS number) AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES CAST(-infinity() AS number)");
+
+        assertThat(assertions.query(
+                "SELECT json_value('null', 'lax $n.floor()' PASSING CAST(nan() AS number) AS \"n\" RETURNING number ERROR ON ERROR)"))
+                .matches("VALUES CAST(nan() AS number)");
+    }
+
+    @Test
     public void testReturnedType()
     {
         // default returned type is varchar
@@ -277,6 +325,43 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[1]' RETURNING char(10))"))
                 .matches("VALUES cast('b' AS char(10))");
+
+        assertThat(assertions.query(
+                "SELECT json_value('1', 'lax $' RETURNING number)"))
+                .matches("VALUES NUMBER '1'");
+
+        // a literal written without an exponent is exact, so no digits are lost
+        assertThat(assertions.query(
+                "SELECT json_value('1234567890123456789.1', 'lax $' RETURNING number)"))
+                .matches("VALUES NUMBER '1234567890123456789.1'");
+
+        // an exact literal is not limited to the precision of decimal
+        assertThat(assertions.query(
+                "SELECT json_value('12345678901234567890123456789012345678901', 'lax $' RETURNING number)"))
+                .matches("VALUES NUMBER '12345678901234567890123456789012345678901'");
+
+        // empty input is an empty sequence, not a null input
+        assertThat(assertions.query(
+                "SELECT json_value('', 'lax $')"))
+                .matches("VALUES cast(null AS varchar)");
+
+        // a literal with fewer significant digits than its scale is still exact
+        assertThat(assertions.query(
+                "SELECT json_value('0.001', 'lax $' RETURNING double)"))
+                .matches("VALUES DOUBLE '0.001'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('-0.0000001', 'lax $' RETURNING number)"))
+                .matches("VALUES NUMBER '-0.0000001'");
+
+        // a literal written with an exponent is approximate, so it is read through double
+        assertThat(assertions.query(
+                "SELECT json_value('1e-324', 'lax $' RETURNING double)"))
+                .matches("VALUES DOUBLE '0.0'");
+
+        assertThat(assertions.query(
+                "SELECT json_value('1e2', 'lax $' RETURNING double)"))
+                .matches("VALUES DOUBLE '100.0'");
 
         assertThat(assertions.query(
                 "SELECT json_value('\"2024-01-02\"', 'lax $.datetime()' RETURNING date)"))
@@ -342,24 +427,21 @@ public class TestJsonValueFunction
     @Test
     public void testNumber()
     {
-        // TODO (https://github.com/trinodb/trino/issues/31150): number is not supported as the returned type
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1' RETURNING number)"))
-                .failure()
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:8: Invalid return type of function JSON_VALUE: number");
+                .matches("VALUES NUMBER '1'");
 
-        // TODO (https://github.com/trinodb/trino/issues/31150): a number parameter is cast to varchar, so it is a JSON string in the path, not a JSON number
+        // a number parameter is a JSON number in the path
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING CAST(1.5 AS number) AS \"parameter\")"))
                 .matches("VALUES cast('1.5' AS varchar)");
 
-        // arithmetic on a JSON string is a path evaluation error, handled accordingly to the ON ERROR clause
+        // arithmetic is applied to the number, rather than failing on a JSON string
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter + 1' PASSING CAST(1 AS number) AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
+                .matches("VALUES cast('2' AS varchar)");
 
-        // the double() method parses a JSON string
+        // the double() method converts the number
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $parameter.double()' PASSING CAST(1 AS number) AS \"parameter\")"))
                 .matches("VALUES VARCHAR '1.0E0'");
