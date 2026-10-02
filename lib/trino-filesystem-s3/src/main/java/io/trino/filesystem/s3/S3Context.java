@@ -24,6 +24,7 @@ import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
@@ -62,14 +63,22 @@ record S3Context(
 
     public S3Context withCredentials(ConnectorIdentity identity)
     {
-        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
-            AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return withCredentialsProviderOverride(credentialsProvider);
+        if (!identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
+            return this;
         }
-        return this;
+        AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
+        return withCredentialsProviderOverride(credentialsProvider);
+    }
+
+    public S3Context withCredentials(Supplier<ConnectorIdentity> identitySupplier)
+    {
+        if (!identitySupplier.get().getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
+            return this;
+        }
+        return withCredentialsProviderOverride(new IdentityAwsCredentialsProvider(identitySupplier));
     }
 
     public S3Context withSseCustomerKey(String key)
@@ -103,7 +112,8 @@ record S3Context(
             switch (sseType) {
                 case KMS -> checkArgument(sseKmsKeyId.isPresent(), "sseKmsKeyId is missing for SSE-KMS");
                 case CUSTOMER -> checkArgument(sseCustomerKey.isPresent(), "sseCustomerKey is missing for SSE-C");
-                case NONE, S3 -> {}
+                case NONE, S3 -> {
+                }
             }
         }
 

@@ -18,10 +18,12 @@ import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3Context.S3SseContext;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3AuthType;
 import io.trino.filesystem.s3.S3FileSystemConfig.SignerType;
+import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -51,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -112,24 +115,39 @@ final class S3FileSystemLoader
     @Override
     public TrinoFileSystemFactory apply(Location location)
     {
-        return identity -> {
-            Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
-
-            S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-            S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
-            S3Context context = this.context.withCredentials(identity);
-
-            if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
-                checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
-                context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
+        return new TrinoFileSystemFactory()
+        {
+            @Override
+            public TrinoFileSystem create(ConnectorIdentity identity)
+            {
+                return createFileSystem(location, identity, context.withCredentials(identity));
             }
 
-            if (mapping.isPresent() && mapping.get().sseCustomerKey().isPresent()) {
-                context = context.withSseCustomerKey(mapping.get().sseCustomerKey().get());
+            @Override
+            public TrinoFileSystem create(Supplier<ConnectorIdentity> identitySupplier)
+            {
+                return createFileSystem(location, identitySupplier.get(), context.withCredentials(identitySupplier));
             }
-
-            return new S3FileSystem(uploadExecutor, client, preSigner, context);
         };
+    }
+
+    private TrinoFileSystem createFileSystem(Location location, ConnectorIdentity identity, S3Context s3Context)
+    {
+        Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
+
+        S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
+        S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
+
+        if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
+            checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
+            s3Context = s3Context.withKmsKeyId(mapping.get().kmsKeyId().get());
+        }
+
+        if (mapping.isPresent() && mapping.get().sseCustomerKey().isPresent()) {
+            s3Context = s3Context.withSseCustomerKey(mapping.get().sseCustomerKey().get());
+        }
+
+        return new S3FileSystem(uploadExecutor, client, preSigner, s3Context);
     }
 
     @PreDestroy
