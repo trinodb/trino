@@ -147,8 +147,7 @@ public class WorkProcessorSourceOperatorAdapter
             throws Exception
     {
         sourceOperator.close();
-        operatorContext.setLatestMetrics(sourceOperator.getMetrics());
-        operatorContext.setLatestConnectorMetrics(sourceOperator.getConnectorMetrics());
+        updateOperatorStats();
     }
 
     private void updateOperatorStats()

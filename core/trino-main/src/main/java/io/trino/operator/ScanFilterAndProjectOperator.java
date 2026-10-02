@@ -48,9 +48,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -67,11 +65,15 @@ public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
     private final PageSourceProvider pageSourceProvider;
-    private final WorkProcessor<Page> pages;
+    private final SplitToPages splitToPages;
+    private final WorkProcessor<SourcePage> sourcePages;
     private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
     @Nullable
     private ConnectorPageSource pageSource;
+    // the consumer may decode channels after the page is emitted, so its size is accounted on the next page or on close
+    @Nullable
+    private SourcePage unaccountedPage;
 
     private long processedPositions;
     private long processedBytes;
@@ -97,20 +99,20 @@ public class ScanFilterAndProjectOperator
             int minOutputPageRowCount)
     {
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        pages = split.flatTransform(
-                new SplitToPages(
-                        operatorContext.getSession(),
-                        yieldSignal,
-                        pageSourceProvider,
-                        pageProcessor,
-                        table,
-                        tableCredentials,
-                        columns,
-                        dynamicFilter,
-                        types,
-                        operatorContext.aggregateUserMemoryContext(),
-                        minOutputPageSize,
-                        minOutputPageRowCount));
+        this.splitToPages = new SplitToPages(
+                operatorContext.getSession(),
+                yieldSignal,
+                pageSourceProvider,
+                pageProcessor,
+                table,
+                tableCredentials,
+                columns,
+                dynamicFilter,
+                types,
+                operatorContext.aggregateUserMemoryContext(),
+                minOutputPageSize,
+                minOutputPageRowCount);
+        this.sourcePages = split.flatTransform(splitToPages);
     }
 
     @Override
@@ -164,12 +166,14 @@ public class ScanFilterAndProjectOperator
     @Override
     public WorkProcessor<Page> getOutputPages()
     {
-        return pages;
+        return splitToPages.toPages(sourcePages);
     }
 
     @Override
     public void close()
     {
+        accountProcessedBytes();
+        splitToPages.close();
         try {
             if (pageSource != null) {
                 pageSource.close();
@@ -188,7 +192,7 @@ public class ScanFilterAndProjectOperator
     }
 
     private class SplitToPages
-            implements WorkProcessor.Transformation<Split, WorkProcessor<Page>>
+            implements WorkProcessor.Transformation<Split, WorkProcessor<SourcePage>>
     {
         final Session session;
         final DriverYieldSignal yieldSignal;
@@ -238,10 +242,9 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public TransformationState<WorkProcessor<Page>> process(Split split)
+        public TransformationState<WorkProcessor<SourcePage>> process(Split split)
         {
             if (split == null) {
-                memoryContext.close();
                 return finished();
             }
 
@@ -260,55 +263,36 @@ public class ScanFilterAndProjectOperator
             }
 
             pageSource = source;
-            return ofResult(processPageSource());
+            return ofResult(sourcePages());
         }
 
-        WorkProcessor<Page> processPageSource()
+        WorkProcessor<SourcePage> sourcePages()
         {
-            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages())
-                    .yielding(yieldSignal::isSet)
-                    .flatMap(page -> {
-                        WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
-                                connectorSession,
-                                outputMemoryContext,
-                                pageProcessorMetrics,
-                                page);
-                        // Note this is monitoring the original source page not the result page
-                        return workProcessor.withProcessStateMonitor(new ProcessedBytesMonitor(page, bytes -> processedBytes += bytes));
-                    })
+                    .yielding(yieldSignal::isSet);
+        }
+
+        WorkProcessor<Page> toPages(WorkProcessor<SourcePage> sourcePages)
+        {
+            ConnectorSession connectorSession = session.toConnectorSession();
+            return sourcePages
+                    .flatMap(page -> pageProcessor.createWorkProcessor(connectorSession, outputMemoryContext, pageProcessorMetrics, page))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
+
+        void close()
+        {
+            memoryContext.close();
+        }
     }
 
-    static class ProcessedBytesMonitor
-            implements Consumer<ProcessState<Page>>
+    private void accountProcessedBytes()
     {
-        private final SourcePage page;
-        private final LongConsumer processedBytesConsumer;
-        private long localProcessedBytes;
-
-        public ProcessedBytesMonitor(SourcePage page, LongConsumer processedBytesConsumer)
-        {
-            this.page = requireNonNull(page, "page is null");
-            this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
-            localProcessedBytes = page.getSizeInBytes();
-            processedBytesConsumer.accept(localProcessedBytes);
-        }
-
-        @Override
-        public void accept(ProcessState<Page> state)
-        {
-            update();
-        }
-
-        void update()
-        {
-            long newProcessedBytes = page.getSizeInBytes();
-            processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
-            localProcessedBytes = newProcessedBytes;
+        if (unaccountedPage != null) {
+            processedBytes += unaccountedPage.getSizeInBytes();
+            unaccountedPage = null;
         }
     }
 
@@ -318,6 +302,8 @@ public class ScanFilterAndProjectOperator
         @Override
         public ProcessState<SourcePage> process()
         {
+            accountProcessedBytes();
+
             if (pageSource.isFinished()) {
                 return ProcessState.finished();
             }
@@ -343,6 +329,7 @@ public class ScanFilterAndProjectOperator
                 return ProcessState.yielded();
             }
 
+            unaccountedPage = page;
             return ProcessState.ofResult(page);
         }
     }
