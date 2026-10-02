@@ -234,6 +234,7 @@ class RelationPlanner
     private final PlannerContext plannerContext;
     private final Optional<TranslationMap> outerContext;
     private final Session session;
+    private final ExpressionBindings expressionBindings;
     private final SubqueryPlanner subqueryPlanner;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
 
@@ -263,6 +264,7 @@ class RelationPlanner
         this.plannerContext = plannerContext;
         this.outerContext = outerContext;
         this.session = session;
+        this.expressionBindings = new ExpressionBindings(plannerContext.getMetadata(), getCharVarcharCoercion(session), symbolAllocator);
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
     }
@@ -1189,16 +1191,16 @@ class RelationPlanner
                 Optional.empty());
 
         // Add a projection to produce the outputs of the columns in the USING clause,
-        // which are defined as coalesce(l.k, r.k)
+        // which are defined as coalesce(l.k, r.k). Row keys use SQL COALESCE (NOT IS NULL).
         Assignments.Builder assignments = Assignments.builder();
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         for (Identifier column : joinColumns) {
             Symbol output = symbolAllocator.newSymbol(column.getValue(), analysis.getType(column));
             outputs.add(output);
-            assignments.put(output, new Coalesce(
+            assignments.put(output, expressionBindings.rowCoalesce(ImmutableList.of(
                     leftJoinColumns.get(column).toSymbolReference(),
-                    rightJoinColumns.get(column).toSymbolReference()));
+                    rightJoinColumns.get(column).toSymbolReference())));
         }
 
         for (int field : joinAnalysis.getOtherLeftFields()) {

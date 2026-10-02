@@ -105,7 +105,8 @@ rules as the equivalent expanded expression.
 ## IS NULL and IS NOT NULL
 
 The `IS NULL` and `IS NOT NULL` operators test whether a value is null
-(undefined).  Both operators work for all data types.
+(undefined). For most types that means the value is the null value. For `ROW`
+values the predicates follow SQL:2023 §8.8, as described below.
 
 Using `NULL` with `IS NULL` evaluates to `true`:
 
@@ -118,6 +119,31 @@ But any other constant does not:
 ```sql
 SELECT 3.0 IS NULL; -- false
 ```
+
+For `ROW` values, `IS NULL` is true when the row is the null value or every field
+is null. `IS NOT NULL` is true only when no field is null. They are not
+complements for rows of degree greater than 1:
+
+```sql
+SELECT (NULL, NULL) IS NULL; -- true
+SELECT (1, NULL) IS NULL; -- false
+SELECT (1, NULL) IS NOT NULL; -- false
+SELECT NOT ((1, NULL) IS NULL); -- true
+SELECT CAST(ROW(NULL, NULL) AS ROW(a integer, b integer)) IS DISTINCT FROM NULL; -- true
+```
+
+A nested row field is a value, not the null value, so there is no recursion:
+
+```sql
+SELECT ROW(ROW(NULL, NULL)) IS NULL; -- false
+```
+
+A `NOT NULL` row column rejects `(1, NULL)` and `(NULL, NULL)`.
+
+The anti-join idiom `WHERE b.row_col IS NULL` after a `LEFT JOIN` also returns
+rows that matched whose row column has all fields null. Use
+`b.row_col IS NOT DISTINCT FROM NULL` to test whether the row value itself is
+null.
 
 (is-boolean-test)=
 ## IS TRUE, IS FALSE, and IS UNKNOWN
