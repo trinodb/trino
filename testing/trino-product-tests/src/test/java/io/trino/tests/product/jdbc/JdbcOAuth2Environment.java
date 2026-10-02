@@ -78,8 +78,12 @@ public abstract class JdbcOAuth2Environment
 
     protected static final String CLIENT_ID = "trinodb_client_id";
     protected static final String CLIENT_SECRET = "trinodb_client_secret";
+    // The JDBC client credentials flow sends the credentials in the request body (client_secret_post)
+    protected static final String CLIENT_CREDENTIALS_CLIENT_ID = "trinodb_client_credentials_id";
+    protected static final String CLIENT_CREDENTIALS_CLIENT_SECRET = "trinodb_client_credentials_secret";
     private static final String TRINO_HOST = "trino";
     private static final String HYDRA_HOST = "hydra";
+    private static final int HYDRA_PORT = 4444;
     private static final String HYDRA_CONSENT_HOST = "hydra-consent";
 
     protected Network network;
@@ -88,6 +92,7 @@ public abstract class JdbcOAuth2Environment
     protected GenericContainer<?> hydraConsent;
     protected GenericContainer<?> hydra;
     protected GenericContainer<?> hydraClientPreparation;
+    protected GenericContainer<?> hydraClientCredentialsClientPreparation;
     protected GenericContainer<?> trinoContainer;
     protected Path truststorePath;
     private OkHttpClient httpClient;
@@ -139,7 +144,7 @@ public abstract class JdbcOAuth2Environment
             startAdditionalServices(hydraPemPath, trinoPemPath);
 
             // Start Hydra OAuth2 server
-            hydra = new GenericContainer<>(DockerImageName.parse(HYDRA_IMAGE))
+            hydra = new FixedHydraPortContainer(DockerImageName.parse(HYDRA_IMAGE))
                     .withNetwork(network)
                     .withNetworkAliases("hydra")
                     .withEnv("LOG_LEVEL", "debug")
@@ -217,6 +222,32 @@ public abstract class JdbcOAuth2Environment
                     .withStartupCheckStrategy(new OneShotStartupCheckStrategy());
             hydraClientPreparation.start();
 
+            hydraClientCredentialsClientPreparation = new GenericContainer<>(DockerImageName.parse(HYDRA_IMAGE))
+                    .withNetwork(network)
+                    .withCommand(
+                            "clients",
+                            "create",
+                            "--endpoint",
+                            "https://hydra:4445",
+                            "--skip-tls-verify",
+                            "--id",
+                            CLIENT_CREDENTIALS_CLIENT_ID,
+                            "--secret",
+                            CLIENT_CREDENTIALS_CLIENT_SECRET,
+                            "--audience",
+                            CLIENT_CREDENTIALS_CLIENT_ID,
+                            "-g",
+                            "client_credentials",
+                            "-r",
+                            "token",
+                            "--scope",
+                            "openid",
+                            "--token-endpoint-auth-method",
+                            "client_secret_post")
+                    .dependsOn(hydra)
+                    .withStartupCheckStrategy(new OneShotStartupCheckStrategy());
+            hydraClientCredentialsClientPreparation.start();
+
             trinoContainer.start();
 
             // Setup HTTP client with trust store
@@ -280,6 +311,24 @@ public abstract class JdbcOAuth2Environment
         {
             super.configure();
             addFixedExposedPort(HTTPS_PORT, HTTPS_PORT);
+        }
+    }
+
+    // The client credentials flow refuses a configured token endpoint that differs from the one the
+    // server advertises (https://hydra:4444/...), so Hydra must be reachable on the same port from the host.
+    private static final class FixedHydraPortContainer
+            extends GenericContainer<FixedHydraPortContainer>
+    {
+        private FixedHydraPortContainer(DockerImageName dockerImageName)
+        {
+            super(dockerImageName);
+        }
+
+        @Override
+        protected void configure()
+        {
+            super.configure();
+            addFixedExposedPort(HYDRA_PORT, HYDRA_PORT);
         }
     }
 
@@ -405,17 +454,47 @@ public abstract class JdbcOAuth2Environment
                 properties);
     }
 
+    /**
+     * Creates a connection authenticated with the OAuth2 client credentials flow: no browser
+     * redirect is involved, the driver obtains the access token directly from Hydra.
+     */
+    public Connection createClientCredentialsConnection(String scope)
+            throws SQLException
+    {
+        Properties properties = createBaseConnectionProperties();
+        properties.setProperty("dnsResolverContext", "%s=%s;%s=%s".formatted(
+                getTrinoHostName(),
+                trinoContainer.getHost(),
+                HYDRA_HOST,
+                hydra.getHost()));
+        properties.setProperty("oauth2ClientId", CLIENT_CREDENTIALS_CLIENT_ID);
+        properties.setProperty("oauth2ClientSecret", CLIENT_CREDENTIALS_CLIENT_SECRET);
+        properties.setProperty("oauth2Scope", scope);
+        return DriverManager.getConnection(
+                String.format(
+                        "jdbc:trino://%s:%d",
+                        getTrinoHostName(),
+                        trinoContainer.getMappedPort(HTTPS_PORT)),
+                properties);
+    }
+
     private Properties createConnectionProperties()
+    {
+        Properties properties = createBaseConnectionProperties();
+        properties.setProperty("externalAuthentication", "true");
+        properties.setProperty("externalAuthenticationTimeout", "30s");
+        properties.setProperty("dnsResolverContext", "%s=%s".formatted(
+                getTrinoHostName(), trinoContainer.getHost()));
+        return properties;
+    }
+
+    private Properties createBaseConnectionProperties()
     {
         Properties properties = new Properties();
         properties.setProperty("SSL", "true");
-        properties.setProperty("externalAuthentication", "true");
-        properties.setProperty("externalAuthenticationTimeout", "30s");
         properties.setProperty("SSLTrustStorePath", truststorePath.toAbsolutePath().toString());
         properties.setProperty("SSLTrustStorePassword", "123456");
         properties.setProperty("dnsResolver", HostMappingDnsResolver.class.getName());
-        properties.setProperty("dnsResolverContext", "%s=%s".formatted(
-                getTrinoHostName(), trinoContainer.getHost()));
         return properties;
     }
 
@@ -448,6 +527,10 @@ public abstract class JdbcOAuth2Environment
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to stop additional OAuth2 services", e);
+        }
+        if (hydraClientCredentialsClientPreparation != null) {
+            hydraClientCredentialsClientPreparation.close();
+            hydraClientCredentialsClientPreparation = null;
         }
         if (hydraClientPreparation != null) {
             hydraClientPreparation.close();

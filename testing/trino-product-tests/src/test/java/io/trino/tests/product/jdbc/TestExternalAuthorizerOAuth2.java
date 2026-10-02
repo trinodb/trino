@@ -33,7 +33,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * OAuth2 authentication tests using JDBC.
  * <p>
- * Tests basic OAuth2 authentication and re-authentication after token expiry.
+ * Tests basic OAuth2 authentication, the client credentials flow and re-authentication
+ * after token expiry.
  * This tests the flow without refresh tokens enabled.
  */
 @ProductTest
@@ -50,6 +51,19 @@ class TestExternalAuthorizerOAuth2
         TestingRedirectHandlerInjector.setRedirectHandler(env.createRedirectHandler());
 
         try (Connection connection = env.createTrinoConnection();
+                PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
+                ResultSet results = statement.executeQuery()) {
+            QueryResult result = QueryResult.forResultSet(results);
+            assertThat(result).containsOnly(TpchTableResults.NATION_ROWS);
+        }
+    }
+
+    @Test
+    void shouldAuthenticateWithClientCredentials(JdbcOAuth2BasicEnvironment env)
+            throws SQLException
+    {
+        // No redirect handler is installed: the client credentials flow must not need a browser
+        try (Connection connection = env.createClientCredentialsConnection("openid");
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
             QueryResult result = QueryResult.forResultSet(results);
