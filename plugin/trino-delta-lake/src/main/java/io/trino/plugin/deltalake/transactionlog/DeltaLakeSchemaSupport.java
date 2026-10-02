@@ -164,6 +164,12 @@ public final class DeltaLakeSchemaSupport
         return parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
     }
 
+    // Existing deletion vectors must be honored whenever the protocol lists the feature, regardless of the table property
+    public static boolean isDeletionVectorSupported(ProtocolEntry protocolEntry)
+    {
+        return protocolEntry.readerFeaturesContains(DELETION_VECTORS_FEATURE_NAME) || protocolEntry.writerFeaturesContains(DELETION_VECTORS_FEATURE_NAME);
+    }
+
     public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
         if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains(DELETION_VECTORS_FEATURE_NAME)) {

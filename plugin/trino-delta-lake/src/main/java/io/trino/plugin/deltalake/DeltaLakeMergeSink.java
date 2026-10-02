@@ -394,7 +394,9 @@ public class DeltaLakeMergeSink
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
-        RoaringBitmapArray deletedRows = loadDeletionVector(Location.of(path.toStringUtf8()));
+        RoaringBitmapArray rowsPreviouslyDeleted = loadDeletionVector(Location.of(path.toStringUtf8()));
+        RoaringBitmapArray deletedRows = new RoaringBitmapArray();
+        deletedRows.or(rowsPreviouslyDeleted);
         deletedRows.or(rowsDeletedByDelete);
         deletedRows.or(rowsDeletedByUpdate);
 
@@ -402,6 +404,7 @@ public class DeltaLakeMergeSink
             try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8()))) {
                 readConnectorPageSource(
                         connectorPageSource,
+                        rowsPreviouslyDeleted,
                         rowsDeletedByDelete,
                         rowsDeletedByUpdate,
                         deletion,
@@ -524,10 +527,13 @@ public class DeltaLakeMergeSink
                     dataColumns,
                     DATA);
 
-            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
+            // The deletionVectors key is the path in AddFileEntry, which is the URI-formatted sourceReferencePath
+            DeletionVectorEntry oldDeletionVector = deletionVectors.get(uriFormatReferencedPath(tablePath, sourcePath));
+            RoaringBitmapArray rowsPreviouslyDeleted = loadDeletionVector(sourceLocation);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, rowsPreviouslyDeleted, writer);
             writtenBytes += writer.getWrittenBytes();
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.empty(), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -591,7 +597,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private Optional<DataFileInfo> rewriteParquetFile(Location path, FileDeletion deletion, DeltaLakeWriter fileWriter)
+    private Optional<DataFileInfo> rewriteParquetFile(Location path, FileDeletion deletion, RoaringBitmapArray rowsPreviouslyDeleted, DeltaLakeWriter fileWriter)
             throws IOException
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
@@ -599,6 +605,7 @@ public class DeltaLakeMergeSink
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path)) {
             readConnectorPageSource(
                     connectorPageSource,
+                    rowsPreviouslyDeleted,
                     rowsDeletedByDelete,
                     rowsDeletedByUpdate,
                     deletion,
@@ -630,6 +637,7 @@ public class DeltaLakeMergeSink
 
     private void readConnectorPageSource(
             ConnectorPageSource connectorPageSource,
+            RoaringBitmapArray rowsPreviouslyDeleted,
             RoaringBitmapArray rowsDeletedByDelete,
             RoaringBitmapArray rowsDeletedByUpdate,
             FileDeletion deletion,
@@ -652,6 +660,11 @@ public class DeltaLakeMergeSink
             int deletedByUpdateCount = 0;
             int deletedByDeleteCount = 0;
             for (int position = 0; position < positionCount; position++) {
+                // rows already deleted by the existing deletion vector are dropped without change data feed entries
+                if (rowsPreviouslyDeleted.contains(filePosition)) {
+                    filePosition++;
+                    continue;
+                }
                 if (rowsDeletedByDelete.contains(filePosition)) {
                     deletedByDelete[deletedByDeleteCount] = position;
                     deletedByDeleteCount++;
