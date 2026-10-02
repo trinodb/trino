@@ -16,6 +16,7 @@ package io.trino.filesystem.gcs;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.OAuth2CredentialsWithRefresh;
 import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,7 @@ import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_G
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestGcsStorageFactory
 {
@@ -180,6 +182,62 @@ final class TestGcsStorageFactory
             Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
             assertThat(storage.getOptions().getProjectId()).isEqualTo("static-project");
             assertThat(storage.getOptions().getCredentials()).isNotNull();
+        }
+        finally {
+            storageFactory.stop();
+        }
+    }
+
+    @Test
+    void testVendedOAuthTokenWithRefresherAndExpirationIsRefreshable()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.test-token",
+                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY, "1700000000000"))
+                .build();
+
+        try (Storage storage = storageFactory.create(identity, identity::getExtraCredentials)) {
+            assertThat(storage.getOptions().getCredentials()).isInstanceOf(OAuth2CredentialsWithRefresh.class);
+        }
+    }
+
+    @Test
+    void testVendedOAuthTokenWithRefresherWithoutExpirationIsNotRefreshable()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "ya29.test-token"))
+                .build();
+
+        try (Storage storage = storageFactory.create(identity, identity::getExtraCredentials)) {
+            assertThat(storage.getOptions().getCredentials())
+                    .isInstanceOf(GoogleCredentials.class)
+                    .isNotInstanceOf(OAuth2CredentialsWithRefresh.class);
+        }
+    }
+
+    @Test
+    void testRefresherWithoutVendedOAuthToken()
+            throws Exception
+    {
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
+
+        ConnectorIdentity identity = ConnectorIdentity.ofUser("test");
+
+        try {
+            assertThatThrownBy(() -> storageFactory.create(identity, identity::getExtraCredentials))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Credentials refresher requires vended GCS OAuth token in extra credentials");
         }
         finally {
             storageFactory.stop();
