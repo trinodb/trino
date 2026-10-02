@@ -119,7 +119,7 @@ import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
-import static io.trino.type.LikeFunctions.likePattern;
+import static io.trino.type.LikePatternFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;

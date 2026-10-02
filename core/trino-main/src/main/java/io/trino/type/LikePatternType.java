@@ -55,7 +55,7 @@ public class LikePatternType
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice slice = valueBlock.getSlice(valuePosition);
 
-        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>? <library>
         int length = slice.getInt(0);
         String pattern = slice.toString(4, length, UTF_8);
 
@@ -80,7 +80,7 @@ public class LikePatternType
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice slice = valueBlock.getSlice(valuePosition);
 
-        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>? <library>
         int length = slice.getInt(0);
         String pattern = slice.toString(4, length, UTF_8);
 
@@ -91,7 +91,12 @@ public class LikePatternType
             escape = Optional.of((char) slice.getInt(4 + length + 1));
         }
 
-        return LikePattern.compile(pattern, escape);
+        LikeLibrary library = switch (slice.getByte(slice.length() - 1)) {
+            case 0 -> LikeLibrary.TRINO;
+            case 1 -> LikeLibrary.REGULATOR;
+            default -> throw new IllegalArgumentException("Invalid LIKE library encoding");
+        };
+        return LikePattern.compile(pattern, escape, library);
     }
 
     @Override
@@ -104,9 +109,10 @@ public class LikePatternType
                 Integer.BYTES +
                         pattern.length() +
                         Byte.BYTES +
-                        (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
+                        (likePattern.getEscape().isPresent() ? Integer.BYTES : 0) +
+                        Byte.BYTES);
 
-        // layout is: <pattern_length> <pattern> <hasEscape> <escape>?
+        // layout is: <pattern_length> <pattern> <hasEscape> <escape>? <library>
         slice.setInt(0, pattern.length());
         slice.setBytes(4, pattern);
         if (likePattern.getEscape().isEmpty()) {
@@ -116,6 +122,11 @@ public class LikePatternType
             slice.setByte(4 + pattern.length(), (byte) 1);
             slice.setInt(4 + pattern.length() + 1, likePattern.getEscape().get());
         }
+
+        slice.setByte(slice.length() - 1, switch (likePattern.getLibrary()) {
+            case TRINO -> 0;
+            case REGULATOR -> 1;
+        });
 
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);
     }

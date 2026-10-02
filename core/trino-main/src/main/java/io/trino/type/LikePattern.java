@@ -13,39 +13,62 @@
  */
 package io.trino.type;
 
+import io.airlift.regulator.TrinoLikePattern;
+import io.airlift.slice.Slice;
 import io.trino.likematcher.LikeMatcher;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.type.LikeLibrary.REGULATOR;
+import static io.trino.type.LikeLibrary.TRINO;
 import static java.util.Objects.requireNonNull;
 
 /**
  * LikePattern can be a part of the cache key in projection/filter compiled class caches in ExpressionCompiler.
- * Equality for this class is dependent on the pattern and escape alone, as the matcher is expected to be derived from those.
+ * Equality depends on the pattern, escape and library, which determine the matcher.
  */
 public class LikePattern
 {
     private final String pattern;
     private final Optional<Character> escape;
-    private final LikeMatcher matcher;
+    private final LikeLibrary library;
+    private final Predicate<Slice> matcher;
 
     public static LikePattern compile(String pattern, Optional<Character> escape)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape));
+        return compile(pattern, escape, true);
     }
 
     public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape, optimize));
+        LikeMatcher matcher = LikeMatcher.compile(pattern, escape, optimize);
+        return new LikePattern(pattern, escape, TRINO, value -> matcher.match(value.byteArray(), value.byteArrayOffset(), value.length()));
     }
 
-    private LikePattern(String pattern, Optional<Character> escape, LikeMatcher matcher)
+    public static LikePattern compile(String pattern, Optional<Character> escape, LikeLibrary library)
+    {
+        return switch (library) {
+            case TRINO -> compile(pattern, escape);
+            case REGULATOR -> {
+                Slice patternSlice = utf8Slice(pattern);
+                TrinoLikePattern matcher = escape
+                        .map(character -> TrinoLikePattern.compile(patternSlice, character))
+                        .orElseGet(() -> TrinoLikePattern.compile(patternSlice));
+                yield new LikePattern(pattern, escape, REGULATOR, matcher::matches);
+            }
+        };
+    }
+
+    private LikePattern(String pattern, Optional<Character> escape, LikeLibrary library, Predicate<Slice> matcher)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
-        this.matcher = requireNonNull(matcher, "likeMatcher is null");
+        this.library = requireNonNull(library, "library is null");
+        this.matcher = requireNonNull(matcher, "matcher is null");
     }
 
     public String getPattern()
@@ -58,9 +81,14 @@ public class LikePattern
         return escape;
     }
 
-    public LikeMatcher getMatcher()
+    public LikeLibrary getLibrary()
     {
-        return matcher;
+        return library;
+    }
+
+    public boolean matches(Slice value)
+    {
+        return matcher.test(value);
     }
 
     @Override
@@ -73,13 +101,13 @@ public class LikePattern
             return false;
         }
         LikePattern that = (LikePattern) o;
-        return Objects.equals(pattern, that.pattern) && Objects.equals(escape, that.escape);
+        return Objects.equals(pattern, that.pattern) && Objects.equals(escape, that.escape) && library == that.library;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(pattern, escape);
+        return Objects.hash(pattern, escape, library);
     }
 
     @Override
@@ -88,6 +116,7 @@ public class LikePattern
         return toStringHelper(this)
                 .add("pattern", pattern)
                 .add("escape", escape)
+                .add("library", library)
                 .toString();
     }
 }

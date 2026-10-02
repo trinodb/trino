@@ -42,6 +42,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract.Field;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePatternFunctions;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -2614,7 +2615,7 @@ public class TestExpressionCompiler
                         .binding("b", toLiteral(pattern)))
                         .isEqualTo(value == null || pattern == null ?
                                 null :
-                                LikeFunctions.likeVarchar(utf8Slice(value), LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"))));
+                                LikeFunctions.likeVarchar(utf8Slice(value), LikePatternFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"))));
             }
         }
     }

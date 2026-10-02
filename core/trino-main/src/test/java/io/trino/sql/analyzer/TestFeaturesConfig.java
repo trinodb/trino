@@ -15,9 +15,11 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.type.LikeLibrary;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -31,7 +33,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
-import static io.trino.sql.analyzer.RegexLibrary.RE2J;
+import static io.trino.sql.analyzer.RegexLibrary.REGULATOR;
+import static io.trino.type.LikeLibrary.TRINO;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFeaturesConfig
 {
@@ -44,6 +48,7 @@ public class TestFeaturesConfig
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(256, MEGABYTE))
                 .setRegexLibrary(JONI)
+                .setLikeLibrary(TRINO)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
@@ -80,7 +85,8 @@ public class TestFeaturesConfig
                 .put("scale-writers", "false")
                 .put("writer-scaling-min-data-processed", "4GB")
                 .put("max-memory-per-partition-writer", "4GB")
-                .put("deprecated.regex-library", "RE2J")
+                .put("regex-library", "REGULATOR")
+                .put("like-library", "REGULATOR")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
                 .put("spill-enabled", "true")
@@ -114,7 +120,8 @@ public class TestFeaturesConfig
                 .setScaleWriters(false)
                 .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
                 .setMaxMemoryPerPartitionWriter(DataSize.of(4, GIGABYTE))
-                .setRegexLibrary(RE2J)
+                .setRegexLibrary(REGULATOR)
+                .setLikeLibrary(LikeLibrary.REGULATOR)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
@@ -142,5 +149,15 @@ public class TestFeaturesConfig
                 .setLegacyVarcharToCharCoercion(true)
                 .setExternalExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testLegacyRegexLibraryProperty()
+    {
+        for (RegexLibrary library : RegexLibrary.values()) {
+            FeaturesConfig config = new ConfigurationFactory(ImmutableMap.of("deprecated.regex-library", library.name()))
+                    .build(FeaturesConfig.class);
+            assertThat(config.getRegexLibrary()).isEqualTo(library);
+        }
     }
 }

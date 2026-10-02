@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public abstract class AbstractTestRegexpFunctions
 {
     private final RegexLibrary regexLibrary;
-    private QueryAssertions assertions;
+    protected QueryAssertions assertions;
 
     protected AbstractTestRegexpFunctions(RegexLibrary regexLibrary)
     {
@@ -80,6 +80,69 @@ public abstract class AbstractTestRegexpFunctions
                 (byte) 0x41, 0x41, (byte) 0xED, (byte) 0xA0, (byte) 0x80, 0x41, 0x41,
                 0x41, 0x41, (byte) 0xED, (byte) 0xBF, (byte) 0xBF, 0x41, 0x41, 0x41,
         });
+    }
+
+    @ScalarFunction(deterministic = false)
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice shiftedUtf8(@SqlType(StandardTypes.VARCHAR) Slice value)
+    {
+        Slice buffer = Slices.allocate(value.length() + 8);
+        buffer.setBytes(5, value);
+        return buffer.slice(5, value.length());
+    }
+
+    @Test
+    public void testSliceOffsets()
+    {
+        for (String pattern : new String[] {"", ".", "(a)|(z)", "(?<name>[a-z]+)", "[0-9]+"}) {
+            for (String function : new String[] {
+                    "regexp_like(s, p)",
+                    "regexp_count(s, p)",
+                    "regexp_position(s, p)",
+                    "regexp_position(s, p, 2, 2)",
+                    "regexp_extract(s, p)",
+                    "regexp_extract_all(s, p)",
+                    "regexp_split(s, p)",
+                    "regexp_replace(s, p, '<$0>')",
+                    "regexp_replace(s, p, groups -> array_join(groups, ':', 'NULL'))",
+            }) {
+                assertThat(assertions.expression(function + " IS NOT DISTINCT FROM " + function.replace("(s, p", "(shifted_utf8(s), shifted_utf8(p)"))
+                        .binding("s", "'aéb💰 42 a'")
+                        .binding("p", "'" + pattern + "'"))
+                        .describedAs("function: %s, pattern: %s", function, pattern)
+                        .isEqualTo(true);
+            }
+        }
+    }
+
+    protected void assertMultilineBeginLineOperations()
+    {
+        String source = "'a' || chr(10)";
+        String beginLine = "'(?m)^'";
+
+        assertThat(assertions.function("regexp_like", source, beginLine))
+                .isEqualTo(true);
+        assertThat(assertions.function("regexp_count", source, beginLine))
+                .isEqualTo(1L);
+        assertThat(assertions.function("regexp_position", source, beginLine, "1", "2"))
+                .isEqualTo(-1);
+        assertThat(assertions.function("regexp_extract", source, beginLine))
+                .isEqualTo("");
+        assertThat(assertions.function("regexp_extract_all", source, beginLine))
+                .isEqualTo(ImmutableList.of(""));
+        assertThat(assertions.function("regexp_split", source, beginLine))
+                .isEqualTo(ImmutableList.of("", "a\n"));
+        assertThat(assertions.function("regexp_replace", source, beginLine, "'_'"))
+                .isEqualTo("_a\n");
+        assertThat(assertions.expression("regexp_replace(s, p, groups -> '_')")
+                .binding("s", source)
+                .binding("p", beginLine))
+                .isEqualTo("_a\n");
+
+        assertThat(assertions.function("regexp_like", source, "'(?m)^$'"))
+                .isEqualTo(false);
+        assertThat(assertions.function("regexp_like", source, "'(?m)a\\n^'"))
+                .isEqualTo(false);
     }
 
     @Test

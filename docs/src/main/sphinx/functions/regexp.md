@@ -1,7 +1,11 @@
 # Regular expression functions
 
-All the regular expression functions use the [Java pattern] syntax,
-with a few notable exceptions:
+The engine is selected with the server's `regex-library` configuration property.
+See {doc}`/admin/properties-regexp-function` for engine options and compatibility
+limits. Regulator rejects unsupported constructs without falling back to Joni.
+
+The default Joni engine uses the [Java pattern] syntax, with a few notable
+exceptions:
 
 - When using multi-line mode (enabled via the `(?m)` flag),
   only `\n` is recognized as a line terminator. Additionally,

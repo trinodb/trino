@@ -247,6 +247,9 @@ combinations:
 (like-operator)=
 ## Pattern comparison: LIKE
 
+The server's `like-library` property selects the matching engine. See
+{doc}`/admin/properties-regexp-function` for configuration options.
+
 The `LIKE` operator can be used to compare values with a pattern:
 
 ```

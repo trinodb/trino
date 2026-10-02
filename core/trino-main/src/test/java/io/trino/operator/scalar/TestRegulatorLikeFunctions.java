@@ -15,29 +15,33 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.type.LikePattern;
-import io.trino.type.LikePatternFunctions;
+import io.trino.type.RegulatorLikePatternFunctions;
 
 import java.util.Optional;
 
-public class TestLikeFunctions
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.type.LikeLibrary.REGULATOR;
+
+public class TestRegulatorLikeFunctions
         extends AbstractTestLikeFunctions
 {
     @Override
     protected QueryAssertions createQueryAssertions()
     {
-        return new QueryAssertions();
+        return new QueryAssertions(new StandaloneQueryRunner(TEST_SESSION, builder -> builder.addProperty("like-library", "REGULATOR")));
     }
 
     @Override
     protected LikePattern compilePattern(String pattern, Optional<Character> escape)
     {
-        return LikePattern.compile(pattern, escape);
+        return LikePattern.compile(pattern, escape, REGULATOR);
     }
 
     @Override
     protected LikePattern likePattern(Slice pattern, Slice escape)
     {
-        return LikePatternFunctions.likePattern(pattern, escape);
+        return RegulatorLikePatternFunctions.likePattern(pattern, escape);
     }
 }
