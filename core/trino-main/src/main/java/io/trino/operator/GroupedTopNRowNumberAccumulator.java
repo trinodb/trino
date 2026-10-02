@@ -78,22 +78,26 @@ public class GroupedTopNRowNumberAccumulator
         groupIdToHeapBuffer.allocateGroupIfNeeded(groupCount);
 
         for (int position = 0; position < newPage.getPositionCount(); position++) {
-            int groupId = groupIds[position];
-            if (groupId >= currentTotalGroups || calculateRootRowNumber(groupId) < topN) {
-                return position;
-            }
-            long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
-            if (heapRootNodeIndex == UNKNOWN_INDEX) {
-                return position;
-            }
-            long rowId = heapNodeBuffer.getRowId(heapRootNodeIndex);
-            Page rightPage = pageManager.getPage(rowId);
-            int rightPosition = pageManager.getPosition(rowId);
-            if (comparator.compareTo(newPage, position, rightPage, rightPosition) < 0) {
+            if (canAdd(newPage, position, groupIds[position], currentTotalGroups, comparator, pageManager)) {
                 return position;
             }
         }
         return -1;
+    }
+
+    private boolean canAdd(Page newPage, int position, int groupId, int currentTotalGroups, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
+    {
+        if (groupId >= currentTotalGroups || calculateRootRowNumber(groupId) < topN) {
+            return true;
+        }
+        long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
+        if (heapRootNodeIndex == UNKNOWN_INDEX) {
+            return true;
+        }
+        long rowId = heapNodeBuffer.getRowId(heapRootNodeIndex);
+        Page rightPage = pageManager.getPage(rowId);
+        int rightPosition = pageManager.getPosition(rowId);
+        return comparator.compareTo(newPage, position, rightPage, rightPosition) < 0;
     }
 
     /**
