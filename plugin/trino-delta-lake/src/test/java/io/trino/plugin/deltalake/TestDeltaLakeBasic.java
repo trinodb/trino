@@ -1930,6 +1930,67 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * @see deltalake.deletion_vectors_disabled
+     * @see deltalake.deletion_vectors_unset
+     * @see deltalake.deletion_vectors_disabled_checkpoint
+     */
+    @Test
+    public void testDeletionVectorsReadWithPropertyDisabled()
+            throws Exception
+    {
+        testDeletionVectorsReadWithPropertyDisabled("deltalake/deletion_vectors_disabled", "VALUES (1, 10), (3, 10), (4, 10), (6, 20)");
+        testDeletionVectorsReadWithPropertyDisabled("deltalake/deletion_vectors_unset", "VALUES (1, 10), (3, 10), (4, 10), (6, 20)");
+        testDeletionVectorsReadWithPropertyDisabled("deltalake/deletion_vectors_disabled_checkpoint", "VALUES (1, 10), (3, 10), (4, 10), (6, 20), (7, 20)");
+    }
+
+    private void testDeletionVectorsReadWithPropertyDisabled(String resourceName, String expectedRows)
+            throws Exception
+    {
+        String tableName = "deletion_vectors_disabled_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .doesNotContain("deletion_vectors_enabled");
+        assertQuery("SELECT * FROM " + tableName, expectedRows);
+        assertQuery("SELECT * FROM " + tableName + " WHERE part = 20", "SELECT * FROM (" + expectedRows + ") t(id, part) WHERE part = 20");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN extra int");
+        assertQuery("SELECT * FROM " + tableName, "SELECT id, part, NULL FROM (" + expectedRows + ") t(id, part)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.deletion_vectors_disabled
+     */
+    @Test
+    public void testDeletionVectorsVacuumWithPropertyDisabled()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        String tableName = "deletion_vectors_disabled_vacuum_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/deletion_vectors_disabled").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        Path deletionVector;
+        try (Stream<Path> files = Files.list(tableLocation)) {
+            deletionVector = files.filter(file -> file.getFileName().toString().startsWith("deletion_vector_")).collect(onlyElement());
+        }
+        Files.setLastModifiedTime(deletionVector, FileTime.from(Instant.now().minus(1, HOURS)));
+        assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '10m')");
+        assertThat(deletionVector).exists();
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 10), (3, 10), (4, 10), (6, 20)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testDeletionVectorsRandomPrefix()
             throws Exception

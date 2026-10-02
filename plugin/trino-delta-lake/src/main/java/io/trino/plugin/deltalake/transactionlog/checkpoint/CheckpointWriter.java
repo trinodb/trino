@@ -67,7 +67,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatistic
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValueUpperBound;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
@@ -367,7 +366,6 @@ public class CheckpointWriter
             boolean writeStatsAsJson,
             boolean writeStatsAsStruct)
     {
-        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
         pageBuilder.declarePosition();
         RowBlockBuilder blockBuilder = (RowBlockBuilder) pageBuilder.getBlockBuilder(ADD_BLOCK_CHANNEL);
         blockBuilder.buildEntry(fieldBuilders -> {
@@ -404,9 +402,7 @@ public class CheckpointWriter
             writeStringMap(fieldBuilders.get(fieldId), entryType, fieldId, "tags", addFileEntry.getTags());
             fieldId++;
 
-            if (deletionVectorEnabled) {
-                writeDeletionVector(fieldBuilders.get(fieldId), entryType, addFileEntry.getDeletionVector(), fieldId);
-            }
+            writeDeletionVector(fieldBuilders.get(fieldId), entryType, addFileEntry.getDeletionVector(), fieldId);
         });
 
         // null for others

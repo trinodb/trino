@@ -104,14 +104,24 @@ public class TestCheckpointWriter
     public void testDeletionVectorRoundtrip()
             throws IOException
     {
-        assertDeletionVectorRoundtrip(false);
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "true"));
     }
 
     @Test
     public void testRestoredFileWithoutDeletionVectorRoundtrip()
             throws IOException
     {
-        assertDeletionVectorRoundtrip(true);
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "true"));
+    }
+
+    @Test
+    public void testDeletionVectorRoundtripWithPropertyDisabled()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of());
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of());
     }
 
     @Test
@@ -823,7 +833,7 @@ public class TestCheckpointWriter
         assertThat(fileStatistics.getNullCount().get()).isEmpty();
     }
 
-    private void assertDeletionVectorRoundtrip(boolean restoreWithoutDeletionVector)
+    private void assertDeletionVectorRoundtrip(boolean restoreWithoutDeletionVector, Map<String, String> configuration)
             throws IOException
     {
         MetadataEntry metadata = new MetadataEntry(
@@ -833,7 +843,7 @@ public class TestCheckpointWriter
                 new MetadataEntry.Format("parquet", ImmutableMap.of()),
                 "{\"type\":\"struct\",\"fields\":[{\"name\":\"value\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
                 ImmutableList.of(),
-                ImmutableMap.of("delta.enableDeletionVectors", "true"),
+                configuration,
                 1);
         ProtocolEntry protocol = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
         CheckpointBuilder builder = new CheckpointBuilder();

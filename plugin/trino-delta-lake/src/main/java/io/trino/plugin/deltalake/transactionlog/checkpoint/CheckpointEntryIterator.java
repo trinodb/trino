@@ -78,7 +78,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
@@ -153,7 +152,6 @@ public class CheckpointEntryIterator
 
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
-    private boolean deletionVectorsEnabled;
     private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private SourcePage page;
@@ -189,7 +187,6 @@ public class CheckpointEntryIterator
             this.metadataEntry = metadataEntry.get();
             checkArgument(protocolEntry.isPresent(), "Protocol entry must be provided when reading ADD entries from Checkpoint files");
             this.protocolEntry = protocolEntry.get();
-            deletionVectorsEnabled = isDeletionVectorEnabled(this.metadataEntry, this.protocolEntry);
             checkArgument(addStatsMinMaxColumnFilter.isPresent(), "addStatsMinMaxColumnFilter must be provided when reading ADD entries from Checkpoint files");
             this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
             this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
@@ -533,11 +530,8 @@ public class CheckpointEntryIterator
             long modificationTime = addReader.getLong("modificationTime");
             boolean dataChange = addReader.getBoolean("dataChange");
 
-            Optional<DeletionVectorEntry> deletionVector = Optional.empty();
-            if (deletionVectorsEnabled) {
-                deletionVector = Optional.ofNullable(addReader.getRow("deletionVector"))
-                        .map(row -> parseDeletionVectorFromParquet(row, addDeletionVectorType.orElseThrow()));
-            }
+            Optional<DeletionVectorEntry> deletionVector = Optional.ofNullable(addReader.getRow("deletionVector"))
+                    .map(row -> parseDeletionVectorFromParquet(row, addDeletionVectorType.orElseThrow()));
 
             Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
                     .map(row -> parseStatisticsFromParquet(row, addParsedStatsFieldType.orElseThrow()));

@@ -34,7 +34,6 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -119,8 +118,6 @@ public class CheckpointSchemaManager
         minMaxColumns = minMaxColumns.stream()
                 .filter(column -> addStatsMinMaxColumnFilter.test(column.name()))
                 .collect(toImmutableList());
-        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
-
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
         for (DeltaLakeColumnMetadata dataColumn : minMaxColumns) {
             Type type = dataColumn.physicalColumnType();
@@ -170,9 +167,7 @@ public class CheckpointSchemaManager
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
         }
         addFields.add(RowType.field("tags", stringMap));
-        if (deletionVectorEnabled) {
-            addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
-        }
+        addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
 
         return RowType.from(addFields.build());
     }
