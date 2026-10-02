@@ -42,7 +42,6 @@ import java.util.stream.Collector;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -349,32 +348,9 @@ public final class TupleDomain<T>
         return Optional.of(largest);
     }
 
-    /**
-     * Returns a TupleDomain in which corresponding column Domains are unioned together.
-     * <p>
-     * Note that this is NOT equivalent to a strict union as the final result may allow tuples
-     * that do not exist in either TupleDomain.
-     * Example 1:
-     * <ul>
-     * <li>TupleDomain X: a => 1, b => 2
-     * <li>TupleDomain Y: a => 2, b => 3
-     * <li>Column-wise unioned TupleDomain: a => 1 OR 2, b => 2 OR 3
-     * </ul>
-     * <p>
-     * In the above resulting TupleDomain, tuple (a => 1, b => 3) would be considered valid but would
-     * not be valid for either TupleDomain X or TupleDomain Y.
-     * Example 2:
-     * <p>
-     * Let a be of type DOUBLE
-     * <ul>
-     * <li>TupleDomain X: {@code (a < 5)}
-     * <li>TupleDomain Y: {@code (a > 0)}
-     * <li>Column-wise unioned TupleDomain: {@code (a IS NOT NULL)}
-     * </ul>
-     * In the above resulting TupleDomain, tuple (a => NaN) would be considered valid but would
-     * not be valid for either TupleDomain X or TupleDomain Y.
-     * However, this result is guaranteed to be a superset of the strict union.
-     */
+    /// Returns a superset of the union by independently combining each column's domains.
+    /// For `(a = 1, b = 2)` and `(a = 2, b = 3)`, the result also accepts `(a = 1, b = 3)`.
+    /// Each individual column's union preserves exact membership, including null and NaN.
     public static <T> TupleDomain<T> columnWiseUnion(List<TupleDomain<T>> tupleDomains)
     {
         if (tupleDomains.isEmpty()) {
@@ -437,22 +413,9 @@ public final class TupleDomain<T>
         return withColumnDomains(result);
     }
 
-    /**
-     * Returns the strict union of the given TupleDomains if it can be computed exactly,
-     * or {@code Optional.empty()} if the column-wise union would be a proper superset
-     * of the strict union.
-     * <p>
-     * In most cases, {@link #columnWiseUnion} is only a superset of the actual strict union
-     * (see {@link #columnWiseUnion(List)} for examples). However, there are a few cases where
-     * the column-wise union is actually equivalent to the strict union:
-     * <ul>
-     * <li>If one TupleDomain is a superset of the others
-     *     (e.g. TupleDomain {@code (a > 0, b > 0 && b < 10)} vs TupleDomain {@code (a > 5, b = 5)})
-     * <li>If all TupleDomains consist of the same exact single column
-     *     (e.g. one TupleDomain {@code (a > 0)}, another TupleDomain {@code (a < 10)})
-     *     and NaN is not implicitly added by the union
-     * </ul>
-     */
+    /// Returns the union when it can be represented exactly, or an empty optional when
+    /// independent column domains would admit additional tuples. A union is exact when
+    /// one input contains all others or every input constrains the same single column.
     public static <T> Optional<TupleDomain<T>> strictUnion(List<TupleDomain<T>> domains)
     {
         if (domains.isEmpty()) {
@@ -488,39 +451,6 @@ public final class TupleDomain<T>
         }
 
         TupleDomain<T> columnUnionedTupleDomain = columnWiseUnion(nonNoneDomains);
-
-        // Floating point types such as REAL and DOUBLE require special handling because they include NaN value.
-        // Domains covering the value set partially might union up to a domain covering the whole value set.
-        // While the component domains didn't include NaN, the resulting domain could be further translated
-        // to predicate "TRUE" or "a IS NOT NULL", which is satisfied by NaN.
-        // So during domain union, NaN might be implicitly added.
-        // Example: Let 'a' be a column of type DOUBLE.
-        //          Let left TupleDomain => (a > 0) /false for NaN/, right TupleDomain => (a < 10) /false for NaN/.
-        //          Unioned TupleDomain => "is not null" /true for NaN/
-        Map<T, Domain> singleColumnDomains = nonNoneDomains.get(0).getDomains().get();
-        if (singleColumnDomains.size() != 1) {
-            throw new IllegalStateException("Expected single column domain, got " + singleColumnDomains.size());
-        }
-        Type type = singleColumnDomains.values().iterator().next().getType();
-        if (typeHasNaN(type)) {
-            // A Domain of a floating point type contains NaN in the following cases:
-            // 1. When it contains all the values of the type and null.
-            //    In such case the domain is 'all', and if it is the only domain
-            //    in the TupleDomain, the TupleDomain gets normalized to TupleDomain 'all'.
-            // 2. When it contains all the values of the type and doesn't contain null.
-            //    In such case no normalization on the level of TupleDomain takes place,
-            //    and the check for NaN is done by inspecting the Domain's valueSet.
-            //    NaN is included when the valueSet is 'all'.
-            boolean unionedDomainContainsNaN = columnUnionedTupleDomain.isAll() ||
-                    (columnUnionedTupleDomain.getDomains().isPresent() &&
-                            columnUnionedTupleDomain.getDomains().get().values().iterator().next().getValues().isAll());
-            boolean implicitlyAddedNaN = nonNoneDomains.stream().noneMatch(TupleDomain::isAll) &&
-                    unionedDomainContainsNaN;
-            // Guard against wrong results: do not report an exact union if NaN was implicitly added
-            if (implicitlyAddedNaN) {
-                return Optional.empty();
-            }
-        }
 
         return Optional.of(columnUnionedTupleDomain);
     }

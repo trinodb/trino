@@ -14,7 +14,7 @@
 package io.trino.plugin.postgresql;
 
 import com.google.inject.Inject;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
+import io.trino.plugin.jdbc.FloatingPointQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
@@ -34,7 +34,7 @@ import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStr
 import static java.lang.String.format;
 
 public class CollationAwareQueryBuilder
-        extends DefaultQueryBuilder
+        extends FloatingPointQueryBuilder
 {
     @Inject
     public CollationAwareQueryBuilder(RemoteQueryModifier queryModifier)

@@ -54,6 +54,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
@@ -349,6 +350,10 @@ public class PinotMetadata
     private boolean isFilterPushdownUnsupported(Domain domain)
     {
         ValueSet valueSet = domain.getValues();
+        if (valueSet instanceof FloatingPointValueSet floatingPoint && !floatingPoint.isAll() &&
+                floatingPoint.isNaNAllowed()) {
+            return true;
+        }
         boolean isNotNull = valueSet.isAll() && !domain.isNullAllowed();
         boolean isUnsupportedAlwaysFalse = domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
         boolean isInOrNull = !valueSet.getRanges().getOrderedRanges().isEmpty() && domain.isNullAllowed();

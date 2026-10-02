@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
@@ -59,6 +60,7 @@ import java.util.stream.LongStream;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BOOLEAN;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_CHAR;
@@ -86,6 +88,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -188,6 +191,38 @@ public class TestDefaultJdbcQueryBuilder
     }
 
     @Test
+    public void testNonFiniteDomainsRetainResidual()
+            throws SQLException
+    {
+        for (JdbcColumnHandle column : List.of(columns.get(1), columns.get(10))) {
+            Object nan = column.getColumnType().equals(DOUBLE) ? (Object) Double.NaN : (long) floatToRawIntBits(Float.NaN);
+            Object infinity = column.getColumnType().equals(DOUBLE) ? (Object) Double.POSITIVE_INFINITY : (long) floatToRawIntBits(Float.POSITIVE_INFINITY);
+            for (ValueSet values : List.of(
+                    ValueSet.of(column.getColumnType(), nan),
+                    ValueSet.of(column.getColumnType(), nan).complement(),
+                    ValueSet.of(column.getColumnType(), infinity))) {
+                for (boolean nullAllowed : List.of(false, true)) {
+                    Domain original = Domain.create(values, nullAllowed);
+                    DomainPushdownResult result = FULL_PUSHDOWN.apply(SESSION, original);
+                    assertThat(result.getRemainingFilter()).isEqualTo(original);
+                    assertThat(result.getPushedDown()).isEqualTo(Domain.create(ValueSet.all(column.getColumnType()), nullAllowed));
+                    PreparedQuery query = queryBuilder.prepareSelectQuery(
+                            jdbcClient,
+                            SESSION,
+                            database.getConnection(),
+                            TEST_TABLE,
+                            Optional.empty(),
+                            List.of(column),
+                            Map.of(),
+                            TupleDomain.withColumnDomains(Map.of(column, result.getPushedDown())),
+                            Optional.empty());
+                    assertThat(query.parameters()).isEmpty();
+                }
+            }
+        }
+    }
+
+    @Test
     public void testNormalBuildSql()
             throws SQLException
     {
@@ -269,7 +304,7 @@ public class TestDefaultJdbcQueryBuilder
                 // complement of a Domain with null not allowed
                 .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 128L, 180L, 233L), false).complement())
                 // complement of a Domain with null allowed
-                .put(columns.get(1), Domain.create(ValueSet.of(DOUBLE, 200011.0, 200014.0, 200017.0), true).complement())
+                .put(columns.get(1), FULL_PUSHDOWN.apply(SESSION, Domain.create(ValueSet.of(DOUBLE, 200011.0, 200014.0, 200017.0), true).complement()).getPushedDown())
                 // this is here only to limit the list of results being read
                 .put(columns.get(9), Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 880L)), false))
                 .buildOrThrow());
@@ -291,7 +326,7 @@ public class TestDefaultJdbcQueryBuilder
                     "SELECT \"col_0\", \"col_3\", \"col_9\" " +
                     "FROM \"test_table\" " +
                     "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
-                    "AND NOT (\"col_1\" IN (?,?,?)) " +
+                    "AND \"col_1\" IS NOT NULL " +
                     "AND \"col_9\" >= ?");
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -300,6 +335,89 @@ public class TestDefaultJdbcQueryBuilder
                 }
             }
             assertThat(builder.build()).containsExactlyElementsOf(LongStream.range(980, 1000).boxed().collect(toImmutableList()));
+        }
+    }
+
+    @Test
+    public void testRenderingPreservesEnforcedDomain()
+            throws SQLException
+    {
+        JdbcColumnHandle column = columns.get(0);
+        List<Long> values = LongStream.range(0, 258).map(value -> value * 2).boxed().toList();
+        Domain enforced = Domain.multipleValues(BIGINT, values);
+        Connection connection = database.getConnection();
+        PreparedQuery query = queryBuilder.prepareSelectQuery(
+                jdbcClient,
+                SESSION,
+                connection,
+                TEST_TABLE,
+                Optional.empty(),
+                List.of(column),
+                Map.of(),
+                TupleDomain.withColumnDomains(Map.of(column, enforced)),
+                Optional.empty());
+        assertThat(query.parameters()).hasSize(values.size());
+        try (PreparedStatement statement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, query, Optional.empty());
+                ResultSet rows = statement.executeQuery()) {
+            ImmutableSet.Builder<Long> actual = ImmutableSet.builder();
+            while (rows.next()) {
+                actual.add(rows.getLong("col_0"));
+            }
+            assertThat(actual.build()).containsExactlyInAnyOrderElementsOf(values);
+        }
+    }
+
+    @Test
+    public void testFloatingPointDomainCompaction()
+            throws SQLException
+    {
+        for (JdbcColumnHandle column : List.of(columns.get(1), columns.get(10))) {
+            Function<Integer, Object> nativeValue = column.getColumnType().equals(DOUBLE)
+                    ? value -> (double) value
+                    : value -> (long) floatToRawIntBits(value.floatValue());
+            for (boolean nullAllowed : List.of(false, true)) {
+                for (int rangeCount : List.of(256, 258)) {
+                    ImmutableList.Builder<Range> ranges = ImmutableList.builder();
+                    ranges.add(Range.lessThan(column.getColumnType(), nativeValue.apply(0)));
+                    for (int value = 1; value < rangeCount - 1; value++) {
+                        ranges.add(Range.equal(column.getColumnType(), nativeValue.apply(value)));
+                    }
+                    ranges.add(Range.greaterThan(column.getColumnType(), nativeValue.apply(rangeCount - 1)));
+                    Domain original = Domain.create(ValueSet.copyOfRanges(column.getColumnType(), ranges.build()), nullAllowed);
+
+                    DomainPushdownResult pushdown = FULL_PUSHDOWN.apply(SESSION, original);
+                    PreparedQuery query = queryBuilder.prepareSelectQuery(
+                            jdbcClient,
+                            SESSION,
+                            database.getConnection(),
+                            TEST_TABLE,
+                            Optional.empty(),
+                            List.of(column),
+                            Map.of(),
+                            TupleDomain.withColumnDomains(Map.of(column, pushdown.getPushedDown())),
+                            Optional.empty());
+                    if (rangeCount == 256) {
+                        assertThat(pushdown.getPushedDown()).isEqualTo(original);
+                        assertThat(pushdown.getRemainingFilter()).isEqualTo(original);
+                        assertThat(query.parameters()).hasSize(rangeCount).allSatisfy(parameter -> {
+                            Object value = parameter.getValue().orElseThrow();
+                            if (column.getColumnType().equals(DOUBLE)) {
+                                assertThat(Double.isFinite((double) value)).isTrue();
+                            }
+                            else {
+                                assertThat(Float.isFinite(Float.intBitsToFloat(toIntExact((long) value)))).isTrue();
+                            }
+                        });
+                    }
+                    else {
+                        assertThat(pushdown.getPushedDown()).isEqualTo(Domain.create(ValueSet.all(column.getColumnType()), nullAllowed));
+                        assertThat(pushdown.getRemainingFilter()).isEqualTo(original);
+                        assertThat(query.parameters()).isEmpty();
+                        assertThat(query.query()).isEqualTo("SELECT \"" + column.getColumnName() + "\" FROM \"test_table\"" +
+                                (nullAllowed ? "" : " WHERE \"" + column.getColumnName() + "\" IS NOT NULL"));
+                    }
+                }
+            }
         }
     }
 

@@ -67,6 +67,7 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.FloatingPointValueSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -511,7 +512,11 @@ public class OpenSearchMetadata
         for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             OpenSearchColumnHandle column = (OpenSearchColumnHandle) entry.getKey();
 
-            if (column.supportsPredicates()) {
+            Domain domain = entry.getValue();
+            // The search query API does not support NaN predicates.
+            boolean unsupportedFloatingPoint = domain.getValues() instanceof FloatingPointValueSet floatingPoint &&
+                    !floatingPoint.isAll() && (floatingPoint.isNaNAllowed() || floatingPoint.isAllOrderedValues());
+            if (column.supportsPredicates() && !unsupportedFloatingPoint) {
                 supported.put(column, entry.getValue());
             }
             else {

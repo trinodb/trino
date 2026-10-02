@@ -148,7 +148,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping realColumnMapping()
     {
-        return ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction());
+        return realColumnMapping(FULL_PUSHDOWN);
+    }
+
+    public static ColumnMapping realColumnMapping(PredicatePushdownController predicatePushdownController)
+    {
+        return ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction(), predicatePushdownController);
     }
 
     public static LongWriteFunction realWriteFunction()
@@ -158,7 +163,12 @@ public final class StandardColumnMappings
 
     public static ColumnMapping doubleColumnMapping()
     {
-        return ColumnMapping.doubleMapping(DOUBLE, ResultSet::getDouble, doubleWriteFunction());
+        return doubleColumnMapping(FULL_PUSHDOWN);
+    }
+
+    public static ColumnMapping doubleColumnMapping(PredicatePushdownController predicatePushdownController)
+    {
+        return ColumnMapping.doubleMapping(DOUBLE, ResultSet::getDouble, doubleWriteFunction(), predicatePushdownController);
     }
 
     public static DoubleWriteFunction doubleWriteFunction()

@@ -15,7 +15,6 @@ package io.trino.plugin.oracle;
 
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteFunction;
@@ -62,7 +61,7 @@ public class TestOracleClient
             _ -> {
                 throw new UnsupportedOperationException();
             },
-            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+            new OracleQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 

@@ -63,6 +63,7 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -158,7 +159,7 @@ public class UnwrapCastInComparison
 
     public UnwrapCastInComparison(PlannerContext plannerContext)
     {
-        super(createRewrite(plannerContext));
+        super(createRewrite(plannerContext), session -> !isFunctionPreimagesEnabled(session));
     }
 
     private static ExpressionRewriter createRewrite(PlannerContext plannerContext)

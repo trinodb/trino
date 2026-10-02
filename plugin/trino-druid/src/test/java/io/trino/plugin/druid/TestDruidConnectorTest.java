@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -723,18 +724,24 @@ public class TestDruidConnectorTest
         assertThat(query("SELECT sum(orderkey), sum(totalprice), sum(shippriority) FROM orders")).isFullyPushedDown();
         assertThat(query("SELECT avg(orderkey), avg(totalprice), avg(shippriority) FROM orders")).isFullyPushedDown();
 
+        // Druid orders NaN above numbers. An unbounded upper range needs a residual until the connector
+        // can render a NaN exclusion. A bounded range excludes NaN and permits aggregation pushdown.
         // WHERE on aggregation column
-        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000")).isFullyPushedDown();
+        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT min(orderkey), min(totalprice) FROM orders WHERE orderkey < 10 AND totalprice > 50000 AND totalprice < 100000")).isFullyPushedDown();
         // WHERE on non-aggregation column
-        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000")).isFullyPushedDown();
+        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class, FilterNode.class);
+        assertThat(query("SELECT min(orderkey) FROM orders WHERE totalprice > 50000 AND totalprice < 100000")).isFullyPushedDown();
         // GROUP BY
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on both grouping and aggregation column
-        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 GROUP BY orderstatus")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' AND totalprice > 50000 AND totalprice < 100000 GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on grouping column
         assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE orderstatus = 'F' GROUP BY orderstatus")).isFullyPushedDown();
         // GROUP BY with WHERE on aggregation column
-        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isFullyPushedDown();
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 GROUP BY orderstatus")).isNotFullyPushedDown(AggregationNode.class, FilterNode.class);
+        assertThat(query("SELECT orderstatus, min(totalprice) FROM orders WHERE totalprice > 50000 AND totalprice < 100000 GROUP BY orderstatus")).isFullyPushedDown();
     }
 
     @Test

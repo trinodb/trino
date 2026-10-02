@@ -32,6 +32,7 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.FunctionPreimages;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.join.JoinUtils;
@@ -41,7 +42,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeManager;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
@@ -87,6 +88,7 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isFunctionPreimagesEnabled;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.predicate.Domain.union;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
@@ -102,16 +104,16 @@ public class DynamicFilterService
 {
     private final Metadata metadata;
     private final FunctionManager functionManager;
-    private final TypeOperators typeOperators;
+    private final TypeManager typeManager;
     private final DataSize maxSizePerFilter;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeManager typeManager, DynamicFilterConfig dynamicFilterConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxSizePerFilter = dynamicFilterConfig.getMaxSizePerFilter();
     }
 
@@ -431,7 +433,10 @@ public class DynamicFilterService
                             Type targetType = symbol.type();
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);
+                                if (isFunctionPreimagesEnabled(session)) {
+                                    return new FunctionPreimages(metadata, functionManager, typeManager, session).castPreimage(updatedSummary, targetType);
+                                }
+                                return applySaturatedCasts(metadata, functionManager, typeManager.getTypeOperators(), session, updatedSummary, targetType);
                             }
                             return updatedSummary;
                         },

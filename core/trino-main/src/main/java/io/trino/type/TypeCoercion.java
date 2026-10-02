@@ -125,7 +125,7 @@ public final class TypeCoercion
         return false;
     }
 
-    // based on `UnwrapCastInComparison.Visitor.hasInjectiveImplicitCoercion()`
+    // based on `the comparison-preimage cast eligibility rules`
     public boolean isInjectiveCoercion(Type source, Type result)
     {
         if ((source.equals(BIGINT) && result.equals(DOUBLE)) ||

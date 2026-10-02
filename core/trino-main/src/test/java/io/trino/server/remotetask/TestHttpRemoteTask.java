@@ -76,7 +76,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -238,7 +237,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(
                 testingTaskResource,
@@ -296,7 +295,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         HttpRemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
@@ -348,7 +347,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of());
@@ -427,7 +426,7 @@ public class TestHttpRemoteTask
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 queryId,
@@ -643,7 +642,7 @@ public class TestHttpRemoteTask
         return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
-                new TypeOperators(),
+                PLANNER_CONTEXT.getTypeManager(),
                 new DynamicFilterConfig()));
     }
 

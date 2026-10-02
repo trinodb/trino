@@ -21,9 +21,23 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.Type;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.Metrics;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
+import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
+import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
@@ -31,12 +45,15 @@ import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static org.apache.iceberg.expressions.Expression.Operation.GT_EQ;
@@ -62,6 +79,105 @@ public class TestExpressionConverter
     private static final IcebergColumnHandle TIMESTAMP_TZ_NANOS_COLUMN = IcebergColumnHandle.optional(primitiveColumnIdentity(2, "ts_tz_nano"))
             .columnType(TIMESTAMP_TZ_NANOS)
             .build();
+
+    @Test
+    public void testFloatingPointMembership()
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            Object one = type.equals(DOUBLE) ? (Object) 1.0 : (long) floatToRawIntBits(1.0f);
+            Object nan = type.equals(DOUBLE) ? (Object) Double.NaN : (long) floatToRawIntBits(Float.NaN);
+            ValueSet lessThanOne = ValueSet.ofRanges(Range.lessThan(type, one));
+            ValueSet nanSet = ValueSet.of(type, nan);
+            IcebergColumnHandle column = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "x")).columnType(type).build();
+            Schema schema = new Schema(Types.NestedField.optional(1, "x", type.equals(DOUBLE) ? Types.DoubleType.get() : Types.FloatType.get()));
+            for (ValueSet values : List.of(
+                    ValueSet.all(type),
+                    ValueSet.none(type),
+                    nanSet,
+                    nanSet.complement(),
+                    ValueSet.of(type, one),
+                    ValueSet.of(type, one).complement(),
+                    lessThanOne,
+                    lessThanOne.union(nanSet),
+                    lessThanOne.complement())) {
+                for (boolean nullAllowed : List.of(false, true)) {
+                    Domain domain = Domain.create(values, nullAllowed);
+                    Evaluator evaluator = new Evaluator(schema.asStruct(), toIcebergExpression(column, domain), true);
+                    for (Double value : Arrays.asList(null, Double.NEGATIVE_INFINITY, -1.0, -0.0, 0.0, 1.0, 2.0, Double.POSITIVE_INFINITY, Double.NaN, Double.longBitsToDouble(0x7FF0000000000001L))) {
+                        GenericRecord row = GenericRecord.create(schema);
+                        Object nativeValue = value;
+                        Object icebergValue = value;
+                        if (value != null && type.equals(REAL)) {
+                            nativeValue = (long) floatToRawIntBits(value.floatValue());
+                            icebergValue = value.floatValue();
+                        }
+                        row.setField("x", icebergValue);
+                        assertThat(evaluator.eval(row)).as("%s contains %s", domain, nativeValue).isEqualTo(domain.includesNullableValue(nativeValue));
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testFloatingPointZeroBoundaries()
+    {
+        for (Type type : List.of(DOUBLE, REAL)) {
+            IcebergColumnHandle column = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "x")).columnType(type).build();
+            org.apache.iceberg.types.Type icebergType = type.equals(DOUBLE) ? Types.DoubleType.get() : Types.FloatType.get();
+            Schema schema = new Schema(Types.NestedField.optional(1, "x", icebergType));
+            Object nan = type.equals(DOUBLE) ? (Object) Double.NaN : (long) floatToRawIntBits(Float.NaN);
+            Object one = type.equals(DOUBLE) ? (Object) 1.0 : (long) floatToRawIntBits(1.0f);
+            for (double zero : List.of(-0.0, 0.0)) {
+                Object bound = type.equals(DOUBLE) ? (Object) zero : (long) floatToRawIntBits((float) zero);
+                for (ValueSet values : List.of(
+                        ValueSet.of(type, bound),
+                        ValueSet.of(type, bound, one),
+                        ValueSet.ofRanges(Range.lessThan(type, bound)),
+                        ValueSet.ofRanges(Range.lessThanOrEqual(type, bound)),
+                        ValueSet.ofRanges(Range.greaterThan(type, bound)),
+                        ValueSet.ofRanges(Range.greaterThanOrEqual(type, bound)))) {
+                    for (ValueSet membership : List.of(values, values.complement(), values.union(ValueSet.of(type, nan)))) {
+                        for (boolean nullAllowed : List.of(false, true)) {
+                            Domain domain = Domain.create(membership, nullAllowed);
+                            Expression expression = toIcebergExpression(column, domain);
+                            Evaluator evaluator = new Evaluator(schema.asStruct(), expression, true);
+                            InclusiveMetricsEvaluator metricsEvaluator = new InclusiveMetricsEvaluator(schema, expression);
+                            for (Double value : Arrays.asList(null, -1.0, -0.0, 0.0, 1.0, Double.NaN)) {
+                                Object nativeValue = value;
+                                Object icebergValue = value;
+                                if (value != null && type.equals(REAL)) {
+                                    nativeValue = (long) floatToRawIntBits(value.floatValue());
+                                    icebergValue = value.floatValue();
+                                }
+                                GenericRecord row = GenericRecord.create(schema);
+                                row.setField("x", icebergValue);
+                                boolean matches = domain.includesNullableValue(nativeValue);
+                                assertThat(evaluator.eval(row)).as("%s contains %s", domain, nativeValue).isEqualTo(matches);
+                                if (value != null && !value.isNaN()) {
+                                    DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
+                                            .withPath("test.parquet")
+                                            .withFileSizeInBytes(100)
+                                            .withMetrics(new Metrics(
+                                                    1L,
+                                                    ImmutableMap.of(),
+                                                    ImmutableMap.of(1, 1L),
+                                                    ImmutableMap.of(1, 0L),
+                                                    ImmutableMap.of(1, 0L),
+                                                    ImmutableMap.of(1, Conversions.toByteBuffer(icebergType, icebergValue)),
+                                                    ImmutableMap.of(1, Conversions.toByteBuffer(icebergType, icebergValue))))
+                                            .build();
+                                    if (matches) {
+                                        assertThat(metricsEvaluator.eval(file)).as("%s retains file containing %s", domain, nativeValue).isTrue();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     @Test
     public void testTimestampNanosOutOfRangeSingleValuesAreAlwaysFalse()

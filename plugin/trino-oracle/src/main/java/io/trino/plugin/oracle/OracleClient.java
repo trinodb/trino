@@ -114,6 +114,8 @@ import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FINITE_FLOATING_POINT_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FLOATING_POINT_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -543,13 +545,13 @@ public class OracleClient
                     REAL,
                     (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                     oracleRealWriteFunction(),
-                    FULL_PUSHDOWN));
+                    FLOATING_POINT_PUSHDOWN));
 
             case OracleTypes.BINARY_DOUBLE, OracleTypes.FLOAT -> Optional.of(ColumnMapping.doubleMapping(
                     DOUBLE,
                     ResultSet::getDouble,
                     oracleDoubleWriteFunction(),
-                    FULL_PUSHDOWN));
+                    typeHandle.jdbcType() == OracleTypes.FLOAT ? FINITE_FLOATING_POINT_PUSHDOWN : FLOATING_POINT_PUSHDOWN));
             case OracleTypes.NUMBER -> {
                 int columnSize = typeHandle.requiredColumnSize();
                 int decimalDigits = typeHandle.requiredDecimalDigits();

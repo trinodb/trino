@@ -21,9 +21,11 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -32,7 +34,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -76,6 +80,11 @@ public final class JdbcPageSource
 
     public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
+        this(jdbcClient, executor, session, split, table, columnHandles, TupleDomain.all());
+    }
+
+    JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles, TupleDomain<JdbcColumnHandle> dynamicFilter)
+    {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
@@ -95,15 +104,11 @@ public final class JdbcPageSource
                 connection = jdbcClient.getConnection(session, split, (JdbcTableHandle) table);
             }
 
+            Map<JdbcColumnHandle, ColumnMapping> columnMappings = new HashMap<>();
             for (int i = 0; i < this.columnHandles.size(); i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
-                ColumnMapping columnMapping = jdbcClient.toColumnMapping(session, connection, columnHandle.getJdbcTypeHandle())
-                        .orElseThrow(() -> new VerifyException("Column %s has unsupported type %s".formatted(columnHandle.getColumnName(), columnHandle.getJdbcTypeHandle())));
-                verify(columnHandle.getColumnType().equals(columnMapping.getType()),
-                        "Type mismatch: column handle has type %s but %s is mapped to %s",
-                        columnHandle.getColumnType(),
-                        columnHandle.getJdbcTypeHandle(),
-                        columnMapping.getType());
+                ColumnMapping columnMapping = getColumnMapping(session, columnHandle);
+                columnMappings.put(columnHandle, columnMapping);
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
                 readFunctions[i] = readFunction;
@@ -129,7 +134,16 @@ public final class JdbcPageSource
                 statement = jdbcClient.buildProcedure(session, connection, split, procedureHandle);
             }
             else {
-                statement = jdbcClient.buildSql(session, connection, split, (JdbcTableHandle) table, columnHandles);
+                // Approximate only the dynamic filter. The table constraint may already be enforced.
+                TupleDomain<JdbcColumnHandle> pushedDown = dynamicFilter.transformDomains((column, domain) ->
+                        columnMappings.computeIfAbsent(column, key -> getColumnMapping(session, key))
+                                .getPredicatePushdownController().apply(session, domain).getPushedDown());
+                statement = jdbcClient.buildSql(
+                        session,
+                        connection,
+                        split,
+                        ((JdbcTableHandle) table).intersectedWithConstraint(pushedDown.transformKeys(ColumnHandle.class::cast)),
+                        columnHandles);
             }
             pageBuilder = new PageBuilder(columnHandles.stream()
                     .map(JdbcColumnHandle::getColumnType)
@@ -139,6 +153,18 @@ public final class JdbcPageSource
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
         }
+    }
+
+    private ColumnMapping getColumnMapping(ConnectorSession session, JdbcColumnHandle column)
+    {
+        ColumnMapping mapping = jdbcClient.toColumnMapping(session, connection, column.getJdbcTypeHandle())
+                .orElseThrow(() -> new VerifyException("Column %s has unsupported type %s".formatted(column.getColumnName(), column.getJdbcTypeHandle())));
+        verify(column.getColumnType().equals(mapping.getType()),
+                "Type mismatch: column handle has type %s but %s is mapped to %s",
+                column.getColumnType(),
+                column.getJdbcTypeHandle(),
+                mapping.getType());
+        return mapping;
     }
 
     @Override
