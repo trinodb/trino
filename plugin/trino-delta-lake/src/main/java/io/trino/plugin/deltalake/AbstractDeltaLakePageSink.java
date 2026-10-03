@@ -36,7 +36,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.format.CompressionCodec;
 
 import java.io.IOException;
@@ -59,7 +58,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupMaxRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterRowGroupSize;
-import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.String.format;
@@ -72,7 +70,6 @@ public abstract class AbstractDeltaLakePageSink
 {
     private static final Logger LOG = Logger.get(AbstractDeltaLakePageSink.class);
 
-    private final TypeOperators typeOperators;
     private final List<DeltaLakeColumnHandle> dataColumnHandles;
     private final int[] dataColumnInputIndex;
     private final List<String> dataColumnNames;
@@ -110,7 +107,6 @@ public abstract class AbstractDeltaLakePageSink
     private long currentOpenWriters;
 
     public AbstractDeltaLakePageSink(
-            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
@@ -126,7 +122,6 @@ public abstract class AbstractDeltaLakePageSink
             DeltaLakeParquetSchemaMapping parquetSchemaMapping,
             boolean useDeltaLengthByteArrayEncoding)
     {
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         requireNonNull(inputColumns, "inputColumns is null");
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
@@ -446,10 +441,6 @@ public abstract class AbstractDeltaLakePageSink
         try {
             RollbackAction rollbackAction = () -> fileSystem.deleteFile(path);
 
-            List<Type> parquetTypes = dataColumnTypes.stream()
-                    .map(type -> toParquetType(typeOperators, type))
-                    .collect(toImmutableList());
-
             // we use identity column mapping; input page already contains only data columns per
             // DataLagePageSink.getDataPage()
             int[] identityMapping = new int[dataColumnTypes.size()];
@@ -460,7 +451,7 @@ public abstract class AbstractDeltaLakePageSink
             return new ParquetFileWriter(
                     fileSystem.newOutputFile(path),
                     rollbackAction,
-                    parquetTypes,
+                    dataColumnTypes,
                     dataColumnNames,
                     parquetSchemaMapping.messageType(),
                     parquetSchemaMapping.primitiveTypes(),

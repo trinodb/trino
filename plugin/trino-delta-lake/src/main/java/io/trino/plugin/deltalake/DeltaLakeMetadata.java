@@ -367,6 +367,8 @@ import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.blockToNativeValue;
@@ -991,6 +993,9 @@ public class DeltaLakeMetadata
     {
         if (type instanceof TimestampType) {
             return TIMESTAMP_MICROS;
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return TIMESTAMP_TZ_MICROS;
         }
         if (type instanceof CharType) {
             return VARCHAR;
@@ -4803,6 +4808,7 @@ public class DeltaLakeMetadata
         if (isNotFinite(maxValue, column.type())) {
             maxValue = Optional.empty();
         }
+        maxValue = maxValue.map(value -> widenTruncatedTimestampMaximum(column.type(), value));
         if (minValue.isPresent() && maxValue.isPresent()) {
             return Domain.create(
                     ofRanges(range(column.type(), minValue.get(), true, maxValue.get(), true)),
@@ -4815,6 +4821,16 @@ public class DeltaLakeMetadata
         return maxValue
                 .map(value -> Domain.create(ofRanges(lessThanOrEqual(column.type(), value)), hasNulls))
                 .orElseGet(() -> Domain.all(column.type()));
+    }
+
+    private static Object widenTruncatedTimestampMaximum(Type type, Object value)
+    {
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() > TIMESTAMP_TZ_MILLIS.getPrecision()) {
+            // a file holding only 01:02:03.456789 carries a maximum of 01:02:03.456, so pruning on the exact value would skip it
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+            return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis() + 1, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
+        }
+        return value;
     }
 
     private static boolean isNotFinite(Optional<Object> value, Type type)

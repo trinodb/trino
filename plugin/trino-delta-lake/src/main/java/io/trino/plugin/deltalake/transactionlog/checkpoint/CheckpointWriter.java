@@ -39,7 +39,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -578,7 +578,10 @@ public class CheckpointWriter
                                         if (type == TIMESTAMP_MILLIS) {
                                             // We need to remap TIMESTAMP WITH TIME ZONE -> TIMESTAMP here because of
                                             // inconsistency in what type is used for DL "timestamp" type in data processing and in min/max statistics map.
-                                            value = multiplyExact(DateTimeEncoding.unpackMillisUtc((long) value), MICROSECONDS_PER_MILLISECOND);
+                                            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+                                            // this field is millisecond-granular, so dropping a non-zero fraction here would record a maximum below the real values
+                                            checkState(timestamp.getPicosOfMilli() == 0, "Unexpected sub-millisecond statistics value: %s", timestamp);
+                                            value = multiplyExact(timestamp.getEpochMillis(), MICROSECONDS_PER_MILLISECOND);
                                         }
                                         if (type == TIMESTAMP_MICROS) {
                                             // This is TIMESTAMP_NTZ type in Delta Lake
