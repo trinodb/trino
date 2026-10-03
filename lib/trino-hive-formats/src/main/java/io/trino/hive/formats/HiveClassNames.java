@@ -34,6 +34,7 @@ public final class HiveClassNames
     public static final String LAZY_SIMPLE_SERDE_CLASS = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe";
     public static final String MAPRED_PARQUET_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
     public static final String MAPRED_PARQUET_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
+    public static final String METADATA_TYPED_COLUMNSET_SERDE_CLASS = "org.apache.hadoop.hive.serde2.MetadataTypedColumnsetSerDe";
     public static final String OPENCSV_SERDE_CLASS = "org.apache.hadoop.hive.serde2.OpenCSVSerde";
     public static final String ORC_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
     public static final String ORC_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
