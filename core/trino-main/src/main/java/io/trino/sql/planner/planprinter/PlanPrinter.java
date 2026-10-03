@@ -49,6 +49,7 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.DescriptorArgument;
 import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.TableMetadataArgument;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -1916,10 +1917,11 @@ public class PlanPrinter
             if (argument instanceof DescriptorArgument descriptorArgument) {
                 return formatDescriptorArgument(argumentName, descriptorArgument);
             }
-            else {
-                TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
-                return formatTableArgument(argumentName, argumentProperties);
+            if (argument instanceof TableMetadataArgument) {
+                return format("%s => TableMetadataArgument{}", argumentName);
             }
+            TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
+            return formatTableArgument(argumentName, argumentProperties);
         }
 
         private String formatScalarArgument(String argumentName, ScalarArgument argument)
