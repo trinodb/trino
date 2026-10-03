@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.plugin.datasketches.state.SketchState;
 import io.trino.plugin.datasketches.state.SketchStateFactory;
+import io.trino.plugin.datasketches.theta.ANotB;
 import io.trino.plugin.datasketches.theta.Estimate;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
@@ -228,6 +229,88 @@ public class TestDataSketches
                 """.formatted(unionNominalEntries, DEFAULT_UPDATE_SEED, sketchA, sketchB));
 
         assertThat(estimate).isEqualTo(unionNominalEntries);
+    }
+
+    // -------------------------------------------------------------------------
+    // A-not-B (set difference)
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testANotBOverlapping()
+    {
+        // {1..10} \ {6..15} = {1,2,3,4,5}
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        String sketchB = toHexSketch(new int[] {6, 7, 8, 9, 10, 11, 12, 13, 14, 15});
+
+        double estimate = (double) computeScalar(
+                "SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s'))".formatted(sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(5d);
+    }
+
+    @Test
+    public void testANotBDisjoint()
+    {
+        // Disjoint sets: A \ B = A
+        String sketchA = toHexSketch(new int[] {1, 2, 3});
+        String sketchB = toHexSketch(new int[] {4, 5, 6});
+
+        double estimate = (double) computeScalar(
+                "SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s'))".formatted(sketchA, sketchB));
+
+        assertThat(estimate).isEqualTo(3d);
+    }
+
+    @Test
+    public void testANotBSelf()
+    {
+        // A \ A = empty
+        String sketch = toHexSketch(new int[] {1, 2, 3, 4, 5});
+
+        double estimate = (double) computeScalar(
+                "SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s'))".formatted(sketch, sketch));
+
+        assertThat(estimate).isEqualTo(0d);
+    }
+
+    @Test
+    public void testANotBNonCommutative()
+    {
+        // A={1..10}, B={8..15}: A\B={1..7}=7, B\A={11..15}=5
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        String sketchB = toHexSketch(new int[] {8, 9, 10, 11, 12, 13, 14, 15});
+
+        double aNotB = (double) computeScalar(
+                "SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s'))".formatted(sketchA, sketchB));
+        double bNotA = (double) computeScalar(
+                "SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s'))".formatted(sketchB, sketchA));
+
+        assertThat(aNotB).isEqualTo(7d);
+        assertThat(bNotA).isEqualTo(5d);
+    }
+
+    @Test
+    public void testANotBCustomSeed()
+    {
+        String sketchA = base16().lowerCase().encode(toSketchSlice(new int[] {1, 2, 3, 4, 5}, TEST_SEED, TEST_ENTRIES).getBytes());
+        String sketchB = base16().lowerCase().encode(toSketchSlice(new int[] {4, 5, 6, 7}, TEST_SEED, TEST_ENTRIES).getBytes());
+
+        double estimate = (double) computeScalar(
+                """
+                SELECT theta_sketch_cardinality(theta_sketch_a_not_b(X'%s', X'%s', CAST(%d AS BIGINT)), CAST(%d AS BIGINT))
+                """.formatted(sketchA, sketchB, TEST_SEED, TEST_SEED));
+
+        assertThat(estimate).isEqualTo(3d);
+    }
+
+    @Test
+    public void testANotBEmptyInputs()
+    {
+        Slice sketch = toSketchSlice(new int[] {1, 2, 3, 4, 5}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES);
+        // Empty A -> empty difference
+        assertThat(ANotB.aNotB(Slices.EMPTY_SLICE, sketch).length()).isEqualTo(0);
+        // Empty B -> A unchanged
+        assertThat(ANotB.aNotB(sketch, Slices.EMPTY_SLICE)).isEqualTo(sketch);
     }
 
     private String toHexSketch(int[] data)
