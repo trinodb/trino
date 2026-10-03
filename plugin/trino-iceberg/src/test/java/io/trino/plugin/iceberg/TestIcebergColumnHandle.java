@@ -29,7 +29,12 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,6 +70,48 @@ public class TestIcebergColumnHandle
                 .path(2)
                 .build();
         testRoundTrip(partialColumn);
+
+        IcebergPartitionColumn partitionColumn = new IcebergPartitionColumn(
+                RowType.from(ImmutableList.of(RowType.field("part_bucket", INTEGER), RowType.field("ds", DATE))),
+                ImmutableList.of(1000, 1001));
+        testRoundTrip(partitionColumnHandle(partitionColumn));
+    }
+
+    @Test
+    public void testMetadataColumnPredicates()
+    {
+        IcebergColumnHandle dataColumn = IcebergColumnHandle.optional(primitiveColumnIdentity(1, "id")).columnType(BIGINT).build();
+        assertThat(dataColumn.isMetadataColumn()).isFalse();
+
+        // A projected field of a data column is not a metadata column, whatever its field id
+        ColumnIdentity field = new ColumnIdentity(FILE_PATH.getId(), "field", PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle projectedField = IcebergColumnHandle.optional(new ColumnIdentity(2, "root", STRUCT, ImmutableList.of(field)))
+                .fieldType(RowType.from(ImmutableList.of(RowType.field("field", BIGINT))), BIGINT)
+                .path(FILE_PATH.getId())
+                .build();
+        assertThat(projectedField.getId()).isEqualTo(FILE_PATH.getId());
+        assertThat(projectedField.isMetadataColumn()).isFalse();
+
+        assertThat(pathColumnHandle().isMetadataColumn()).isTrue();
+        assertThat(pathColumnHandle().isPartitionColumn()).isFalse();
+
+        IcebergPartitionColumn partitionColumn = new IcebergPartitionColumn(
+                RowType.from(ImmutableList.of(RowType.field("part_bucket", INTEGER))),
+                ImmutableList.of(1000));
+        IcebergColumnHandle partition = partitionColumnHandle(partitionColumn);
+        assertThat(partition.isMetadataColumn()).isTrue();
+        assertThat(partition.isPartitionColumn()).isTrue();
+        assertThat(partition.isPartitionField()).isFalse();
+
+        // A projected partition field keeps the metadata column as its base column, while its id is the partition field id
+        IcebergColumnHandle partitionField = IcebergColumnHandle.optional(partition.getBaseColumnIdentity())
+                .fieldType(partition.getType(), INTEGER)
+                .path(1000)
+                .build();
+        assertThat(partitionField.getId()).isEqualTo(1000);
+        assertThat(partitionField.isMetadataColumn()).isTrue();
+        assertThat(partitionField.isPartitionColumn()).isFalse();
+        assertThat(partitionField.isPartitionField()).isTrue();
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)
