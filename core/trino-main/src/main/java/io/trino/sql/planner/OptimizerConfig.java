@@ -48,6 +48,7 @@ public class OptimizerConfig
     private double joinMultiClauseIndependenceFactor = 0.25;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
+    private boolean useLegacyDecorrelator;
     private int maxReorderedJoins = 8;
     private int maxPrefetchedInformationSchemaPrefixes = 100;
 
@@ -229,6 +230,19 @@ public class OptimizerConfig
     public OptimizerConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public boolean isUseLegacyDecorrelator()
+    {
+        return useLegacyDecorrelator;
+    }
+
+    @Config("optimizer.use-legacy-decorrelator")
+    @ConfigDescription("Use the legacy pattern-matched subquery decorrelation rules instead of the dependent-join framework")
+    public OptimizerConfig setUseLegacyDecorrelator(boolean useLegacyDecorrelator)
+    {
+        this.useLegacyDecorrelator = useLegacyDecorrelator;
         return this;
     }
 
