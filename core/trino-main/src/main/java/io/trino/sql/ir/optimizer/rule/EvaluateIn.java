@@ -26,6 +26,7 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.optimizer.IrOptimizerRule;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.type.CharVarcharCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -36,18 +37,21 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.mayFail;
 
 /**
- * Evaluates a constant IN expression
+ * Evaluates a constant IN expression, or removes constant items that cannot match a constant value
  */
 public class EvaluateIn
         implements IrOptimizerRule
 {
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final InterpretedFunctionInvoker functionInvoker;
 
     public EvaluateIn(PlannerContext context)
     {
+        plannerContext = context;
         metadata = context.getMetadata();
         functionInvoker = new InterpretedFunctionInvoker(context.getFunctionManager());
     }
@@ -60,7 +64,7 @@ public class EvaluateIn
         }
 
         if (!list.stream().allMatch(Constant.class::isInstance)) {
-            return Optional.empty();
+            return removeNonMatchingItems(value, list, session);
         }
 
         if (list.isEmpty()) {
@@ -87,5 +91,40 @@ public class EvaluateIn
         }
 
         return Optional.of(nullMatch ? NULL_BOOLEAN : FALSE);
+    }
+
+    private Optional<Expression> removeNonMatchingItems(Constant value, List<Expression> list, Session session)
+    {
+        if (value.value() == null) {
+            return Optional.empty();
+        }
+
+        CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
+        ResolvedFunction equalsOperator = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(value.type(), value.type()));
+        ConnectorSession connectorSession = session.toConnectorSession();
+
+        boolean matchFound = false;
+        ImmutableList.Builder<Expression> remainingItems = ImmutableList.builder();
+        for (Expression item : list) {
+            if (item instanceof Constant constantItem) {
+                Boolean equal = (Boolean) functionInvoker.invoke(equalsOperator, connectorSession, value.value(), constantItem.value());
+                if (Boolean.FALSE.equals(equal)) {
+                    continue;
+                }
+                matchFound = matchFound || Boolean.TRUE.equals(equal);
+            }
+            remainingItems.add(item);
+        }
+        List<Expression> remaining = remainingItems.build();
+
+        if (matchFound && remaining.stream().noneMatch(item -> mayFail(plannerContext, charVarcharCoercion, item))) {
+            return Optional.of(TRUE);
+        }
+
+        if (remaining.size() == list.size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new In(value, remaining));
     }
 }

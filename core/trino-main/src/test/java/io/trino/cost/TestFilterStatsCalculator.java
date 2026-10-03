@@ -727,6 +727,13 @@ public class TestFilterStatsCalculator
     }
 
     @Test
+    public void testInWithConstantValueAndConstantItem()
+    {
+        assertExpression(new In(new Constant(DOUBLE, 2.0), ImmutableList.of(new Reference(DOUBLE, "x"), new Constant(DOUBLE, 7.0))))
+                .outputRowsCount(18.75);
+    }
+
+    @Test
     public void testSymbolEqualsSameSymbolFilter()
     {
         assertExpression(comparison(EQUAL, new Reference(DOUBLE, "x"), new Reference(DOUBLE, "x")))
