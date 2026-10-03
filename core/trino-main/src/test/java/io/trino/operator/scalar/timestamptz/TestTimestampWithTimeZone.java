@@ -2862,7 +2862,7 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12 Asia/Kathmandu')")).matches("1589093396.12e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123 Asia/Kathmandu')")).matches("1589093396.123e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234 Asia/Kathmandu')")).matches("1589093396.1234e0");
-        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345 Asia/Kathmandu')")).matches("1589093396.1234498e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345 Asia/Kathmandu')")).matches("1589093396.12345e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456 Asia/Kathmandu')")).matches("1589093396.123456e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567 Asia/Kathmandu')")).matches("1589093396.1234567e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678 Asia/Kathmandu')")).matches("1589093396.1234567e0");
@@ -2870,6 +2870,11 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.1234567890 Asia/Kathmandu')")).matches("1589093396.1234567e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.12345678901 Asia/Kathmandu')")).matches("1589093396.1234567e0");
         assertThat(assertions.expression("to_unixtime(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("1589093396.1234567e0");
+
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '1975-05-10 12:34:56.001002 UTC')")).matches("168957296.001002e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '1970-01-02 12:34:56.001002 UTC')")).matches("131696.001002e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '1969-12-31 23:59:59.001083 UTC')")).matches("-0.998917e0");
+        assertThat(assertions.expression("to_unixtime(TIMESTAMP '1960-05-10 12:34:56.001003 UTC')")).matches("-304341903.998997e0");
     }
 
     @Test

@@ -133,9 +133,39 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("from_unixtime", "980172245.888"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.888 Pacific/Apia'");
 
+        assertThat(assertions.function("from_unixtime", "0.0005e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.001 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "-0.0005e0", "'UTC'"))
+                .matches("TIMESTAMP '1969-12-31 23:59:59.999 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "0.5005e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.501 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "0.5004999e0", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.500 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "1589067296.1235e0", "'UTC'"))
+                .matches("TIMESTAMP '2020-05-09 23:34:56.124 UTC'");
+
+        assertThat(assertions.function("from_unixtime", "-1589067296.1235e0", "'UTC'"))
+                .matches("TIMESTAMP '1919-08-25 00:25:03.876 UTC'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "nan()")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Invalid unixtime: NaN");
+
         assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Millis overflow: 9223372036854775807");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "-2251799813685.2485e0")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: -2251799813685249");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "-infinity()")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: -9223372036854775808");
     }
 
     @Test

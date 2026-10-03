@@ -189,7 +189,8 @@ SELECT with_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
 
 :::{function} from_unixtime(unixtime) -> timestamp(3) with time zone
 Returns the UNIX timestamp `unixtime` as a timestamp with time zone. `unixtime` is the
-number of seconds since `1970-01-01 00:00:00 UTC`.
+number of seconds since `1970-01-01 00:00:00 UTC`. It is rounded to milliseconds
+the same way as a cast to a decimal with scale 3, with ties rounded away from zero.
 :::
 
 :::{function} from_unixtime(unixtime, zone) -> timestamp(3) with time zone
