@@ -13,5 +13,5 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-public record IcebergOptimizeManifestsHandle()
+public record IcebergOptimizeManifestsHandle(boolean isMaterializedViewStorage)
         implements IcebergProcedureHandle {}
