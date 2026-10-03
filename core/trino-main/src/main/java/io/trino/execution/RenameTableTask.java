@@ -95,7 +95,9 @@ public class RenameTableTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         QualifiedObjectName source = redirectionAwareTableHandle.redirectedTableName().orElse(tableName);
-        QualifiedObjectName target = createTargetQualifiedObjectName(source, statement.getTarget());
+        // Resolve the target through write redirection too, so an explicitly qualified three-part
+        // target naming the redirecting catalog lands in the same target catalog as the source.
+        QualifiedObjectName target = metadata.getWriteRedirectedTableName(session, createTargetQualifiedObjectName(source, statement.getTarget()));
         if (metadata.getCatalogHandle(session, target.catalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' not found", target.catalogName());
         }

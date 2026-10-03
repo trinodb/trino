@@ -935,7 +935,10 @@ class StatementAnalyzer
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
             // turn this into a query that has a new table writer node on top.
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            // Resolve write redirection first so the existence check, table properties and access
+            // control all apply to the target catalog, and so the resolved name is what lands in
+            // analysis.setCreate() for the planner.
+            QualifiedObjectName targetTable = metadata.getWriteRedirectedTableName(session, createQualifiedObjectName(session, node, node.getName()));
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {

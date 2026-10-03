@@ -60,7 +60,8 @@ public class TruncateTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = metadata.getWriteRedirectedTableName(session, originalTableName);
 
         if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");

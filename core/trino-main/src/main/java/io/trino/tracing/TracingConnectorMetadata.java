@@ -1497,6 +1497,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<CatalogSchemaTableName> redirectTableForWrite(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("redirectTableForWrite", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.redirectTableForWrite(session, tableName);
+        }
+    }
+
+    @Override
     public OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         Span span = startSpan("getMaxWriterTasks");
