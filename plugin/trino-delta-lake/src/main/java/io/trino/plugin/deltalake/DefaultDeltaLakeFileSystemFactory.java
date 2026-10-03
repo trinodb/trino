@@ -48,7 +48,7 @@ public class DefaultDeltaLakeFileSystemFactory
                     .withPrincipal(identity.getPrincipal())
                     .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                     .withConnectorRole(identity.getConnectorRole())
-                    .withExtraCredentials(tableCredentials.get().fileSystemCredentials().asExtraCredentials())
+                    .withExtraCredentials(tableCredentials.get().extraCredentials())
                     .build();
             return fileSystemFactory.create(identityWithExtraCredentials);
         }
@@ -59,7 +59,9 @@ public class DefaultDeltaLakeFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorSession session, String tableLocation)
     {
-        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(VendedCredentialsHandle.empty(tableLocation));
+        VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
+        Optional<DeltaLakeTableCredentials> tableCredentials = tableCredentialsProvider.getTableCredentials(credentialsHandle)
+                .map(credentials -> DeltaLakeTableCredentials.of(credentialsHandle, credentials));
         return create(session, tableCredentials);
     }
 }
