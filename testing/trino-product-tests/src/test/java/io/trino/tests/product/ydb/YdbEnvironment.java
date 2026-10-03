@@ -44,7 +44,7 @@ public class YdbEnvironment
 
         network = Network.newNetwork();
 
-        ydb = new GenericContainer<>("ydbplatform/local-ydb:latest")
+        ydb = new GenericContainer<>("ydbplatform/local-ydb@sha256:9e46fd45875551a75bcf34d0bb9ca0baa1d8763a4ccf2070af45f4467c4b7402")
                 .withNetwork(network)
                 .withNetworkAliases("ydb")
                 .withExposedPorts(2136)
