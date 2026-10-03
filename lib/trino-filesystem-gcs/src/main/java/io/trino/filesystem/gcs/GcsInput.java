@@ -16,20 +16,20 @@ package io.trino.filesystem.gcs;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobGetOption;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.getReadChannel;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static io.trino.filesystem.gcs.GcsUtils.selectEncryptionKey;
 import static java.lang.Math.addExact;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -42,15 +42,15 @@ final class GcsInput
     private final GcsLocation location;
     private final Storage storage;
     private final OptionalLong length;
-    private final Optional<EncryptionKey> key;
+    private final List<EncryptionKey> keys;
     private boolean closed;
 
-    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, Optional<EncryptionKey> key)
+    public GcsInput(GcsLocation location, Storage storage, OptionalLong length, List<EncryptionKey> keys)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.length = requireNonNull(length, "length is null");
-        this.key = requireNonNull(key, "key is null");
+        this.keys = List.copyOf(requireNonNull(keys, "keys is null"));
     }
 
     @Override
@@ -66,7 +66,8 @@ final class GcsInput
             return;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location);
+        Optional<EncryptionKey> key = selectEncryptionKey(blob, keys);
         OptionalLong limit = readLimit(position, bufferLength, length);
         try (ReadChannel readChannel = getReadChannel(blob, location, position, bufferLength, limit, key)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
@@ -89,7 +90,8 @@ final class GcsInput
             return 0;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        Blob blob = getBlobOrThrow(storage, location);
+        Optional<EncryptionKey> key = selectEncryptionKey(blob, keys);
         long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
         OptionalLong limit = readLimit(offset, bufferLength, OptionalLong.of(blob.getSize()));
         try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, limit, key)) {
@@ -133,13 +135,6 @@ final class GcsInput
             readSize += bytesRead;
         }
         return readSize;
-    }
-
-    private BlobGetOption[] blobGetOptions()
-    {
-        return key
-                .map(encryption -> new BlobGetOption[] {BlobGetOption.decryptionKey(encodedKey(encryption))})
-                .orElseGet(() -> new BlobGetOption[0]);
     }
 
     private static OptionalLong readLimit(long position, int length, OptionalLong fileSize)

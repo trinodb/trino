@@ -17,7 +17,7 @@ import com.google.cloud.storage.Storage;
 import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.OptionalLong;
 
 import static java.lang.reflect.Proxy.newProxyInstance;
@@ -39,7 +39,7 @@ final class TestGcsInput
                 new GcsLocation(Location.of("gs://bucket/key")),
                 storage,
                 OptionalLong.empty(),
-                Optional.empty());
+                List.of());
 
         assertThat(input.readTail(new byte[0], 0, 0)).isEqualTo(0);
     }
