@@ -63,6 +63,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdated
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -222,6 +223,27 @@ public abstract class BaseIcebergConnectorSmokeTest
                 .matches("VALUES (BIGINT '42', -385e-1)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateViewIfNotExists()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_VIEW)) {
+            return;
+        }
+
+        String viewName = "test_create_view_if_not_exists_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 1 AS x");
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            assertUpdate("CREATE VIEW IF NOT EXISTS " + viewName + " AS SELECT 2 AS x");
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test

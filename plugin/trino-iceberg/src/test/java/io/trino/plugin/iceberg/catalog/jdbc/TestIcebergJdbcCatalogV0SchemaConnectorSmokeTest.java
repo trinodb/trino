@@ -28,6 +28,14 @@ final class TestIcebergJdbcCatalogV0SchemaConnectorSmokeTest
 
     @Test
     @Override
+    public void testCreateViewIfNotExists()
+    {
+        assertThatThrownBy(super::testCreateViewIfNotExists)
+                .hasMessageContaining("Schema version V0 does not support views");
+    }
+
+    @Test
+    @Override
     public void testView()
     {
         assertThatThrownBy(super::testView)

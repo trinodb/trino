@@ -202,6 +202,14 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
 
     @Test
     @Override
+    public void testCreateViewIfNotExists()
+    {
+        assertThatThrownBy(super::testCreateViewIfNotExists)
+                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
+    }
+
+    @Test
+    @Override
     public void testView()
     {
         assertThatThrownBy(super::testView)

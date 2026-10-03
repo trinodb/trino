@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -99,7 +100,7 @@ final class TestBlackHoleMetadata
                 .buildOrThrow();
 
         for (Entry<SchemaTableName, ConnectorViewDefinition> entry : views.entrySet()) {
-            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), false);
+            metadata.createView(SESSION, entry.getKey(), entry.getValue(), ImmutableMap.of(), FAIL);
         }
 
         assertThat(metadata.listViews(SESSION, Optional.empty()))

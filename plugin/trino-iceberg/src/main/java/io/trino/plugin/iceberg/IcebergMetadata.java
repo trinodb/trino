@@ -3608,9 +3608,9 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
     {
-        catalog.createView(session, viewName, definition, viewProperties, replace);
+        catalog.createView(session, viewName, definition, viewProperties, saveMode);
     }
 
     @Override
@@ -3625,7 +3625,7 @@ public class IcebergMetadata
         if (getView(session, viewName).isEmpty()) {
             throw new ViewNotFoundException(viewName);
         }
-        catalog.createView(session, viewName, viewDefinition, catalog.getViewProperties(session, viewName), true);
+        catalog.createView(session, viewName, viewDefinition, catalog.getViewProperties(session, viewName), SaveMode.REPLACE);
     }
 
     @Override
