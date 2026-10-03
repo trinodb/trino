@@ -6,6 +6,7 @@ In this document you can find information about developing Trino.
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
 * [Building](#building)
+* [Running benchmarks](#running-benchmarks)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -34,7 +35,7 @@ the client protocol, writing tests and other lower level details.
 
 We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run airstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR, see [Building](#building).
 
 In addition to those you should also adhere to the [code style rules](CODE_STYLE.md)
 and the [configuration property rules](CONFIG_PROPERTIES.md).
@@ -58,8 +59,35 @@ The fastest way to build and install the whole project:
 ```
 
 This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
-airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
-before opening a PR to get those checks back.
+airbase checks (checkstyle, modernizer, dependency analysis).
+
+After that, build and test a single module without rebuilding everything. Modules it depends
+on come from your local Maven repository, so reinstall any you change first:
+
+```bash
+./mvnw install -DskipTests -Dair.check.skip-all=true -pl <changed module>
+./mvnw test -Dair.check.skip-all=true -pl <module> -Dtest=<TestClass>
+```
+
+Before opening a PR, run the checks CI runs on the modules you changed. The first command
+runs the airbase checks and Javadoc. The second runs Error Prone.
+
+```bash
+./mvnw verify -T 1C -DskipTests -P ci -pl <changed modules>
+./mvnw clean test-compile -T 1C -Dair.check.skip-all=true -P errorprone-compiler -pl <changed modules>
+```
+
+## Running benchmarks
+
+Benchmarks use JMH. Compile them with annotation processing turned on. Without it, JMH
+generates no benchmark classes, or the run uses stale ones. Then run the benchmark's `main`
+method:
+
+```bash
+./mvnw test-compile exec:exec -Dair.check.skip-all=true -Dmaven.compiler.proc=full -pl <module> \
+    -Dexec.classpathScope=test -Dexec.executable=java \
+    -Dexec.args="-cp %classpath <benchmark class>"
+```
 
 ## Additional IDE configuration
 
