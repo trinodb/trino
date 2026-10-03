@@ -16,10 +16,12 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.trino.execution.TableInfo;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -42,6 +44,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
@@ -137,8 +140,11 @@ public final class GraphvizPrinter
 
     private GraphvizPrinter() {}
 
-    public static String printLogical(List<PlanFragment> fragments)
+    public static String printLogical(List<PlanFragment> planFragments, Map<PlanNodeId, TableInfo> tables)
     {
+        List<PlanFragment> fragments = planFragments.stream()
+                .map(fragment -> redact(fragment, tables))
+                .collect(toImmutableList());
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
 
@@ -158,8 +164,9 @@ public final class GraphvizPrinter
         return output.toString();
     }
 
-    public static String printDistributed(SubPlan plan)
+    public static String printDistributed(SubPlan distributedPlan, Map<PlanNodeId, TableInfo> tables)
     {
+        SubPlan plan = redact(distributedPlan, tables);
         List<PlanFragment> fragments = plan.getAllFragments();
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
@@ -172,6 +179,20 @@ public final class GraphvizPrinter
         output.append("}\n");
 
         return output.toString();
+    }
+
+    private static SubPlan redact(SubPlan plan, Map<PlanNodeId, TableInfo> tables)
+    {
+        return new SubPlan(
+                redact(plan.getFragment(), tables),
+                plan.getChildren().stream()
+                        .map(child -> redact(child, tables))
+                        .collect(toImmutableList()));
+    }
+
+    private static PlanFragment redact(PlanFragment fragment, Map<PlanNodeId, TableInfo> tables)
+    {
+        return PlanFragmentRedactor.redact(fragment, tables).fragment();
     }
 
     private static void printSubPlan(SubPlan plan, Map<PlanFragmentId, PlanFragment> fragmentsById, PlanNodeIdGenerator idGenerator, StringBuilder output)

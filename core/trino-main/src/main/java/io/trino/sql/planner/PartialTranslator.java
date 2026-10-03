@@ -21,6 +21,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.NodeRef;
+import io.trino.sql.ir.SecureExpression;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -88,6 +89,13 @@ public final class PartialTranslator
         {
             // Bind is a function-typed expression used to model lambda captures,
             // so it follows the same rule as Lambda.
+            return null;
+        }
+
+        @Override
+        protected Void visitSecureExpression(SecureExpression node, Void context)
+        {
+            // Connector projections would expose the wrapped expression
             return null;
         }
     }

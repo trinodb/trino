@@ -62,7 +62,7 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
-import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.RedactedPlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
@@ -844,8 +844,8 @@ public class QueryStateMachine
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
             failedInternalNetworkInputPositions += stageStats.getFailedInternalNetworkInputPositions();
 
-            PlanFragment plan = stageInfo.plan();
-            if (plan != null && plan.containsTableScanNode()) {
+            RedactedPlanFragment plan = stageInfo.plan();
+            if (plan != null && plan.fragment().containsTableScanNode()) {
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 failedProcessedInputDataSize += stageStats.getFailedProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();

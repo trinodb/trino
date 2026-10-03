@@ -19,6 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.PageProjectionWork;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.SecureExpressions;
 
 import java.lang.invoke.MethodHandle;
 
@@ -31,15 +32,17 @@ public class GeneratedPageProjection
 {
     private final Expression projection;
     private final boolean isDeterministic;
+    private final boolean secure;
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
 
     private BlockBuilder blockBuilder;
 
-    public GeneratedPageProjection(Expression projection, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
+    public GeneratedPageProjection(Expression projection, boolean isDeterministic, boolean secure, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.isDeterministic = isDeterministic;
+        this.secure = secure;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
         this.blockBuilder = projection.type().createBlockBuilder(null, 1);
@@ -61,8 +64,19 @@ public class GeneratedPageProjection
     public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
+        PageProjectionWork work;
         try {
-            return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
+            work = (PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions);
+        }
+        catch (Throwable throwable) {
+            if (secure && throwable instanceof Exception e) {
+                // The constructor creates the function instances of the secure expression
+                throw SecureExpressions.redactFailure(e);
+            }
+            throw propagate(throwable);
+        }
+        try {
+            return work.process();
         }
         catch (Throwable throwable) {
             throw propagate(throwable);

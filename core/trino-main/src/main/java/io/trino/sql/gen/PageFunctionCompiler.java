@@ -53,6 +53,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.SecureExpressions;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
@@ -233,7 +234,8 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection, layout);
         MethodHandle constructor = compiled.constructor();
         boolean deterministic = compiled.deterministic();
-        return () -> new GeneratedPageProjection(projection, deterministic, result.inputChannels(), constructor);
+        boolean secure = SecureExpressions.isPresent(projection);
+        return () -> new GeneratedPageProjection(projection, deterministic, secure, result.inputChannels(), constructor);
     }
 
     private CompiledProjection compileProjectionClass(Expression projection, Map<Symbol, Integer> layout, CharVarcharCoercion charVarcharCoercion, Optional<String> classNameSuffix)
@@ -447,11 +449,16 @@ public class PageFunctionCompiler
         // resolved once: the supplier runs per split, and getConstructor scans the members
         // and copies the Constructor on every call
         MethodHandle constructor = constructorMethodHandle(filterClass, InputChannels.class);
+        boolean secure = SecureExpressions.isPresent(filter);
         return () -> {
             try {
                 return (PageFilter) constructor.invoke(inputChannels);
             }
             catch (Throwable t) {
+                if (secure && t instanceof Exception e) {
+                    // The constructor creates the function instances of the secure expression
+                    throw SecureExpressions.redactFailure(new TrinoException(COMPILER_ERROR, e));
+                }
                 throw new TrinoException(COMPILER_ERROR, t);
             }
         };

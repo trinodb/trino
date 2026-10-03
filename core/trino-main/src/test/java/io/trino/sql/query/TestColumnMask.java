@@ -15,9 +15,11 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -25,10 +27,13 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -39,12 +44,19 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.trino.SystemSessionProperties.SECURE_EXPRESSION_REDACTION_ENABLED;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -65,11 +77,13 @@ public class TestColumnMask
     private static final String USER = "user";
     private static final String VIEW_OWNER = "view-owner";
     private static final String RUN_AS_USER = "run-as-user";
+    private static final String POLICY_TOKEN = "column-policy-secret-token";
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(LOCAL_CATALOG)
             .setSchema(TINY_SCHEMA_NAME)
             .setIdentity(Identity.forUser(USER).build())
+            .setSystemProperty(SECURE_EXPRESSION_REDACTION_ENABLED, "true")
             .build();
 
     private final QueryAssertions assertions;
@@ -213,6 +227,10 @@ public class TestColumnMask
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalars(FailingInitializationFunctions.class)
+                .scalars(FailingEvaluationFunctions.class)
+                .build());
         accessControl = assertions.getQueryRunner().getAccessControl();
     }
 
@@ -220,6 +238,146 @@ public class TestColumnMask
     public void teardown()
     {
         assertions.close();
+    }
+
+    @Test
+    public void testSecureMaskIsTransparentAndRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("custkey + 987654321")
+                        .secure(true)
+                        .build());
+
+        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1"))
+                .matches("VALUES BIGINT '987654691'");
+
+        String plan = (String) assertions.getQueryRunner()
+                .execute(SESSION, "EXPLAIN (TYPE LOGICAL) SELECT custkey FROM orders WHERE orderkey = 1")
+                .getOnlyValue();
+        assertThat(plan).contains("[REDACTED]").doesNotContain("987654321");
+    }
+
+    @Test
+    public void testNonSecureMaskIsNotRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("custkey + 987654321")
+                        .build());
+
+        String plan = (String) assertions.getQueryRunner()
+                .execute(SESSION, "EXPLAIN (TYPE LOGICAL) SELECT custkey FROM orders WHERE orderkey = 1")
+                .getOnlyValue();
+        assertThat(plan).contains("987654321").doesNotContain("[REDACTED]");
+    }
+
+    @Test
+    public void testSecureMaskWithSubqueryIsRejected()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .catalog(LOCAL_CATALOG)
+                        .schema("tiny")
+                        .expression("(SELECT max(nationkey) FROM nation WHERE name <> 'column-policy-secret')")
+                        .secure(true)
+                        .build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_MASK)
+                .hasMessageContaining("Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+    }
+
+    @Test
+    public void testSecureMaskErrorsAreRedacted()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("column_policy_parse_secret $$$").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_COLUMN_MASK)
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("column_policy_unknown + 1").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("CAST(custkey AS varchar(12))").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:21: Expected column mask for 'local.tiny.orders.custkey' to be of type bigint, but was [REDACTED]");
+
+        // the aggregation check names the offending function, which must be redacted as well
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder().identity(USER).expression("count(*)").secure(true).build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:21: Invalid column mask for 'local.tiny.orders.custkey': [REDACTED]");
+
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                ViewExpression.builder()
+                        .identity(USER)
+                        .expression("CAST(CAST(custkey AS VARCHAR) || '-column-policy-runtime-secret' AS BIGINT)")
+                        .secure(true)
+                        .build());
+        assertThat(assertions.query("SELECT custkey FROM orders"))
+                .failure()
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("[REDACTED]");
+
+        // a function the policy calls can fail with a checked exception while the projection is created or evaluated
+        for (String mask : ImmutableList.of("failing_initialization(custkey)", "failing_evaluation(custkey, '" + POLICY_TOKEN + "')")) {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(LOCAL_CATALOG, "tiny", "orders"),
+                    "custkey",
+                    USER,
+                    ViewExpression.builder().identity(USER).expression(mask).secure(true).build());
+            assertThat(assertions.query("SELECT custkey FROM orders"))
+                    .failure()
+                    .hasMessage("[REDACTED]")
+                    .satisfies(failure -> assertThat(getStackTraceAsString(failure)).doesNotContain(POLICY_TOKEN));
+        }
     }
 
     @Test
@@ -1204,5 +1362,34 @@ public class TestColumnMask
 
         assertThat(assertions.query("SELECT nested[1] FROM mock.default.view_with_nested"))
                 .matches("VALUES 1, NULL");
+    }
+
+    public static final class FailingInitializationFunctions
+    {
+        public FailingInitializationFunctions()
+                throws IOException
+        {
+            throw new IOException(POLICY_TOKEN);
+        }
+
+        @ScalarFunction("failing_initialization")
+        @SqlType(StandardTypes.BIGINT)
+        public long failingInitialization(@SqlType(StandardTypes.BIGINT) long value)
+        {
+            return value;
+        }
+    }
+
+    public static final class FailingEvaluationFunctions
+    {
+        private FailingEvaluationFunctions() {}
+
+        @ScalarFunction("failing_evaluation")
+        @SqlType(StandardTypes.BIGINT)
+        public static long failingEvaluation(@SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.VARCHAR) Slice message)
+                throws IOException
+        {
+            throw new IOException(message.toStringUtf8());
+        }
     }
 }
