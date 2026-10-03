@@ -16,42 +16,30 @@ package io.trino.filesystem.s3;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.secrets.SecretsResolver;
-import io.airlift.http.client.HttpStatus;
-import io.airlift.http.client.Response;
-import io.airlift.http.client.testing.TestingHttpClient;
 import io.trino.filesystem.Location;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.net.URI;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import static com.google.common.net.MediaType.JSON_UTF_8;
-import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestS3SecurityMappingsUriSource
+public class TestS3SecurityMappingsFileSource
 {
-    private static final String MOCK_MAPPINGS_RESPONSE =
-            "{\"mappings\": [{\"iamRole\":\"arn:aws:iam::test\",\"user\":\"test\"}]}";
-
     @Test
-    public void testGetRawJson()
-    {
-        Response response = mockResponse(HttpStatus.OK, JSON_UTF_8, MOCK_MAPPINGS_RESPONSE);
-        S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigUri(URI.create("http://test:1234/api/endpoint"));
-        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response), new SecretsResolver(ImmutableMap.of()));
-        String result = provider.getRawJsonString();
-        assertThat(result).isEqualTo(MOCK_MAPPINGS_RESPONSE);
-    }
-
-    @Test
-    public void testSecretsResolution()
+    public void testSecretsResolution(@TempDir Path tempDir)
+            throws IOException
     {
         String jsonWithSecrets = "{\"mappings\": [{\"iamRole\":\"${TESTING:my-role}\",\"prefix\":\"s3://my-bucket/\",\"user\":\"test\"}]}";
-        Response response = mockResponse(HttpStatus.OK, JSON_UTF_8, jsonWithSecrets);
-        S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigUri(URI.create("http://test:1234/api/endpoint"));
+        Path configFile = tempDir.resolve("mappings.json");
+        Files.writeString(configFile, jsonWithSecrets);
+
+        S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigFile(configFile.toFile());
         SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of("testing", key -> "arn:aws:iam::resolved-" + key));
-        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response), secretsResolver);
+        var provider = new S3SecurityMappingsFileSource(config, secretsResolver);
 
         S3SecurityMappings mappings = provider.get();
         ConnectorIdentity identity = ConnectorIdentity.forUser("test").withGroups(ImmutableSet.of()).build();
