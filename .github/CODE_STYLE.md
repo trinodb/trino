@@ -23,7 +23,7 @@ When appropriate, use the stream API. However, note that the stream
 implementation does not perform well so avoid using it in inner loops or
 otherwise performance sensitive sections.
 
-## Categorize errors when throwing exceptions.
+## Categorize errors when throwing exceptions
 
 Categorize errors when throwing exceptions. For example, `TrinoException` takes
 an error code as an argument, `TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`.
@@ -33,7 +33,7 @@ of various failures.
 ## Add license header
 
 Ensure that all files have the appropriate license header; you can generate the
-license by running `mvn license:format`.
+license by running `./mvnw license:format`.
 
 ## Prefer String formatting
 
@@ -47,11 +47,11 @@ code.
 
 Avoid using the ternary operator except for trivial expressions.
 
- ### Avoid `get` in method names, unless an object must be a Java bean
+## Avoid `get` in method names, unless an object must be a Java bean
 
-In most cases, replace `get` with a more specific verb that describes what is 
-happening in the method, like `find` or `fetch`. If there isn't a more specific 
-verb or the method is a getter, omit `get` because it isn't helpful to readers 
+In most cases, replace `get` with a more specific verb that describes what is
+happening in the method, like `find` or `fetch`. If there isn't a more specific
+verb or the method is a getter, omit `get` because it isn't helpful to readers
 and makes method names longer.
 
 ## Define class API for private inner classes too
