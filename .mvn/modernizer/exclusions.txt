@@ -39,7 +39,7 @@ java/io/File."<init>":(Ljava/io/File;Ljava/lang/String;)V
 # Modernizer emits false-positive warnings even when presence is guaranteed
 java/util/Optional.get:()Ljava/lang/Object;
 
-# Trino's code style mandates the static format() over String.formatted(); see .github/DEVELOPMENT.md
+# Trino's code style mandates the static format() over String.formatted(); see .github/CODE_STYLE.md
 java/lang/String.format:(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
 
 # Collections.singletonList/emptyList/singleton/emptySet/emptyMap are allowed; the List/Set/Map.of() analogues have different semantics (e.g. null handling)
