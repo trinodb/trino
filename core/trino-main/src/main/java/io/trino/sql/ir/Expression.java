@@ -24,12 +24,12 @@ import java.util.List;
 @Immutable
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME)
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = Array.class, name = "array"),
         @JsonSubTypes.Type(value = Bind.class, name = "bind"),
         @JsonSubTypes.Type(value = Call.class, name = "call"),
         @JsonSubTypes.Type(value = Case.class, name = "case"),
         @JsonSubTypes.Type(value = Cast.class, name = "cast"),
         @JsonSubTypes.Type(value = Coalesce.class, name = "coalesce"),
+        @JsonSubTypes.Type(value = Collection.class, name = "collection"),
         @JsonSubTypes.Type(value = Constant.class, name = "constant"),
         @JsonSubTypes.Type(value = FieldReference.class, name = "field"),
         @JsonSubTypes.Type(value = In.class, name = "in"),
@@ -42,12 +42,12 @@ import java.util.List;
         @JsonSubTypes.Type(value = Match.class, name = "match"),
 })
 public sealed interface Expression
-        permits Array,
-                Bind,
+        permits Bind,
                 Call,
                 Case,
                 Cast,
                 Coalesce,
+                Collection,
                 Constant,
                 FieldReference,
                 In,

@@ -19,8 +19,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
@@ -49,8 +49,8 @@ public class TestArraySortAfterArrayDistinct
     @Test
     public void testArrayDistinctAfterArraySort()
     {
-        test(new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
-                new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
+        test(new Call(DISTINCT, ImmutableList.of(new Call(SORT, ImmutableList.of(new Collection(new ArrayType(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))),
+                new Call(SORT, ImmutableList.of(new Call(DISTINCT, ImmutableList.of(new Collection(new ArrayType(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))))));
     }
 
     @Test
@@ -59,11 +59,11 @@ public class TestArraySortAfterArrayDistinct
         test(
                 new Call(DISTINCT, ImmutableList.of(
                         new Call(SORT_WITH_LAMBDA, ImmutableList.of(
-                                new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
+                                new Collection(new ArrayType(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))),
                                 new Lambda(ImmutableList.of(new Symbol(VARCHAR, "a"), new Symbol(VARCHAR, "b")), new Constant(INTEGER, 1L)))))),
                 new Call(SORT_WITH_LAMBDA, ImmutableList.of(
                         new Call(DISTINCT, ImmutableList.of(
-                                new Array(VARCHAR, ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
+                                new Collection(new ArrayType(VARCHAR), ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice("a")))))),
                         new Lambda(ImmutableList.of(new Symbol(VARCHAR, "a"), new Symbol(VARCHAR, "b")), new Constant(INTEGER, 1L)))));
     }
 

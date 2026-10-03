@@ -19,9 +19,9 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.FunctionType;
-import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Collection;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
@@ -223,7 +223,7 @@ public class TestLambdaCaptureDesugaringRewriter
                                 new Let(new Symbol(INTEGER, "b"),
                                         new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "y"))),
                                         new Call(TRANSFORM, ImmutableList.of(
-                                                new Array(INTEGER, ImmutableList.of(new Reference(INTEGER, "b"))),
+                                                new Collection(new ArrayType(INTEGER), ImmutableList.of(new Reference(INTEGER, "b"))),
                                                 new Lambda(
                                                         ImmutableList.of(new Symbol(INTEGER, "x")),
                                                         new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "b"), new Reference(INTEGER, "x")))))))),
@@ -235,7 +235,7 @@ public class TestLambdaCaptureDesugaringRewriter
                                 new Let(new Symbol(INTEGER, "b"),
                                         new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a_1"), new Reference(INTEGER, "y"))),
                                         new Call(TRANSFORM, ImmutableList.of(
-                                                new Array(INTEGER, ImmutableList.of(new Reference(INTEGER, "b"))),
+                                                new Collection(new ArrayType(INTEGER), ImmutableList.of(new Reference(INTEGER, "b"))),
                                                 new Bind(
                                                         ImmutableList.of(new Reference(INTEGER, "b")),
                                                         new Lambda(

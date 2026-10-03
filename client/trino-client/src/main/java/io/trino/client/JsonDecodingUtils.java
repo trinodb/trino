@@ -52,6 +52,7 @@ import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
 import static io.trino.client.ClientStandardTypes.KDB_TREE;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.MULTISET;
 import static io.trino.client.ClientStandardTypes.NUMBER;
 import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.QDIGEST;
@@ -131,6 +132,8 @@ public final class JsonDecodingUtils
                 return supportsVariantBinary ? VARIANT_BINARY_DECODER : VARIANT_JSON_DECODER;
             case ARRAY:
                 return new ArrayDecoder(signature, supportsVariantBinary);
+            case MULTISET:
+                return new MultisetDecoder(signature, supportsVariantBinary);
             case MAP:
                 return new MapDecoder(signature, supportsVariantBinary);
             case ROW:
@@ -374,6 +377,41 @@ public final class JsonDecodingUtils
         {
             requireNonNull(signature, "signature is null");
             checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
+            this.typeDecoder = createTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), supportsVariantBinary);
+        }
+
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            if (requireNonNull(parser.currentToken()) != JsonToken.START_ARRAY) {
+                throw illegalToken(parser);
+            }
+
+            List<Object> values = new LinkedList<>(); // nulls allowed
+            while (true) {
+                switch (parser.nextToken()) {
+                    case END_ARRAY:
+                        return unmodifiableList(values);
+                    case VALUE_NULL:
+                        values.add(null);
+                        break;
+                    default:
+                        values.add(typeDecoder.decode(parser));
+                }
+            }
+        }
+    }
+
+    private static class MultisetDecoder
+            implements TypeDecoder
+    {
+        private final TypeDecoder typeDecoder;
+
+        public MultisetDecoder(ClientTypeSignature signature, boolean supportsVariantBinary)
+        {
+            requireNonNull(signature, "signature is null");
+            checkArgument(signature.getRawType().equals(MULTISET), "not a multiset type signature: %s", signature);
             this.typeDecoder = createTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), supportsVariantBinary);
         }
 

@@ -52,6 +52,7 @@ Logical             <functions/logical>
 Machine learning    <functions/ml>
 Map                 <functions/map>
 Math                <functions/math>
+Multiset            <functions/multiset>
 Quantile digest     <functions/qdigest>
 Row                 <functions/row>
 Regular expression  <functions/regexp>
