@@ -25,6 +25,23 @@ public interface WorkProcessorOperator
     WorkProcessor<Page> getOutputPages();
 
     /**
+     * Whether this operator can consume {@link MaskedPage} input instead of materialized pages.
+     */
+    default boolean supportsMaskedInput()
+    {
+        return false;
+    }
+
+    /**
+     * Analog of {@link Operator#addInput} accepting a {@link MaskedPage}, valid only for the
+     * duration of this call.
+     */
+    default void addMaskedInput(MaskedPage maskedPage)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Returns {@link OperatorInfo}. This method must be thread safe.
      * This method might be called after operator is closed to obtain
      * final {@link OperatorInfo}.

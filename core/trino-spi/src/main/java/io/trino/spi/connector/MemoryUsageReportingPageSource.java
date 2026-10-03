@@ -177,5 +177,12 @@ public final class MemoryUsageReportingPageSource
             sourcePage.selectPositions(positions, offset, size);
             memoryContext.setBytes(pageSource.getMemoryUsage());
         }
+
+        @Override
+        public void selectPositions(int offset, int size)
+        {
+            sourcePage.selectPositions(offset, size);
+            memoryContext.setBytes(pageSource.getMemoryUsage());
+        }
     }
 }
