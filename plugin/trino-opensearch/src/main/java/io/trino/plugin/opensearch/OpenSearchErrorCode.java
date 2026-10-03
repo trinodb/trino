@@ -33,7 +33,7 @@ public enum OpenSearchErrorCode
 
     OpenSearchErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0503_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0515_0000, name(), type);
     }
 
     @Override
