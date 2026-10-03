@@ -370,9 +370,13 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?                          #selectSingle
-    | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
-    | ASTERISK                                              #selectAll
+    : expression (AS? identifier)?                                                 #selectSingle
+    | primaryExpression '.' ASTERISK ('(' excludeClause ')')?  (AS columnAliases)? #selectAll
+    | ASTERISK ('(' excludeClause ')')?                                            #selectAll
+    ;
+
+excludeClause
+    : EXCLUDE '(' qualifiedName (',' qualifiedName)* ')'
     ;
 
 relation
