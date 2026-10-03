@@ -22,7 +22,9 @@ import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
 
@@ -57,5 +59,11 @@ public final class S3FileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity, credentialsRefresher));
     }
 }

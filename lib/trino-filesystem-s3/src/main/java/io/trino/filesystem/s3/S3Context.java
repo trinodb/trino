@@ -23,7 +23,9 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
@@ -62,14 +64,28 @@ record S3Context(
 
     public S3Context withCredentials(ConnectorIdentity identity)
     {
-        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
-            AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
-                    identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
-            return withCredentialsProviderOverride(credentialsProvider);
+        return withCredentials(identity, Optional.empty());
+    }
+
+    public S3Context withCredentials(ConnectorIdentity identity, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        return withCredentials(identity, Optional.of(credentialsRefresher));
+    }
+
+    private S3Context withCredentials(ConnectorIdentity identity, Optional<Supplier<Map<String, String>>> credentialsRefresher)
+    {
+        if (!identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
+            checkArgument(credentialsRefresher.isEmpty(), "Credentials refresher requires vended S3 credentials in extra credentials");
+            return this;
         }
-        return this;
+        if (credentialsRefresher.isPresent()) {
+            return withCredentialsProviderOverride(new SupplierAwsCredentialsProvider(credentialsRefresher.get()));
+        }
+        AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY),
+                identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
+        return withCredentialsProviderOverride(credentialsProvider);
     }
 
     public S3Context withSseCustomerKey(String key)

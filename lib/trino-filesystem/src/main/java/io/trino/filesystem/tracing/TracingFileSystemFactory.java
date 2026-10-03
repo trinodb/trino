@@ -19,6 +19,9 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Map;
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public final class TracingFileSystemFactory
@@ -43,5 +46,11 @@ public final class TracingFileSystemFactory
     public TrinoFileSystem create(ConnectorSession session)
     {
         return new TracingFileSystem(tracer, delegate.create(session));
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        return new TracingFileSystem(tracer, delegate.create(identity, credentialsRefresher));
     }
 }

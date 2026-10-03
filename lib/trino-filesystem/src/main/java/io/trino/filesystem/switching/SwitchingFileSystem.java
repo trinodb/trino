@@ -28,9 +28,11 @@ import io.trino.spi.security.ConnectorIdentity;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -42,16 +44,19 @@ final class SwitchingFileSystem
     private final Optional<ConnectorSession> session;
     private final Optional<ConnectorIdentity> identity;
     private final Function<Location, TrinoFileSystemFactory> loader;
+    private final Optional<Supplier<Map<String, String>>> credentialsRefresher;
 
     public SwitchingFileSystem(
             Optional<ConnectorSession> session,
             Optional<ConnectorIdentity> identity,
-            Function<Location, TrinoFileSystemFactory> loader)
+            Function<Location, TrinoFileSystemFactory> loader,
+            Optional<Supplier<Map<String, String>>> credentialsRefresher)
     {
         checkArgument(session.isPresent() != identity.isPresent(), "exactly one of session and identity must be present");
         this.session = session;
         this.identity = identity;
         this.loader = requireNonNull(loader, "loader is null");
+        this.credentialsRefresher = requireNonNull(credentialsRefresher, "credentialsRefresher is null");
     }
 
     @Override
@@ -203,6 +208,9 @@ final class SwitchingFileSystem
 
     private TrinoFileSystem createFileSystem(TrinoFileSystemFactory factory)
     {
+        if (credentialsRefresher.isPresent()) {
+            return factory.create(identity.orElseThrow(), credentialsRefresher.get());
+        }
         return session.map(factory::create).orElseGet(() ->
                 factory.create(identity.orElseThrow()));
     }

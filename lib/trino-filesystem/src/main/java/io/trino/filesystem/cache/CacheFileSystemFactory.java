@@ -20,6 +20,9 @@ import io.trino.filesystem.tracing.TracingBlobCache;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Map;
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public final class CacheFileSystemFactory
@@ -40,5 +43,11 @@ public final class CacheFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new CacheFileSystem(delegate.create(identity), cache, keyProvider);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorIdentity identity, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        return new CacheFileSystem(delegate.create(identity, credentialsRefresher), cache, keyProvider);
     }
 }

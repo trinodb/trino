@@ -16,6 +16,8 @@ package io.trino.filesystem.gcs;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.OAuth2Credentials;
+import com.google.auth.oauth2.OAuth2CredentialsWithRefresh;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.inject.Inject;
@@ -29,8 +31,10 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType.ACCESS_TOKEN;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY;
@@ -70,20 +74,30 @@ public class GcsStorageFactory
 
     public Storage create(ConnectorIdentity identity)
     {
-        if (isCacheable(identity)) {
+        return create(identity, Optional.empty());
+    }
+
+    public Storage create(ConnectorIdentity identity, Supplier<Map<String, String>> credentialsRefresher)
+    {
+        return create(identity, Optional.of(credentialsRefresher));
+    }
+
+    private Storage create(ConnectorIdentity identity, Optional<Supplier<Map<String, String>>> credentialsRefresher)
+    {
+        if (isCacheable(identity, credentialsRefresher)) {
             Storage storage = cachedStorage;
             if (storage == null) {
                 synchronized (this) {
                     storage = cachedStorage;
                     if (storage == null) {
-                        storage = createStorage(identity);
+                        storage = createStorage(identity, credentialsRefresher);
                         cachedStorage = storage;
                     }
                 }
             }
             return storage;
         }
-        return createStorage(identity);
+        return createStorage(identity, credentialsRefresher);
     }
 
     @PreDestroy
@@ -97,17 +111,17 @@ public class GcsStorageFactory
         }
     }
 
-    private boolean isCacheable(ConnectorIdentity identity)
+    private boolean isCacheable(ConnectorIdentity identity, Optional<Supplier<Map<String, String>>> credentialsRefresher)
     {
-        return authType != ACCESS_TOKEN && !identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
+        return authType != ACCESS_TOKEN && credentialsRefresher.isEmpty() && !identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
     }
 
-    private Storage createStorage(ConnectorIdentity identity)
+    private Storage createStorage(ConnectorIdentity identity, Optional<Supplier<Map<String, String>>> credentialsRefresher)
     {
         try {
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
 
-            if (!setOAuthCredentials(storageOptionsBuilder, identity)) {
+            if (!setOAuthCredentials(storageOptionsBuilder, identity, credentialsRefresher)) {
                 if (projectId != null) {
                     storageOptionsBuilder.setProjectId(projectId);
                 }
@@ -136,15 +150,10 @@ public class GcsStorageFactory
         }
     }
 
-    private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity)
+    private boolean setOAuthCredentials(StorageOptions.Builder builder, ConnectorIdentity identity, Optional<Supplier<Map<String, String>>> credentialsRefresher)
     {
         if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY)) {
-            String accessToken = identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
-            Optional<Date> expireAt = Optional.ofNullable(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY))
-                    .map(Long::parseLong)
-                    .map(Instant::ofEpochMilli)
-                    .map(Date::from);
-            builder.setCredentials(GoogleCredentials.create(new AccessToken(accessToken, expireAt.orElse(null))));
+            builder.setCredentials(oauthCredentials(identity.getExtraCredentials(), credentialsRefresher));
 
             String effectiveProjectId = identity.getExtraCredentials().getOrDefault(EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY, projectId);
             if (effectiveProjectId != null) {
@@ -152,6 +161,29 @@ public class GcsStorageFactory
             }
             return true;
         }
+        checkArgument(credentialsRefresher.isEmpty(), "Credentials refresher requires vended GCS OAuth token in extra credentials");
         return false;
+    }
+
+    private static OAuth2Credentials oauthCredentials(Map<String, String> extraCredentials, Optional<Supplier<Map<String, String>>> credentialsRefresher)
+    {
+        if (credentialsRefresher.isEmpty() || !extraCredentials.containsKey(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY)) {
+            return GoogleCredentials.create(toAccessToken(extraCredentials));
+        }
+        Supplier<Map<String, String>> refresher = credentialsRefresher.get();
+        return OAuth2CredentialsWithRefresh.newBuilder()
+                .setAccessToken(toAccessToken(extraCredentials))
+                .setRefreshHandler(() -> toAccessToken(refresher.get()))
+                .build();
+    }
+
+    private static AccessToken toAccessToken(Map<String, String> extraCredentials)
+    {
+        String accessToken = extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY);
+        Optional<Date> expireAt = Optional.ofNullable(extraCredentials.get(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_EXPIRES_AT_PROPERTY))
+                .map(Long::parseLong)
+                .map(Instant::ofEpochMilli)
+                .map(Date::from);
+        return new AccessToken(accessToken, expireAt.orElse(null));
     }
 }

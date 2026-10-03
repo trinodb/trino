@@ -88,7 +88,7 @@ final class TestIcebergGcsRestCatalogVendedCredentialsRefresh
                 return ImmutableMap.<String, String>builder()
                         .put(GCPProperties.GCS_OAUTH2_TOKEN, oauthToken)
                         .put(GCPProperties.GCS_OAUTH2_REFRESH_CREDENTIALS_ENABLED, "true")
-                        .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(tokenExpiresAtMs))
+                        .put(GCPProperties.GCS_OAUTH2_TOKEN_EXPIRES_AT, Long.toString(refreshedTokenExpirationTime.get().toEpochMilli()))
                         .buildOrThrow();
             }
         };
