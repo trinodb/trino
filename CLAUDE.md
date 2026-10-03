@@ -5,23 +5,10 @@ in full** — it's the authoritative source for code-style rules (mocks, `var`, 
 method naming, `format()`, `TrinoException` error codes, AssertJ, Guava immutables, and more).
 This file intentionally does not duplicate those rules; skipping the read means missing them.
 Violations are also caught mechanically by modernizer
-([`.mvn/modernizer/violations.xml`](.mvn/modernizer/violations.xml)), checkstyle (from Airbase),
-and IntelliJ inspections via `mcp__idea__get_file_problems`.
+([`.mvn/modernizer/violations.xml`](.mvn/modernizer/violations.xml)) and checkstyle (from Airbase).
 
 For other topics not covered here (Web UI build, release process, Vector API, IDE setup rationale),
 see the same `DEVELOPMENT.md`.
-
-## JetBrains MCP server
-
-Trino is developed in IntelliJ. If you run Claude Code with the JetBrains MCP server enabled,
-the assistant can drive the IDE directly. Install: https://github.com/JetBrains/mcp-jetbrains.
-
-When available, Claude should prefer these over shell equivalents:
-- `mcp__idea__get_file_problems` before committing — surfaces IntelliJ inspection results
-  (error-prone, unused imports, nullability) without a full Maven build.
-- `mcp__idea__search_symbol` / `mcp__idea__get_symbol_info` for symbol navigation in a codebase
-  with many overloaded names like `Metadata`, `Session`, `Block`.
-- `mcp__idea__rename_refactoring` for API renames — safer than text substitution.
 
 ## Building
 
@@ -48,3 +35,14 @@ without rewriting. Rules not covered by the formatter:
 
 Topic-specific conventions live under [`.claude/rules/`](.claude/rules/) and auto-load when Claude
 reads matching files (e.g. `*Config.java` triggers the config-properties rule).
+
+## Commits and pull requests
+
+Pull request descriptions use [`.github/pull_request_template.md`](.github/pull_request_template.md).
+
+CI enforces these rules, so check them before pushing:
+
+- Commit messages: the [check-commit-messages policy](https://github.com/airlift/github-actions/tree/main/check-commit-messages#policy),
+  run by the `check-commit-messages` job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+- Commit structure: the `check-commits-dispatcher` and `check-commit` jobs in the same file.
+- Pull request description: [`.github/workflows/pr-description-check.yml`](.github/workflows/pr-description-check.yml).
