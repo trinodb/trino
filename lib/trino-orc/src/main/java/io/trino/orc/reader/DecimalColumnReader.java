@@ -28,7 +28,6 @@ import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
@@ -45,6 +44,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
 import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
+import static io.trino.orc.reader.ReaderUtils.rescaleShortDecimal;
 import static io.trino.orc.reader.ReaderUtils.unpackInt128Nulls;
 import static io.trino.orc.reader.ReaderUtils.unpackLongNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
@@ -179,7 +179,7 @@ public class DecimalColumnReader
         for (int i = 0; i < nextBatchSize; i++) {
             long sourceScale = scaleStream.next();
             if (sourceScale != type.getScale()) {
-                data[i] = Decimals.rescale(data[i], (int) sourceScale, type.getScale());
+                data[i] = rescaleShortDecimal(data[i], (int) sourceScale, type.getScale());
             }
         }
         return new LongArrayBlock(nextBatchSize, Optional.empty(), data);
@@ -233,7 +233,7 @@ public class DecimalColumnReader
         for (int i = 0; i < nonNullCount; i++) {
             long sourceScale = scaleStream.next();
             if (sourceScale != type.getScale()) {
-                nonNullValueTemp[i] = Decimals.rescale(nonNullValueTemp[i], (int) sourceScale, type.getScale());
+                nonNullValueTemp[i] = rescaleShortDecimal(nonNullValueTemp[i], (int) sourceScale, type.getScale());
             }
         }
 
