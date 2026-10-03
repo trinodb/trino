@@ -210,6 +210,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.of(QueryType.SELECT),
                 RetryPolicy.NONE,
+                null,
                 false,
                 new NodeVersion("version"));
     }

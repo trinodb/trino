@@ -31,12 +31,14 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
+import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorFactory;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.SessionPropertyResolver;
@@ -58,6 +60,7 @@ public class LocalDispatchQueryFactory
     private static final Logger log = Logger.get(LocalDispatchQueryFactory.class);
 
     private final QueryManager queryManager;
+    private final ResourceGroupManager<?> resourceGroupManager;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -79,6 +82,7 @@ public class LocalDispatchQueryFactory
     @Inject
     public LocalDispatchQueryFactory(
             QueryManager queryManager,
+            ResourceGroupManager<?> resourceGroupManager,
             QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
             SessionPropertyResolver sessionPropertyResolver,
@@ -95,6 +99,7 @@ public class LocalDispatchQueryFactory
             NodeVersion version)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -143,6 +148,9 @@ public class LocalDispatchQueryFactory
                 externalExchangeEncryptionEnabled,
                 Optional.of(sessionPropertyResolver.getSessionPropertiesApplier(preparedQuery)),
                 version);
+
+        QueryId queryId = session.getQueryId();
+        stateMachine.setQueuePositionSupplier(() -> resourceGroupManager.tryGetQueryPosition(queryId, resourceGroup));
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
         // can result in delivering query-created event after query analysis has already started.
