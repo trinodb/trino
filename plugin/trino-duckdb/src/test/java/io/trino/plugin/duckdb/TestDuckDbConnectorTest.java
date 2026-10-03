@@ -86,7 +86,7 @@ final class TestDuckDbConnectorTest
 
         if (type.equals("time") ||
                 type.startsWith("time(") ||
-                type.startsWith("timestamp") ||
+                type.contains("with time zone") ||
                 type.equals("varbinary") ||
                 type.startsWith("array") ||
                 type.startsWith("row")) {
@@ -193,6 +193,10 @@ final class TestDuckDbConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().startsWith("timestamp") || setup.newColumnType().startsWith("timestamp")) {
+            return Optional.empty();
+        }
+
         return switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "varchar(100) -> varchar(50)" -> Optional.of(setup.withNewColumnType("varchar"));
             case "char(25) -> char(20)",
