@@ -953,11 +953,40 @@ class StatementAnalyzer
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
-
-            validateProperties(node.getProperties(), scope);
-
             String catalogName = targetTable.catalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
+            if (metadata.isView(session, targetTable)) {
+                if (node.getSaveMode() == IGNORE) {
+                    analysis.setCreate(new Analysis.Create(
+                            Optional.of(targetTable),
+                            Optional.empty(),
+                            Optional.empty(),
+                            node.isWithData(),
+                            true,
+                            false));
+                    analysis.setUpdateType("CREATE TABLE");
+                    analysis.setUpdateTarget(catalogHandle.getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+                }
+                throw semanticException(TABLE_ALREADY_EXISTS, node, "View '%s' already exists", targetTable);
+            }
+            if (metadata.isMaterializedView(session, targetTable)) {
+                if (node.getSaveMode() == IGNORE) {
+                    analysis.setCreate(new Analysis.Create(
+                            Optional.of(targetTable),
+                            Optional.empty(),
+                            Optional.empty(),
+                            node.isWithData(),
+                            true,
+                            false));
+                    analysis.setUpdateType("CREATE TABLE");
+                    analysis.setUpdateTarget(catalogHandle.getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+                }
+                throw semanticException(TABLE_ALREADY_EXISTS, node, "Materialized view '%s' already exists", targetTable);
+            }
+
+            validateProperties(node.getProperties(), scope);
             Map<String, Object> properties = tablePropertyManager.getProperties(
                     catalogName,
                     catalogHandle,
