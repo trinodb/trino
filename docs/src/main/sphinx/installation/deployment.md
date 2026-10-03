@@ -139,6 +139,7 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Djdk.attach.allowAttachSelf=true
 -Djdk.nio.maxCachedBufferSize=2000000
 --add-modules=jdk.incubator.vector
+--enable-native-access=ALL-UNNAMED
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`

@@ -13,11 +13,9 @@
  */
 package io.trino.execution.executor.dedicated;
 
-import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
-import io.airlift.stats.CpuTimer;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -27,12 +25,12 @@ import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.executor.scheduler.Schedulable;
 import io.trino.execution.executor.scheduler.SchedulerContext;
+import io.trino.operator.ThreadExecutionTimer;
 import io.trino.tracing.TrinoAttributes;
 
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 class SplitProcessor
         implements Schedulable
@@ -57,6 +55,13 @@ class SplitProcessor
     @Override
     public void run(SchedulerContext context)
     {
+        try (ThreadExecutionTimer timer = ThreadExecutionTimer.start()) {
+            process(context, timer);
+        }
+    }
+
+    private void process(SchedulerContext context, ThreadExecutionTimer timer)
+    {
         Span splitSpan = tracer.spanBuilder("split")
                 .setParent(Context.current().with(split.getPipelineSpan()))
                 .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
@@ -68,20 +73,19 @@ class SplitProcessor
 
         Span processSpan = newSpan(splitSpan, null);
 
-        CpuTimer timer = new CpuTimer(Ticker.systemTicker(), false);
+        long wallStart = System.nanoTime();
         long previousCpuNanos = 0;
         long previousScheduledNanos = 0;
         try (SetThreadName _ = new SetThreadName("SplitRunner-" + taskId + "-" + splitId)) {
             while (!split.isFinished()) {
                 try (var ignored2 = processSpan.makeCurrent()) {
                     ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
-                    CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-                    long scheduledNanos = elapsed.wall().roundTo(NANOSECONDS);
+                    long scheduledNanos = System.nanoTime() - wallStart;
                     processSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, scheduledNanos - previousScheduledNanos);
                     previousScheduledNanos = scheduledNanos;
 
-                    long cpuNanos = elapsed.cpu().roundTo(NANOSECONDS);
+                    long cpuNanos = timer.elapsedNanos();
                     processSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, cpuNanos - previousCpuNanos);
                     previousCpuNanos = cpuNanos;
 
@@ -115,7 +119,7 @@ class SplitProcessor
                 processSpan.end();
             }
 
-            splitSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, timer.elapsedTime().cpu().roundTo(NANOSECONDS));
+            splitSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, timer.elapsedNanos());
             splitSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, context.getScheduledNanos());
             splitSpan.setAttribute(TrinoAttributes.SPLIT_BLOCK_TIME_NANOS, context.getBlockedNanos());
             splitSpan.setAttribute(TrinoAttributes.SPLIT_WAIT_TIME_NANOS, context.getWaitNanos());
