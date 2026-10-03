@@ -13,21 +13,19 @@
  */
 package io.trino.server.security;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.server.InternalAuthenticationManager;
+import io.trino.server.security.AuthenticatorChain.Authenticated;
+import io.trino.server.security.AuthenticatorChain.Failed;
 import io.trino.spi.security.Identity;
 import jakarta.annotation.Priority;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 
-import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
@@ -77,43 +75,9 @@ public class AuthenticationFilter
             throw new ForbiddenException("Authentication over HTTP is not enabled");
         }
 
-        // try to authenticate, collecting errors and authentication headers
-        Set<String> messages = new LinkedHashSet<>();
-        Set<String> authenticateHeaders = new LinkedHashSet<>();
-
-        for (Authenticator authenticator : authenticators) {
-            Identity authenticatedIdentity;
-            try {
-                authenticatedIdentity = authenticator.authenticate(request);
-            }
-            catch (AuthenticationException e) {
-                // Some authenticators (e.g. password) nest multiple internal authenticators.
-                // Exceptions from additional failed login attempts are suppressed in the first exception
-                Stream.concat(Stream.of(e), Arrays.stream(e.getSuppressed()))
-                        .filter(ex -> ex instanceof AuthenticationException)
-                        .map(AuthenticationException.class::cast)
-                        .forEach(ex -> {
-                            if (ex.getMessage() != null) {
-                                messages.add(ex.getMessage());
-                            }
-                            ex.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
-                        });
-                continue;
-            }
-
-            // authentication succeeded
-            setAuthenticatedIdentity(request, authenticatedIdentity);
-            return;
+        switch (AuthenticatorChain.authenticate(authenticators, authenticator -> authenticator.authenticate(request))) {
+            case Authenticated(Identity identity) -> setAuthenticatedIdentity(request, identity);
+            case Failed(Set<String> authenticateHeaders, String error) -> sendWwwAuthenticate(request, error, authenticateHeaders);
         }
-
-        // authentication failed
-        if (messages.isEmpty()) {
-            messages.add("Unauthorized");
-        }
-        // The error string is used by clients for exception messages and
-        // is presented to the end user, thus it should be a single line.
-        String error = Joiner.on(" | ").join(messages);
-
-        sendWwwAuthenticate(request, error, authenticateHeaders);
     }
 }
