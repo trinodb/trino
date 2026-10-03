@@ -13,10 +13,19 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.spi.function.ConstantSpecializedImplementation;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.ScalarFunctionSpecializationContext;
+
+import java.util.Optional;
 
 public interface SpecializedSqlScalarFunction
 {
     ScalarFunctionImplementation getScalarFunctionImplementation(InvocationConvention invocationConvention);
+
+    default Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(ScalarFunctionSpecializationContext specializationContext)
+    {
+        return Optional.empty();
+    }
 }
