@@ -60,6 +60,8 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.security.ViewAccessControl;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -327,6 +329,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.metadata.TableVersion.toTableVersion;
+import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
@@ -443,6 +446,7 @@ import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -5752,7 +5756,9 @@ class StatementAnalyzer
                 return queryScope.getRelationType().withAlias(name.objectName(), null);
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                ErrorCode originalErrorCode = toFailure(e).errorCode();
+                ErrorCodeSupplier errorCode = originalErrorCode.getType() == USER_ERROR ? INVALID_VIEW : () -> originalErrorCode;
+                throw semanticException(errorCode, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
 

@@ -23,6 +23,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -34,7 +35,9 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
@@ -113,7 +116,13 @@ public class TrinoJdbcCatalogFactory
                 _ -> clientPool,
                 false);
 
-        jdbcCatalog.initialize(jdbcCatalogName, catalogProperties);
+        try {
+            jdbcCatalog.initialize(jdbcCatalogName, catalogProperties);
+        }
+        catch (RuntimeException e) {
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to initialize Iceberg JDBC catalog: " + e.getMessage(), e);
+        }
 
         return new TrinoJdbcCatalog(
                 catalogName,

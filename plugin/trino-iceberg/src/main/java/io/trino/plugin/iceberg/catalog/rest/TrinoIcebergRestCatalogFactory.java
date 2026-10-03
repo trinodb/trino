@@ -26,6 +26,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.NodeVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
@@ -41,6 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
@@ -147,7 +150,13 @@ public class TrinoIcebergRestCatalogFactory
                                 : ConnectorIdentity.ofUser("fake");
                         return fileIoFactory.create(fileSystemFactory.create(currentIdentity, config), true, config);
                     });
-            icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            try {
+                icebergCatalogInstance.initialize(catalogName.toString(), catalogPropertiesProvider.catalogProperties());
+            }
+            catch (RuntimeException e) {
+                throwIfInstanceOf(e, TrinoException.class);
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to initialize Iceberg REST catalog: " + e.getMessage(), e);
+            }
 
             icebergCatalog = icebergCatalogInstance;
         }
