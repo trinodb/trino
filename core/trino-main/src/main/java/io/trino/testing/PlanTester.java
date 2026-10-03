@@ -460,7 +460,10 @@ public class PlanTester
                 optimizerConfig,
                 secretsResolver,
                 evaluator,
-                cacheManagerRegistry));
+                cacheManagerRegistry,
+                (_, _) -> {
+                    throw new UnsupportedOperationException("OAuth2 token exchange is not available in a local query runner");
+                }));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));

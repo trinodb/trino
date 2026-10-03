@@ -50,6 +50,7 @@ public class OAuth2Config
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
     private Optional<String> domainHint = Optional.empty();
+    private boolean captureAccessToken;
 
     public Optional<String> getStateKey()
     {
@@ -255,6 +256,19 @@ public class OAuth2Config
     public OAuth2Config setDomainHint(String domainHint)
     {
         this.domainHint = Optional.ofNullable(domainHint);
+        return this;
+    }
+
+    public boolean isCaptureAccessToken()
+    {
+        return captureAccessToken;
+    }
+
+    @Config("http-server.authentication.oauth2.capture-access-token")
+    @ConfigDescription("Store the OAuth2 access token of the authenticated user in the Identity as an internal credential, so it can be used for per-user operations such as RFC 8693 token exchange")
+    public OAuth2Config setCaptureAccessToken(boolean captureAccessToken)
+    {
+        this.captureAccessToken = captureAccessToken;
         return this;
     }
 }
