@@ -585,7 +585,7 @@ public class ClickHouseClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
 
-    private static String clickhouseVarcharLiteral(String value)
+    static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
         return "'" + escape(value, '\'') + "'";
