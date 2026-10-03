@@ -21,7 +21,6 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.StandardTypes;
 
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.Math.round;
@@ -32,7 +31,7 @@ public final class IntervalYearToMonthAverageAggregation
     private IntervalYearToMonthAverageAggregation() {}
 
     @InputFunction
-    public static void input(LongAndDoubleState state, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long value)
+    public static void input(LongAndDoubleState state, @SqlType("interval year(9) to month") long value)
     {
         state.setLong(state.getLong() + 1);
         state.setDouble(state.getDouble() + value);
@@ -46,7 +45,7 @@ public final class IntervalYearToMonthAverageAggregation
     }
 
     @SqlNullable
-    @OutputFunction(StandardTypes.INTERVAL_YEAR_TO_MONTH)
+    @OutputFunction("interval year(9) to month")
     public static void output(LongAndDoubleState state, BlockBuilder out)
     {
         long count = state.getLong();

@@ -44,8 +44,10 @@ import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSyntax;
 import io.trino.spi.type.TypeTemplates;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
@@ -57,6 +59,7 @@ import io.trino.sql.routine.SqlRoutineCompiler;
 import io.trino.sql.routine.SqlRoutineHash;
 import io.trino.sql.routine.SqlRoutinePlanner;
 import io.trino.sql.routine.ir.IrRoutine;
+import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Node;
@@ -64,6 +67,9 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.Property;
+import io.trino.sql.tree.ReturnsClause;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +78,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -85,6 +92,8 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.IntervalField.DAY;
+import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.TypeTemplates.toTypeDescriptor;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
@@ -179,7 +188,7 @@ public class LanguageFunctionManager
     {
         return languageFunctions.stream()
                 .map(LanguageFunction::sql)
-                .map(sql -> extractFunctionMetadata(createSqlLanguageFunctionId(session.getQueryId(), sql), parser.createFunctionSpecification(sql)))
+                .map(sql -> extractFunctionMetadata(createSqlLanguageFunctionId(session.getQueryId(), sql), normalizeStoredFunctionTypes(parser.createFunctionSpecification(sql))))
                 .collect(toImmutableList());
     }
 
@@ -253,15 +262,51 @@ public class LanguageFunctionManager
         return new FunctionId(SQL_FUNCTION_PREFIX + queryId + "_" + hash);
     }
 
+    public static FunctionSpecification canonicalizeFunctionTypes(FunctionSpecification function)
+    {
+        return rewriteFunctionTypes(function, TypeDescriptorTranslator::toTypeDescriptor);
+    }
+
+    static FunctionSpecification normalizeStoredFunctionTypes(FunctionSpecification function)
+    {
+        return rewriteFunctionTypes(function, TypeDescriptorTranslator::toPersistedTypeDescriptor);
+    }
+
+    private static FunctionSpecification rewriteFunctionTypes(FunctionSpecification function, Function<DataType, TypeDescriptor> translate)
+    {
+        return new FunctionSpecification(
+                function.getLocation().orElseThrow(),
+                function.getName(),
+                function.getParameters().stream()
+                        .map(parameter -> new ParameterDeclaration(parameter.getLocation().orElseThrow(), parameter.getName(), TypeDescriptorTranslator.toDataType(translate.apply(parameter.getType()))))
+                        .toList(),
+                new ReturnsClause(function.getReturnsClause().getLocation().orElseThrow(), TypeDescriptorTranslator.toDataType(translate.apply(function.getReturnsClause().getReturnType()))),
+                function.getRoutineCharacteristics(),
+                function.getStatement(),
+                function.getDefinition());
+    }
+
     public String getSignatureToken(List<ParameterDeclaration> parameters)
     {
         return parameters.stream()
                 .map(ParameterDeclaration::getType)
                 .map(TypeDescriptorTranslator::toTypeDescriptor)
                 .map(typeManager::getType)
-                .map(Type::getTypeId)
-                .map(TypeId::getId)
+                .map(type -> TypeSyntax.toSql(legacySignatureType(type.getTypeDescriptor())))
                 .collect(joining(",", "(", ")"));
+    }
+
+    static TypeDescriptor legacySignatureType(TypeDescriptor type)
+    {
+        if (type.equals(IntervalDayTimeType.createIntervalDayTimeType(DAY, SECOND, 9, 3).getTypeDescriptor()) ||
+                type.equals(IntervalYearMonthType.INTERVAL_YEAR_MONTH.getTypeDescriptor())) {
+            return new TypeDescriptor(type.getBase());
+        }
+        return new TypeDescriptor(type.getBase(), type.getParameters().stream()
+                .map(parameter -> parameter instanceof TypeParameter.Type nested
+                        ? new TypeParameter.Type(nested.name(), legacySignatureType(nested.type()))
+                        : parameter)
+                .toList());
     }
 
     public List<Property> materializeFunctionProperties(Session session, FunctionSpecification function, Map<NodeRef<Parameter>, Expression> parameters, AccessControl accessControl)
@@ -465,7 +510,7 @@ public class LanguageFunctionManager
             return new LanguageFunctionImplementation(
                     queryId,
                     sql,
-                    parser.createFunctionSpecification(sql),
+                    normalizeStoredFunctionTypes(parser.createFunctionSpecification(sql)),
                     session.getPath().forView(path),
                     owner,
                     Optional.of(identityLoader));

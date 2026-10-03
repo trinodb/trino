@@ -380,6 +380,7 @@ public class FakerMetadata
         int columnId = 0;
         for (; columnId < tableMetadata.getColumns().size(); columnId++) {
             ColumnMetadata column = tableMetadata.getColumns().get(columnId);
+            IntervalValues.checkSupported(column.getType());
             columns.add(new ColumnInfo(
                     FakerColumnHandle.of(columnId, column, tableNullProbability),
                     column));

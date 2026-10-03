@@ -82,44 +82,6 @@ class TestDateTimeParsing
     }
 
     @Test
-    void testParseDayTimeInterval()
-    {
-        // whole seconds
-        assertThat(DateTimeParsing.parseDayTimeInterval("0")).isEqualTo(0);
-        assertThat(DateTimeParsing.parseDayTimeInterval("1")).isEqualTo(1000);
-        assertThat(DateTimeParsing.parseDayTimeInterval("60")).isEqualTo(60_000);
-
-        // fractional seconds
-        assertThat(DateTimeParsing.parseDayTimeInterval("1.5")).isEqualTo(1500);
-        assertThat(DateTimeParsing.parseDayTimeInterval("123.456")).isEqualTo(123456);
-        assertThat(DateTimeParsing.parseDayTimeInterval("0.001")).isEqualTo(1);
-        assertThat(DateTimeParsing.parseDayTimeInterval("0.1")).isEqualTo(100);
-        assertThat(DateTimeParsing.parseDayTimeInterval("0.12")).isEqualTo(120);
-
-        // fraction truncated to 3 digits (millis)
-        assertThat(DateTimeParsing.parseDayTimeInterval("1.1234")).isEqualTo(1123);
-        assertThat(DateTimeParsing.parseDayTimeInterval("1.9999")).isEqualTo(1999);
-
-        // negative values
-        assertThat(DateTimeParsing.parseDayTimeInterval("-1")).isEqualTo(-1000);
-        assertThat(DateTimeParsing.parseDayTimeInterval("-1.5")).isEqualTo(-1500);
-        assertThat(DateTimeParsing.parseDayTimeInterval("-0")).isEqualTo(0);
-    }
-
-    @Test
-    void testParseYearMonthInterval()
-    {
-        assertThat(DateTimeParsing.parseYearMonthInterval("0")).isEqualTo(0);
-        assertThat(DateTimeParsing.parseYearMonthInterval("1")).isEqualTo(1);
-        assertThat(DateTimeParsing.parseYearMonthInterval("12")).isEqualTo(12);
-        assertThat(DateTimeParsing.parseYearMonthInterval("-3")).isEqualTo(-3);
-        assertThat(DateTimeParsing.parseYearMonthInterval("-12")).isEqualTo(-12);
-
-        assertThatThrownBy(() -> DateTimeParsing.parseYearMonthInterval("abc"))
-                .isInstanceOf(NumberFormatException.class);
-    }
-
-    @Test
     void testParseTime()
     {
         // midnight

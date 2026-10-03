@@ -91,41 +91,6 @@ final class DateTimeParsing
         return toIntExact(LocalDate.parse(value, DATE_FORMATTER).toEpochDay());
     }
 
-    static long parseDayTimeInterval(String value)
-    {
-        boolean negative = value.startsWith("-");
-        if (negative) {
-            value = value.substring(1);
-        }
-
-        int dotIndex = value.indexOf('.');
-        long seconds;
-        long millis;
-        if (dotIndex >= 0) {
-            seconds = Long.parseLong(value.substring(0, dotIndex));
-            String fraction = value.substring(dotIndex + 1);
-            if (fraction.length() > 3) {
-                fraction = fraction.substring(0, 3);
-            }
-            while (fraction.length() < 3) {
-                fraction = fraction + "0";
-            }
-            millis = Long.parseLong(fraction);
-        }
-        else {
-            seconds = Long.parseLong(value);
-            millis = 0;
-        }
-
-        long result = seconds * 1000 + millis;
-        return negative ? -result : result;
-    }
-
-    static long parseYearMonthInterval(String value)
-    {
-        return Long.parseLong(value);
-    }
-
     static Object parseTimestamp(int precision, String value)
     {
         if (precision <= MAX_SHORT_PRECISION) {

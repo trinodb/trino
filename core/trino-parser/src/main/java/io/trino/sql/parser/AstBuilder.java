@@ -147,6 +147,7 @@ import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IntervalQualifier;
+import io.trino.sql.tree.IntervalValueExpression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
 import io.trino.sql.tree.IterateStatement;
@@ -352,7 +353,6 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -1565,8 +1565,21 @@ class AstBuilder
     {
         return new SingleColumn(
                 getLocation(context),
-                (Expression) visit(context.expression()),
-                visitIfPresent(context.identifier(), Identifier.class));
+                getAliasedExpression(context.aliasedExpression()),
+                getAlias(context.aliasedExpression()));
+    }
+
+    private Expression getAliasedExpression(SqlBaseParser.AliasedExpressionContext context)
+    {
+        return (Expression) visit(context.valueExpression() != null ? context.valueExpression() : context.expression());
+    }
+
+    private Optional<Identifier> getAlias(SqlBaseParser.AliasedExpressionContext context)
+    {
+        if (context.alias != null) {
+            return Optional.of(new Identifier(getLocation(context.alias), context.alias.getText(), false));
+        }
+        return visitIfPresent(context.identifier(), Identifier.class);
     }
 
     @Override
@@ -2149,16 +2162,15 @@ class AstBuilder
     @Override
     public Node visitPivotAggregation(SqlBaseParser.PivotAggregationContext context)
     {
-        Optional<Identifier> alias = Optional.empty();
-        if (context.identifier() != null) {
-            alias = Optional.of((Identifier) visit(context.identifier()));
-        }
-        return new PivotAggregation(getLocation(context), (Expression) visit(context.expression()), alias);
+        return new PivotAggregation(getLocation(context), getAliasedExpression(context.aliasedExpression()), getAlias(context.aliasedExpression()));
     }
 
     @Override
     public Node visitPivotValueGroup(SqlBaseParser.PivotValueGroupContext context)
     {
+        if (context.aliasedExpression() != null) {
+            return new PivotValueGroup(getLocation(context), List.of(getAliasedExpression(context.aliasedExpression())), getAlias(context.aliasedExpression()));
+        }
         Optional<Identifier> alias = Optional.empty();
         if (context.identifier() != null) {
             alias = Optional.of((Identifier) visit(context.identifier()));
@@ -2645,6 +2657,21 @@ class AstBuilder
     }
 
     @Override
+    public Node visitIntervalValueExpression(SqlBaseParser.IntervalValueExpressionContext context)
+    {
+        Expression expression = (Expression) visit(context.valueExpression());
+        check(expression instanceof ArithmeticBinaryExpression binary && binary.getOperator() == ArithmeticBinaryExpression.Operator.SUBTRACT,
+                "Qualified datetime difference must be a subtraction",
+                context);
+        ArithmeticBinaryExpression subtraction = (ArithmeticBinaryExpression) expression;
+        return new IntervalValueExpression(
+                getLocation(context),
+                subtraction.getLeft(),
+                subtraction.getRight(),
+                new IntervalDataType(getLocation(context), (IntervalQualifier) visit(context.intervalQualifier())));
+    }
+
+    @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
         if (context.fieldConstructor().isEmpty()) {
@@ -2660,8 +2687,8 @@ class AstBuilder
     {
         return new Row.Field(
                 getLocation(context),
-                visitIfPresent(context.identifier(), Identifier.class),
-                (Expression) visit(context.expression()));
+                getAlias(context.aliasedExpression()),
+                getAliasedExpression(context.aliasedExpression()));
     }
 
     @Override
@@ -3875,7 +3902,7 @@ class AstBuilder
     {
         return new CompositeIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 new IntervalField.Year(),
                 new IntervalField.Month());
     }
@@ -3885,7 +3912,7 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 switch (context.field.getType()) {
                     case YEAR -> new IntervalField.Year();
                     case MONTH -> new IntervalField.Month();
@@ -3898,7 +3925,7 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.precision, DataTypeParameter.class),
                 switch (context.field.getType()) {
                     case DAY -> new IntervalField.Day();
                     case HOUR -> new IntervalField.Hour();
@@ -3912,9 +3939,8 @@ class AstBuilder
     {
         return new SimpleIntervalQualifier(
                 getLocation(context),
-                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
-                new IntervalField.Second(
-                        context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty()));
+                visitIfPresent(context.leadingPrecision, DataTypeParameter.class),
+                new IntervalField.Second(visitIfPresent(context.fractionalPrecision, DataTypeParameter.class)));
     }
 
     @Override
@@ -3930,8 +3956,7 @@ class AstBuilder
         IntervalField to = switch (context.end.getType()) {
             case HOUR -> new IntervalField.Hour();
             case MINUTE -> new IntervalField.Minute();
-            case SECOND -> new IntervalField.Second(
-                    context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty());
+            case SECOND -> new IntervalField.Second(visitIfPresent(context.fractionalPrecision, DataTypeParameter.class));
             default -> throw parseError("Unexpected day-time interval end field: " + context.end.getText(), context);
         };
 
@@ -3945,7 +3970,7 @@ class AstBuilder
 
         return new CompositeIntervalQualifier(
                 getLocation(context),
-                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
+                visitIfPresent(context.leadingPrecision, DataTypeParameter.class),
                 from,
                 to);
     }

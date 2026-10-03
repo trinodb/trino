@@ -949,6 +949,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitIntervalValueExpression(IntervalValueExpression node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteIntervalValueExpression(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            Expression left = rewrite(node.getLeft(), context.get());
+            Expression right = rewrite(node.getRight(), context.get());
+            IntervalDataType type = rewrite(node.getType(), context.get());
+            if (left != node.getLeft() || right != node.getRight() || type != node.getType()) {
+                return new IntervalValueExpression(node.getLocation().orElseThrow(), left, right, type);
+            }
+            return node;
+        }
+
+        @Override
         public Expression visitCast(Cast node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

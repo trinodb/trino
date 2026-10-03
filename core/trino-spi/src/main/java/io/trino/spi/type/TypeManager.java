@@ -29,10 +29,20 @@ public interface TypeManager
      */
     Type fromSqlType(String type);
 
+    /// Reads stored SQL type metadata, preserving historical defaults for legacy spellings.
+    /// Newly written metadata should include explicit type parameters.
+    default Type fromPersistedSqlType(String type)
+    {
+        return fromSqlType(type);
+    }
+
     /**
      * Gets the type with the give (opaque) id
      */
-    Type getType(TypeId id);
+    default Type getType(TypeId id)
+    {
+        return fromPersistedSqlType(id.getId());
+    }
 
     /**
      * Gets the type with the specified base type and the given parameters.

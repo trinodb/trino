@@ -57,12 +57,10 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.faker.DateTimeParsing.parseDate;
-import static io.trino.plugin.faker.DateTimeParsing.parseDayTimeInterval;
 import static io.trino.plugin.faker.DateTimeParsing.parseTime;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimeWithTimeZone;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimestamp;
 import static io.trino.plugin.faker.DateTimeParsing.parseTimestampWithTimeZone;
-import static io.trino.plugin.faker.DateTimeParsing.parseYearMonthInterval;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -123,11 +121,8 @@ public class Literal
             return Double.parseDouble(value);
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_DAY_TO_SECOND)) {
-            return parseDayTimeInterval(value);
-        }
-        if (type.getBaseName().equals(StandardTypes.INTERVAL_YEAR_TO_MONTH)) {
-            return parseYearMonthInterval(value);
+        if (IntervalValues.isInterval(type)) {
+            return IntervalValues.parse(value, type);
         }
         if (type instanceof TimestampType timestampType) {
             return parseTimestamp(timestampType.getPrecision(), value);
