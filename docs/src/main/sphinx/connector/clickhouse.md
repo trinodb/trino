@@ -248,6 +248,10 @@ to the following table:
 * - `UUID`
   - `UUID`
   -
+* - `Array(T)`
+  - `array(T)`
+  - Element type `T` is mapped according to the same type mapping rules.
+    Nested arrays and nullable elements via `Array(Nullable(T))` are supported.
 :::
 
 No other types are supported.
@@ -307,6 +311,11 @@ to the following table:
 * - `UUID`
   - `UUID`
   -
+* - `array(T)`
+  - `Array(Nullable(T))`
+  - Element type `T` is mapped according to the same type mapping rules.
+    For nested arrays, only the innermost scalar element is wrapped in `Nullable`;
+    intermediate `Array` levels are not wrapped because ClickHouse does not support `Nullable(Array(T))`.
 :::
 
 No other types are supported.
