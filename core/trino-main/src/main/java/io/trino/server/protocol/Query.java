@@ -111,6 +111,7 @@ import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 class Query
+        implements ProtocolQuery
 {
     private static final Logger log = Logger.get(Query.class);
 
@@ -121,6 +122,7 @@ class Query
     private final Session session;
     private final Slug slug;
     private final Optional<URI> queryInfoUrl;
+    private final QueryDataProducerFactory queryDataProducerFactory;
 
     @GuardedBy("this")
     private final ExchangeDataSource exchangeDataSource;
@@ -207,7 +209,7 @@ class Query
     @GuardedBy("this")
     private OptionalLong updateCount = OptionalLong.empty();
 
-    public static Query create(
+    static Query create(
             Session session,
             Slug slug,
             QueryManager queryManager,
@@ -216,7 +218,8 @@ class Query
             ExchangeManagerRegistry exchangeManagerRegistry,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            QueryDataProducerFactory queryDataProducerFactory)
     {
         ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
                 session.getQueryId(),
@@ -228,7 +231,7 @@ class Query
                 getRetryPolicy(session),
                 exchangeManagerRegistry);
 
-        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeDataSource, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde, queryDataProducerFactory);
 
         result.queryManager.setOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
@@ -251,7 +254,8 @@ class Query
             ExchangeDataSource exchangeDataSource,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
-            BlockEncodingSerde blockEncodingSerde)
+            BlockEncodingSerde blockEncodingSerde,
+            QueryDataProducerFactory queryDataProducerFactory)
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
@@ -275,8 +279,10 @@ class Query
         this.supportsVariant = session.getClientCapabilities().contains(ClientCapabilities.VARIANT.toString());
         this.supportsVariantBinary = session.getClientCapabilities().contains(ClientCapabilities.VARIANT_BINARY.toString());
         this.serdeFactory = createExchangePagesSerdeFactory(blockEncodingSerde, session);
+        this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
     }
 
+    @Override
     public void cancel()
     {
         queryManager.cancelQuery(queryId);
@@ -294,6 +300,7 @@ class Query
         queryManager.failQuery(queryId, throwable);
     }
 
+    @Override
     public synchronized void dispose()
     {
         exchangeDataSource.close();
@@ -316,6 +323,7 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
+    @Override
     public ListenableFuture<QueryResultsResponse> waitForResults(long token, ExternalUriInfo externalUriInfo, Duration wait)
     {
         ListenableFuture<Void> futureStateChange;
@@ -337,6 +345,7 @@ class Query
         return Futures.transform(futureStateChange, _ -> getNextResult(token, externalUriInfo), resultsProcessorExecutor);
     }
 
+    @Override
     public void markResultsConsumedIfReady()
     {
         if (resultsConsumed) {
@@ -589,7 +598,7 @@ class Query
                     columns = ImmutableList.of(
                             createColumn("metric_name", VARCHAR, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary),
                             createColumn("metric_value", BIGINT, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary));
-                    queryDataProducer = QueryDataProducerFactory.create(session, types);
+                    queryDataProducer = queryDataProducerFactory.create(session, ImmutableList.of("metric_name", "metric_value"), types);
                     Optional<Map<String, Long>> callResult = queryManager.getCallResult(queryId);
                     if (callResult.isPresent() && !callResult.get().isEmpty()) {
                         Map<String, Long> metrics = callResult.get();
@@ -748,7 +757,7 @@ class Query
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();
-            queryDataProducer = QueryDataProducerFactory.create(session, types);
+            queryDataProducer = queryDataProducerFactory.create(session, columnNames, types);
         }
 
         outputInfo.drainInputs(exchangeDataSource::addInput);

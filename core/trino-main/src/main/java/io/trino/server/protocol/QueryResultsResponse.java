@@ -24,7 +24,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-record QueryResultsResponse(
+public record QueryResultsResponse(
         Optional<String> setCatalog,
         Optional<String> setSchema,
         Optional<String> setPath,
@@ -42,7 +42,7 @@ record QueryResultsResponse(
         QueryResults queryResults,
         Optional<String> queryDataEncoding)
 {
-    QueryResultsResponse
+    public QueryResultsResponse
     {
         requireNonNull(setCatalog, "setCatalog is null");
         requireNonNull(setSchema, "setSchema is null");
