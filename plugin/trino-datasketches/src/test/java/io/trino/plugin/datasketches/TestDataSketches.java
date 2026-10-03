@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.datasketches.state.SketchState;
 import io.trino.plugin.datasketches.state.SketchStateFactory;
 import io.trino.plugin.datasketches.theta.Estimate;
+import io.trino.plugin.datasketches.theta.Jaccard;
 import io.trino.plugin.datasketches.theta.SketchFunctionsPlugin;
 import io.trino.plugin.datasketches.theta.Union;
 import io.trino.plugin.datasketches.theta.UnionWithParams;
@@ -45,6 +46,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.datasketches.common.Util.DEFAULT_UPDATE_SEED;
 import static org.apache.datasketches.thetacommon.ThetaUtil.DEFAULT_NOMINAL_ENTRIES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 public class TestDataSketches
         extends AbstractTestQueryFramework
@@ -228,6 +230,61 @@ public class TestDataSketches
                 """.formatted(unionNominalEntries, DEFAULT_UPDATE_SEED, sketchA, sketchB));
 
         assertThat(estimate).isEqualTo(unionNominalEntries);
+    }
+
+    // -------------------------------------------------------------------------
+    // Jaccard similarity
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testJaccardIdentical()
+    {
+        String sketch = toHexSketch(new int[] {1, 2, 3, 4, 5});
+        double similarity = (double) computeScalar(
+                "SELECT theta_sketch_jaccard_similarity(X'%s', X'%s')".formatted(sketch, sketch));
+        assertThat(similarity).isEqualTo(1d);
+    }
+
+    @Test
+    public void testJaccardDisjoint()
+    {
+        String sketchA = toHexSketch(new int[] {1, 2, 3});
+        String sketchB = toHexSketch(new int[] {4, 5, 6});
+        double similarity = (double) computeScalar(
+                "SELECT theta_sketch_jaccard_similarity(X'%s', X'%s')".formatted(sketchA, sketchB));
+        assertThat(similarity).isEqualTo(0d);
+    }
+
+    @Test
+    public void testJaccardPartialOverlap()
+    {
+        // |A n B| = 5, |A u B| = 15 -> J = 1/3
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        String sketchB = toHexSketch(new int[] {6, 7, 8, 9, 10, 11, 12, 13, 14, 15});
+        double similarity = (double) computeScalar(
+                "SELECT theta_sketch_jaccard_similarity(X'%s', X'%s')".formatted(sketchA, sketchB));
+        assertThat(similarity).isCloseTo(1.0 / 3.0, within(1e-6));
+    }
+
+    @Test
+    public void testJaccardSymmetric()
+    {
+        String sketchA = toHexSketch(new int[] {1, 2, 3, 4, 5});
+        String sketchB = toHexSketch(new int[] {3, 4, 5, 6, 7});
+        double ab = (double) computeScalar(
+                "SELECT theta_sketch_jaccard_similarity(X'%s', X'%s')".formatted(sketchA, sketchB));
+        double ba = (double) computeScalar(
+                "SELECT theta_sketch_jaccard_similarity(X'%s', X'%s')".formatted(sketchB, sketchA));
+        assertThat(ab).isEqualTo(ba);
+    }
+
+    @Test
+    public void testJaccardEmptyInputs()
+    {
+        Slice sketch = toSketchSlice(new int[] {1, 2, 3}, DEFAULT_UPDATE_SEED, DEFAULT_ENTRIES);
+        assertThat(Jaccard.jaccardSimilarity(Slices.EMPTY_SLICE, Slices.EMPTY_SLICE)).isEqualTo(1d);
+        assertThat(Jaccard.jaccardSimilarity(Slices.EMPTY_SLICE, sketch)).isEqualTo(0d);
+        assertThat(Jaccard.jaccardSimilarity(sketch, Slices.EMPTY_SLICE)).isEqualTo(0d);
     }
 
     private String toHexSketch(int[] data)
