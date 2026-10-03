@@ -19,6 +19,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -53,6 +56,53 @@ public final class ElasticsearchQueryBuilder
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
     private ElasticsearchQueryBuilder() {}
+
+    public static ObjectNode buildAggregationQuery(
+            List<TermAggregation> termAggregations,
+            List<MetricAggregation> aggregates,
+            OptionalInt pageSize,
+            Optional<Map<String, Object>> after)
+    {
+        ObjectNode aggregations = JSON.objectNode();
+        ObjectNode metrics = aggregations;
+        if (!termAggregations.isEmpty()) {
+            ArrayNode sources = JSON.arrayNode();
+            for (TermAggregation termAggregation : termAggregations) {
+                sources.add(JSON.objectNode().set(termAggregation.getTerm(),
+                        JSON.objectNode().set("terms", JSON.objectNode()
+                                .put("field", termAggregation.getTerm())
+                                .put("missing_bucket", true))));
+            }
+            ObjectNode composite = JSON.objectNode().set("sources", sources);
+            pageSize.ifPresent(size -> composite.put("size", size));
+            after.ifPresent(values -> {
+                ObjectNode afterKey = JSON.objectNode();
+                values.forEach((key, value) -> afterKey.set(key, value == null ? JSON.nullNode() : toJsonValue(value)));
+                composite.set("after", afterKey);
+            });
+            ObjectNode groupBy = JSON.objectNode().set("composite", composite);
+            aggregations.set("groupBy", groupBy);
+            metrics = JSON.objectNode();
+            groupBy.set("aggregations", metrics);
+        }
+        for (MetricAggregation aggregation : aggregates) {
+            if (aggregation.getColumnHandle().isEmpty() && MetricAggregation.COUNT.equals(aggregation.getFunctionName())) {
+                continue;
+            }
+            String function = switch (aggregation.getFunctionName()) {
+                case MetricAggregation.MAX -> "max";
+                case MetricAggregation.MIN -> "min";
+                case MetricAggregation.SUM -> "stats";
+                case MetricAggregation.AVG -> "avg";
+                case MetricAggregation.COUNT -> "value_count";
+                default -> throw new IllegalArgumentException("Unsupported aggregation: " + aggregation.getFunctionName());
+            };
+            metrics.set(aggregation.getAlias(), JSON.objectNode().set(
+                    function,
+                    JSON.objectNode().put("field", aggregation.getColumnHandle().orElseThrow().name())));
+        }
+        return aggregations;
+    }
 
     public static JsonNode buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, Map<String, String> regexes)
     {
