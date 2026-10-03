@@ -173,6 +173,23 @@ directly from a user attribute. This requires the following property:
   - Group membership attribute in user documents. For example, `memberOf`.
 :::
 
+### Caching provider results
+
+The LDAP group provider caches group membership results to reduce the number of required
+LDAP queries. This may help to reduce the time Trino takes to start queries when latency to the LDAP server is high or when the LDAP server is slow to respond. It may also help to reduce the load on the LDAP server when many queries are started in a short period of time. The cache is configured with the following properties:
+
+:::{list-table} Provider cache configuration
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `ldap.group-cache-ttl`
+  - Time-to-live for the group membership cache. For example, `10m`.
+* - `ldap.group-cache-size`
+  - Maximum number of entries in the group membership cache. Defaults to `1000`.
+:::
+
 ### Example configurations
 
 The following configuration is an example for an OpenLDAP (search-based)
