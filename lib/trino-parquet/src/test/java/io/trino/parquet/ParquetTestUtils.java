@@ -82,14 +82,25 @@ public class ParquetTestUtils
     public static Slice writeParquetFile(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<Page> inputPages)
             throws IOException
     {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames, CompressionCodec.SNAPPY);
+        checkArgument(types.size() == columnNames.size());
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
+        return writeParquetFile(writerOptions, schemaConverter.getMessageType(), schemaConverter.getPrimitiveTypes(), inputPages);
+    }
 
-        for (Page inputPage : inputPages) {
-            checkArgument(types.size() == inputPage.getChannelCount());
-            writer.write(inputPage);
+    /**
+     * Writes the pages with an explicit Parquet schema, for types that {@link ParquetSchemaConverter} does not map, like VARIANT.
+     * {@code primitiveTypes} maps the path of each primitive column to its Trino type, except for VARIANT leaves.
+     */
+    public static Slice writeParquetFile(ParquetWriterOptions writerOptions, MessageType messageType, Map<List<String>, Type> primitiveTypes, List<Page> inputPages)
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (ParquetWriter writer = createParquetWriter(outputStream, writerOptions, messageType, primitiveTypes, CompressionCodec.SNAPPY)) {
+            for (Page inputPage : inputPages) {
+                checkArgument(messageType.getFieldCount() == inputPage.getChannelCount());
+                writer.write(inputPage);
+            }
         }
-        writer.close();
         return Slices.wrappedBuffer(outputStream.toByteArray());
     }
 
@@ -97,10 +108,15 @@ public class ParquetTestUtils
     {
         checkArgument(types.size() == columnNames.size());
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
+        return createParquetWriter(outputStream, writerOptions, schemaConverter.getMessageType(), schemaConverter.getPrimitiveTypes(), compression);
+    }
+
+    private static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, MessageType messageType, Map<List<String>, Type> primitiveTypes, CompressionCodec compression)
+    {
         return new ParquetWriter(
                 outputStream,
-                schemaConverter.getMessageType(),
-                schemaConverter.getPrimitiveTypes(),
+                messageType,
+                primitiveTypes,
                 writerOptions,
                 compression,
                 "test-version",
