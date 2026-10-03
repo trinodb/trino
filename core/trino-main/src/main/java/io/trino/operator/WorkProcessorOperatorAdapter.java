@@ -20,6 +20,7 @@ import io.trino.operator.join.spilling.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -119,6 +120,12 @@ public class WorkProcessorOperatorAdapter
         }
 
         return pages.getBlockedFuture();
+    }
+
+    @Override
+    public OptionalInt getBlockedProducerPipeline()
+    {
+        return pages.isBlocked() ? pages.getBlockedProducerPipeline() : OptionalInt.empty();
     }
 
     @Override
