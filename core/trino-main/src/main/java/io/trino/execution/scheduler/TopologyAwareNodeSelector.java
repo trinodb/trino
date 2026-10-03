@@ -25,12 +25,12 @@ import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.TrinoException;
 import jakarta.annotation.Nullable;
 
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -40,12 +40,12 @@ import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.trino.execution.scheduler.NodeScheduler.canAssignSplitBasedOnWeight;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
+import static io.trino.execution.scheduler.NodeScheduler.noNodesAvailable;
 import static io.trino.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectNodes;
 import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector
@@ -64,6 +64,7 @@ public class TopologyAwareNodeSelector
     private final List<CounterStat> topologicalSplitCounters;
     private final NetworkTopology networkTopology;
     private final StableHostAddressProvider stableHostAddressProvider;
+    private final Optional<String> nodeGroup;
 
     public TopologyAwareNodeSelector(
             InternalNode currentNode,
@@ -76,7 +77,8 @@ public class TopologyAwareNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
             NetworkTopology networkTopology,
-            StableHostAddressProvider stableHostAddressProvider)
+            StableHostAddressProvider stableHostAddressProvider,
+            Optional<String> nodeGroup)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -90,6 +92,7 @@ public class TopologyAwareNodeSelector
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
         this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
         this.stableHostAddressProvider = requireNonNull(stableHostAddressProvider, "stableHostAddressProvider is null");
+        this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
     }
 
     @Override
@@ -134,7 +137,7 @@ public class TopologyAwareNodeSelector
                 List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
-                    throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                    throw noNodesAvailable(split, nodeGroup);
                 }
                 InternalNode chosenNode = bestNodeSplitCount(splitWeight, candidateNodes.iterator(), minCandidates, maxPendingSplitsWeightPerTask, assignmentStats);
                 if (chosenNode != null) {

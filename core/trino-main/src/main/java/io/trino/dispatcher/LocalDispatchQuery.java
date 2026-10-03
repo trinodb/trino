@@ -130,7 +130,8 @@ public class LocalDispatchQuery
             if (queryExecution.shouldWaitForMinWorkers()) {
                 executionMinCount = getRequiredWorkers(session);
             }
-            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
+            // wait on the query's own node group, not the whole cluster
+            ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(session.getNodeGroup(), executionMinCount, getRequiredWorkersMaxWait(session));
             // when worker requirement is met, start the execution
             addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
             addExceptionCallback(minimumWorkerFuture, stateMachine::transitionToFailed, queryExecutor);

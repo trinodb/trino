@@ -41,6 +41,7 @@ public class ResourceGroupSpecBuilder
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
     private final Optional<DataSize> hardPhysicalDataScanLimit;
+    private final Optional<String> nodeGroup;
     private final Optional<Long> parentId;
     private final ImmutableList.Builder<ResourceGroupSpec> subGroups = ImmutableList.builder();
 
@@ -57,6 +58,7 @@ public class ResourceGroupSpecBuilder
             Optional<String> softCpuLimit,
             Optional<String> hardCpuLimit,
             Optional<String> hardPhysicalDataScanLimit,
+            Optional<String> nodeGroup,
             Optional<Long> parentId)
     {
         this.id = id;
@@ -71,6 +73,7 @@ public class ResourceGroupSpecBuilder
         this.softCpuLimit = softCpuLimit.map(Duration::valueOf);
         this.hardCpuLimit = hardCpuLimit.map(Duration::valueOf);
         this.hardPhysicalDataScanLimit = hardPhysicalDataScanLimit.map(DataSize::valueOf);
+        this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
         this.parentId = parentId;
     }
 
@@ -119,7 +122,8 @@ public class ResourceGroupSpecBuilder
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                hardPhysicalDataScanLimit);
+                hardPhysicalDataScanLimit,
+                nodeGroup);
     }
 
     public static class Mapper
@@ -150,6 +154,7 @@ public class ResourceGroupSpecBuilder
             Optional<String> softCpuLimit = Optional.ofNullable(resultSet.getString("soft_cpu_limit"));
             Optional<String> hardCpuLimit = Optional.ofNullable(resultSet.getString("hard_cpu_limit"));
             Optional<String> hardPhysicalDataScanLimit = Optional.ofNullable(resultSet.getString("hard_physical_data_scan_limit"));
+            Optional<String> nodeGroup = Optional.ofNullable(resultSet.getString("node_group"));
             Optional<Long> parentId = Optional.of(resultSet.getLong("parent"));
             if (resultSet.wasNull()) {
                 parentId = Optional.empty();
@@ -167,6 +172,7 @@ public class ResourceGroupSpecBuilder
                     softCpuLimit,
                     hardCpuLimit,
                     hardPhysicalDataScanLimit,
+                    nodeGroup,
                     parentId);
         }
     }

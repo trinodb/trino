@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
@@ -32,8 +33,30 @@ public class TestServerInfoSerialization
     @Test
     void testServerInfoSerialization()
     {
-        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"));
+        io.trino.server.ServerInfo serverServerInfo = new io.trino.server.ServerInfo("some-node-id", NodeState.ACTIVE, new io.trino.spi.NodeVersion("some-version"), "some-env", true, Optional.of("some-coordinator-id"), true, Duration.valueOf("1h"), ImmutableSet.of("some-node-group"));
         io.trino.client.ServerInfo clientServerInfo = new io.trino.client.ServerInfo(new NodeVersion("some-version"), "some-env", true, true, Optional.of(Duration.valueOf("1h")), Optional.of("some-coordinator-id"), Optional.of("some-node-id"));
         assertThat(CLIENT_SERVER_INFO_CODEC.fromJson(SERVER_SERVER_INFO_CODEC.toJson(serverServerInfo))).isEqualTo(clientServerInfo);
+    }
+
+    @Test
+    void testMissingNodeGroupsDeserializesToEmpty()
+    {
+        // an older server omits the property, and a Set deserializes to null rather than empty
+        String json =
+                """
+                {
+                  "nodeId": "some-node-id",
+                  "state": "ACTIVE",
+                  "nodeVersion": {"version": "some-version"},
+                  "environment": "some-env",
+                  "coordinator": true,
+                  "starting": false,
+                  "uptime": "1h"
+                }
+                """;
+
+        io.trino.server.ServerInfo serverInfo = SERVER_SERVER_INFO_CODEC.fromJson(json);
+        assertThat(serverInfo.nodeGroups()).isEmpty();
+        assertThat(serverInfo.state()).isEqualTo(NodeState.ACTIVE);
     }
 }

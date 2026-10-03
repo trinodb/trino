@@ -57,6 +57,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_soft_memory_limit.json", "softMemoryLimit percentage is over 100%");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for all sub-groups of 'requests' or none of them");
         assertFails("resource_groups_config_bad_scheduling_weight.json", "schedulingWeight must be positive");
+        assertFails("resource_groups_config_bad_node_group.json", "Invalid node group name: etl group");
         assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
         assertFails(
                 "resource_groups_config_bad_query_priority_scheduling_policy.json",
@@ -340,6 +341,25 @@ public class TestFileResourceGroupConfigurationManager
     private static void assertFails(String fileName, String expectedPattern)
     {
         assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
+    }
+
+    @Test
+    public void testNodeGroup()
+    {
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config_node_group.json");
+
+        assertThat(nodeGroup(manager, "etl")).contains("batch");
+        // a sub group without its own node group inherits the nearest ancestor that declares one
+        assertThat(nodeGroup(manager, "etl.inherits")).contains("batch");
+        assertThat(nodeGroup(manager, "etl.overrides")).contains("batch_large");
+        // a group under a root that declares no node group is unrestricted
+        assertThat(nodeGroup(manager, "adhoc")).isEmpty();
+        assertThat(nodeGroup(manager, "adhoc.unrestricted")).isEmpty();
+    }
+
+    private static Optional<String> nodeGroup(FileResourceGroupConfigurationManager manager, String groupId)
+    {
+        return manager.getNodeGroup(new SelectionContext<>(ResourceGroupId.valueOf(groupId), new ResourceGroupIdTemplate(groupId)));
     }
 
     private static FileResourceGroupConfigurationManager parse(String fileName)

@@ -31,6 +31,7 @@ import io.trino.spi.SplitWeight;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -111,15 +112,16 @@ public class UniformNodeSelectorFactory
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
+        Optional<String> nodeGroup = session.getNodeGroup();
         Supplier<NodeMap> nodeMap;
         if (nodeMapMemoizationDuration.toMillis() > 0) {
             nodeMap = Suppliers.memoizeWithExpiration(
-                    this::createNodeMap,
+                    () -> createNodeMap(nodeGroup),
                     nodeMapMemoizationDuration.toMillis(),
                     MILLISECONDS);
         }
         else {
-            nodeMap = this::createNodeMap;
+            nodeMap = () -> createNodeMap(nodeGroup);
         }
 
         return new UniformNodeSelector(
@@ -134,16 +136,24 @@ public class UniformNodeSelectorFactory
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
-                stableHostAddressProvider);
+                stableHostAddressProvider,
+                nodeGroup);
     }
 
-    private NodeMap createNodeMap()
+    private NodeMap createNodeMap(Optional<String> nodeGroup)
     {
         Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
+
+        if (nodeGroup.isPresent()) {
+            // coordinators are exempt; include-coordinator still decides if they get worker splits
+            nodes = nodes.stream()
+                    .filter(node -> node.getNodeGroups().contains(nodeGroup.get()) || coordinatorNodeIds.contains(node.getNodeIdentifier()))
+                    .collect(toImmutableSet());
+        }
 
         ImmutableSetMultimap.Builder<HostAddress, InternalNode> byHostAndPort = ImmutableSetMultimap.builder();
         ImmutableSetMultimap.Builder<InetAddress, InternalNode> byHost = ImmutableSetMultimap.builder();
