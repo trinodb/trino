@@ -100,6 +100,7 @@ public class IcebergConfig
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
     private int planningThreads = Runtime.getRuntime().availableProcessors() * 2;
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int deleteLoadingThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private int materializedViewRefreshMaxSnapshotsToExpire = 200;
@@ -586,6 +587,20 @@ public class IcebergConfig
     public IcebergConfig setFileDeleteThreads(String fileDeleteThreads)
     {
         this.fileDeleteThreads = ThreadCountParser.DEFAULT.parse(fileDeleteThreads);
+        return this;
+    }
+
+    @Min(0)
+    public int getDeleteLoadingThreads()
+    {
+        return deleteLoadingThreads;
+    }
+
+    @Config("iceberg.delete-loading-threads")
+    @ConfigDescription("Number of threads to use for loading delete files (position deletes and small equality deletes) in parallel per node, or 0 to load them on the thread reading the split. Large equality deletes are always loaded on the thread reading the split")
+    public IcebergConfig setDeleteLoadingThreads(String deleteLoadingThreads)
+    {
+        this.deleteLoadingThreads = ThreadCountParser.DEFAULT.parse(deleteLoadingThreads);
         return this;
     }
 
