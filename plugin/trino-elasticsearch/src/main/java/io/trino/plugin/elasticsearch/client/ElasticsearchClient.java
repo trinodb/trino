@@ -33,6 +33,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -78,7 +79,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -97,6 +97,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.elasticsearch.expression.TopN.NO_LIMIT;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -568,21 +569,27 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, Optional<TopN> topN)
     {
         ObjectNode searchBody = JSON.objectNode();
         searchBody.set("query", query);
 
         int size;
-        if (limit.isPresent() && limit.orElseThrow() < scrollSize) {
-            size = toIntExact(limit.orElseThrow());
+        if (topN.isPresent() && topN.orElseThrow().limit() != NO_LIMIT && topN.orElseThrow().limit() < scrollSize) {
+            size = toIntExact(topN.orElseThrow().limit());
         }
         else {
             size = scrollSize;
         }
         searchBody.put("size", size);
 
-        sort.ifPresent(s -> searchBody.set("sort", JSON.arrayNode().add(s)));
+        topN.ifPresent(value -> {
+            if (!value.topNSortItems().isEmpty()) {
+                ArrayNode sort = JSON.arrayNode();
+                value.topNSortItems().forEach(item -> sort.add(item.toSortQuery()));
+                searchBody.set("sort", sort);
+            }
+        });
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
@@ -614,6 +621,42 @@ public class ElasticsearchClient
                     new StringEntity(searchBody.toString(), UTF_8),
                     new BasicHeader("Content-Type", "application/json"));
             return parseSearchResponse(response);
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            searchStats.add(Duration.nanosSince(start));
+        }
+    }
+
+    public JsonNode beginAggregationSearch(String index, JsonNode query, JsonNode aggregations)
+    {
+        ObjectNode searchBody = JSON.objectNode();
+        searchBody.set("query", query);
+        searchBody.set("aggregations", aggregations);
+        searchBody.put("size", 0);
+        searchBody.put("track_total_hits", true);
+
+        LOG.debug("Begin aggregation search: %s, query: %s", index, searchBody);
+
+        long start = System.nanoTime();
+        try {
+            Response response = client.performRequest(
+                    "POST",
+                    format("/%s/_search", index),
+                    ImmutableMap.of(),
+                    new StringEntity(searchBody.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+            try {
+                return JSON_MAPPER.readTree(EntityUtils.toString(response.getEntity()));
+            }
+            catch (IOException e) {
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
         }
         catch (ResponseException e) {
             throw propagate(e);

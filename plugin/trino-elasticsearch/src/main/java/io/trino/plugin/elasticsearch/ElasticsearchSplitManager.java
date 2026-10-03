@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -53,7 +54,7 @@ public class ElasticsearchSplitManager
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
-        if (tableHandle.type().equals(QUERY)) {
+        if (tableHandle.type().equals(QUERY) || tableHandle.type().equals(AGGREGATION)) {
             return new FixedSplitSource(new ElasticsearchSplit(tableHandle.index(), 0, Optional.empty()));
         }
         List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.index()).stream()
