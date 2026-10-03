@@ -4229,6 +4229,16 @@ public class IcebergMetadata
             return icebergCommitMetadata;
         }
 
+        // Custom reference retention policies may expire snapshots or references independently of the refresh retention period.
+        SnapshotRef mainRef = icebergTable.refs().get(SnapshotRef.MAIN_BRANCH);
+        long expireOlderThan = session.getStart().toEpochMilli() - materializedViewRefreshSnapshotRetentionPeriod.toMillis();
+        if (icebergTable.refs().size() == 1
+                && mainRef != null
+                && mainRef.maxSnapshotAgeMs() == null
+                && Streams.stream(icebergTable.snapshots()).noneMatch(snapshot -> snapshot.timestampMillis() < expireOlderThan)) {
+            return icebergCommitMetadata;
+        }
+
         int snapshots = size(icebergTable.snapshots());
         int snapshotsToRetain = max(1, snapshots - materializedViewRefreshMaxSnapshotsToExpire);
         try {
