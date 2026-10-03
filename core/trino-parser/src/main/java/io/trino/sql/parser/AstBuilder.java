@@ -1383,6 +1383,7 @@ class AstBuilder
                             query.getGroupBy(),
                             query.getHaving(),
                             query.getWindows(),
+                            query.getQualify(),
                             orderBy,
                             offset,
                             limit),
@@ -1429,6 +1430,7 @@ class AstBuilder
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
                 visit(context.windowDefinition(), WindowDefinition.class),
+                visitIfPresent(context.qualify, Expression.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
