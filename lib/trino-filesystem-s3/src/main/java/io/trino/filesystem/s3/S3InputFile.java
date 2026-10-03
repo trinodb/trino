@@ -123,7 +123,7 @@ final class S3InputFile
     private GetObjectRequest newGetObjectRequest()
     {
         return GetObjectRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -140,7 +140,7 @@ final class S3InputFile
             throws IOException
     {
         HeadObjectRequest request = HeadObjectRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .overrideConfiguration(context::applyRequestOverrides)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())

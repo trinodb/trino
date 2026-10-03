@@ -64,6 +64,7 @@ public class IcebergRestCatalogConfig
     private int maxRetries = 5;
     private Duration sessionTimeout = new Duration(CatalogProperties.AUTH_SESSION_TIMEOUT_MS_DEFAULT, MILLISECONDS);
     private boolean vendedCredentialsEnabled;
+    private boolean remoteSigningEnabled;
     private boolean viewEndpointsEnabled = true;
     private boolean serverAssignedTableLocationEnabled;
     private boolean metricsReportingEnabled = true;
@@ -223,6 +224,19 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public boolean isRemoteSigningEnabled()
+    {
+        return remoteSigningEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.remote-signing-enabled")
+    @ConfigDescription("Use the REST backend to sign S3 requests")
+    public IcebergRestCatalogConfig setRemoteSigningEnabled(boolean remoteSigningEnabled)
+    {
+        this.remoteSigningEnabled = remoteSigningEnabled;
         return this;
     }
 
