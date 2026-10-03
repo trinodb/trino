@@ -69,11 +69,9 @@ default inspections, with some modifications.
 Enable the following inspections:
 
 - ``Java | Class structure | Utility class is not 'final'``,
-- ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``,
 - ``Java | Control flow issues | Redundant 'else'`` (including
-  ``Report when there are no more statements after the 'if' statement`` option), 
-- ``Java | Internationalization | Implicit platform default charset``.
+  ``Report when there are no more statements after the 'if' statement`` option).
 
 Disable the following inspections:
 

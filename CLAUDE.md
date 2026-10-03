@@ -18,10 +18,7 @@ It skips tests, Javadoc, and the airbase checks — run `./mvnw validate` before
 Run `./mvnw airstyle:format` after Java edits — the `airstyle-maven-plugin` (`io.airlift:airstyle-maven-plugin`)
 applies the canonical Airstyle scheme, which is what CI checks. Scope a single file with
 `./mvnw -pl <module> airstyle:format -Dincludes=**/FileName.java`, and use `airstyle:check` to verify
-without rewriting. Rules not covered by the formatter:
-
-- No wildcard imports (e.g. `import io.trino.spi.*`) — checkstyle catches these on build; easier
-  to avoid writing them.
+without rewriting.
 
 ## Commits and pull requests
 
