@@ -270,6 +270,22 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharacterLength()
+    {
+        assertThat(assertions.function("character_length", "'hello'"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("character_length", "CAST('hello' AS CHAR(20))"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("char_length", "'hello'"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("char_length", "CAST('hello' AS CHAR(20))"))
+                .isEqualTo(20L);
+    }
+
+    @Test
     public void testLevenshteinDistance()
     {
         assertThat(assertions.function("levenshtein_distance", "''", "''"))
