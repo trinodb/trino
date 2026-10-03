@@ -69,7 +69,8 @@ public class UnionStatsRule
     private PlanNodeStatsEstimate mapToOutputSymbols(PlanNodeStatsEstimate estimate, ListMultimap<Symbol, Symbol> mapping, int index)
     {
         PlanNodeStatsEstimate.Builder mapped = PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(estimate.getOutputRowCount());
+                .setOutputRowCount(estimate.getOutputRowCount())
+                .setConfidence(estimate.getConfidence());
 
         mapping.keySet()
                 .forEach(symbol -> mapped.addSymbolStatistics(symbol, estimate.getSymbolStatistics(mapping.get(symbol).get(index))));

@@ -62,11 +62,14 @@ public final class PlanNodeStatsEstimateMath
 
         // everything will be filtered out after applying negation
         if (outputRowCount == 0) {
-            return createZeroStats(superset);
+            // the zero result depends on the subset estimate as much as the non-zero one, so its
+            // confidence must degrade to the minimum of both inputs, like the branch below
+            return createZeroStats(superset, EstimateConfidence.min(superset.getConfidence(), subset.getConfidence()));
         }
 
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(outputRowCount);
+        result.setConfidence(EstimateConfidence.min(superset.getConfidence(), subset.getConfidence()));
 
         superset.getSymbolsWithKnownStatistics().forEach(symbol -> {
             SymbolStatsEstimate supersetSymbolStats = superset.getSymbolStatistics(symbol);
@@ -130,6 +133,7 @@ public final class PlanNodeStatsEstimateMath
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         double cappedRowCount = min(stats.getOutputRowCount(), cap.getOutputRowCount());
         result.setOutputRowCount(cappedRowCount);
+        result.setConfidence(EstimateConfidence.min(stats.getConfidence(), cap.getConfidence()));
 
         stats.getSymbolsWithKnownStatistics().forEach(symbol -> {
             SymbolStatsEstimate symbolStats = stats.getSymbolStatistics(symbol);
@@ -234,10 +238,11 @@ public final class PlanNodeStatsEstimateMath
         return hasUnestimatedTerm ? outputRowCount * UNKNOWN_FILTER_COEFFICIENT : outputRowCount;
     }
 
-    private static PlanNodeStatsEstimate createZeroStats(PlanNodeStatsEstimate stats)
+    private static PlanNodeStatsEstimate createZeroStats(PlanNodeStatsEstimate stats, EstimateConfidence confidence)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(0);
+        result.setConfidence(confidence);
         stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
         return result.build();
     }
@@ -331,6 +336,7 @@ public final class PlanNodeStatsEstimateMath
 
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         double newRowCount = left.getOutputRowCount() + right.getOutputRowCount();
+        statsBuilder.setConfidence(EstimateConfidence.min(left.getConfidence(), right.getConfidence()));
 
         concat(left.getSymbolsWithKnownStatistics().stream(), right.getSymbolsWithKnownStatistics().stream())
                 .distinct()
