@@ -36,6 +36,7 @@ import java.util.Map;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -96,7 +97,7 @@ public class TestRuleTester
                                     (_, _, _) -> Result.empty()))
                     .on(p ->
                             p.tableScan(
-                                    new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create()),
+                                    new TableHandle(tester.getCurrentCatalogHandle(), new TpchTableHandle("sf1", "nation", 1.0), TestingTransactionHandle.create(), TEST_RESOLVING_IDENTITY),
                                     List.of(p.symbol("x")),
                                     Map.of(p.symbol("x"), new TestingColumnHandle("column"))));
 

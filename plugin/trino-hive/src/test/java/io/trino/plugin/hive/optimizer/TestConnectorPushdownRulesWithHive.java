@@ -75,6 +75,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -154,7 +155,7 @@ public class TestConnectorPushdownRulesWithHive
                 Optional.empty());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
 
@@ -184,7 +185,8 @@ public class TestConnectorPushdownRulesWithHive
                                         new TableHandle(
                                                 catalogHandle,
                                                 hiveTable.withProjectedColumns(ImmutableSet.of(fullColumn)),
-                                                new HiveTransactionHandle(false)),
+                                                new HiveTransactionHandle(false),
+                                                TEST_RESOLVING_IDENTITY),
                                         ImmutableList.of(p.symbol("struct_of_int", baseType)),
                                         ImmutableMap.of(p.symbol("struct_of_int", baseType), fullColumn))))
                 .doesNotFire();
@@ -218,7 +220,7 @@ public class TestConnectorPushdownRulesWithHive
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
@@ -250,7 +252,7 @@ public class TestConnectorPushdownRulesWithHive
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
         HiveColumnHandle columnB = createBaseColumn("b", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
@@ -292,7 +294,7 @@ public class TestConnectorPushdownRulesWithHive
                 new ScalarStatsCalculator(tester().getPlannerContext()));
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
-        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
+        TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false), TEST_RESOLVING_IDENTITY);
 
         HiveColumnHandle bigintColumn = createBaseColumn("just_bigint", 1, toHiveType(BIGINT), BIGINT, REGULAR, Optional.empty());
         HiveColumnHandle partialColumn = new HiveColumnHandle(

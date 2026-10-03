@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.OutputBuffers;
@@ -31,12 +30,12 @@ import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
 import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -135,7 +134,7 @@ public class TestSqlStage
         Metadata metadata = new AbstractMockMetadata()
         {
             @Override
-            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, TableHandle tableHandle)
             {
                 callCount.incrementAndGet();
                 return Optional.empty();
@@ -179,7 +178,7 @@ public class TestSqlStage
         Metadata metadata = new AbstractMockMetadata()
         {
             @Override
-            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+            public Optional<ConnectorTableCredentials> getTableCredentials(Session s, TableHandle tableHandle)
             {
                 return response.get();
             }

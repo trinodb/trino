@@ -87,9 +87,10 @@ public class ApplyTableScanRedirection
         }
 
         CatalogSchemaTableName destinationTable = tableScanRedirectApplicationResult.get().getDestinationTable();
+        Session destinationSession = destinationLookupSession(context.getSession(), scanNode.getTable());
 
         QualifiedObjectName destinationObjectName = convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName());
-        Optional<QualifiedObjectName> redirectedObjectName = plannerContext.getMetadata().getRedirectionAwareTableHandle(context.getSession(), destinationObjectName).redirectedTableName();
+        Optional<QualifiedObjectName> redirectedObjectName = plannerContext.getMetadata().getRedirectionAwareTableHandle(destinationSession, destinationObjectName).redirectedTableName();
 
         redirectedObjectName.ifPresent(name -> {
             throw new TrinoException(NOT_SUPPORTED, format("Further redirection of destination table '%s' to '%s' is not supported", destinationObjectName, name));
@@ -101,7 +102,7 @@ public class ApplyTableScanRedirection
         }
 
         TableHandle destinationTableHandle = plannerContext.getMetadata().getTableHandle(
-                        context.getSession(),
+                        destinationSession,
                         convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()))
                 .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable)));
 
@@ -229,6 +230,15 @@ public class ApplyTableScanRedirection
                 ImmutableSet.copyOf(scanNode.getOutputSymbols()),
                 ImmutableMap.of(),
                 filterNode));
+    }
+
+    // The destination is resolved by name, so resolve it as the identity the source table was resolved as
+    private static Session destinationLookupSession(Session session, TableHandle sourceTable)
+    {
+        if (sourceTable.isResolvedAs(session.getIdentity())) {
+            return session;
+        }
+        return session.withIdentity(sourceTable.resolvingIdentity().toIdentity(sourceTable.catalogHandle().getCatalogName().toString()));
     }
 
     private PlanNode applyProjection(

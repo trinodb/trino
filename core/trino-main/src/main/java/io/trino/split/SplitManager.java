@@ -79,7 +79,7 @@ public class SplitManager
             dynamicFilter = DynamicFilter.EMPTY;
         }
 
-        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        ConnectorSession connectorSession = session.toTableConnectorSession(table);
 
         ConnectorSplitSource source;
         try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
