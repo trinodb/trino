@@ -47,7 +47,31 @@ public class TestClientOptions
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
         assertThat(session.getSource()).isEqualTo("trino-cli");
+        assertThat(session.getUser()).isEmpty();
         assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
+    }
+
+    @Test
+    public void testUserNotSetForCredentialAuthentication()
+    {
+        Console console = createConsole("--access-token=test-token");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getUser()).isEmpty();
+    }
+
+    @Test
+    public void testUserExplicitlySet()
+    {
+        Console console = createConsole("--access-token=test-token", "--user=test");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getUser()).isEqualTo(Optional.of("test"));
+    }
+
+    @Test
+    public void testUserDefaultsToOsUsernameForPasswordAuthentication()
+    {
+        Console console = createConsole("--password");
+        assertThat(console.clientOptions.user()).isEqualTo(Optional.of(System.getProperty("user.name")));
     }
 
     @Test

@@ -179,7 +179,7 @@ public class ClientOptions
     public Optional<String> accessToken;
 
     @PropertyMapping(USER)
-    @Option(names = "--user", paramLabel = "<user>", defaultValue = "${sys:user.name}", description = "Username " + DEFAULT_VALUE)
+    @Option(names = "--user", paramLabel = "<user>", description = "Username (defaults to OS username when using password authentication)")
     public Optional<String> user;
 
     @PropertyMapping(PASSWORD)
@@ -390,7 +390,7 @@ public class ClientOptions
                 .setRestrictedProperties(bannedProperties);
         catalog.ifPresent(builder::setCatalog);
         schema.ifPresent(builder::setSchema);
-        user.ifPresent(builder::setUser);
+        user().ifPresent(builder::setUser);
         sessionUser.ifPresent(builder::setSessionUser);
         if (!path.isEmpty()) {
             builder.setPath(path);
@@ -473,6 +473,7 @@ public class ClientOptions
 
     private String getPassword()
     {
+        Optional<String> user = user();
         checkState(user.isPresent() && !user.get().isEmpty(), "Both username and password must be specified");
         String defaultPassword = System.getenv("TRINO_PASSWORD");
         if (defaultPassword != null) {
@@ -490,6 +491,14 @@ public class ClientOptions
 
         LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
         return reader.readLine("Password: ", (char) 0);
+    }
+
+    Optional<String> user()
+    {
+        if (user.isPresent() || !password) {
+            return user;
+        }
+        return Optional.of(System.getProperty("user.name"));
     }
 
     public static URI parseServer(String server)
