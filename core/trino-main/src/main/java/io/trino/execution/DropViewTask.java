@@ -60,33 +60,36 @@ public class DropViewTask
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        if (metadata.isMaterializedView(session, name)) {
+        // Resolve view redirection
+        QualifiedObjectName targetName = metadata.getRedirectedViewName(session, name).orElse(name);
+
+        if (metadata.isMaterializedView(session, targetName)) {
             throw semanticException(
                     GENERIC_USER_ERROR,
                     statement,
                     "View '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?",
-                    name,
-                    name);
+                    targetName,
+                    targetName);
         }
 
-        if (!metadata.isView(session, name)) {
-            if (metadata.getTableHandle(session, name).isPresent()) {
+        if (!metadata.isView(session, targetName)) {
+            if (metadata.getTableHandle(session, targetName).isPresent()) {
                 throw semanticException(
                         GENERIC_USER_ERROR,
                         statement,
                         "View '%s' does not exist, but a table with that name exists. Did you mean DROP TABLE %s?",
-                        name,
-                        name);
+                        targetName,
+                        targetName);
             }
             if (!statement.isExists()) {
-                throw semanticException(GENERIC_USER_ERROR, statement, "View '%s' does not exist", name);
+                throw semanticException(GENERIC_USER_ERROR, statement, "View '%s' does not exist", targetName);
             }
             return immediateVoidFuture();
         }
 
-        accessControl.checkCanDropView(session.toSecurityContext(), name);
+        accessControl.checkCanDropView(session.toSecurityContext(), targetName);
 
-        metadata.dropView(session, name);
+        metadata.dropView(session, targetName);
 
         return immediateVoidFuture();
     }

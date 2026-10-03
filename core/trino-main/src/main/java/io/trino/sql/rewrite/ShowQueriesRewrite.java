@@ -579,31 +579,44 @@ public final class ShowQueriesRewrite
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
             }
 
-            Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            // Follow view redirection so the view is resolved, authorized, and serialized against its real location.
+            QualifiedObjectName targetViewName = metadata.getRedirectedViewName(session, objectName).orElse(objectName);
+
+            Optional<ViewDefinition> viewDefinition = metadata.getView(session, targetViewName);
 
             if (viewDefinition.isEmpty()) {
-                if (metadata.getTableHandle(session, objectName).isPresent()) {
-                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
+                if (metadata.getTableHandle(session, targetViewName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", targetViewName);
                 }
-                throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
+                throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", targetViewName);
             }
 
-            Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-            List<Identifier> parts = node.getName().getOriginalParts().reversed();
-            Identifier tableName = parts.get(0);
-            Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
-            Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetViewName);
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            Query query = parseView(viewDefinition.get().getOriginalSql(), targetViewName, node);
+            Identifier catalogName;
+            Identifier schemaName;
+            Identifier viewName;
+            if (targetViewName.equals(objectName)) {
+                List<Identifier> parts = node.getName().getOriginalParts().reversed();
+                viewName = parts.get(0);
+                schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
+                catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
+            }
+            else {
+                catalogName = new Identifier(targetViewName.catalogName());
+                schemaName = new Identifier(targetViewName.schemaName());
+                viewName = new Identifier(targetViewName.objectName());
+            }
 
-            Map<String, Object> properties = metadata.getViewProperties(session, objectName);
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            Map<String, Object> properties = metadata.getViewProperties(session, targetViewName);
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, targetViewName.catalogName());
             Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
-            List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
+            List<Property> propertyNodes = toSqlProperties("view " + targetViewName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
             String sql = formatSql(new CreateView(
                     node.getLocation().orElseThrow(),
-                    QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                    QualifiedName.of(ImmutableList.of(catalogName, schemaName, viewName)),
                     query,
                     false,
                     viewDefinition.get().getComment(),
