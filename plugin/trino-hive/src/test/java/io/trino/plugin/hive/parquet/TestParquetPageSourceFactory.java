@@ -74,7 +74,8 @@ public class TestParquetPageSourceFactory
                                 toHiveType(IntegerType.INTEGER),
                                 IntegerType.INTEGER)),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
         MessageType fileSchema = new MessageType(
                 "hive_schema",
                 new GroupType(OPTIONAL, "optional_level1",

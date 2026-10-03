@@ -127,7 +127,8 @@ public class ParquetPageSourceFactory
             BIGINT,
             Optional.empty(),
             HiveColumnHandle.ColumnType.SYNTHESIZED,
-            Optional.empty());
+            Optional.empty(),
+            true);
 
     private static final Set<String> PARQUET_SERDE_CLASS_NAMES = ImmutableSet.<String>builder()
             .add(PARQUET_HIVE_SERDE_CLASS)
