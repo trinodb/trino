@@ -400,8 +400,13 @@ class FunctionBinder
 
     static TrinoException functionNotFound(String name, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
+        return functionNotFound(name, parameterTypes, candidates, Optional.empty());
+    }
+
+    static TrinoException functionNotFound(String name, List<TypeDescriptorProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates, Optional<String> suggestion)
+    {
         if (candidates.isEmpty()) {
-            return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
+            return new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered%s", name, suggestion.map(". Did you mean %s?"::formatted).orElse("")));
         }
 
         Set<String> expectedParameters = new TreeSet<>();

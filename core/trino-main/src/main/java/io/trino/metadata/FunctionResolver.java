@@ -43,6 +43,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +66,10 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypeDescriptors;
+import static io.trino.util.JaroWinkler.similarity;
+import static java.util.Comparator.comparingDouble;
+import static java.util.Locale.ENGLISH;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionResolver
@@ -276,7 +281,7 @@ public class FunctionResolver
         }
 
         List<CatalogFunctionMetadata> candidates = allCandidates.build();
-        throw functionNotFound(name.toString(), parameterTypes, candidates);
+        throw functionNotFound(name.toString(), parameterTypes, candidates, trySuggestFunctionNames(session, name, authorizedPath, accessControl));
     }
 
     static ResolvedFunction resolveFunctionBinding(
@@ -374,6 +379,82 @@ public class FunctionResolver
             names.add(new CatalogSchemaFunctionName(element.getCatalogName(), element.getSchemaName(), parts.get(0)));
         }
         return names.build();
+    }
+
+    private Optional<String> trySuggestFunctionNames(
+            Session session,
+            QualifiedName name,
+            List<CatalogSchemaFunctionName> authorizedPath,
+            AccessControl accessControl)
+    {
+        try {
+            return suggestFunctionNames(session, name, authorizedPath, accessControl);
+        }
+        catch (RuntimeException _) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> suggestFunctionNames(
+            Session session,
+            QualifiedName name,
+            List<CatalogSchemaFunctionName> authorizedPath,
+            AccessControl accessControl)
+    {
+        Set<String> visibleNames = new LinkedHashSet<>();
+        for (FunctionMetadata function : metadata.listGlobalFunctions(session)) {
+            if (function.isHidden() || function.getKind() == FunctionKind.TABLE) {
+                continue;
+            }
+            visibleNames.addAll(function.getNames());
+        }
+        for (CatalogSchemaFunctionName pathName : authorizedPath) {
+            if (isBuiltinFunctionName(pathName)) {
+                continue;
+            }
+            CatalogSchemaName schema = new CatalogSchemaName(pathName.catalogName(), pathName.schemaName());
+            for (FunctionMetadata function : metadata.listFunctions(session, schema)) {
+                if (function.isHidden()) {
+                    continue;
+                }
+                for (String functionName : function.getNames()) {
+                    CatalogSchemaFunctionName candidate = new CatalogSchemaFunctionName(pathName.catalogName(), pathName.schemaName(), functionName);
+                    if (canExecuteFunction(session, accessControl, candidate)) {
+                        visibleNames.add(functionName);
+                    }
+                }
+            }
+        }
+
+        String lowercaseName = name.getSuffix().toLowerCase(ROOT);
+        List<String> suggestions = visibleNames.stream()
+                .filter(candidate -> !candidate.equalsIgnoreCase(lowercaseName))
+                .map(candidate -> new Match(candidate, similarity(candidate.toLowerCase(ENGLISH), lowercaseName)))
+                .filter(match -> match.similarity() > 0.85)
+                .sorted(comparingDouble(Match::similarity).reversed())
+                .limit(3)
+                .map(Match::candidate)
+                .collect(toImmutableList());
+
+        return switch (suggestions.size()) {
+            case 0 -> Optional.empty();
+            case 1 -> Optional.of(quote(suggestions.getFirst()));
+            case 2 -> Optional.of(quote(suggestions.getFirst()) + " or " + quote(suggestions.get(1)));
+            default -> Optional.of(quote(suggestions.getFirst()) + ", " + quote(suggestions.get(1)) + " or " + quote(suggestions.get(2)));
+        };
+    }
+
+    private record Match(String candidate, double similarity)
+    {
+        public Match
+        {
+            requireNonNull(candidate, "candidate is null");
+        }
+    }
+
+    private static String quote(String name)
+    {
+        return "'" + name.replace("'", "''") + "'";
     }
 
     private static boolean canExecuteFunction(Session session, AccessControl accessControl, CatalogSchemaFunctionName functionName)
