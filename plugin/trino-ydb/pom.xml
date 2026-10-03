@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>tech.ydb.dialects</groupId>
-    <artifactId>ydb-trino</artifactId>
+    <artifactId>trino-ydb</artifactId>
     <version>0.1.0</version>
 
     <name>YDB Trino Adapter</name>
