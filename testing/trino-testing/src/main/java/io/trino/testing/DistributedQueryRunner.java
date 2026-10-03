@@ -119,6 +119,7 @@ public final class DistributedQueryRunner
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
     private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(CustomFunctionBundle.CUSTOM_FUNCTIONS));
     private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
+    private final List<CredentialProviderRegistration> credentialProviders = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
 
@@ -271,6 +272,8 @@ public final class DistributedQueryRunner
                 newServer -> {
                     functionBundles.forEach(newServer::addFunctions);
                     plugins.forEach(newServer::installPlugin);
+                    credentialProviders.forEach(registration ->
+                            newServer.addCredentialProvider(registration.name(), registration.factoryName(), registration.properties()));
                 }));
         servers.add(server);
 
@@ -692,6 +695,13 @@ public final class DistributedQueryRunner
     }
 
     @Override
+    public void addCredentialProvider(String name, String factoryName, Map<String, String> properties)
+    {
+        credentialProviders.add(new CredentialProviderRegistration(name, factoryName, properties));
+        servers.forEach(server -> server.addCredentialProvider(name, factoryName, properties));
+    }
+
+    @Override
     public final void close()
     {
         if (closed) {
@@ -1107,4 +1117,6 @@ public final class DistributedQueryRunner
         return Base64.getEncoder()
                 .encodeToString(Ciphers.createRandomAesEncryptionKey().getEncoded());
     }
+
+    private record CredentialProviderRegistration(String name, String factoryName, Map<String, String> properties) {}
 }
