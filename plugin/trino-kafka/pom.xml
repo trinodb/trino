@@ -89,6 +89,13 @@
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- tries to bring it Confluence-versioned (${dep.confluent.version}-ccs) -->
+                    <groupId>org.apache.kafka</groupId>
+                    <artifactId>kafka-clients</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -236,6 +243,12 @@
             <artifactId>kafka-json-schema-serializer</artifactId>
             <!-- This is under Confluent Community License and it should not be used with compile scope -->
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

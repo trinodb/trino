@@ -369,24 +369,12 @@
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-client</artifactId>
                 <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-data</artifactId>
                 <version>${dep.clickhouse.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.google.guava</groupId>
-                        <artifactId>listenablefuture</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -429,6 +417,18 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>3.3.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.api</groupId>
+                <artifactId>api-common</artifactId>
+                <version>2.69.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -720,41 +720,12 @@
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-avro-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-cli</groupId>
-                        <artifactId>commons-cli</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>net.sf.jopt-simple</groupId>
-                        <artifactId>jopt-simple</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.kafka</groupId>
-                        <artifactId>kafka-clients</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-schema-registry-client</artifactId>
                 <version>${dep.confluent.version}</version>
-                <exclusions>
-                    <!-- Brings in a 2.13.4.2 version of databind -->
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.sun.activation</groupId>
-                        <artifactId>jakarta.activation</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.kafka</groupId>
-                        <artifactId>kafka-clients</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1533,10 +1504,6 @@
                 <version>3.1.2-23</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>javax.annotation</groupId>
-                        <artifactId>javax.annotation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.apache.parquet</groupId>
                         <artifactId>parquet-hadoop</artifactId>
                     </exclusion>
@@ -1563,13 +1530,6 @@
                 <groupId>io.trino.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
                 <version>1.7</version>
-                <exclusions>
-                    <!-- not used in the runtime -->
-                    <exclusion>
-                        <groupId>javax.inject</groupId>
-                        <artifactId>javax.inject</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1659,10 +1619,6 @@
                     </exclusion>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
-                        <artifactId>log4j-over-slf4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                     <exclusion>
@@ -1692,10 +1648,6 @@
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.etcd</groupId>
-                        <artifactId>jetcd-core</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>io.prometheus</groupId>
@@ -1767,15 +1719,7 @@
                     </exclusion>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
-                        <artifactId>log4j-over-slf4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-reload4j</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1784,12 +1728,6 @@
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-underfs-local</artifactId>
                 <version>${dep.alluxio.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.logging.log4j</groupId>
-                        <artifactId>log4j-core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1983,12 +1921,6 @@
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
                 <version>4.3.1</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.lz4</groupId>
-                        <artifactId>lz4-java</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2020,24 +1952,12 @@
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-column</artifactId>
                 <version>${dep.parquet.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.yetus</groupId>
-                        <artifactId>audience-annotations</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-common</artifactId>
                 <version>${dep.parquet.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.yetus</groupId>
-                        <artifactId>audience-annotations</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2050,6 +1970,12 @@
                 <groupId>org.apache.parquet</groupId>
                 <artifactId>parquet-format-structures</artifactId>
                 <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>javax.annotation</groupId>
+                        <artifactId>javax.annotation-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2064,14 +1990,6 @@
                     <exclusion>
                         <groupId>commons-pool</groupId>
                         <artifactId>commons-pool</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.yetus</groupId>
-                        <artifactId>audience-annotations</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.lz4</groupId>
-                        <artifactId>lz4-java</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.xerial.snappy</groupId>
@@ -2114,64 +2032,12 @@
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
                 <version>${dep.zookeeper.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>ch.qos.logback</groupId>
-                        <artifactId>logback-classic</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-cli</groupId>
-                        <artifactId>commons-cli</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-server</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-servlet</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper-jute</artifactId>
                 <version>${dep.zookeeper.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>ch.qos.logback</groupId>
-                        <artifactId>logback-classic</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-cli</groupId>
-                        <artifactId>commons-cli</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-server</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-servlet</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2233,24 +2099,12 @@
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
                 <version>${dep.jts.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>junit</groupId>
-                        <artifactId>junit</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
                 <version>3.5.10</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.github.waffle</groupId>
-                        <artifactId>waffle-jna</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2293,12 +2147,6 @@
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
                 <version>1.1.10.8</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.osgi</groupId>
-                        <artifactId>org.osgi.core</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <!-- Transitive dependency from jackson-dataformat-yaml. Avoid different versions being used -->
@@ -2314,13 +2162,6 @@
                 <version>${dep.confluent.version}</version>
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>provided</scope>
-                <exclusions>
-                    <!-- Brings in a 2.13.4.2 version of databind -->
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2337,21 +2178,6 @@
                 <version>${dep.confluent.version}</version>
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
-                <exclusions>
-                    <!-- Brings in a 2.13.4.2 version of databind-->
-                    <exclusion>
-                        <groupId>com.fasterxml.jackson.core</groupId>
-                        <artifactId>jackson-databind</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.kafka</groupId>
-                        <artifactId>kafka-clients</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -2726,6 +2552,26 @@
                             </exception>
                         </exceptions>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <!-- TODO: move to airbase -->
+                        <exclusionFail>true</exclusionFail>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <goals>
+                                <goal>analyze-only</goal>
+                                <goal>analyze-duplicate</goal>
+                                <!-- TODO: move to airbase -->
+                                <goal>analyze-exclusions</goal>
+                            </goals>
+                            <phase>process-test-classes</phase>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>

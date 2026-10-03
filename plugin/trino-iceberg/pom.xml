@@ -27,6 +27,13 @@
                 <groupId>org.jboss.resteasy</groupId>
                 <artifactId>resteasy-core</artifactId>
                 <version>6.0.3.Final</version>
+                <exclusions>
+                    <exclusion>
+                        <!-- Brings in duplicate classes already in jakarta.ws.rs:jakarta.ws.rs-api -->
+                        <groupId>org.jboss.spec.javax.ws.rs</groupId>
+                        <artifactId>jboss-jaxrs-api_3.0_spec</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -136,12 +143,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>http-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -278,12 +279,6 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-format-structures</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -439,10 +434,6 @@
                 <exclusion>
                     <groupId>com.google.guava</groupId>
                     <artifactId>listenablefuture</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -827,11 +818,6 @@
             <version>${dep.keycloak-admin.version}</version>
             <scope>test</scope>
             <exclusions>
-                <exclusion>
-                    <!-- Brings in duplicate classes already in jakarta.ws.rs:jakarta.ws.rs-api -->
-                    <groupId>org.jboss.spec.javax.ws.rs</groupId>
-                    <artifactId>jboss-jaxrs-api_3.0_spec</artifactId>
-                </exclusion>
                 <exclusion>
                     <!-- Brings in duplicate classes already in keycloak-core and keycloak-common -->
                     <groupId>org.keycloak</groupId>
