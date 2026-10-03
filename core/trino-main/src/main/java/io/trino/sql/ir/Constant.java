@@ -23,6 +23,11 @@ import io.airlift.slice.Slice;
 import io.trino.json.Json;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -31,6 +36,9 @@ import java.util.Objects;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 
+/// Array payloads have structural identity, preserving native scalar identities
+/// and collection order recursively. This identity supports expression
+/// deduplication; SQL comparisons continue to use the type's operators.
 public record Constant(Type type, @JsonIgnore Object value)
         implements Expression
 {
@@ -68,6 +76,104 @@ public record Constant(Type type, @JsonIgnore Object value)
     public List<? extends Expression> children()
     {
         return ImmutableList.of();
+    }
+
+    // Folding an array must not give an otherwise identical expression a new identity.
+    // Compare native scalar values, rather than SQL equality (which treats signed zero
+    // as equal and can return unknown for nested nulls).
+    @Override
+    public boolean equals(Object object)
+    {
+        return object instanceof Constant other && type.equals(other.type) &&
+                (type instanceof ArrayType ? valuesEqual(type, value, other.value) : Objects.equals(value, other.value));
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return 31 * type.hashCode() + (type instanceof ArrayType ? valueHash(type, value) : Objects.hashCode(value));
+    }
+
+    private static boolean valuesEqual(Type type, Object left, Object right)
+    {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (type instanceof ArrayType arrayType) {
+            Block leftArray = (Block) left;
+            Block rightArray = (Block) right;
+            if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
+                return false;
+            }
+            for (int position = 0; position < leftArray.getPositionCount(); position++) {
+                if (!valuesEqual(arrayType.getElementType(), readNativeValue(arrayType.getElementType(), leftArray, position), readNativeValue(arrayType.getElementType(), rightArray, position))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (type instanceof RowType rowType) {
+            SqlRow leftRow = (SqlRow) left;
+            SqlRow rightRow = (SqlRow) right;
+            for (int field = 0; field < rowType.getFields().size(); field++) {
+                Type fieldType = rowType.getFields().get(field).getType();
+                if (!valuesEqual(fieldType, readNativeValue(fieldType, leftRow.getRawFieldBlock(field), leftRow.getRawIndex()), readNativeValue(fieldType, rightRow.getRawFieldBlock(field), rightRow.getRawIndex()))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (type instanceof MapType mapType) {
+            SqlMap leftMap = (SqlMap) left;
+            SqlMap rightMap = (SqlMap) right;
+            if (leftMap.getSize() != rightMap.getSize()) {
+                return false;
+            }
+            // Preserve entry order, just as the native value does.
+            for (int entry = 0; entry < leftMap.getSize(); entry++) {
+                if (!valuesEqual(mapType.getKeyType(), readNativeValue(mapType.getKeyType(), leftMap.getRawKeyBlock(), leftMap.getRawOffset() + entry), readNativeValue(mapType.getKeyType(), rightMap.getRawKeyBlock(), rightMap.getRawOffset() + entry)) ||
+                        !valuesEqual(mapType.getValueType(), readNativeValue(mapType.getValueType(), leftMap.getRawValueBlock(), leftMap.getRawOffset() + entry), readNativeValue(mapType.getValueType(), rightMap.getRawValueBlock(), rightMap.getRawOffset() + entry))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return left.equals(right);
+    }
+
+    private static int valueHash(Type type, Object value)
+    {
+        if (value == null) {
+            return 0;
+        }
+        int hash = 1;
+        if (type instanceof ArrayType arrayType) {
+            Block array = (Block) value;
+            for (int position = 0; position < array.getPositionCount(); position++) {
+                hash = 31 * hash + valueHash(arrayType.getElementType(), readNativeValue(arrayType.getElementType(), array, position));
+            }
+            return hash;
+        }
+        if (type instanceof RowType rowType) {
+            SqlRow row = (SqlRow) value;
+            for (int field = 0; field < rowType.getFields().size(); field++) {
+                Type fieldType = rowType.getFields().get(field).getType();
+                hash = 31 * hash + valueHash(fieldType, readNativeValue(fieldType, row.getRawFieldBlock(field), row.getRawIndex()));
+            }
+            return hash;
+        }
+        if (type instanceof MapType mapType) {
+            SqlMap map = (SqlMap) value;
+            for (int entry = 0; entry < map.getSize(); entry++) {
+                hash = 31 * hash + valueHash(mapType.getKeyType(), readNativeValue(mapType.getKeyType(), map.getRawKeyBlock(), map.getRawOffset() + entry));
+                hash = 31 * hash + valueHash(mapType.getValueType(), readNativeValue(mapType.getValueType(), map.getRawValueBlock(), map.getRawOffset() + entry));
+            }
+            return hash;
+        }
+        return value.hashCode();
     }
 
     @Override

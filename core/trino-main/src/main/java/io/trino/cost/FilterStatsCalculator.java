@@ -304,7 +304,11 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
-            List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+            Optional<List<Expression>> elements = node.valueListElements();
+            if (elements.isEmpty()) {
+                return PlanNodeStatsEstimate.unknown();
+            }
+            List<PlanNodeStatsEstimate> equalityEstimates = elements.get().stream()
                     .map(inValue -> process(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 

@@ -75,9 +75,7 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitIn(In node, C context)
     {
         process(node.value(), context);
-        for (Expression argument : node.valueList()) {
-            process(argument, context);
-        }
+        process(node.valueList(), context);
 
         return null;
     }

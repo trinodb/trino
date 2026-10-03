@@ -26,6 +26,7 @@ import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -37,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -44,6 +46,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -54,15 +57,21 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static io.trino.util.Failures.internalError;
 import static io.trino.util.FastutilSetHelper.isDirectLongComparisonValidType;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
+import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
+import static java.lang.invoke.MethodHandles.insertArguments;
+import static java.lang.invoke.MethodType.methodType;
 
 public class InCodeGenerator
         implements BytecodeGenerator
 {
     private final Expression valueExpression;
-    private final List<Expression> testExpressions;
+    private final Expression arrayExpression;
+    private final Optional<List<Expression>> candidates;
 
     private final ResolvedFunction resolvedEqualsFunction;
     private final ResolvedFunction resolvedHashCodeFunction;
@@ -71,12 +80,70 @@ public class InCodeGenerator
     public InCodeGenerator(In in, Metadata metadata, CharVarcharCoercion charVarcharCoercion)
     {
         valueExpression = in.value();
-        testExpressions = in.valueList();
+        arrayExpression = in.valueList();
+        candidates = in.valueListElements();
 
         Type valueType = valueExpression.type();
         resolvedEqualsFunction = metadata.resolveOperator(charVarcharCoercion, EQUAL, ImmutableList.of(valueType, valueType));
         resolvedHashCodeFunction = metadata.resolveOperator(charVarcharCoercion, HASH_CODE, ImmutableList.of(valueType));
         resolvedIsIndeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(valueType));
+    }
+
+    private BytecodeNode generateArrayExpression(BytecodeGeneratorContext context)
+    {
+        Class<?> javaType = valueExpression.type().getJavaType();
+        MethodHandle equals = context.getScalarFunctionImplementation(
+                resolvedEqualsFunction,
+                simpleConvention(NULLABLE_RETURN, NEVER_NULL, BLOCK_POSITION_NOT_NULL)).getMethodHandle();
+        MethodHandle evaluator = insertArguments(methodHandle(InCodeGenerator.class, "evaluateArray", MethodHandle.class, Object.class, boolean.class, Block.class), 0, equals)
+                .asType(methodType(Boolean.class, javaType, boolean.class, Block.class));
+        Binding binding = context.getCallSiteBinder().bind(evaluator);
+
+        Scope scope = context.getScope();
+        Variable value = scope.createTempVariable(javaType);
+        Variable valueIsNull = scope.createTempVariable(boolean.class);
+        Variable array = scope.createTempVariable(Block.class);
+        return new BytecodeBlock()
+                .append(context.generate(valueExpression))
+                .putVariable(value)
+                .append(valueIsNull.set(context.wasNull()))
+                .append(context.wasNull().set(constantFalse()))
+                .append(context.generate(arrayExpression))
+                .putVariable(array)
+                .append(context.wasNull().set(constantFalse()))
+                .append(invoke(binding, "inArray", value, valueIsNull, array))
+                .append(unboxPrimitiveIfNecessary(scope, Boolean.class));
+    }
+
+    public static Boolean evaluateArray(MethodHandle equals, Object value, boolean valueIsNull, Block array)
+    {
+        if (array == null) {
+            return null;
+        }
+        if (array.getPositionCount() == 0) {
+            return false;
+        }
+        if (valueIsNull) {
+            return null;
+        }
+        boolean hasNull = false;
+        for (int position = 0; position < array.getPositionCount(); position++) {
+            if (array.isNull(position)) {
+                hasNull = true;
+                continue;
+            }
+            try {
+                Boolean equal = (Boolean) equals.invoke(value, array, position);
+                if (Boolean.TRUE.equals(equal)) {
+                    return true;
+                }
+                hasNull |= equal == null;
+            }
+            catch (Throwable throwable) {
+                throw internalError(throwable);
+            }
+        }
+        return hasNull ? null : false;
     }
 
     enum SwitchGenerationCase
@@ -123,6 +190,11 @@ public class InCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
+        if (candidates.isEmpty()) {
+            return generateArrayExpression(generatorContext);
+        }
+        List<Expression> testExpressions = candidates.orElseThrow();
+
         // the switch labels and lookup sets are derived from the constant values
         generatorContext.getCallSiteBinder().markValueDependent();
         Type type = valueExpression.type();

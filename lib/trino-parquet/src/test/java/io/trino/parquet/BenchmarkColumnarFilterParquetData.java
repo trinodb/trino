@@ -31,6 +31,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -163,7 +164,7 @@ public class BenchmarkColumnarFilterParquetData
             @Override
             Expression getExpression()
             {
-                return new In(SHIP_MODE, ImmutableList.of(new Constant(VARCHAR, SHIP), new Constant(VARCHAR, MAIL)));
+                return new In(SHIP_MODE, new Array(SHIP_MODE.type(), ImmutableList.of(new Constant(VARCHAR, SHIP), new Constant(VARCHAR, MAIL))));
             }
         },
         OR {

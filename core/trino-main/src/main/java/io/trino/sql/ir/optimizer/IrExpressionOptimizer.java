@@ -202,7 +202,7 @@ public class IrExpressionOptimizer
             case FieldReference reference -> process(reference.base(), session, symbolAllocator, bindings).map(base -> new FieldReference(base, reference.field()));
             case In in -> {
                 Optional<Expression> value = process(in.value(), session, symbolAllocator, bindings);
-                Optional<List<Expression>> list = process(in.valueList(), session, symbolAllocator, bindings);
+                Optional<Expression> list = process(in.valueList(), session, symbolAllocator, bindings);
                 yield value.isPresent() || list.isPresent() ?
                         Optional.of(new In(value.orElse(in.value()), list.orElse(in.valueList()))) :
                         Optional.empty();

@@ -252,7 +252,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitIn(In node, Void context)
         {
-            return "(" + process(node.value(), context) + " IN (" + joinExpressions(node.valueList()) + "))";
+            return node.valueListElements()
+                    .map(elements -> "(" + process(node.value(), context) + " IN (" + joinExpressions(elements) + "))")
+                    .orElseGet(() -> "$in(" + process(node.value(), context) + ", " + process(node.valueList(), context) + ")");
         }
 
         private String joinExpressions(List<Expression> expressions)

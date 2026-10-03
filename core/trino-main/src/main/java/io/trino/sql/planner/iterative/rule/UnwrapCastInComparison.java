@@ -34,6 +34,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -234,7 +235,11 @@ public class UnwrapCastInComparison
             if (!(node.value() instanceof Cast cast)) {
                 return Optional.empty();
             }
-            List<Expression> items = node.valueList();
+            Optional<List<Expression>> elements = node.valueListElements();
+            if (elements.isEmpty()) {
+                return Optional.empty();
+            }
+            List<Expression> items = elements.get();
             if (items.isEmpty()) {
                 // v in () handled elsewhere
                 return Optional.empty();
@@ -278,7 +283,7 @@ public class UnwrapCastInComparison
             }
             if (rebuildsIn && equalityValues.size() > 1) {
                 // Every item unwrapped to an equality, so keep the IN.
-                return Optional.of(new In(source, equalityValues));
+                return Optional.of(new In(source, new Array(source.type(), equalityValues)));
             }
             return Optional.of(or(disjuncts));
         }

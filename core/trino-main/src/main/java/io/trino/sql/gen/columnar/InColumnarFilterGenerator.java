@@ -56,7 +56,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -108,14 +107,17 @@ public class InColumnarFilterGenerator
 
     public InColumnarFilterGenerator(In in, Map<Symbol, Integer> layout, Metadata metadata, CharVarcharCoercion charVarcharCoercion, FunctionManager functionManager, TypeOperators typeOperators)
     {
-        checkArgument(!in.valueList().isEmpty(), "At least one value is required in IN list");
+        List<Expression> expressions = in.valueListElements()
+                .orElseThrow(() -> new UnsupportedOperationException("IN clause columnar evaluation requires a known array"));
+        if (expressions.isEmpty()) {
+            throw new UnsupportedOperationException("IN clause columnar evaluation requires a non-empty array");
+        }
         if (!(in.value() instanceof Reference)) {
             throw new UnsupportedOperationException("IN clause columnar evaluation is supported only on input references");
         }
         valueReference = (Reference) in.value();
         this.layout = requireNonNull(layout, "layout is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        List<Expression> expressions = in.valueList();
         expressions.forEach(expression -> {
             if (!(expression instanceof Constant)) {
                 throw new UnsupportedOperationException("IN clause columnar evaluation is supported only on input reference against constants");

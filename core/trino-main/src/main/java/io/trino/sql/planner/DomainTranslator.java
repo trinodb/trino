@@ -39,6 +39,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.ComparisonOperator;
@@ -210,7 +211,7 @@ public final class DomainTranslator
             return processRange(charVarcharCoercion, type, range, reference);
         }
 
-        Expression excludedPointsExpression = not(metadata, charVarcharCoercion, new In(reference, excludedPoints));
+        Expression excludedPointsExpression = not(metadata, charVarcharCoercion, new In(reference, new Array(reference.type(), excludedPoints)));
         if (excludedPoints.size() == 1) {
             excludedPointsExpression = comparison(metadata, charVarcharCoercion, NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
@@ -275,7 +276,7 @@ public final class DomainTranslator
             disjuncts.add(comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(new In(reference, singleValues));
+            disjuncts.add(new In(reference, new Array(reference.type(), singleValues)));
         }
         return disjuncts;
     }
@@ -294,7 +295,7 @@ public final class DomainTranslator
             predicate = comparison(metadata, charVarcharCoercion, EQUAL, reference, getOnlyElement(values));
         }
         else {
-            predicate = new In(reference, values);
+            predicate = new In(reference, new Array(reference.type(), values));
         }
 
         if (!discreteValues.isInclusive()) {
@@ -1130,15 +1131,18 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitIn(In node, Boolean complement)
         {
-            checkState(!node.valueList().isEmpty(), "InListExpression should never be empty");
+            Optional<List<Expression>> elements = node.valueListElements();
+            if (elements.isEmpty() || elements.get().isEmpty()) {
+                return visitExpression(node, complement);
+            }
 
-            Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
+            Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, elements.get(), complement);
             if (directExtractionResult.isPresent()) {
                 return directExtractionResult.get();
             }
 
             ImmutableList.Builder<Expression> disjuncts = ImmutableList.builder();
-            for (Expression expression : node.valueList()) {
+            for (Expression expression : elements.get()) {
                 disjuncts.add(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), expression));
             }
             ExtractionResult extractionResult = process(or(disjuncts.build()), complement);
@@ -1154,17 +1158,17 @@ public final class DomainTranslator
             return extractionResult;
         }
 
-        private Optional<ExtractionResult> processSimpleInPredicate(In node, Boolean complement)
+        private Optional<ExtractionResult> processSimpleInPredicate(In node, List<Expression> elements, Boolean complement)
         {
             if (!(node.value() instanceof Reference reference)) {
                 return Optional.empty();
             }
             Symbol symbol = Symbol.from(reference);
             Type type = reference.type();
-            List<Object> inValues = new ArrayList<>(node.valueList().size());
+            List<Object> inValues = new ArrayList<>(elements.size());
             List<Expression> excludedExpressions = new ArrayList<>();
 
-            for (Expression expression : node.valueList()) {
+            for (Expression expression : elements) {
                 if (expression instanceof Constant constant) {
                     if (constant.value() == null) {
                         if (complement) {
@@ -1216,7 +1220,7 @@ public final class DomainTranslator
                 remainingExpression = not(plannerContext.getMetadata(), getCharVarcharCoercion(session), comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), EQUAL, node.value(), getOnlyElement(excludedExpressions)));
             }
             else {
-                remainingExpression = not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new In(node.value(), excludedExpressions));
+                remainingExpression = not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new In(node.value(), new Array(node.value().type(), excludedExpressions)));
             }
 
             return Optional.of(new ExtractionResult(tupleDomain, remainingExpression));

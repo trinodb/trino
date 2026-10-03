@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
@@ -50,6 +51,7 @@ import io.trino.sql.planner.Symbol;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -226,23 +228,38 @@ public class IrExpressionEvaluator
     {
         Object value = evaluate(expression.value(), session, bindings);
 
-        if (expression.valueList().isEmpty()) {
-            // an empty IN list is an empty disjunction, i.e. false, regardless of the value
-            return false;
+        List<Object> candidates;
+        if (expression.valueList() instanceof Array array) {
+            if (array.elements().isEmpty()) {
+                return false;
+            }
+            if (value == null) {
+                return null;
+            }
+            candidates = array.elements().stream()
+                    .map(item -> evaluate(item, session, bindings))
+                    .toList();
         }
-
-        if (value == null) {
-            return null;
+        else {
+            Block array = (Block) evaluate(expression.valueList(), session, bindings);
+            if (array == null) {
+                return null;
+            }
+            if (array.getPositionCount() == 0) {
+                return false;
+            }
+            if (value == null) {
+                return null;
+            }
+            candidates = new ArrayList<>(array.getPositionCount());
+            for (int position = 0; position < array.getPositionCount(); position++) {
+                candidates.add(readNativeValue(expression.value().type(), array, position));
+            }
         }
 
         ConnectorSession connectorSession = session.toConnectorSession();
         ResolvedFunction equals = metadata.resolveOperator(getCharVarcharCoercion(session), EQUAL, ImmutableList.of(expression.value().type(), expression.value().type()));
-
         boolean hasNull = false;
-
-        List<Object> candidates = expression.valueList().stream()
-                .map(item -> evaluate(item, session, bindings))
-                .toList();
 
         for (Object candidate : candidates) {
             Object result = functionInvoker.invoke(equals, connectorSession, Arrays.asList(value, candidate));

@@ -68,9 +68,16 @@ public class SimplifyContinuousInValues
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In(Expression value, List<Expression> values))) {
+        if (!(expression instanceof In in)) {
             return Optional.empty();
         }
+
+        Expression value = in.value();
+        Optional<List<Expression>> elements = in.valueListElements();
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Expression> values = elements.get();
 
         if (values.size() < 2) {
             return Optional.empty();

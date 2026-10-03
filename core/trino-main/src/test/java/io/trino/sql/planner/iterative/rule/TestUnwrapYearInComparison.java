@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -371,7 +372,7 @@ public class TestUnwrapYearInComparison
     {
         Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
 
-        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L)))))
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L))))))
                 .isEqualTo(new Let(
                         new Symbol(TIMESTAMP_MILLIS, "operand"),
                         randomTimestamp(),
@@ -383,14 +384,14 @@ public class TestUnwrapYearInComparison
     @Test
     public void testUnwrapYearInKeepsSingleValueUnbound()
     {
-        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, 2021L)))))
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 2021L))))))
                 .isEqualTo(letBetween("between", randomTimestamp(), "2021-01-01 00:00:00.000", "2021-12-31 23:59:59.999"));
     }
 
     @Test
     public void testUnwrapYearInKeepsUnreferencedOperandUnbound()
     {
-        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), ImmutableList.of(new Constant(BIGINT, null)))))
+        assertThat(unwrap(new In(yearTimestamp(randomTimestamp()), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, null))))))
                 .isEqualTo(new Constant(BOOLEAN, null));
     }
 
@@ -426,7 +427,7 @@ public class TestUnwrapYearInComparison
         Expression cast = new Cast(new Reference(DATE, "a"), TIMESTAMP_MILLIS);
         Reference operand = new Reference(TIMESTAMP_MILLIS, "operand");
 
-        assertThat(unwrap(new In(yearTimestamp(cast), ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L)))))
+        assertThat(unwrap(new In(yearTimestamp(cast), new Array(BIGINT, ImmutableList.of(new Constant(BIGINT, 2019L), new Constant(BIGINT, 2021L))))))
                 .isEqualTo(new Let(
                         new Symbol(TIMESTAMP_MILLIS, "operand"),
                         cast,
