@@ -919,6 +919,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<String> getSchemaComment(ConnectorSession session, String schemaName)
+    {
+        Span span = startSpan("getSchemaComment", schemaName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getSchemaComment(session, schemaName);
+        }
+    }
+
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
         Span span = startSpan("getSchemaOwner", schemaName);
