@@ -15,12 +15,14 @@ package io.trino.plugin.google.sheets;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.util.Optional;
+
 import static io.trino.plugin.google.sheets.SheetsClient.RANGE_SEPARATOR;
 import static java.util.Objects.requireNonNull;
 
 public record SheetsSheetTableHandle(
         String sheetId,
-        String sheetRange)
+        Optional<String> sheetRange)
         implements SheetsConnectorTableHandle
 {
     public SheetsSheetTableHandle
@@ -32,6 +34,8 @@ public record SheetsSheetTableHandle(
     @JsonIgnore
     public String getSheetExpression()
     {
-        return "%s%s%s".formatted(sheetId, RANGE_SEPARATOR, sheetRange);
+        return sheetRange
+                .map(range -> sheetId + RANGE_SEPARATOR + range)
+                .orElse(sheetId);
     }
 }
