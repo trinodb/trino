@@ -394,6 +394,7 @@ public class TestLakehouseConnectorTest
                    comment varchar
                 )
                 WITH (
+                   compression_codec = 'ZSTD',
                    format = 'PARQUET',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/orders-.*'\\Q,

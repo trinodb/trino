@@ -530,6 +530,7 @@ public class IcebergMetadata
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
     private final Predicate<String> allowedExtraProperties;
+    private final HiveCompressionCodec defaultCompressionCodec;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
@@ -561,6 +562,7 @@ public class IcebergMetadata
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
             Predicate<String> allowedExtraProperties,
+            HiveCompressionCodec defaultCompressionCodec,
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
             ExecutorService icebergPlanningExecutor,
@@ -579,6 +581,7 @@ public class IcebergMetadata
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
+        this.defaultCompressionCodec = requireNonNull(defaultCompressionCodec, "defaultCompressionCodec is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
@@ -1544,7 +1547,7 @@ public class IcebergMetadata
                 validateNotEncryptedForWrite(icebergTable);
                 tableLocation = icebergTable.location();
                 List<PartitionField> existingPartitionFields = getAllPartitionFields(icebergTable);
-                transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, existingPartitionFields);
+                transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, existingPartitionFields, defaultCompressionCodec);
             }
         }
 
@@ -1554,7 +1557,7 @@ public class IcebergMetadata
         }
 
         if (transaction == null) {
-            transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, ImmutableList.of());
+            transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, ImmutableList.of(), defaultCompressionCodec);
         }
         createTableTransaction = transaction;
         Location location = Location.of(transaction.table().location());
@@ -2773,12 +2776,17 @@ public class IcebergMetadata
 
     public static Map<String, String> calculateTableCompressionProperties(IcebergFileFormat oldFileFormat, IcebergFileFormat newFileFormat, Map<String, String> existingProperties, Map<String, Object> inputProperties)
     {
+        return calculateTableCompressionProperties(oldFileFormat, newFileFormat, existingProperties, inputProperties, Optional.empty());
+    }
+
+    public static Map<String, String> calculateTableCompressionProperties(IcebergFileFormat oldFileFormat, IcebergFileFormat newFileFormat, Map<String, String> existingProperties, Map<String, Object> inputProperties, Optional<HiveCompressionCodec> fallbackCompressionCodec)
+    {
         ImmutableMap.Builder<String, String> newCompressionProperties = ImmutableMap.builder();
 
         Optional<HiveCompressionCodec> oldCompressionCodec = getHiveCompressionCodec(oldFileFormat, existingProperties);
         Optional<HiveCompressionCodec> newCompressionCodec = IcebergTableProperties.getCompressionCodec(inputProperties);
 
-        Optional<HiveCompressionCodec> compressionCodec = newCompressionCodec.or(() -> oldCompressionCodec);
+        Optional<HiveCompressionCodec> compressionCodec = newCompressionCodec.or(() -> oldCompressionCodec).or(() -> fallbackCompressionCodec);
 
         validateCompression(newFileFormat, compressionCodec);
 
