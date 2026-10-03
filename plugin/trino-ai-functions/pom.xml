@@ -157,6 +157,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-credential-provider-api-key</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
