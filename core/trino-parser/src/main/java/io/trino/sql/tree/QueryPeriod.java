@@ -40,12 +40,12 @@ public class QueryPeriod
         this(location, rangeType, Optional.empty(), Optional.of(end));
     }
 
-    private QueryPeriod(NodeLocation location, RangeType rangeType, Optional<Expression> start, Optional<Expression> end)
+    public QueryPeriod(NodeLocation location, RangeType rangeType, Optional<Expression> start, Optional<Expression> end)
     {
         super(location);
         this.rangeType = requireNonNull(rangeType, "rangeType is null");
-        this.start = start;
-        this.end = end;
+        this.start = requireNonNull(start, "start is null");
+        this.end = requireNonNull(end, "end is null");
     }
 
     @Override
@@ -102,7 +102,7 @@ public class QueryPeriod
     @Override
     public String toString()
     {
-        return "FOR " + rangeType.toString() + " AS OF " + end.get().toString();
+        return "FOR " + rangeType + start.map(value -> " FROM " + value + " TO ").orElse(" AS OF ") + end.orElseThrow();
     }
 
     @Override

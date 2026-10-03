@@ -1074,6 +1074,7 @@ qualifiedName
 
 queryPeriod
     : FOR rangeType AS OF end=valueExpression
+    | FOR rangeType FROM start=valueExpression TO end=valueExpression
     ;
 
 rangeType
