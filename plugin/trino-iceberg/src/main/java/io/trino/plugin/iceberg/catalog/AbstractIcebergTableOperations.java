@@ -15,12 +15,14 @@ package io.trino.plugin.iceberg.catalog;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
+import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.IcebergExceptions;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
@@ -46,6 +48,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -76,6 +79,8 @@ import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractIcebergTableOperations.class);
+
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LAZY_SIMPLE_SERDE_CLASS,
             FILE_INPUT_FORMAT_CLASS,
@@ -243,9 +248,73 @@ public abstract class AbstractIcebergTableOperations
         return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
     }
 
+    protected CreateTableException deleteOrphanedMetadata(String metadataLocation, Exception cause)
+    {
+        try {
+            io().deleteFile(metadataLocation);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to clean up metadata file %s for table %s", metadataLocation, getSchemaTableName());
+        }
+        return new CreateTableException(cause, getSchemaTableName());
+    }
+
     protected SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(database, tableName);
+    }
+
+    /**
+     * Determines whether a failed create call actually applied the commit, by re-reading the current metadata location
+     * of the table from the catalog and comparing it against the one this operation wrote. {@code newMetadataLocation}
+     * carries a freshly generated UUID, so an equal value can only mean this very operation created the table. When the
+     * catalog already points at other metadata, that metadata is read and its table UUID is compared with the one this
+     * operation assigned: the UUID is set once at creation and carried over by every later commit (a replacement
+     * included), so a match means a later commit built on the table this operation created, and the create still counts
+     * as applied.
+     * <p>
+     * The check is biased towards {@link CommitStatus#UNKNOWN}: an orphaned metadata file is cheap to clean up later
+     * (e.g. via {@code remove_orphan_files}), whereas deleting a file the catalog still references is an
+     * unrecoverable data-integrity issue. A single read is enough because the catalog client already retries
+     * transient failures internally. The supplier reads the current metadata location of the table from the catalog,
+     * bypassing any cache, and returns empty when the table is absent or is not an Iceberg table.
+     */
+    protected CommitStatus checkNewTableCommitStatus(String newMetadataLocation, String tableUuid, Supplier<Optional<String>> committedMetadataLocation)
+    {
+        requireNonNull(tableUuid, "tableUuid is null");
+        Optional<String> committedLocation;
+        try {
+            committedLocation = committedMetadataLocation.get();
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not determine commit status for new table %s; treating commit state as unknown", getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        if (committedLocation.isEmpty()) {
+            return CommitStatus.FAILURE;
+        }
+        if (newMetadataLocation.equals(committedLocation.get())) {
+            return CommitStatus.SUCCESS;
+        }
+        TableMetadata committedMetadata;
+        try {
+            committedMetadata = TableMetadataParser.read(io(), committedLocation.get());
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not read current metadata %s of new table %s to determine commit status; treating commit state as unknown", committedLocation.get(), getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        if (tableUuid.equals(committedMetadata.uuid())) {
+            return CommitStatus.SUCCESS;
+        }
+        return CommitStatus.FAILURE;
+    }
+
+    protected enum CommitStatus
+    {
+        SUCCESS,
+        FAILURE,
+        UNKNOWN,
     }
 
     protected String writeNewMetadata(TableMetadata metadata, int newVersion)
