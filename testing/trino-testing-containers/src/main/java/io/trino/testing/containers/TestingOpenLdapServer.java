@@ -19,10 +19,12 @@ import com.google.common.io.Closer;
 import io.trino.testing.TestingNames;
 import io.trino.testing.TestingProperties;
 import io.trino.testing.containers.ldap.LdapObjectDefinition;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
+import org.testcontainers.images.builder.Transferable;
 
 import javax.naming.Context;
 import javax.naming.NamingException;
@@ -141,6 +143,55 @@ public class TestingOpenLdapServer
         }
         finally {
             context.close();
+        }
+    }
+
+    /**
+     * Raises the LMDB map size of the data database. The default is too small to hold thousands of entries:
+     * once it is exhausted, writes fail with {@code txn_commit failed} (LDAP error 80). Call this before
+     * bulk-loading a large directory.
+     */
+    public void setDatabaseMaxSizeBytes(long maxSizeBytes)
+    {
+        applyConfigModification(
+                "dn: olcDatabase={2}mdb,cn=config\n"
+                        + "changetype: modify\n"
+                        + "replace: olcDbMaxSize\n"
+                        + format("olcDbMaxSize: %s\n", maxSizeBytes));
+    }
+
+    /**
+     * Applies an OpenLDAP per-identity size limit to every authenticated (non-admin) bind. A non-paged
+     * search returning more than {@code sizeLimit} entries then fails with {@code SizeLimitExceededException},
+     * while {@code size.prtotal=unlimited} lets RFC 2696 paged searches read past that cap. The admin/rootdn
+     * bind bypasses these limits entirely, so truncation is only observable when binding as a regular user.
+     * This emulates Active Directory, where a non-paged search is silently capped at {@code MaxPageSize}.
+     */
+    public void limitAuthenticatedUserSearchSize(int sizeLimit)
+    {
+        applyConfigModification(
+                "dn: olcDatabase={2}mdb,cn=config\n"
+                        + "changetype: modify\n"
+                        + "add: olcLimits\n"
+                        + format("olcLimits: users size=%s size.prtotal=unlimited\n", sizeLimit));
+    }
+
+    private void applyConfigModification(String ldif)
+    {
+        openLdapServer.copyFileToContainer(Transferable.of(ldif), "/tmp/trino-ldap-config.ldif");
+        try {
+            Container.ExecResult result = openLdapServer.execInContainer(
+                    "ldapmodify", "-Y", "EXTERNAL", "-H", "ldapi:///", "-f", "/tmp/trino-ldap-config.ldif");
+            if (result.getExitCode() != 0) {
+                throw new RuntimeException("Failed to modify LDAP configuration: " + result.getStderr());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while modifying LDAP configuration", e);
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to modify LDAP configuration", e);
         }
     }
 
