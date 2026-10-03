@@ -26,6 +26,8 @@ import io.trino.plugin.kafka.schema.confluent.ConfluentModule;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplierModule;
+import io.trino.plugin.kafka.schema.rest.RestTableDescriptionSupplier;
+import io.trino.plugin.kafka.schema.rest.RestTableDescriptionSupplierModule;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -60,6 +62,7 @@ public class KafkaConnectorModule
         KafkaConfig kafkaConfig = buildConfigObject(KafkaConfig.class);
         switch (kafkaConfig.getTableDescriptionSupplier().toLowerCase(ENGLISH)) {
             case FileTableDescriptionSupplier.NAME -> install(new FileTableDescriptionSupplierModule());
+            case RestTableDescriptionSupplier.NAME -> install(new RestTableDescriptionSupplierModule());
             case ConfluentSchemaRegistryTableDescriptionSupplier.NAME -> install(new ConfluentModule());
         }
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);

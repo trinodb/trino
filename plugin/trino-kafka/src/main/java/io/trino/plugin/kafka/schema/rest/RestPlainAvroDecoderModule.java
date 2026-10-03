@@ -1,0 +1,66 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.kafka.schema.rest;
+
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.multibindings.MapBinder;
+import io.trino.decoder.DispatchingRowDecoderFactory;
+import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.avro.AvroBytesDeserializer;
+import io.trino.decoder.avro.AvroDeserializer;
+import io.trino.decoder.avro.AvroReaderSupplier;
+import io.trino.decoder.avro.AvroRowDecoderFactory;
+import io.trino.decoder.avro.FixedSchemaAvroReaderSupplier;
+import io.trino.decoder.csv.CsvRowDecoder;
+import io.trino.decoder.csv.CsvRowDecoderFactory;
+import io.trino.decoder.dummy.DummyRowDecoder;
+import io.trino.decoder.dummy.DummyRowDecoderFactory;
+import io.trino.decoder.json.JsonRowDecoder;
+import io.trino.decoder.json.JsonRowDecoderFactory;
+import io.trino.decoder.protobuf.ProtobufDecoderModule;
+import io.trino.decoder.raw.RawRowDecoder;
+import io.trino.decoder.raw.RawRowDecoderFactory;
+
+import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+
+/**
+ * Decoder bindings for Kafka topics that use plain Avro binary (no Confluent wire-format header).
+ * Use when {@code kafka.confluent-schema-registry-url} is not set: the default
+ * {@link io.trino.decoder.DecoderModule} binds {@link io.trino.decoder.avro.AvroFileDeserializer},
+ * which expects Avro object-container files, not
+ * per-message Kafka payloads.
+ */
+public class RestPlainAvroDecoderModule
+        implements Module
+{
+    @Override
+    public void configure(Binder binder)
+    {
+        MapBinder<String, RowDecoderFactory> mapBinder =
+                newMapBinder(binder, String.class, RowDecoderFactory.class);
+        mapBinder.addBinding(DummyRowDecoder.NAME).to(DummyRowDecoderFactory.class).in(SINGLETON);
+        mapBinder.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
+        mapBinder.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
+        mapBinder.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
+        mapBinder.addBinding(AvroRowDecoderFactory.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
+
+        binder.bind(AvroReaderSupplier.Factory.class).to(FixedSchemaAvroReaderSupplier.Factory.class).in(SINGLETON);
+        binder.bind(AvroDeserializer.Factory.class).to(AvroBytesDeserializer.Factory.class).in(SINGLETON);
+
+        binder.install(new ProtobufDecoderModule());
+        binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
+    }
+}
