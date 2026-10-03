@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
+import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -83,6 +84,10 @@ public final class OracleQueryRunner
         {
             DistributedQueryRunner queryRunner = super.build();
             try {
+                // Install GeoPlugin early so oracle.spatial-column-mapping=GEOMETRY (which resolves
+                // the GEOMETRY type at OracleClient construction) can find it.
+                queryRunner.installPlugin(new GeoPlugin());
+
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 

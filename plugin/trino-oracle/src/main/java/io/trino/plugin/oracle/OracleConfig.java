@@ -41,6 +41,7 @@ public class OracleConfig
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
     private Duration connectionPoolWaitDuration = new Duration(3, SECONDS);
     private Integer fetchSize;
+    private SpatialColumnMapping spatialColumnMapping = SpatialColumnMapping.VARCHAR;
 
     public boolean isSynonymsEnabled()
     {
@@ -179,5 +180,19 @@ public class OracleConfig
     public boolean isPoolSizedProperly()
     {
         return getConnectionPoolMaxSize() >= getConnectionPoolMinSize();
+    }
+
+    @NotNull
+    public SpatialColumnMapping getSpatialColumnMapping()
+    {
+        return spatialColumnMapping;
+    }
+
+    @Config("oracle.spatial-column-mapping")
+    @ConfigDescription("How MDSYS.SDO_GEOMETRY and MDSYS.SDO_POINT_TYPE columns are surfaced: VARCHAR (WKT text) or GEOMETRY (Trino native geometry, equivalent to ST_GeometryFromText applied to the WKT)")
+    public OracleConfig setSpatialColumnMapping(SpatialColumnMapping spatialColumnMapping)
+    {
+        this.spatialColumnMapping = spatialColumnMapping;
+        return this;
     }
 }
