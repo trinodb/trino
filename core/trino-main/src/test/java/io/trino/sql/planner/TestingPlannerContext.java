@@ -40,6 +40,7 @@ import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.FunctionBundle;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
@@ -82,6 +83,7 @@ public final class TestingPlannerContext
         private final List<Type> types = new ArrayList<>();
         private final List<ParametricType> parametricTypes = new ArrayList<>();
         private final List<FunctionBundle> functionBundles = new ArrayList<>();
+        private CatalogServiceProvider<FunctionProvider> functionProviders = CatalogServiceProvider.fail();
 
         private Builder() {}
 
@@ -116,6 +118,12 @@ public final class TestingPlannerContext
         public Builder addFunctions(FunctionBundle functionBundle)
         {
             functionBundles.add(functionBundle);
+            return this;
+        }
+
+        public Builder withFunctionProviders(CatalogServiceProvider<FunctionProvider> functionProviders)
+        {
+            this.functionProviders = requireNonNull(functionProviders, "functionProviders is null");
             return this;
         }
 
@@ -157,7 +165,7 @@ public final class TestingPlannerContext
                 metadata = builder.build();
             }
 
-            FunctionManager functionManager = new FunctionManager(CatalogServiceProvider.fail(), globalFunctionCatalog, LanguageFunctionProvider.DISABLED);
+            FunctionManager functionManager = new FunctionManager(functionProviders, globalFunctionCatalog, LanguageFunctionProvider.DISABLED);
             globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
                     new JsonExistsFunction(functionManager, metadata, typeManager),
                     new JsonValueFunction(functionManager, metadata, typeManager),
