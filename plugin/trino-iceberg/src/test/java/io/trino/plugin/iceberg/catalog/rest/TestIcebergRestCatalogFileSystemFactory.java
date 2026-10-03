@@ -28,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.aws.AwsClientProperties;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
@@ -48,6 +49,10 @@ import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_G
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ENDPOINT_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_PATH_STYLE_ACCESS_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REGION_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,7 +74,11 @@ final class TestIcebergRestCatalogFileSystemFactory
         Map<String, String> fileIoProperties = ImmutableMap.of(
                 S3FileIOProperties.ACCESS_KEY_ID, "test-access-key",
                 S3FileIOProperties.SECRET_ACCESS_KEY, "test-secret-key",
-                S3FileIOProperties.SESSION_TOKEN, "test-session-token");
+                S3FileIOProperties.SESSION_TOKEN, "test-session-token",
+                AwsClientProperties.CLIENT_REGION, "us-west-2",
+                S3FileIOProperties.ENDPOINT, "https://custom-s3.example.com",
+                S3FileIOProperties.CROSS_REGION_ACCESS_ENABLED, "true",
+                S3FileIOProperties.PATH_STYLE_ACCESS, "true");
 
         factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
 
@@ -77,6 +86,72 @@ final class TestIcebergRestCatalogFileSystemFactory
         assertThat(identity).isNotNull();
         assertThat(identity.getExtraCredentials())
                 .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "test-access-key")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "test-secret-key")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "test-session-token")
+                .containsEntry(EXTRA_CREDENTIALS_REGION_PROPERTY, "us-west-2")
+                .containsEntry(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY, "https://custom-s3.example.com")
+                .containsEntry(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, "true")
+                .containsEntry(EXTRA_CREDENTIALS_PATH_STYLE_ACCESS_PROPERTY, "true");
+    }
+
+    @Test
+    void testExistingExtraCredentialsArePreservedWhenS3CredentialsAreVended()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of("existing-token", "existing-value"))
+                .build();
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.ACCESS_KEY_ID, "test-access-key",
+                S3FileIOProperties.SECRET_ACCESS_KEY, "test-secret-key",
+                S3FileIOProperties.SESSION_TOKEN, "test-session-token");
+
+        factory.create(identity, fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
+
+        assertThat(capturedIdentity.get()).isNotNull();
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsEntry("existing-token", "existing-value")
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "test-access-key")
+                .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "test-secret-key")
+                .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "test-session-token");
+    }
+
+    @Test
+    void testVendedS3CredentialsOverrideOverlappingExistingExtraCredentials()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true);
+
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "old-access-key",
+                        "existing-token", "existing-value"))
+                .build();
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.ACCESS_KEY_ID, "new-access-key",
+                S3FileIOProperties.SECRET_ACCESS_KEY, "test-secret-key",
+                S3FileIOProperties.SESSION_TOKEN, "test-session-token");
+
+        factory.create(identity, fileIoProperties).newInputFile(Location.of("s3://bucket/path"));
+
+        assertThat(capturedIdentity.get()).isNotNull();
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "new-access-key")
+                .containsEntry("existing-token", "existing-value")
                 .containsEntry(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "test-secret-key")
                 .containsEntry(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "test-session-token");
     }

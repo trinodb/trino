@@ -117,6 +117,8 @@ public final class TestingPolarisCatalog
 
     private void createCatalog()
     {
+        // endpoint is vended to clients (Trino on the host); endpointInternal is used by Polaris on the Docker network
+        String flociClientAddress = floci.endpoint().toString();
         String flociInternalAddress = "http://floci:%s".formatted(FLOCI_PORT);
         String body =
                 """
@@ -129,6 +131,7 @@ public final class TestingPolarisCatalog
                             "storageType": "S3",
                             "roleArn": "arn:aws:iam::000000000000:role/test",
                             "endpoint": "%s",
+                            "endpointInternal": "%s",
                             "pathStyleAccess": true,
                             "region": "%s"
                         },
@@ -136,7 +139,7 @@ public final class TestingPolarisCatalog
                             "default-base-location": "%s"
                         }
                     }
-                }""".formatted(flociInternalAddress, FLOCI_REGION, warehouseLocation);
+                }""".formatted(flociClientAddress, flociInternalAddress, FLOCI_REGION, warehouseLocation);
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
                 .setHeader(AUTHORIZATION, "Bearer " + token)
