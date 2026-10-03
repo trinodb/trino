@@ -12,6 +12,7 @@ import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableCredentials;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.MemoryContext;
 
 import java.util.Optional;
 
@@ -34,7 +35,8 @@ public class YdbPageSinkProvider extends JdbcPageSinkProvider {
             ConnectorSession session,
             ConnectorMergeTableHandle handle,
             Optional<ConnectorTableCredentials> credentials,
-            ConnectorPageSinkId pageSinkId) {
+            ConnectorPageSinkId pageSinkId,
+            MemoryContext memoryContext) {
         return new YdbMergeSink(session, (JdbcMergeTableHandle) handle, client, pageSinkId, modifier, getWriteBatchSize(session));
     }
 }
