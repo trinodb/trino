@@ -17,11 +17,15 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
+import java.util.Optional;
+
 @DefunctConfig("clickhouse.legacy-driver")
 public class ClickHouseConfig
 {
     // TODO (https://github.com/trinodb/trino/issues/7102) reconsider default behavior
     private boolean mapStringAsVarchar;
+
+    private Optional<String> clusterName = Optional.empty();
 
     public boolean isMapStringAsVarchar()
     {
@@ -33,6 +37,22 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    public Optional<String> getClusterName()
+    {
+        return clusterName;
+    }
+
+    @Config("clickhouse.cluster-name")
+    @ConfigDescription("Name of the ClickHouse cluster on which DDL statements are executed")
+    public ClickHouseConfig setClusterName(String clusterName)
+    {
+        // Airlift passes an empty property value through as an empty string, and that would be
+        // spliced into the DDL as `ON CLUSTER ""`, which every statement rejects. Treat a blank
+        // value the same as leaving the property unset.
+        this.clusterName = Optional.ofNullable(clusterName).filter(name -> !name.isEmpty());
         return this;
     }
 }
