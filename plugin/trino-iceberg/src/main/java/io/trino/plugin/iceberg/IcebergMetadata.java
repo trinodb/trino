@@ -4229,6 +4229,11 @@ public class IcebergMetadata
             return icebergCommitMetadata;
         }
 
+        long expireOlderThan = session.getStart().toEpochMilli() - materializedViewRefreshSnapshotRetentionPeriod.toMillis();
+        if (hasNoSnapshotsToExpire(icebergTable, expireOlderThan)) {
+            return icebergCommitMetadata;
+        }
+
         int snapshots = size(icebergTable.snapshots());
         int snapshotsToRetain = max(1, snapshots - materializedViewRefreshMaxSnapshotsToExpire);
         try {
@@ -4245,6 +4250,11 @@ public class IcebergMetadata
         }
 
         return icebergCommitMetadata;
+    }
+
+    private static boolean hasNoSnapshotsToExpire(Table icebergTable, long expireOlderThan)
+    {
+        return Streams.stream(icebergTable.snapshots()).noneMatch(snapshot -> snapshot.timestampMillis() < expireOlderThan);
     }
 
     @Override
