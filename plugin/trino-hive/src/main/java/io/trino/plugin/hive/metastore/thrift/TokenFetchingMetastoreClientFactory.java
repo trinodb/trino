@@ -71,10 +71,10 @@ public class TokenFetchingMetastoreClientFactory
                 .build();
     }
 
-    private ThriftMetastoreClient createMetastoreClient()
+    private ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        return clientProvider.createMetastoreClient(Optional.empty());
+        return clientProvider.createMetastoreClient(delegationToken, _ -> {});
     }
 
     @Override
@@ -82,7 +82,7 @@ public class TokenFetchingMetastoreClientFactory
             throws TException
     {
         if (!impersonationEnabled) {
-            return createMetastoreClient();
+            return createMetastoreClient(Optional.empty());
         }
 
         String username = identity.map(userNameProvider::get)
@@ -90,7 +90,7 @@ public class TokenFetchingMetastoreClientFactory
 
         DelegationToken cachedDelegationToken = getDelegationToken(username);
         try {
-            return clientProvider.createMetastoreClient(Optional.of(cachedDelegationToken.delegationToken()));
+            return createMetastoreClient(Optional.of(cachedDelegationToken.delegationToken()));
         }
         catch (TException e) {
             // Since the cached token may expire due to reasons such as restarting the Hive Metastore, refresh a delegation token and try to connect again.
@@ -98,7 +98,7 @@ public class TokenFetchingMetastoreClientFactory
             if (System.nanoTime() - cachedDelegationToken.writeTimeNanos() >= this.refreshPeriod) {
                 DelegationToken refreshDelegationToken = loadDelegationToken(username);
                 delegationTokenCache.put(username, refreshDelegationToken);
-                return clientProvider.createMetastoreClient(Optional.of(refreshDelegationToken.delegationToken()));
+                return createMetastoreClient(Optional.of(refreshDelegationToken.delegationToken()));
             }
             throw e;
         }
@@ -121,7 +121,7 @@ public class TokenFetchingMetastoreClientFactory
             // added retry and stats for the thrift delegation token
             return (DelegationToken) Failsafe.with(retryPolicy).get((CheckedSupplier<DelegationToken>) () ->
                     stats.getThriftDelegationToken().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(Optional.empty())) {
                             return new DelegationToken(System.nanoTime(), client.getDelegationToken(username));
                         }
                     }).call());

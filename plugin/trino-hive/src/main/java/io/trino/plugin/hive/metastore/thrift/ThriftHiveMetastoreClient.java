@@ -115,6 +115,7 @@ public class ThriftHiveMetastoreClient
     private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
 
     private final TransportSupplier transportSupplier;
+    private final ThriftMetastoreClientInitializer clientInitializer;
     private TTransport transport;
     protected ThriftHiveMetastore.Iface client;
     private final String hostname;
@@ -130,6 +131,7 @@ public class ThriftHiveMetastoreClient
     public ThriftHiveMetastoreClient(
             TransportSupplier transportSupplier,
             String hostname,
+            ThriftMetastoreClientInitializer clientInitializer,
             Optional<String> catalogName,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
@@ -140,6 +142,7 @@ public class ThriftHiveMetastoreClient
             throws TTransportException
     {
         this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
+        this.clientInitializer = requireNonNull(clientInitializer, "clientInitializer is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
@@ -161,6 +164,13 @@ public class ThriftHiveMetastoreClient
             client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, log::debug));
         }
         this.client = client;
+
+        try {
+            clientInitializer.initialize(this);
+        }
+        catch (TException e) {
+            throw new TTransportException("Failed to initialize metastore client", e);
+        }
     }
 
     @Override
