@@ -45,6 +45,7 @@ import jakarta.ws.rs.core.UriInfo;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Headers;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -55,10 +56,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -78,6 +81,7 @@ import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static jakarta.ws.rs.core.Response.Status.BAD_GATEWAY;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 import static jakarta.ws.rs.core.Response.Status.NO_CONTENT;
 import static jakarta.ws.rs.core.Response.Status.OK;
@@ -99,6 +103,8 @@ public class ProxyResource
     private static final String X509_ATTRIBUTE = "jakarta.servlet.request.X509Certificate";
     private static final Duration ASYNC_TIMEOUT = new Duration(2, MINUTES);
     private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    private static final Pattern SAFE_PATH_PATTERN = java.util.regex.Pattern.compile("(/v1/[A-Za-z0-9._~/-]+)");
+    private static final Pattern SAFE_QUERY_PATTERN = java.util.regex.Pattern.compile("([A-Za-z0-9._~=&%-]*)");
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%s"));
     private final OkHttpClient httpClient;
@@ -147,9 +153,21 @@ public class ProxyResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
+        URI trustedRemote = URI.create(remoteUri.toString());
+        if (!"http".equalsIgnoreCase(trustedRemote.getScheme()) && !"https".equalsIgnoreCase(trustedRemote.getScheme())) {
+            throw badRequest(BAD_REQUEST, "Invalid remote URI scheme");
+        }
+        HttpUrl targetUrl = new HttpUrl.Builder()
+                .scheme(trustedRemote.getScheme())
+                .host(trustedRemote.getHost())
+                .port(effectivePort(trustedRemote))
+                .encodedPath("/v1/statement")
+                .build();
+
+        RequestBody statementBody = RequestBody.create(statement, MediaType.parse("application/json"));
         Request.Builder request = new Request.Builder()
-                .post(RequestBody.create(statement, MediaType.parse("application/json")))
-                .url(UriBuilder.fromUri(remoteUri).replacePath("/v1/statement").build().toString());
+                .url(targetUrl)
+                .post(statementBody);
 
         performRequest(servletRequest, asyncResponse, request, response -> buildResponse(uriInfo, response));
     }
@@ -164,13 +182,27 @@ public class ProxyResource
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
-        if (!hmac.hashString(uri, UTF_8).equals(HashCode.fromString(hash))) {
+        if (uri == null || hash == null) {
+            throw badRequest(BAD_REQUEST, "Missing URI or HMAC");
+        }
+
+        HashCode provided;
+        try {
+            provided = HashCode.fromString(hash);
+        }
+        catch (IllegalArgumentException e) {
+            throw badRequest(BAD_REQUEST, "Invalid HMAC");
+        }
+
+        if (!hmac.hashString(uri, UTF_8).equals(provided)) {
             throw badRequest(FORBIDDEN, "Failed to validate HMAC of URI");
         }
 
+        HttpUrl targetUrl = toTrustedUrl(uri);
+
         Request.Builder request = new Request.Builder()
                 .get()
-                .url(uri);
+                .url(targetUrl);
 
         performRequest(servletRequest, asyncResponse, request, response -> buildResponse(uriInfo, response));
     }
@@ -188,9 +220,11 @@ public class ProxyResource
             throw badRequest(FORBIDDEN, "Failed to validate HMAC of URI");
         }
 
+        HttpUrl targetUrl = toTrustedUrl(uri);
+
         Request.Builder request = new Request.Builder()
                 .delete()
-                .url(uri);
+                .url(targetUrl);
 
         performRequest(servletRequest, asyncResponse, request, response -> responseWithHeaders(noContent(), response));
     }
@@ -442,5 +476,70 @@ public class ProxyResource
         {
             return body;
         }
+    }
+
+    private HttpUrl toTrustedUrl(String uri)
+    {
+        URI parsed;
+        try {
+            parsed = new URI(uri);
+        }
+        catch (URISyntaxException e) {
+            throw badRequest(BAD_REQUEST, "Invalid URI");
+        }
+
+        if (!parsed.isAbsolute()
+                || parsed.getRawUserInfo() != null
+                || parsed.getRawFragment() != null
+                || parsed.getHost() == null
+                || !remoteUri.getScheme().equalsIgnoreCase(parsed.getScheme())
+                || !remoteUri.getHost().equalsIgnoreCase(parsed.getHost())
+                || effectivePort(remoteUri) != effectivePort(parsed)) {
+            throw badRequest(BAD_REQUEST, "URI destination is not allowed");
+        }
+
+        String rawPath = parsed.getRawPath();
+        if (rawPath == null
+                || !rawPath.equals(parsed.normalize().getRawPath())
+                || rawPath.contains("%2e")
+                || rawPath.contains("%2E")
+                || rawPath.contains("%2f")
+                || rawPath.contains("%2F")
+                || rawPath.contains("\\")
+                || !rawPath.startsWith("/v1/")) {
+            throw badRequest(BAD_REQUEST, "URI path is not allowed");
+        }
+
+        java.util.regex.Matcher pathMatcher = SAFE_PATH_PATTERN.matcher(rawPath);
+        if (!pathMatcher.matches()) {
+            throw badRequest(BAD_REQUEST, "URI path is not allowed");
+        }
+        String safePath = pathMatcher.group(1);
+
+        String rawQuery = parsed.getRawQuery();
+        String safeQuery = null;
+        if (rawQuery != null) {
+            java.util.regex.Matcher queryMatcher = SAFE_QUERY_PATTERN.matcher(rawQuery);
+            if (!queryMatcher.matches()) {
+                throw badRequest(BAD_REQUEST, "URI query is not allowed");
+            }
+            safeQuery = queryMatcher.group(1);
+        }
+
+        return new HttpUrl.Builder()
+                .scheme(remoteUri.getScheme())
+                .host(remoteUri.getHost())
+                .port(effectivePort(remoteUri))
+                .encodedPath(safePath)
+                .encodedQuery(safeQuery)
+                .build();
+    }
+
+    private static int effectivePort(URI uri)
+    {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 }
