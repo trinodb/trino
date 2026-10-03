@@ -83,6 +83,8 @@ import io.trino.tests.QueryTemplate;
 import io.trino.type.CharVarcharCoercion;
 import io.trino.type.Reals;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
@@ -774,6 +776,21 @@ public class TestLogicalPlanner
                         "  o1.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
                         "  AND o2.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
                         "  AND o1.orderkey + o2.orderkey > (SELECT 1 FROM orders LIMIT 1)"),
+                TableScanNode.class::isInstance)).isEqualTo(3);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BERNOULLI", "SYSTEM"})
+    public void testSampledScalarSubqueriesAreNotDeduplicated(String sampleType)
+    {
+        assertThat(countOfMatchingNodes(
+                plan(
+                        """
+                        SELECT
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50)),
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50)),
+                            (SELECT count(*) FROM nation TABLESAMPLE %s (50))
+                        """.formatted(sampleType, sampleType, sampleType)),
                 TableScanNode.class::isInstance)).isEqualTo(3);
     }
 
