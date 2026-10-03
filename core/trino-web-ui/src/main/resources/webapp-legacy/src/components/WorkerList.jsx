@@ -37,7 +37,7 @@ export class WorkerList extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId)
         $.get(
-            '/ui/api/worker',
+            '../api/worker',
             function (workers) {
                 if (workers != null) {
                     workers.sort(function (workerA, workerB) {
