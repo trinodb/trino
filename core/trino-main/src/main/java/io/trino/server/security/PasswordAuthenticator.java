@@ -93,17 +93,27 @@ public class PasswordAuthenticator
      */
     private Identity rewriteUserHeaderToMappedUser(Identity mappedIdentity, BasicAuthCredentials basicAuthCredentials, MultivaluedMap<String, String> headers)
     {
-        String userHeader;
+        ProtocolHeaders protocolHeaders;
         try {
-            userHeader = getUserHeader(headers);
+            protocolHeaders = detectProtocol(alternateHeaderName, headers.keySet());
         }
         catch (ProtocolDetectionException _) {
             // this shouldn't fail here, but ignore and it will be handled elsewhere
             return mappedIdentity;
         }
-        if (basicAuthCredentials.getUser().equals(headers.getFirst(userHeader))) {
-            headers.putSingle(userHeader, mappedIdentity.getUser());
-        }
+
+        rewriteUserHeaderIfMatchesAuthenticationUser(
+                mappedIdentity,
+                basicAuthCredentials,
+                headers,
+                protocolHeaders.requestUser());
+
+        rewriteUserHeaderIfMatchesAuthenticationUser(
+                mappedIdentity,
+                basicAuthCredentials,
+                headers,
+                protocolHeaders.requestOriginalUser());
+
         return mappedIdentity;
     }
 
@@ -121,5 +131,16 @@ public class PasswordAuthenticator
     private static AuthenticationException needAuthentication(String message)
     {
         return new AuthenticationException(message, BasicAuthCredentials.AUTHENTICATE_HEADER);
+    }
+
+    private static void rewriteUserHeaderIfMatchesAuthenticationUser(
+            Identity mappedIdentity,
+            BasicAuthCredentials basicAuthCredentials,
+            MultivaluedMap<String, String> headers,
+            String header)
+    {
+        if (basicAuthCredentials.getUser().equals(headers.getFirst(header))) {
+            headers.putSingle(header, mappedIdentity.getUser());
+        }
     }
 }

@@ -332,6 +332,43 @@ public class TestResourceSecurity
     }
 
     @Test
+    public void testPasswordAuthenticatorUserMappingWithOriginalUser()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .buildOrThrow())
+                .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
+                .setSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION)
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class))
+                    .setAuthenticators(TestResourceSecurity::authenticate);
+
+            HttpServerInfo httpServerInfo =
+                    server.getInstance(Key.get(HttpServerInfo.class));
+
+            Request request = new Request.Builder()
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
+                    .addHeader(
+                            "Authorization",
+                            Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
+                    .addHeader("X-Trino-User", TEST_USER_LOGIN)
+                    .addHeader("X-Trino-Original-User", TEST_USER_LOGIN)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                assertThat(response.code()).isEqualTo(SC_OK);
+                assertThat(response.header("user")).isEqualTo(TEST_USER);
+                assertThat(response.header("principal")).isEqualTo(TEST_USER_LOGIN);
+            }
+        }
+    }
+
+    @Test
     public void testPasswordAuthenticatorWithInsecureHttp()
             throws Exception
     {
