@@ -131,6 +131,10 @@ sqlserver:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-sqlserver/**'
 
+ydb:
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-ydb/**'
+
 docs:
   - changed-files:
     - any-glob-to-any-file: 'docs/**'
