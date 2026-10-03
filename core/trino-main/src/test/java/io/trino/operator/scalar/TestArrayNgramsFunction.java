@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -165,5 +166,23 @@ public class TestArrayNgramsFunction
 
         assertTrinoExceptionThrownBy(assertions.function("ngrams", "ARRAY['foo','bar']", "0")::evaluate)
                 .hasMessage("N must be positive");
+
+        // an element count that does not fit in an int must be rejected rather than wrapping to a negative allocation
+        assertTrinoExceptionThrownBy(assertions.function("ngrams", "repeat(1, 100000)", "50000")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("ngrams result would have 2500050000 elements, which exceeds the maximum of 1000000");
+
+        // an element count that fits in an int but exceeds the maximum is rejected too
+        assertTrinoExceptionThrownBy(assertions.function("ngrams", "repeat(1, 100000)", "20")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("ngrams result would have 1999620 elements, which exceeds the maximum of 1000000");
+    }
+
+    @Test
+    public void testLargeResultWithinLimit()
+    {
+        // the largest array repeat can produce still works for the small n values ngrams is typically used with
+        assertThat(assertions.query("SELECT cardinality(ngrams(repeat(1, 100000), 10))"))
+                .matches("VALUES BIGINT '99991'");
     }
 }
