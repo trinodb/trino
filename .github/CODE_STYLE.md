@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.java"
+---
+
 # Code style
 
 ## Readability
@@ -110,6 +115,15 @@ the enum values. Handling the unknown option case after the switch statement
 allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
 check) report a problem when the enum definition is updated but the code using
 it is not.
+
+## Use braces for control statement bodies
+
+Use braces around `if`, `for` and `while` bodies, even when the body is a
+single statement. The formatter does not add missing braces.
+
+## Do not use `@author`
+
+Do not add `@author` tags to Javadoc. Commit history is the record.
 
 ## Annotate embedded languages with `@Language`
 

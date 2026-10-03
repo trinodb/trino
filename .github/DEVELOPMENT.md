@@ -36,7 +36,8 @@ We recommend you use IntelliJ as your IDE. Code style is managed through [airsty
 
 To run airstyle and other maven checks before opening a PR: `./mvnw validate`
 
-In addition to those you should also adhere to the [code style rules](CODE_STYLE.md).
+In addition to those you should also adhere to the [code style rules](CODE_STYLE.md)
+and the [configuration property rules](CONFIG_PROPERTIES.md).
 
 ## Keep pom.xml clean and sorted
 
