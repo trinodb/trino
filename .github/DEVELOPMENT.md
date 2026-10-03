@@ -6,6 +6,7 @@ In this document you can find information about developing Trino.
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
 * [Building](#building)
+* [Running benchmarks](#running-benchmarks)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -34,149 +35,10 @@ the client protocol, writing tests and other lower level details.
 
 We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run airstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR, see [Building](#building).
 
-In addition to those you should also adhere to the following:
-
-### Readability
-
-The purpose of code style rules is to maintain code readability and developer
-efficiency when working with the code. All the code style rules explained below
-are good guidelines to follow but there may be exceptional situations where we
-purposefully depart from them. When readability and code style rule are at odds,
-the readability is more important.
-
-### Consistency
-
-Keep code consistent with surrounding code where possible.
-
-### Alphabetize
-
-Alphabetize sections in the documentation source files (both in the table of
-contents files and other regular documentation files).
-
-### Use streams
-
-When appropriate, use the stream API. However, note that the stream
-implementation does not perform well so avoid using it in inner loops or
-otherwise performance sensitive sections.
-
-### Categorize errors when throwing exceptions.
-
-Categorize errors when throwing exceptions. For example, `TrinoException` takes
-an error code as an argument, `TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`.
-This categorization lets you generate reports so you can monitor the frequency
-of various failures.
-
-### Add license header
-
-Ensure that all files have the appropriate license header; you can generate the
-license by running `mvn license:format`.
-
-### Prefer String formatting
-
-Consider using String formatting with the `String.formatted` method:
-`"Session property %s is invalid: %s".formatted(name, value)`.
-Sometimes, if you only need to append something, consider using the `+` operator.
-Please avoid `formatted()` or concatenation in performance critical sections of
-code.
-
-### Avoid ternary operator
-
-Avoid using the ternary operator except for trivial expressions.
-
- ### Avoid `get` in method names, unless an object must be a Java bean
-
-In most cases, replace `get` with a more specific verb that describes what is 
-happening in the method, like `find` or `fetch`. If there isn't a more specific 
-verb or the method is a getter, omit `get` because it isn't helpful to readers 
-and makes method names longer.
-
-### Define class API for private inner classes too
-
-It is suggested to declare members in private inner classes as public if they
-are part of the class API.
-
-### Avoid mocks
-
-Do not use mocking libraries. These libraries encourage testing specific call
-sequences, interactions, and other internal behavior, which we believe leads to
-fragile tests.  They also make it possible to mock complex interfaces or
-classes, which hides the fact that these classes are not (easily) testable. We
-prefer to write mocks by hand, which forces code to be written in a certain
-testable style.
-
-### Use AssertJ
-
-Prefer AssertJ for complex assertions.
-
-### Use Airlift's `Assertions`
-
-For thing not easily expressible with AssertJ, use Airlift's `Assertions` class
-if there is one that covers your case.
-
-### Use `var` judiciously
-
-Use `var` only when it improves readability. Prefer it when the type
-is obvious from the initializer, such as with `new` expressions, or
-when the explicit type is long or heavily generic and adds noise
-without improving clarity.
-
-Avoid `var` when the inferred type is unclear, surprising, or
-important to understanding the code.
-
-### Prefer Guava immutable collections
-
-Prefer using immutable collections from Guava over unmodifiable collections from
-JDK. The main motivation behind this is deterministic iteration.
-
-### Maintain production quality for test code
-
-Maintain the same quality for production and test code.
-
-### Avoid abbreviations
-
-Please avoid abbreviations, slang or inside jokes as this makes harder for
-non-native english speaker to understand the code. Very well known
-abbreviations like `max` or `min` and ones already very commonly used across
-the code base like `ttl` are allowed and encouraged.
-
-### Avoid default clause in exhaustive enum-based switch statements
-
-Avoid using the `default` clause when the switch statement is meant to cover all
-the enum values. Handling the unknown option case after the switch statement
-allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
-check) report a problem when the enum definition is updated but the code using
-it is not.
-
-### Vector API
-It's safe to assume that the JVM has the Vector API
-([JEP 508](https://openjdk.org/jeps/508)) enabled and available at runtime, but
-not safe to assume that the Vector API implementation will perform faster than
-equivalent scalar code on whatever hardware the engine happens to be running on.
-
-Different CPU hardware can exhibit dramatically different performance
-characteristics, so it's important to use hardware feature detection to
-determine under which scenarios a vectorized approach will be faster for
-each implementation. Vectorized code should be tested on AMD, ARM, and Intel
-CPUs to verify the benefits hold on each of those platforms before deciding
-to enable a given code path on each of those platforms. Also note that ARM CPUs
-can exhibit significant differences from between hardware generations as well
-as between Apple Silicon and datacenter class CPUs.
-
-When adding implementations that use the Vector API, prefer the following
-approach unless the specifics of the situation dictate otherwise:
-* Provide an equivalent scalar implementation in code, if one does not already
-exist.
-* Use configuration flags and hardware support detection to ensure that
-vectorized implementation is only selected when running on hardware where it is
-expected to perform better than its scalar equivalent.
-* Add tests that ensure the behavior of the vectorized and scalar
-implementations match.
-* Include micro-benchmarks that demonstrate the performance benefits of the
-vectorized implementation compared to the scalar equivalent logic. Ensure that
-the benefits hold for all CPU architectures on which the vectorized
-implementation is enabled.
+In addition to those you should also adhere to the [code style rules](CODE_STYLE.md)
+and the [configuration property rules](CONFIG_PROPERTIES.md).
 
 ## Keep pom.xml clean and sorted
 
@@ -197,8 +59,35 @@ The fastest way to build and install the whole project:
 ```
 
 This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
-airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
-before opening a PR to get those checks back.
+airbase checks (checkstyle, modernizer, dependency analysis).
+
+After that, build and test a single module without rebuilding everything. Modules it depends
+on come from your local Maven repository, so reinstall any you change first:
+
+```bash
+./mvnw install -DskipTests -Dair.check.skip-all=true -pl <changed module>
+./mvnw test -Dair.check.skip-all=true -pl <module> -Dtest=<TestClass>
+```
+
+Before opening a PR, run the checks CI runs on the modules you changed. The first command
+runs the airbase checks and Javadoc. The second runs Error Prone.
+
+```bash
+./mvnw verify -T 1C -DskipTests -P ci -pl <changed modules>
+./mvnw clean test-compile -T 1C -Dair.check.skip-all=true -P errorprone-compiler -pl <changed modules>
+```
+
+## Running benchmarks
+
+Benchmarks use JMH. Compile them with annotation processing turned on. Without it, JMH
+generates no benchmark classes, or the run uses stale ones. Then run the benchmark's `main`
+method:
+
+```bash
+./mvnw test-compile exec:exec -Dair.check.skip-all=true -Dmaven.compiler.proc=full -pl <module> \
+    -Dexec.classpathScope=test -Dexec.executable=java \
+    -Dexec.args="-cp %classpath <benchmark class>"
+```
 
 ## Additional IDE configuration
 
@@ -208,11 +97,9 @@ default inspections, with some modifications.
 Enable the following inspections:
 
 - ``Java | Class structure | Utility class is not 'final'``,
-- ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``,
 - ``Java | Control flow issues | Redundant 'else'`` (including
-  ``Report when there are no more statements after the 'if' statement`` option), 
-- ``Java | Internationalization | Implicit platform default charset``.
+  ``Report when there are no more statements after the 'if' statement`` option).
 
 Disable the following inspections:
 
@@ -257,14 +144,8 @@ To make it useful, we recommend:
 - Disable inspection ``SQL | No data source configured``,
 - Optionally disable inspection ``Language injection | Language mismatch``.
 
-Even if the IDE does not support language injection this annotation is useful
-for documenting the API's intent. Considering the above, we recommend annotating
-with `@Language`:
-
-- All API parameters which are expecting to take a `String` containing an SQL
-  statement (or any other language, like regular expressions),
-- Local variables which otherwise would not be properly recognized by IDE for
-  language injection.
+See the [code style rules](CODE_STYLE.md#annotate-embedded-languages-with-language)
+for where to use the annotation.
 
 ## Building docs
 
