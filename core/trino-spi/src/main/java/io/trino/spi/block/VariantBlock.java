@@ -129,10 +129,14 @@ public final class VariantBlock
         return values.getRegion(startOffset, positionCount);
     }
 
-    public Header.BasicType getBasicType(int position)
+    /// Returns the basic type of the variant value at the specified raw position.
+    ///
+    /// Unlike [#getVariant(int)] and [#isNull(int)], the position indexes [#getRawValues()], not this block.
+    /// To look up a position of this block, add [#getRawOffset()] to it.
+    public Header.BasicType getBasicType(int rawPosition)
     {
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) values.getUnderlyingValueBlock();
-        int valuePosition = values.getUnderlyingValuePosition(position);
+        int valuePosition = values.getUnderlyingValuePosition(rawPosition);
 
         Slice rawSlice = variableWidthBlock.getRawSlice();
         int rawSliceOffset = variableWidthBlock.getRawSliceOffset(valuePosition);
