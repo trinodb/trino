@@ -31,6 +31,8 @@ class TestColumnMetadata
                 INTEGER,
                 Optional.of("1"),
                 false,
+                true,
+                true,
                 Optional.of("test_comment"),
                 Optional.of("test_extra_info"),
                 false,

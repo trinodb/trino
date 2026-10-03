@@ -67,7 +67,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         try (QueryRunner queryRunner = createQueryRunner(false)) {
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
                     ImmutableMultiset.<MetastoreMethod>builder()
-                            .addCopies(GET_TABLE, 2)
+                            .addCopies(GET_TABLE, 4)
                             .build());
         }
     }
