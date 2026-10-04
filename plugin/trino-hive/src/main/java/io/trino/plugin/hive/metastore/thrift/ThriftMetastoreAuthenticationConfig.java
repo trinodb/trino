@@ -25,7 +25,7 @@ public class ThriftMetastoreAuthenticationConfig
 
     public enum ThriftMetastoreAuthenticationType
     {
-        NONE, KERBEROS
+        NONE, KERBEROS, BEARER
     }
 
     @NotNull
