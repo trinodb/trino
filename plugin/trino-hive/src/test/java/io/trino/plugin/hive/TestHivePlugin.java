@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Map;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -226,6 +227,181 @@ public class TestHivePlugin
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
         connector.shutdown();
+    }
+
+    @Test
+    public void testHttpMetastore()
+    {
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "http://localhost:9083/metastore",
+                "hive.metastore.http.client.additional-headers", "x-actor-username:hive"));
+        assertConnectorStarts(ImmutableMap.of("hive.metastore.uri", "https://localhost/metastore"));
+    }
+
+    @Test
+    public void testHttpMetastoreBearerAuthentication()
+    {
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "https://localhost/metastore",
+                "hive.metastore.authentication.type", "BEARER",
+                "hive.metastore.http.client.bearer-token", "token",
+                "hive.metastore.http.client.additional-headers", "key:value"));
+    }
+
+    @Test
+    public void testHttpMetastoreThriftClientProperties()
+    {
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "https://localhost/metastore",
+                "hive.metastore.thrift.client.connect-timeout", "5s",
+                "hive.metastore.thrift.client.read-timeout", "1m",
+                "hive.metastore.thrift.client.max-retries", "3",
+                "hive.metastore.thrift.catalog-name", "custom"));
+    }
+
+    @Test
+    public void testBearerAuthenticationRequiresHttps()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "http://localhost:9083",
+                        "hive.metastore.authentication.type", "BEARER",
+                        "hive.metastore.http.client.bearer-token", "token"),
+                "BEARER metastore authentication requires https:// metastore URIs");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://localhost:9083",
+                        "hive.metastore.authentication.type", "BEARER"),
+                "BEARER metastore authentication requires https:// metastore URIs");
+    }
+
+    @Test
+    public void testBearerAuthenticationRequiresBearerToken()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.authentication.type", "BEARER"),
+                "'hive.metastore.http.client.bearer-token' is required for BEARER metastore authentication");
+    }
+
+    @Test
+    public void testBearerTokenRequiresBearerAuthentication()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.http.client.bearer-token", "token"),
+                "'hive.metastore.http.client.bearer-token' requires BEARER metastore authentication");
+    }
+
+    @Test
+    public void testHttpMetastoreUsername()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "http://localhost:9083",
+                        "hive.metastore.username", "hive"),
+                "'hive.metastore.username' is not supported for http(s) metastore URIs, set the x-actor-username header with 'hive.metastore.http.client.additional-headers'");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.authentication.type", "BEARER",
+                        "hive.metastore.http.client.bearer-token", "token",
+                        "hive.metastore.username", "hive"),
+                "'hive.metastore.username' is not supported for http(s) metastore URIs, set the x-actor-username header with 'hive.metastore.http.client.additional-headers'");
+    }
+
+    @Test
+    public void testHttpMetastoreMixedUriSchemes()
+    {
+        assertConnectorFails(
+                ImmutableMap.of("hive.metastore.uri", "http://localhost:9083,https://localhost:9083"),
+                "'hive.metastore.uri' cannot contain both http and https URI schemes");
+        assertConnectorFails(
+                ImmutableMap.of("hive.metastore.uri", "http://localhost:9083,thrift://localhost:9083"),
+                "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes");
+    }
+
+    @Test
+    public void testHttpMetastoreKerberosAuthentication()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.authentication.type", "KERBEROS"),
+                "Kerberos metastore authentication is not supported for http(s) metastore URIs");
+    }
+
+    @Test
+    public void testHttpMetastoreImpersonation()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.thrift.impersonation.enabled", "true"),
+                "Metastore impersonation is not supported for http(s) metastore URIs");
+    }
+
+    @Test
+    public void testHttpMetastoreSocksProxy()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.thrift.client.socks-proxy", "localhost:1080"),
+                "SOCKS proxy is not supported for http(s) metastore URIs");
+    }
+
+    @Test
+    public void testHttpMetastoreSslRequiresHttps()
+            throws Exception
+    {
+        File truststore = Files.createTempFile("test-hive-plugin-truststore", ".jks").toFile();
+        truststore.deleteOnExit();
+
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "http://localhost:9083",
+                        "hive.metastore.thrift.client.ssl.enabled", "true",
+                        "hive.metastore.thrift.client.ssl.trust-certificate", truststore.getPath()),
+                "'hive.metastore.thrift.client.ssl.enabled' requires an https:// metastore URI");
+    }
+
+    @Test
+    public void testHttpMetastoreDefunctProperties()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.http.client.authentication.type", "BEARER"),
+                "Defunct property 'hive.metastore.http.client.authentication.type'");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.http.client.read-timeout", "10s"),
+                "Defunct property 'hive.metastore.http.client.read-timeout'");
+    }
+
+    @Test
+    public void testHttpPropertiesRejectedForThriftMetastore()
+    {
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://localhost:9083",
+                        "hive.metastore.http.client.bearer-token", "token"),
+                "Configuration property 'hive.metastore.http.client.bearer-token' was not used");
+    }
+
+    private static void assertConnectorStarts(Map<String, String> config)
+    {
+        getHiveConnectorFactory().create("test", config, new TestingConnectorContext()).shutdown();
+    }
+
+    private static void assertConnectorFails(Map<String, String> config, String expectedMessage)
+    {
+        assertThatThrownBy(() -> getHiveConnectorFactory().create("test", config, new TestingConnectorContext()))
+                .hasMessageContaining(expectedMessage);
     }
 
     private static ConnectorFactory getHiveConnectorFactory()
