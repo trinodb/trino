@@ -13,8 +13,8 @@
  */
 package io.trino.filesystem.gcs;
 
-public class TestGcsFileSystemWithEncryption
-        extends TestGcsFileSystem
+public class TestGcsFileSystemGcpWithEncryption
+        extends TestGcsFileSystemGcp
 {
     @Override
     protected boolean useServerSideEncryptionWithCustomerKey()
