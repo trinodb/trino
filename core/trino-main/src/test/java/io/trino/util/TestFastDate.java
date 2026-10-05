@@ -13,11 +13,9 @@
  */
 package io.trino.util;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -99,15 +97,23 @@ public class TestFastDate
     }
 
     @Test
-    @Disabled("Manual: parallel sweep over the entire int range; ~1 minute on a workstation.")
     public void testFullIntSweep()
     {
         // Stay within LocalDate.ofEpochDay's supported range to avoid spurious failures.
         // LocalDate.MIN.toEpochDay() = -365_243_219_162; LocalDate.MAX.toEpochDay() = 365_241_780_471.
-        // int range is well inside that.
-        IntStream.rangeClosed(Integer.MIN_VALUE, Integer.MAX_VALUE)
-                .parallel()
-                .forEach(TestFastDate::check);
+        // int range is well inside that. Dense at each end (near the fallback boundary and
+        // INT_MAX), strided through the middle, so the whole int range is covered in
+        // well under a second.
+        int dense = 2000;
+        for (int i = 0; i < dense; i++) {
+            check(Integer.MIN_VALUE + i);
+        }
+        for (int i = 0; i < dense; i++) {
+            check(Integer.MAX_VALUE - i);
+        }
+        for (long days = Integer.MIN_VALUE + dense; days < Integer.MAX_VALUE - dense; days += 10_000) {
+            check((int) days);
+        }
     }
 
     @Test
