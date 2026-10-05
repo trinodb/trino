@@ -42,11 +42,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Range.range;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.NumberType.NUMBER;
-import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.typeHasNaN;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -114,8 +112,8 @@ public class JoinDomainBuilder
         this.maxFilterSizeInBytes = maxFilterSize.toBytes();
         this.notifyStateChange = requireNonNull(notifyStateChange, "notifyStateChange is null");
 
-        // Skipping REAL, DOUBLE and NUMBER in collectMinMaxValues to avoid dealing with NaN values
-        this.collectMinMax = minMaxEnabled && type.isOrderable() && type != REAL && type != DOUBLE && type != NUMBER;
+        // Skipping types with NaN values in collectMinMaxValues to avoid dealing with NaN values
+        this.collectMinMax = minMaxEnabled && type.isOrderable() && !typeHasNaN(type);
 
         MethodHandle readOperator = typeOperators.getReadValueOperator(type, simpleConvention(NULLABLE_RETURN, FLAT));
         readOperator = readOperator.asType(readOperator.type().changeReturnType(Object.class));

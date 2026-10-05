@@ -17,11 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DynamicFilterSourceConsumer;
@@ -370,6 +374,44 @@ public class TestDynamicFilterSourceOperator
                 ImmutableList.of(
                         new Page(createDoubleSequenceBlock(0, maxDistinctValues + 1)),
                         new Page(createDoubleRepeatBlock(Double.NaN, maxDistinctValues + 1))),
+                ImmutableList.of(TupleDomain.all()));
+    }
+
+    @Test
+    public void testCollectTooMuchRowsArrayOfDouble()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        ArrayType type = new ArrayType(DOUBLE);
+        ArrayBlockBuilder blockBuilder = type.createBlockBuilder(null, maxDistinctValues + 1);
+        for (int i = 0; i <= maxDistinctValues; i++) {
+            double value = i;
+            blockBuilder.buildEntry(elementBuilder -> DOUBLE.writeDouble(elementBuilder, value));
+        }
+        // NaN nested in an array cannot be part of a range, so no min/max range is collected
+        assertDynamicFilters(
+                maxDistinctValues,
+                ImmutableList.of(type),
+                ImmutableList.of(new Page(blockBuilder.build())),
+                ImmutableList.of(TupleDomain.all()));
+    }
+
+    @Test
+    public void testCollectTooMuchRowsRowOfDouble()
+            throws Exception
+    {
+        int maxDistinctValues = 100;
+        RowType type = RowType.anonymousRow(DOUBLE);
+        RowBlockBuilder blockBuilder = type.createBlockBuilder(null, maxDistinctValues + 1);
+        for (int i = 0; i <= maxDistinctValues; i++) {
+            double value = i;
+            blockBuilder.buildEntry(fieldBuilders -> DOUBLE.writeDouble(fieldBuilders.getFirst(), value));
+        }
+        // NaN nested in a row cannot be part of a range, so no min/max range is collected
+        assertDynamicFilters(
+                maxDistinctValues,
+                ImmutableList.of(type),
+                ImmutableList.of(new Page(blockBuilder.build())),
                 ImmutableList.of(TupleDomain.all()));
     }
 
