@@ -39,7 +39,6 @@ import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
 import java.time.Duration;
-import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -110,20 +109,11 @@ public final class DateTimeUtils
         int y = year.getAsInt();
         int m = month.getAsInt();
         int d = day.getAsInt();
-        // Mirror LocalDate.of's validation order and exception messages so that callers
-        // observing DateTimeException.getMessage() see the same text.
-        if (m < 1 || m > 12) {
-            throw new DateTimeException("Invalid value for MonthOfYear (valid values 1 - 12): " + m);
-        }
-        if (d < 1 || d > 31) {
-            throw new DateTimeException("Invalid value for DayOfMonth (valid values 1 - 28/31): " + d);
-        }
-        int monthLength = FastDate.daysInMonth(y, m);
-        if (d > monthLength) {
-            if (d == 29 && m == 2) {
-                throw new DateTimeException("Invalid date 'February 29' as '" + y + "' is not a leap year");
-            }
-            throw new DateTimeException("Invalid date '" + Month.of(m).name() + " " + d + "'");
+        // Validate the parsed fields. The short-circuit keeps daysInMonth off the
+        // out-of-range-month path, and a single uniform message is sufficient: the
+        // CAST(varchar AS DATE) path wraps the exception and nothing inspects the text.
+        if (m < 1 || m > 12 || d < 1 || d > FastDate.daysInMonth(y, m)) {
+            throw new DateTimeException("Invalid date '" + value + "'");
         }
         return OptionalInt.of(FastDate.daysFromYmd(y, m, d));
     }

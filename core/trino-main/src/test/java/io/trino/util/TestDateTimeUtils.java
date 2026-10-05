@@ -77,12 +77,12 @@ public class TestDateTimeUtils
         // format ok, but illegal value
         assertThatThrownBy(() -> parseIfIso8601DateFormat("2022-02-29"))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid date 'February 29' as '2022' is not a leap year");
+                .hasMessage("Invalid date '2022-02-29'");
         assertThatThrownBy(() -> parseIfIso8601DateFormat("1970-32-01"))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid value for MonthOfYear (valid values 1 - 12): 32");
+                .hasMessage("Invalid date '1970-32-01'");
         assertThatThrownBy(() -> parseIfIso8601DateFormat("1970-02-41"))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid value for DayOfMonth (valid values 1 - 28/31): 41");
+                .hasMessage("Invalid date '1970-02-41'");
     }
 }
