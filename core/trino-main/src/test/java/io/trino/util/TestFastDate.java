@@ -124,13 +124,7 @@ public class TestFastDate
         for (int days = -5_000_000; days <= 5_000_000; days++) {
             LocalDate date = LocalDate.ofEpochDay(days);
             int got = FastDate.daysFromYmd(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
-            if (got != days) {
-                throw new AssertionError(String.format(
-                        "daysFromYmd mismatch at %s: expected %d, got %d",
-                        date,
-                        days,
-                        got));
-            }
+            assertThat(got).as("days=%d", days).isEqualTo(days);
         }
     }
 
@@ -164,15 +158,9 @@ public class TestFastDate
 
     private static void assertRoundTrip(LocalDate date)
     {
-        int got = FastDate.daysFromYmd(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
         long expected = date.toEpochDay();
-        if (got != expected) {
-            throw new AssertionError(String.format(
-                    "daysFromYmd mismatch at %s: expected %d, got %d",
-                    date,
-                    expected,
-                    got));
-        }
+        int got = FastDate.daysFromYmd(date.getYear(), date.getMonthValue(), date.getDayOfMonth());
+        assertThat(got).as("days=%d", expected).isEqualTo(expected);
     }
 
     private static void assertDate(LocalDate date)
@@ -187,35 +175,12 @@ public class TestFastDate
         int year = (int) (ymd >> 32);
         int month = (int) ((ymd >> 8) & 0xFF);
         int day = (int) (ymd & 0xFF);
-        if (year != expected.getYear() || month != expected.getMonthValue() || day != expected.getDayOfMonth()) {
-            throw new AssertionError(String.format(
-                    "Mismatch at days=%d: expected %04d-%02d-%02d, got %d-%d-%d",
-                    days,
-                    expected.getYear(),
-                    expected.getMonthValue(),
-                    expected.getDayOfMonth(),
-                    year,
-                    month,
-                    day));
-        }
+        assertThat(year).as("days=%d", days).isEqualTo(expected.getYear());
+        assertThat(month).as("days=%d", days).isEqualTo(expected.getMonthValue());
+        assertThat(day).as("days=%d", days).isEqualTo(expected.getDayOfMonth());
         int doy = FastDate.dayOfYearOf(days);
-        if (doy != expected.getDayOfYear()) {
-            throw new AssertionError(String.format(
-                    "Day-of-year mismatch at days=%d (%s): expected %d, got %d",
-                    days,
-                    expected,
-                    expected.getDayOfYear(),
-                    doy));
-        }
+        assertThat(doy).as("days=%d", days).isEqualTo(expected.getDayOfYear());
         int dim = FastDate.daysInMonthOf(days);
-        int expectedDim = expected.lengthOfMonth();
-        if (dim != expectedDim) {
-            throw new AssertionError(String.format(
-                    "Days-in-month mismatch at days=%d (%s): expected %d, got %d",
-                    days,
-                    expected,
-                    expectedDim,
-                    dim));
-        }
+        assertThat(dim).as("days=%d", days).isEqualTo(expected.lengthOfMonth());
     }
 }
