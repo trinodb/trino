@@ -31,11 +31,12 @@ public class TestFastDate
         assertThat(DateTimeUtils.printDate((int) LocalDate.of(2024, 2, 29).toEpochDay())).isEqualTo("2024-02-29");
         assertThat(DateTimeUtils.printDate((int) LocalDate.of(1, 1, 1).toEpochDay())).isEqualTo("0001-01-01");
         assertThat(DateTimeUtils.printDate((int) LocalDate.of(9999, 12, 31).toEpochDay())).isEqualTo("9999-12-31");
-        // Joda-fallback path (negative or 5+ digit years) — ISODateTimeFormat formats with sign and width.
-        // Just assert it doesn't blow up and matches Joda's previous behavior, which is what the
-        // existing surrounding code expected.
-        DateTimeUtils.printDate((int) LocalDate.of(-1, 6, 15).toEpochDay());
-        DateTimeUtils.printDate((int) LocalDate.of(12345, 1, 1).toEpochDay());
+        // Joda-fallback path (negative or 5+ digit years): ISODateTimeFormat pads to width 4
+        // and prefixes a sign for years below 1000.
+        assertThat(DateTimeUtils.printDate((int) LocalDate.of(-1, 6, 15).toEpochDay()))
+                .isEqualTo("-0001-06-15");
+        assertThat(DateTimeUtils.printDate((int) LocalDate.of(12345, 1, 1).toEpochDay()))
+                .isEqualTo("12345-01-01");
     }
 
     @Test
