@@ -18,7 +18,10 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -692,6 +695,25 @@ public class TestSimplifyExpressions
         assertSimplifiesNumericTypes(
                 not(comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))),
                 not(comparison(GREATER_THAN, new Constant(REAL, Reals.toReal(1)), new Reference(REAL, "R2"))));
+    }
+
+    @Test
+    public void testPushesDownNegationsNestedNaN()
+    {
+        for (Type type : ImmutableList.of(new ArrayType(DOUBLE), RowType.anonymousRow(DOUBLE))) {
+            assertSimplifiesNumericTypes(
+                    not(comparison(LESS_THAN, new Reference(type, "X1"), new Reference(type, "X2"))),
+                    not(comparison(LESS_THAN, new Reference(type, "X1"), new Reference(type, "X2"))));
+            assertSimplifiesNumericTypes(
+                    not(comparison(LESS_THAN_OR_EQUAL, new Reference(type, "X1"), new Reference(type, "X2"))),
+                    not(comparison(LESS_THAN_OR_EQUAL, new Reference(type, "X1"), new Reference(type, "X2"))));
+            assertSimplifiesNumericTypes(
+                    not(comparison(GREATER_THAN, new Reference(type, "X1"), new Reference(type, "X2"))),
+                    not(comparison(GREATER_THAN, new Reference(type, "X1"), new Reference(type, "X2"))));
+            assertSimplifiesNumericTypes(
+                    not(comparison(EQUAL, new Reference(type, "X1"), new Reference(type, "X2"))),
+                    comparison(NOT_EQUAL, new Reference(type, "X1"), new Reference(type, "X2")));
+        }
     }
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)

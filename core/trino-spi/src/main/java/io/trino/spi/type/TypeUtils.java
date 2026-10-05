@@ -102,7 +102,7 @@ public final class TypeUtils
 
     public static boolean typeHasNaN(Type type)
     {
-        return type == REAL || type == DOUBLE || type == NUMBER;
+        return type == REAL || type == DOUBLE || type == NUMBER || type.getTypeParameters().stream().anyMatch(TypeUtils::typeHasNaN);
     }
 
     public static boolean isFloatingPointNaN(Type type, Object value)

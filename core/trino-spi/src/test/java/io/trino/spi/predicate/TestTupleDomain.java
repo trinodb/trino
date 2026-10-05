@@ -25,6 +25,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
@@ -38,6 +40,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.predicate.TupleDomain.all;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static io.trino.spi.predicate.TupleDomain.strictUnion;
@@ -945,6 +949,34 @@ class TestTupleDomain
         Optional<TupleDomain<ColumnHandle>> result = strictUnion(List.of(domain1, domain2));
         assertThat(result).isPresent();
         assertThat(result.get()).isEqualTo(columnWiseUnion(domain1, domain2));
+    }
+
+    @Test
+    public void testStrictUnionArrayNaNImplicitlyAdded()
+    {
+        // NaN nested in an array is not in either range, but is in the union which covers the entire value set
+        ArrayType type = new ArrayType(DOUBLE);
+        Block value = buildArrayValue(type, 1, elementBuilder -> DOUBLE.writeDouble(elementBuilder, 0.0));
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false)));
+
+        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
+    }
+
+    @Test
+    public void testStrictUnionRowNaNImplicitlyAdded()
+    {
+        // NaN nested in a row is not in either range, but is in the union which covers the entire value set
+        RowType type = RowType.anonymousRow(DOUBLE);
+        Object value = buildRowValue(type, fieldBuilders -> DOUBLE.writeDouble(fieldBuilders.getFirst(), 0.0));
+        TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(type, value)), false)));
+        TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), false)));
+
+        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
     }
 
     private void testAsPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, NullableValue> bindings, boolean expected)
