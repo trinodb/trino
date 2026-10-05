@@ -1,4 +1,4 @@
-# Trino — Claude guidance
+# Trino agent guidance
 
 For other topics not covered here (Web UI build, release process, IDE setup rationale),
 see [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md).
@@ -7,6 +7,13 @@ see [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md).
 
 Build, test and pre-PR check commands are in the [Building](.github/DEVELOPMENT.md#building)
 section of `DEVELOPMENT.md`.
+
+## Code style
+
+Before writing Java code, read the [Code Style](.github/DEVELOPMENT.md#code-style) section of
+`DEVELOPMENT.md`. Before adding or changing configuration or session properties, read its
+[Configuration and session properties](.github/DEVELOPMENT.md#configuration-and-session-properties)
+section.
 
 ## Java formatting
 
