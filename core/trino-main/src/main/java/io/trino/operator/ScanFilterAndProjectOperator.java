@@ -51,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -363,7 +364,7 @@ public class ScanFilterAndProjectOperator
         private final TableHandle table;
         private final Optional<ConnectorTableCredentials> tableCredentials;
         private final List<ColumnHandle> columns;
-        private final DynamicFilter dynamicFilter;
+        private final Supplier<DynamicFilter> dynamicFilter;
         private final List<Type> types;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
@@ -384,6 +385,36 @@ public class ScanFilterAndProjectOperator
                 int minOutputPageRowCount,
                 AggregatedMemoryContext pageSourceProviderMemoryContext)
         {
+            this(operatorId,
+                    planNodeId,
+                    sourceId,
+                    pageSourceProvider,
+                    pageProcessor,
+                    table,
+                    tableCredentials,
+                    columns,
+                    () -> dynamicFilter,
+                    types,
+                    minOutputPageSize,
+                    minOutputPageRowCount,
+                    pageSourceProviderMemoryContext);
+        }
+
+        public ScanFilterAndProjectOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                PlanNodeId sourceId,
+                PageSourceProviderFactory pageSourceProvider,
+                Function<DynamicFilter, PageProcessor> pageProcessor,
+                TableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<ColumnHandle> columns,
+                Supplier<DynamicFilter> dynamicFilter,
+                List<Type> types,
+                DataSize minOutputPageSize,
+                int minOutputPageRowCount,
+                AggregatedMemoryContext pageSourceProviderMemoryContext)
+        {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
@@ -391,7 +422,7 @@ public class ScanFilterAndProjectOperator
             this.table = requireNonNull(table, "table is null");
             this.tableCredentials = requireNonNull(tableCredentials, "tableCredentials is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-            this.dynamicFilter = dynamicFilter;
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
@@ -445,16 +476,17 @@ public class ScanFilterAndProjectOperator
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> split)
         {
+            DynamicFilter operatorDynamicFilter = dynamicFilter.get();
             ScanFilterAndProjectOperator operator = new ScanFilterAndProjectOperator(
                     operatorContext,
                     yieldSignal,
                     split,
                     pageSourceProvider,
-                    pageProcessor.apply(dynamicFilter),
+                    pageProcessor.apply(operatorDynamicFilter),
                     table,
                     tableCredentials,
                     columns,
-                    dynamicFilter,
+                    operatorDynamicFilter,
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount);
