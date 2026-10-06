@@ -13,11 +13,14 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
+import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,10 +56,19 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected TestingHydraIdentityProvider getHydraIdp()
             throws Exception
     {
-        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false);
+        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false, false);
         hydraIdP.start();
 
         return hydraIdP;
+    }
+
+    @Test
+    public void testTokenWithoutAudience()
+            throws IOException
+    {
+        String token = hydraIdP.getToken(NO_AUDIENCE_CLIENT_ID, NO_AUDIENCE_CLIENT_SECRET, ImmutableList.of());
+        assertThat(parseJwsClaims(token).getPayload().getAudience()).isNullOrEmpty();
+        assertUICallWithCookie(token);
     }
 
     @Override
