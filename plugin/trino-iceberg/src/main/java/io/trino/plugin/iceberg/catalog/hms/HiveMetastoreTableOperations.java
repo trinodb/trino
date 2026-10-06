@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.hive.thrift.metastore.MetaException;
 import io.trino.metastore.AcidTransactionOwner;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
@@ -27,7 +30,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
 import java.util.Map;
@@ -52,6 +54,9 @@ public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
     private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
+    // Prefix shared by both HiveAlterHandler rejections of the conditional update (HIVE-26882, HIVE-28121)
+    private static final String CONCURRENT_MODIFICATION_MESSAGE_PREFIX = "The table has been modified. The parameter value for key '" + METADATA_LOCATION_PROP + "' is";
+
     private final ThriftMetastore thriftMetastore;
     private final boolean lockingEnabled;
 
@@ -135,9 +140,7 @@ public class HiveMetastoreTableOperations
                 metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, privileges, environmentContext);
             }
             catch (RuntimeException e) {
-                // Cannot determine whether the `replaceTable` operation was successful,
-                // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
-                throw new CommitStateUnknownException(e);
+                checkExistingTableCommit(metadataLocation, newMetadataLocation, isConcurrentModificationRejection(e), e);
             }
         }
         finally {
@@ -145,6 +148,13 @@ public class HiveMetastoreTableOperations
         }
 
         shouldRefresh = true;
+    }
+
+    @VisibleForTesting
+    static boolean isConcurrentModificationRejection(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .anyMatch(cause -> cause instanceof MetaException && cause.getMessage() != null && cause.getMessage().contains(CONCURRENT_MODIFICATION_MESSAGE_PREFIX));
     }
 
     private static Map<String, String> environmentContext(String metadataLocation)

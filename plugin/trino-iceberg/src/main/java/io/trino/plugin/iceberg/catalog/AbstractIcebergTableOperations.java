@@ -280,6 +280,26 @@ public abstract class AbstractIcebergTableOperations
         }
     }
 
+    protected void checkExistingTableCommit(String expectedMetadataLocation, String newMetadataLocation, boolean rejected, Exception failure)
+    {
+        CommitStatus status = checkCommitStatus(newMetadataLocation, committedMetadata -> {
+            if (isInMetadataHistory(committedMetadata, newMetadataLocation)) {
+                return CommitStatus.SUCCESS;
+            }
+            if (rejected && isInMetadataHistory(committedMetadata, expectedMetadataLocation)) {
+                return CommitStatus.FAILURE;
+            }
+            return CommitStatus.UNKNOWN;
+        });
+        switch (status) {
+            case SUCCESS -> log.warn(failure, "Received an error while committing to table %s, but the commit was actually applied; treating the commit as successful", getSchemaTableName());
+            // Keeps every new file, since the update may have been applied.
+            case UNKNOWN -> throw new CommitStateUnknownException(failure);
+            // CommitFailedException lets Iceberg retry; the new metadata file is left for remove_orphan_files.
+            case FAILURE -> throw new CommitFailedException(failure, "Failed to commit to table %s due to a concurrent update", getSchemaTableName());
+        }
+    }
+
     /**
      * Checks whether a failed commit was applied. It was when the catalog points at the metadata this operation wrote;
      * otherwise {@code commitStatusFunction} decides from the metadata the catalog points at. A failed read gives
@@ -310,6 +330,11 @@ public abstract class AbstractIcebergTableOperations
             return CommitStatus.UNKNOWN;
         }
         return commitStatusFunction.apply(committedMetadata);
+    }
+
+    private static boolean isInMetadataHistory(TableMetadata metadata, String metadataLocation)
+    {
+        return metadataLocation.equals(metadata.metadataFileLocation()) || metadata.previousFiles().stream().anyMatch(entry -> metadataLocation.equals(entry.file()));
     }
 
     private enum CommitStatus
