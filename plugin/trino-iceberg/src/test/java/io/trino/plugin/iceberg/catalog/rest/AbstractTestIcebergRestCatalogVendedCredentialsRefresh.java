@@ -21,12 +21,20 @@ import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.IcebergTableCredentials;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -36,15 +44,18 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -53,6 +64,7 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
         extends AbstractTestQueryFramework
 {
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(REGION);
+    private static final int WRITE_CHUNK_SIZE = 1024;
 
     protected String warehouseLocation;
     private VendedCredentialsRestCatalogServlet servlet;
@@ -139,6 +151,44 @@ abstract class AbstractTestIcebergRestCatalogVendedCredentialsRefresh
             assertQuery("SELECT * FROM " + testTable.getName(), "SELECT * FROM region");
             assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount);
         }
+    }
+
+    @Test
+    public void testFileSystemUsesCredentialsRefreshedDuringWrite()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_refresh_during_write", "(id bigint)")) {
+            BaseTable icebergTable = loadTable(table.getName());
+            IcebergRestCatalogFileSystemFactory fileSystemFactory = icebergRestCatalogFileSystemFactory(getQueryRunner());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(getSession().getIdentity().toConnectorIdentity(), IcebergTableCredentials.forFileIO(icebergTable.io()));
+            Location location = Location.of(icebergTable.location()).appendPath("data/refresh-during-write-" + randomNameSuffix());
+            byte[] data = randomData(WRITE_CHUNK_SIZE * 2);
+            int refreshCount = servlet.getVendedCredentialsRefreshCount();
+
+            try (OutputStream outputStream = fileSystem.newOutputFile(location).create()) {
+                outputStream.write(data, 0, WRITE_CHUNK_SIZE);
+                fileSystemFactory.expireVendedCredentials();
+                outputStream.write(data, WRITE_CHUNK_SIZE, WRITE_CHUNK_SIZE);
+            }
+
+            assertThat(servlet.getVendedCredentialsRefreshCount()).isEqualTo(refreshCount + 1);
+            try (TrinoInputStream inputStream = fileSystem.newInputFile(location).newStream()) {
+                assertThat(inputStream.readAllBytes()).isEqualTo(data);
+            }
+        }
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
+        TrinoCatalog trinoCatalog = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class).create(getSession().getIdentity().toConnectorIdentity());
+        return (BaseTable) trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+    }
+
+    private static byte[] randomData(int size)
+    {
+        byte[] data = new byte[size];
+        ThreadLocalRandom.current().nextBytes(data);
+        return data;
     }
 
     private static IcebergRestCatalogFileSystemFactory icebergRestCatalogFileSystemFactory(QueryRunner queryRunner)
