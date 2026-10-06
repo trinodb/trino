@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewHandle;
+import io.trino.spi.connector.MaterializedViewDependencies;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -252,11 +253,22 @@ public interface TrinoCatalog
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
+    /**
+     * Called by the engine when {@link #getMaterializedViewFreshness(ConnectorSession, SchemaTableName, boolean)} asked
+     * for the relations the materialized view query depends on.
+     */
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        return getMaterializedViewFreshness(session, materializedViewName, considerGracePeriod);
+    }
+
     default void recordMaterializedViewRefresh(
             ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
             AppendFiles appendFiles,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {

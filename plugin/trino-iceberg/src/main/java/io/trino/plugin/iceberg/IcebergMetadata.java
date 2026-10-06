@@ -111,6 +111,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.MaterializedViewDependencies;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -4344,7 +4345,7 @@ public class IcebergMetadata
             appendFiles.appendFile(builder.build());
         }
 
-        catalog.recordMaterializedViewRefresh(session, appendFiles, sourceTableHandles, hasForeignSourceRelations, hasSourceTableFunctions, hasNonDeterministicFunctions);
+        catalog.recordMaterializedViewRefresh(session, materializedViewHandle, appendFiles, sourceTableHandles, sourceViewHandles, hasForeignSourceRelations, hasSourceTableFunctions, hasNonDeterministicFunctions);
         appendFiles.scanManifestsWith(icebergScanExecutor);
         commitUpdate(appendFiles, session, "refresh materialized view");
         commitWriteTransaction(transaction, "refresh materialized view");
@@ -4434,6 +4435,12 @@ public class IcebergMetadata
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod)
     {
         return catalog.getMaterializedViewFreshness(session, materializedViewName, considerGracePeriod);
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, boolean considerGracePeriod, MaterializedViewDependencies dependencies)
+    {
+        return catalog.getMaterializedViewFreshness(session, materializedViewName, considerGracePeriod, dependencies);
     }
 
     @Override
