@@ -36,6 +36,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -348,6 +349,7 @@ public class IcebergColumnHandle
         return ColumnMetadata.builder()
                 .setName(FILE_MODIFIED_TIME.getColumnName())
                 .setType(FILE_MODIFIED_TIME.getType())
+                .setTimeZone(Optional.of(UTC_KEY))
                 .setHidden(true)
                 .build();
     }

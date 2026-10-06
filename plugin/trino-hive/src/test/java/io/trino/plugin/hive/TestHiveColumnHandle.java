@@ -21,6 +21,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.base.TypeDeserializer;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,8 @@ import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
@@ -60,6 +63,20 @@ public class TestHiveColumnHandle
     {
         HiveColumnHandle expectedRegularColumn = createBaseColumn("name", 88, HiveType.HIVE_FLOAT, DOUBLE, REGULAR, Optional.empty());
         testRoundTrip(expectedRegularColumn);
+    }
+
+    @Test
+    void testTimeZone()
+    {
+        assertThat(createBaseColumn("ts", 0, HiveType.HIVE_TIMESTAMP, TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()).getColumnMetadata().getTimeZone())
+                .contains(UTC_KEY);
+        Type nested = RowType.from(asList(field("a", BIGINT), field("b", new ArrayType(TIMESTAMP_TZ_MILLIS))));
+        assertThat(createBaseColumn("row_col", 0, toHiveType(RowType.from(asList(field("a", BIGINT)))), nested, REGULAR, Optional.empty()).getColumnMetadata().getTimeZone())
+                .contains(UTC_KEY);
+        assertThat(HiveColumnHandle.fileModifiedTimeColumnHandle().getColumnMetadata().getTimeZone())
+                .contains(UTC_KEY);
+        assertThat(createBaseColumn("name", 0, HiveType.HIVE_LONG, BIGINT, REGULAR, Optional.empty()).getColumnMetadata().getTimeZone())
+                .isEmpty();
     }
 
     @Test
