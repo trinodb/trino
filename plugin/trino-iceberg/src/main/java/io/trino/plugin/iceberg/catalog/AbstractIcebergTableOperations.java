@@ -268,7 +268,10 @@ public abstract class AbstractIcebergTableOperations
 
     protected void checkNewTableCommit(String newMetadataLocation, TableMetadata metadata, Exception failure)
     {
-        switch (checkNewTableCommitStatus(newMetadataLocation, metadata.uuid())) {
+        String tableUuid = requireNonNull(metadata.uuid(), "tableUuid is null");
+        // A created table carries the UUID this operation assigned
+        CommitStatus status = checkCommitStatus(newMetadataLocation, committedMetadata -> tableUuid.equals(committedMetadata.uuid()) ? CommitStatus.SUCCESS : CommitStatus.FAILURE);
+        switch (status) {
             case SUCCESS -> log.warn(failure, "Received an error while creating table %s, but the table was actually created; treating the commit as successful", getSchemaTableName());
             // Keeps every new file, since the table may exist.
             case UNKNOWN -> throw new CommitStateUnknownException(failure);
@@ -278,13 +281,12 @@ public abstract class AbstractIcebergTableOperations
     }
 
     /**
-     * Checks whether a failed create was applied. It was when the catalog points at the metadata this operation
-     * wrote, or at metadata carrying the table UUID this operation assigned. A failed read gives
+     * Checks whether a failed commit was applied. It was when the catalog points at the metadata this operation wrote;
+     * otherwise {@code commitStatusFunction} decides from the metadata the catalog points at. A failed read gives
      * {@link CommitStatus#UNKNOWN}, since deleting files the catalog still references cannot be undone.
      */
-    private CommitStatus checkNewTableCommitStatus(String newMetadataLocation, String tableUuid)
+    private CommitStatus checkCommitStatus(String newMetadataLocation, Function<TableMetadata, CommitStatus> commitStatusFunction)
     {
-        requireNonNull(tableUuid, "tableUuid is null");
         String committedLocation;
         try {
             committedLocation = fixBrokenMetadataLocation(getRefreshedLocation(true));
@@ -293,7 +295,7 @@ public abstract class AbstractIcebergTableOperations
             return CommitStatus.FAILURE;
         }
         catch (RuntimeException e) {
-            log.error(e, "Could not determine commit status for new table %s; treating commit state as unknown", getSchemaTableName());
+            log.error(e, "Could not determine commit status for table %s; treating commit state as unknown", getSchemaTableName());
             return CommitStatus.UNKNOWN;
         }
         if (newMetadataLocation.equals(committedLocation)) {
@@ -304,13 +306,10 @@ public abstract class AbstractIcebergTableOperations
             committedMetadata = TableMetadataParser.read(io(), committedLocation);
         }
         catch (RuntimeException e) {
-            log.error(e, "Could not read current metadata %s of new table %s to determine commit status; treating commit state as unknown", committedLocation, getSchemaTableName());
+            log.error(e, "Could not read current metadata %s of table %s to determine commit status; treating commit state as unknown", committedLocation, getSchemaTableName());
             return CommitStatus.UNKNOWN;
         }
-        if (tableUuid.equals(committedMetadata.uuid())) {
-            return CommitStatus.SUCCESS;
-        }
-        return CommitStatus.FAILURE;
+        return commitStatusFunction.apply(committedMetadata);
     }
 
     private enum CommitStatus
