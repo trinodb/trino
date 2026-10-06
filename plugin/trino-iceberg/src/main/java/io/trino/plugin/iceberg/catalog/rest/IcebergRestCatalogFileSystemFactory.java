@@ -69,6 +69,16 @@ public class IcebergRestCatalogFileSystemFactory
         vendedCredentialsProvidersCache.invalidateAll();
     }
 
+    @VisibleForTesting
+    void expireVendedCredentials()
+    {
+        for (CachedVendedCredentialsProviders providers : vendedCredentialsProvidersCache.asMap().values()) {
+            providers.s3VendedCredentialsProviders().values().forEach(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+            providers.gcsVendedCredentialsProviders().values().forEach(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+            providers.azureVendedCredentialsProvider().ifPresent(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+        }
+    }
+
     // Used by ioBuilder function in the RESTSessionCatalog
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
