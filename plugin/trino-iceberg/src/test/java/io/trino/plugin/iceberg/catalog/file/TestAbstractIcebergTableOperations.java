@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInput;
@@ -22,7 +23,15 @@ import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -41,9 +50,17 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestAbstractIcebergTableOperations
 {
+    private static final String TABLE_LOCATION = "local:///test-table";
+    private static final String EXPECTED_LOCATION = TABLE_LOCATION + "/metadata/00000-expected.metadata.json";
+    private static final String NEW_LOCATION = TABLE_LOCATION + "/metadata/00001-new.metadata.json";
+    private static final String CONCURRENT_LOCATION = TABLE_LOCATION + "/metadata/00001-concurrent.metadata.json";
+    private static final String LATER_LOCATION = TABLE_LOCATION + "/metadata/00002-later.metadata.json";
+
     @Test
     public void testS3ErrorReporting()
             throws IOException
@@ -189,5 +206,106 @@ public class TestAbstractIcebergTableOperations
                 return Location.of(path);
             }
         };
+    }
+
+    @Test
+    public void testUpdateCommitSucceedsWhenLaterCommitBuiltOnIt()
+            throws IOException
+    {
+        TestingFileMetastoreTableOperations tableOperations = tableOperationsPointingAt(LATER_LOCATION, metadataWithLog(EXPECTED_LOCATION, NEW_LOCATION));
+
+        assertThatCode(() -> tableOperations.checkExistingTableCommit(EXPECTED_LOCATION, NEW_LOCATION, false, new RuntimeException("simulated metastore failure")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    public void testUpdateCommitFailsWhenRejectedAndExpectedStillInMetadataLog()
+            throws IOException
+    {
+        TestingFileMetastoreTableOperations tableOperations = tableOperationsPointingAt(CONCURRENT_LOCATION, metadataWithLog(EXPECTED_LOCATION));
+
+        assertThatThrownBy(() -> tableOperations.checkExistingTableCommit(EXPECTED_LOCATION, NEW_LOCATION, true, new RuntimeException("simulated rejection")))
+                .isInstanceOf(CommitFailedException.class);
+    }
+
+    @Test
+    public void testUpdateCommitFailsWhenRejectedAndCatalogStillPointsAtExpected()
+            throws IOException
+    {
+        TestingFileMetastoreTableOperations tableOperations = tableOperationsPointingAt(EXPECTED_LOCATION, metadataWithLog());
+
+        assertThatThrownBy(() -> tableOperations.checkExistingTableCommit(EXPECTED_LOCATION, NEW_LOCATION, true, new RuntimeException("simulated rejection")))
+                .isInstanceOf(CommitFailedException.class);
+    }
+
+    @Test
+    public void testUpdateCommitUnknownWhenNotRejected()
+            throws IOException
+    {
+        TestingFileMetastoreTableOperations tableOperations = tableOperationsPointingAt(CONCURRENT_LOCATION, metadataWithLog(EXPECTED_LOCATION));
+
+        assertThatThrownBy(() -> tableOperations.checkExistingTableCommit(EXPECTED_LOCATION, NEW_LOCATION, false, new RuntimeException("simulated metastore failure")))
+                .isInstanceOf(CommitStateUnknownException.class);
+    }
+
+    @Test
+    public void testUpdateCommitUnknownWhenExpectedEvictedFromMetadataLog()
+            throws IOException
+    {
+        TestingFileMetastoreTableOperations tableOperations = tableOperationsPointingAt(LATER_LOCATION, metadataWithLog(CONCURRENT_LOCATION));
+
+        assertThatThrownBy(() -> tableOperations.checkExistingTableCommit(EXPECTED_LOCATION, NEW_LOCATION, true, new RuntimeException("simulated rejection")))
+                .isInstanceOf(CommitStateUnknownException.class);
+    }
+
+    private static TestingFileMetastoreTableOperations tableOperationsPointingAt(String committedMetadataLocation, TableMetadata committedMetadata)
+            throws IOException
+    {
+        Path tempDir = Files.createTempDirectory("test_update_commit_status");
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(tempDir);
+        FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION), true);
+        TableMetadataParser.write(committedMetadata, fileIo.newOutputFile(committedMetadataLocation));
+        return new TestingFileMetastoreTableOperations(fileIo, createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///")), committedMetadataLocation);
+    }
+
+    private static TableMetadata metadataWithLog(String... previousLocations)
+    {
+        TableMetadata metadata = TableMetadata.newTableMetadata(
+                new Schema(Types.NestedField.required(1, "x", Types.IntegerType.get())),
+                PartitionSpec.unpartitioned(),
+                TABLE_LOCATION,
+                ImmutableMap.of());
+        for (String previousLocation : previousLocations) {
+            // setPreviousFileLocation alone is not a change, and build() records the previous file only when there is one
+            metadata = TableMetadata.buildFrom(metadata)
+                    .setPreviousFileLocation(previousLocation)
+                    .setProperties(ImmutableMap.of("touched", previousLocation))
+                    .build();
+        }
+        return metadata;
+    }
+
+    private static class TestingFileMetastoreTableOperations
+            extends FileMetastoreTableOperations
+    {
+        private final String committedMetadataLocation;
+
+        public TestingFileMetastoreTableOperations(FileIO fileIo, HiveMetastore metastore, String committedMetadataLocation)
+        {
+            super(fileIo, createPerTransactionCache(metastore, 1000), SESSION, "test-database", "test-table", Optional.of("test-owner"), Optional.empty(), ENCRYPTION_MANAGER_FACTORY);
+            this.committedMetadataLocation = committedMetadataLocation;
+        }
+
+        @Override
+        protected String getRefreshedLocation(boolean invalidateCaches)
+        {
+            return committedMetadataLocation;
+        }
+
+        @Override
+        public void checkExistingTableCommit(String expectedMetadataLocation, String newMetadataLocation, boolean rejected, Exception failure)
+        {
+            super.checkExistingTableCommit(expectedMetadataLocation, newMetadataLocation, rejected, failure);
+        }
     }
 }
