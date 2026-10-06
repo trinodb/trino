@@ -19,9 +19,10 @@ import io.airlift.log.Logger;
 
 import javax.naming.NamingException;
 
+import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.DIRECT;
 import static java.util.Objects.requireNonNull;
 
 final class DirectLdapGroupResolver
@@ -29,25 +30,25 @@ final class DirectLdapGroupResolver
 {
     private static final Logger log = Logger.get(DirectLdapGroupResolver.class);
 
-    private final LdapGroupSearch groupSearch;
+    private final LdapGroupSearcher groupSearcher;
     private final String groupSearchMemberPredicate;
+    private final Optional<String> groupSearchFilter;
 
     @Inject
     public DirectLdapGroupResolver(
-            LdapGroupSearch groupSearch,
+            LdapGroupSearcher groupSearcher,
             LdapFilteringGroupProviderConfig filteringConfig)
     {
-        this.groupSearch = requireNonNull(groupSearch, "groupSearch is null");
+        this.groupSearcher = requireNonNull(groupSearcher, "groupSearcher is null");
         this.groupSearchMemberPredicate = String.format("%s={0}", filteringConfig.getLdapGroupsSearchMemberAttribute());
+        this.groupSearchFilter = filteringConfig.getLdapGroupsSearchFilter();
     }
 
     @Override
-    public Set<String> resolveGroups(String memberDistinguishedName)
+    public Set<LdapGroup> resolveGroups(String memberDistinguishedName)
     {
         try {
-            return groupSearch.searchGroups(memberDistinguishedName, groupSearchMemberPredicate, "search").stream()
-                    .map(LdapGroup::name)
-                    .collect(toImmutableSet());
+            return groupSearcher.searchGroups(memberDistinguishedName, groupSearchMemberPredicate, groupSearchFilter, DIRECT);
         }
         catch (NamingException e) {
             log.error(e, "LDAP group search for member [%s] failed", memberDistinguishedName);

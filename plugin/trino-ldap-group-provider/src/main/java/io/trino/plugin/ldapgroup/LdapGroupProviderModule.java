@@ -30,6 +30,7 @@ public class LdapGroupProviderModule
 
         if (buildConfigObject(LdapGroupProviderConfig.class).getLdapUseGroupFilter()) {
             configBinder(binder).bindConfig(LdapFilteringGroupProviderConfig.class);
+            binder.bind(LdapGroupSearcher.class).in(Scopes.SINGLETON);
             bindLdapGroupResolver(binder, buildConfigObject(LdapFilteringGroupProviderConfig.class));
             binder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
         }
@@ -41,7 +42,6 @@ public class LdapGroupProviderModule
 
     private static void bindLdapGroupResolver(Binder binder, LdapFilteringGroupProviderConfig config)
     {
-        binder.bind(LdapGroupSearch.class).in(Scopes.SINGLETON);
         binder.bind(LdapGroupResolver.class).to(switch (config.getLdapGroupSearchMode()) {
             case DIRECT -> DirectLdapGroupResolver.class;
             case RECURSIVE -> RecursiveLdapGroupResolver.class;

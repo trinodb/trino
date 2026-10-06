@@ -19,9 +19,10 @@ import io.airlift.log.Logger;
 
 import javax.naming.NamingException;
 
+import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.MATCHING_RULE_IN_CHAIN;
 import static java.util.Objects.requireNonNull;
 
 final class MatchingRuleInChainLdapGroupResolver
@@ -30,25 +31,25 @@ final class MatchingRuleInChainLdapGroupResolver
     private static final String LDAP_MATCHING_RULE_IN_CHAIN = "1.2.840.113556.1.4.1941";
     private static final Logger log = Logger.get(MatchingRuleInChainLdapGroupResolver.class);
 
-    private final LdapGroupSearch groupSearch;
+    private final LdapGroupSearcher groupSearcher;
     private final String groupSearchMemberPredicate;
+    private final Optional<String> groupSearchFilter;
 
     @Inject
     public MatchingRuleInChainLdapGroupResolver(
-            LdapGroupSearch groupSearch,
+            LdapGroupSearcher groupSearcher,
             LdapFilteringGroupProviderConfig filteringConfig)
     {
-        this.groupSearch = requireNonNull(groupSearch, "groupSearch is null");
+        this.groupSearcher = requireNonNull(groupSearcher, "groupSearcher is null");
         this.groupSearchMemberPredicate = String.format("%s:%s:={0}", filteringConfig.getLdapGroupsSearchMemberAttribute(), LDAP_MATCHING_RULE_IN_CHAIN);
+        this.groupSearchFilter = filteringConfig.getLdapGroupsSearchFilter();
     }
 
     @Override
-    public Set<String> resolveGroups(String memberDistinguishedName)
+    public Set<LdapGroup> resolveGroups(String memberDistinguishedName)
     {
         try {
-            return groupSearch.searchGroups(memberDistinguishedName, groupSearchMemberPredicate, "LDAP_MATCHING_RULE_IN_CHAIN search").stream()
-                    .map(LdapGroup::name)
-                    .collect(toImmutableSet());
+            return groupSearcher.searchGroups(memberDistinguishedName, groupSearchMemberPredicate, groupSearchFilter, MATCHING_RULE_IN_CHAIN);
         }
         catch (NamingException e) {
             log.error(e, "LDAP group search for member [%s] failed", memberDistinguishedName);

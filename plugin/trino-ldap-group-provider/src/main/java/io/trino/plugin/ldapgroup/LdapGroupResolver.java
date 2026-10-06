@@ -17,5 +17,5 @@ import java.util.Set;
 
 interface LdapGroupResolver
 {
-    Set<String> resolveGroups(String memberDistinguishedName);
+    Set<LdapGroup> resolveGroups(String memberDistinguishedName);
 }

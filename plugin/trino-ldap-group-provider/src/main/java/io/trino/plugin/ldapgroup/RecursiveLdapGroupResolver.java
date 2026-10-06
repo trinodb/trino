@@ -21,9 +21,11 @@ import javax.naming.NamingException;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.RECURSIVE;
 import static java.util.Objects.requireNonNull;
 
 final class RecursiveLdapGroupResolver
@@ -31,25 +33,27 @@ final class RecursiveLdapGroupResolver
 {
     private static final Logger log = Logger.get(RecursiveLdapGroupResolver.class);
 
-    private final LdapGroupSearch groupSearch;
+    private final LdapGroupSearcher groupSearcher;
     private final String groupSearchMemberPredicate;
+    private final Optional<String> groupSearchFilter;
 
     @Inject
     public RecursiveLdapGroupResolver(
-            LdapGroupSearch groupSearch,
+            LdapGroupSearcher groupSearcher,
             LdapFilteringGroupProviderConfig filteringConfig)
     {
-        this.groupSearch = requireNonNull(groupSearch, "groupSearch is null");
+        this.groupSearcher = requireNonNull(groupSearcher, "groupSearcher is null");
         this.groupSearchMemberPredicate = String.format("%s={0}", filteringConfig.getLdapGroupsSearchMemberAttribute());
+        this.groupSearchFilter = filteringConfig.getLdapGroupsSearchFilter();
     }
 
     @Override
-    public Set<String> resolveGroups(String memberDistinguishedName)
+    public Set<LdapGroup> resolveGroups(String memberDistinguishedName)
     {
         Queue<String> membersToResolve = new ArrayDeque<>();
         membersToResolve.add(memberDistinguishedName);
         Set<String> visitedMembers = new HashSet<>();
-        Set<String> groups = new HashSet<>();
+        Set<LdapGroup> groups = new HashSet<>();
 
         while (!membersToResolve.isEmpty()) {
             String currentMember = membersToResolve.remove();
@@ -58,11 +62,12 @@ final class RecursiveLdapGroupResolver
             }
 
             try {
-                Set<LdapGroup> groupsForMember = groupSearch.searchGroups(currentMember, groupSearchMemberPredicate, "search");
-                groupsForMember.forEach(group -> {
-                    groups.add(group.name());
-                    membersToResolve.add(group.distinguishedName());
-                });
+                Set<LdapGroup> groupsForTraversal = groupSearcher.searchGroups(currentMember, groupSearchMemberPredicate, Optional.empty(), RECURSIVE);
+                Set<LdapGroup> groupsForMember = groupSearchFilter.isPresent()
+                        ? groupSearcher.searchGroups(currentMember, groupSearchMemberPredicate, groupSearchFilter, RECURSIVE)
+                        : groupsForTraversal;
+                groups.addAll(groupsForMember);
+                groupsForTraversal.forEach(group -> membersToResolve.add(group.distinguishedName()));
             }
             catch (NamingException e) {
                 log.error(e, "LDAP group search for member [%s] failed", currentMember);

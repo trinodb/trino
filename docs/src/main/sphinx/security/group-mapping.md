@@ -167,11 +167,18 @@ The `DIRECT` mode returns only direct groups.
 
 The `RECURSIVE` mode recursively resolves
 nested group memberships (for example user → group A → group B) by repeatedly
-searching groups that contain the previously resolved group DN as a member.
+searching groups that contain the previously resolved group DN as a member. The
+`ldap.group-search-filter` limits the groups returned to Trino, but traversal
+continues through non-matching groups within `ldap.group-base-dn`.
 
 For Active Directory deployments, use `MATCHING_RULE_IN_CHAIN` to delegate
 nested group resolution to LDAP with the `LDAP_MATCHING_RULE_IN_CHAIN` matching
 rule (`1.2.840.113556.1.4.1941`).
+
+```properties
+ldap.use-group-filter=true
+ldap.group-search-mode=MATCHING_RULE_IN_CHAIN
+```
 
 In case of attribute-based group resolution, Trino reads the group list
 directly from a user attribute. This requires the following property:

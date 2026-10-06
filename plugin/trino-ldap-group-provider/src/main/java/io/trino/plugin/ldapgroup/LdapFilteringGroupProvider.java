@@ -26,6 +26,7 @@ import javax.naming.directory.SearchResult;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LdapFilteringGroupProvider
@@ -43,8 +44,8 @@ public class LdapFilteringGroupProvider
     @Inject
     public LdapFilteringGroupProvider(
             LdapClient ldapClient,
-            LdapGroupResolver ldapGroupResolver,
-            LdapGroupProviderConfig config)
+            LdapGroupProviderConfig config,
+            LdapGroupResolver ldapGroupResolver)
     {
         this.ldapClient = requireNonNull(ldapClient, "ldapClient is null");
         this.ldapGroupResolver = requireNonNull(ldapGroupResolver, "ldapGroupResolver is null");
@@ -91,6 +92,9 @@ public class LdapFilteringGroupProvider
 
         return userDistinguishedName
                 .map(ldapGroupResolver::resolveGroups)
+                .map(groups -> groups.stream()
+                        .map(LdapGroup::name)
+                        .collect(toImmutableSet()))
                 .orElse(ImmutableSet.of());
     }
 }

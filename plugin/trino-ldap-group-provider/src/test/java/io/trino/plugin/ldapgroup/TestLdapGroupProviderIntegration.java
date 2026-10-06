@@ -25,6 +25,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.testcontainers.containers.Network;
 
 import java.util.HashMap;
@@ -36,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.trino.plugin.ldapgroup.LdapFilteringGroupProviderConfig.LdapGroupSearchMode.DIRECT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -148,16 +151,25 @@ public class TestLdapGroupProviderIntegration
         assertThat(groups).isEqualTo(expectedGroups);
     }
 
-    @Test
-    public void testGetGroupsWithGroupsFilter()
+    @ParameterizedTest
+    @EnumSource(value = LdapFilteringGroupProviderConfig.LdapGroupSearchMode.class, names = {"DIRECT", "RECURSIVE"})
+    public void testGetGroupsWithGroupsFilter(LdapFilteringGroupProviderConfig.LdapGroupSearchMode searchMode)
     {
-        assertGetGroupsWithGroupsFilter("alicea", "cn=*", ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering"));
-        assertGetGroupsWithGroupsFilter("alicea", "cn=dev*", ImmutableSet.of("developers"));
-        assertGetGroupsWithGroupsFilter("alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
-        assertGetGroupsWithGroupsFilter("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qualityAssurance", "engineering"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "cn=*", searchMode == DIRECT
+                ? ImmutableSet.of("clients", "developers", "qualityAssurance")
+                : ImmutableSet.of("clients", "developers", "qualityAssurance", "engineering"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "cn=dev*", ImmutableSet.of("developers"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "cn=eng*", searchMode == DIRECT
+                ? ImmutableSet.of()
+                : ImmutableSet.of("engineering"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", searchMode == DIRECT
+                ? ImmutableSet.of("developers", "qualityAssurance")
+                : ImmutableSet.of("developers", "qualityAssurance", "engineering"));
+        assertGetGroupsWithGroupsFilter(searchMode, "alicea", "cn=does-not-match", ImmutableSet.of());
     }
 
-    private void assertGetGroupsWithGroupsFilter(String userName, String groupFilter, Set<String> expectedGroups)
+    private void assertGetGroupsWithGroupsFilter(LdapFilteringGroupProviderConfig.LdapGroupSearchMode searchMode, String userName, String groupFilter, Set<String> expectedGroups)
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .putAll(baseConfig)
@@ -165,14 +177,14 @@ public class TestLdapGroupProviderIntegration
                 .put("ldap.group-search-member-attribute", "member")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
-                .put("ldap.group-search-mode", "RECURSIVE")
+                .put("ldap.group-search-mode", searchMode.name())
                 .put("ldap.group-search-filter", groupFilter)
                 .buildOrThrow();
         GroupProvider groupsProvider = factory.create(config);
 
         Set<String> groups = groupsProvider.getGroups(userName);
 
-        assertThat(groups).containsAll(expectedGroups);
+        assertThat(groups).isEqualTo(expectedGroups);
     }
 
     @Test
@@ -227,7 +239,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertThat(groups).containsAll(expectedGroups);
+        assertThat(groups).isEqualTo(expectedGroups);
     }
 
     @Test
