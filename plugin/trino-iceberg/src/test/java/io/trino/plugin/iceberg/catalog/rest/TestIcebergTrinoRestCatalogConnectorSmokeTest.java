@@ -72,9 +72,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -249,14 +247,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         assertQueryFails("SELECT * FROM " + viewName, "Cannot read unsupported dialect 'spark' for view '.*'");
 
         backend.dropView(identifier);
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test
