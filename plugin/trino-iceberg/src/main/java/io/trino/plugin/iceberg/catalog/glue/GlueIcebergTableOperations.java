@@ -24,8 +24,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
 import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
@@ -199,18 +197,12 @@ public class GlueIcebergTableOperations
         try {
             glueClient.updateTable(database, tableInput, Optional.ofNullable(glueVersionId));
         }
-        catch (ConcurrentModificationException e) {
-            // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
-            throw new CommitFailedException(e, "Failed to commit to Glue table: %s.%s", database, tableName);
-        }
         catch (EntityNotFoundException | InvalidInputException | ResourceNumberLimitExceededException | ValidationException e) {
             // Signal a non-retriable commit failure and eventually clean up metadata files corresponding to the current transaction
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table update", e);
         }
         catch (RuntimeException e) {
-            // Cannot determine whether the `updateTable` operation was successful,
-            // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
-            throw new CommitStateUnknownException(e);
+            checkExistingTableCommit(currentMetadataLocation, newMetadataLocation, e instanceof ConcurrentModificationException, e);
         }
         shouldRefresh = true;
     }
