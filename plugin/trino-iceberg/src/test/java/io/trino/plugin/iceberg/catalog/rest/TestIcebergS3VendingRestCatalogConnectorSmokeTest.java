@@ -77,9 +77,7 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -184,14 +182,6 @@ public class TestIcebergS3VendingRestCatalogConnectorSmokeTest
                         .setAwsAccessKey(FLOCI_ACCESS_KEY)
                         .setAwsSecretKey(FLOCI_SECRET_KEY),
                 new S3FileSystemStats()).create(SESSION);
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test
