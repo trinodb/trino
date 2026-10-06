@@ -183,11 +183,21 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     }
 
     @Test
-    @Override
+    @Override // Override because Polaris silently drops the storage-table field, so CREATE succeeds but the object is left unusable as a materialized view
     public void testMaterializedView()
     {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+            // Polaris does not persist the storage-table marker, so Trino reads it back as a plain view
+            assertThat(query("SELECT * FROM " + viewName))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
+            assertQueryFails("DROP MATERIALIZED VIEW " + viewName, ".*does not exist, but a view with that name exists.*");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
