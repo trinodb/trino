@@ -60,8 +60,7 @@ final class TestIcebergRestCatalogRefsSnapshotLoadingModeConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+            case SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -128,14 +127,6 @@ final class TestIcebergRestCatalogRefsSnapshotLoadingModeConnectorSmokeTest
             assertThat(query(format("SELECT * FROM %s FOR TIMESTAMP AS OF TIMESTAMP '%s'", tableName, secondInsertTime.format(ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV")))))
                     .matches("VALUES BIGINT '1', BIGINT '2'");
         }
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test

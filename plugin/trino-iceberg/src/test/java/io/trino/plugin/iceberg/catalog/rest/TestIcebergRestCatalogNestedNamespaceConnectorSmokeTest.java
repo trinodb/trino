@@ -23,7 +23,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -57,15 +56,6 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     public TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        return switch (connectorBehavior) {
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW -> false;
-            default -> super.hasBehavior(connectorBehavior);
-        };
     }
 
     @Override
@@ -179,6 +169,44 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
 
     @Test
     @Override // Override because the schema name requires double quotes
+    public void testMaterializedView()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+
+            assertThat(query("SELECT * FROM " + viewName))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
+
+            assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName))
+                    .matches("(?s)" +
+                            "CREATE MATERIALIZED VIEW " + catalogName + "\\.\"" + schemaName + "\"\\." + viewName +
+                            ".* AS\n" +
+                            "SELECT \\*\n" +
+                            "FROM\n" +
+                            "  nation");
+
+            assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
+                    .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
+
+            assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                    .doesNotContain(viewName);
+            assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
+                    .returnsEmptyResult();
+
+            assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
+                    .containsAll("VALUES VARCHAR '" + viewName + "'");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+        }
+    }
+
+    @Test
+    @Override // Override because the schema name requires double quotes
     public void testView()
     {
         String viewName = "test_view_" + randomNameSuffix();
@@ -209,14 +237,6 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasMessageContaining("renameNamespace is not supported for Iceberg REST catalog");
-    }
-
-    @Test
-    @Override
-    public void testMaterializedView()
-    {
-        assertThatThrownBy(super::testMaterializedView)
-                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test
