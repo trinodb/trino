@@ -17,9 +17,10 @@ Adding a property:
   and info endpoints.
 
 Renaming a config:
-- Add a `@Deprecated` setter with `@LegacyConfig(value = "old.name", replacedBy = "new.name")`
-  that writes to the same field as the new `@Config("new.name")` setter. The old name keeps
-  working as a backward-compatible alias.
+- Add `@LegacyConfig("old.name")` to the setter that has `@Config("new.name")`. The old name
+  keeps working as a backward-compatible alias.
+- If the value type or meaning changes, add a separate `@Deprecated` setter with
+  `@LegacyConfig(value = "old.name", replacedBy = "new.name")` that converts the old value.
 
 Removing a config:
 - Add the current name **and** any `@LegacyConfig` names to `@DefunctConfig` on the class so
@@ -32,6 +33,6 @@ Testing a new config:
   classes for the `testDefaults()` / `testExplicitPropertyMappings()` pattern.
 
 Other conventions:
-- Validation annotations (`@NotNull`, `@Min`, `@MinDuration`, etc.) go on setters, not fields.
+- Validation annotations (`@NotNull`, `@Min`, `@MinDuration`, etc.) go on getters, not fields.
 - Don't store the config object as a field — read values in the constructor and keep those
   instead.
