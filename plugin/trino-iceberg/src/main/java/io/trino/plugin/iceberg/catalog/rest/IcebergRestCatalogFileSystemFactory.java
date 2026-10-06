@@ -51,6 +51,7 @@ public class IcebergRestCatalogFileSystemFactory
             .maximumSize(1_000)
             .expireAfterWrite(1, HOURS)
             .build();
+    private volatile boolean forceVendedCredentialsRefresh;
 
     @Inject
     public IcebergRestCatalogFileSystemFactory(
@@ -67,6 +68,12 @@ public class IcebergRestCatalogFileSystemFactory
     void flushVendedCredentialsCache()
     {
         vendedCredentialsProvidersCache.invalidateAll();
+    }
+
+    @VisibleForTesting
+    void setForceVendedCredentialsRefresh(boolean forceVendedCredentialsRefresh)
+    {
+        this.forceVendedCredentialsRefresh = forceVendedCredentialsRefresh;
     }
 
     // Used by ioBuilder function in the RESTSessionCatalog
@@ -132,7 +139,7 @@ public class IcebergRestCatalogFileSystemFactory
         }
 
         VendedCredentialsProvider<? extends VendedCredentials> vendedCredentialsProvider = optionalVendedCredentialsProvider.get();
-        return fileSystemFactory.create(() -> withExtraCredentials(identity, mergeExtraCredentials(cached.extraCredentials(), vendedCredentialsProvider.getCredentials())));
+        return fileSystemFactory.create(() -> withExtraCredentials(identity, mergeExtraCredentials(cached.extraCredentials(), vendedCredentialsProvider.getCredentials(forceVendedCredentialsRefresh))));
     }
 
     private static Map<String, String> mergeExtraCredentials(Map<String, String> baseExtraCredentials, VendedCredentials vendedCredentials)
