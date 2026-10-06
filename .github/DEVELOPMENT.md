@@ -35,7 +35,7 @@ the client protocol, writing tests and other lower level details.
 
 We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run airstyle and other maven checks before opening a PR: `./mvnw validate`
+To run airstyle and other maven checks before opening a PR: `mvnd validate`
 
 In addition to those you should also adhere to the following:
 
@@ -72,7 +72,7 @@ of various failures.
 ### Add license header
 
 Ensure that all files have the appropriate license header; you can generate the
-license by running `./mvnw license:format`.
+license by running `mvnd license:format`.
 
 ### Prefer String formatting
 
@@ -226,18 +226,21 @@ Your build may fail if:
  - overall pom.xml structure is not correct
 
 Many such errors may be fixed automatically by running the following:
-`./mvnw sortpom:sort`
+`mvnd sortpom:sort`
 
 ## Building
+
+The commands use the [Maven Daemon](https://github.com/apache/maven-mvnd), which keeps Maven
+running between builds. `./mvnw` works in its place.
 
 The fastest way to build and install the whole project:
 
 ```bash
-./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+mvnd clean install -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
 ```
 
-This builds with two threads per core, skips snapshot update checks, tests, Javadoc, and the
-airbase checks (checkstyle, modernizer, dependency analysis). Run `./mvnw validate` separately
+This skips snapshot update checks, tests, Javadoc, and the airbase checks (checkstyle,
+modernizer, dependency analysis). Run `mvnd validate` separately
 before opening a PR to get those checks back.
 
 ## Additional IDE configuration
@@ -284,7 +287,7 @@ the POMs to each module. If that doesn't work, you can do it manually:
 Note that the version of errorprone used by the IDEA plugin might be older than
 the one configured in the `pom.xml` and you might need to disable some checks
 that are not yet supported by that older version. When in doubt, always check
-with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
+with the full Maven build (``mvnd clean install -DskipTests -Perrorprone-compiler``).
 
 ### Language injection in IDE
 
