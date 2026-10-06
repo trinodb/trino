@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -502,9 +503,11 @@ public abstract class AbstractTrinoCatalog
     @Override
     public void recordMaterializedViewRefresh(
             ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
             AppendFiles appendFiles,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
@@ -515,7 +518,7 @@ public abstract class AbstractTrinoCatalog
                         handle.getSchemaTableName(),
                         handle.getSnapshotId().isPresent() ? Long.toString(handle.getSnapshotId().orElseThrow()) : ""))
                 .forEach(tableDependencies::add);
-        if (hasForeignSourceTables) {
+        if (hasForeignSourceRelations) {
             tableDependencies.add(UNKNOWN_SNAPSHOT_TOKEN);
         }
 

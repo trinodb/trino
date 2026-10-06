@@ -254,9 +254,11 @@ public interface TrinoCatalog
 
     default void recordMaterializedViewRefresh(
             ConnectorSession session,
+            ConnectorViewHandle materializedViewHandle,
             AppendFiles appendFiles,
             List<ConnectorTableHandle> sourceTableHandles,
-            boolean hasForeignSourceTables,
+            List<ConnectorViewHandle> sourceViewHandles,
+            boolean hasForeignSourceRelations,
             boolean hasSourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
