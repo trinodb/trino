@@ -78,7 +78,7 @@ public class TestPartialTranslator
         assertFullTranslation(new Call(ADD_INTEGER, ImmutableList.of(symbolReference1, dereferenceExpression1)));
 
         Expression functionCallExpression = new Call(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "concat", fromTypes(VARCHAR, VARCHAR)),
+                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "concat", ImmutableList.of(VARCHAR, VARCHAR)),
                 ImmutableList.of(stringLiteral, new Cast(dereferenceExpression2, VARCHAR)));
         assertFullTranslation(functionCallExpression);
     }

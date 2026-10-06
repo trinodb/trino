@@ -19,6 +19,7 @@ import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.exceptions.ValidationException;
 
 import java.io.FileNotFoundException;
+import java.io.UncheckedIOException;
 
 import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -49,6 +50,9 @@ public final class IcebergExceptions
         }
         if (failure instanceof ValidationException) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file for table " + tableName, failure);
+        }
+        if (failure instanceof UncheckedIOException) {
+            return new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing metadata file for table " + tableName, failure);
         }
 
         return new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Error processing metadata for table " + tableName, failure);

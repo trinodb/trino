@@ -21,13 +21,20 @@ import io.trino.plugin.hudi.HudiTransactionManager;
 import io.trino.plugin.iceberg.IcebergTransactionManager;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Map;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class LakehouseTransactionManager
 {
     private final LakehouseTableProperties lakehouseTableProperties;
+    private final Map<TableType, Set<String>> tableProcedureNames;
     private final HiveTransactionManager hiveTransactionManager;
     private final IcebergTransactionManager icebergTransactionManager;
     private final DeltaLakeTransactionManager deltaTransactionManager;
@@ -36,12 +43,17 @@ public final class LakehouseTransactionManager
     @Inject
     public LakehouseTransactionManager(
             LakehouseTableProperties lakehouseTableProperties,
+            Map<TableType, Set<TableProcedureMetadata>> tableProcedures,
             HiveTransactionManager hiveTransactionManager,
             IcebergTransactionManager icebergTransactionManager,
             DeltaLakeTransactionManager deltaTransactionManager,
             HudiTransactionManager hudiTransactionManager)
     {
         this.lakehouseTableProperties = requireNonNull(lakehouseTableProperties, "lakehouseTableProperties is null");
+        this.tableProcedureNames = requireNonNull(tableProcedures, "tableProcedures is null").entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream()
+                        .map(TableProcedureMetadata::getName)
+                        .collect(toImmutableSet())));
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.icebergTransactionManager = requireNonNull(icebergTransactionManager, "icebergTransactionManager is null");
         this.deltaTransactionManager = requireNonNull(deltaTransactionManager, "deltaTransactionManager is null");
@@ -62,6 +74,7 @@ public final class LakehouseTransactionManager
     {
         return new LakehouseMetadata(
                 lakehouseTableProperties,
+                tableProcedureNames,
                 hiveTransactionManager.get(transaction, identity),
                 icebergTransactionManager.get(transaction, identity),
                 deltaTransactionManager.get(transaction, identity),

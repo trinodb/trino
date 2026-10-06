@@ -393,6 +393,54 @@ public abstract class AbstractTestAggregations
         assertQuery("select a, array_agg(b), array_agg(distinct c) from (values (1,1,1)) t(a,b,c) group by a");
     }
 
+    // NULL grouping keys survive the split of multiple distinct aggregations into sub-aggregations
+    @Test
+    public void testMultipleDistinctAggregationsPreserveNullGroupKey()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .build();
+
+        // nation has 25 rows with regionkey in {0..4}; the CASE nulls regionkey for values > 1,
+        // yielding three groups: 0 (5 rows), 1 (5 rows), NULL (15 rows).
+        assertQuery(
+                session,
+                "SELECT regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (SELECT nationkey, name, CASE WHEN regionkey > 1 THEN NULL ELSE regionkey END AS regionkey FROM nation) n " +
+                        "GROUP BY regionkey",
+                "VALUES (CAST(0 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(1 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS BIGINT), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+
+        // composite grouping key with NULLs in both columns
+        assertQuery(
+                session,
+                "SELECT regionkey_text, regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (" +
+                        "    SELECT nationkey, name, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE CAST(regionkey AS VARCHAR) END AS regionkey_text, " +
+                        "           CASE WHEN regionkey > 0 THEN NULL ELSE regionkey END AS regionkey " +
+                        "    FROM nation) n " +
+                        "GROUP BY regionkey_text, regionkey",
+                "VALUES ('0', CAST(0 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       ('1', CAST(NULL AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+
+        // VARBINARY grouping key
+        assertQuery(
+                session,
+                "SELECT regionkey, count(DISTINCT name), count(DISTINCT nationkey) " +
+                        "FROM (" +
+                        "    SELECT nationkey, name, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE to_utf8(CAST(regionkey AS VARCHAR)) END AS regionkey_bytes, " +
+                        "           CASE WHEN regionkey > 1 THEN NULL ELSE CAST(regionkey AS VARCHAR) END AS regionkey " +
+                        "    FROM nation) n " +
+                        "GROUP BY regionkey_bytes, regionkey",
+                "VALUES ('0', CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       ('1', CAST(5 AS BIGINT), CAST(5 AS BIGINT)), " +
+                        "       (CAST(NULL AS VARCHAR), CAST(15 AS BIGINT), CAST(15 AS BIGINT))");
+    }
+
     @Test
     public void testDistinctAndNonDistinctAggregationOnTheSameColumn()
     {

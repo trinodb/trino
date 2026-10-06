@@ -176,4 +176,81 @@ public class TestAggregation
         assertThat(assertions.query("SELECT count(DISTINCT 'x'), count(*) FROM (VALUES 1, 2, 3)"))
                 .matches("VALUES (BIGINT '1', BIGINT '3')");
     }
+
+    /**
+     * The heap backing max_by and min_by with a count writes a new entry over the record of the
+     * entry it replaces. A value whose first element is null in the replaced entry and not null in
+     * the replacing one leaves the stale null marker behind unless the writer always assigns it.
+     * The element is then read as null, and because a null element contributes no variable width
+     * data, every element after it is read from the wrong offset.
+     */
+    @Test
+    void testMinMaxByNOverValueReplacingNullElement()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT max_by(CAST(ROW(a, b) AS row(a varchar, b varchar)), k, 1)
+                FROM (VALUES (0, CAST(null AS varchar), 'second'), (1, 'first', 'second')) t(k, a, b)
+                """))
+                .matches("VALUES ARRAY[CAST(ROW('first', 'second') AS row(a varchar, b varchar))]");
+
+        assertThat(assertions.query(
+                """
+                SELECT max_by(ARRAY[a, b], k, 1)
+                FROM (VALUES (0, CAST(null AS varchar), 'second'), (1, 'first', 'second')) t(k, a, b)
+                """))
+                .matches("VALUES ARRAY[ARRAY[VARCHAR 'first', VARCHAR 'second']]");
+
+        assertThat(assertions.query(
+                """
+                SELECT max_by(MAP(ARRAY['a', 'b'], ARRAY[a, b]), k, 1)
+                FROM (VALUES (0, CAST(null AS varchar), 'second'), (1, 'first', 'second')) t(k, a, b)
+                """))
+                .matches("VALUES ARRAY[MAP(ARRAY['a', 'b'], ARRAY[VARCHAR 'first', VARCHAR 'second'])]");
+
+        // min_by keeps the entry with the smallest key, so the rows are ordered the other way round
+        assertThat(assertions.query(
+                """
+                SELECT min_by(CAST(ROW(a, b) AS row(a varchar, b varchar)), k, 1)
+                FROM (VALUES (1, CAST(null AS varchar), 'second'), (0, 'first', 'second')) t(k, a, b)
+                """))
+                .matches("VALUES ARRAY[CAST(ROW('first', 'second') AS row(a varchar, b varchar))]");
+    }
+
+    /**
+     * A replaced element of a different length shifts the elements after it, which can split a
+     * multibyte character and produce a value that is not valid UTF-8.
+     */
+    @Test
+    void testMinMaxByNOverValueReplacingNullElementKeepsEncoding()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT transform(
+                        max_by(CAST(ROW(a, b, c) AS row(a varchar, b varchar, c varchar)), k, 1),
+                        value -> ARRAY[to_hex(to_utf8(value.a)), to_hex(to_utf8(value.b)), to_hex(to_utf8(value.c))])
+                FROM (VALUES
+                        (0, CAST(null AS varchar), 'ББ', 'end'),
+                        (1, 'aaa', 'ББ', 'end')) t(k, a, b, c)
+                """))
+                .matches("VALUES ARRAY[ARRAY[VARCHAR '616161', VARCHAR 'D091D091', VARCHAR '656E64']]");
+    }
+
+    @Test
+    void testMinMaxByNOverValueReplacingNull()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT max_by(v, k, 1), min_by(v, k, 1)
+                FROM (VALUES (0, CAST(null AS varchar)), (1, 'x'), (-1, 'y')) t(k, v)
+                """))
+                .matches("VALUES (ARRAY[VARCHAR 'x'], ARRAY[VARCHAR 'y'])");
+
+        assertThat(assertions.query(
+                """
+                SELECT max_by(v, k, 1), min_by(v, k, 1)
+                FROM (VALUES (0, CAST(null AS bigint)), (1, 11), (-1, 22)) t(k, v)
+                """))
+                .matches("VALUES (ARRAY[BIGINT '11'], ARRAY[BIGINT '22'])");
+    }
 }

@@ -28,7 +28,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.hive.formats.ByteSearch.indexOfByte;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -129,19 +128,20 @@ public class CsvDeserializer
     {
         byte[] buffer = lineBuffer.getBuffer();
         int length = lineBuffer.getLength();
-        return indexOfByte(buffer, 0, length, quoteByte, escapeByte) < 0;
+        return Slices.wrappedBuffer(buffer, 0, length).indexOfAnyByte(quoteByte, escapeByte, 0) < 0;
     }
 
     private void deserializeUnquoted(LineBuffer lineBuffer, PageBuilder builder)
     {
         byte[] buffer = lineBuffer.getBuffer();
         int end = lineBuffer.getLength();
+        Slice line = Slices.wrappedBuffer(buffer, 0, end);
 
         Arrays.fill(fieldLengths, MISSING_FIELD);
         int fieldIndex = 0;
         int offset = 0;
         while (fieldIndex < fieldLengths.length) {
-            int separatorOffset = indexOfByte(buffer, offset, end, separatorByte);
+            int separatorOffset = line.indexOfByte(separatorByte, offset, end - offset);
             if (separatorOffset < 0) {
                 break;
             }
@@ -156,7 +156,6 @@ public class CsvDeserializer
             fieldLengths[fieldIndex] = end - offset;
         }
 
-        Slice line = Slices.wrappedBuffer(buffer, 0, end);
         builder.declarePosition();
         for (int i = 0; i < columns.size(); i++) {
             BlockBuilder blockBuilder = builder.getBlockBuilder(i);

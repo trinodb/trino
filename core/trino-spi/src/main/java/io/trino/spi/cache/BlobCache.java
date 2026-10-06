@@ -14,6 +14,7 @@
 package io.trino.spi.cache;
 
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * A filesystem-agnostic blob cache. Callers identify cached bytes with a
@@ -26,12 +27,12 @@ public interface BlobCache
     /**
      * Returns the blob cached under the given key, populating the entry from {@code source}
      * on miss. Implementations that cannot or choose not to cache the entry (for example
-     * when it exceeds a size limit) return a blob reading through to the source instead.
-     * The cache takes ownership of the source: it closes it once the entry is fully cached
-     * and on every failure path of this method; only when the returned blob reads through
-     * to the source does the source stay open, owned and closed by that blob.
+     * when it exceeds a size limit) return empty, and the caller reads the content directly.
+     * The cache takes ownership of the source: it closes it before returning when the entry
+     * is declined, fully cached, or the lookup fails; only a returned blob that still loads
+     * pages from the source keeps it open, and closes it with the blob.
      */
-    Blob get(CacheKey key, BlobSource source)
+    Optional<Blob> get(CacheKey key, BlobSource source)
             throws IOException;
 
     /**

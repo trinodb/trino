@@ -13,31 +13,22 @@
  */
 package io.trino.execution;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import static java.util.Objects.requireNonNull;
+import static java.lang.Math.max;
 
 public final class SqlTaskIoStats
 {
-    private final CounterStat inputDataSize;
-    private final CounterStat inputPositions;
-    private final CounterStat outputDataSize;
-    private final CounterStat outputPositions;
+    private final CounterStat inputDataSize = new CounterStat();
+    private final CounterStat inputPositions = new CounterStat();
+    private final CounterStat outputDataSize = new CounterStat();
+    private final CounterStat outputPositions = new CounterStat();
 
-    public SqlTaskIoStats()
-    {
-        this(new CounterStat(), new CounterStat(), new CounterStat(), new CounterStat());
-    }
-
-    public SqlTaskIoStats(CounterStat inputDataSize, CounterStat inputPositions, CounterStat outputDataSize, CounterStat outputPositions)
-    {
-        this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
-        this.inputPositions = requireNonNull(inputPositions, "inputPositions is null");
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
-        this.outputPositions = requireNonNull(outputPositions, "outputPositions is null");
-    }
+    @GuardedBy("this")
+    private SqlTaskIoTotals recordedTotals = SqlTaskIoTotals.EMPTY;
 
     @Managed
     @Nested
@@ -67,20 +58,19 @@ public final class SqlTaskIoStats
         return outputPositions;
     }
 
-    public void merge(SqlTaskIoStats ioStats)
+    /**
+     * Records the growth of the cumulative totals since the highest totals seen so far.
+     */
+    public synchronized void update(SqlTaskIoTotals totals)
     {
-        inputDataSize.merge(ioStats.inputDataSize);
-        inputPositions.merge(ioStats.inputPositions);
-        outputDataSize.merge(ioStats.outputDataSize);
-        outputPositions.merge(ioStats.outputPositions);
-    }
-
-    @SuppressWarnings("deprecation")
-    public void resetTo(SqlTaskIoStats ioStats)
-    {
-        inputDataSize.resetTo(ioStats.inputDataSize);
-        inputPositions.resetTo(ioStats.inputPositions);
-        outputDataSize.resetTo(ioStats.outputDataSize);
-        outputPositions.resetTo(ioStats.outputPositions);
+        inputDataSize.update(max(0, totals.inputDataSize() - recordedTotals.inputDataSize()));
+        inputPositions.update(max(0, totals.inputPositions() - recordedTotals.inputPositions()));
+        outputDataSize.update(max(0, totals.outputDataSize() - recordedTotals.outputDataSize()));
+        outputPositions.update(max(0, totals.outputPositions() - recordedTotals.outputPositions()));
+        recordedTotals = new SqlTaskIoTotals(
+                max(totals.inputDataSize(), recordedTotals.inputDataSize()),
+                max(totals.inputPositions(), recordedTotals.inputPositions()),
+                max(totals.outputDataSize(), recordedTotals.outputDataSize()),
+                max(totals.outputPositions(), recordedTotals.outputPositions()));
     }
 }

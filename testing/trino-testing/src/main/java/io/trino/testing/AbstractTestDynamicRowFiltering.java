@@ -210,7 +210,7 @@ public abstract class AbstractTestDynamicRowFiltering
                     if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
                         return false;
                     }
-                    if (extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().isEmpty()) {
+                    if (extractDynamicFilters(filterNode.getPredicate()).dynamicConjuncts().isEmpty()) {
                         return false;
                     }
                     return getSchemaTableName(tableScanNode.getTable().connectorHandle())

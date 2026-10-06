@@ -582,11 +582,12 @@ public class ExtractSpatialJoins
             projections.putIdentity(outputSymbol);
         }
 
-        TypeDescriptor typeDescriptor = new TypeDescriptor(KDB_TREE_TYPENAME);
+        Type kdbTreeType = plannerContext.getTypeManager().getType(new TypeDescriptor(KDB_TREE_TYPENAME));
+        Type geometryType = plannerContext.getTypeManager().getType(GEOMETRY_TYPE_SIGNATURE);
         BuiltinFunctionCallBuilder spatialPartitionsCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata(), getCharVarcharCoercion(context.getSession()))
                 .setName("spatial_partitions")
-                .addArgument(typeDescriptor, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), plannerContext.getTypeManager().getType(typeDescriptor)))
-                .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);
+                .addArgument(kdbTreeType, new Cast(new Constant(VARCHAR, KdbTreeUtils.toJson(kdbTree)), kdbTreeType))
+                .addArgument(geometryType, geometry);
         radius.ifPresent(value -> spatialPartitionsCall.addArgument(DOUBLE, value));
         Call partitioningFunction = spatialPartitionsCall.build();
 

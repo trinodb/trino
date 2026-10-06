@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Resources;
 import io.airlift.slice.Slice;
@@ -46,13 +47,23 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
+import org.apache.parquet.io.LocalOutputFile;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Types;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,6 +73,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.createArrayBlock;
@@ -80,13 +92,19 @@ import static io.trino.parquet.reader.ParquetReader.isRowSelectionBeneficial;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.apache.parquet.hadoop.ParquetFileWriter.Mode.OVERWRITE;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
@@ -844,6 +862,66 @@ public class TestParquetReader
                 types,
                 columnNames,
                 predicate);
+    }
+
+    @Test
+    public void testInt64TimestampAdjustedToUtcPredicateAcrossDstTransition(@TempDir Path directory)
+            throws IOException
+    {
+        MessageType schema = Types.buildMessage()
+                .required(INT64).as(timestampType(true, MILLIS)).named("ts")
+                .named("test");
+        int rowCount = 240;
+        Path file = directory.resolve("timestamps.parquet");
+        // One row per minute across the America/New_York fall-back transition at 2024-11-03T06:00Z
+        long startMillis = Instant.parse("2024-11-03T04:00:00Z").toEpochMilli();
+        ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(new LocalOutputFile(file))
+                .withType(schema)
+                .withWriteMode(OVERWRITE)
+                .withDictionaryEncoding(false)
+                .withRowGroupRowCountLimit(75)
+                .withPageRowCountLimit(10);
+        try (ParquetWriter<Group> writer = builder.build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (int row = 0; row < rowCount; row++) {
+                writer.write(factory.newGroup().append("ts", startMillis + MINUTES.toMillis(row)));
+            }
+        }
+
+        DateTimeZone timeZone = DateTimeZone.forID("America/New_York");
+        List<Long> values = readTimestampValues(file, timeZone, TupleDomain.all());
+        assertThat(values).hasSize(rowCount);
+        for (long value : ImmutableSet.copyOf(values)) {
+            List<Long> expected = values.stream()
+                    .filter(candidate -> candidate == value)
+                    .collect(toImmutableList());
+            assertThat(readTimestampValues(file, timeZone, TupleDomain.withColumnDomains(ImmutableMap.of("ts", Domain.singleValue(TIMESTAMP_MILLIS, value)))))
+                    .filteredOn(candidate -> candidate == value)
+                    .isEqualTo(expected);
+        }
+    }
+
+    private static List<Long> readTimestampValues(Path file, DateTimeZone timeZone, TupleDomain<String> predicate)
+            throws IOException
+    {
+        ParquetDataSource dataSource = new FileParquetDataSource(file.toFile(), ParquetReaderOptions.defaultOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ImmutableList.Builder<Long> values = ImmutableList.builder();
+        try (ParquetReader reader = createParquetReader(
+                dataSource,
+                parquetMetadata,
+                ParquetReaderOptions.defaultOptions(),
+                newSimpleAggregatedMemoryContext(),
+                ImmutableList.of(TIMESTAMP_MILLIS),
+                ImmutableList.of("ts"),
+                predicate,
+                false,
+                timeZone)) {
+            for (SourcePage page = reader.nextPage(); page != null; page = reader.nextPage()) {
+                values.addAll(blockValues(page.getBlock(0)));
+            }
+        }
+        return values.build();
     }
 
     private static List<Long> blockValues(Block block)

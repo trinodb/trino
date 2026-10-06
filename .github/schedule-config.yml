@@ -26,33 +26,34 @@
     - lib/trino-hive-formats
     - plugin/trino-blob-cache-alluxio
     - plugin/trino-blob-cache-memory
-- { modules: core/trino-main }
-- { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-- { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
-- { modules: lib/trino-filesystem-s3, profile: cloud-tests }
-- { modules: plugin/trino-bigquery }
-- { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
+- { modules: core/trino-main, timeout-minutes: 45 }
+- { modules: lib/trino-filesystem-azure, profile: cloud-tests, timeout-minutes: 45 }
+- { modules: lib/trino-filesystem-gcs, profile: cloud-tests, timeout-minutes: 45 }
+- { modules: lib/trino-filesystem-s3, profile: cloud-tests, timeout-minutes: 45 }
+- { modules: plugin/trino-bigquery, timeout-minutes: 60 }
+# `when.impacted: false` means this profile isn't run just because trino-bigquery changed, so it only runs on its default triggers (nightly schedule, or manual dispatch), not the merge queue.
+# C07ABNN828M is the #core-dev Slack channel.
+- { modules: plugin/trino-bigquery, profile: cloud-tests-2, when: { impacted: false, scheduled: nightly }, notify-channels: [C07ABNN828M], timeout-minutes: 60 }
 - { modules: plugin/trino-cassandra }
 - { modules: plugin/trino-clickhouse }
-- { modules: plugin/trino-delta-lake }
-- { modules: plugin/trino-delta-lake, profile: cloud-tests }
+- { modules: plugin/trino-delta-lake, timeout-minutes: 45 }
+- { modules: plugin/trino-delta-lake, profile: cloud-tests, timeout-minutes: 45 }
 - { modules: plugin/trino-delta-lake, profile: fte-tests }
-- { modules: plugin/trino-druid }
+- { modules: plugin/trino-druid, timeout-minutes: 45 }
 - { modules: plugin/trino-duckdb }
 - { modules: plugin/trino-elasticsearch }
-- { modules: plugin/trino-exchange-filesystem, profile: cloud-tests }
+- { modules: plugin/trino-exchange-filesystem, profile: cloud-tests, timeout-minutes: 45 }
 - { modules: plugin/trino-exasol }
 - { modules: plugin/trino-google-sheets }
-- { modules: plugin/trino-google-sheets, profile: cloud-tests }
-- { modules: plugin/trino-hive }
-- { modules: plugin/trino-hive, profile: cloud-tests }
+- { modules: plugin/trino-google-sheets, profile: cloud-tests, timeout-minutes: 45 }
+- { modules: plugin/trino-hive, timeout-minutes: 45 }
 - { modules: plugin/trino-hive, profile: fte-tests }
-- { modules: plugin/trino-hive, profile: test-parquet }
+- { modules: plugin/trino-hive, profile: test-parquet, timeout-minutes: 60 }
 - { modules: plugin/trino-hudi }
-- { modules: plugin/trino-iceberg }
-- { modules: plugin/trino-iceberg, profile: cloud-tests }
+- { modules: plugin/trino-iceberg, timeout-minutes: 60 }
+- { modules: plugin/trino-iceberg, profile: cloud-tests, timeout-minutes: 45 }
 - { modules: plugin/trino-iceberg, profile: fte-tests }
-- { modules: plugin/trino-iceberg, profile: floci-and-avro }
+- { modules: plugin/trino-iceberg, profile: floci-and-avro, timeout-minutes: 60 }
 - { modules: plugin/trino-ignite }
 - { modules: plugin/trino-kafka }
 - { modules: plugin/trino-lakehouse }
@@ -60,13 +61,13 @@
 - { modules: plugin/trino-mongodb }
 - { modules: plugin/trino-mysql }
 - { modules: plugin/trino-opensearch }
-- { modules: plugin/trino-oracle }
+- { modules: plugin/trino-oracle, timeout-minutes: 45 }
 - { modules: plugin/trino-pinot }
 - { modules: plugin/trino-postgresql }
 - { modules: plugin/trino-redis }
-- { modules: plugin/trino-redshift }
-- { modules: plugin/trino-redshift, profile: cloud-tests }
-- { modules: plugin/trino-redshift, profile: fte-tests }
+- { modules: plugin/trino-redshift, timeout-minutes: 60 }
+- { modules: plugin/trino-redshift, profile: cloud-tests, timeout-minutes: 60 }
+- { modules: plugin/trino-redshift, profile: fte-tests, timeout-minutes: 60 }
 - { modules: plugin/trino-resource-group-managers }
 - { modules: plugin/trino-singlestore }
 - { modules: plugin/trino-snowflake }
@@ -75,6 +76,6 @@
 - { modules: plugin/trino-sqlserver }
 - { modules: testing/trino-faulttolerant-tests, profile: default }
 - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-- { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
+- { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive, timeout-minutes: 60 }
 - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-- { modules: testing/trino-tests }
+- { modules: testing/trino-tests, timeout-minutes: 60 }

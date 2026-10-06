@@ -39,7 +39,7 @@ public class TestEmbedVersion
                 }).run())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___");
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Runnable.run");
     }
 
     @Test
@@ -59,7 +59,7 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Zonky zonk")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___")
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Callable.call")
                 .hasNoCause();
 
         assertThatThrownBy(() ->
@@ -68,7 +68,27 @@ public class TestEmbedVersion
                 }).call())
                 .isInstanceOf(IOException.class)
                 .hasMessage("a checked exception")
-                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___")
+                .hasStackTraceContaining("at io.trino.$gen.Trino_123_some_test_version___Callable.call")
                 .hasNoCause();
+    }
+
+    @Test
+    public void testCollidingVersionNamesShareClasses()
+    {
+        // "collision-1-0" and "collision-1_0" normalize to the same generated class name;
+        // constructing embedders for both must not attempt to define that name twice
+        EmbedVersion first = new EmbedVersion("collision-1-0");
+        EmbedVersion second = new EmbedVersion("collision-1_0");
+
+        AtomicInteger counter = new AtomicInteger();
+        Runnable firstWrapped = first.embedVersion((Runnable) counter::incrementAndGet);
+        Runnable secondWrapped = second.embedVersion((Runnable) counter::incrementAndGet);
+
+        // the two versions normalize to the same class name, so they must share one class
+        assertThat(secondWrapped.getClass()).isSameAs(firstWrapped.getClass());
+
+        firstWrapped.run();
+        secondWrapped.run();
+        assertThat(counter.get()).isEqualTo(2);
     }
 }

@@ -53,7 +53,7 @@ public final class CharacterStringCasts
     public static Slice charToCharCast(@LiteralParameter("x") long x, @LiteralParameter("y") long y, @SqlType("char(x)") Slice slice)
     {
         if (x > y) {
-            return truncateToLength(slice, toIntExact(y));
+            return truncateToLengthAndTrimSpaces(slice, toIntExact(y));
         }
         return slice;
     }

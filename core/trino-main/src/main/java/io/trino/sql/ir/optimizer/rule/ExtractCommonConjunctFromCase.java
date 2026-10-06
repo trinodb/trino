@@ -72,7 +72,7 @@ public class ExtractCommonConjunctFromCase
 
         Case reduced = new Case(
                 caseTerm.whenClauses().stream()
-                        .map(clause -> new WhenClause(clause.getOperand(), removeConjuncts(clause.getResult(), common)))
+                        .map(clause -> new WhenClause(clause.operand(), removeConjuncts(clause.result(), common)))
                         .collect(toImmutableList()),
                 removeConjuncts(caseTerm.defaultValue(), common));
 
@@ -85,7 +85,7 @@ public class ExtractCommonConjunctFromCase
     private static List<Expression> branchResults(Case caseTerm)
     {
         return ImmutableList.<Expression>builder()
-                .addAll(caseTerm.whenClauses().stream().map(WhenClause::getResult).collect(toImmutableList()))
+                .addAll(caseTerm.whenClauses().stream().map(WhenClause::result).collect(toImmutableList()))
                 .add(caseTerm.defaultValue())
                 .build();
     }

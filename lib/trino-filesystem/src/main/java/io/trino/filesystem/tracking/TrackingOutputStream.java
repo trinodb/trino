@@ -14,21 +14,21 @@
 package io.trino.filesystem.tracking;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoOutputStream;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.ref.Cleaner;
 
 import static java.util.Objects.requireNonNull;
 
 public class TrackingOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
-    private final OutputStream delegate;
+    private final TrinoOutputStream delegate;
     private final TrackingState state;
     private final Cleaner.Cleanable cleanable;
 
-    public TrackingOutputStream(OutputStream delegate, Location location, Cleaner cleaner)
+    public TrackingOutputStream(TrinoOutputStream delegate, Location location, Cleaner cleaner)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.state = new TrackingState(delegate, location);
@@ -62,6 +62,20 @@ public class TrackingOutputStream
     {
         state.close();
         cleanable.clean(); // Unregister the cleanable and run cleanup action
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        try {
+            delegate.abort();
+        }
+        finally {
+            // closing an aborted stream has no effect
+            state.close();
+            cleanable.clean();
+        }
     }
 
     @Override

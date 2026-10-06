@@ -28,6 +28,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.type.DateTimes.getMicrosOfSecond;
 import static io.trino.type.DateTimes.rescale;
 import static io.trino.type.DateTimes.scaleEpochMicrosToSeconds;
 import static java.lang.Math.multiplyExact;
@@ -45,7 +46,7 @@ public final class TimestampToTimeCast
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
         long epochSeconds = scaleEpochMicrosToSeconds(timestamp);
-        long microOfSecond = timestamp % MICROSECONDS_PER_SECOND;
+        long microOfSecond = getMicrosOfSecond(timestamp);
 
         long microOfDay = multiplyExact(getSecondOfDay(epochSeconds), MICROSECONDS_PER_SECOND) + microOfSecond;
 
@@ -64,9 +65,10 @@ public final class TimestampToTimeCast
     {
         long epochSeconds = scaleEpochMicrosToSeconds(timestamp.getEpochMicros());
         long secondOfDay = getSecondOfDay(epochSeconds);
+        long microOfSecond = getMicrosOfSecond(timestamp.getEpochMicros());
 
         long picoOfDay = multiplyExact(secondOfDay, PICOSECONDS_PER_SECOND) +
-                multiplyExact(timestamp.getEpochMicros() % MICROSECONDS_PER_SECOND, PICOSECONDS_PER_MICROSECOND) +
+                multiplyExact(microOfSecond, PICOSECONDS_PER_MICROSECOND) +
                 timestamp.getPicosOfMicro();
 
         return round(picoOfDay, (int) (12 - targetPrecision)) % PICOSECONDS_PER_DAY;

@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import io.airlift.units.Duration;
 import io.trino.testing.containers.environment.ProductTest;
 import io.trino.testing.containers.environment.RequiresEnvironment;
 import io.trino.testing.containers.environment.Row;
@@ -39,6 +40,7 @@ import java.util.stream.Stream;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -47,6 +49,7 @@ import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dro
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -340,16 +343,20 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
             List<S3Object> initial = listObjects(env.getBucketName(), changeDataPrefix);
             assertThat(initial).hasSize(1);
 
-            vacuumExecutor.accept(tableName);
+            // Vacuum compares S3 modification time with the engine's local clock, so a freshly written
+            // _change_data file can be retained under clock skew. Retry until it ages past the threshold.
+            assertEventually(new Duration(30, SECONDS), new Duration(1, SECONDS), () -> {
+                vacuumExecutor.accept(tableName);
 
-            List<S3Object> summaries = listObjects(env.getBucketName(), changeDataPrefix);
-            assertThat(summaries).hasSizeBetween(0, 1);
-            if (!summaries.isEmpty()) {
-                assertThat(getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
-                S3Object object = summaries.getFirst();
-                assertThat(object.key()).endsWith(changeDataPrefix + "/");
-                assertThat(object.size()).isEqualTo(0L);
-            }
+                List<S3Object> summaries = listObjects(env.getBucketName(), changeDataPrefix);
+                assertThat(summaries).hasSizeBetween(0, 1);
+                if (!summaries.isEmpty()) {
+                    assertThat(getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
+                    S3Object object = summaries.getFirst();
+                    assertThat(object.key()).endsWith(changeDataPrefix + "/");
+                    assertThat(object.size()).isEqualTo(0L);
+                }
+            });
         }
         finally {
             dropDeltaTableWithRetry(env, "default." + tableName);

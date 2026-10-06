@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.mapWithIndex;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 
@@ -70,7 +71,6 @@ public abstract class BaseSystemTable
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan().planWith(executor);
-        TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
         Map<String, Integer> columnNameToPosition = mapWithIndex(
                 tableScan.schema().columns().stream(),
@@ -83,7 +83,7 @@ public abstract class BaseSystemTable
 
         return new IcebergSystemTablePageSource(
                 types,
-                timeZoneKey,
+                UTC_KEY,
                 this::addRow,
                 columnNameToPosition,
                 tableScan);

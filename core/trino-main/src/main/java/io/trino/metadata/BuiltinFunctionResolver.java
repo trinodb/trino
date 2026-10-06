@@ -24,9 +24,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.type.CharVarcharCoercion;
 
 import java.util.Collection;
@@ -43,6 +41,7 @@ import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -72,12 +71,13 @@ class BuiltinFunctionResolver
         functionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
-    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
+    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
         try {
-            return uncheckedCacheGet(functionCache, FunctionCacheKey.from(charVarcharCoercion, name, parameterTypes),
+            FunctionCacheKey key = new FunctionCacheKey(charVarcharCoercion, name, parameterTypes);
+            return uncheckedCacheGet(functionCache, key,
                     () -> {
-                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(charVarcharCoercion, parameterTypes, getBuiltinFunctions(name), name);
+                        CatalogFunctionBinding functionBinding = functionBinder.bindFunction(charVarcharCoercion, fromTypes(key.argumentTypes()), getBuiltinFunctions(name), name);
                         return resolveBuiltin(functionBinding, charVarcharCoercion);
                     });
         }
@@ -97,10 +97,7 @@ class BuiltinFunctionResolver
                     () -> resolveBuiltinFunction(
                             charVarcharCoercion,
                             mangleOperatorName(operatorType),
-                            argumentTypes.stream()
-                                    .map(Type::getTypeDescriptor)
-                                    .map(TypeDescriptorProvider::new)
-                                    .collect(toImmutableList())));
+                            argumentTypes));
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
@@ -197,20 +194,13 @@ class BuiltinFunctionResolver
         }
     }
 
-    private record FunctionCacheKey(CharVarcharCoercion charVarcharCoercion, String name, List<? extends TypeDescriptor> types)
+    private record FunctionCacheKey(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> argumentTypes)
     {
         private FunctionCacheKey
         {
             requireNonNull(charVarcharCoercion, "charVarcharCoercion is null");
             requireNonNull(name, "name is null");
-            requireNonNull(types, "types is null");
-        }
-
-        public static FunctionCacheKey from(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
-        {
-            return new FunctionCacheKey(charVarcharCoercion, name, parameterTypes.stream()
-                    .map(TypeDescriptorProvider::getTypeDescriptor)
-                    .collect(toImmutableList()));
+            argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         }
     }
 }

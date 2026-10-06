@@ -116,7 +116,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.type.CharVarcharCoercion;
 
@@ -1384,7 +1383,7 @@ public class TracingMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
                 .setAttribute(TrinoAttributes.FUNCTION, name);
@@ -1617,6 +1616,15 @@ public class TracingMetadata
         Span span = startSpan("setMaterializedViewProperties", viewName);
         try (var _ = scopedSpan(span)) {
             delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+    }
+
+    @Override
+    public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+    {
+        Span span = startSpan("setMaterializedViewComment", viewName);
+        try (var _ = scopedSpan(span)) {
+            delegate.setMaterializedViewComment(session, viewName, comment);
         }
     }
 

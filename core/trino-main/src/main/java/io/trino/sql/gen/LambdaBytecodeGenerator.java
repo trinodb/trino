@@ -28,6 +28,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -57,6 +58,7 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
@@ -231,19 +233,70 @@ public final class LambdaBytecodeGenerator
                         .map(ParameterizedType::getAsmType)
                         .toArray(Type[]::new));
 
-        block.append(
-                invokeDynamic(
-                        LAMBDA_CAPTURE_METHOD,
-                        ImmutableList.of(
-                                getType(getSingleApplyMethod(lambdaInterface)),
-                                compiledLambda.getMethodName(),
-                                compiledLambda.getMethodAsmType(),
-                                instantiatedMethodAsmType),
-                        "apply",
-                        type(lambdaInterface),
-                        captureVariables));
+        BytecodeExpression createLambda = invokeDynamic(
+                LAMBDA_CAPTURE_METHOD,
+                ImmutableList.of(
+                        getType(getSingleApplyMethod(lambdaInterface)),
+                        compiledLambda.getMethodName(),
+                        compiledLambda.getMethodAsmType(),
+                        instantiatedMethodAsmType),
+                "apply",
+                type(lambdaInterface),
+                captureVariables);
+
+        if (captureExpressions.isEmpty()) {
+            block.append(cachedLambda(context, compiledLambda, lambdaInterface, createLambda));
+        }
+        else {
+            block.append(createLambda);
+        }
         captureTempVariables.forEach(scope::releaseTempVariableForReuse);
         return block;
+    }
+
+    /**
+     * A lambda that captures nothing beyond the receiver and the session is the same instance
+     * for every evaluation of the class that builds it, but the call site allocates one on
+     * each execution, since it links to a constructor rather than to a singleton. Hold it in
+     * a field instead, so a projection over a page builds one lambda rather than one per
+     * position.
+     *
+     * <p>The field is read and written without synchronization. The classes this runs in
+     * already carry per-evaluation state, so an instance belongs to the single driver thread
+     * that evaluates it.
+     */
+    private static BytecodeNode cachedLambda(
+            BytecodeGeneratorContext context,
+            CompiledLambda compiledLambda,
+            Class<?> lambdaInterface,
+            BytecodeExpression createLambda)
+    {
+        Scope scope = context.getScope();
+        ClassDefinition classDefinition = context.getClassDefinition();
+        // the lambda method name is unique within the class, and two call sites of one lambda
+        // want the same instance, so they share the fields
+        FieldDefinition instanceField = declareOnce(classDefinition, compiledLambda.getMethodName() + "_instance", type(lambdaInterface));
+        FieldDefinition sessionField = declareOnce(classDefinition, compiledLambda.getMethodName() + "_session", type(ConnectorSession.class));
+
+        Variable thisVariable = scope.getThis();
+        Variable session = scope.getVariable("session");
+        return new BytecodeBlock()
+                .append(new IfStatement()
+                        .condition(notEqual(thisVariable.getField(sessionField), session))
+                        .ifTrue(new BytecodeBlock()
+                                .append(thisVariable.setField(instanceField, createLambda))
+                                .append(thisVariable.setField(sessionField, session))))
+                .append(thisVariable.getField(instanceField));
+    }
+
+    private static FieldDefinition declareOnce(ClassDefinition classDefinition, String name, ParameterizedType type)
+    {
+        for (FieldDefinition field : classDefinition.getFields()) {
+            if (field.getName().equals(name)) {
+                return field;
+            }
+        }
+        return classDefinition.declareField(a(PRIVATE), name, type);
     }
 
     public static Class<? extends Supplier<Object>> compileLambdaProvider(Lambda lambdaExpression, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, CharVarcharCoercion charVarcharCoercion, Class<?> lambdaInterface)
@@ -254,7 +307,7 @@ public final class LambdaBytecodeGenerator
                 type(Object.class),
                 type(Supplier.class, Object.class));
 
-        FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
+        FieldDefinition lambdaField = lambdaProviderClassDefinition.declareField(a(PRIVATE, Access.FINAL), "lambda", type(lambdaInterface));
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
@@ -274,51 +327,8 @@ public final class LambdaBytecodeGenerator
                 "get",
                 type(Object.class),
                 ImmutableList.of());
-
-        Scope scope = method.getScope();
-        BytecodeBlock body = method.getBody();
-        scope.declareVariable("wasNull", body, constantFalse());
-        scope.declareVariable("session", body, method.getThis().getField(sessionField));
-
-        BiFunction<Reference, Scope, BytecodeNode> lambdaReferenceCompiler =
-                lambdaParameterReferenceCompiler(ImmutableMap.of());
-
-        ExpressionBytecodeCompiler expressionCompiler = new ExpressionBytecodeCompiler(
-                lambdaProviderClassDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                lambdaReferenceCompiler,
-                functionManager,
-                metadata,
-                typeManager,
-                charVarcharCoercion,
-                compiledLambdaMap,
-                ImmutableList.of());
-
-        List<Parameter> parameters = new ArrayList<>();
-        parameters.add(arg("session", ConnectorSession.class));
-        for (int i = 0; i < lambdaExpression.arguments().size(); i++) {
-            Symbol argument = lambdaExpression.arguments().get(i);
-            Class<?> type = callSiteBinder.getAccessibleType(Primitives.wrap(argument.type().getJavaType()));
-            parameters.add(arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argument.name()), type));
-        }
-
-        BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
-                expressionCompiler,
-                scope,
-                callSiteBinder,
-                cachedInstanceBinder,
-                functionManager,
-                metadata,
-                lambdaProviderClassDefinition,
-                parameters);
-
-        body.append(
-                        generateLambda(
-                                generatorContext,
-                                ImmutableList.of(),
-                                compiledLambdaMap.get(lambdaExpression),
-                                lambdaInterface))
+        method.getBody()
+                .append(method.getThis().getField(lambdaField))
                 .retObject();
 
         // constructor
@@ -330,10 +340,34 @@ public final class LambdaBytecodeGenerator
 
         constructorBody.comment("super();")
                 .append(constructorThisVariable)
-                .invokeConstructor(Object.class)
-                .append(constructorThisVariable.setField(sessionField, sessionParameter));
+                .invokeConstructor(Object.class);
 
         cachedInstanceBinder.generateInitializations(constructorThisVariable, constructorBody);
+
+        // Built once here into a final field, rather than through generateLambda's own
+        // captureless-lambda field cache: the provider's session never changes after
+        // construction, but the instance is shared across every driver thread that owns an
+        // accumulator built from it, and that cache's unsynchronized field reads/writes are
+        // only safe for the single-threaded instances the rest of this class produces.
+        CompiledLambda compiledLambda = compiledLambdaMap.get(lambdaExpression);
+        Type instantiatedMethodAsmType = getMethodType(
+                compiledLambda.getReturnType().getAsmType(),
+                compiledLambda.getParameterTypes().stream()
+                        .skip(1) // skip ConnectorSession; the provider never captures anything else
+                        .map(ParameterizedType::getAsmType)
+                        .toArray(Type[]::new));
+        BytecodeExpression createLambda = invokeDynamic(
+                LAMBDA_CAPTURE_METHOD,
+                ImmutableList.of(
+                        getType(getSingleApplyMethod(lambdaInterface)),
+                        compiledLambda.getMethodName(),
+                        compiledLambda.getMethodAsmType(),
+                        instantiatedMethodAsmType),
+                "apply",
+                type(lambdaInterface),
+                ImmutableList.of(constructorThisVariable.cast(Object.class), sessionParameter));
+        constructorBody.append(constructorThisVariable.setField(lambdaField, createLambda));
+
         constructorBody.ret();
 
         //noinspection unchecked

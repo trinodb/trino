@@ -21,6 +21,11 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
+import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Character.MAX_CODE_POINT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,14 +72,67 @@ public class TestBoundedVarcharType
     @Test
     public void testPreviousValue()
     {
+        // the greatest lesser value decrements the last code point and fills the remaining length with the highest one
         assertThat(type.getPreviousValue(getSampleValue()))
+                .isEqualTo(Optional.of(utf8Slice("appld" + Character.toString(MAX_CODE_POINT))));
+        assertThat(type.getPreviousValue(utf8Slice("abcdef")))
+                .isEqualTo(Optional.of(utf8Slice("abcdee")));
+        assertThat(type.getPreviousValue(utf8Slice("b")))
+                .isEqualTo(Optional.of(utf8Slice("a" + Character.toString(MAX_CODE_POINT).repeat(5))));
+
+        // a value ending with the lowest code point is directly preceded by the value without it
+        assertThat(type.getPreviousValue(utf8Slice("apple\0")))
+                .isEqualTo(Optional.of(utf8Slice("apple")));
+
+        // the empty value is the least
+        assertThat(type.getPreviousValue(EMPTY_SLICE))
+                .isEmpty();
+
+        // the surrogate range has no UTF-8 encoding, so U+D7FF precedes U+E000
+        assertThat(createVarcharType(2).getPreviousValue(utf8Slice("a\uE000")))
+                .isEqualTo(Optional.of(utf8Slice("a\uD7FF")));
+
+        assertThat(createVarcharType(101).getPreviousValue(utf8Slice("abc")))
+                .isEmpty();
+
+        // a value that is not valid UTF-8 has no known neighbors
+        assertThat(type.getPreviousValue(wrappedBuffer((byte) 0xC3)))
+                .isEmpty();
+        // an overlong encoding of the lowest code point is not valid UTF-8 either
+        assertThat(type.getPreviousValue(wrappedBuffer((byte) 0xC0, (byte) 0x80)))
                 .isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
+        // the least greater value appends the lowest code point
         assertThat(type.getNextValue(getSampleValue()))
+                .isEqualTo(Optional.of(utf8Slice("apple\0")));
+        assertThat(type.getNextValue(EMPTY_SLICE))
+                .isEqualTo(Optional.of(utf8Slice("\0")));
+
+        // a value of the maximum length cannot be extended, so the last code point is incremented instead
+        assertThat(type.getNextValue(utf8Slice("abcdef")))
+                .isEqualTo(Optional.of(utf8Slice("abcdeg")));
+        assertThat(type.getNextValue(utf8Slice("abcde" + Character.toString(MAX_CODE_POINT))))
+                .isEqualTo(Optional.of(utf8Slice("abcdf")));
+        assertThat(type.getNextValue(utf8Slice(Character.toString(MAX_CODE_POINT).repeat(6))))
+                .isEmpty();
+
+        // the surrogate range has no UTF-8 encoding, so U+E000 follows U+D7FF
+        assertThat(createVarcharType(2).getNextValue(utf8Slice("a\uD7FF")))
+                .isEqualTo(Optional.of(utf8Slice("a\uE000")));
+
+        // appending does not depend on the length, so it is supported for any type
+        assertThat(createVarcharType(101).getNextValue(utf8Slice("abc")))
+                .isEqualTo(Optional.of(utf8Slice("abc\0")));
+
+        // a value that is not valid UTF-8 has no known neighbors
+        assertThat(type.getNextValue(wrappedBuffer((byte) 0xC3)))
+                .isEmpty();
+        // an overlong encoding of the lowest code point is not valid UTF-8 either
+        assertThat(type.getNextValue(wrappedBuffer((byte) 0xC0, (byte) 0x80)))
                 .isEmpty();
     }
 }

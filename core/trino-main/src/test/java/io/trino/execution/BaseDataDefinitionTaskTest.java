@@ -584,6 +584,25 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
+        {
+            MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());
+            materializedViews.put(
+                    viewName.asSchemaTableName(),
+                    new MaterializedViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns(),
+                            view.getGracePeriod(),
+                            view.getWhenStaleBehavior(),
+                            comment,
+                            view.getRunAsIdentity().get(),
+                            view.getPath(),
+                            view.getStorageTable()));
+        }
+
+        @Override
         public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
         {
             MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());

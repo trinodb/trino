@@ -18,7 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.Type;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -27,14 +32,26 @@ import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongDecimalSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongDecimalsBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createStringSequenceBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -108,10 +125,69 @@ public class TestColumnarFilterCompiler
         assertThat(filter2.getClass()).isEqualTo(filter1.getClass());
         assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
 
+        // describes itself like every other columnar filter class, but without the bound
+        // value set, which can be arbitrarily large
+        assertThat(filter1.toString()).startsWith("ColumnarFilter{IN dynamic filter");
+
         SourcePage page = filter1.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 10))));
         int[] output = new int[10];
         // matches values 1, 3, 5, 7, 9
         assertThat(filter1.filterPositionsRange(SESSION, output, 0, 10, page)).isEqualTo(5);
+    }
+
+    @Test
+    public void testDynamicFilterInVarchar()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(VARCHAR, "$col_0"), 0);
+        Expression in1 = inExpression(VARCHAR, utf8Slice("1"), utf8Slice("3"), utf8Slice("5"), utf8Slice("7"), utf8Slice("9"));
+        Expression in2 = inExpression(VARCHAR, utf8Slice("0"), utf8Slice("2"));
+
+        ColumnarFilter filter1 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in1, layout, true).orElseThrow().get();
+        ColumnarFilter filter2 = compiler.generateFilter(CHAR_VARCHAR_COERCION, in2, layout, true).orElseThrow().get();
+
+        assertThat(filter2.getClass()).isEqualTo(filter1.getClass());
+        assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
+
+        // matches "1", "3", "5", "7", "9"
+        assertMatchCount(filter1, createStringSequenceBlock(0, 10), 5);
+        // dictionary "0" to "4" matches "1" and "3" at positions 1, 3, 6, 8
+        assertMatchCount(filter1, DictionaryBlock.create(10, createStringSequenceBlock(0, 5), new int[] {0, 1, 2, 3, 4, 4, 3, 2, 1, 0}), 4);
+        assertMatchCount(filter1, RunLengthEncodedBlock.create(createStringsBlock("3"), 10), 10);
+        assertMatchCount(filter1, createStringsBlock("1", null, "2", null, "9"), 2);
+    }
+
+    @Test
+    public void testDynamicFilterInDouble()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(DOUBLE, "$col_0"), 0);
+        Expression in = inExpression(DOUBLE, 1.0, 3.0, 5.0);
+
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, in, layout, true).orElseThrow().get();
+
+        assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
+        assertMatchCount(filter, createDoubleSequenceBlock(0, 10), 3);
+        assertMatchCount(filter, DictionaryBlock.create(4, createDoubleSequenceBlock(0, 4), new int[] {3, 1, 1, 0}), 3);
+    }
+
+    @Test
+    public void testInLongDecimal()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        DecimalType type = createDecimalType(19);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(type, "$col_0"), 0);
+        Expression in = inExpression(type, Int128.valueOf(1), Int128.valueOf(3), Int128.valueOf(5));
+
+        ColumnarFilter dynamicFilter = compiler.generateFilter(CHAR_VARCHAR_COERCION, in, layout, true).orElseThrow().get();
+        assertThat(compiler.getFilterCache().getLoadCount()).isEqualTo(0);
+        ColumnarFilter staticFilter = compiler.generateFilter(CHAR_VARCHAR_COERCION, in, layout).orElseThrow().get();
+
+        for (ColumnarFilter filter : ImmutableList.of(dynamicFilter, staticFilter)) {
+            assertMatchCount(filter, createLongDecimalSequenceBlock(0, 10, type), 3);
+            assertMatchCount(filter, DictionaryBlock.create(4, createLongDecimalSequenceBlock(0, 4, type), new int[] {3, 1, 1, 0}), 3);
+            assertMatchCount(filter, createLongDecimalsBlock("1", null, "2", null, "5"), 2);
+        }
     }
 
     @Test
@@ -167,5 +243,110 @@ public class TestColumnarFilterCompiler
                 block)));
         int[] output = new int[5];
         assertThat(filter.filterPositionsRange(SESSION, output, 0, 5, page)).isEqualTo(2);
+    }
+
+    @Test
+    public void testFilterTemplateReuse()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        // same structure with different constants shares one compiled template
+        assertThat(filterGreaterThan(compiler, layout, 2L)).isEqualTo(2);
+        assertThat(filterGreaterThan(compiler, layout, 0L)).isEqualTo(4);
+
+        // two lookups, one template stored on the first miss and hit by the second
+        assertThat(compiler.getFilterTemplateCache().getRequestCount()).isEqualTo(2);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testInFilterNotTemplated()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        // IN filters derive lookup sets and switch labels from the values, so they must
+        // not share templates; correctness across different value lists proves it
+        assertThat(filterIn(compiler, layout, 1L, 2L, 3L)).isEqualTo(3);
+        assertThat(filterIn(compiler, layout, 3L, 4L)).isEqualTo(2);
+        assertThat(filterIn(compiler, layout, 42L, 43L, 44L)).isEqualTo(0);
+        assertThat(compiler.getFilterTemplateCache().size()).isEqualTo(0);
+    }
+
+    @Test
+    public void testInFilterDescribesItself()
+    {
+        // IN filters skip the template cache lookup entirely (see testInFilterNotTemplated),
+        // but must still get the same self-describing toString a templated class does
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        Expression expression = new In(
+                new Reference(BIGINT, "$col_0"),
+                ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, expression, layout).orElseThrow().get();
+
+        assertThat(filter.toString()).startsWith("ColumnarFilter{").contains("1").contains("2");
+    }
+
+    @Test
+    public void testGeneratedClassDescribesItself()
+    {
+        ColumnarFilterCompiler compiler = FUNCTION_RESOLUTION.getColumnarFilterCompiler(100);
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(BIGINT, "$col_0"), 0);
+
+        ColumnarFilter first = compiler.generateFilter(
+                CHAR_VARCHAR_COERCION, comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 42L)), layout).orElseThrow().get();
+        // the second filter is defined from the cached template and must describe its own
+        // literal, not the literal of the compilation that created the template
+        ColumnarFilter second = compiler.generateFilter(
+                CHAR_VARCHAR_COERCION, comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 77L)), layout).orElseThrow().get();
+
+        assertThat(compiler.getFilterTemplateCache().getHitRate()).isEqualTo(0.5);
+        assertThat(first.toString()).startsWith("ColumnarFilter{").contains("42");
+        assertThat(second.toString()).contains("77").doesNotContain("42");
+    }
+
+    private static int filterGreaterThan(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, long value)
+    {
+        Expression expression = comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, value));
+        return filterPositions(compiler, layout, expression);
+    }
+
+    private static int filterIn(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, Long... values)
+    {
+        Expression expression = new In(
+                new Reference(BIGINT, "$col_0"),
+                Arrays.stream(values)
+                        .map(value -> (Expression) new Constant(BIGINT, value))
+                        .collect(toImmutableList()));
+        return filterPositions(compiler, layout, expression);
+    }
+
+    private static int filterPositions(ColumnarFilterCompiler compiler, Map<Symbol, Integer> layout, Expression expression)
+    {
+        ColumnarFilter filter = compiler.generateFilter(CHAR_VARCHAR_COERCION, expression, layout).orElseThrow().get();
+        SourcePage page = filter.getInputChannels().getInputChannels(SourcePage.create(new Page(createLongSequenceBlock(0, 5))));
+        int[] output = new int[5];
+        return filter.filterPositionsRange(SESSION, output, 0, 5, page);
+    }
+
+    private static In inExpression(Type type, Object... values)
+    {
+        return new In(new Reference(type, "$col_0"), Arrays.stream(values)
+                .<Expression>map(value -> new Constant(type, value))
+                .collect(toImmutableList()));
+    }
+
+    private static void assertMatchCount(ColumnarFilter filter, Block block, int expected)
+    {
+        int positionCount = block.getPositionCount();
+        SourcePage page = filter.getInputChannels().getInputChannels(SourcePage.create(new Page(block)));
+        int[] output = new int[positionCount];
+        assertThat(filter.filterPositionsRange(SESSION, output, 0, positionCount, page)).isEqualTo(expected);
+        int[] activePositions = IntStream.range(0, positionCount).toArray();
+        assertThat(filter.filterPositionsList(SESSION, output, activePositions, 0, positionCount, page)).isEqualTo(expected);
     }
 }

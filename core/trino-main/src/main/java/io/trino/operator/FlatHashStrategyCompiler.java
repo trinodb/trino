@@ -545,6 +545,7 @@ public final class FlatHashStrategyCompiler
             Parameter variableOffset)
     {
         BytecodeBlock writeNonNullFlat = new BytecodeBlock()
+                .append(fixedChunk.setElement(fieldIsNullOffset, constantInt(0).cast(byte.class)))
                 .append(invoke(
                         callSiteBinder.bind(keyField.writeFlatMethod()),
                         "writeFlat",

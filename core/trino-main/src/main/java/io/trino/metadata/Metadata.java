@@ -84,7 +84,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.type.CharVarcharCoercion;
 
@@ -788,7 +787,7 @@ public interface Metadata
 
     Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName catalogSchemaFunctionName);
 
-    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes);
+    ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes);
 
     ResolvedFunction resolveOperator(CharVarcharCoercion charVarcharCoercion, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
@@ -880,6 +879,11 @@ public interface Metadata
      * Sets the properties of the specified materialized view.
      */
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
+
+    /**
+     * Sets the comment of the specified materialized view.
+     */
+    void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment);
 
     /**
      * Comments to the specified materialized view column.

@@ -13,6 +13,8 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.Session;
+import io.trino.json.Json;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,6 +22,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
+import java.util.Map;
+
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.json.JsonItems.toText;
+import static io.trino.operator.scalar.JsonFunctions.jsonArrayGet;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -48,6 +57,55 @@ public class TestJsonFunctions
     {
         assertions.close();
         assertions = null;
+    }
+
+    @Test
+    public void testDatetimeStringContainment()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT json_array_contains(
+                    json_query(JSON '["2020-01-01"]', 'lax $[*].datetime()' RETURNING JSON WITH ARRAY WRAPPER),
+                    '2020-01-01')
+                """))
+                .matches("VALUES true");
+    }
+
+    @Test
+    public void testExponentOverflowIsInvalidInput()
+    {
+        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON '1e309'").evaluate())
+                .hasErrorCode(INVALID_LITERAL);
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'1e309'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testJsonConstantIdentity()
+    {
+        assertThat(assertions.execute("SELECT JSON '1', JSON '1.0'").getMaterializedRows().getFirst().getFields())
+                .containsExactly("1", "1.0");
+        assertThat(assertions.execute("SELECT JSON '{\"a\":1,\"b\":2}', JSON '{\"b\":2,\"a\":1}'").getMaterializedRows().getFirst().getFields())
+                .containsExactly("{\"a\":1,\"b\":2}", "{\"b\":2,\"a\":1}");
+    }
+
+    @Test
+    public void testContainerScalarFidelity()
+    {
+        assertThat(assertions.execute("SELECT CAST(ARRAY[-0.0e0] AS JSON), CAST(MAP(ARRAY['x'], ARRAY[-0.0e0]) AS JSON), CAST(ROW(-0.0e0) AS JSON)")
+                .getMaterializedRows().getFirst().getFields())
+                .containsExactly("[-0.0]", "{\"x\":-0.0}", "{\"\":-0.0}");
+        assertThat(assertions.execute("SELECT json_query(CAST(ARRAY[infinity()] AS JSON), 'lax $[0].type()' RETURNING VARCHAR)")
+                .getMaterializedRows().getFirst().getField(0))
+                .isEqualTo("\"number\"");
+    }
+
+    @Test
+    public void testDuplicateDescendantMembers()
+    {
+        assertThat(assertions.execute("SELECT json_query(JSON '{\"a\":1,\"a\":2}', 'lax $..a' RETURNING VARCHAR WITH ARRAY WRAPPER)")
+                .getMaterializedRows().getFirst().getField(0))
+                .isEqualTo("[1,2]");
     }
 
     @Test
@@ -103,6 +161,161 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1, 2] trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: [1, 2] trailing");
+    }
+
+    @Test
+    public void testJsonScalar()
+    {
+        // SQL:2023 §6.41 GR 2a: a SQL null input yields the SQL null value, not the JSON null item
+        assertThat(assertions.function("json_scalar", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "CAST(null AS bigint)"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "true"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_scalar", "BIGINT '42'"))
+                .hasType(JSON)
+                .isEqualTo("42");
+
+        assertThat(assertions.function("json_scalar", "'abc'"))
+                .hasType(JSON)
+                .isEqualTo("\"abc\"");
+
+        assertThat(assertions.function("json_scalar", "CAST('abc' AS char(5))"))
+                .hasType(JSON)
+                .isEqualTo("\"abc  \"");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '1.20'"))
+                .hasType(JSON)
+                .isEqualTo("1.20");
+
+        assertThat(assertions.function("json_scalar", "DECIMAL '12345678901234567890.123456789'"))
+                .hasType(JSON)
+                .isEqualTo("12345678901234567890.123456789");
+
+        assertThat(assertions.function("json_scalar", "DATE '2024-01-02'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIME '03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"03:04:05.123456789012+02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123 +02:00\"");
+
+        assertThat(assertions.function("json_scalar", "TIMESTAMP '2024-01-02 03:04:05.123456789012 +02:00'"))
+                .hasType(JSON)
+                .isEqualTo("\"2024-01-02 03:04:05.123456789012 +02:00\"");
+
+        // The datetime items keep their SQL type, so casting back is lossless — a JSON string
+        // that merely looks like a date would have to be re-parsed.
+        assertThat(assertions.expression("CAST(json_scalar(DATE '2024-01-02') AS DATE)"))
+                .matches("DATE '2024-01-02'");
+
+        assertThat(assertions.expression("CAST(json_scalar(TIME '03:04:05.123') AS TIME(3))"))
+                .matches("TIME '03:04:05.123'");
+
+        assertTrinoExceptionThrownBy(assertions.function("json_scalar", "ARRAY[1, 2]")::evaluate)
+                .hasErrorCode(FUNCTION_NOT_FOUND)
+                .hasMessageContaining("Unexpected parameters (array(integer)) for function json_scalar");
+
+        assertThat(assertions.function("json_scalar", "CAST(NULL AS NUMBER)"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_scalar", "NUMBER '123456789012345678901234567890123456789.125'"))
+                .hasType(JSON)
+                .isEqualTo("123456789012345678901234567890123456789.125");
+
+        assertThat(assertions.expression("JSON_VALUE(json_scalar(NUMBER '123456789012345678901234567890123456789.125'), 'strict $' RETURNING NUMBER)"))
+                .matches("NUMBER '123456789012345678901234567890123456789.125'");
+    }
+
+    @Test
+    public void testJsonScalarCharPadding()
+    {
+        assertThat(assertions.function("json_scalar", "CAST(NULL AS CHAR(5))"))
+                .isNull(JSON);
+        for (boolean legacyCoercion : List.of(false, true)) {
+            Session session = assertions.sessionBuilder()
+                    .setSystemProperty("legacy_varchar_to_char_coercion", Boolean.toString(legacyCoercion))
+                    .build();
+            assertThat(assertions.query(
+                    session,
+                    """
+                    WITH t(j) AS (VALUES json_scalar(CAST('é🙂' AS CHAR(4))))
+                    SELECT JSON_VALUE(j, 'lax $'),
+                           JSON_VALUE(ARRAY[j][1], 'lax $'),
+                           JSON_VALUE(JSON_ARRAY(CAST('é🙂' AS CHAR(4)) RETURNING JSON), 'lax $[0]'),
+                           JSON_VALUE(JSON_OBJECT('x': CAST('é🙂' AS CHAR(4)) RETURNING JSON), 'lax $.x')
+                    FROM t
+                    """))
+                    .matches("VALUES (VARCHAR 'é🙂  ', VARCHAR 'é🙂  ', VARCHAR 'é🙂  ', VARCHAR 'é🙂  ')");
+        }
+    }
+
+    @Test
+    public void testJsonScalarNumericTypes()
+    {
+        for (var value : Map.of("TINYINT '-128'", "-128", "SMALLINT '-32768'", "-32768", "INTEGER '-2147483648'", "-2147483648").entrySet()) {
+            assertThat(assertions.function("json_scalar", value.getKey()))
+                    .hasType(JSON)
+                    .isEqualTo(value.getValue());
+        }
+
+        for (String type : List.of("REAL", "DOUBLE")) {
+            assertThat(assertions.function("json_scalar", "CAST(1.25 AS " + type + ")"))
+                    .hasType(JSON)
+                    .isEqualTo("1.25");
+
+            for (var value : Map.of("nan()", "\"NaN\"", "infinity()", "\"Infinity\"", "-infinity()", "\"-Infinity\"").entrySet()) {
+                assertThat(assertions.function("json_scalar", "CAST(" + value.getKey() + " AS " + type + ")"))
+                        .hasType(JSON)
+                        .isEqualTo(value.getValue());
+                assertThat(assertions.expression("CAST(json_scalar(x) AS " + type + ")")
+                        .binding("x", "CAST(" + value.getKey() + " AS " + type + ")"))
+                        .matches("CAST(" + value.getKey() + " AS " + type + ")");
+            }
+        }
+    }
+
+    @Test
+    public void testJsonScalarDatetimeBoundaries()
+    {
+        for (var value : Map.of(
+                "DATE '1969-12-31'", "1969-12-31",
+                "TIME '12:34:56'", "12:34:56",
+                "TIME '12:34:56.123456789012'", "12:34:56.123456789012",
+                "TIME '12:34:56 +02:00'", "12:34:56+02:00",
+                "TIMESTAMP '1969-12-31 23:59:59'", "1969-12-31 23:59:59",
+                "TIMESTAMP '1969-12-31 23:59:59.123456789012'", "1969-12-31 23:59:59.123456789012",
+                "TIMESTAMP '1969-12-31 23:59:59 +02:00'", "1969-12-31 23:59:59 +02:00",
+                "TIMESTAMP '1969-12-31 23:59:59.123456789012 +02:00'", "1969-12-31 23:59:59.123456789012 +02:00").entrySet()) {
+            assertThat(assertions.function("json_scalar", value.getKey()))
+                    .hasType(JSON)
+                    .isEqualTo('"' + value.getValue() + '"');
+        }
     }
 
     @Test
@@ -312,7 +525,7 @@ public class TestJsonFunctions
         assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]'", "6.1"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("json_array_contains", "JSON '[9.6E400]'", "4.2"))
+        assertThat(assertions.function("json_array_contains", "CAST(ARRAY[infinity()] AS JSON)", "4.2"))
                 .isEqualTo(false);
 
         assertThat(assertions.function("json_array_contains", "null", "1.5"))
@@ -478,41 +691,69 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetSkipsUnselectedValues()
+    {
+        for (String input : new String[] {"'[\"\\uD800\", 5]'", "'[[1e400], 5]'", "'[{\"a\": 1e400}, 5]'"}) {
+            for (String index : new String[] {"1", "-1"}) {
+                assertThat(assertions.function("json_array_get", input, index))
+                        .hasType(JSON)
+                        .isEqualTo("5");
+            }
+            for (String index : new String[] {"0", "-2"}) {
+                assertThat(assertions.function("json_array_get", input, index))
+                        .isNull(JSON);
+            }
+        }
+
+        for (String index : new String[] {"1", "-1"}) {
+            assertThat(assertions.function("json_array_get", "'[[1,], 5]'", index))
+                    .isNull(JSON);
+        }
+        assertThat(assertions.function("json_array_get", "'[5, [1,]]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("5");
+        assertThat(assertions.function("json_array_get", "'[5, [1,]]'", "-2"))
+                .isNull(JSON);
+    }
+
+    @Test
     public void testJsonArrayGetString()
     {
+        // A JSON column holds JSON values, so a string element round-trips through
+        // getObjectValue as the quoted form `"jhfa"` — a bare `jhfa` is not valid JSON.
         assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("jhfa");
+                .isEqualTo("\"jhfa\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
                 .isNull(JSON);
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
                 .hasType(JSON)
-                .isEqualTo("fgs");
+                .isEqualTo("\"fgs\"");
 
         assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
                 .hasType(JSON)
-                .isEqualTo("jut");
+                .isEqualTo("\"jut\"");
 
         assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
                 .hasType(JSON)
-                .isEqualTo("");
+                .isEqualTo("\"\"");
 
         assertThat(assertions.function("json_array_get", "'[]'", "0"))
                 .isNull(JSON);
@@ -569,6 +810,33 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonArrayGetDecimal()
+    {
+        for (String value : List.of("9007199254740993.0", "-9007199254740993.0", "1.00", "0.12345678901234567890123456789012345678")) {
+            String array = "[null, %s, null]".formatted(value);
+            for (int index : new int[] {1, -2}) {
+                assertThat(toText(jsonArrayGet(Json.unchecked(utf8Slice(array)), index)).toStringUtf8())
+                        .isEqualTo(value);
+
+                for (String input : List.of("'%s'", "JSON '%s'")) {
+                    assertThat(assertions.expression("json_format(json_array_get(a, i))")
+                            .binding("a", input.formatted(array))
+                            .binding("i", Integer.toString(index)))
+                            .describedAs("input: %s, index: %s", input.formatted(array), index)
+                            .isEqualTo(value);
+
+                    int scale = value.length() - value.indexOf('.') - 1;
+                    assertThat(assertions.expression("CAST(json_array_get(a, i) AS DECIMAL(38, %s))".formatted(scale))
+                            .binding("a", input.formatted(array))
+                            .binding("i", Integer.toString(index)))
+                            .describedAs("input: %s, index: %s", input.formatted(array), index)
+                            .matches("CAST('%s' AS DECIMAL(38, %s))".formatted(value, scale));
+                }
+            }
+        }
+    }
+
+    @Test
     public void testJsonArrayGetBoolean()
     {
         assertThat(assertions.function("json_array_get", "'[true]'", "0"))
@@ -609,6 +877,12 @@ public class TestJsonFunctions
     @Test
     public void testJsonArrayGetNonScalar()
     {
+        for (String index : List.of("0", "-1")) {
+            assertThat(assertions.function("json_array_get", "'[{\"a\":1,\"a\":2}]'", index))
+                    .hasType(JSON)
+                    .isEqualTo("{\"a\":1,\"a\":2}");
+        }
+
         assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}]'", "0"))
                 .hasType(JSON)
                 .isEqualTo("{\"hello\":\"world\"}");
@@ -697,6 +971,30 @@ public class TestJsonFunctions
         assertThat(assertions.function("json_format", "JSON '[\"a\", \"b\"]'"))
                 .hasType(VARCHAR)
                 .isEqualTo("[\"a\",\"b\"]");
+    }
+
+    @Test
+    public void testJsonFormatNestingLimit()
+    {
+        for (int depth : new int[] {1000, 1001, 1024}) {
+            assertThat(assertions.expression("json_format(json_parse(rpad('', " + depth + ", '[') || '1' || rpad('', " + depth + ", ']')))"))
+                    .isEqualTo("[".repeat(depth) + "1" + "]".repeat(depth));
+        }
+    }
+
+    @Test
+    public void testBigintContainsTypedDecimal()
+    {
+        for (String value : new String[] {"DECIMAL '1'", "CAST(1 AS DECIMAL(38, 0))"}) {
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + " RETURNING JSON)", "BIGINT '1'"))
+                    .isEqualTo(true);
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + ")", "BIGINT '1'"))
+                    .isEqualTo(true);
+        }
+        for (String value : new String[] {"DECIMAL '1.0'", "DECIMAL '1.5'", "DECIMAL '9223372036854775808'"}) {
+            assertThat(assertions.function("json_array_contains", "JSON_ARRAY(" + value + " RETURNING JSON)", "BIGINT '1'"))
+                    .isEqualTo(false);
+        }
     }
 
     @Test

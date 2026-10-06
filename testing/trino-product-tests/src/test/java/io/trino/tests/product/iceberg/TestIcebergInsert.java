@@ -35,7 +35,6 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
-import static io.trino.testing.containers.environment.Row.row;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -15,6 +15,7 @@ package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
@@ -34,7 +35,6 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -58,6 +58,7 @@ public final class ParquetFileWriter
     private static final int INSTANCE_SIZE = instanceSize(ParquetFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
+    private final TrinoOutputStream outputStream;
     private final ParquetWriter parquetWriter;
     private final RollbackAction rollbackAction;
     private final int[] fileInputColumnIndexes;
@@ -85,9 +86,10 @@ public final class ParquetFileWriter
         requireNonNull(trinoVersion, "trinoVersion is null");
         this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
-        OutputStream outputStream = null;
+        TrinoOutputStream outputStream = null;
         try {
             outputStream = outputFile.create(memoryContext);
+            this.outputStream = outputStream;
             this.parquetWriter = new ParquetWriter(
                     outputStream,
                     messageType,
@@ -186,7 +188,7 @@ public final class ParquetFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            parquetWriter.close();
+            outputStream.abort();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write parquet to Hive", e);

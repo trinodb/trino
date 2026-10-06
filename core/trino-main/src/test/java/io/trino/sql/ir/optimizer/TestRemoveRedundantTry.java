@@ -22,9 +22,11 @@ import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantTry;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
@@ -61,6 +63,14 @@ public class TestRemoveRedundantTry
     {
         // cast(varchar as bigint) can fail (bad input), so the $try must be preserved
         Expression body = new Cast(new Reference(VARCHAR, "a"), BIGINT);
+        assertThat(optimize(tryExpression(body)))
+                .isEqualTo(Optional.empty());
+    }
+
+    @Test
+    void testFieldReferenceWithFallibleBaseIsLeftUnchanged()
+    {
+        Expression body = new FieldReference(new Row(ImmutableList.of(new Cast(new Reference(VARCHAR, "a"), BIGINT))), 0);
         assertThat(optimize(tryExpression(body)))
                 .isEqualTo(Optional.empty());
     }

@@ -38,10 +38,8 @@ public class CatalogAccessControlRule
             Optional.empty());
 
     private final AccessMode accessMode;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
-    private final Optional<Pattern> catalogRegex;
+    private final IdentityMatcher identityMatcher;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
 
     @JsonCreator
     public CatalogAccessControlRule(
@@ -49,21 +47,17 @@ public class CatalogAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex)
+            @JsonProperty("catalog") Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.accessMode = requireNonNull(accessMode, "accessMode is null");
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
     }
 
     public Optional<AccessMode> match(String user, Set<String> roles, Set<String> groups, String catalog)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true)) {
+        if (identityMatcher.matches(user, roles, groups) &&
+                catalogPattern.map(pattern -> pattern.matches(user, catalog)).orElse(true)) {
             return Optional.of(accessMode);
         }
         return Optional.empty();

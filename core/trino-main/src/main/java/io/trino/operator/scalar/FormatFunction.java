@@ -221,7 +221,9 @@ public final class FormatFunction
         // TODO: support TIME WITH TIME ZONE by https://github.com/trinodb/trino/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             MethodHandle handle = functionDependencies.getScalarFunctionImplementation(JSON_FORMAT_NAME, ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-            return (block, position) -> convertToString(handle, type.getSlice(block, position));
+            // json_format takes a Json, so read the value with getObject — which leaves a
+            // raw-text-bearing block to parse lazily rather than eagerly.
+            return (block, position) -> convertToString(handle, type.getObject(block, position));
         }
         if (type instanceof DecimalType decimalType) {
             int scale = decimalType.getScale();

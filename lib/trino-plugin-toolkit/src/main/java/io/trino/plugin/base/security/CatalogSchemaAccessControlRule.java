@@ -28,7 +28,7 @@ public class CatalogSchemaAccessControlRule
     public static final CatalogSchemaAccessControlRule ALLOW_ALL = new CatalogSchemaAccessControlRule(SchemaAccessControlRule.ALLOW_ALL, Optional.empty());
 
     private final SchemaAccessControlRule schemaAccessControlRule;
-    private final Optional<Pattern> catalogRegex;
+    private final Optional<UserSubstitutingPattern> catalogPattern;
 
     @JsonCreator
     public CatalogSchemaAccessControlRule(
@@ -36,22 +36,22 @@ public class CatalogSchemaAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
-            @JsonProperty("catalog") Optional<Pattern> catalogRegex)
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
+            @JsonProperty("catalog") Optional<UserSubstitutingPattern> catalogPattern)
     {
-        this.schemaAccessControlRule = new SchemaAccessControlRule(owner, userRegex, roleRegex, groupRegex, schemaRegex);
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.schemaAccessControlRule = new SchemaAccessControlRule(owner, userRegex, roleRegex, groupRegex, schemaPattern);
+        this.catalogPattern = requireNonNull(catalogPattern, "catalogPattern is null");
     }
 
-    private CatalogSchemaAccessControlRule(SchemaAccessControlRule schemaAccessControlRule, Optional<Pattern> catalogRegex)
+    private CatalogSchemaAccessControlRule(SchemaAccessControlRule schemaAccessControlRule, Optional<UserSubstitutingPattern> catalogPattern)
     {
         this.schemaAccessControlRule = schemaAccessControlRule;
-        this.catalogRegex = catalogRegex;
+        this.catalogPattern = catalogPattern;
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, CatalogSchemaName schema)
     {
-        if (!catalogRegex.map(regex -> regex.matcher(schema.getCatalogName()).matches()).orElse(true)) {
+        if (!catalogPattern.map(pattern -> pattern.matches(user, schema.getCatalogName())).orElse(true)) {
             return Optional.empty();
         }
         return schemaAccessControlRule.match(user, roles, groups, schema.getSchemaName());
@@ -63,10 +63,8 @@ public class CatalogSchemaAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogPermissionsRule(
-                schemaAccessControlRule.getUserRegex(),
-                schemaAccessControlRule.getRoleRegex(),
-                schemaAccessControlRule.getGroupRegex(),
-                catalogRegex));
+                schemaAccessControlRule.getIdentityMatcher(),
+                catalogPattern));
     }
 
     Optional<AnyCatalogSchemaPermissionsRule> toAnyCatalogSchemaPermissionsRule()
@@ -75,10 +73,8 @@ public class CatalogSchemaAccessControlRule
             return Optional.empty();
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
-                schemaAccessControlRule.getUserRegex(),
-                schemaAccessControlRule.getRoleRegex(),
-                schemaAccessControlRule.getGroupRegex(),
-                catalogRegex,
-                schemaAccessControlRule.getSchemaRegex()));
+                schemaAccessControlRule.getIdentityMatcher(),
+                catalogPattern,
+                schemaAccessControlRule.getSchemaPattern()));
     }
 }

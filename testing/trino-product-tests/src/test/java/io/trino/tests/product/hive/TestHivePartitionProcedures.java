@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static java.lang.String.format;

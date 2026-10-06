@@ -13,14 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.Json;
+import io.trino.json.JsonItemBuilder;
+import io.trino.json.JsonNestingDepthException;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
@@ -29,15 +28,15 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import io.trino.util.JsonUtil.JsonValueWriter;
 import io.trino.util.JsonUtil.ObjectKeyProvider;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import static io.trino.json.JsonItems.MAX_NESTING_DEPTH;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -48,17 +47,13 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.canCastToJson;
-import static io.trino.util.JsonUtil.createJsonFactory;
-import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class MapToJsonCast
         extends SqlScalarFunction
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlMap.class);
-
-    private static final JsonMapper JSON_MAPPER = new JsonMapper(createJsonFactory());
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonValueWriter.class, SqlMap.class);
 
     private MapToJsonCast()
     {
@@ -81,7 +76,7 @@ public class MapToJsonCast
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);
-        JsonGeneratorWriter writer = JsonGeneratorWriter.createJsonGeneratorWriter(valueType);
+        JsonValueWriter writer = JsonValueWriter.createJsonValueWriter(valueType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(provider).bindTo(writer);
 
         return new ChoicesSpecializedSqlScalarFunction(
@@ -92,32 +87,27 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
+    public static Json toJson(ObjectKeyProvider provider, JsonValueWriter writer, SqlMap map)
     {
-        try {
-            int rawOffset = map.getRawOffset();
-            Block rawKeyBlock = map.getRawKeyBlock();
-            Block rawValueBlock = map.getRawValueBlock();
-
-            Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-            for (int i = 0; i < map.getSize(); i++) {
-                String objectKey = provider.getObjectKey(rawKeyBlock, rawOffset + i);
-                orderedKeyToValuePosition.put(objectKey, i);
-            }
-
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_MAPPER, output)) {
-                jsonGenerator.writeStartObject();
-                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
-                    jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
-                }
-                jsonGenerator.writeEndObject();
-            }
-            return output.slice();
+        int rawOffset = map.getRawOffset();
+        Block rawKeyBlock = map.getRawKeyBlock();
+        Block rawValueBlock = map.getRawValueBlock();
+        Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
+        for (int index = 0; index < map.getSize(); index++) {
+            orderedKeyToValuePosition.put(provider.getObjectKey(rawKeyBlock, rawOffset + index), rawOffset + index);
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
+        try {
+            return JsonItemBuilder.encodeWithDepthLimit(jsonWriter -> {
+                jsonWriter.startObject();
+                for (Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                    jsonWriter.fieldName(entry.getKey());
+                    writer.writeJsonValue(jsonWriter, rawValueBlock, entry.getValue());
+                }
+                jsonWriter.endObject();
+            }, MAX_NESTING_DEPTH);
+        }
+        catch (JsonNestingDepthException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, e.getMessage(), e);
         }
     }
 }

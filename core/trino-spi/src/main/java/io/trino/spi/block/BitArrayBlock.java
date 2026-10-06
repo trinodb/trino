@@ -210,7 +210,7 @@ public final class BitArrayBlock
         long[] newValueIsValid = compactBitmap(valueIsValid, positionOffset, length);
         long[] newValues = compactBits(values, positionOffset, length);
 
-        if (newValueIsValid == valueIsValid && newValues == values) {
+        if (length == positionCount && newValueIsValid == valueIsValid && newValues == values) {
             return this;
         }
         return new BitArrayBlock(0, length, newValueIsValid, newValues);

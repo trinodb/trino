@@ -16,51 +16,13 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
-public final class WhenClause
+public record WhenClause(Expression operand, Expression result)
 {
-    private final Expression operand;
-    private final Expression result;
-
     @JsonCreator
-    public WhenClause(Expression operand, Expression result)
+    public WhenClause(@JsonProperty("operand") Expression operand, @JsonProperty("result") Expression result)
     {
         this.operand = operand;
         this.result = result;
-    }
-
-    @JsonProperty
-    public Expression getOperand()
-    {
-        return operand;
-    }
-
-    @JsonProperty
-    public Expression getResult()
-    {
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        WhenClause that = (WhenClause) o;
-        return Objects.equals(operand, that.operand) &&
-                Objects.equals(result, that.result);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operand, result);
     }
 
     @Override

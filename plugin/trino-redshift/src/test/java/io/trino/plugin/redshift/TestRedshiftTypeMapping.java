@@ -181,7 +181,7 @@ public class TestRedshiftTypeMapping
                 TestView view2 = new TestView("pg_catalog_view", "SELECT relname FROM pg_class")) {
             // Test data and type from a function
             assertThat(query(format("SELECT * FROM %s", view1.name)))
-                    .matches("VALUES CAST('x' AS varchar)");
+                    .matches("VALUES CAST('x' AS varchar(256))");
 
             // Test the type of an internal table
             assertThat(query(format("SELECT * FROM %s LIMIT 1", view2.name)))

@@ -55,7 +55,7 @@ public class Hive4FlociDataLake
                         "SERVICE_OPTS", "-Xmx1G -Dhive.metastore.uris=%s".formatted(hiveMetastore.getInternalHiveMetastoreEndpoint()),
                         "IS_RESUME", "true",
                         "AWS_ACCESS_KEY_ID", FLOCI_ACCESS_KEY,
-                        "AWS_SECRET_KEY", FLOCI_SECRET_KEY))
+                        "AWS_SECRET_ACCESS_KEY", FLOCI_SECRET_KEY))
                 .withNetwork(network)
                 .withExposePorts(Set.of(HIVE_SERVER_PORT))
                 .withFilesToMount(hiveFilesToMount);

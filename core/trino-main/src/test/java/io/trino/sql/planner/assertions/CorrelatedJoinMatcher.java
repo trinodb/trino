@@ -49,7 +49,7 @@ final class CorrelatedJoinMatcher
         Expression filter = correlatedJoinNode.getFilter();
         ExpressionVerifier verifier = new ExpressionVerifier(context.symbolAliases());
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filter);
-        return new MatchResult(verifier.process(combineConjuncts(extractResult.getStaticConjuncts()), filter));
+        return new MatchResult(verifier.process(combineConjuncts(extractResult.staticConjuncts()), filter));
     }
 
     @Override

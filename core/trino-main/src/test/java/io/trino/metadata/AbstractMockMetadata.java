@@ -90,7 +90,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.type.CharVarcharCoercion;
 
@@ -900,7 +899,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<TypeDescriptorProvider> parameterTypes)
+    public ResolvedFunction resolveBuiltinFunction(CharVarcharCoercion charVarcharCoercion, String name, List<? extends Type> parameterTypes)
     {
         if (name.equals("rand") && parameterTypes.isEmpty()) {
             BoundSignature boundSignature = new BoundSignature(builtinFunctionName(name), DOUBLE, ImmutableList.of());
@@ -1088,6 +1087,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setMaterializedViewComment(Session session, QualifiedObjectName viewName, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
     }

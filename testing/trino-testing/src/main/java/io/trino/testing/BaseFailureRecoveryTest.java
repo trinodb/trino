@@ -80,6 +80,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Percentage.withPercentage;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
@@ -300,11 +301,30 @@ public abstract class BaseFailureRecoveryTest
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
+        // distributed sort runs only with query-level retries, so this checks that its merging
+        // exchange does not end up on the coordinator boundary. The failure-free reference run
+        // always uses retry_policy NONE, so under task-level retries the two runs plan different
+        // stage trees and the stage id picked for failure injection is not found
+        if (getRetryPolicy() == RetryPolicy.QUERY) {
+            testSelect("EXPLAIN ANALYZE SELECT orderkey FROM orders ORDER BY orderkey");
+        }
 
         testTableModification(
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"),
                 "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM orders",
                 Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test
+    protected void testOrderBy()
+    {
+        // The failure-free reference run always uses retry_policy NONE, so under task-level
+        // retries the two runs plan different stage trees and the stage id picked for failure
+        // injection is not found
+        if (getRetryPolicy() != RetryPolicy.QUERY) {
+            abort("distributed sort runs only with query-level retries");
+        }
+        testSelect("SELECT * FROM orders ORDER BY orderkey");
     }
 
     @Test

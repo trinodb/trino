@@ -17,7 +17,8 @@
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
         <dep.nessie.version>0.108.8</dep.nessie.version>
-        <dep.keycloak.version>26.0.8</dep.keycloak.version>
+        <dep.keycloak-admin.version>26.0.12</dep.keycloak-admin.version>
+        <dep.keycloak.version>26.7.4</dep.keycloak.version>
     </properties>
 
     <dependencyManagement>
@@ -528,6 +529,12 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache5-client</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>kms</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -773,6 +780,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-data</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-orc</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-hadoop</artifactId>
             <scope>test</scope>
@@ -805,7 +824,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-admin-client</artifactId>
-            <version>${dep.keycloak.version}</version>
+            <version>${dep.keycloak-admin.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -930,6 +949,10 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>org.apache.orc.*</ignoredClassPattern>
+                        <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
             <plugin>
@@ -963,6 +986,7 @@
                                 <exclude>**/TestIcebergS3AndGlueAws.java</exclude>
                                 <exclude>**/TestIcebergS3TablesConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergBigLakeVendedCredentials.java</exclude>
                                 <exclude>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
@@ -1022,11 +1046,13 @@
                             <includes>
                                 <include>**/TestIcebergS3TablesConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergBigLakeMetastoreConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergBigLakeVendedCredentials.java</include>
                                 <include>**/TestIcebergAbfsVendingRestCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAzureRestCatalogVendedCredentialsRefresh.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
-                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
-                                <include>**/TestTrinoSnowflakeCatalog.java</include>
+                                <!-- TODO https://github.com/trinodb/trino/pull/31094 Re-enable these tests -->
+                                <!-- <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include> -->
+                                <!-- <include>**/TestTrinoSnowflakeCatalog.java</include> -->
                             </includes>
                             <systemPropertyVariables>
                                 <!-- Default pool size (available processors) is too small for the real cloud storage deletes these smoke tests share it for -->

@@ -21,11 +21,13 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -169,7 +171,7 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult underlying = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(underlyingPredicate));
 
-            if (underlying.getTupleDomain().isNone()) {
+            if (underlying.tupleDomain().isNone()) {
                 // Effective predicate extraction is incorrect in the presence of nulls, which manifests as a NONE domain
                 // In that case, ignore it and combine it into the filter directly
                 // See EffectivePredicateExtractor.Visitor#entryToEquality
@@ -179,9 +181,9 @@ public class EffectivePredicateExtractor
 
             DomainTranslator.ExtractionResult current = DomainTranslator.getExtractionResult(plannerContext, session, filterDeterministicConjuncts(node.getPredicate()));
             return combineConjuncts(
-                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.getTupleDomain().intersect(current.getTupleDomain())),
-                    underlying.getRemainingExpression(),
-                    current.getRemainingExpression());
+                    domainTranslator.toPredicate(getCharVarcharCoercion(session), underlying.tupleDomain().intersect(current.tupleDomain())),
+                    underlying.remainingExpression(),
+                    current.remainingExpression());
         }
 
         @Override
@@ -494,6 +496,17 @@ public class EffectivePredicateExtractor
                     }
                 }
             }
+            else if (type instanceof MapType mapType) {
+                SqlMap sqlMap = (SqlMap) value;
+                Block valueBlock = sqlMap.getRawValueBlock();
+                int rawOffset = sqlMap.getRawOffset();
+                // map keys can neither be null nor contain nulls
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    if (valueBlock.isNull(rawOffset + i) || elementHasNulls(mapType.getValueType(), valueBlock, rawOffset + i)) {
+                        return true;
+                    }
+                }
+            }
 
             return false;
         }
@@ -506,6 +519,10 @@ public class EffectivePredicateExtractor
             }
             if (elementType instanceof ArrayType) {
                 Block element = (Block) elementType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+            if (elementType instanceof MapType) {
+                SqlMap element = (SqlMap) elementType.getObject(container, position);
                 return hasNestedNulls(elementType, element);
             }
 
@@ -594,7 +611,7 @@ public class EffectivePredicateExtractor
                 }
             });
 
-            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());
+            effectiveConjuncts.addAll(equalityInference.generateEqualitiesPartitionedBy(scope).scopeEqualities());
 
             return combineConjuncts(effectiveConjuncts.build());
         }

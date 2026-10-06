@@ -13,7 +13,8 @@
  */
 package io.trino.jsonpath;
 
-import io.trino.jsonpath.ir.TypedValue;
+import io.trino.json.Json;
+import io.trino.json.TypedValue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -25,14 +26,14 @@ public class PathEvaluationContext
     private final TypedValue last;
 
     // current item processed by the innermost enclosing filter
-    private final Object currentItem;
+    private final Json currentItem;
 
     public PathEvaluationContext()
     {
         this(new TypedValue(INTEGER, -1), null);
     }
 
-    private PathEvaluationContext(TypedValue last, Object currentItem)
+    private PathEvaluationContext(TypedValue last, Json currentItem)
     {
         this.last = last;
         this.currentItem = currentItem;
@@ -44,7 +45,7 @@ public class PathEvaluationContext
         return new PathEvaluationContext(new TypedValue(INTEGER, last), currentItem);
     }
 
-    public PathEvaluationContext withCurrentItem(Object currentItem)
+    public PathEvaluationContext withCurrentItem(Json currentItem)
     {
         requireNonNull(currentItem, "currentItem is null");
         return new PathEvaluationContext(last, currentItem);
@@ -58,7 +59,7 @@ public class PathEvaluationContext
         return last;
     }
 
-    public Object getCurrentItem()
+    public Json getCurrentItem()
     {
         if (currentItem == null) {
             throw new PathEvaluationException("accessing current filter item with no enclosing filter");

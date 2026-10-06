@@ -20,10 +20,12 @@ import io.trino.operator.BlockedReason;
 
 import java.util.HashSet;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -302,6 +304,22 @@ public class BasicStageStats
 
     public static BasicStageStats aggregateBasicStageStats(Iterable<BasicStageStats> stages)
     {
+        return aggregateBasicStageStats(stages, OptionalInt.empty());
+    }
+
+    /**
+     * Fault tolerant execution creates stages lazily, so a stage not created or scheduled yet counts as 0% instead of
+     * hiding the progress of the whole query. Stages weigh equally, as in {@link QueryStateMachine}.
+     *
+     * @param planStageCount number of stages in the plan, including the ones not created yet
+     */
+    public static BasicStageStats aggregateFaultTolerantBasicStageStats(Iterable<BasicStageStats> stages, int planStageCount)
+    {
+        return aggregateBasicStageStats(stages, OptionalInt.of(planStageCount));
+    }
+
+    private static BasicStageStats aggregateBasicStageStats(Iterable<BasicStageStats> stages, OptionalInt faultTolerantPlanStageCount)
+    {
         int failedTasks = 0;
 
         int totalDrivers = 0;
@@ -332,6 +350,10 @@ public class BasicStageStats
         long spilledDataSize = 0;
 
         boolean isScheduled = true;
+        boolean anyScheduled = false;
+        int stageCount = 0;
+        double completedPercentageSum = 0;
+        double runningPercentageSum = 0;
 
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
@@ -356,6 +378,12 @@ public class BasicStageStats
             failedCpuTime += stageStats.getFailedCpuTime().roundTo(MILLISECONDS);
 
             isScheduled &= stageStats.isScheduled();
+            anyScheduled |= stageStats.isScheduled();
+            stageCount++;
+            if (stageStats.isScheduled() && stageStats.getTotalDrivers() != 0) {
+                completedPercentageSum += 100.0 * stageStats.getCompletedDrivers() / stageStats.getTotalDrivers();
+                runningPercentageSum += 100.0 * stageStats.getRunningDrivers() / stageStats.getTotalDrivers();
+            }
 
             fullyBlocked &= stageStats.isFullyBlocked();
             blockedReasons.addAll(stageStats.getBlockedReasons());
@@ -373,11 +401,18 @@ public class BasicStageStats
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
-        if (isScheduled && totalDrivers != 0) {
-            progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
-        }
         OptionalDouble runningPercentage = OptionalDouble.empty();
-        if (isScheduled && totalDrivers != 0) {
+        if (faultTolerantPlanStageCount.isPresent()) {
+            isScheduled = anyScheduled;
+            if (isScheduled && totalDrivers != 0) {
+                // stages which are no longer part of the plan may still be registered
+                int totalStages = max(faultTolerantPlanStageCount.orElseThrow(), stageCount);
+                progressPercentage = OptionalDouble.of(min(100, completedPercentageSum / totalStages));
+                runningPercentage = OptionalDouble.of(min(100, runningPercentageSum / totalStages));
+            }
+        }
+        else if (isScheduled && totalDrivers != 0) {
+            progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
             runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
         }
 

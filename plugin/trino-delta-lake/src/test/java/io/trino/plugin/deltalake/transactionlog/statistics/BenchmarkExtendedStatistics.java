@@ -96,7 +96,8 @@ public class BenchmarkExtendedStatistics
                         Optional.of(random.nextLong()),
                         createColumnValueMap(),
                         createColumnValueMap(),
-                        createColumnValueMap());
+                        createColumnValueMap(),
+                        Optional.empty());
                 case "PARQUET" -> new DeltaLakeParquetFileStatistics(
                         Optional.of(random.nextLong()),
                         createColumnValueMap(),

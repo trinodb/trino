@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
+import io.trino.testing.containers.Floci;
 import io.trino.testing.containers.HadoopContainer;
-import io.trino.testing.containers.Minio;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -40,13 +40,13 @@ public final class HiveCatalogPropertiesBuilder
     private static final Map<String, String> DISABLE_HADOOP_FILESYSTEM_PROPERTY = Map.of(
             "fs.hadoop.enabled", "false");
 
-    private static final Map<String, String> MINIO_S3_PROPERTIES = Map.of(
+    private static final Map<String, String> FLOCI_S3_PROPERTIES = Map.of(
             "fs.native-s3.enabled", "true",
-            "s3.endpoint", "http://" + Minio.DEFAULT_HOST_NAME + ":" + Minio.MINIO_API_PORT,
-            "s3.aws-access-key", Minio.MINIO_ROOT_USER,
-            "s3.aws-secret-key", Minio.MINIO_ROOT_PASSWORD,
+            "s3.endpoint", "http://floci:" + Floci.FLOCI_PORT,
+            "s3.aws-access-key", Floci.FLOCI_ACCESS_KEY,
+            "s3.aws-secret-key", Floci.FLOCI_SECRET_KEY,
             "s3.path-style-access", "true",
-            "s3.region", Minio.MINIO_REGION);
+            "s3.region", Floci.FLOCI_REGION);
 
     private final Map<String, String> properties = new LinkedHashMap<>();
 
@@ -81,9 +81,9 @@ public final class HiveCatalogPropertiesBuilder
         return putAll(DISABLE_HADOOP_FILESYSTEM_PROPERTY);
     }
 
-    public HiveCatalogPropertiesBuilder withMinioS3()
+    public HiveCatalogPropertiesBuilder withFlociS3()
     {
-        return putAll(MINIO_S3_PROPERTIES);
+        return putAll(FLOCI_S3_PROPERTIES);
     }
 
     public HiveCatalogPropertiesBuilder withCommonProperties()

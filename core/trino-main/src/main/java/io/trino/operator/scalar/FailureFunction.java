@@ -16,6 +16,8 @@ package io.trino.operator.scalar;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.client.FailureInfo;
+import io.trino.json.Json;
+import io.trino.json.JsonItems;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
@@ -35,8 +37,9 @@ public final class FailureFunction
     @Description("Decodes json to an exception and throws it")
     @ScalarFunction(value = "fail", hidden = true)
     @SqlType("unknown")
-    public static boolean failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
+    public static boolean failWithException(@SqlType(StandardTypes.JSON) Json failureInfoJson)
     {
+        Slice failureInfoSlice = JsonItems.toText(failureInfoJson);
         FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getInput());
         // wrap the failure in a new exception to append the current stack trace
         throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());

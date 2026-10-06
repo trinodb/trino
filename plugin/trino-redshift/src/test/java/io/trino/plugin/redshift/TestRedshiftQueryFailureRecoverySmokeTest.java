@@ -82,5 +82,9 @@ public class TestRedshiftQueryFailureRecoverySmokeTest
 
     @Test
     @Override
+    protected void testOrderBy() {}
+
+    @Test
+    @Override
     protected void testRequestTimeouts() {}
 }

@@ -15,20 +15,16 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.Immutable;
 
+import static com.fasterxml.jackson.annotation.JsonCreator.Mode.DELEGATING;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class PlanFragmentId
+public record PlanFragmentId(String id)
 {
-    private final String id;
-
-    @JsonCreator
-    public PlanFragmentId(String id)
+    @JsonCreator(mode = DELEGATING)
+    public PlanFragmentId
     {
         requireNonNull(id, "id is null");
-        this.id = id;
     }
 
     @Override
@@ -36,26 +32,5 @@ public class PlanFragmentId
     public String toString()
     {
         return id;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        PlanFragmentId that = (PlanFragmentId) o;
-
-        return id.equals(that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return id.hashCode();
     }
 }

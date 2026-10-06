@@ -788,6 +788,12 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(10))")).matches("TIME '00:00:00.0000000000'");
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(11))")).matches("TIME '00:00:00.00000000000'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '1965-06-15 10:20:30.123' AS TIME(3))")).matches("TIME '10:20:30.123'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1965-06-15 10:20:30.123456789012' AS TIME(12))")).matches("TIME '10:20:30.123456789012'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1965-06-15 10:20:30.9999' AS TIME(3))")).matches("TIME '10:20:31.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 00:00:00.5' AS TIME(1))")).matches("TIME '00:00:00.5'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '1969-12-31 00:00:00.123456789' AS TIME(9))")).matches("TIME '00:00:00.123456789'");
     }
 
     @Test

@@ -588,6 +588,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set properties of materialized view %s%s", materializedViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCommentMaterializedView(String materializedViewName)
+    {
+        denyCommentMaterializedView(materializedViewName, null);
+    }
+
+    public static void denyCommentMaterializedView(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment materialized view to %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropMaterializedView(String materializedViewName)
     {
         denyDropMaterializedView(materializedViewName, null);

@@ -1446,23 +1446,114 @@ public class TestIcebergV3
             assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
                     .matches("VALUES (BIGINT '600', BIGINT '70', BIGINT '70', BIGINT '2')");
 
-            // delete odds => 400 rows removed
+            // delete odds => 400 rows removed; every data file is now fully deleted
             assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 1", 400);
 
             // verify delete
             assertThat(query("SELECT count(*) FROM " + table.getName()))
                     .matches("VALUES (BIGINT '0')");
 
-            // Check DV via $files again: cardinality 1000, PUFFIN delete entry for each data file, only 1 puffin file since all rows are now deleted
-            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
-                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+            // Fully-deleted data files are dropped (metadata delete) instead of getting a DV, so no data or delete files remain
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '0')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
 
             // re-insert 100 rows
             assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
             assertThat(query("SELECT count(*), min(id), max(id) FROM " + table.getName()))
                     .matches("VALUES (BIGINT '100', INTEGER '1', INTEGER '100')");
-            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
-                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileIsDroppedInsteadOfWritingDeletionVector()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_v3", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+            // First file: rows 1..100. Second file: rows 101..200.
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '2')");
+
+            // Delete every row of the first file only, in a single statement; the second file is untouched.
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 100", 100);
+            assertThat(query("SELECT count(*), min(id), max(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '101', INTEGER '200')");
+
+            // The fully-deleted data file is dropped: only one data file remains and no DV was written for it.
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileAcrossTwoCommitsIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_merge_v3", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
+
+            // Partial delete: creates a DV, data file remains.
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 50", 50);
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '1')");
+
+            // Delete the remaining rows in a separate commit; merged deletes (old DV + new) now cover the whole file.
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id > 50", 50);
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0')");
+
+            // The data file and its old DV are both gone; nothing references the dropped file any more.
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '0')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileViaUpdateIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_update_delete_v3", "(id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 'a' FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 'a' FROM UNNEST(sequence(101, 200)) t(x)", 100);
+
+            // UPDATE that matches every row of the first file only (UPDATE = delete + insert under the hood).
+            assertUpdate("UPDATE " + table.getName() + " SET v = 'b' WHERE id <= 100", 100);
+            assertThat(query("SELECT count(*), count_if(v = 'b'), count_if(v = 'a') FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '200', BIGINT '100', BIGINT '100')");
+
+            // The original first file (now fully superseded) is dropped rather than paired with a full-coverage DV.
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileViaMergeIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_merge_delete_v3", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(101, 200)) t(x)", 100);
+
+            // MERGE that deletes every row of the first file only.
+            assertUpdate(
+                    "MERGE INTO " + table.getName() + " t USING (SELECT * FROM UNNEST(sequence(1, 100)) s(id)) s ON (t.id = s.id) " +
+                            "WHEN MATCHED THEN DELETE",
+                    100);
+            assertThat(query("SELECT count(*), min(id), max(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '101', INTEGER '200')");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
         }
     }
 
@@ -1505,14 +1596,15 @@ public class TestIcebergV3
             assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
                     .matches("VALUES (true, true)");
 
-            // delete remaining rows
+            // delete remaining rows; every data file is now fully deleted and dropped, so no new DV is written
             assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 3 > 0", 533);
             assertThat(query("SELECT count(*) FROM " + table.getName()))
                     .matches("VALUES (BIGINT '0')");
 
-            // We still have both legacy delete files because they are shared across multiple files (not single-file position deletes)
+            // The legacy partition-scoped delete file lingers (it is never removed on its own), but no Puffin file
+            // remains since all data files were dropped instead of getting a full-coverage deletion vector
             assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
-                    .matches("VALUES (true, true)");
+                    .matches("VALUES (true, false)");
         }
     }
 

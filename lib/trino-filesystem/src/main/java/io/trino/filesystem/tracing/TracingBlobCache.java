@@ -21,6 +21,7 @@ import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
@@ -40,7 +41,7 @@ public class TracingBlobCache
     }
 
     @Override
-    public Blob get(CacheKey key, BlobSource source)
+    public Optional<Blob> get(CacheKey key, BlobSource source)
             throws IOException
     {
         Span span = tracer.spanBuilder("BlobCache.get")

@@ -64,4 +64,11 @@ public class TestDeltaLakeRegisterTableProcedureWithGlue
     {
         return "s3://%s/non-existing-table".formatted(bucketName);
     }
+
+    @Override
+    protected String invalidUriSchemeError()
+    {
+        // unlike the file metastore setup, this catalog has no Hadoop file system to accept every scheme
+        return ".*Unsupported file system scheme invalid for location: .*";
+    }
 }

@@ -15,13 +15,13 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.MemoryContext;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
 
@@ -37,11 +37,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
+import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Future.State.SUCCESS;
@@ -49,11 +47,11 @@ import static java.util.concurrent.Future.State.SUCCESS;
 public class DeleteManager
 {
     private final TypeManager typeManager;
-    private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final BlocksHashFactory blocksHashFactory;
     private final Runnable memoryUsageReporter;
     private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
-    public DeleteManager(TypeManager typeManager, Optional<BlocksHashFactory> blocksHashFactory, Runnable memoryUsageReporter)
+    public DeleteManager(TypeManager typeManager, BlocksHashFactory blocksHashFactory, Runnable memoryUsageReporter)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
@@ -149,7 +147,7 @@ public class DeleteManager
         DeletionVector read(DeleteFile deleteFile);
     }
 
-    private List<DeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
+    private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)
     {
         if (equalityDeleteFiles.isEmpty()) {
             return List.of();
@@ -162,23 +160,14 @@ public class DeleteManager
         for (DeleteFile deleteFile : equalityDeleteFiles) {
             List<Integer> fieldIds = deleteFile.equalityFieldIds();
             verify(!fieldIds.isEmpty(), "equality field IDs are missing");
-            List<IcebergColumnHandle> deleteColumns = fieldIds.stream()
-                    .map(id -> getColumnHandle(schema.findField(id), typeManager))
-                    .collect(toImmutableList());
-
-            // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
-            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> {
-                if (blocksHashFactory.isPresent()) {
-                    List<Type> deleteTypes = deleteColumns.stream()
-                            .map(IcebergColumnHandle::getType)
-                            .collect(toImmutableList());
-                    return FlatEqualityDeleteFilter.builder(schemaFromHandles(deleteColumns), deleteTypes, blocksHashFactory.get());
-                }
-                return EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns));
-            });
+            // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns;
+            // the key fields are projected themselves, so a key nested in a row column is read through a dereference
+            EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(
+                    fieldIds,
+                    _ -> EqualityDeleteFilter.builder(getProjectedColumns(schema, typeManager, ImmutableSet.copyOf(fieldIds)), blocksHashFactory));
             deleteFilters.add(builder);
 
-            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);
+            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deletePageSourceProvider);
             if (loadFuture.state() != SUCCESS) {
                 pendingLoads.add(loadFuture);
             }

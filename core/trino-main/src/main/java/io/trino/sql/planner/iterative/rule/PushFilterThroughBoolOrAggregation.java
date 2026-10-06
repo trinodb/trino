@@ -195,8 +195,8 @@ public class PushFilterThroughBoolOrAggregation
         Aggregation aggregation = getOnlyElement(aggregationNode.getAggregations().values());
 
         ExtractionResult extractionResult = getExtractionResult(plannerContext, context.getSession(), filterNode.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
-        Expression remainingExpression = extractionResult.getRemainingExpression();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
+        Expression remainingExpression = extractionResult.remainingExpression();
 
         if (tupleDomain.isNone()) {
             // Filter predicate is never satisfied. Replace filter with empty values.

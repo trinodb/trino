@@ -50,6 +50,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
@@ -71,7 +72,8 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol(UNKNOWN, "endValue1")),
-            Optional.of(new Symbol(UNKNOWN, "orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
+            NO_OTHERS);
 
     private static final WindowNode.Frame FRAME2 = new WindowNode.Frame(
             RANGE,
@@ -80,7 +82,8 @@ public class TestPruneWindowColumns
             Optional.of(new Symbol(UNKNOWN, "orderKey")),
             CURRENT_ROW,
             Optional.of(new Symbol(UNKNOWN, "endValue2")),
-            Optional.of(new Symbol(UNKNOWN, "orderKey")));
+            Optional.of(new Symbol(UNKNOWN, "orderKey")),
+            NO_OTHERS);
 
     @Test
     public void testWindowNotNeeded()
@@ -218,7 +221,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
-                                                Optional.of(orderKey)),
+                                                Optional.of(orderKey),
+                                                NO_OTHERS),
                                         false,
                                         false),
                                 output2, new WindowNode.Function(
@@ -232,7 +236,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
-                                                Optional.of(orderKey)),
+                                                Optional.of(orderKey),
+                                                NO_OTHERS),
                                         false,
                                         false)),
                         p.values(

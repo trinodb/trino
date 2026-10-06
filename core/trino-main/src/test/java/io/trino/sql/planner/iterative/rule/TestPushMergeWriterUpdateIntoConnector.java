@@ -46,7 +46,6 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 
@@ -152,7 +151,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowCount = p.symbol("row_count");
                         // set function call, which represents update all columns statement
                         Expression updateMergeRowExpression = new Row(ImmutableList.of(new Call(
-                                ruleTester.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(ruleTester.getSession()), "from_base64", fromTypes(VARCHAR)),
+                                ruleTester.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(ruleTester.getSession()), "from_base64", ImmutableList.of(VARCHAR)),
                                 ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(""))))));
 
                         return p.tableFinish(

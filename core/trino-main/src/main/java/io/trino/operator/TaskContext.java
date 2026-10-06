@@ -21,7 +21,6 @@ import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -325,48 +324,48 @@ public class TaskContext
         return cpuTimerEnabled;
     }
 
-    public CounterStat getProcessedInputDataSize()
+    public long getProcessedInputDataSize()
     {
-        CounterStat stat = new CounterStat();
+        long total = 0;
         for (PipelineContext pipelineContext : pipelineContexts) {
             if (pipelineContext.isInputPipeline()) {
-                stat.merge(pipelineContext.getProcessedInputDataSize());
+                total += pipelineContext.getProcessedInputDataSize();
             }
         }
-        return stat;
+        return total;
     }
 
-    public CounterStat getInputPositions()
+    public long getInputPositions()
     {
-        CounterStat stat = new CounterStat();
+        long total = 0;
         for (PipelineContext pipelineContext : pipelineContexts) {
             if (pipelineContext.isInputPipeline()) {
-                stat.merge(pipelineContext.getInputPositions());
+                total += pipelineContext.getInputPositions();
             }
         }
-        return stat;
+        return total;
     }
 
-    public CounterStat getOutputDataSize()
+    public long getOutputDataSize()
     {
-        CounterStat stat = new CounterStat();
+        long total = 0;
         for (PipelineContext pipelineContext : pipelineContexts) {
             if (pipelineContext.isOutputPipeline()) {
-                stat.merge(pipelineContext.getOutputDataSize());
+                total += pipelineContext.getOutputDataSize();
             }
         }
-        return stat;
+        return total;
     }
 
-    public CounterStat getOutputPositions()
+    public long getOutputPositions()
     {
-        CounterStat stat = new CounterStat();
+        long total = 0;
         for (PipelineContext pipelineContext : pipelineContexts) {
             if (pipelineContext.isOutputPipeline()) {
-                stat.merge(pipelineContext.getOutputPositions());
+                total += pipelineContext.getOutputPositions();
             }
         }
-        return stat;
+        return total;
     }
 
     public long getWriterInputDataSize()

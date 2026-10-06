@@ -49,7 +49,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -58,6 +57,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ch
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getRandomPrefixLength;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isRandomizeFilePrefixesEnabled;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -131,6 +131,7 @@ public class DeltaLakePageSinkProvider
                 dataFileInfoCodec,
                 Location.of(tableHandle.location()),
                 tableCredentials.map(DeltaLakeTableCredentials.class::cast),
+                tableHandle.objectStoreLayoutEnabled(),
                 session,
                 stats,
                 trinoVersion,
@@ -159,6 +160,7 @@ public class DeltaLakePageSinkProvider
                 dataFileInfoCodec,
                 Location.of(tableHandle.location()),
                 tableCredentials.map(DeltaLakeTableCredentials.class::cast),
+                isRandomizeFilePrefixesEnabled(metadataEntry),
                 session,
                 stats,
                 trinoVersion,
@@ -189,6 +191,7 @@ public class DeltaLakePageSinkProvider
                         dataFileInfoCodec,
                         Location.of(executeHandle.tableLocation()),
                         tableCredentials.map(DeltaLakeTableCredentials.class::cast),
+                        isRandomizeFilePrefixesEnabled(optimizeHandle.getMetadataEntry()),
                         session,
                         stats,
                         trinoVersion,
@@ -227,6 +230,7 @@ public class DeltaLakePageSinkProvider
                 deltaTableCredentials,
                 pageSink,
                 tableHandle.inputColumns(),
+                tableHandle.metadataEntry().getOriginalPartitionColumns(),
                 domainCompactionThreshold,
                 () -> createCdfPageSink(merge, session, deltaTableCredentials),
                 changeDataFeedEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()).orElse(false),
@@ -236,6 +240,7 @@ public class DeltaLakePageSinkProvider
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
                 merge.deletionVectors(),
                 getRandomPrefixLength(tableHandle.metadataEntry()),
+                isRandomizeFilePrefixesEnabled(tableHandle.metadataEntry()),
                 merge.shallowCloneSourceTableLocation(),
                 useDeltaLengthByteArrayEncoding,
                 memoryContext);
@@ -284,7 +289,7 @@ public class DeltaLakePageSinkProvider
                 dataFileInfoCodec,
                 tableLocation,
                 tableCredentials,
-                tableLocation.appendPath(CHANGE_DATA_FOLDER_NAME),
+                isRandomizeFilePrefixesEnabled(metadataEntry),
                 session,
                 stats,
                 trinoVersion,

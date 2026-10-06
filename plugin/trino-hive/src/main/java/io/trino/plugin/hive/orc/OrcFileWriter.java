@@ -238,7 +238,7 @@ public final class OrcFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            orcWriter.close();
+            orcWriter.abort();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

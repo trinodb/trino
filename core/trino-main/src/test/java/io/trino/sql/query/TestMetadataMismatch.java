@@ -16,6 +16,7 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -31,7 +32,9 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -43,6 +46,7 @@ public class TestMetadataMismatch
 {
     private static final String LOCAL_CATALOG = "local";
     private static final String MOCK_CATALOG = "mock";
+    private static final String CASE_CONFLICT_CATALOG = "case_conflict";
     private static final String USER = "user";
 
     private static final Session SESSION = testSessionBuilder()
@@ -64,6 +68,14 @@ public class TestMetadataMismatch
                 .build()));
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
+        runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withName(CASE_CONFLICT_CATALOG)
+                .withGetColumnHandles(_ -> ImmutableList.of(
+                        new MockConnectorColumnHandle("Foo", BIGINT),
+                        new MockConnectorColumnHandle("foo", BIGINT)))
+                .build()));
+        runner.createCatalog(CASE_CONFLICT_CATALOG, CASE_CONFLICT_CATALOG, ImmutableMap.of());
+
         assertions = new QueryAssertions(runner);
     }
 
@@ -81,5 +93,14 @@ public class TestMetadataMismatch
                 .hasErrorCode(GENERIC_INTERNAL_ERROR)
                 // use regex to match the error message to accommodate any ordering of the columns being printed
                 .hasMessageMatching("Unable to determine field index for partitioning column 'year' \\(available columns: \\[('(nationkey|regionkey|name|comment)', ){3}'(nationkey|regionkey|name|comment)']\\)");
+    }
+
+    @Test
+    public void testColumnsDifferingOnlyInCase()
+    {
+        assertThat(assertions.query("SELECT * FROM case_conflict.tiny.t"))
+                .failure()
+                .hasErrorCode(AMBIGUOUS_COLUMN_NAME)
+                .hasMessage("Table case_conflict.tiny.t has multiple columns with the same name after lower-case normalization: 'Foo' and 'foo'");
     }
 }

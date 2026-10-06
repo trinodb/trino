@@ -933,6 +933,8 @@ public final class HttpRemoteTask
                     errorScheduledExecutor.schedule(() -> {
                         if (!getTaskStatus().state().isDone()) {
                             fatalUnacknowledgedFailure(new TrinoException(REMOTE_TASK_ERROR, format("Task %s failed to terminate after %s, last known state: %s", taskId, taskTerminationTimeout, getTaskStatus().state())));
+                            // the worker never reported a final state, so final task info will not arrive from it
+                            forceFinalizationUsingTaskStatus();
                         }
                     }, taskTerminationTimeout.roundTo(NANOSECONDS), NANOSECONDS);
                 }

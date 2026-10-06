@@ -37,7 +37,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
@@ -159,7 +158,7 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        ResolvedFunction boolOr = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "bool_or", fromTypes(BOOLEAN));
+        ResolvedFunction boolOr = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "bool_or", ImmutableList.of(BOOLEAN));
         Symbol bool = context.getSymbolAllocator().newSymbol("aggrBool", BOOLEAN);
 
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().keySet());

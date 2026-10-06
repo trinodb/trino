@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -28,6 +29,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.FileContent;
@@ -36,15 +38,19 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -56,6 +62,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class IcebergMergeSink
         implements ConnectorMergeSink
 {
+    // Map entry with its FileDeletion value, excluding the key and the deletion vector
+    private static final int FILE_DELETION_ENTRY_SIZE = instanceSize(AbstractMap.SimpleEntry.class) + instanceSize(FileDeletion.class);
+
     private final int formatVersion;
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
@@ -67,7 +76,9 @@ public class IcebergMergeSink
     private final Map<Integer, PartitionSpec> partitionsSpecs;
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
+    private final MemoryContext memoryContext;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
+    private long fileDeletionsRetainedBytes;
     private long writtenBytes;
 
     public IcebergMergeSink(
@@ -81,7 +92,8 @@ public class IcebergMergeSink
             Map<String, String> storageProperties,
             Map<Integer, PartitionSpec> partitionsSpecs,
             ConnectorPageSink insertPageSink,
-            int columnCount)
+            int columnCount,
+            MemoryContext memoryContext)
     {
         this.formatVersion = formatVersion;
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
@@ -94,6 +106,7 @@ public class IcebergMergeSink
         this.partitionsSpecs = ImmutableMap.copyOf(requireNonNull(partitionsSpecs, "partitionsSpecs is null"));
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -112,6 +125,7 @@ public class IcebergMergeSink
         });
 
         writtenBytes = insertPageSink.getCompletedBytes();
+        memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes);
     }
 
     private void processRemovals(Page removals)
@@ -121,19 +135,39 @@ public class IcebergMergeSink
         Block rowPositionBlock = fields.get(1);
         Block partitionSpecIdBlock = fields.get(2);
         Block partitionDataBlock = fields.get(3);
+        // Rows for the same file arrive in runs, so the map is consulted only when the file path changes
+        Slice currentFilePath = null;
+        FileDeletion currentDeletion = null;
         for (int position = 0; position < filePathBlock.getPositionCount(); position++) {
             Slice filePath = VarcharType.VARCHAR.getSlice(filePathBlock, position);
-            long rowPosition = BIGINT.getLong(rowPositionBlock, position);
+            if (currentFilePath == null || !currentFilePath.equals(filePath)) {
+                if (currentDeletion != null) {
+                    fileDeletionsRetainedBytes += currentDeletion.updateRetainedSize();
+                }
+                currentDeletion = fileDeletions.get(filePath);
+                if (currentDeletion == null) {
+                    int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, position);
+                    String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, position).toStringUtf8();
+                    currentDeletion = new FileDeletion(partitionSpecId, partitionData);
+                    // Copy the path so the map key does not pin the whole file path block
+                    Slice filePathCopy = filePath.copy();
+                    fileDeletions.put(filePathCopy, currentDeletion);
+                    fileDeletionsRetainedBytes += filePathCopy.getRetainedSize() + FILE_DELETION_ENTRY_SIZE + estimatedSizeOf(partitionData);
+                }
+                currentFilePath = filePath;
+            }
 
-            int index = position;
-            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> {
-                int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
-                String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
-                return new FileDeletion(partitionSpecId, partitionData);
-            });
-
-            deletion.rowsToDelete().add(rowPosition);
+            currentDeletion.rowsToDelete().add(BIGINT.getLong(rowPositionBlock, position));
         }
+        if (currentDeletion != null) {
+            fileDeletionsRetainedBytes += currentDeletion.updateRetainedSize();
+        }
+    }
+
+    @VisibleForTesting
+    Set<Slice> deletedFilePaths()
+    {
+        return fileDeletions.keySet();
     }
 
     @Override
@@ -287,11 +321,20 @@ public class IcebergMergeSink
         private final int partitionSpecId;
         private final String partitionDataJson;
         private final DeletionVector.Builder rowsToDelete = DeletionVector.builder();
+        private long rowsToDeleteRetainedBytes;
 
         public FileDeletion(int partitionSpecId, String partitionDataJson)
         {
             this.partitionSpecId = partitionSpecId;
             this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
+        }
+
+        // Returns the change in retained bytes of the deletion vector since the previous call
+        public long updateRetainedSize()
+        {
+            long previousRetainedBytes = rowsToDeleteRetainedBytes;
+            rowsToDeleteRetainedBytes = rowsToDelete.retainedSizeInBytes();
+            return rowsToDeleteRetainedBytes - previousRetainedBytes;
         }
 
         public int partitionSpecId()

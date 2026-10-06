@@ -54,7 +54,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
@@ -82,6 +81,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
@@ -640,7 +640,7 @@ public class TestPushDownDereferencesRules
                                                 p.symbol("msg6", ROW_TYPE),
                                                 // min function on MSG_TYPE
                                                 new WindowNode.Function(
-                                                        createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "min", fromTypes(ROW_TYPE)),
+                                                        createTestingMetadataManager().resolveBuiltinFunction(CHAR_VARCHAR_COERCION, "min", ImmutableList.of(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         Optional.empty(),
                                                         new WindowNode.Frame(
@@ -650,7 +650,8 @@ public class TestPushDownDereferencesRules
                                                                 Optional.empty(),
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
-                                                                Optional.empty()),
+                                                                Optional.empty(),
+                                                                NO_OTHERS),
                                                         true,
                                                         false)),
                                         p.values(

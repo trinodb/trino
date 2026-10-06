@@ -671,7 +671,7 @@ public class IoPlanPrinter
                         plannerContext,
                         session,
                         node.getPredicate());
-                TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.getTupleDomain()
+                TupleDomain<ColumnHandle> filterDomain = decomposedPredicate.tupleDomain()
                         .transformKeys(tableScanNode.getAssignments()::get);
                 addInputTableConstraints(filterDomain, tableScanNode, context);
                 return null;

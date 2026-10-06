@@ -39,6 +39,7 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_GCS_PROJECT_ID_PROPERTY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 public class IcebergRestCatalogFileSystemFactory
         implements IcebergFileSystemFactory
@@ -329,8 +330,11 @@ public class IcebergRestCatalogFileSystemFactory
 
     private static <V extends VendedCredentials, P extends VendedCredentialsProvider<V>> Optional<VendedCredentials> findVendedCredentialsForLocation(Map<String, P> providers, Location location)
     {
+        String locationString = location.toString();
         return providers.entrySet().stream()
-                .filter(e -> location.toString().startsWith(e.getKey()))
+                // Storage credential prefixes may carry a trailing slash (e.g. the table's root location); strip it so an
+                // exact match against the table location itself (not just a path underneath it) is still recognized.
+                .filter(e -> locationString.startsWith(stripTrailingSlash(e.getKey())))
                 .max(Comparator.comparingInt(e -> e.getKey().length()))
                 .map(e -> e.getValue().getCredentials());
     }

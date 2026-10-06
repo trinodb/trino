@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -769,6 +768,34 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testOutputStreamAbort()
+            throws IOException
+    {
+        // likely larger than any internal buffering or potential multipart threshold a filesystem may have
+        byte[] largerData = new byte[toIntExact(LARGER_FILE_DATA_SIZE.toBytes())];
+        try (TempBlob tempBlob = randomBlobLocation("outputStreamAbort")) {
+            try (TrinoOutputStream outputStream = tempBlob.outputFile().create()) {
+                outputStream.write(largerData);
+                outputStream.abort();
+
+                assertThatThrownBy(() -> outputStream.write(42))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+            }
+            assertThat(tempBlob.exists()).isFalse();
+
+            if (!isCreateExclusive()) {
+                tempBlob.createOrOverwrite("initial");
+                try (TrinoOutputStream outputStream = tempBlob.outputFile().create()) {
+                    outputStream.write(largerData);
+                    outputStream.abort();
+                }
+                assertThat(tempBlob.read()).isEqualTo("initial");
+            }
+        }
+    }
+
+    @Test
     public void testPaths()
             throws IOException
     {
@@ -1347,14 +1374,14 @@ public abstract class AbstractTestTrinoFileSystem
 
             if (isHierarchical()) {
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(false);
-                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                createBlob(closer, "%s/%s".formatted(directoryName, fileName));
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
                 assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).contains(false);
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).contains(false);
             }
             else {
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).isEmpty();
-                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                createBlob(closer, "%s/%s".formatted(directoryName, fileName));
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
                 assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
@@ -1582,7 +1609,7 @@ public abstract class AbstractTestTrinoFileSystem
         return getFileSystem().listDirectories(createListingLocation(path));
     }
 
-    private List<Location> listPath(String path)
+    protected List<Location> listPath(String path)
             throws IOException
     {
         List<Location> locations = new ArrayList<>();

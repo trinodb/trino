@@ -19,7 +19,10 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.json.Json;
+import io.trino.json.JsonItemEncoding.TypeTag;
+import io.trino.json.JsonItems;
+import io.trino.json.TypedValue;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -28,12 +31,14 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TrinoNumber;
 import io.trino.type.JsonPathType;
 
 import java.io.IOException;
-import java.util.LinkedList;
-import java.util.List;
+import java.math.BigDecimal;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
@@ -51,6 +56,7 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 public final class JsonFunctions
 {
@@ -87,30 +93,34 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean varcharIsJsonScalar(@SqlType("varchar(x)") Slice json)
     {
-        return isJsonScalar(json);
+        // Operate on raw text directly: parsing first would report malformed input as the
+        // generic "invalid JSON: ..." from JsonItems.fromText, rather than this function's
+        // own "Invalid JSON value" diagnostic.
+        return isJsonScalarText(json);
     }
 
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) Slice json)
+    public static boolean isJsonScalar(@SqlType(StandardTypes.JSON) Json json)
+    {
+        return !json.isArray() && !json.isObject();
+    }
+
+    private static boolean isJsonScalarText(Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             JsonToken nextToken = parser.nextToken();
             if (nextToken == null) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
             }
-
             if (nextToken == START_ARRAY || nextToken == START_OBJECT) {
                 parser.skipChildren();
                 if (parser.nextToken() != null) {
-                    // extra trailing token after json array/object
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
                 }
                 return false;
             }
-
             if (parser.nextToken() != null) {
-                // extra trailing token after json scalar
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
             }
             return true;
@@ -122,17 +132,23 @@ public final class JsonFunctions
 
     @ScalarFunction
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
+    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Json json)
     {
-        return slice;
+        return JsonItems.toText(json);
     }
 
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonParse(@SqlType("varchar(x)") Slice slice)
+    public static Json jsonParse(@SqlType("varchar(x)") Slice slice)
     {
-        return JsonTypeUtil.jsonParse(slice);
+        try {
+            return JsonItems.fromText(slice);
+        }
+        catch (TrinoException e) {
+            // Keep json_parse's own error surface rather than leaking the parser's detail.
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
+        }
     }
 
     @SqlNullable
@@ -141,13 +157,23 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BIGINT)
     public static Long varcharJsonArrayLength(@SqlType("varchar(x)") Slice json)
     {
-        return jsonArrayLength(json);
+        return jsonArrayLengthText(json);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BIGINT)
-    public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Slice json)
+    public static Long jsonArrayLength(@SqlType(StandardTypes.JSON) Json jsonValue)
+    {
+        // Typed Json carries structure end-to-end: read arraySize() directly rather than
+        // round-tripping through toText + Jackson.
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        return (long) jsonValue.arraySize();
+    }
+
+    private static Long jsonArrayLengthText(Slice json)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -178,13 +204,28 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean varcharJsonArrayContains(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
     {
-        return jsonArrayContains(json, value);
+        return jsonArrayContainsText(json, value);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(StandardTypes.BOOLEAN) boolean value)
+    {
+        // A raw-text value streams and returns on the first match; going through isArray() /
+        // anyArrayElement would parse the whole array up front. Typed values already carry
+        // structure, so traverse them in place.
+        if (jsonValue.isRawText()) {
+            return jsonArrayContainsText(jsonValue.rawText(), value);
+        }
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        return jsonValue.anyArrayElement(item -> item.isScalar() && item.scalarType() == TypeTag.BOOLEAN
+                && item.materializeScalar().getBooleanValue() == value);
+    }
+
+    private static Boolean jsonArrayContainsText(Slice json, boolean value)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -218,13 +259,45 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean varcharJsonArrayContains(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long value)
     {
-        return jsonArrayContains(json, value);
+        return jsonArrayContainsText(json, value);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(StandardTypes.BIGINT) long value)
+    {
+        if (jsonValue.isRawText()) {
+            return jsonArrayContainsText(jsonValue.rawText(), value);
+        }
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        return jsonValue.anyArrayElement(item -> {
+            if (!item.isScalar()) {
+                return false;
+            }
+            // Match exact scalars that render as integer tokens within BIGINT range.
+            return switch (item.scalarType()) {
+                case BIGINT, INTEGER, SMALLINT, TINYINT -> item.materializeScalar().getLongValue() == value;
+                case DECIMAL -> {
+                    TypedValue scalar = item.materializeScalar();
+                    DecimalType decimalType = (DecimalType) scalar.type();
+                    yield decimalType.getScale() == 0 && (decimalType.isShort()
+                            ? scalar.getLongValue() == value
+                            : ((Int128) scalar.getObjectValue()).equals(Int128.valueOf(value)));
+                }
+                // NUMBER normalizes trailing zeroes, so integral values may have negative scale.
+                case NUMBER -> switch (((TrinoNumber) item.materializeScalar().getObjectValue()).toBigDecimal()) {
+                    case TrinoNumber.BigDecimalValue(BigDecimal decimal) -> decimal.scale() <= 0 && decimal.compareTo(BigDecimal.valueOf(value)) == 0;
+                    default -> false;
+                };
+                default -> false;
+            };
+        });
+    }
+
+    private static Boolean jsonArrayContainsText(Slice json, long value)
     {
         try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
@@ -259,13 +332,45 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean varcharJsonArrayContains(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        return jsonArrayContains(json, value);
+        return jsonArrayContainsText(json, value);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.DOUBLE) double value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        if (jsonValue.isRawText()) {
+            return jsonArrayContainsText(jsonValue.rawText(), value);
+        }
+        if (!Double.isFinite(value)) {
+            return false;
+        }
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        return jsonValue.anyArrayElement(element -> {
+            if (!element.isScalar()) {
+                return false;
+            }
+            // Match floating-point JSON tokens only. In particular, a scale-zero exact
+            // number is an integer token, and non-finite numbers serialize as strings.
+            // Rendering only the candidate also preserves REAL's decimal text semantics.
+            return switch (element.scalarType()) {
+                case DOUBLE, REAL, DECIMAL, NUMBER -> {
+                    try (JsonParser parser = createJsonParser(JSON_MAPPER, JsonItems.toText(element))) {
+                        yield parser.nextToken() == VALUE_NUMBER_FLOAT && parser.getDoubleValue() == value;
+                    }
+                    catch (IOException e) {
+                        throw new IllegalStateException("failed to read encoded JSON scalar", e);
+                    }
+                }
+                default -> false;
+            };
+        });
+    }
+
+    private static Boolean jsonArrayContainsText(Slice json, double value)
     {
         if (!Double.isFinite(value)) {
             return false;
@@ -304,14 +409,34 @@ public final class JsonFunctions
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean varcharJsonArrayContains(@SqlType("varchar(x)") Slice json, @SqlType("varchar(y)") Slice value)
     {
-        return jsonArrayContains(json, value);
+        return jsonArrayContainsText(json, value);
     }
 
     @SqlNullable
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
-    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Slice json, @SqlType("varchar(x)") Slice value)
+    public static Boolean jsonArrayContains(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType("varchar(x)") Slice value)
+    {
+        if (jsonValue.isRawText()) {
+            return jsonArrayContainsText(jsonValue.rawText(), value);
+        }
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        return jsonValue.anyArrayElement(item -> {
+            if (!item.isScalar()) {
+                return false;
+            }
+            return switch (item.scalarType()) {
+                case VARCHAR -> value.equals(item.materializeScalar().getObjectValue());
+                case DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE -> value.equals(JsonExtract.extract(JsonItems.toText(item), new JsonExtract.ScalarValueJsonExtractor()));
+                default -> false;
+            };
+        });
+    }
+
+    private static Boolean jsonArrayContainsText(Slice json, Slice value)
     {
         String valueString = value.toStringUtf8();
 
@@ -344,15 +469,49 @@ public final class JsonFunctions
     @ScalarFunction("json_array_get")
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonArrayGet(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static Json varcharJsonArrayGet(@SqlType("varchar(x)") Slice json, @SqlType(StandardTypes.BIGINT) long index)
     {
-        return jsonArrayGet(json, index);
+        // jsonArrayGetText emits valid JSON text; wrap raw to skip the fromText
+        // round-trip on the way to writeObject.
+        Slice result = jsonArrayGetText(json, index);
+        return result == null ? null : Json.unchecked(result);
     }
 
     @SqlNullable
     @ScalarFunction
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonArrayGet(@SqlType(StandardTypes.JSON) Slice json, @SqlType(StandardTypes.BIGINT) long index)
+    public static Json jsonArrayGet(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(StandardTypes.BIGINT) long index)
+    {
+        // this value cannot be converted to positive number
+        if (index == Long.MIN_VALUE) {
+            return null;
+        }
+        // A raw-text value parses only up to the requested element; going structural would
+        // materialize the whole array first.
+        if (jsonValue.isRawText()) {
+            Slice element = jsonArrayGetText(jsonValue.rawText(), index);
+            return element == null ? null : Json.unchecked(element);
+        }
+        if (!jsonValue.isArray()) {
+            return null;
+        }
+        int size = jsonValue.arraySize();
+        long resolvedIndex = index < 0 ? size + index : index;
+        if (resolvedIndex < 0 || resolvedIndex >= size) {
+            return null;
+        }
+        // The index is within the array bounds, so read it directly: indexed encodings resolve
+        // in O(1), and a linear one stops at the element rather than walking to the end.
+        Json element = jsonValue.arrayElement(toIntExact(resolvedIndex));
+        // Match the text-path semantics: a JSON null element is returned as SQL null
+        // rather than as a JSON null value.
+        if (element.kind() == Json.Kind.NULL) {
+            return null;
+        }
+        return element;
+    }
+
+    private static Slice jsonArrayGetText(Slice json, long index)
     {
         // this value cannot be converted to positive number
         if (index == Long.MIN_VALUE) {
@@ -364,11 +523,6 @@ public final class JsonFunctions
                 return null;
             }
 
-            List<String> tokens = null;
-            if (index < 0) {
-                tokens = new LinkedList<>();
-            }
-
             long count = 0;
             while (true) {
                 JsonToken token = parser.nextToken();
@@ -376,37 +530,27 @@ public final class JsonFunctions
                     return null;
                 }
                 if (token == END_ARRAY) {
-                    if (tokens != null && count >= index * -1) {
-                        return utf8Slice(tokens.get(0));
+                    if (index < 0 && count + index >= 0) {
+                        // Count without materializing skipped values, then read only the selected element.
+                        return jsonArrayGetText(json, count + index);
                     }
 
                     return null;
                 }
 
-                String arrayElement;
-                if (token == START_OBJECT || token == START_ARRAY) {
-                    arrayElement = parser.readValueAsTree().toString();
-                }
-                else {
-                    arrayElement = parser.getValueAsString();
-                }
-
                 if (count == index) {
+                    if (token == START_OBJECT || token == START_ARRAY || token == VALUE_STRING) {
+                        return JsonItems.toText(JsonItems.parseItem(parser));
+                    }
+                    // Preserve exact numeric tokens without converting them through double.
+                    String arrayElement = parser.getValueAsString();
                     return arrayElement == null ? null : utf8Slice(arrayElement);
                 }
-
-                if (tokens != null) {
-                    tokens.add(arrayElement);
-
-                    if (count >= index * -1) {
-                        tokens.remove(0);
-                    }
-                }
-
+                parser.skipChildren();
                 count++;
             }
         }
-        catch (IOException e) {
+        catch (IOException | TrinoException e) {
             return null;
         }
     }
@@ -423,26 +567,43 @@ public final class JsonFunctions
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Slice jsonExtractScalar(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getScalarExtractor());
+        if (jsonValue.isRawText()) {
+            return varcharJsonExtractScalar(jsonValue.rawText(), jsonPath);
+        }
+        Json result = jsonPath.extract(jsonValue);
+        if (result == null || !result.isScalar()) {
+            return null;
+        }
+        if (result.scalarType() == TypeTag.VARCHAR) {
+            return (Slice) result.materializeScalar().getObjectValue();
+        }
+        return JsonExtract.extract(JsonItems.toText(result), new JsonExtract.ScalarValueJsonExtractor());
     }
 
     @ScalarFunction("json_extract")
     @LiteralParameters("x")
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Json varcharJsonExtract(@SqlType("varchar(x)") Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        // JsonExtract emits valid JSON text; wrap raw to skip the fromText / typed-encoding
+        // round-trip on the way to writeObject. Consumers that need structural access
+        // pay the parse on demand.
+        Slice result = JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        return result == null ? null : Json.unchecked(result);
     }
 
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.JSON)
-    public static Slice jsonExtract(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Json jsonExtract(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getObjectExtractor());
+        if (jsonValue.isRawText()) {
+            return varcharJsonExtract(jsonValue.rawText(), jsonPath);
+        }
+        return jsonPath.extract(jsonValue);
     }
 
     @ScalarFunction("json_size")
@@ -457,8 +618,19 @@ public final class JsonFunctions
     @ScalarFunction
     @SqlNullable
     @SqlType(StandardTypes.BIGINT)
-    public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
+    public static Long jsonSize(@SqlType(StandardTypes.JSON) Json jsonValue, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
-        return JsonExtract.extract(json, jsonPath.getSizeExtractor());
+        if (jsonValue.isRawText()) {
+            return varcharJsonSize(jsonValue.rawText(), jsonPath);
+        }
+        Json result = jsonPath.extract(jsonValue);
+        if (result == null) {
+            return null;
+        }
+        return switch (result.kind()) {
+            case ARRAY -> (long) result.arraySize();
+            case OBJECT -> (long) result.objectSize();
+            default -> 0L;
+        };
     }
 }

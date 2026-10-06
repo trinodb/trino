@@ -147,6 +147,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.DELETE_AFTER_COMMIT_ENABLED;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.GC_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
@@ -160,6 +161,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_N
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getGcEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -213,6 +215,8 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.GC_ENABLED;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
@@ -230,7 +234,6 @@ import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.lit;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
-import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public final class IcebergUtil
@@ -344,6 +347,11 @@ public final class IcebergUtil
         return ImmutableList.copyOf(path.reversed());
     }
 
+    public static boolean isGcEnabled(TableMetadata metadata)
+    {
+        return propertyAsBoolean(metadata.properties(), GC_ENABLED, GC_ENABLED_DEFAULT);
+    }
+
     public static Map<String, Object> getIcebergTableProperties(BaseTable icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -379,6 +387,11 @@ public final class IcebergUtil
         if (icebergTable.properties().containsKey(METADATA_DELETE_AFTER_COMMIT_ENABLED)) {
             boolean deleteAfterCommitEnabled = parseBoolean(icebergTable.properties().get(METADATA_DELETE_AFTER_COMMIT_ENABLED));
             properties.put(DELETE_AFTER_COMMIT_ENABLED, deleteAfterCommitEnabled);
+        }
+
+        if (icebergTable.properties().containsKey(GC_ENABLED)) {
+            boolean gcEnabled = parseBoolean(icebergTable.properties().get(GC_ENABLED));
+            properties.put(GC_ENABLED_PROPERTY, gcEnabled);
         }
 
         if (icebergTable.properties().containsKey(METADATA_PREVIOUS_VERSIONS_MAX)) {
@@ -998,6 +1011,8 @@ public final class IcebergUtil
                 .ifPresent(value -> propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(value)));
         isDeleteAfterCommitEnabled(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, Boolean.toString(value)));
+        getGcEnabled(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(GC_ENABLED, Boolean.toString(value)));
         getMaxPreviousVersions(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(value)));
 
@@ -1278,10 +1293,9 @@ public final class IcebergUtil
         update.commit();
     }
 
-    public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
+    public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String metadataDirectoryLocation)
     {
         List<Location> latestMetadataLocations = new ArrayList<>();
-        String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
         try {
             int latestMetadataVersion = -1;
             FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
@@ -1312,7 +1326,7 @@ public final class IcebergUtil
             }
         }
         catch (IOException | UncheckedIOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking metadata location: " + metadataDirectoryLocation, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
     }

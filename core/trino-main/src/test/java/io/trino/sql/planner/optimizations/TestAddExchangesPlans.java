@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowNode;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +57,7 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.MIN_INPUT_ROWS_PER_TASK;
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
@@ -226,6 +228,148 @@ public class TestAddExchangesPlans
                                                                 limit(2, ImmutableList.of(), true, tableScan("nation")),
                                                                 limit(2, ImmutableList.of(), true, tableScan("nation")),
                                                                 limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
+    }
+
+    @Test
+    public void testRedistributeSingleNodeCrossJoinProbe()
+    {
+        // the LIMIT makes the probe single-node, so the cross join spreads it over all nodes and replicates the build side
+        assertDistributedPlan(
+                "SELECT count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey",
+                smallCrossJoinRedistribution(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(
+                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                limit(5, ImmutableList.of(), false,
+                                                        anyTree(
+                                                                tableScan("nation")))))
+                                .right(
+                                        anyTree(
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        tableScan("region")))))));
+    }
+
+    @Test
+    public void testRemoteExchangeAboveRedistributedCrossJoinProbe()
+    {
+        // the redistributed probe makes the join output arbitrarily partitioned, so a grouped aggregation above it needs a remote exchange
+        assertDistributedPlan(
+                "SELECT r.regionkey, count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey GROUP BY r.regionkey",
+                smallCrossJoinRedistribution(),
+                anyTree(
+                        exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                anyTree(
+                                        join(INNER, builder -> builder
+                                                .distributionType(REPLICATED)
+                                                .left(
+                                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                anyTree(
+                                                                        tableScan("nation"))))
+                                                .right(
+                                                        anyTree(
+                                                                exchange(REMOTE,
+                                                                        REPLICATE,
+                                                                        tableScan("region")))))))));
+    }
+
+    @Test
+    public void testGatherAboveRedistributedCrossJoinProbeWithExactPartitioning()
+    {
+        // a window without PARTITION BY above the redistributed probe needs a gather
+        assertDistributedPlan(
+                "SELECT sum(r.regionkey) OVER () FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey",
+                Session.builder(smallCrossJoinRedistribution())
+                        .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                        .build(),
+                anyTree(
+                        node(WindowNode.class,
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                anyTree(
+                                                        join(INNER, builder -> builder
+                                                                .distributionType(REPLICATED)
+                                                                .left(
+                                                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                                                anyTree(
+                                                                                        tableScan("nation"))))
+                                                                .right(
+                                                                        anyTree(
+                                                                                exchange(REMOTE,
+                                                                                        REPLICATE,
+                                                                                        tableScan("region")))))))))));
+    }
+
+    @Test
+    public void testKeepScalarCrossJoinProbeOnSingleNode()
+    {
+        // a scalar probe stays on the single node even when the join exceeds the row threshold
+        assertDistributedPlan(
+                "SELECT count(*) FROM (SELECT count(*) c FROM region) r, nation n WHERE r.c < n.nationkey",
+                smallCrossJoinRedistribution(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(
+                                        exchange(LOCAL, REPARTITION,
+                                                aggregation(ImmutableMap.of(),
+                                                        anyTree(
+                                                                tableScan("region")))))
+                                .right(
+                                        anyTree(
+                                                exchange(REMOTE,
+                                                        GATHER,
+                                                        tableScan("nation")))))));
+    }
+
+    @Test
+    public void testRedistributeSingleNodeCrossJoinProbeWithoutStats()
+    {
+        // an unknown output estimate spreads the probe, same as an estimate above the row threshold
+        assertDistributedPlan(
+                "SELECT count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey",
+                Session.builder(smallCrossJoinRedistribution())
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(
+                                        exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION,
+                                                limit(5, ImmutableList.of(), false,
+                                                        anyTree(
+                                                                tableScan("nation")))))
+                                .right(
+                                        anyTree(
+                                                exchange(REMOTE,
+                                                        REPLICATE,
+                                                        tableScan("region")))))));
+    }
+
+    @Test
+    public void testKeepSmallCrossJoinProbeOnSingleNode()
+    {
+        // an output estimate below the row threshold keeps the join on the single node
+        assertDistributedPlan(
+                "SELECT count(*) FROM (SELECT * FROM nation LIMIT 5) n, region r WHERE n.nationkey < r.regionkey",
+                Session.builder(noJoinReordering())
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "1000000")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(
+                                        exchange(LOCAL, REPARTITION,
+                                                limit(5, ImmutableList.of(), false,
+                                                        anyTree(
+                                                                tableScan("nation")))))
+                                .right(
+                                        anyTree(
+                                                exchange(REMOTE,
+                                                        GATHER,
+                                                        tableScan("region")))))));
     }
 
     @Test
@@ -1316,6 +1460,13 @@ public class TestAddExchangesPlans
     {
         return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                .build();
+    }
+
+    private Session smallCrossJoinRedistribution()
+    {
+        return Session.builder(noJoinReordering())
+                .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "10")
                 .build();
     }
 

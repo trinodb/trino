@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.wire.version>6.4.7</dep.wire.version>
+        <dep.wire.version>7.0.3</dep.wire.version>
     </properties>
 
     <dependencies>
@@ -82,6 +82,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-json</artifactId>
         </dependency>
 
         <!-- Trino SPI -->

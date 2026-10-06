@@ -14,12 +14,12 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestIcebergFaultTolerantExecutionTest
@@ -34,12 +34,12 @@ public class TestIcebergFaultTolerantExecutionTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage("test-exchange-spooling-" + randomNameSuffix()));
-        minioStorage.start();
+        FlociStorage storage = closeAfterClass(new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE));
+        storage.start();
 
         return IcebergQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .build();
     }
 }

@@ -34,7 +34,7 @@
     "package": "bun install && bun --bun webpack --config webpack.config.js",
     "package:clean": "bun install --frozen-lockfile && bun --bun webpack --config webpack.config.js",
     "watch": "bun install --frozen-lockfile && bun --bun webpack --config webpack.config.js --watch",
-    "flow": "bun --bun flow",
+    "flow": "bun x --bun flow",
     "check": "bun install && bun run flow && bun --bun prettier --check **/*.js **/*.jsx *.js *.jsx && bun run check:licenses",
     "check:clean": "bun install --frozen-lockfile && bun run flow && bun --bun prettier --check **/*.js **/*.jsx *.js *.jsx && bun run check:licenses",
     "check:licenses": "TEMP=$(mktemp); find node_modules -name package.json -exec jq 'if (.license | type) == \"string\" then .license else empty end' {} + | sort -u > \"$TEMP\"; if DIFFERENCES=$(grep -Fvxf ../../allowed-licenses.txt \"$TEMP\"); then echo '\\033[0;31mLicense found in node_modules that is not in allowed-licenses.txt' >&2; echo \"$DIFFERENCES\"; exit 1; fi",

@@ -179,10 +179,10 @@ public class TestSymbolMapper
 
         assertThat(mappedArgument.name()).isNotEqualTo(bound);
         assertThat(mappedArgument.value()).isEqualTo(mappedInput.toSymbolReference());
-        assertThat(mappedBody.whenClauses().getFirst().getResult()).isEqualTo(mappedArgument.name().toSymbolReference());
+        assertThat(mappedBody.whenClauses().getFirst().result()).isEqualTo(mappedArgument.name().toSymbolReference());
 
         assertThat(mappedClassifier).isNotEqualTo(classifier);
-        assertThat(((IsNull) mappedBody.whenClauses().getFirst().getOperand()).value()).isEqualTo(mappedClassifier.toSymbolReference());
+        assertThat(((IsNull) mappedBody.whenClauses().getFirst().operand()).value()).isEqualTo(mappedClassifier.toSymbolReference());
         assertThat(mappedMatchNumber).isNotEqualTo(matchNumber);
         assertThat(mappedBody.defaultValue()).isEqualTo(mappedMatchNumber.toSymbolReference());
 

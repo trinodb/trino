@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -40,12 +40,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.spi.StandardErrorCode.GENERIC_EXTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static java.util.function.Function.identity;
@@ -298,12 +299,15 @@ public final class MetadataListing
                     filteredCount.addAndGet(filtered.size());
                     return filtered;
                 });
-        checkState(
-                // Inequality because relationFilter can be invoked more than once on a set of names.
-                filteredCount.get() >= catalogColumns.size(),
-                "relationFilter is mandatory, but it has not been called for some of returned relations: returned %s relations, %s passed the filter",
-                catalogColumns.size(),
-                filteredCount.get());
+        // Inequality because relationFilter can be invoked more than once on a set of names.
+        if (filteredCount.get() < catalogColumns.size()) {
+            // Carries an error code, so that handleListingException does not attribute this
+            // violation of the connector contract to the remote data source.
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "relationFilter is mandatory, but it has not been called for some of returned relations: returned %s relations, %s passed the filter"
+                            .formatted(catalogColumns.size(), filteredCount.get()));
+        }
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
 
@@ -378,14 +382,24 @@ public final class MetadataListing
         return result.buildOrThrow();
     }
 
+    // The exception is frequently a wrapper, e.g. UncheckedExecutionException thrown by a cache
+    // loader, so the error code has to be looked up in the whole cause chain.
+    static Optional<ErrorCode> findListingErrorCode(RuntimeException exception)
+    {
+        return getCausalChain(exception).stream()
+                .filter(TrinoException.class::isInstance)
+                .map(cause -> ((TrinoException) cause).getErrorCode())
+                .findFirst();
+    }
+
     public static TrinoException handleListingException(RuntimeException exception, String type, String catalogName)
     {
-        ErrorCodeSupplier result = GENERIC_INTERNAL_ERROR;
-        if (exception instanceof TrinoException trinoException) {
-            result = trinoException::getErrorCode;
-        }
+        // Listing is served by connector code, so a failure that carries no error code is attributed
+        // to the remote data source instead of being reported as an internal error of the engine.
+        ErrorCode errorCode = findListingErrorCode(exception)
+                .orElseGet(GENERIC_EXTERNAL_ERROR::toErrorCode);
         return new TrinoException(
-                result,
+                () -> errorCode,
                 "Error listing %s for catalog %s: %s".formatted(type, catalogName, exception.getMessage()),
                 exception);
     }

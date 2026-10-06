@@ -72,6 +72,10 @@ public final class DecimalConversions
         if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
             return ((double) decimal) / tenToScale;
         }
+        int scale = Long.numberOfTrailingZeros(tenToScale);
+        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
+            return BigDecimal.valueOf(decimal, scale).doubleValue();
+        }
         return BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
     }
 

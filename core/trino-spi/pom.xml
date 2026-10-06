@@ -216,6 +216,11 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <item>
+                                    <code>java.field.removedWithConstant</code>
+                                    <old>field io.trino.spi.type.StandardTypes.JSON_2016</old>
+                                    <justification>The json2016 type was internal to the SQL/JSON path engine: it had no literal, cast or function signature reachable from SQL, and no type of that name is registered any more</justification>
+                                </item>
                                 <!-- Allow arbitrary changes to unstable APIs -->
                                 <item>
                                     <regex>true</regex>
@@ -674,6 +679,50 @@
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</old>
                                     <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</new>
                                 </item>
+                                <!-- Window frame exclusion (EXCLUDE CURRENT ROW / GROUP / TIES / NO OTHERS) adds the excluded
+                                     sub-range and kept-row parameters to the window-function SPI so functions can honor a frame
+                                     with a hole punched out of it. -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.WindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.WindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.RankingWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.RankingWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int)</old>
+                                    <new>method void io.trino.spi.function.ValueWindowFunction::processRow(io.trino.spi.block.BlockBuilder, int, int, int, int, int, int)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.airlift.slice.Slice::indexOfByte(byte, int, int)</old>
+                                    <new>method int io.airlift.slice.Slice::indexOfByte(byte, int, int)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>New Slice methods</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.expression.ConnectorExpression</old>
+                                    <new>class io.trino.spi.expression.ConnectorExpression</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Lambda was missing a JSON subtype registration; adding it is backwards compatible</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
@@ -692,6 +741,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Run tests on the class path despite module-info.java, so that class path scanning sees SPI classes -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
             </plugin>
 
             <plugin>

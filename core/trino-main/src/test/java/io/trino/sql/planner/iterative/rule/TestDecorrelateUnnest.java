@@ -510,7 +510,7 @@ public class TestDecorrelateUnnest
                 .on(p -> {
                     Symbol corr = p.symbol("corr", VARCHAR);
                     Call regexpExtractAll = new Call(
-                            tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", fromTypes(VARCHAR, VARCHAR)),
+                            tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)),
                             ImmutableList.of(corr.toSymbolReference(), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP)));
 
                     return p.correlatedJoin(
@@ -535,7 +535,7 @@ public class TestDecorrelateUnnest
                                         Optional.of("ordinality"),
                                         LEFT,
                                         project(
-                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", fromTypes(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
+                                                ImmutableMap.of("char_array", expression(new Call(tester().getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "regexp_extract_all", ImmutableList.of(VARCHAR, VARCHAR)), ImmutableList.of(new Reference(VARCHAR, "corr"), new Cast(new Constant(VARCHAR, Slices.utf8Slice(".")), JONI_REGEXP))))),
                                                 assignUniqueId("unique", values("corr"))))));
     }
 }

@@ -27,11 +27,11 @@ import io.trino.spi.cache.Blob;
 import io.trino.spi.cache.BlobCache;
 import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
-import io.trino.spi.cache.NoopBlob;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,13 +74,13 @@ public final class MemoryBlobCache
     }
 
     @Override
-    public Blob get(CacheKey key, BlobSource source)
+    public Optional<Blob> get(CacheKey key, BlobSource source)
             throws IOException
     {
         return get(key, source, discardedStats);
     }
 
-    public Blob get(CacheKey key, BlobSource source, MemoryBlobCacheStats stats)
+    public Optional<Blob> get(CacheKey key, BlobSource source, MemoryBlobCacheStats stats)
             throws IOException
     {
         requireNonNull(key, "key is null");
@@ -88,13 +88,12 @@ public final class MemoryBlobCache
         requireNonNull(stats, "stats is null");
         try {
             CachedContent content = getOrLoad(key, source, stats);
-            if (content == null) {
-                // The pass-through blob owns the source and closes it with the blob
-                return new NoopBlob(source);
-            }
             source.close();
+            if (content == null) {
+                return Optional.empty();
+            }
             // Only the lookup that populated the entry fetched anything from the source
-            return new MemoryBlob(content.data(), content.loaded() ? content.data().length() : 0);
+            return Optional.of(new MemoryBlob(content.data(), content.loaded() ? content.data().length() : 0));
         }
         catch (Throwable e) {
             // The cache owns the source until a blob is returned, so it must not stay open

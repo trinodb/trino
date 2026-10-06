@@ -1,0 +1,45 @@
+{
+    "catalogs": [
+        {
+            "catalog": "^({user}_catalog|sandbox)$",
+            "allow": "all"
+        }
+    ],
+    "schemas": [
+        {
+            "catalog": "sandbox",
+            "schema": "^{user}$",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "catalog": "^{user}_catalog$",
+            "privileges": ["SELECT"]
+        },
+        {
+            "catalog": "sandbox",
+            "schema": "^{user}$",
+            "privileges": ["SELECT", "INSERT", "OWNERSHIP"]
+        }
+    ],
+    "functions": [
+        {
+            "catalog": "^{user}_catalog$",
+            "privileges": ["EXECUTE"]
+        }
+    ],
+    "procedures": [
+        {
+            "catalog": "sandbox",
+            "schema": "^{user}$",
+            "privileges": ["EXECUTE"]
+        }
+    ],
+    "catalog_session_properties": [
+        {
+            "catalog": "^{user}_catalog$",
+            "allow": true
+        }
+    ]
+}

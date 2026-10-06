@@ -55,6 +55,7 @@ import io.trino.sql.ir.optimizer.rule.ExtractCommonConjunctFromCase;
 import io.trino.sql.ir.optimizer.rule.FlattenCoalesce;
 import io.trino.sql.ir.optimizer.rule.FlattenLogical;
 import io.trino.sql.ir.optimizer.rule.InlineTrivialLet;
+import io.trino.sql.ir.optimizer.rule.RemoveRedundantArithmetic;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCaseClauses;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantCoalesceArguments;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantDateAdd;
@@ -72,6 +73,7 @@ import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
+import io.trino.sql.ir.optimizer.rule.UnwrapMatchingCastsInComparison;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 
@@ -116,8 +118,10 @@ public class IrExpressionOptimizer
                 new RemoveRedundantTry(context),
                 new RemoveRedundantInItems(context),
                 new RemoveRedundantDateAdd(),
+                new RemoveRedundantArithmetic(),
                 new SimplifyContinuousInValues(context),
                 new SimplifyRedundantCast(),
+                new UnwrapMatchingCastsInComparison(context),
                 new SimplifyRedundantTryCast(context),
                 new SimplifyCharLength(context),
                 new SimplifyStackedNot(),
@@ -249,10 +253,10 @@ public class IrExpressionOptimizer
         boolean changed = false;
         ImmutableList.Builder<WhenClause> optimized = ImmutableList.builder();
         for (WhenClause clause : clauses) {
-            Optional<Expression> operand = process(clause.getOperand(), session, symbolAllocator, bindings);
-            Optional<Expression> result = process(clause.getResult(), session, symbolAllocator, bindings);
+            Optional<Expression> operand = process(clause.operand(), session, symbolAllocator, bindings);
+            Optional<Expression> result = process(clause.result(), session, symbolAllocator, bindings);
             if (operand.isPresent() || result.isPresent()) {
-                optimized.add(new WhenClause(operand.orElse(clause.getOperand()), result.orElse(clause.getResult())));
+                optimized.add(new WhenClause(operand.orElse(clause.operand()), result.orElse(clause.result())));
             }
             else {
                 optimized.add(clause);

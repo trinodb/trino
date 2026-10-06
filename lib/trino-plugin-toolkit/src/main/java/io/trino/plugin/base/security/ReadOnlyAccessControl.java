@@ -26,6 +26,7 @@ import java.util.Set;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
@@ -223,6 +224,12 @@ public class ReadOnlyAccessControl
     public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         denySetMaterializedViewProperties(materializedViewName.toString());
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        denyCommentMaterializedView(materializedViewName.toString());
     }
 
     @Override

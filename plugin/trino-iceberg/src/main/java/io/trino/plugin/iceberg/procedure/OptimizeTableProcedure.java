@@ -17,10 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Provider;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
+
+import java.util.List;
 
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class OptimizeTableProcedure
         implements Provider<TableProcedureMetadata>
@@ -36,6 +41,15 @@ public class OptimizeTableProcedure
                                 "file_size_threshold",
                                 "Only compact files smaller than given threshold in bytes",
                                 DataSize.of(100, DataSize.Unit.MEGABYTE),
-                                false)));
+                                false),
+                        new PropertyMetadata<>(
+                                "sorted_by",
+                                "Sorted columns",
+                                new ArrayType(VARCHAR),
+                                List.class,
+                                null,
+                                false,
+                                value -> (List<?>) value,
+                                value -> value)));
     }
 }

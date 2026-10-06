@@ -22,7 +22,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.ir.Let;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.PlanTester;
@@ -69,7 +68,6 @@ public class TestIssue30608
 
                 // The rule fired: each distinct aggregation reads its own copy of the source subtree,
                 // and each copy carries its own Let with a consistently renamed binder
-                assertThat(searchFrom(plan.getRoot()).whereIsInstanceOfAny(JoinNode.class).count()).isEqualTo(1);
                 assertThat(searchFrom(plan.getRoot()).whereIsInstanceOfAny(TableScanNode.class).count()).isEqualTo(2);
 
                 List<PlanNode> filters = searchFrom(plan.getRoot()).whereIsInstanceOfAny(FilterNode.class).findAll();

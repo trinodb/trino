@@ -306,8 +306,18 @@ export function getFirstParameter(searchString: string): string {
     return searchText
 }
 
+function parseHostAndPort(url: string): [string, string] {
+    const match = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)(?::([0-9]+))?/i.exec(url)
+    return match === null ? [url, ''] : [match[1], match[2] === undefined ? '' : match[2]]
+}
+
 export function getHostname(url: string): string {
-    let hostname = new URL(url).hostname
+    let hostname
+    try {
+        hostname = new URL(url).hostname
+    } catch (e) {
+        hostname = parseHostAndPort(url)[0]
+    }
     if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
         hostname = hostname.substr(1, hostname.length - 2)
     }
@@ -315,12 +325,20 @@ export function getHostname(url: string): string {
 }
 
 export function getPort(url: string): string {
-    return new URL(url).port
+    try {
+        return new URL(url).port
+    } catch (e) {
+        return parseHostAndPort(url)[1]
+    }
 }
 
 export function getHostAndPort(urlStr: string): string {
-    const url = new URL(urlStr)
-    return url.hostname + ':' + url.port
+    try {
+        const url = new URL(urlStr)
+        return url.hostname + ':' + url.port
+    } catch (e) {
+        return parseHostAndPort(urlStr).join(':')
+    }
 }
 
 export function computeRate(count: number, ms: number): number {

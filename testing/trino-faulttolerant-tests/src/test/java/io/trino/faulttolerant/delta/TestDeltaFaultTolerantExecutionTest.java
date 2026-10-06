@@ -15,12 +15,12 @@ package io.trino.faulttolerant.delta;
 
 import io.trino.faulttolerant.BaseFaultTolerantExecutionTest;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.hive.containers.Hive3FlociDataLake;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestDeltaFaultTolerantExecutionTest
@@ -39,12 +39,12 @@ public class TestDeltaFaultTolerantExecutionTest
     {
         Hive3FlociDataLake hiveFlociDataLake = closeAfterClass(new Hive3FlociDataLake(bucketName));
         hiveFlociDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
-        minioStorage.start();
+        FlociStorage storage = closeAfterClass(new FlociStorage(bucketName, NONE));
+        storage.start();
 
         return DeltaLakeQueryRunner.builder()
                 .addExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
+                .withExchange("filesystem", storage.getExchangeManagerProperties())
                 .addMetastoreProperties(hiveFlociDataLake.getHiveHadoop())
                 .addS3Properties(hiveFlociDataLake.floci(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

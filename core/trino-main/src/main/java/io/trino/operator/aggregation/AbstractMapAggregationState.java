@@ -378,10 +378,9 @@ public abstract class AbstractMapAggregationState
 
         try {
             keyWriteFlat.invokeExact(keyBlock, keyPosition, records, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-            if (valueBlock.isNull(valuePosition)) {
-                records[recordOffset + recordValueNullOffset] = 1;
-            }
-            else {
+            boolean valueIsNull = valueBlock.isNull(valuePosition);
+            records[recordOffset + recordValueNullOffset] = (byte) (valueIsNull ? 1 : 0);
+            if (!valueIsNull) {
                 valueWriteFlat.invokeExact(valueBlock, valuePosition, records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidthSize);
             }
         }

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.Random;
 
 import static io.trino.spi.type.DecimalConversions.MAX_EXACT_DOUBLE;
 import static io.trino.spi.type.DecimalConversions.MAX_EXACT_FLOAT;
@@ -60,6 +61,39 @@ class TestDecimalConversions
                 assertThat(shortDecimalToDouble(unscaled, tenToScale))
                         .as("shortDecimalToDouble(%s, scale=%d)", unscaled, scale)
                         .isEqualTo(new BigDecimal(unscaledValue, scale).doubleValue());
+            }
+        }
+    }
+
+    @Test
+    void testShortDecimalToDoubleRounding()
+    {
+        // Converting the unscaled value to double before dividing would round twice.
+        assertThat(shortDecimalToDouble(646475746153804877L, 10)).isEqualTo(6.464757461538049e16);
+        assertThat(shortDecimalToDouble(-646475746153804877L, 10)).isEqualTo(-6.464757461538049e16);
+
+        Random random = new Random(17);
+        long shortDecimalBound = BigInteger.TEN.pow(MAX_SHORT_PRECISION).longValueExact();
+        for (int scale = 0; scale <= MAX_SHORT_PRECISION; scale++) {
+            long tenToScale = BigInteger.TEN.pow(scale).longValueExact();
+            for (int i = 0; i < 1000; i++) {
+                long unscaled = random.nextLong() % shortDecimalBound;
+                double expected = BigDecimal.valueOf(unscaled).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
+                assertThat(shortDecimalToDouble(unscaled, tenToScale))
+                        .as("shortDecimalToDouble(%s, scale=%d)", unscaled, scale)
+                        .isEqualTo(expected);
+            }
+        }
+    }
+
+    @Test
+    void testShortDecimalToDoubleWithOtherDivisors()
+    {
+        for (long divisor : new long[] {2, 5, 16, 20, 25, 40, 125, 256}) {
+            for (long unscaled : new long[] {646475746153804877L, -646475746153804877L}) {
+                assertThat(shortDecimalToDouble(unscaled, divisor))
+                        .as("shortDecimalToDouble(%s, divisor=%d)", unscaled, divisor)
+                        .isEqualTo(BigDecimal.valueOf(unscaled).divide(BigDecimal.valueOf(divisor)).doubleValue());
             }
         }
     }

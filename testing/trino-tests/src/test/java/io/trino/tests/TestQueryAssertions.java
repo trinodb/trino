@@ -24,7 +24,9 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -101,6 +103,75 @@ public class TestQueryAssertions
     {
         assertThat(query("SELECT name FROM nation WHERE nationkey = 3"))
                 .matches("VALUES CAST('CANADA' AS varchar(25))");
+    }
+
+    @Test
+    public void testMatchesMismatchedRows()
+    {
+        QueryAssert queryAssert = assertThat(query("VALUES 1, 1, 1, 2, 3"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES 1, 2, 2, 4"))
+                .hasMessageContaining(
+                        """
+                        Rows for query [VALUES 1, 1, 1, 2, 3] do not match: 3 unexpected, 2 missing (actual row count: 5, expected row count: 4)
+                        Unexpected rows:
+                          (1) (2 times)
+                          (3)
+                        Missing rows:
+                          (2)
+                          (4)
+                        """);
+    }
+
+    @Test
+    public void testMatchesMismatchedRowsOnlyMissing()
+    {
+        QueryAssert queryAssert = assertThat(query("VALUES 1"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES 1, 2"))
+                .hasMessageContaining(
+                        """
+                        Rows for query [VALUES 1] do not match: 0 unexpected, 1 missing (actual row count: 1, expected row count: 2)
+                        Missing rows:
+                          (2)
+                        """);
+    }
+
+    @Test
+    public void testMatchesMismatchedRowsLimitsReportedRows()
+    {
+        QueryAssert queryAssert = assertThat(query("SELECT x FROM UNNEST(sequence(1, 1000)) t(x)"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT x FROM UNNEST(sequence(2, 1001)) t(x)"))
+                .hasMessageContaining(
+                        """
+                        do not match: 1 unexpected, 1 missing (actual row count: 1000, expected row count: 1000)
+                        Unexpected rows:
+                          (1)
+                        Missing rows:
+                          (1001)
+                        """);
+
+        assertThatThrownBy(() -> queryAssert.matches("SELECT x FROM UNNEST(sequence(1001, 2000)) t(x)"))
+                .hasMessageContaining(
+                        """
+                        do not match: 1000 unexpected, 1000 missing (actual row count: 1000, expected row count: 1000)
+                        Unexpected rows (first 100 of 1000 distinct):
+                          (1)
+                          (2)
+                        """)
+                .hasMessageContaining(
+                        """
+                          (100)
+                        Missing rows (first 100 of 1000 distinct):
+                          (1001)
+                        """)
+                .hasMessageNotContaining("(101)");
+    }
+
+    @Test
+    @Timeout(60)
+    public void testMatchesLargeResultInDifferentOrder()
+    {
+        @Language("SQL") String rows = "SELECT a * 1000 + b FROM UNNEST(sequence(0, 499)) t(a) CROSS JOIN UNNEST(sequence(0, 999)) u(b)";
+        assertThat(query(rows)).matches(rows + " ORDER BY 1 DESC");
     }
 
     @Test
@@ -228,18 +299,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
-                .hasMessageMatching(
-                        "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([0, 18, 52])\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [([0, 18, -103])]\n" +
-                                "elements not found:\n" +
-                                "  ([0, 18, -103])\n" +
-                                "and elements not expected:\n" +
-                                "  ([0, 18, 52])" +
-                                "\\E.*");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT X'001234'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          ([0, 18, 52])
+                        Missing rows:
+                          ([0, 18, -103])
+                        """);
     }
 
     @Test
@@ -250,18 +317,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT CAST(ROW(X'001234') AS ROW(foo varbinary))"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT CAST(ROW(X'001299') AS ROW(foo varbinary))"))
-                .hasMessageMatching(
-                        "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([X'00 12 34'])\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [([X'00 12 99'])]\n" +
-                                "elements not found:\n" +
-                                "  ([X'00 12 99'])\n" +
-                                "and elements not expected:\n" +
-                                "  ([X'00 12 34'])" +
-                                "\\E.*");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT CAST(ROW(X'001234') AS ROW(foo varbinary))] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          ([X'00 12 34'])
+                        Missing rows:
+                          ([X'00 12 99'])
+                        """);
     }
 
     /**
@@ -277,10 +340,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (01:23:45.123456789012)
+                        Missing rows:
+                          (01:23:45.123456789013)
+                        """);
     }
 
     /**
@@ -297,16 +364,24 @@ public class TestQueryAssertions
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012 +05:07'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013 +05:07'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013+05:07)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012 +05:07'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (01:23:45.123456789012+05:07)
+                        Missing rows:
+                          (01:23:45.123456789013+05:07)
+                        """);
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789012 +05:42'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789012+05:42)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIME '01:23:45.123456789012 +05:07'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (01:23:45.123456789012+05:07)
+                        Missing rows:
+                          (01:23:45.123456789012+05:42)
+                        """);
     }
 
     /**
@@ -322,10 +397,14 @@ public class TestQueryAssertions
 
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (2017-01-02 09:12:34.123456789012)
+                        Missing rows:
+                          (2017-01-02 09:12:34.123456789013)
+                        """);
     }
 
     /**
@@ -342,16 +421,24 @@ public class TestQueryAssertions
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013 Europe/Warsaw'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013 Europe/Warsaw)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (2017-01-02 09:12:34.123456789012 Europe/Warsaw)
+                        Missing rows:
+                          (2017-01-02 09:12:34.123456789013 Europe/Warsaw)
+                        """);
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Paris'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
-                        "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789012 Europe/Paris)]");
+                .hasMessageContaining(
+                        """
+                        Rows for query [SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'] do not match: 1 unexpected, 1 missing (actual row count: 1, expected row count: 1)
+                        Unexpected rows:
+                          (2017-01-02 09:12:34.123456789012 Europe/Warsaw)
+                        Missing rows:
+                          (2017-01-02 09:12:34.123456789012 Europe/Paris)
+                        """);
     }
 
     @Test

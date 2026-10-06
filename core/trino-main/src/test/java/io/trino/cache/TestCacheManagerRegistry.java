@@ -27,13 +27,17 @@ import io.trino.spi.cache.CacheKey;
 import io.trino.spi.cache.CacheManagerContext;
 import io.trino.spi.cache.CacheRequirements;
 import io.trino.spi.cache.ConnectorCacheFactory;
-import io.trino.spi.cache.NoopBlob;
 import io.trino.spi.catalog.CatalogName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -45,6 +49,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TestCacheManagerRegistry
 {
     private static final CatalogName CATALOG = new CatalogName("example");
+
+    @TempDir
+    private Path tempDir;
 
     @Test
     void testNoManagerLoaded()
@@ -80,7 +87,7 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of(CAN_EXCEED_HEAP_SIZE))).orElseThrow();
-        cache.get(CacheKey.of("file", "version"), new TestingBlobSource()).close();
+        cache.get(CacheKey.of("file", "version"), new TestingBlobSource());
 
         assertThat(memory.recordedKeys()).isEmpty();
         assertThat(disk.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.data", "file", "version")));
@@ -97,7 +104,7 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of())).orElseThrow();
-        cache.get(CacheKey.of("file"), new TestingBlobSource()).close();
+        cache.get(CacheKey.of("file"), new TestingBlobSource());
 
         assertThat(memory.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.data", "file")));
     }
@@ -138,6 +145,66 @@ class TestCacheManagerRegistry
         ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
 
         assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY)))).isPresent();
+    }
+
+    @Test
+    void testMemoryManagerLoadedNextToConfiguredDataManager()
+            throws Exception
+    {
+        TestingBlobCacheManagerFactory memory = new TestingBlobCacheManagerFactory("memory", LOW_LATENCY);
+        TestingBlobCacheManagerFactory disk = new TestingBlobCacheManagerFactory("disk", CAN_EXCEED_HEAP_SIZE);
+        CacheManagerRegistry registry = createRegistry(writeConfigFile("disk"));
+        registry.addBlobCacheManagerFactory(memory);
+        registry.addBlobCacheManagerFactory(disk);
+        registry.loadCacheManagers();
+        ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
+
+        assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY)))).isPresent();
+        assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of(CAN_EXCEED_HEAP_SIZE)))).isPresent();
+    }
+
+    @Test
+    void testConfiguredMemoryManagerLoadedOnce()
+            throws Exception
+    {
+        CacheManagerRegistry registry = createRegistry(writeConfigFile("memory"));
+        registry.addBlobCacheManagerFactory(new TestingBlobCacheManagerFactory("memory", LOW_LATENCY));
+        registry.loadCacheManagers();
+        ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
+
+        assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY)))).isPresent();
+    }
+
+    @Test
+    void testConfiguredLowLatencyManagerReplacesDefault()
+            throws Exception
+    {
+        TestingBlobCacheManagerFactory memory = new TestingBlobCacheManagerFactory("memory", LOW_LATENCY);
+        TestingBlobCacheManagerFactory other = new TestingBlobCacheManagerFactory("other", LOW_LATENCY);
+        CacheManagerRegistry registry = createRegistry(writeConfigFile("other"));
+        registry.addBlobCacheManagerFactory(memory);
+        registry.addBlobCacheManagerFactory(other);
+        registry.loadCacheManagers();
+        ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
+
+        BlobCache cache = cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY))).orElseThrow();
+        cache.get(CacheKey.of("file"), new TestingBlobSource());
+
+        assertThat(memory.recordedKeys()).isEmpty();
+        assertThat(other.recordedKeys()).containsExactly(new CacheKey(List.of("example", "testing.metadata", "file")));
+    }
+
+    @Test
+    void testNoDefaultWithoutMemoryFactoryNextToConfiguredDataManager()
+            throws Exception
+    {
+        CacheManagerRegistry registry = createRegistry(writeConfigFile("disk"));
+        registry.addBlobCacheManagerFactory(new TestingBlobCacheManagerFactory("disk", CAN_EXCEED_HEAP_SIZE));
+        registry.loadCacheManagers();
+        ConnectorCacheFactory cacheFactory = registry.createConnectorCacheFactory(CATALOG);
+
+        assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.metadata", Set.of(LOW_LATENCY)))).isEmpty();
+        assertThat(cacheFactory.createBlobCache(new CacheRequirements("testing.data", Set.of(CAN_EXCEED_HEAP_SIZE)))).isPresent();
     }
 
     @Test
@@ -186,7 +253,20 @@ class TestCacheManagerRegistry
 
     private static CacheManagerRegistry createRegistry()
     {
-        return new CacheManagerRegistry(OpenTelemetry.noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new CacheManagerConfig());
+        return createRegistry(new CacheManagerConfig());
+    }
+
+    private static CacheManagerRegistry createRegistry(CacheManagerConfig config)
+    {
+        return new CacheManagerRegistry(OpenTelemetry.noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), config);
+    }
+
+    private CacheManagerConfig writeConfigFile(String managerName)
+            throws IOException
+    {
+        Path configFile = tempDir.resolve("cache-manager-" + managerName + ".properties");
+        Files.writeString(configFile, "cache-manager.name=" + managerName + "\n");
+        return new CacheManagerConfig().setCacheManagerConfigFiles(List.of(configFile.toString()));
     }
 
     private static class TestingBlobCacheManagerFactory
@@ -230,10 +310,12 @@ class TestCacheManagerRegistry
                     return new BlobCache()
                     {
                         @Override
-                        public Blob get(CacheKey key, BlobSource source)
+                        public Optional<Blob> get(CacheKey key, BlobSource source)
+                                throws IOException
                         {
                             recordedKeys.add(key);
-                            return new NoopBlob(source);
+                            source.close();
+                            return Optional.empty();
                         }
 
                         @Override

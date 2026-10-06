@@ -48,9 +48,9 @@ public class GoogleSecurityConfig
         return Optional.ofNullable(jsonKey);
     }
 
-    @Config("gcs.json-key")
+    @Config("iceberg.rest-catalog.google-json-key")
     @ConfigSecuritySensitive
-    @ConfigDescription("Google Cloud service account key in JSON format")
+    @ConfigDescription("Google Cloud service account key in JSON format, used to authenticate with the Iceberg REST catalog")
     public GoogleSecurityConfig setJsonKey(String jsonKey)
     {
         this.jsonKey = jsonKey;
@@ -62,17 +62,17 @@ public class GoogleSecurityConfig
         return Optional.ofNullable(jsonKeyFilePath);
     }
 
-    @Config("gcs.json-key-file-path")
-    @ConfigDescription("JSON key file used to access Google Cloud Storage")
+    @Config("iceberg.rest-catalog.google-json-key-file-path")
+    @ConfigDescription("Path to a Google Cloud service account key file in JSON format, used to authenticate with the Iceberg REST catalog")
     public GoogleSecurityConfig setJsonKeyFilePath(String jsonKeyFilePath)
     {
         this.jsonKeyFilePath = jsonKeyFilePath;
         return this;
     }
 
-    // Duplicated from GcsServiceAccountAuthConfig. When absent, Application Default Credentials (ADC) are used,
-    // which enables GKE Workload Identity and environment-based credential sources.
-    @AssertTrue(message = "gcs.json-key and gcs.json-key-file-path cannot be set at the same time")
+    // When neither is set, Application Default Credentials (ADC) are used, which enables GKE Workload Identity and
+    // environment-based credential sources.
+    @AssertTrue(message = "iceberg.rest-catalog.google-json-key and iceberg.rest-catalog.google-json-key-file-path cannot be set at the same time")
     public boolean isAuthMethodValid()
     {
         return !(jsonKey != null && jsonKeyFilePath != null);

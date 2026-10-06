@@ -32,7 +32,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.ByteSearch.indexOfByte;
 
 /**
  * Deserializer that is bug for bug compatible with LazySimpleSerDe.
@@ -99,10 +98,9 @@ public class SimpleDeserializer
         int elementOffset = offset;
         int fieldIndex = 0;
         if (escapeByte == null) {
-            // without escaping, splitting a line is a plain search for the separator, which can be
-            // done eight bytes at a time
+            // without escaping, splitting a line is a plain search for the separator
             while (offset < end) {
-                int separatorOffset = indexOfByte(buffer, offset, end, separator);
+                int separatorOffset = line.indexOfByte(separator, offset, end - offset);
                 if (separatorOffset < 0) {
                     break;
                 }
@@ -121,26 +119,29 @@ public class SimpleDeserializer
             }
         }
         else {
+            // with escaping, jump to the next byte that is either the separator or the escape byte
             while (offset < end) {
-                byte currentByte = buffer[offset];
-                if (currentByte == separator) {
-                    decodeElementValueInto(fieldIndex, builder, line, elementOffset, offset - elementOffset);
-                    elementOffset = offset + 1;
-                    fieldIndex++;
-                    if (lastColumnTakesRest && fieldIndex == columnEncodings.length - 1) {
-                        // no need to process the remaining bytes as they are all assigned to the last column
-                        break;
-                    }
-                    if (fieldIndex > lastReadOrdinal) {
-                        // every column that is read has been decoded, so the rest of the line is not split
-                        return;
-                    }
+                int matchOffset = line.indexOfAnyByte(separator, escapeByte, offset);
+                if (matchOffset < 0) {
+                    break;
                 }
-                else if (currentByte == escapeByte) {
+                if (buffer[matchOffset] != separator) {
                     // ignore the char after escape_char
-                    offset++;
+                    offset = matchOffset + 2;
+                    continue;
                 }
-                offset++;
+                decodeElementValueInto(fieldIndex, builder, line, elementOffset, matchOffset - elementOffset);
+                elementOffset = matchOffset + 1;
+                fieldIndex++;
+                if (lastColumnTakesRest && fieldIndex == columnEncodings.length - 1) {
+                    // no need to process the remaining bytes as they are all assigned to the last column
+                    break;
+                }
+                if (fieldIndex > lastReadOrdinal) {
+                    // every column that is read has been decoded, so the rest of the line is not split
+                    return;
+                }
+                offset = matchOffset + 1;
             }
         }
         decodeElementValueInto(fieldIndex, builder, line, elementOffset, end - elementOffset);

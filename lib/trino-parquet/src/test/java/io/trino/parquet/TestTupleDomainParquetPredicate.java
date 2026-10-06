@@ -48,6 +48,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -597,6 +598,59 @@ public class TestTupleDomainParquetPredicate
         long maxValue = toEpochWithPrecision(maxTime, parquetPrecision);
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, minValue), ID, UTC)).isEqualTo(singleValue(timestampType, baseDomainValue));
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(timestampType, baseDomainValue, true, maxDomainValue, true)), false));
+    }
+
+    @Test
+    public void testTimestampInt64AdjustedToUtcUsesConfiguredTimeZoneForStatistics()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone singapore = DateTimeZone.forID("Asia/Singapore"); // UTC+8, no DST transitions
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        LocalDateTime utcInstant = LocalDateTime.of(2024, 1, 1, 0, 4, 50);
+        long minValue = toEpochWithPrecision(utcInstant, 6);
+        long maxValue = minValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        LocalDateTime expectedWallClock = utcInstant.plusHours(8);
+        long expectedMinDomainValue = toEpochWithPrecision(expectedWallClock, 6);
+        long expectedMaxDomainValue = expectedMinDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, singapore))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, expectedMinDomainValue, true, expectedMaxDomainValue, true)), false));
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, minValue, true, maxValue, true)), false));
+    }
+
+    @Test
+    public void testTimestampInt64AdjustedToUtcAcrossDstFallbackTransitionIsUnbounded()
+            throws ParquetCorruptionException
+    {
+        DateTimeZone newYork = DateTimeZone.forID("America/New_York");
+
+        PrimitiveType type = Types.required(INT64)
+                .as(LogicalTypeAnnotation.timestampType(true, TimeUnit.MICROS))
+                .named("TimestampColumn");
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {}, type, 0, 0);
+        TimestampType timestampType = createTimestampType(6);
+
+        // UTC instant of the America/New_York fall-back from UTC-4 to UTC-5
+        LocalDateTime transition = LocalDateTime.of(2024, 11, 3, 6, 0);
+        long minValue = toEpochWithPrecision(transition.minusMinutes(30), 6);
+        long maxValue = toEpochWithPrecision(transition.plusMinutes(30), 6);
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.all(timestampType), false));
+
+        LocalDateTime laterInstant = transition.plusDays(60);
+        long laterMinValue = toEpochWithPrecision(laterInstant, 6);
+        long laterMaxValue = laterMinValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        long expectedMinDomainValue = toEpochWithPrecision(laterInstant.minusHours(5), 6);
+        long expectedMaxDomainValue = expectedMinDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(laterMinValue, laterMaxValue), ID, newYork))
+                .isEqualTo(create(ValueSet.ofRanges(range(timestampType, expectedMinDomainValue, true, expectedMaxDomainValue, true)), false));
     }
 
     private static long toEpochWithPrecision(LocalDateTime time, int precision)

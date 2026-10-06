@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.inject.Inject;
+import io.trino.json.JsonBlockEncoding;
 import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.simd.BlockEncodingSimdSupport.SimdSupport;
 import io.trino.spi.block.ArrayBlockEncoding;
@@ -73,6 +74,7 @@ public final class BlockEncodingManager
         addBlockEncoding(new MapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
+        addBlockEncoding(new JsonBlockEncoding());
     }
 
     public BlockEncoding getBlockEncodingByName(String encodingName)

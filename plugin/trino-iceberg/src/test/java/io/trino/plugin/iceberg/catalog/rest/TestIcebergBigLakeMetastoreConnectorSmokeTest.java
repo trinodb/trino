@@ -87,6 +87,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + GCP_STORAGE_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
+                .addIcebergProperty("iceberg.rest-catalog.google-json-key", gcsJson.toString())
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")

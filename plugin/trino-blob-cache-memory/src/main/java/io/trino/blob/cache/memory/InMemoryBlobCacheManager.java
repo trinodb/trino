@@ -26,6 +26,7 @@ import org.weakref.jmx.MBeanExporter;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -102,7 +103,7 @@ public class InMemoryBlobCacheManager
             implements BlobCache
     {
         @Override
-        public Blob get(CacheKey key, BlobSource source)
+        public Optional<Blob> get(CacheKey key, BlobSource source)
                 throws IOException
         {
             return delegate.get(key, source, stats);

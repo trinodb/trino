@@ -392,10 +392,13 @@ public class TestQueuesDb
 
         dao.updateResourceGroup(2, "bi-${USER}", "100%", 3, 2, 2, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
-        assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
-                .orElseThrow(() -> new IllegalStateException("Resource group not found"))
-                .softMemoryLimit()
-                .toBytes()).isEqualTo(queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes());
+        assertEventually(
+                new Duration(10, TimeUnit.SECONDS),
+                new Duration(100, TimeUnit.MILLISECONDS),
+                () -> assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
+                        .orElseThrow(() -> new IllegalStateException("Resource group not found"))
+                        .softMemoryLimit()
+                        .toBytes()).isEqualTo(queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes()));
 
         dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
