@@ -25,13 +25,7 @@ It skips tests, Javadoc, and the airbase checks — run `./mvnw validate` before
 Run `mvnd airstyle:format` after Java edits — the `airstyle-maven-plugin` (`io.airlift:airstyle-maven-plugin`)
 applies the canonical Airstyle scheme, which is what CI checks. Scope a single file with
 `mvnd -pl <module> airstyle:format -Dincludes=**/FileName.java`, and use `airstyle:check` to verify
-without rewriting. Rules not covered by the formatter:
-
-- No wildcard imports (e.g. `import io.trino.spi.*`) — checkstyle catches these on build; easier
-  to avoid writing them.
-- Braces required around single-statement `if` / `for` / `while` bodies — the formatter does not
-  add missing braces.
-- No `@author` in JavaDoc — commit history is the record.
+without rewriting.
 
 Topic-specific conventions live under [`.claude/rules/`](.claude/rules/) and auto-load when Claude
 reads matching files (e.g. `*Config.java` triggers the config-properties rule).
