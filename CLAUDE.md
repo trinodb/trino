@@ -5,13 +5,8 @@ see [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md).
 
 ## Building
 
-Fastest full build and install:
-
-```bash
-mvnd clean install -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
-```
-
-It skips tests, Javadoc, and the airbase checks — run `mvnd validate` before opening a PR.
+Build, test and pre-PR check commands are in the [Building](.github/DEVELOPMENT.md#building)
+section of `DEVELOPMENT.md`.
 
 ## Java formatting
 
