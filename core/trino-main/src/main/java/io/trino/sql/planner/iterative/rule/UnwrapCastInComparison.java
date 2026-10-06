@@ -786,7 +786,12 @@ public class UnwrapCastInComparison
                     // Cast from DATE to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
                     return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
-                if (source instanceof TimestampType) {
+                if (source instanceof TimestampType timestampType) {
+                    // Cast from TIMESTAMP(p) to TIMESTAMP(q) WITH TIME ZONE with q < p rounds, so it is not injective
+                    if (timestampType.getPrecision() > timestampWithTimeZoneType.getPrecision()) {
+                        return false;
+                    }
+
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
                     if (!getTimeZone(timestampWithTimeZoneType, value).equals(session.getTimeZoneKey())) {
                         return false;
