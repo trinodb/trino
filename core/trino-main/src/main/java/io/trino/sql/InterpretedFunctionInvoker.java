@@ -14,8 +14,6 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.FullConnectorSession;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
@@ -64,10 +62,6 @@ public class InterpretedFunctionInvoker
     {
         ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function, getInvocationConvention(function.signature(), function.functionNullability()));
         MethodHandle method = implementation.getMethodHandle();
-
-        if (!function.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
-            session = FullConnectorSession.toConnectorSession(session, function.catalogHandle());
-        }
 
         List<Object> actualArguments = new ArrayList<>();
 

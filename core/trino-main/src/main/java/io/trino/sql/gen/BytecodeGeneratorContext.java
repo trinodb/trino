@@ -20,8 +20,6 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.trino.connector.CatalogHandle;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -128,7 +126,7 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder, loadConnectorSession(resolvedFunction));
+        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder);
     }
 
     public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<Expression> arguments)
@@ -139,20 +137,7 @@ public class BytecodeGeneratorContext
 
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
-        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder, loadConnectorSession(resolvedFunction));
-    }
-
-    /**
-     * A built-in function reads the session variable directly. A connector function reads the
-     * session rebound to its own catalog, cached once per generated instance.
-     */
-    private BytecodeNode loadConnectorSession(ResolvedFunction resolvedFunction)
-    {
-        CatalogHandle catalogHandle = resolvedFunction.catalogHandle();
-        if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
-            return scope.getVariable("session");
-        }
-        return cachedInstanceBinder.loadConnectorSession(scope, catalogHandle);
+        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
     }
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(Expression argument)
