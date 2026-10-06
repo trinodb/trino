@@ -88,9 +88,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
@@ -531,6 +533,7 @@ public final class DeltaLakeSchemaSupport
         ColumnMetadata columnMetadata = ColumnMetadata.builder()
                 .setName(fieldName)
                 .setType(columnType)
+                .setTimeZone(containsTimestampWithTimeZone(columnType) ? Optional.of(UTC_KEY) : Optional.empty())
                 .setNullable(nullable)
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();

@@ -138,4 +138,18 @@ public final class TypeUtils
             default -> false;
         };
     }
+
+    public static boolean containsTimestampWithTimeZone(Type type)
+    {
+        if (type instanceof ArrayType arrayType) {
+            return containsTimestampWithTimeZone(arrayType.getElementType());
+        }
+        if (type instanceof MapType mapType) {
+            return containsTimestampWithTimeZone(mapType.getKeyType()) || containsTimestampWithTimeZone(mapType.getValueType());
+        }
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream().anyMatch(field -> containsTimestampWithTimeZone(field.getType()));
+        }
+        return type instanceof TimestampWithTimeZoneType;
+    }
 }
