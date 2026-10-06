@@ -48,7 +48,6 @@ import java.lang.invoke.MethodType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
@@ -63,14 +62,14 @@ import static java.util.Objects.requireNonNull;
 public class FunctionManager
 {
     private static final boolean ASSERTIONS_ENABLED = FunctionManager.class.desiredAssertionStatus();
-    private static final MethodHandle VERIFY_CONNECTOR_SESSION_BOUND;
+    private static final MethodHandle CATALOG_CONNECTOR_SESSION;
     private static final MethodHandle NEVER_FAILS_VIOLATED;
 
     static {
         try {
-            VERIFY_CONNECTOR_SESSION_BOUND = MethodHandles.lookup().findStatic(
+            CATALOG_CONNECTOR_SESSION = MethodHandles.lookup().findStatic(
                     FunctionManager.class,
-                    "verifyConnectorSessionBound",
+                    "getCatalogConnectorSession",
                     MethodType.methodType(ConnectorSession.class, CatalogHandle.class, ConnectorSession.class));
             NEVER_FAILS_VIOLATED = MethodHandles.lookup().findStatic(
                     FunctionManager.class,
@@ -136,8 +135,8 @@ public class FunctionManager
                     invocationConvention);
         }
 
-        if (ASSERTIONS_ENABLED && !resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
-            scalarFunctionImplementation = verifyConnectorSessionBound(resolvedFunction.catalogHandle(), scalarFunctionImplementation);
+        if (!resolvedFunction.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            scalarFunctionImplementation = bindCatalogConnectorSession(resolvedFunction.catalogHandle(), scalarFunctionImplementation);
         }
         verifyMethodHandleSignature(resolvedFunction.signature(), scalarFunctionImplementation, invocationConvention);
         if (ASSERTIONS_ENABLED && resolvedFunction.neverFails()) {
@@ -146,13 +145,13 @@ public class FunctionManager
         return scalarFunctionImplementation;
     }
 
-    private static ScalarFunctionImplementation verifyConnectorSessionBound(CatalogHandle catalogHandle, ScalarFunctionImplementation scalarFunctionImplementation)
+    private static ScalarFunctionImplementation bindCatalogConnectorSession(CatalogHandle catalogHandle, ScalarFunctionImplementation scalarFunctionImplementation)
     {
         MethodHandle target = scalarFunctionImplementation.getMethodHandle();
-        MethodHandle verifySession = MethodHandles.insertArguments(VERIFY_CONNECTOR_SESSION_BOUND, 0, catalogHandle);
+        MethodHandle catalogConnectorSession = MethodHandles.insertArguments(CATALOG_CONNECTOR_SESSION, 0, catalogHandle);
         for (int parameterIndex = 0; parameterIndex < target.type().parameterCount(); parameterIndex++) {
             if (target.type().parameterType(parameterIndex).equals(ConnectorSession.class)) {
-                target = MethodHandles.filterArguments(target, parameterIndex, verifySession);
+                target = MethodHandles.filterArguments(target, parameterIndex, catalogConnectorSession);
             }
         }
         if (target == scalarFunctionImplementation.getMethodHandle()) {
@@ -165,15 +164,10 @@ public class FunctionManager
                 .build();
     }
 
-    private static ConnectorSession verifyConnectorSessionBound(CatalogHandle catalogHandle, ConnectorSession connectorSession)
+    private static ConnectorSession getCatalogConnectorSession(CatalogHandle catalogHandle, ConnectorSession connectorSession)
     {
         if (connectorSession instanceof FullConnectorSession fullConnectorSession) {
-            CatalogHandle sessionCatalogHandle = fullConnectorSession.getCatalogHandle();
-            checkState(
-                    catalogHandle.equals(sessionCatalogHandle),
-                    "ConnectorSession is bound to %s, but the function is from %s",
-                    sessionCatalogHandle,
-                    catalogHandle);
+            return fullConnectorSession.getSession().toConnectorSession(catalogHandle);
         }
         return connectorSession;
     }

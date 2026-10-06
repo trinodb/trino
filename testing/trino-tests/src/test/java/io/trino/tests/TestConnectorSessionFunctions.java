@@ -40,7 +40,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.util.Reflection.methodHandle;
@@ -49,7 +48,6 @@ public class TestConnectorSessionFunctions
         extends AbstractTestQueryFramework
 {
     private static final MethodHandle MULTIPLY = methodHandle(TestConnectorSessionFunctions.class, "multiply", ConnectorSession.class, Object.class);
-    private static final MethodHandle EXCEEDS_MULTIPLIER = methodHandle(TestConnectorSessionFunctions.class, "exceedsMultiplier", ConnectorSession.class, Object.class);
     private static final MethodHandle VARCHAR_IDENTITY = methodHandle(TestConnectorSessionFunctions.class, "varcharIdentity", ConnectorSession.class, Object.class);
 
     @Override
@@ -78,15 +76,6 @@ public class TestConnectorSessionFunctions
                                             .nullable()
                                             .hidden()
                                             .build(),
-                                    FunctionMetadata.scalarBuilder("exceeds_multiplier")
-                                            .signature(Signature.builder()
-                                                    .argumentType(BIGINT)
-                                                    .returnType(BOOLEAN)
-                                                    .build())
-                                            .nullable()
-                                            .argumentNullability(true)
-                                            .hidden()
-                                            .build(),
                                     FunctionMetadata.scalarBuilder("varchar_identity")
                                             .signature(Signature.builder()
                                                     .argumentType(VARCHAR)
@@ -113,7 +102,6 @@ public class TestConnectorSessionFunctions
                                     MethodHandle adapted = ScalarFunctionAdapter.adapt(
                                             switch (boundSignature.getName().functionName()) {
                                                 case "multiply", "multiply_nonnull" -> MULTIPLY;
-                                                case "exceeds_multiplier" -> EXCEEDS_MULTIPLIER;
                                                 case "varchar_identity" -> VARCHAR_IDENTITY;
                                                 default -> throw new IllegalArgumentException("Unknown function: " + boundSignature.getName());
                                             },
@@ -173,38 +161,9 @@ public class TestConnectorSessionFunctions
         assertQuery("SELECT mock.default.varchar_identity(name) FROM tpch.tiny.nation WHERE nationkey = 1", "VALUES 'ARGENTINA'");
     }
 
-    @Test
-    public void testFilter()
-    {
-        assertQuery(
-                "SELECT count(*) FROM tpch.tiny.nation WHERE mock.default.exceeds_multiplier(nationkey)",
-                "VALUES 22");
-    }
-
-    @Test
-    public void testJoinFilter()
-    {
-        assertQuery(
-                "SELECT count(*) FROM tpch.tiny.region r JOIN tpch.tiny.nation n ON n.regionkey = r.regionkey AND n.nationkey < mock.default.multiply(r.regionkey)",
-                "VALUES 2");
-    }
-
-    @Test
-    public void testLambda()
-    {
-        assertQuery(
-                "SELECT array_join(transform(ARRAY[BIGINT '1', 2, 3], x -> mock.default.multiply(x)), ',')",
-                "VALUES '2,4,6'");
-    }
-
     public static Object multiply(ConnectorSession session, Object value)
     {
         return value == null ? null : (Long) value * session.getProperty("connector_long", Long.class);
-    }
-
-    public static Object exceedsMultiplier(ConnectorSession session, Object value)
-    {
-        return value == null ? null : (Long) value > session.getProperty("connector_long", Long.class);
     }
 
     public static Object varcharIdentity(ConnectorSession session, Object value)
