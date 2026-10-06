@@ -25,6 +25,7 @@ import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
+import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
@@ -399,6 +400,26 @@ public class TestSimplifyFilterPredicate
     }
 
     @Test
+    public void testNullOperandCanMatch()
+    {
+        Symbol operand = new Symbol(INTEGER, "operand");
+        // an extended CASE predicate, unlike a bare-equality one, can be true for a NULL operand
+        Lambda matchesNull = new Lambda(ImmutableList.of(operand), comparison(IDENTICAL, operand.toSymbolReference(), new Reference(INTEGER, "a")));
+
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Match(new Constant(INTEGER, null), ImmutableList.of(new MatchClause(matchesNull, TRUE)), FALSE),
+                        p.values(p.symbol("a", INTEGER))))
+                .doesNotFire();
+
+        tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
+                .on(p -> p.filter(
+                        new Match(new Constant(INTEGER, null), ImmutableList.of(new MatchClause(matchesNull, FALSE)), TRUE),
+                        p.values(p.symbol("a", INTEGER))))
+                .doesNotFire();
+    }
+
+    @Test
     public void testSimplifySimpleCaseExpression()
     {
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
@@ -412,7 +433,7 @@ public class TestSimplifyFilterPredicate
                         p.values(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
 
-        // comparison with null returns null - no WHEN branch matches, return default value
+        // The rule does not evaluate clause predicates even when the operand is NULL
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Match(
@@ -422,12 +443,9 @@ public class TestSimplifyFilterPredicate
                                         equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 new Reference(BOOLEAN, "b")),
                         p.values(p.symbol("a"), p.symbol("b"))))
-                .matches(
-                        filter(
-                                new Reference(BOOLEAN, "b"),
-                                values("a", "b")));
+                .doesNotFire();
 
-        // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
+        // Evaluating NULL-rejecting predicates belongs to expression rules
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))
                 .on(p -> p.filter(
                         new Match(
@@ -437,10 +455,7 @@ public class TestSimplifyFilterPredicate
                                         equalityClause(new Reference(BOOLEAN, "a"), FALSE)),
                                 NULL_BOOLEAN),
                         p.values(p.symbol("a"))))
-                .matches(
-                        filter(
-                                FALSE,
-                                values("a")));
+                .doesNotFire();
 
         // all results true
         tester().assertThat(new SimplifyFilterPredicate(FUNCTIONS.getMetadata()))

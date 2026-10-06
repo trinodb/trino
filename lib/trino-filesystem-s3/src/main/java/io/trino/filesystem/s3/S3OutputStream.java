@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileMayHaveAlreadyExistedException;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -40,7 +41,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.io.OutputStream;
 import java.io.SequenceInputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
@@ -71,7 +71,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static software.amazon.awssdk.core.internal.util.Mimetype.MIMETYPE_OCTET_STREAM;
 
 final class S3OutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     private static final int INITIAL_BUFFER_SIZE = toIntExact(DataSize.of(1, MEGABYTE).toBytes());
     private static final int MAXIMUM_BUFFER_SIZE = toIntExact(DataSize.of(8, MEGABYTE).toBytes());
@@ -207,6 +207,36 @@ final class S3OutputStream
         finally {
             buffer = null;
             memoryContext.close();
+        }
+    }
+
+    @Override
+    public void abort()
+            throws IOException
+    {
+        if (closed) {
+            return;
+        }
+        closed = true;
+        buffer = null;
+
+        // parts are not visible until the upload completes, so aborting the upload discards them
+        try {
+            waitForPreviousUploadFinish();
+        }
+        catch (IOException e) {
+            abortUploadSuppressed(e);
+            throw e;
+        }
+        finally {
+            memoryContext.close();
+        }
+
+        try {
+            abortUpload();
+        }
+        catch (SdkException e) {
+            throw new IOException(e);
         }
     }
 

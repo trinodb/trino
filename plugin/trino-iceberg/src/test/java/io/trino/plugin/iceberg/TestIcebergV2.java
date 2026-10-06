@@ -68,6 +68,9 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.InternalWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionKeyMetadata;
+import org.apache.iceberg.formats.FileWriterBuilder;
 import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.OutputFile;
@@ -132,6 +135,8 @@ import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_EN
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableUtil.formatVersion;
+import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
+import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWriteBuilder;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -284,13 +289,11 @@ public class TestIcebergV2
 
             FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
-            PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                    .overwrite()
-                    .withSpec(PartitionSpec.unpartitioned())
-                    .buildPositionWriter();
+            EncryptedOutputFile encryptedFile = encryptedOutput(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()), EncryptionKeyMetadata.EMPTY);
+            FileWriterBuilder<PositionDeleteWriter<Object>, ?> writerBuilder = positionDeleteWriteBuilder(FileFormat.PARQUET, encryptedFile);
+            PositionDeleteWriter<Object> writer = writerBuilder.spec(PartitionSpec.unpartitioned()).build();
+            PositionDelete<Object> record = PositionDelete.create().set(dataFilePath, 0L);
 
-            PositionDelete<Record> positionDelete = PositionDelete.create();
-            PositionDelete<Record> record = positionDelete.set(dataFilePath, 0);
             try (Closeable ignored = writer) {
                 writer.write(record);
             }
@@ -746,6 +749,68 @@ public class TestIcebergV2
                     .matches("VALUES (BIGINT '10', VARCHAR '')");
             assertThat(query("SELECT \"$partition\", root.nested FROM " + tableName))
                     .matches("VALUES (VARCHAR '', BIGINT '10')");
+        }
+    }
+
+    @Test
+    public void testEqualityDeletesWithDistinctNestedKeys()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_deletes_distinct_nested_keys_", "(id BIGINT, root ROW(nested BIGINT))")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10)), (2, row(20)), (3, row(30))", 3);
+            Table icebergTable = loadTable(tableName);
+
+            Schema deleteRowSchema = icebergTable.schema().select("root.nested");
+            List<Integer> equalityFieldIds = ImmutableList.of(deleteRowSchema.findField("root.nested").fieldId());
+            for (long key : ImmutableList.of(20L, 30L)) {
+                Record nestedStruct = GenericRecord.create((Types.StructType) deleteRowSchema.findField("root").type());
+                nestedStruct.setField("nested", key);
+                writeEqualityDeleteToNationTableWithDeleteColumns(
+                        icebergTable,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of("root", nestedStruct),
+                        deleteRowSchema,
+                        equalityFieldIds);
+            }
+
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
+        }
+    }
+
+    @Test
+    public void testEqualityDeleteOnNestedKeyWithComment()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_equality_delete_nested_key_with_comment_", "(id BIGINT, root ROW(nested BIGINT))")) {
+            String tableName = table.getName();
+            // the handle built for the equality delete key carries the field comment, the one built for the query projection does not
+            loadTable(tableName).updateSchema()
+                    .updateColumnDoc("root.nested", "key comment")
+                    .commit();
+            // single INSERT so both rows share one data file and the equality delete is applied to it
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10)), (2, row(20))", 2);
+
+            Table icebergTable = loadTable(tableName);
+            Schema deleteRowSchema = icebergTable.schema().select("root.nested");
+            Record root = GenericRecord.create(deleteRowSchema.findField("root").type().asStructType());
+            root.setField("nested", 20L);
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("root", root),
+                    deleteRowSchema,
+                    ImmutableList.of(deleteRowSchema.findField("root.nested").fieldId()));
+
+            assertThat(query("SELECT id FROM " + tableName))
+                    .matches("VALUES BIGINT '1'");
+            assertThat(query("SELECT root.nested FROM " + tableName))
+                    .matches("VALUES BIGINT '10'");
+            assertThat(query("SELECT id, root.nested FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', BIGINT '10')");
         }
     }
 

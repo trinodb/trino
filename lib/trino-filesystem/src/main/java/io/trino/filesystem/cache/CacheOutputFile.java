@@ -15,11 +15,10 @@ package io.trino.filesystem.cache;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 
-import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,31 +39,10 @@ final class CacheOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return new FilterOutputStream(delegate.create(memoryContext))
-        {
-            @Override
-            public void write(byte[] buffer, int offset, int length)
-                    throws IOException
-            {
-                out.write(buffer, offset, length);
-            }
-
-            @Override
-            public void close()
-                    throws IOException
-            {
-                try {
-                    super.close();
-                }
-                finally {
-                    // Invalidate even when the close fails: a partial file may have been written
-                    invalidation.run();
-                }
-            }
-        };
+        return new CacheOutputStream(delegate.create(memoryContext), invalidation);
     }
 
     @Override
@@ -96,5 +74,65 @@ final class CacheOutputFile
     public Location location()
     {
         return delegate.location();
+    }
+
+    private static final class CacheOutputStream
+            extends TrinoOutputStream
+    {
+        private final TrinoOutputStream delegate;
+        private final Runnable invalidation;
+
+        private CacheOutputStream(TrinoOutputStream delegate, Runnable invalidation)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.invalidation = requireNonNull(invalidation, "invalidation is null");
+        }
+
+        @Override
+        public void write(int b)
+                throws IOException
+        {
+            delegate.write(b);
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length)
+                throws IOException
+        {
+            delegate.write(buffer, offset, length);
+        }
+
+        @Override
+        public void flush()
+                throws IOException
+        {
+            delegate.flush();
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            try {
+                delegate.close();
+            }
+            finally {
+                // Invalidate even when the close fails: a partial file may have been written
+                invalidation.run();
+            }
+        }
+
+        @Override
+        public void abort()
+                throws IOException
+        {
+            try {
+                delegate.abort();
+            }
+            finally {
+                // Invalidate on abort: some file systems create the file when the stream is opened
+                invalidation.run();
+            }
+        }
     }
 }

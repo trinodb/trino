@@ -410,6 +410,7 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
@@ -473,6 +474,7 @@ import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.PropertyUtil.propertyAsInt;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
+import static org.apache.iceberg.util.SortOrderUtil.findTableSortOrder;
 
 public class IcebergMetadata
         implements ConnectorMetadata
@@ -1703,7 +1705,9 @@ public class IcebergMetadata
     private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table)
     {
         tableCredentialsProvider.putTableCredentials(name, IcebergTableCredentials.forFileIO(table.io()));
-        SortFieldInfo sortInfo = getSupportedSortFields(table.schema(), table.sortOrder());
+        Schema schema = table.schema();
+        SortOrder sortOrder = table.sortOrder();
+        SortFieldInfo sortInfo = getSupportedSortFields(schema, sortOrder, sortOrder.orderId());
         return new IcebergWritableTableHandle(
                 name,
                 SchemaParser.toJson(table.schema()),
@@ -1717,7 +1721,7 @@ public class IcebergMetadata
                 table.properties());
     }
 
-    private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder)
+    private static SortFieldInfo getSupportedSortFields(Schema schema, SortOrder sortOrder, int sortOrderId)
     {
         if (!sortOrder.isSorted()) {
             return new SortFieldInfo(SortOrder.unsorted().orderId(), ImmutableList.of());
@@ -1738,7 +1742,7 @@ public class IcebergMetadata
         // Trino supports sorting only by identity transforms, so the supported sort fields in Trino may be a subset of the iceberg table sort order.
         // The writer can populate sort_order_id in the iceberg metadata only when the iceberg table sort order is fully supported by Trino.
         if (supportedSortFields.size() == sortOrder.fields().size()) {
-            return new SortFieldInfo(sortOrder.orderId(), supportedSortFields);
+            return new SortFieldInfo(sortOrderId, supportedSortFields);
         }
         return new SortFieldInfo(SortOrder.unsorted().orderId(), supportedSortFields);
     }
@@ -1908,13 +1912,25 @@ public class IcebergMetadata
             Map<String, Object> executeProperties)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
-        SortFieldInfo sortInfo = getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder());
         int specId = tableHandle.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
 
         String tableSchemaJson = tableHandle.getTableSchemaJson();
+        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson);
+
+        @SuppressWarnings("unchecked")
+        List<String> sortedBy = (List<String>) executeProperties.get("sorted_by");
+        SortFieldInfo sortInfo;
+        if (sortedBy != null) {
+            SortOrder sortOrder = parseSortFields(tableSchema, sortedBy);
+            sortInfo = getSupportedSortFields(icebergTable.schema(), sortOrder, findTableSortOrder(icebergTable, sortOrder).orderId());
+        }
+        else {
+            Schema schema = icebergTable.schema();
+            SortOrder sortOrder = icebergTable.sortOrder();
+            sortInfo = getSupportedSortFields(schema, sortOrder, sortOrder.orderId());
+        }
 
         if (tableHandle.getFormatVersion() >= 3) {
-            Schema tableSchema = SchemaParser.fromJson(tableSchemaJson);
             // The order of ROW_ID and LAST_UPDATED_SEQUENCE_NUMBER must match the order in getColumnHandles method
             tableSchema = new Schema(
                     ImmutableList.<NestedField>builder()
@@ -2343,7 +2359,10 @@ public class IcebergMetadata
         try {
             transaction.commitTransaction();
         }
-        catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
+        catch (CommitFailedException e) {
+            throw new TrinoException(TRANSACTION_CONFLICT, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
+        }
+        catch (UncheckedIOException | ValidationException | CommitStateUnknownException | RESTException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
         }
     }

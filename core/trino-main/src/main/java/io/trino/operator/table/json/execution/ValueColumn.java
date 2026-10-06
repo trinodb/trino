@@ -13,7 +13,7 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.trino.json.Json;
 import io.trino.jsonpath.ir.IrJsonPath;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
@@ -68,7 +68,7 @@ public class ValueColumn
     }
 
     @Override
-    public Object evaluate(long sequentialNumber, JsonNode item, Page input, int position)
+    public Object evaluate(long sequentialNumber, Json item, Page input, int position)
     {
         SourcePage sourcePage = SourcePage.create(input);
         SelectedPositions selectedPosition = SelectedPositions.positionsRange(position, 1);

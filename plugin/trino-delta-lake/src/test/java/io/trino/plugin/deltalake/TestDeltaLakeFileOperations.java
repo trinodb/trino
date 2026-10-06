@@ -263,6 +263,62 @@ public class TestDeltaLakeFileOperations
     }
 
     @Test
+    public void testInsertWritesCheckpoint()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_insert_writes_checkpoint");
+        assertUpdate("CREATE TABLE test_insert_writes_checkpoint(key varchar, data varchar) WITH (checkpoint_interval = 2)");
+        assertUpdate("INSERT INTO test_insert_writes_checkpoint(key, data) VALUES ('p1', '1-abc')", 1);
+
+        // version 2 writes the first checkpoint from the json log only
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert_writes_checkpoint(key, data) VALUES ('p2', '2-abc')",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .add(new FileOperation(CHECKSUM, "00000000000000000001.crc", "InputFile.newStream"))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.exists"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "OutputFile.create"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(DATA, "no partition", "OutputFile.create"))
+                        .build());
+
+        assertUpdate("INSERT INTO test_insert_writes_checkpoint(key, data) VALUES ('p3', '3-abc')", 1);
+
+        // version 4 writes a checkpoint that carries over the entries of the checkpoint at version 2
+        assertFileSystemAccesses(
+                "INSERT INTO test_insert_writes_checkpoint(key, data) VALUES ('p4', '4-abc')",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"), 2)
+                        .add(new FileOperation(CHECKSUM, "00000000000000000003.crc", "InputFile.newStream"))
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.length"), 4)
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", "InputFile.newInput"), 4)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.exists"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.parquet", "OutputFile.create"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.exists"))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "OutputFile.createOrOverwrite"))
+                        .add(new FileOperation(DATA, "no partition", "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE test_insert_writes_checkpoint");
+    }
+
+    @Test
     public void testReadPartitionTableWithCheckpointFiltering()
     {
         assertUpdate("DROP TABLE IF EXISTS test_checkpoint_filtering");

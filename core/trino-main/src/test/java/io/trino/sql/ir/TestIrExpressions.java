@@ -14,6 +14,7 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.json.JsonItems;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -97,7 +98,7 @@ public class TestIrExpressions
     {
         assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(INTEGER, 1L), BIGINT))).isFalse();
         assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(constantNull(INTEGER), BIGINT))).isTrue();
-        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+        assertThat(mayBeNull(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, JsonItems.fromText(utf8Slice("null"))), BIGINT))).isTrue();
     }
 
     @Test
@@ -125,7 +126,7 @@ public class TestIrExpressions
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Reference(INTEGER, "x"), BIGINT))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Coalesce(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isFalse();
         assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, nullIf(emptySymbolAllocator(), new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))).isTrue();
-        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, utf8Slice("null")), BIGINT))).isTrue();
+        assertThat(mayReturnNullOnNonNullInput(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Cast(new Constant(JSON, JsonItems.fromText(utf8Slice("null"))), BIGINT))).isTrue();
     }
 
     @Test

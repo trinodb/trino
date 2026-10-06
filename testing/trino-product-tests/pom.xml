@@ -485,6 +485,13 @@
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>iceberg-spark-runtime.jar</destFileName>
                                 </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.iceberg</groupId>
+                                    <artifactId>iceberg-aws-bundle</artifactId>
+                                    <version>${dep.iceberg.version}</version>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <destFileName>iceberg-aws-bundle.jar</destFileName>
+                                </artifactItem>
                             </artifactItems>
                         </configuration>
                     </execution>

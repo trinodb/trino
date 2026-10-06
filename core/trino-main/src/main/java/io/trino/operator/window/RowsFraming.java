@@ -50,7 +50,7 @@ public class RowsFraming
         int endPosition = partitionEnd - partitionStart - 1;
 
         // handle empty frame
-        if (emptyFrame(frameInfo, rowPosition, endPosition)) {
+        if (emptyFrame(frameInfo, currentPosition, rowPosition, endPosition)) {
             return new Range(-1, -1);
         }
 
@@ -88,7 +88,7 @@ public class RowsFraming
         return new Range(frameStart, frameEnd);
     }
 
-    private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
+    private boolean emptyFrame(FrameInfo frameInfo, int currentPosition, int rowPosition, int endPosition)
     {
         FrameBoundType startType = frameInfo.getStartType();
         FrameBoundType endType = frameInfo.getEndType();
@@ -96,11 +96,11 @@ public class RowsFraming
         int positions = endPosition - rowPosition;
 
         if ((startType == UNBOUNDED_PRECEDING) && (endType == PRECEDING)) {
-            return getValue(frameInfo.getEndChannel(), 0) > rowPosition;
+            return getValue(frameInfo.getEndChannel(), currentPosition) > rowPosition;
         }
 
         if ((startType == FOLLOWING) && (endType == UNBOUNDED_FOLLOWING)) {
-            return getValue(frameInfo.getStartChannel(), 0) > positions;
+            return getValue(frameInfo.getStartChannel(), currentPosition) > positions;
         }
 
         if (startType != endType) {
@@ -112,8 +112,8 @@ public class RowsFraming
             return false;
         }
 
-        long start = getValue(frameInfo.getStartChannel(), 0);
-        long end = getValue(frameInfo.getEndChannel(), 0);
+        long start = getValue(frameInfo.getStartChannel(), currentPosition);
+        long end = getValue(frameInfo.getEndChannel(), currentPosition);
 
         if (type == PRECEDING) {
             return (start < end) || ((start > rowPosition) && (end > rowPosition));

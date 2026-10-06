@@ -85,6 +85,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.statistics.TableStatistics.empty;
@@ -113,6 +114,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
+    private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
     private final Function<SchemaTableName, TableStatistics> getTableStatistics;
     private final Function<SchemaTableName, List<String>> checkConstraints;
     private final ApplyProjection applyProjection;
@@ -174,6 +176,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
+            Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
             Function<SchemaTableName, TableStatistics> getTableStatistics,
             Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
@@ -231,6 +234,7 @@ public class MockConnectorFactory
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
+        this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
         this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -298,6 +302,7 @@ public class MockConnectorFactory
                 getTableHandle,
                 getColumns,
                 getComment,
+                getColumnHandles,
                 getTableStatistics,
                 checkConstraints,
                 applyProjection,
@@ -453,7 +458,9 @@ public class MockConnectorFactory
         };
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
+        private boolean getColumnsSet;
         private Function<SchemaTableName, Optional<String>> getComment = _ -> Optional.empty();
+        private Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles = Optional.empty();
         private Function<SchemaTableName, TableStatistics> getTableStatistics = _ -> empty();
         private Function<SchemaTableName, List<String>> checkConstraints = _ -> ImmutableList.of();
         private ApplyProjection applyProjection = (_, _, _, _) -> Optional.empty();
@@ -607,13 +614,25 @@ public class MockConnectorFactory
 
         public Builder withGetColumns(Function<SchemaTableName, List<ColumnMetadata>> getColumns)
         {
+            checkState(getColumnHandles.isEmpty(), "withGetColumns and withGetColumnHandles are mutually exclusive");
             this.getColumns = requireNonNull(getColumns, "getColumns is null");
+            this.getColumnsSet = true;
             return this;
         }
 
         public Builder withGetComment(Function<SchemaTableName, Optional<String>> getComment)
         {
             this.getComment = requireNonNull(getComment, "getComment is null");
+            return this;
+        }
+
+        public Builder withGetColumnHandles(Function<SchemaTableName, List<MockConnectorColumnHandle>> getColumnHandles)
+        {
+            checkState(!getColumnsSet, "withGetColumns and withGetColumnHandles are mutually exclusive");
+            this.getColumnHandles = Optional.of(getColumnHandles);
+            this.getColumns = tableName -> getColumnHandles.apply(tableName).stream()
+                    .map(handle -> new ColumnMetadata(handle.name(), handle.type()))
+                    .collect(toImmutableList());
             return this;
         }
 
@@ -896,6 +915,7 @@ public class MockConnectorFactory
                     getTableHandle,
                     getColumns,
                     getComment,
+                    getColumnHandles,
                     getTableStatistics,
                     checkConstraints,
                     applyProjection,

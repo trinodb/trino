@@ -15,10 +15,10 @@ package io.trino.filesystem.tracking;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.ref.Cleaner;
 
 import static java.util.Objects.requireNonNull;
@@ -36,7 +36,7 @@ public class TrackingOutputFile
     }
 
     @Override
-    public OutputStream create()
+    public TrinoOutputStream create()
             throws IOException
     {
         return new TrackingOutputStream(delegate.create(), delegate.location(), cleaner);
@@ -57,7 +57,7 @@ public class TrackingOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
         return new TrackingOutputStream(delegate.create(memoryContext), delegate.location(), cleaner);

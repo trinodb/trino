@@ -21,6 +21,7 @@ import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.slice.Slice;
+import io.trino.json.JsonItems;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SqlScalarFunction;
@@ -89,6 +90,7 @@ import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.slice.Slices.allocate;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
@@ -110,6 +112,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.CharVarcharCoercion.SQL_STANDARD;
+import static io.trino.type.JsonType.JSON;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static io.trino.util.Reflection.field;
@@ -575,6 +578,50 @@ public class TestPageFunctionCompiler
         // every evaluation, so a projection over a page builds one lambda and not one per row
         assertThat(workClass.getDeclaredFields())
                 .anyMatch(field -> field.getName().endsWith("_instance"));
+    }
+
+    @Test
+    public void testJsonProjectionCache()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Reference input = new Reference(JSON, "c");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(JSON, "c"), 0);
+        PageProjection first = compiler.compileProjection(
+                new Coalesce(input, new Constant(JSON, JsonItems.fromText(utf8Slice("1")))),
+                layout,
+                SQL_STANDARD,
+                Optional.empty()).get();
+        PageProjection second = compiler.compileProjection(
+                new Coalesce(input, new Constant(JSON, JsonItems.fromText(utf8Slice("1.0")))),
+                layout,
+                SQL_STANDARD,
+                Optional.empty()).get();
+        SourcePage page = SourcePage.create(new Page(JSON.createBlockBuilder(null, 1).appendNull().build()));
+        Block firstResult = first.project(SESSION, first.getInputChannels().getInputChannels(page), SelectedPositions.positionsRange(0, 1));
+        Block secondResult = second.project(SESSION, second.getInputChannels().getInputChannels(page), SelectedPositions.positionsRange(0, 1));
+        assertThat(JSON.getObjectValue(firstResult, 0)).isEqualTo("1");
+        assertThat(JSON.getObjectValue(secondResult, 0)).isEqualTo("1.0");
+        assertThat(compiler.getProjectionCache().getLoadCount()).isEqualTo(2);
+        assertThat(compiler.getProjectionTemplateCache().size()).isEqualTo(1);
+        assertThat(compiler.getProjectionTemplateCache().getHitRate()).isEqualTo(0.5);
+    }
+
+    @Test
+    public void testJsonTemplateAliasedLiterals()
+    {
+        PageFunctionCompiler compiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
+        Reference input = new Reference(JSON, "c");
+        Map<Symbol, Integer> layout = ImmutableMap.of(new Symbol(JSON, "c"), 0);
+        RowType rowType = RowType.anonymous(ImmutableList.of(JSON, JSON));
+        Constant one = new Constant(JSON, JsonItems.fromText(utf8Slice("1")));
+        Expression aliased = new Row(ImmutableList.of(new Coalesce(input, one), one), rowType);
+        Expression distinct = new Row(ImmutableList.of(new Coalesce(input, one), new Constant(JSON, JsonItems.fromText(utf8Slice("1.0")))), rowType);
+        Page page = new Page(JSON.createBlockBuilder(null, 1).appendNull().build());
+
+        Block first = project(compiler.compileProjection(aliased, layout, SQL_STANDARD, Optional.empty()).get(), page, SelectedPositions.positionsRange(0, 1));
+        Block second = project(compiler.compileProjection(distinct, layout, SQL_STANDARD, Optional.empty()).get(), page, SelectedPositions.positionsRange(0, 1));
+        assertThat(rowType.getObjectValue(first, 0)).isEqualTo(ImmutableList.of("1", "1"));
+        assertThat(rowType.getObjectValue(second, 0)).isEqualTo(ImmutableList.of("1", "1.0"));
     }
 
     @Test

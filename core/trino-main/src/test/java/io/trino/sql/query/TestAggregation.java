@@ -235,4 +235,22 @@ public class TestAggregation
                 """))
                 .matches("VALUES ARRAY[ARRAY[VARCHAR '616161', VARCHAR 'D091D091', VARCHAR '656E64']]");
     }
+
+    @Test
+    void testMinMaxByNOverValueReplacingNull()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT max_by(v, k, 1), min_by(v, k, 1)
+                FROM (VALUES (0, CAST(null AS varchar)), (1, 'x'), (-1, 'y')) t(k, v)
+                """))
+                .matches("VALUES (ARRAY[VARCHAR 'x'], ARRAY[VARCHAR 'y'])");
+
+        assertThat(assertions.query(
+                """
+                SELECT max_by(v, k, 1), min_by(v, k, 1)
+                FROM (VALUES (0, CAST(null AS bigint)), (1, 11), (-1, 22)) t(k, v)
+                """))
+                .matches("VALUES (ARRAY[BIGINT '11'], ARRAY[BIGINT '22'])");
+    }
 }

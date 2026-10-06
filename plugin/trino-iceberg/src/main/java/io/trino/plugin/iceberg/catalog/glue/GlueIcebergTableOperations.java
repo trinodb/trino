@@ -134,15 +134,15 @@ public class GlueIcebergTableOperations
         }
         catch (GlueException e) {
             switch (e) {
+                // A retried create that went through reports AlreadyExists.
+                case AlreadyExistsException _ -> checkNewTableCommit(newMetadataLocation, metadata, e);
                 // clean up metadata files corresponding to the current transaction
-                case AlreadyExistsException _,
-                     EntityNotFoundException _,
+                case EntityNotFoundException _,
                      InvalidInputException _,
                      ResourceNumberLimitExceededException _,
-                     ValidationException _ -> io().deleteFile(newMetadataLocation);
-                default -> {}
+                     ValidationException _ -> throw deleteOrphanedMetadata(newMetadataLocation, e);
+                default -> throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
             }
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Cannot commit table creation", e);
         }
         shouldRefresh = true;
     }

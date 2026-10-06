@@ -11,14 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.gcs;
+package io.trino.filesystem;
 
-public class TestGcsFileSystemWithEncryption
-        extends TestGcsFileSystem
+import java.io.IOException;
+import java.io.OutputStream;
+
+public abstract class TrinoOutputStream
+        extends OutputStream
 {
-    @Override
-    protected boolean useServerSideEncryptionWithCustomerKey()
-    {
-        return true;
-    }
+    /**
+     * Releases this stream and discards the data written to it, without creating the file.
+     * A file that already existed at the location is left unchanged.
+     * This method has no effect if the stream is already closed or aborted.
+     */
+    public abstract void abort()
+            throws IOException;
 }

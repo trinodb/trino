@@ -903,6 +903,7 @@ jobs:
           path: |
             testing/trino-product-tests/target/product-test-distribution
             testing/trino-product-tests/target/iceberg-spark-runtime.jar
+            testing/trino-product-tests/target/iceberg-aws-bundle.jar
           retention-days: 1
       - name: Build product-test matrix from impacted modules
         if: >-

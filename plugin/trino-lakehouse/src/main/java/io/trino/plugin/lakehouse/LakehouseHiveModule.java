@@ -46,10 +46,10 @@ import io.trino.plugin.hive.metastore.glue.GlueCache;
 import io.trino.plugin.hive.procedure.CreateEmptyPartitionProcedure;
 import io.trino.plugin.hive.procedure.DropStatsProcedure;
 import io.trino.plugin.hive.procedure.FlushMetadataCacheProcedure;
-import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.procedure.RegisterPartitionProcedure;
 import io.trino.plugin.hive.procedure.SyncPartitionMetadataProcedure;
 import io.trino.plugin.hive.procedure.UnregisterPartitionProcedure;
+import io.trino.plugin.lakehouse.procedure.OptimizeTableProcedure;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 

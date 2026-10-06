@@ -159,6 +159,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final Function<SchemaTableName, Optional<String>> getComment;
+    private final Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles;
     private final Function<SchemaTableName, TableStatistics> getTableStatistics;
     private final Function<SchemaTableName, List<String>> checkConstraints;
     private final MockConnectorFactory.ApplyProjection applyProjection;
@@ -216,6 +217,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             Function<SchemaTableName, Optional<String>> getComment,
+            Optional<Function<SchemaTableName, List<MockConnectorColumnHandle>>> getColumnHandles,
             Function<SchemaTableName, TableStatistics> getTableStatistics,
             Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
@@ -272,6 +274,7 @@ public class MockConnector
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.getComment = requireNonNull(getComment, "getComment is null");
+        this.getColumnHandles = requireNonNull(getColumnHandles, "getColumnHandles is null");
         this.getTableStatistics = requireNonNull(getTableStatistics, "getTableStatistics is null");
         this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -604,6 +607,10 @@ public class MockConnector
         public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+            if (getColumnHandles.isPresent()) {
+                return getColumnHandles.get().apply(table.getTableName()).stream()
+                        .collect(toImmutableMap(MockConnectorColumnHandle::name, handle -> handle));
+            }
             return getColumns.apply(table.getTableName()).stream()
                     .collect(toImmutableMap(ColumnMetadata::getName, column -> new MockConnectorColumnHandle(column.getName(), column.getType())));
         }

@@ -74,11 +74,16 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertParquetToJsonStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.addFileEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.metadataEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.protocolEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.removeFileEntry;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -94,6 +99,30 @@ public class TestCheckpointWriter
 {
     private final TypeManager typeManager = TESTING_TYPE_MANAGER;
     private final CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
+
+    @Test
+    public void testDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "true"));
+    }
+
+    @Test
+    public void testRestoredFileWithoutDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "true"));
+    }
+
+    @Test
+    public void testDeletionVectorRoundtripWithPropertyDisabled()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of());
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of());
+    }
 
     @Test
     public void testCheckpointWriteReadJsonRoundtrip()
@@ -597,6 +626,40 @@ public class TestCheckpointWriter
         assertThat(tightBoundsByPath(readCheckpoint(parsedOnlyPath, parsedOnlyMetadata, protocolEntry, true))).isEqualTo(expectedTightBounds);
     }
 
+    @Test
+    void testStreamingWriterCountsEntries(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = MetadataEntry.builder()
+                .setSchemaString("{\"type\":\"struct\",\"fields\":[{\"name\":\"x\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")
+                .setConfiguration(ImmutableMap.of())
+                .build();
+        ProtocolEntry protocolEntry = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
+        AddFileEntry firstAdd = fileWithTightBounds("first.parquet", Optional.empty());
+        AddFileEntry secondAdd = fileWithTightBounds("second.parquet", Optional.empty());
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry("removed.parquet", ImmutableMap.of(), 1000, true, Optional.empty());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String checkpointPath = directory.resolve("streamed.checkpoint.parquet").toUri().toString();
+        try (CheckpointWriter.CheckpointFileWriter checkpointFileWriter = writer.createWriter(metadataEntry, protocolEntry, createOutputFile(checkpointPath))) {
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(2);
+            checkpointFileWriter.writeTransaction(transactionEntry);
+            checkpointFileWriter.writeAddFile(firstAdd);
+            checkpointFileWriter.writeRemoveFile(removeFileEntry);
+            checkpointFileWriter.writeAddFile(secondAdd);
+            checkpointFileWriter.finish();
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(6);
+        }
+
+        CheckpointEntries readEntries = readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true);
+        assertThat(readEntries.metadataEntry()).isEqualTo(metadataEntry);
+        assertThat(readEntries.protocolEntry()).isEqualTo(protocolEntry);
+        assertThat(readEntries.transactionEntries()).containsExactly(transactionEntry);
+        assertThat(readEntries.addFileEntries().stream().map(AddFileEntry::getPath)).containsExactlyInAnyOrder("first.parquet", "second.parquet");
+        assertThat(readEntries.removeFileEntries()).containsExactly(removeFileEntry);
+    }
+
     private static Map<String, Optional<Boolean>> tightBoundsByPath(CheckpointEntries entries)
     {
         return entries.addFileEntries().stream()
@@ -632,6 +695,68 @@ public class TestCheckpointWriter
         LocalDateTime localDateTime = LocalDateTime.parse(value);
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+    }
+
+    @Test
+    public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        DeltaLakeParquetFileStatistics statistics = roundTripJsonStatistics(directory, "{" +
+                "\"numRecords\":1," +
+                "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                "\"nullCount\":{\"ts\":0}}");
+
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600124L, UTC_KEY)));
+    }
+
+    @Test
+    public void testJsonStatsTimestampOnMillisecondBoundaryIsUnchangedInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        DeltaLakeParquetFileStatistics statistics = roundTripJsonStatistics(directory, "{" +
+                "\"numRecords\":1," +
+                "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                "\"nullCount\":{\"ts\":0}}");
+
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+    }
+
+    private DeltaLakeParquetFileStatistics roundTripJsonStatistics(Path directory, String jsonStatistics)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "true",
+                        "delta.checkpoint.writeStatsAsJson", "false"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePath",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of(jsonStatistics),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+        CheckpointEntries entries = new CheckpointEntries(metadataEntry, protocolEntry, ImmutableSet.of(), ImmutableSet.of(addFileEntry), ImmutableSet.of());
+
+        String targetPath = directory.resolve("checkpoint.parquet").toUri().toString();
+        new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        return (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
     }
 
     @Test
@@ -706,6 +831,54 @@ public class TestCheckpointWriter
         assertThat(fileStatistics.getMinValues().get()).isEmpty();
         assertThat(fileStatistics.getMaxValues().get()).isEmpty();
         assertThat(fileStatistics.getNullCount().get()).isEmpty();
+    }
+
+    private void assertDeletionVectorRoundtrip(boolean restoreWithoutDeletionVector, Map<String, String> configuration)
+            throws IOException
+    {
+        MetadataEntry metadata = new MetadataEntry(
+                "metadataId",
+                "",
+                "",
+                new MetadataEntry.Format("parquet", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":[{\"name\":\"value\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                configuration,
+                1);
+        ProtocolEntry protocol = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
+        CheckpointBuilder builder = new CheckpointBuilder();
+        builder.addLogEntry(metadataEntry(metadata));
+        builder.addLogEntry(protocolEntry(protocol));
+        AddFileEntry original = new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.empty());
+        builder.addLogEntry(addFileEntry(original));
+
+        Optional<DeletionVectorEntry> previousDeletionVector = Optional.empty();
+        for (DeletionVectorEntry deletionVector : ImmutableList.of(
+                new DeletionVectorEntry("i", "inline", OptionalInt.empty(), 34, 1),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(1), 36, 2),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(39), 38, 3))) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 1, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.of(deletionVector))));
+            previousDeletionVector = Optional.of(deletionVector);
+        }
+        if (restoreWithoutDeletionVector) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 2, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(original));
+        }
+
+        CheckpointEntries expected = builder.build();
+        CheckpointEntries entries = expected;
+        for (int checkpoint = 0; checkpoint < 2; checkpoint++) {
+            File targetFile = Files.createTempFile("testDeletionVectorRoundtrip-", ".checkpoint.parquet").toFile();
+            targetFile.deleteOnExit();
+            String targetPath = targetFile.toURI().toString();
+            targetFile.delete();
+            new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+
+            entries = readCheckpoint(targetPath, metadata, protocol, true);
+            assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
+            assertThat(entries.removeFileEntries()).containsExactlyInAnyOrderElementsOf(expected.removeFileEntries());
+        }
     }
 
     private AddFileEntry makeComparable(Map<String, Type> columnTypeMapping, AddFileEntry original)

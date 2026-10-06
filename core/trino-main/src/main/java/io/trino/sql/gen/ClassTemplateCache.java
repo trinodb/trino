@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -281,15 +280,15 @@ public final class ClassTemplateCache<T>
                 case FixedSlot fixed -> classData.add(fixed.value());
                 case DescriptionSlot _ -> classData.add(description);
                 case LiteralSlot literal -> {
-                    Object value = literals.get(literal.ordinals()[0]).value();
+                    Constant value = literals.get(literal.ordinals()[0]);
                     for (int ordinal : literal.ordinals()) {
-                        // equal literals shared this slot in the template; if the literals
-                        // differ now, the template does not fit and a fresh compilation is needed
-                        if (!Objects.equals(literals.get(ordinal).value(), value)) {
+                        // Equal IR literals may share a slot. Value equality alone is insufficient:
+                        // for example, JSON grouping equality ignores observable representation differences.
+                        if (!literals.get(ordinal).equals(value)) {
                             return Optional.empty();
                         }
                     }
-                    classData.add(value);
+                    classData.add(value.value());
                 }
             }
         }

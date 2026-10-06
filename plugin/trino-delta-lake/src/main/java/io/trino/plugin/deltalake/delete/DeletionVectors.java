@@ -25,6 +25,7 @@ import org.roaringbitmap.RoaringBitmap;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -148,6 +149,15 @@ public final class DeletionVectors
         String encodedUuid = pathOrInlineDv.substring(randomPrefixLength);
         UUID uuid = decodeUUID(encodedUuid);
         return "%sdeletion_vector_%s.bin".formatted(prefix, uuid);
+    }
+
+    // Path relative to the table location, present only for deletion vectors stored by UUID
+    public static Optional<String> relativePath(DeletionVectorEntry deletionVector)
+    {
+        if (!UUID_MARKER.equals(deletionVector.storageType())) {
+            return Optional.empty();
+        }
+        return Optional.of(toFileName(deletionVector.pathOrInlineDv()));
     }
 
     public static ByteBuffer readDeletionVector(TrinoInputFile inputFile, int offset, int expectedSize)

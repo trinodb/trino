@@ -31,12 +31,9 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -71,12 +68,6 @@ class TestEqualityDeleteFilter
     private static final IcebergColumnHandle BIGINT_KEY_HANDLE = IcebergColumnHandle.optional(KEY_IDENTITY).columnType(BIGINT).build();
     private static final IcebergColumnHandle VALUE_HANDLE = IcebergColumnHandle.optional(VALUE_IDENTITY).columnType(BIGINT).build();
 
-    private static final Schema VARCHAR_KEY_SCHEMA = new Schema(optional(KEY_FIELD_ID, "key", Types.StringType.get()));
-    private static final Schema BIGINT_KEY_SCHEMA = new Schema(optional(KEY_FIELD_ID, "key", Types.LongType.get()));
-    private static final Schema TWO_COLUMN_SCHEMA = new Schema(
-            optional(KEY_FIELD_ID, "key", Types.StringType.get()),
-            optional(VALUE_FIELD_ID, "value", Types.LongType.get()));
-
     private static final BlocksHashFactory BLOCKS_HASH_FACTORY =
             new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
 
@@ -89,7 +80,7 @@ class TestEqualityDeleteFilter
     @Test
     void testVarcharKeyDeletesMatchingRows()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -108,7 +99,7 @@ class TestEqualityDeleteFilter
     @Test
     void testBigintKeyDeletesMatchingRows()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(BIGINT_KEY_SCHEMA, ImmutableList.of(BIGINT));
+        EqualityDeleteFilterBuilder builder = newBuilder(BIGINT_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(BIGINT_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, bigintPage(42L));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -136,11 +127,8 @@ class TestEqualityDeleteFilter
         RowType rootRowType = RowType.rowType(RowType.field("a", VARCHAR), RowType.field("b", VARCHAR));
         IcebergColumnHandle rootHandle = IcebergColumnHandle.optional(rootIdentity).columnType(rootRowType).build();
         IcebergColumnHandle rootBHandle = IcebergColumnHandle.optional(rootIdentity).fieldType(rootRowType, VARCHAR).path(rootBFieldId).build();
-        Schema rootKeySchema = new Schema(optional(rootFieldId, "root", Types.StructType.of(
-                optional(rootAFieldId, "a", Types.StringType.get()),
-                optional(rootBFieldId, "b", Types.StringType.get()))));
 
-        EqualityDeleteFilterBuilder builder = newBuilder(rootKeySchema, ImmutableList.of(rootRowType));
+        EqualityDeleteFilterBuilder builder = newBuilder(rootHandle);
         loadDeleteFile(builder, ImmutableList.of(rootHandle), DELETE_FILE_SEQUENCE_NUMBER, new Page(rowBlock(new String[][] {{"x2", "y2"}})));
         EqualityDeleteFilter filter = builder.build();
 
@@ -165,7 +153,7 @@ class TestEqualityDeleteFilter
     @Test
     void testMultiColumnKeyRequiresBothColumnsToMatch()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(TWO_COLUMN_SCHEMA, ImmutableList.of(VARCHAR, BIGINT));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE, VALUE_HANDLE);
 
         Page deleteRows = new Page(varcharBlock("key-1"), bigintBlock(10L));
         loadDeleteFile(
@@ -194,7 +182,7 @@ class TestEqualityDeleteFilter
     @Test
     void testNonMatchingRowsAreNotDeleted()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-deleted"));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -209,7 +197,7 @@ class TestEqualityDeleteFilter
     @Test
     void testNullKeyDeletesNullRow()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPageWithNulls((String) null));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -225,7 +213,7 @@ class TestEqualityDeleteFilter
     @Test
     void testDeleteAppliesWhenDeleteSequenceNumberIsGreaterThanDataSequenceNumber()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 10L, varcharPage("target"));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -242,7 +230,7 @@ class TestEqualityDeleteFilter
     @Test
     void testDeleteDoesNotApplyWhenDataSequenceNumberIsGreaterThanDeleteSequenceNumber()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 5L, varcharPage("target"));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -259,7 +247,7 @@ class TestEqualityDeleteFilter
     @Test
     void testDeleteDoesNotApplyWhenDeleteSequenceNumberEqualsDataSequenceNumber()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 5L, varcharPage("target"));
 
         PageFilter predicate = builder.build().createPageFilter(
@@ -276,7 +264,7 @@ class TestEqualityDeleteFilter
     @Test
     void testMaxDeleteSequenceNumberWinsAcrossFiles()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 3L, varcharPage("target"));
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), 7L, varcharPage("target"));
 
@@ -294,7 +282,7 @@ class TestEqualityDeleteFilter
     @Test
     void testCombinedPredicateApplyFilterChainsFilters()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
         PageFilter combined = PageFilter.allOf(ImmutableList.of(
                 builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER),
@@ -312,7 +300,7 @@ class TestEqualityDeleteFilter
     @Test
     void testTriplePredicateChainApplyFilter()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-1"));
         PageFilter combined = PageFilter.allOf(ImmutableList.of(
                 builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER),
@@ -346,7 +334,7 @@ class TestEqualityDeleteFilter
 
         PageFilter positionDelete = PageFilter.of((p, position) -> BIGINT.getLong(p.getBlock(1), position) != 3L);
 
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         loadDeleteFile(builder, ImmutableList.of(VARCHAR_KEY_HANDLE), DELETE_FILE_SEQUENCE_NUMBER, varcharPage("key-2"));
         PageFilter equalityDelete = builder.build().createPageFilter(ImmutableList.of(VARCHAR_KEY_HANDLE, VALUE_HANDLE), SPLIT_DATA_SEQUENCE_NUMBER);
 
@@ -373,7 +361,7 @@ class TestEqualityDeleteFilter
                 .mapToObj(i -> String.format("key-%07d", i))
                 .toArray(String[]::new);
 
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
 
         Page deleteFilePage = varcharPage(keys);
         for (int fileIndex = 1; fileIndex <= deleteFileCount; fileIndex++) {
@@ -416,7 +404,7 @@ class TestEqualityDeleteFilter
         String[] allKeys = Stream.concat(Arrays.stream(allDeletedKeys), Arrays.stream(keptKeys))
                 .toArray(String[]::new);
 
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
         PageFilter predicate = builder.build().createPageFilter(
                 ImmutableList.of(VARCHAR_KEY_HANDLE), 0L);
 
@@ -462,7 +450,7 @@ class TestEqualityDeleteFilter
     @Test
     void testEstimatedSizeGrowsWithInsertedKeys()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
 
         long emptySize = builder.getEstimatedSizeInBytes();
 
@@ -480,7 +468,7 @@ class TestEqualityDeleteFilter
     @Test
     void testEstimatedSizeDoesNotGrowForDuplicateKeys()
     {
-        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_SCHEMA, ImmutableList.of(VARCHAR));
+        EqualityDeleteFilterBuilder builder = newBuilder(VARCHAR_KEY_HANDLE);
 
         DeleteFile fileOne = equalityDeleteFile("fake-delete-path-1", 1L, ImmutableList.of(KEY_FIELD_ID));
         DeleteFile fileTwo = equalityDeleteFile("fake-delete-path-2", 1L, ImmutableList.of(KEY_FIELD_ID));
@@ -488,13 +476,11 @@ class TestEqualityDeleteFilter
 
         builder.readEqualityDeletes(
                 fileOne,
-                ImmutableList.of(VARCHAR_KEY_HANDLE),
                 (_, _, _) -> new FixedPageSource(ImmutableList.of(page)));
         long sizeAfterFirst = builder.getEstimatedSizeInBytes();
 
         builder.readEqualityDeletes(
                 fileTwo,
-                ImmutableList.of(VARCHAR_KEY_HANDLE),
                 (_, _, _) -> new FixedPageSource(ImmutableList.of(page)));
         long sizeAfterSecond = builder.getEstimatedSizeInBytes();
 
@@ -511,12 +497,10 @@ class TestEqualityDeleteFilter
         int rowsPerDelete = 10_000;
 
         IcebergColumnHandle[] columnHandles = new IcebergColumnHandle[deleteFilterCount];
-        Schema[] schemas = new Schema[deleteFilterCount];
         for (int i = 0; i < deleteFilterCount; i++) {
             int fieldId = i + 1;
             ColumnIdentity identity = new ColumnIdentity(fieldId, "col" + fieldId, PRIMITIVE, ImmutableList.of());
             columnHandles[i] = IcebergColumnHandle.optional(identity).columnType(BIGINT).build();
-            schemas[i] = new Schema(optional(fieldId, "col" + fieldId, Types.LongType.get()));
         }
         List<IcebergColumnHandle> readColumns = ImmutableList.copyOf(columnHandles);
 
@@ -533,7 +517,7 @@ class TestEqualityDeleteFilter
         // filter i deletes rows [i*rowsPerDelete, (i+1)*rowsPerDelete)
         PageFilter composedPredicate = PageFilter.allOf(IntStream.range(0, deleteFilterCount).mapToObj(i -> {
             long[] deleteValues = IntStream.range(0, rowsPerDelete).mapToLong(row -> (long) i * rowsPerDelete + row).toArray();
-            EqualityDeleteFilterBuilder filterBuilder = newBuilder(schemas[i], ImmutableList.of(BIGINT));
+            EqualityDeleteFilterBuilder filterBuilder = newBuilder(columnHandles[i]);
             loadDeleteFile(filterBuilder, ImmutableList.of(columnHandles[i]), DELETE_FILE_SEQUENCE_NUMBER, new Page(bigintBlock(deleteValues)));
             return filterBuilder.build().createPageFilter(readColumns, SPLIT_DATA_SEQUENCE_NUMBER);
         }).collect(toImmutableList())).orElseThrow();
@@ -545,9 +529,9 @@ class TestEqualityDeleteFilter
         assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(totalDeleted);
     }
 
-    private static EqualityDeleteFilterBuilder newBuilder(Schema schema, List<Type> columnTypes)
+    private static EqualityDeleteFilterBuilder newBuilder(IcebergColumnHandle... deleteColumns)
     {
-        return EqualityDeleteFilter.builder(schema, columnTypes, BLOCKS_HASH_FACTORY);
+        return EqualityDeleteFilter.builder(ImmutableList.copyOf(deleteColumns), BLOCKS_HASH_FACTORY);
     }
 
     private static void loadDeleteFile(
@@ -563,7 +547,6 @@ class TestEqualityDeleteFilter
                 deleteColumns.stream().map(IcebergColumnHandle::getId).collect(toImmutableList()));
         builder.readEqualityDeletes(
                 file,
-                deleteColumns,
                 (_, _, _) -> new FixedPageSource(ImmutableList.copyOf(pages)));
     }
 

@@ -34,14 +34,11 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
+import static io.trino.util.JsonUtil.canCastFromJson;
 
-/**
- * Replaces certain {@code CAST(json_parse(x) AS T)} with functions logically
- * implementing {@code CAST(a_json AS T)} along with validation that input is
- * well-formed JSON. This avoids cost of validation and canonicalization done
- * by {@code json_parse}.
- */
+/// Streams `CAST(json_parse(x) AS T)` through the ordinary JSON cast converters,
+/// avoiding intermediate JSON encoding. The adapters retry the unfused expression
+/// on failure to preserve parse-first error precedence and diagnostics.
 public class SpecializeCastWithJsonParse
         implements IrOptimizerRule
 {
@@ -56,16 +53,23 @@ public class SpecializeCastWithJsonParse
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
         if (expression instanceof Cast(Call call, Type type, _) &&
-                call.function().name().equals(builtinFunctionName("json_parse"))) {
+                call.function().name().equals(builtinFunctionName("json_parse")) &&
+                canCastFromJson(type) &&
+                !containsRow(type)) {
             Expression string = call.arguments().getFirst();
             return switch (type) {
                 case ArrayType arrayType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_ARRAY_NAME), string.type(), arrayType), call.arguments()));
                 case MapType mapType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_MAP_NAME), string.type(), mapType), call.arguments()));
-                case RowType rowType -> Optional.of(new Call(metadata.getCoercion(getCharVarcharCoercion(session), builtinFunctionName(JSON_STRING_TO_ROW_NAME), string.type(), rowType), call.arguments()));
                 default -> Optional.empty();
             };
         }
 
         return Optional.empty();
+    }
+
+    private static boolean containsRow(Type type)
+    {
+        // The streaming cast implementation does not support rows, including nested rows.
+        return type instanceof RowType || type.getTypeParameters().stream().anyMatch(SpecializeCastWithJsonParse::containsRow);
     }
 }

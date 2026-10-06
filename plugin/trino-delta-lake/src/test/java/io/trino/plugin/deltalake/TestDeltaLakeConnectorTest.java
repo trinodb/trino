@@ -935,6 +935,90 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testOptimizeReturnsMetrics()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_returns_metrics", "(key integer, value varchar)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (12, 'twelve')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (13, 'thirteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (14, 'fourteen')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (15, 'fifteen')", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(5);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 5), ('removed_deletion_vectors_count', 0), ('added_data_files_count', 1)");
+
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES (11, 'eleven'), (12, 'twelve'), (13, 'thirteen'), (14, 'fourteen'), (15, 'fifteen')");
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testOptimizeWithDeletionVectors()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true) AS SELECT * FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 5", 10);
+
+            // TestingTrinoServer uses two writers per task; use one so OPTIMIZE produces a single output file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertUpdate(
+                    singleWriterSession,
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 2), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 1)");
+            assertThat(getActiveFiles(tableName)).hasSize(1);
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "SELECT * FROM nation WHERE nationkey >= 5 UNION ALL SELECT * FROM nation WHERE nationkey >= 5");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPartitionedTableAndDeleteVector()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_partitioned_deletion_vectors",
+                "WITH (deletion_vectors_enabled = true, partitioned_by = ARRAY['regionkey']) AS SELECT nationkey, regionkey FROM tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " SELECT nationkey, regionkey FROM tpch.tiny.nation", 25);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(10);
+            assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 1 AND nationkey < 5", 6);
+
+            assertUpdate(
+                    "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                    "VALUES ('rewritten_data_files_count', 10), ('removed_deletion_vectors_count', 2), ('added_data_files_count', 5)");
+            assertThat(getActiveFiles(tableName)).hasSize(5);
+            assertQuery(
+                    "SELECT nationkey, regionkey, count(*) FROM " + tableName + " GROUP BY nationkey, regionkey",
+                    "SELECT nationkey, regionkey, 2 FROM nation WHERE regionkey <> 1 OR nationkey >= 5");
+        }
+    }
+
+    @Test
     public void testAddColumnAndVacuum()
             throws Exception
     {
@@ -1227,6 +1311,39 @@ public class TestDeltaLakeConnectorTest
             assertThat(updatedFiles)
                     .hasSize(2)
                     .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testOptimizeSingleFileWithDeletionVector()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable(
+                "test_optimize_single_file_dv_",
+                "(x int) WITH (deletion_vectors_enabled = true)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 1", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(initialFiles);
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2), (3)");
+
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+            assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
         }
     }
 
@@ -3255,6 +3372,26 @@ public class TestDeltaLakeConnectorTest
                     ('url2', 'domain4', 2, 'delete', BIGINT '4'),
                     ('url6', 'domain4', 2, 'delete', BIGINT '4')
                 """);
+    }
+
+    @Test
+    public void testReadCdfChangesOnPartitionValueRequiringEncoding()
+    {
+        String tableName = "test_cdf_partition_value_requiring_encoding_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(page_url VARCHAR, domain VARCHAR) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('url1', 'do main')", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url2' WHERE domain = 'do main'", 1);
+
+        assertTableChangesQuery(
+                "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
+                """
+                VALUES
+                    ('url1', 'do main', 'insert', BIGINT '1'),
+                    ('url1', 'do main', 'update_preimage', BIGINT '2'),
+                    ('url2', 'do main', 'update_postimage', BIGINT '2')
+                """);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

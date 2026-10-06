@@ -15,6 +15,7 @@ package io.trino.plugin.hive.avro;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.hive.formats.avro.AvroCompressionKind;
 import io.trino.hive.formats.avro.AvroFileWriter;
 import io.trino.hive.formats.avro.AvroTypeBlockHandler;
@@ -33,7 +34,6 @@ import org.apache.avro.Schema.Field;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -55,13 +55,14 @@ public final class AvroHiveFileWriter
 
     private final AvroFileWriter fileWriter;
     private final List<Block> typeCorrectNullBlocks;
+    private final TrinoOutputStream outputStream;
     private final CountingOutputStream countingOutputStream;
     private final AggregatedMemoryContext outputStreamMemoryContext;
 
     private final RollbackAction rollbackAction;
 
     public AvroHiveFileWriter(
-            OutputStream outputStream,
+            TrinoOutputStream outputStream,
             AggregatedMemoryContext outputStreamMemoryContext,
             Schema fileSchema,
             AvroTypeManager typeManager,
@@ -73,7 +74,8 @@ public final class AvroHiveFileWriter
             Map<String, String> metadata)
             throws IOException, AvroTypeException
     {
-        countingOutputStream = new CountingOutputStream(requireNonNull(outputStream, "outputStream is null"));
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        countingOutputStream = new CountingOutputStream(outputStream);
         this.outputStreamMemoryContext = requireNonNull(outputStreamMemoryContext, "outputStreamMemoryContext is null");
         verify(requireNonNull(fileSchema, "fileSchema is null").getType() == Schema.Type.RECORD, "file schema must be record schema");
         verify(inputColumnNames.size() == inputColumnTypes.size(), "column names must be equal to column types");
@@ -147,7 +149,7 @@ public final class AvroHiveFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            fileWriter.close();
+            outputStream.abort();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

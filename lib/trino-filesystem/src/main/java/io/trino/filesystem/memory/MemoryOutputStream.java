@@ -16,16 +16,16 @@ package io.trino.filesystem.memory;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoOutputStream;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryOutputStream
-        extends OutputStream
+        extends TrinoOutputStream
 {
     public interface OnStreamClose
     {
@@ -85,5 +85,11 @@ public class MemoryOutputStream
             stream = null;
             onStreamClose.onClose(Slices.wrappedBuffer(data));
         }
+    }
+
+    @Override
+    public void abort()
+    {
+        stream = null;
     }
 }

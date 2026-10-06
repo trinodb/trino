@@ -24,7 +24,7 @@ import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TestGcsFileSystem
+public class TestGcsFileSystemGcp
         extends AbstractTestGcsFileSystem
 {
     @BeforeAll

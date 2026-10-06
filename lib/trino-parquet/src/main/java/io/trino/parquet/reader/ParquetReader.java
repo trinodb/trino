@@ -59,6 +59,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
@@ -99,7 +100,6 @@ import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffset
 import static io.trino.parquet.reader.PageReader.createPageReader;
 import static io.trino.spi.block.Bitmap.isSet;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -1122,10 +1122,13 @@ public class ParquetReader
     private ColumnChunk readVariantAsJson(VariantField field)
             throws IOException
     {
+        // The field renders the variant to JSON text, so the column is the JSON type; build its
+        // block through that type rather than VARCHAR, since JSON is backed by its own block.
+        Type jsonType = field.getType();
         ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
 
         int positionCount = metadataChunk.getBlock().getPositionCount();
-        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
+        BlockBuilder variantBlock = jsonType.createBlockBuilder(null, max(1, positionCount));
         ColumnChunk valueChunk = readColumnChunk(field.getValue());
         for (int position = 0; position < positionCount; position++) {
             Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);
@@ -1135,7 +1138,7 @@ public class ParquetReader
             }
             Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
             Variant variant = new Variant(value.getBytes(), metadata.getBytes());
-            VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+            jsonType.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
         }
         return new ColumnChunk(variantBlock.build(), metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
     }

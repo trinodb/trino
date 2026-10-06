@@ -216,6 +216,11 @@
                                 <item>
                                     <code>java.field.enumConstantOrderChanged</code>
                                 </item>
+                                <item>
+                                    <code>java.field.removedWithConstant</code>
+                                    <old>field io.trino.spi.type.StandardTypes.JSON_2016</old>
+                                    <justification>The json2016 type was internal to the SQL/JSON path engine: it had no literal, cast or function signature reachable from SQL, and no type of that name is registered any more</justification>
+                                </item>
                                 <!-- Allow arbitrary changes to unstable APIs -->
                                 <item>
                                     <regex>true</regex>
@@ -710,6 +715,14 @@
                                     <newVisibility>public</newVisibility>
                                     <justification>New Slice methods</justification>
                                 </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>class io.trino.spi.expression.ConnectorExpression</old>
+                                    <new>class io.trino.spi.expression.ConnectorExpression</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <justification>Lambda was missing a JSON subtype registration; adding it is backwards compatible</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
@@ -728,6 +741,15 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Run tests on the class path despite module-info.java, so that class path scanning sees SPI classes -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
             </plugin>
 
             <plugin>

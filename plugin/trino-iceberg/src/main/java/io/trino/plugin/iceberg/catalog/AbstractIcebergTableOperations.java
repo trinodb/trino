@@ -15,27 +15,30 @@ package io.trino.plugin.iceberg.catalog;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
+import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.IcebergExceptions;
+import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.encryption.EncryptedKey;
 import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.encryption.EncryptionManager;
-import org.apache.iceberg.encryption.EncryptionUtil;
 import org.apache.iceberg.encryption.PlaintextEncryptionManager;
-import org.apache.iceberg.encryption.StandardEncryptionManager;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
@@ -78,6 +81,8 @@ import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
+    private static final Logger log = Logger.get(AbstractIcebergTableOperations.class);
+
     public static final StorageFormat ICEBERG_METASTORE_STORAGE_FORMAT = StorageFormat.create(
             LAZY_SIMPLE_SERDE_CLASS,
             FILE_INPUT_FORMAT_CLASS,
@@ -171,15 +176,6 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
-        // Persist any in-memory encryption keys generated during this commit (e.g. by ManifestListWriter
-        // for encrypted manifest lists) into TableMetadata.encryptionKeys() so they survive read.
-        // Mirrors upstream HiveTableOperations.doCommit().
-        if (encryptionManager instanceof StandardEncryptionManager) {
-            TableMetadata.Builder builder = TableMetadata.buildFrom(metadata);
-            EncryptionUtil.encryptionKeys(encryptionManager).values().forEach(builder::addEncryptionKey);
-            metadata = builder.build();
-        }
-
         if (isMaterializedViewStorage(tableName)) {
             commitMaterializedView(base, metadata);
             return;
@@ -254,9 +250,74 @@ public abstract class AbstractIcebergTableOperations
         return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
     }
 
+    protected CreateTableException deleteOrphanedMetadata(String metadataLocation, Exception cause)
+    {
+        try {
+            io().deleteFile(metadataLocation);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Failed to clean up metadata file %s for table %s", metadataLocation, getSchemaTableName());
+        }
+        return new CreateTableException(cause, getSchemaTableName());
+    }
+
     protected SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(database, tableName);
+    }
+
+    protected void checkNewTableCommit(String newMetadataLocation, TableMetadata metadata, Exception failure)
+    {
+        switch (checkNewTableCommitStatus(newMetadataLocation, metadata.uuid())) {
+            case SUCCESS -> log.warn(failure, "Received an error while creating table %s, but the table was actually created; treating the commit as successful", getSchemaTableName());
+            // Keeps every new file, since the table may exist.
+            case UNKNOWN -> throw new CommitStateUnknownException(failure);
+            // CreateTableException lets Iceberg also delete the manifest list and manifests.
+            case FAILURE -> throw deleteOrphanedMetadata(newMetadataLocation, failure);
+        }
+    }
+
+    /**
+     * Checks whether a failed create was applied. It was when the catalog points at the metadata this operation
+     * wrote, or at metadata carrying the table UUID this operation assigned. A failed read gives
+     * {@link CommitStatus#UNKNOWN}, since deleting files the catalog still references cannot be undone.
+     */
+    private CommitStatus checkNewTableCommitStatus(String newMetadataLocation, String tableUuid)
+    {
+        requireNonNull(tableUuid, "tableUuid is null");
+        String committedLocation;
+        try {
+            committedLocation = fixBrokenMetadataLocation(getRefreshedLocation(true));
+        }
+        catch (TableNotFoundException | UnknownTableTypeException _) {
+            return CommitStatus.FAILURE;
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not determine commit status for new table %s; treating commit state as unknown", getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        if (newMetadataLocation.equals(committedLocation)) {
+            return CommitStatus.SUCCESS;
+        }
+        TableMetadata committedMetadata;
+        try {
+            committedMetadata = TableMetadataParser.read(io(), committedLocation);
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Could not read current metadata %s of new table %s to determine commit status; treating commit state as unknown", committedLocation, getSchemaTableName());
+            return CommitStatus.UNKNOWN;
+        }
+        if (tableUuid.equals(committedMetadata.uuid())) {
+            return CommitStatus.SUCCESS;
+        }
+        return CommitStatus.FAILURE;
+    }
+
+    private enum CommitStatus
+    {
+        SUCCESS,
+        FAILURE,
+        UNKNOWN,
     }
 
     protected String writeNewMetadata(TableMetadata metadata, int newVersion)
