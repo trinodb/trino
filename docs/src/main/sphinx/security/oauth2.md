@@ -134,6 +134,16 @@ The following configuration properties are available:
 * - `http-server.authentication.oauth2.additional-audiences`
   - Additional audiences to trust in addition to the client ID which is
     always a trusted audience.
+* - `http-server.authentication.oauth2.require-audience`
+  - Reject access tokens without an `aud` claim. Access tokens with an `aud`
+    claim must always contain the client ID or one of the additional
+    audiences. When enabled, the IdP must include `aud` in every access
+    token, including tokens issued during the
+    [authorization code flow](trino-oauth2-authorization-code), because Trino
+    does not request an audience from the IdP. Has no effect when access
+    tokens are validated with the userinfo endpoint; set
+    `http-server.authentication.oauth2.oidc.use-userinfo-endpoint=false` when
+    using OIDC discovery. Defaults to `false`.
 * - `http-server.authentication.oauth2.scopes`
   - Scopes requested by the server during the authorization challenge. See:
     https://tools.ietf.org/html/rfc6749#section-3.3

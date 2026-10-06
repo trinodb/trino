@@ -93,6 +93,8 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
     private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
+    private static final String NO_AUDIENCE_CLIENT_ID = "no-audience-client";
+    private static final String NO_AUDIENCE_CLIENT_SECRET = "no-audience-secret";
 
     protected OkHttpClient httpClient;
     protected TestingHydraIdentityProvider hydraIdP;
@@ -146,12 +148,25 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 ImmutableList.of(UNTRUSTED_CLIENT_AUDIENCE),
                 "https://untrusted.com/callback",
                 "https://untrusted.com/logout_callback");
+        hydraIdP.createClient(
+                NO_AUDIENCE_CLIENT_ID,
+                NO_AUDIENCE_CLIENT_SECRET,
+                CLIENT_SECRET_BASIC,
+                ImmutableList.of(),
+                serverUri + "/oauth2/callback",
+                serverUri + "/ui/logout/logout.html");
     }
 
     protected abstract Map<String, String> getOAuth2Config(String idpUrl);
 
     protected abstract TestingHydraIdentityProvider getHydraIdp()
             throws Exception;
+
+    // Whether http-server.authentication.oauth2.require-audience is enabled by getOAuth2Config.
+    protected boolean isAudienceRequired()
+    {
+        return false;
+    }
 
     @AfterAll
     public void tearDown()
@@ -240,6 +255,24 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .newCall(uiCall().build())
                 .execute()) {
             assertRedirectResponse(response);
+        }
+    }
+
+    @Test
+    public void testTokenWithoutAudience()
+            throws IOException
+    {
+        String token = hydraIdP.getToken(NO_AUDIENCE_CLIENT_ID, NO_AUDIENCE_CLIENT_SECRET, ImmutableList.of());
+        if (isAudienceRequired()) {
+            assertThat(parseJwsClaims(token).getPayload().getAudience()).isNullOrEmpty();
+            try (Response response = httpClientWithOAuth2Cookie(token, false)
+                    .newCall(uiCall().build())
+                    .execute()) {
+                assertRedirectResponse(response);
+            }
+        }
+        else {
+            assertUICallWithCookie(token);
         }
     }
 
