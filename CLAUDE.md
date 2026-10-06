@@ -8,10 +8,10 @@ see [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md).
 Fastest full build and install:
 
 ```bash
-./mvnw clean install -T 2C -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
+mvnd clean install -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-all=true
 ```
 
-It skips tests, Javadoc, and the airbase checks — run `./mvnw validate` before opening a PR.
+It skips tests, Javadoc, and the airbase checks — run `mvnd validate` before opening a PR.
 
 ## Java formatting
 
