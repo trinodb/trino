@@ -1,14 +1,7 @@
 # Trino — Claude guidance
 
-**Before writing Java code, you must first read [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md)
-in full** — it's the authoritative source for code-style rules (mocks, `var`, switch statements,
-method naming, `format()`, `TrinoException` error codes, AssertJ, Guava immutables, and more).
-This file intentionally does not duplicate those rules; skipping the read means missing them.
-Violations are also caught mechanically by modernizer
-([`.mvn/modernizer/violations.xml`](.mvn/modernizer/violations.xml)) and checkstyle (from Airbase).
-
-For other topics not covered here (Web UI build, release process, Vector API, IDE setup rationale),
-see the same `DEVELOPMENT.md`.
+For other topics not covered here (Web UI build, release process, IDE setup rationale),
+see [`.github/DEVELOPMENT.md`](.github/DEVELOPMENT.md).
 
 ## Building
 
@@ -26,9 +19,6 @@ Run `mvnd airstyle:format` after Java edits — the `airstyle-maven-plugin` (`io
 applies the canonical Airstyle scheme, which is what CI checks. Scope a single file with
 `mvnd -pl <module> airstyle:format -Dincludes=**/FileName.java`, and use `airstyle:check` to verify
 without rewriting.
-
-Topic-specific conventions live under [`.claude/rules/`](.claude/rules/) and auto-load when Claude
-reads matching files (e.g. `*Config.java` triggers the config-properties rule).
 
 ## Commits and pull requests
 
