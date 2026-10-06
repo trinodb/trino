@@ -5,6 +5,7 @@ In this document you can find information about developing Trino.
 * [Trino organization](#trino-organization)
 * [Trino developer guide](#trino-developer-guide)
 * [Code style](#code-style)
+* [Configuration and session properties](#configuration-and-session-properties)
 * [Building](#building)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
@@ -177,6 +178,45 @@ implementations match.
 vectorized implementation compared to the scalar equivalent logic. Ensure that
 the benefits hold for all CPU architectures on which the vectorized
 implementation is enabled.
+
+## Configuration and session properties
+
+### Naming
+
+- Config property names use **dashes**, e.g. `hive.max-partitions-per-scan`.
+- Session property names use **snake_case**, e.g. `max_partitions_per_scan`.
+
+### Adding a property
+
+- Every `@Config` setter gets an `@ConfigDescription("…")`.
+- Every session property registration includes a description.
+- Credentials and other secrets get `@ConfigSecuritySensitive` so values are redacted in logs
+  and info endpoints.
+
+### Renaming a config
+
+- Add `@LegacyConfig("old.name")` to the setter that has `@Config("new.name")`. The old name
+  keeps working as a backward-compatible alias.
+- If the value type or meaning changes, add a separate `@Deprecated` setter with
+  `@LegacyConfig(value = "old.name", replacedBy = "new.name")` that converts the old value.
+
+### Removing a config
+
+- Add the current name **and** any `@LegacyConfig` names to `@DefunctConfig` on the class so
+  startup fails loudly if the config is still set.
+- Remove the matching session property from `SystemSessionProperties.java` (or the connector's
+  session-properties class) if one exists.
+
+### Testing a new config
+
+- Add a matching `TestMyConfig` using Airlift's `ConfigAssertions` — see existing `Test*Config`
+  classes for the `testDefaults()` / `testExplicitPropertyMappings()` pattern.
+
+### Other conventions
+
+- Validation annotations (`@NotNull`, `@Min`, `@MinDuration`, etc.) go on getters, not fields.
+- Don't store the config object as a field — read values in the constructor and keep those
+  instead.
 
 ## Keep pom.xml clean and sorted
 
