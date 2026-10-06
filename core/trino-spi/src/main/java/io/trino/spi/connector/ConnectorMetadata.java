@@ -582,6 +582,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the comment of the specified materialized view.
+     */
+    default void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view comments");
+    }
+
+    /**
      * Comments to the specified materialized view column.
      */
     default void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
@@ -1842,7 +1850,8 @@ public interface ConnectorMetadata
 
     /**
      * @return true if reading a subset of columns from a given table separately from reading a complement of the subset has similar or better
-     *         performance as reading this table.
+     *         performance as reading this table. Must return false when two reads of the same handle can return different rows, for example
+     *         when a sample has been pushed down, because the engine reads the table once per subset.
      */
     default boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

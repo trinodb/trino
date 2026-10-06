@@ -15,6 +15,9 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingFunctionResolution;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -24,7 +27,15 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.Booleans.FALSE;
+import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -212,15 +223,22 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
 
-        // in case of outer join, filter does not affect the result
+        // If no row satisfies the filter, FULL join must preserve the unmatched scalar row.
         tester().assertThat(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(FULL,
                                 p.values(1),
                                 p.values(10, p.symbol("b", BIGINT)),
                                 comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 0L))))
-                .matches(
-                        values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new Constant(BIGINT, null)))));
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p ->
+                        p.join(FULL,
+                                p.values(10, p.symbol("a", BIGINT)),
+                                p.values(1),
+                                comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L))))
+                .doesNotFire();
 
         // Right source is scalar with no outputs. Left source cannot be determined to be at least scalar.
         // In such case, FULL join cannot be replaced with left source. The result would be incorrect
@@ -244,6 +262,65 @@ public class TestReplaceRedundantJoinWithSource
                                 p.filter(
                                         comparison(GREATER_THAN, new Reference(BIGINT, "a"), new Constant(BIGINT, 5L)),
                                         p.values(10, p.symbol("a", BIGINT)))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testReplaceFullJoinWithScalarSourcesAndTrueFilter()
+    {
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(1), TRUE))
+                .matches(values(1));
+    }
+
+    @Test
+    public void testReplaceFullJoinWithScalarSourcesAndFalseOrNullFilter()
+    {
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(1), FALSE))
+                .matches(values(2));
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(1), NULL_BOOLEAN))
+                .matches(values(2));
+    }
+
+    @Test
+    public void testDoesNotReplaceFullJoinWithNonConstantFilter()
+    {
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(
+                        FULL,
+                        p.values(1),
+                        p.values(1),
+                        comparison(
+                                GREATER_THAN,
+                                new Call(new TestingFunctionResolution().resolveFunction("random", fromTypes()), ImmutableList.of()),
+                                new Constant(DOUBLE, 0.5))))
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(1), new Cast(new Constant(VARCHAR, utf8Slice("invalid")), BOOLEAN)))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotReplaceFullJoinWithConstantFilterAndNonScalarOrNonEmptyOutputs()
+    {
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(2), FALSE))
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(2), p.values(1), FALSE))
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1, p.symbol("a")), p.values(1), FALSE))
+                .doesNotFire();
+
+        tester().assertThat(new ReplaceRedundantJoinWithSource())
+                .on(p -> p.join(FULL, p.values(1), p.values(1, p.symbol("b")), FALSE))
                 .doesNotFire();
     }
 

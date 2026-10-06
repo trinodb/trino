@@ -21,6 +21,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.Metadata;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
@@ -37,6 +38,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.MARK_DISTINCT;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
@@ -163,7 +165,7 @@ public class DistinctAggregationStrategyChooser
     private boolean shouldSplitAggregationToSubqueries(AggregationNode aggregationNode, Session session, StatsProvider statsProvider, Lookup lookup)
     {
         if (!isAggregationSourceSupportedForSubqueries(aggregationNode.getSource(), session, lookup)) {
-            // only table scan, union, filter and project are supported
+            // only table scan, union, deterministic filter and project are supported
             return false;
         }
 
@@ -229,15 +231,15 @@ public class DistinctAggregationStrategyChooser
         return filterOutputRowCount / filterSourceRowCount < 0.5;
     }
 
-    // Only table scan, union, filter and project are supported.
+    // Only table scan, union, deterministic filter and project are supported.
     // PlanCopier.copyPlan must support all supported nodes here.
     // Additionally, we should split the table scan only if reading single columns is efficient in the given connector.
     private boolean isAggregationSourceSupportedForSubqueries(PlanNode source, Session session, Lookup lookup)
     {
         if (searchFrom(source, lookup)
                 .where(node -> !(node instanceof TableScanNode
-                        || node instanceof FilterNode
-                        || node instanceof ProjectNode
+                        || node instanceof FilterNode filterNode && isDeterministic(filterNode.getPredicate())
+                        || node instanceof ProjectNode projectNode && projectNode.getAssignments().expressions().stream().allMatch(DeterminismEvaluator::isDeterministic)
                         || node instanceof UnionNode))
                 .findFirst()
                 .isPresent()) {

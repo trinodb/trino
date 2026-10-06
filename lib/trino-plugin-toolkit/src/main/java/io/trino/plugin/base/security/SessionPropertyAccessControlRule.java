@@ -32,9 +32,7 @@ public class SessionPropertyAccessControlRule
             Optional.empty());
 
     private final boolean allow;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
+    private final IdentityMatcher identityMatcher;
     private final Optional<Pattern> propertyRegex;
 
     @JsonCreator
@@ -46,9 +44,7 @@ public class SessionPropertyAccessControlRule
             @JsonProperty("property") Optional<Pattern> propertyRegex)
     {
         this.allow = allow;
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
         this.propertyRegex = requireNonNull(propertyRegex, "propertyRegex is null");
     }
 
@@ -57,26 +53,14 @@ public class SessionPropertyAccessControlRule
         return allow;
     }
 
-    Optional<Pattern> getUserRegex()
+    IdentityMatcher getIdentityMatcher()
     {
-        return userRegex;
-    }
-
-    public Optional<Pattern> getRoleRegex()
-    {
-        return roleRegex;
-    }
-
-    Optional<Pattern> getGroupRegex()
-    {
-        return groupRegex;
+        return identityMatcher;
     }
 
     public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String property)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
+        if (identityMatcher.matches(user, roles, groups) &&
                 propertyRegex.map(regex -> regex.matcher(property).matches()).orElse(true)) {
             return Optional.of(allow);
         }

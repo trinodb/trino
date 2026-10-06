@@ -28,6 +28,7 @@ pattern recognition mechanisms.
 ```text
 [ MEASURES measure_definition [, ...] ]
 frame_extent
+[ frame_exclusion ]
 [ AFTER MATCH skip_to ]
 [ INITIAL | SEEK ]
 [ PATTERN ( row_pattern ) ]
@@ -41,13 +42,15 @@ defined in terms of `ROWS`, `RANGE` or `GROUPS`.
 
 A window frame with row pattern recognition involves many other syntactical
 components, mandatory or optional, and enforces certain limitations on the
-`frame_extent`.
+`frame_extent`. The only allowed `frame_exclusion` is `EXCLUDE NO OTHERS`,
+which is the default and does not remove any rows.
 
 **Window frame with row pattern recognition:**
 
 ```text
 [ MEASURES measure_definition [, ...] ]
 ROWS BETWEEN CURRENT ROW AND frame_end
+[ EXCLUDE NO OTHERS ]
 [ AFTER MATCH skip_to ]
 [ INITIAL | SEEK ]
 PATTERN ( row_pattern )

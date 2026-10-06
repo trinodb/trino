@@ -78,6 +78,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -132,7 +133,7 @@ public class SqlTaskManager
     private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
-    private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
+    private final AtomicReference<SqlTaskIoTotals> finishedTaskTotals = new AtomicReference<>(SqlTaskIoTotals.EMPTY);
 
     private final long queryMaxMemoryPerNode;
 
@@ -241,7 +242,7 @@ public class SqlTaskManager
                             taskNotificationExecutor,
                             sqlTask -> {
                                 languageFunctionProvider.unregisterTask(taskId);
-                                finishedTaskStats.merge(sqlTask.getIoStats());
+                                finishedTaskTotals.accumulateAndGet(sqlTask.getIoTotals(), SqlTaskIoTotals::add);
                             },
                             maxBufferSize,
                             maxBroadcastBufferSize,
@@ -699,18 +700,18 @@ public class SqlTaskManager
     //
     private void updateStats()
     {
-        SqlTaskIoStats tempIoStats = new SqlTaskIoStats();
-        tempIoStats.merge(finishedTaskStats);
+        SqlTaskIoTotals finishedTotals = finishedTaskTotals.get();
 
-        // there is a race here between task completion, which merges stats into
-        // finishedTaskStats, and getting the stats from the task.  Since we have
-        // already merged the final stats, we could miss the stats from this task
+        // there is a race here between task completion, which adds totals to
+        // finishedTaskTotals, and getting the totals from the task.  Since we have
+        // already read the finished totals, we could miss the totals from this task
         // which would result in an under-count, but we will not get an over-count.
-        tasks.asMap().values().stream()
+        SqlTaskIoTotals totals = tasks.asMap().values().stream()
                 .filter(task -> !task.getTaskState().isDone())
-                .forEach(task -> tempIoStats.merge(task.getIoStats()));
+                .map(SqlTask::getIoTotals)
+                .reduce(finishedTotals, SqlTaskIoTotals::add);
 
-        cachedStats.resetTo(tempIoStats);
+        cachedStats.update(totals);
     }
 
     /**

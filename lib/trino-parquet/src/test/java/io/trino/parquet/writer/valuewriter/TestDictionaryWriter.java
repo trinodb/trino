@@ -48,6 +48,55 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDictionaryWriter
 {
     @Test
+    public void testDictionaryIndexSizeEstimate()
+    {
+        PlainIntegerDictionaryValuesWriter writer = new PlainIntegerDictionaryValuesWriter(10_000, getDictionaryEncoding(), getDictionaryEncoding());
+
+        for (int index = 0; index < 40_000; index++) {
+            writer.writeInteger(index % 16);
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+
+        writer.reset();
+        for (int index = 0; index < 300; index++) {
+            writer.writeInteger(index);
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+
+        writer.reset();
+        for (int index = 0; index < 80; index++) {
+            for (int repeat = 0; repeat < index; repeat++) {
+                writer.writeInteger(index);
+            }
+        }
+        assertThat(writer.getBufferedSize()).isEqualTo(writer.getBytes().size());
+    }
+
+    @Test
+    public void testEstimatedPageSizesIncludeDictionaryPage()
+    {
+        DictionaryFallbackValuesWriter writer = newPlainLongDictionaryValuesWriter(10_000, 10_000);
+        for (int index = 0; index < 1_000; index++) {
+            writer.writeLong(index % 50);
+        }
+
+        assertThat(writer.getEstimatedDataPageSize()).isEqualTo(writer.getInitialWriter().getBufferedSize());
+        assertThat(writer.getEstimatedDictionaryPageSize()).isEqualTo(50L * Long.BYTES);
+    }
+
+    @Test
+    public void testEstimatedDictionaryPageSizeExcludesFirstPageFallback()
+    {
+        DictionaryFallbackValuesWriter writer = newPlainLongDictionaryValuesWriter(10_000, 10_000);
+        for (int index = 0; index < 100; index++) {
+            writer.writeLong(index);
+        }
+
+        assertThat(writer.getEstimatedDataPageSize()).isEqualTo(100L * Long.BYTES);
+        assertThat(writer.getEstimatedDictionaryPageSize()).isZero();
+    }
+
+    @Test
     public void testBinaryDictionary()
             throws IOException
     {
@@ -205,6 +254,8 @@ public class TestDictionaryWriter
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, getDictionaryEncoding());
         writeDistinct(count, fallbackValuesWriter, "b");
         // not efficient so falls back
+        assertThat(fallbackValuesWriter.getEstimatedDataPageSize()).isEqualTo(fallbackValuesWriter.getFallBackWriter().getBufferedSize());
+        assertThat(fallbackValuesWriter.getEstimatedDictionaryPageSize()).isEqualTo(fallbackValuesWriter.getInitialWriter().getLastUsedDictionaryByteSize());
         BytesInput bytes2 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "a");
         // still plain because we fell back on previous page

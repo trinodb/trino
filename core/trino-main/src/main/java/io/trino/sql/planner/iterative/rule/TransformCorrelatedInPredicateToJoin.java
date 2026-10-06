@@ -161,8 +161,8 @@ public class TransformCorrelatedInPredicateToJoin
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator)
     {
-        Expression correlationCondition = and(decorrelated.getCorrelatedPredicates());
-        PlanNode decorrelatedBuildSource = decorrelated.getDecorrelatedNode();
+        Expression correlationCondition = and(decorrelated.correlatedPredicates());
+        PlanNode decorrelatedBuildSource = decorrelated.decorrelatedNode();
 
         AssignUniqueId probeSide = new AssignUniqueId(
                 idAllocator.getNextId(),
@@ -324,7 +324,7 @@ public class TransformCorrelatedInPredicateToJoin
                         .putAll(node.getAssignments());
 
                 // Pull up all symbols used by a filter (except correlation)
-                decorrelated.getCorrelatedPredicates().stream()
+                decorrelated.correlatedPredicates().stream()
                         .flatMap(IrUtils::preOrder)
                         .filter(Reference.class::isInstance)
                         .map(Reference.class::cast)
@@ -332,10 +332,10 @@ public class TransformCorrelatedInPredicateToJoin
                         .forEach(symbolReference -> assignments.putIdentity(Symbol.from(symbolReference)));
 
                 return new Decorrelated(
-                        decorrelated.getCorrelatedPredicates(),
+                        decorrelated.correlatedPredicates(),
                         new ProjectNode(
                                 node.getId(),
-                                decorrelated.getDecorrelatedNode(),
+                                decorrelated.decorrelatedNode(),
                                 assignments.build()));
             });
         }
@@ -347,11 +347,11 @@ public class TransformCorrelatedInPredicateToJoin
             return result.map(decorrelated ->
                     new Decorrelated(
                             ImmutableList.<Expression>builder()
-                                    .addAll(decorrelated.getCorrelatedPredicates())
+                                    .addAll(decorrelated.correlatedPredicates())
                                     // No need to retain uncorrelated conditions, predicate push down will push them back
                                     .add(node.getPredicate())
                                     .build(),
-                            decorrelated.getDecorrelatedNode()));
+                            decorrelated.decorrelatedNode()));
         }
 
         @Override
@@ -379,25 +379,12 @@ public class TransformCorrelatedInPredicateToJoin
         }
     }
 
-    private static class Decorrelated
+    private record Decorrelated(List<Expression> correlatedPredicates, PlanNode decorrelatedNode)
     {
-        private final List<Expression> correlatedPredicates;
-        private final PlanNode decorrelatedNode;
-
-        public Decorrelated(List<Expression> correlatedPredicates, PlanNode decorrelatedNode)
+        private Decorrelated
         {
-            this.correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
-            this.decorrelatedNode = requireNonNull(decorrelatedNode, "decorrelatedNode is null");
-        }
-
-        public List<Expression> getCorrelatedPredicates()
-        {
-            return correlatedPredicates;
-        }
-
-        public PlanNode getDecorrelatedNode()
-        {
-            return decorrelatedNode;
+            correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
+            requireNonNull(decorrelatedNode, "decorrelatedNode is null");
         }
     }
 }

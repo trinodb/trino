@@ -22,7 +22,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.trace.Span;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangeSourceHandle.SourceFile;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
 import io.trino.spi.exchange.ExchangeId;
@@ -40,12 +42,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -53,6 +57,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeErrorCode.MAX_OUTPUT_PARTITION_COUNT_EXCEEDED;
+import static io.trino.spi.StandardErrorCode.EXCHANGE_DATA_UNRECOVERABLE;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -84,6 +89,9 @@ public abstract class AbstractTestExchangeManager
     }
 
     protected abstract ExchangeManager createExchangeManager();
+
+    protected abstract void deleteFile(URI file)
+            throws Exception;
 
     private record TestExchangeContext(ExchangeId exchangeId)
             implements ExchangeContext
@@ -289,6 +297,44 @@ public abstract class AbstractTestExchangeManager
 
         assertThat(readData(partitions.get(2), outputSelector))
                 .containsExactlyInAnyOrder(smallPage, mediumPage, largePage, maxPage);
+
+        exchange.close();
+    }
+
+    @Test
+    public void testMissingFileIsUnrecoverable()
+            throws Exception
+    {
+        ExchangeId exchangeId = createRandomExchangeId();
+        Exchange exchange = exchangeManager.createExchange(new TestExchangeContext(exchangeId), 1, false);
+        ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
+        ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
+        exchange.noMoreSinks();
+
+        writeData(exchange.instantiateSink(sinkHandle0, 0).get(), ImmutableListMultimap.of(0, "0-0-0"), true);
+        exchange.sinkFinished(sinkHandle0, 0);
+        writeData(exchange.instantiateSink(sinkHandle1, 0).get(), ImmutableListMultimap.of(0, "1-0-0"), true);
+        exchange.sinkFinished(sinkHandle1, 0);
+        exchange.allRequiredSinksFinished();
+
+        List<ExchangeSourceHandle> handles = exchange.getSourceHandles().getNextBatch().get().handles();
+        List<SourceFile> files = handles.stream()
+                .flatMap(handle -> ((FileSystemExchangeSourceHandle) handle).getFiles().stream())
+                .collect(toImmutableList());
+        assertThat(files).hasSize(2);
+        // Small files are read in a single buffer fill, losing the last one is the case where no current file is left
+        deleteFile(URI.create(files.getLast().getFilePath()));
+
+        ExchangeSourceOutputSelector outputSelector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchangeId))
+                .include(exchangeId, 0, 0)
+                .include(exchangeId, 1, 0)
+                .setPartitionCount(exchangeId, 2)
+                .setFinal()
+                .build();
+        assertThatThrownBy(() -> readData(handles, outputSelector))
+                .isInstanceOfSatisfying(TrinoException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(EXCHANGE_DATA_UNRECOVERABLE.toErrorCode()))
+                .hasMessage("Exchange source data is gone");
 
         exchange.close();
     }

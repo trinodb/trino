@@ -21,6 +21,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,8 +44,8 @@ class TestJsonStringArrayExtractScalar
     void testEmptyString()
     {
         assertTrinoExceptionThrownBy(() -> extract("", "$").evaluate())
-                .hasErrorCode(INVALID_CAST_ARGUMENT)
-                .hasMessageContaining("Cannot cast to array");
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Cannot convert value to JSON: ''");
     }
 
     @Test
@@ -68,6 +69,13 @@ class TestJsonStringArrayExtractScalar
     {
         assertThat(extract("[]", "$.name"))
                 .isEqualTo(ImmutableList.of());
+    }
+
+    @Test
+    void testDuplicateMembers()
+    {
+        assertThat(extract("[{\"a\":1,\"a\":2},{\"a\":3,\"a\":4}]", "$.a"))
+                .isEqualTo(ImmutableList.of("1", "3"));
     }
 
     @Test

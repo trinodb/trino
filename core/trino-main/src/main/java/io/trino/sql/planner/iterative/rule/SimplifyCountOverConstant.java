@@ -114,8 +114,8 @@ public class SimplifyCountOverConstant
         }
 
         Expression argument = aggregation.getArguments().get(0);
-        if (argument instanceof Reference) {
-            argument = inputs.get(Symbol.from(argument));
+        if (argument instanceof Reference reference) {
+            argument = inputs.get(Symbol.from(reference));
         }
 
         return argument instanceof Constant constant && constant.value() != null;

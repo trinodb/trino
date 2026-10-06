@@ -53,7 +53,11 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
+import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
+import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.TRUE;
@@ -132,6 +136,9 @@ public class SyncPartitionMetadataProcedure
 
             Table table = metastore.getTable(schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+            if (isDeltaLakeTable(table) || isIcebergTable(table) || isHudiTable(table)) {
+                throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Hive table '%s'".formatted(schemaTableName));
+            }
             if (table.getPartitionColumns().isEmpty()) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
             }

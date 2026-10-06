@@ -106,6 +106,37 @@ public class TestOrcWriter
         assertFooterHasProlepticGregorianCalendar(TIMESTAMP_MILLIS, timestamps);
     }
 
+    @Test
+    public void testAbort()
+            throws IOException
+    {
+        try (TempFile tempFile = new TempFile()) {
+            List<String> columnNames = ImmutableList.of("test");
+            List<Type> types = ImmutableList.of(VARCHAR);
+            OrcWriterStats stats = new OrcWriterStats();
+            OrcWriter writer = new OrcWriter(
+                    OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
+                    columnNames,
+                    types,
+                    OrcType.createRootOrcType(columnNames, types),
+                    NONE,
+                    new OrcWriterOptions(),
+                    ImmutableMap.of(),
+                    false,
+                    OrcWriteValidationMode.BOTH,
+                    stats);
+            VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+            blockBuilder.writeEntry(Slices.utf8Slice("value"));
+            writer.write(new Page(blockBuilder.build()));
+            assertThat(stats.getWriterSizeInBytes()).isPositive();
+
+            writer.abort();
+
+            assertThat(tempFile.getFile()).doesNotExist();
+            assertThat(stats.getWriterSizeInBytes()).isZero();
+        }
+    }
+
     private static void assertFooterHasProlepticGregorianCalendar(Type type, List<?> values)
     {
         try (TempFile tempFile = new TempFile()) {

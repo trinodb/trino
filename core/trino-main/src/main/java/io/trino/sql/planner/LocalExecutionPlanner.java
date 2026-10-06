@@ -231,6 +231,7 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameExclusion;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -1155,7 +1156,8 @@ public class LocalExecutionPlanner
                         frameEndChannel,
                         sortKeyChannelForEndComparison,
                         sortKeyChannel,
-                        ordering);
+                        ordering,
+                        frame.getExclusion());
 
                 WindowNode.Function function = entry.getValue();
                 ResolvedFunction resolvedFunction = function.getResolvedFunction();
@@ -1420,7 +1422,9 @@ public class LocalExecutionPlanner
                                 baseFrame.getEndValue().map(source.getLayout()::get),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty());
+                                Optional.empty(),
+                                // pattern recognition does not allow frame exclusion
+                                FrameExclusion.NO_OTHERS);
                     });
 
             ConnectorSession connectorSession = session.toConnectorSession();
@@ -2200,7 +2204,7 @@ public class LocalExecutionPlanner
         private Optional<Expression> getStaticFilter(Expression filterExpression)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
+            Expression staticFilter = combineConjuncts(extractDynamicFilterResult.staticConjuncts());
             if (staticFilter.equals(TRUE)) {
                 return Optional.empty();
             }
@@ -2213,7 +2217,7 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext context)
         {
             DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.getDynamicConjuncts();
+            List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilterResult.dynamicConjuncts();
             if (dynamicFilters.isEmpty()) {
                 return DynamicFilter.EMPTY;
             }
@@ -4261,7 +4265,7 @@ public class LocalExecutionPlanner
     {
         return extractExpressions(node)
                 .stream()
-                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .flatMap(expression -> extractDynamicFilters(expression).dynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
     }

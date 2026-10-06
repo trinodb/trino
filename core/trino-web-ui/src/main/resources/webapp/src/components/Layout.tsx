@@ -382,7 +382,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                                         selected={routerItem.itemKey === selectedDrawerItemKey}
                                     >
                                         <ListItemIcon>{routerItem.icon}</ListItemIcon>
-                                        <ListItemText primary={routerItem.text} />
+                                        {drawerOpen && <ListItemText primary={routerItem.text} />}
                                     </ListItemButton>
                                 </ListItem>
                             )

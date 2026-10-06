@@ -27,6 +27,7 @@ class WindowFrameMatcher
         return expected.getType().equals(actual.getType())
                 && expected.getStartType().equals(actual.getStartType())
                 && expected.getEndType().equals(actual.getEndType())
+                && expected.getExclusion().equals(actual.getExclusion())
                 && matches(expected.getStartValue(), actual.getStartValue(), aliases)
                 && matches(expected.getSortKeyCoercedForFrameEndComparison(), actual.getSortKeyCoercedForFrameEndComparison(), aliases)
                 && matches(expected.getEndValue(), actual.getEndValue(), aliases)

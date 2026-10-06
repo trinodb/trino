@@ -96,6 +96,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -366,17 +367,20 @@ public class TrinoJdbcCatalog
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = loadTable(session, schemaTableName);
+        TableMetadata metadata = table.operations().current();
 
         jdbcCatalog.dropTable(toIdentifier(schemaTableName), false);
         try {
-            dropTableData(table.io(), table.operations().current());
+            dropTableData(table.io(), metadata);
         }
         catch (RuntimeException e) {
             // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
             // So log the exception and continue with deleting the table location
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        if (isGcEnabled(metadata)) {
+            deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        }
         invalidateTableCache(schemaTableName);
     }
 
@@ -681,6 +685,12 @@ public class TrinoJdbcCatalog
             boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewComment is not supported for Iceberg JDBC catalogs");
     }
 
     @Override

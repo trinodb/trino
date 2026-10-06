@@ -29,7 +29,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Tests Hive-to-Hudi table redirections using S3 (MinIO) storage with
+ * Tests Hive-to-Hudi table redirections using S3 (Floci) storage with
  * both Copy-on-Write (COW) and Merge-on-Read (MOR) table types.
  */
 @ProductTest

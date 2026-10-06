@@ -40,20 +40,18 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
-import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 
 /// Remove duplicated and redundant equality clauses in Match. E.g.,
 ///
 /// - `Match(x, [When(=a, r1), When(=b, r2), When(=a, r3)], d) -> Match(x, [When(=a, r1), When(=b, r2)], d)`
-/// - `Match(x, [When(=a, r1), When(=x, r2), When(=b, r3)], d) -> Match(x, [When(=a, r1)], r2)`
-/// - `Match(x, [When(=x, r)], d) -> r`
+/// - `Match(x, [When(=a, r1), When(=x, r2), When(=b, r3)], d) -> Match(x, [When(=a, r1), When(=x, r2)], d)`
+/// - `Match(1, [When(=1, r)], d) -> r`
 ///
-/// Only equality-shaped clauses (lambdas of the form `(p) -> p = expr`) participate; clauses
-/// with other predicate bodies are preserved as-is and act as a barrier — anything after the first
-/// non-equality clause stays in place because we can't reason about which value the operand might
-/// equal once a general predicate has gated dispatch.
+/// Only equality-shaped clauses (lambdas of the form `(p) -> p = expr`) are removed; clauses with
+/// other predicate bodies are opaque and preserved as-is, but they don't stop the clauses after them
+/// from being analyzed.
 public class RemoveRedundantMatchClauses
         implements IrOptimizerRule
 {
@@ -83,39 +81,44 @@ public class RemoveRedundantMatchClauses
         ResolvedFunction equals = metadata.resolveOperator(getCharVarcharCoercion(session), OperatorType.EQUAL, ImmutableList.of(operand.type(), operand.type()));
 
         Set<Expression> seen = new HashSet<>();
+        boolean selfComparisonSeen = false;
         boolean changed = false;
-        boolean broken = false;
 
         for (MatchClause clause : clauses) {
-            if (broken) {
-                // A non-equality predicate already gated dispatch; later clauses can't be reasoned about.
-                newClauses.add(clause);
-                continue;
-            }
             Optional<Expression> equalityValue = extractEqualityValue(clause);
             if (equalityValue.isEmpty()) {
-                // Non-equality predicate is opaque — keep it, and stop rewriting later clauses.
+                // Non-equality predicate is opaque, so it can match regardless of what the equality
+                // clauses around it compare the operand against. Keep it.
                 newClauses.add(clause);
-                broken = true;
                 continue;
             }
 
             Expression candidate = equalityValue.get();
 
-            if (seen.contains(candidate)) {
+            if (selfComparisonSeen) {
+                // `operand = value` can only be TRUE when `operand = operand` is TRUE, and that
+                // comparison was already made and didn't match, so this clause never matches either.
+                // Note: the eliminated predicate can be fallible.
                 changed = true;
             }
-            else if (operand.equals(candidate)) {
+            else if (seen.contains(candidate)) {
+                // deterministic and already seen, so previous match clause always wins
                 changed = true;
-                newDefault = clause.result();
-                break;
             }
             else if (operand instanceof Constant constantOperand && candidate instanceof Constant constantCandidate) {
                 changed = true;
-                if (TRUE.equals(functionInvoker.invoke(equals, session.toConnectorSession(), constantOperand.value(), constantCandidate.value()))) {
+                Boolean equal = (Boolean) functionInvoker.invoke(equals, session.toConnectorSession(), constantOperand.value(), constantCandidate.value());
+                if (Boolean.TRUE.equals(equal)) {
                     newDefault = clause.result();
                     break;
                 }
+            }
+            else if (operand.equals(candidate)) {
+                // `operand = operand` is not necessarily TRUE: it's NULL when the operand is null or
+                // a composite value containing a null, and FALSE for NaN. So the clause has to stay,
+                // but no equality clause after it can match.
+                newClauses.add(clause);
+                selfComparisonSeen = true;
             }
             else {
                 newClauses.add(clause);

@@ -75,8 +75,6 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeDescriptor.arrayType;
-import static io.trino.spi.type.TypeDescriptor.functionType;
 import static io.trino.spi.type.TypeTemplates.fromTypeDescriptor;
 import static io.trino.spi.type.TypeTemplates.typeVariable;
 import static io.trino.spi.type.TypeUtils.readNativeValue;

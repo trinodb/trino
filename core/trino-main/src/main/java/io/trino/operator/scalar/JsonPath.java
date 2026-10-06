@@ -13,8 +13,13 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.json.Json;
 
+import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPath
@@ -23,6 +28,7 @@ public class JsonPath
     private final JsonExtract.JsonExtractor<Slice> scalarExtractor;
     private final JsonExtract.JsonExtractor<Slice> objectExtractor;
     private final JsonExtract.JsonExtractor<Long> sizeExtractor;
+    private final List<PathElement> elements;
 
     public JsonPath(String pattern)
     {
@@ -30,7 +36,39 @@ public class JsonPath
         scalarExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.ScalarValueJsonExtractor());
         objectExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.JsonValueJsonExtractor());
         sizeExtractor = JsonExtract.generateExtractor(pattern, new JsonExtract.JsonSizeExtractor());
+        ImmutableList.Builder<PathElement> elements = ImmutableList.builder();
+        new JsonPathTokenizer(pattern).forEachRemaining(token -> {
+            int index = -1;
+            try {
+                index = Integer.parseInt(token);
+            }
+            catch (NumberFormatException _) {
+            }
+            elements.add(new PathElement(utf8Slice(token), index));
+        });
+        this.elements = elements.build();
     }
+
+    Json extract(Json value)
+    {
+        for (PathElement element : elements) {
+            if (value.isObject()) {
+                value = value.objectMember(element.key()).orElse(null);
+            }
+            else if (value.isArray() && element.index() >= 0 && element.index() < value.arraySize()) {
+                value = value.arrayElement(element.index());
+            }
+            else {
+                return null;
+            }
+            if (value == null) {
+                return null;
+            }
+        }
+        return value;
+    }
+
+    private record PathElement(Slice key, int index) {}
 
     public String pattern()
     {

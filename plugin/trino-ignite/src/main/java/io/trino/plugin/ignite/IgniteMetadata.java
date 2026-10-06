@@ -234,7 +234,7 @@ public class IgniteMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        return igniteClient.beginCreateTable(session, tableMetadata, rollbackActions::add);
+        return igniteClient.beginCreateTable(session, tableMetadata, this::addRollbackAction);
     }
 
     @Override

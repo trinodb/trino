@@ -106,6 +106,11 @@ public class TestStatementBuilder
                 ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
                 "from emp");
 
+        printStatement("select sum(x) over (order by y rows between unbounded preceding and unbounded following exclude current row) from t");
+        printStatement("select sum(x) over (order by y range between unbounded preceding and current row exclude group) from t");
+        printStatement("select sum(x) over (order by y groups between 1 preceding and 1 following exclude ties) from t");
+        printStatement("select sum(x) over (order by y rows unbounded preceding exclude no others) from t");
+
         printStatement("" +
                 "with a (id) as (with x as (select 123 from z) select * from x) " +
                 "   , b (id) as (select 999 from z) " +

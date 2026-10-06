@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;

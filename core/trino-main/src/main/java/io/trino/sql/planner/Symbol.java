@@ -26,10 +26,15 @@ public record Symbol(Type type, String name)
 {
     public static Symbol from(Expression expression)
     {
-        if (!(expression instanceof Reference symbol)) {
+        if (!(expression instanceof Reference reference)) {
             throw new IllegalArgumentException("Unexpected expression: " + expression);
         }
-        return new Symbol(symbol.type(), symbol.name());
+        return from(reference);
+    }
+
+    public static Symbol from(Reference reference)
+    {
+        return new Symbol(reference.type(), reference.name());
     }
 
     public Symbol

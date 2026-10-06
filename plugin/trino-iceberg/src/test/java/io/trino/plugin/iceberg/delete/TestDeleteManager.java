@@ -15,12 +15,16 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
@@ -127,7 +131,8 @@ final class TestDeleteManager
 
     private static DeleteManager newDeleteManager()
     {
-        return new DeleteManager(TESTING_TYPE_MANAGER, Optional.empty(), () -> {});
+        BlocksHashFactory blocksHashFactory = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
+        return new DeleteManager(TESTING_TYPE_MANAGER, blocksHashFactory, () -> {});
     }
 
     private static ConnectorPageSource positionDeletePageSource(long... deletedPositions)

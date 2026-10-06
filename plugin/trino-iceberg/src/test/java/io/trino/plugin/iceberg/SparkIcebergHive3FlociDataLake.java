@@ -36,7 +36,7 @@ public final class SparkIcebergHive3FlociDataLake
         SparkIceberg.Builder sparkIcebergBuilder = SparkIceberg.builder()
                 .withNetwork(hiveFloci.getNetwork())
                 .withFilesToMount(ImmutableMap.of(
-                        "/spark/conf/spark-defaults.conf", getPathFromClassPathResource("spark/spark-defaults.conf"),
+                        "/spark/conf/spark-defaults.conf", getPathFromClassPathResource("spark/hive/spark-defaults.conf"),
                         "/spark/conf/log4j2.properties", getPathFromClassPathResource("spark/log4j2.properties")));
         spark = closer.register(sparkIcebergBuilder.build());
         spark.start();

@@ -23,12 +23,18 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.ScalarOperator;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.airlift.slice.SliceUtf8.fromCodePoints;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.type.Chars.compareChars;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.Chars.trimTrailingSpaces;
+import static io.trino.spi.type.CodePoints.nextCodePoint;
+import static io.trino.spi.type.CodePoints.previousCodePoint;
+import static io.trino.spi.type.CodePoints.tryCodePoints;
 import static io.trino.spi.type.Slices.sliceRepresentation;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
@@ -48,6 +54,13 @@ public final class CharType
             .build();
 
     public static final int MAX_LENGTH = 65_536;
+
+    // The range bounds, as well as the values adjacent to a given value, may be materialized in the plan, so we
+    // don't want them to be too large. Range comparison against large values is usually nonsensical, too, so there
+    // is no need to support them beyond a certain size. The specific choice here is arbitrary and can be adjusted
+    // if needed.
+    private static final int MAX_MATERIALIZED_VALUE_LENGTH = 100;
+
     private static final CharType[] CACHED_INSTANCES = new CharType[128];
 
     static {
@@ -117,10 +130,7 @@ public final class CharType
         @SuppressWarnings("OptionalAssignedToNull")
         boolean cachedRangePresent = range != null;
         if (!cachedRangePresent) {
-            if (length > 100) {
-                // The max/min values may be materialized in the plan, so we don't want them to be too large.
-                // Range comparison against large values is usually nonsensical, too, so no need to support them
-                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+            if (length > MAX_MATERIALIZED_VALUE_LENGTH) {
                 range = Optional.empty();
             }
             else {
@@ -143,6 +153,54 @@ public final class CharType
             this.range = range;
         }
         return range;
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        if (length > MAX_MATERIALIZED_VALUE_LENGTH) {
+            return Optional.empty();
+        }
+        // values are compared space-padded, so they are ordered as sequences of exactly length code points
+        Optional<int[]> decoded = tryCodePoints(padSpaces((Slice) value, length));
+        if (decoded.isEmpty()) {
+            return Optional.empty();
+        }
+        int[] codePoints = decoded.get();
+        for (int position = codePoints.length - 1; position >= 0; position--) {
+            if (codePoints[position] != MIN_CODE_POINT) {
+                // the code points after this one are all lowest, so decrementing this one and maximizing the rest
+                // gives the greatest lesser value
+                codePoints[position] = previousCodePoint(codePoints[position]);
+                Arrays.fill(codePoints, position + 1, codePoints.length, MAX_CODE_POINT);
+                return Optional.of(trimTrailingSpaces(fromCodePoints(codePoints)));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        if (length > MAX_MATERIALIZED_VALUE_LENGTH) {
+            return Optional.empty();
+        }
+        // values are compared space-padded, so they are ordered as sequences of exactly length code points
+        Optional<int[]> decoded = tryCodePoints(padSpaces((Slice) value, length));
+        if (decoded.isEmpty()) {
+            return Optional.empty();
+        }
+        int[] codePoints = decoded.get();
+        for (int position = codePoints.length - 1; position >= 0; position--) {
+            if (codePoints[position] != MAX_CODE_POINT) {
+                // the code points after this one are all highest, so incrementing this one and minimizing the rest
+                // gives the least greater value
+                codePoints[position] = nextCodePoint(codePoints[position]);
+                Arrays.fill(codePoints, position + 1, codePoints.length, MIN_CODE_POINT);
+                return Optional.of(trimTrailingSpaces(fromCodePoints(codePoints)));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

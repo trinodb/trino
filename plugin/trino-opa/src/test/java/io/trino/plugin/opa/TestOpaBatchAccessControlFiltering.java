@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opa;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -88,6 +89,22 @@ final class TestOpaBatchAccessControlFiltering
                 identityTwo,
                 identityThree,
                 ImmutableSet.of(expectedRequest));
+    }
+
+    @Test
+    void testFilterViewQueryOwnedByForwardsOwnerExtraCredentials()
+    {
+        Identity queryOwner = Identity.forUser("query-owner")
+                .withAdditionalExtraCredentials(ImmutableMap.of("ai-service", "owner-ai-app", "otherKey", "other-value"))
+                .build();
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_BATCH_URI, _ -> new MockResponse("{\"result\": [0]}", 200));
+        OpaAccessControl authorizer = createOpaAuthorizer(batchFilteringOpaConfig().setExtraCredentialsKeys(ImmutableSet.of("ai-service")), mockClient);
+        authorizer.filterViewQueryOwnedBy(TEST_IDENTITY, ImmutableList.of(queryOwner));
+
+        JsonNode ownerNode = mockClient.getRequests().get(0).at("/input/action/filterResources/0/user");
+        assertThat(ownerNode.path("extraCredentials").path("ai-service").asText()).isEqualTo("owner-ai-app");
+        assertThat(ownerNode.path("extraCredentials").has("otherKey")).isFalse();
     }
 
     @Test

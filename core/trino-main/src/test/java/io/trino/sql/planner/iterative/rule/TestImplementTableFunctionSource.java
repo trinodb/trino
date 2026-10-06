@@ -56,6 +56,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFunction;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -71,7 +72,8 @@ public class TestImplementTableFunctionSource
             Optional.empty(),
             UNBOUNDED_FOLLOWING,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            NO_OTHERS);
 
     @Test
     public void testNoSources()

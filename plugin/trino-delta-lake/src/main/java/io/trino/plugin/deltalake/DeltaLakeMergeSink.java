@@ -31,6 +31,7 @@ import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -88,6 +89,7 @@ import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVecto
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVectors;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.createDataFilePath;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -119,6 +121,7 @@ public class DeltaLakeMergeSink
     private final DeltaLakeWriterStats writerStats;
     private final Location rootTableLocation;
     private final ConnectorPageSink insertPageSink;
+    private final List<String> originalPartitionColumns;
     private final List<DeltaLakeColumnHandle> dataColumns;
     private final List<DeltaLakeColumnHandle> nonSynthesizedColumns;
     private final int tableColumnCount;
@@ -134,6 +137,7 @@ public class DeltaLakeMergeSink
     private final boolean deletionVectorEnabled;
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
+    private final boolean objectStoreLayoutEnabled;
     private final Optional<String> shallowCloneSourceTableLocation;
     private final boolean useDeltaLengthByteArrayEncoding;
     private final MemoryContext memoryContext;
@@ -155,6 +159,7 @@ public class DeltaLakeMergeSink
             Optional<DeltaLakeTableCredentials> tableCredentials,
             ConnectorPageSink insertPageSink,
             List<DeltaLakeColumnHandle> tableColumns,
+            List<String> originalPartitionColumns,
             int domainCompactionThreshold,
             Supplier<DeltaLakeCdfPageSink> cdfPageSinkSupplier,
             boolean cdfEnabled,
@@ -164,6 +169,7 @@ public class DeltaLakeMergeSink
             boolean deletionVectorEnabled,
             Map<String, DeletionVectorEntry> deletionVectors,
             int randomPrefixLength,
+            boolean objectStoreLayoutEnabled,
             Optional<String> shallowCloneSourceTableLocation,
             boolean useDeltaLengthByteArrayEncoding,
             MemoryContext memoryContext)
@@ -178,6 +184,7 @@ public class DeltaLakeMergeSink
         this.writerStats = requireNonNull(writerStats, "writerStats is null");
         this.rootTableLocation = requireNonNull(rootTableLocation, "rootTableLocation is null");
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
+        this.originalPartitionColumns = ImmutableList.copyOf(requireNonNull(originalPartitionColumns, "originalPartitionColumns is null"));
         requireNonNull(tableColumns, "tableColumns is null");
         this.tableColumnCount = tableColumns.size();
         this.dataColumns = tableColumns.stream()
@@ -195,6 +202,7 @@ public class DeltaLakeMergeSink
         this.deletionVectorEnabled = deletionVectorEnabled;
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         this.randomPrefixLength = randomPrefixLength;
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
         this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
         this.useDeltaLengthByteArrayEncoding = useDeltaLengthByteArrayEncoding;
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
@@ -351,13 +359,7 @@ public class DeltaLakeMergeSink
     {
         List<Slice> fragments = new ArrayList<>();
 
-        insertPageSink.finish().join().stream()
-                .map(Slice::getInput)
-                .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                .map(mergeResultJsonCodec::toJsonBytes)
-                .map(Slices::wrappedBuffer)
-                .forEach(fragments::add);
+        fragments.addAll(newFileFragments(insertPageSink.finish().join()));
         writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((path, deletion) -> {
@@ -370,24 +372,31 @@ public class DeltaLakeMergeSink
         });
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
-            MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getInput)
-                    .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
-                    .map(mergeResultJsonCodec::toJsonBytes)
-                    .map(Slices::wrappedBuffer)
-                    .forEach(fragments::add);
+            fragments.addAll(newFileFragments(MoreFutures.getDone(cdfPageSink.finish())));
             writtenBytes += cdfPageSink.getCompletedBytes();
         }
 
         return completedFuture(fragments);
     }
 
+    private List<Slice> newFileFragments(Collection<Slice> dataFileInfos)
+    {
+        return dataFileInfos.stream()
+                .map(Slice::getInput)
+                .map(dataFileInfoCodec::fromJson)
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
+                .map(mergeResultJsonCodec::toJsonBytes)
+                .map(Slices::wrappedBuffer)
+                .collect(toImmutableList());
+    }
+
     private Slice writeMergeResult(Slice path, FileDeletion deletion)
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
         RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
-        RoaringBitmapArray deletedRows = loadDeletionVector(Location.of(path.toStringUtf8()));
+        RoaringBitmapArray rowsPreviouslyDeleted = loadDeletionVector(Location.of(path.toStringUtf8()));
+        RoaringBitmapArray deletedRows = new RoaringBitmapArray();
+        deletedRows.or(rowsPreviouslyDeleted);
         deletedRows.or(rowsDeletedByDelete);
         deletedRows.or(rowsDeletedByUpdate);
 
@@ -395,6 +404,7 @@ public class DeltaLakeMergeSink
             try (ConnectorPageSource connectorPageSource = createParquetPageSource(Location.of(path.toStringUtf8()))) {
                 readConnectorPageSource(
                         connectorPageSource,
+                        rowsPreviouslyDeleted,
                         rowsDeletedByDelete,
                         rowsDeletedByUpdate,
                         deletion,
@@ -445,13 +455,14 @@ public class DeltaLakeMergeSink
         writtenBytes += deletionVectorEntry.sizeInBytes();
 
         try {
+            DeltaLakeJsonFileStatistics statistics = readStatistics(parquetMetadata, dataColumns, rowCount);
             DataFileInfo newFileInfo = new DataFileInfo(
                     sourceReferencePath,
                     length,
                     lastModified.toEpochMilli(),
                     DATA,
                     deletion.partitionValues,
-                    readStatistics(parquetMetadata, dataColumns, rowCount),
+                    new DeltaLakeJsonFileStatistics(statistics.getNumRecords(), statistics.getMinValues(), statistics.getMaxValues(), statistics.getNullCount(), Optional.of(false)),
                     Optional.of(deletionVectorEntry));
             DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
@@ -485,17 +496,26 @@ public class DeltaLakeMergeSink
             Location sourceLocation = Location.of(sourcePath);
             String sourceReferencePath = getReferencedPath(tablePath, sourcePath);
 
+            String fileName = session.getQueryId() + "_" + randomUUID();
             // get the relative path for the cloned table if `sourcePath` is a source table file location
             Optional<String> sourceRelativePath = shallowCloneSourceTableLocation
                     .filter(sourcePath::startsWith)
                     .map(location -> relativePath(location, sourcePath));
-            // build the target location by appending the source relative path after current table location if
-            // it's a cloned table and the sourcePath is a source table file location
-            Location targetLocation = sourceRelativePath.map(rootTableLocation::appendPath)
-                    .orElse(sourceLocation)
-                    .sibling(session.getQueryId() + "_" + randomUUID());
+            String targetRelativePath;
+            Location targetLocation;
             // write under current table location, no matter the table is cloned or not
-            String targetRelativePath = relativePath(tablePath, targetLocation.toString());
+            if (!objectStoreLayoutEnabled && sourceRelativePath.isPresent()) {
+                targetLocation = rootTableLocation.appendPath(sourceRelativePath.orElseThrow()).sibling(fileName);
+                targetRelativePath = relativePath(tablePath, targetLocation.toString());
+            }
+            else {
+                targetRelativePath = createDataFilePath(
+                        fileName,
+                        objectStoreLayoutEnabled,
+                        originalPartitionColumns,
+                        deletion.partitionValues());
+                targetLocation = rootTableLocation.appendPath(targetRelativePath);
+            }
             ParquetFileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
@@ -507,10 +527,13 @@ public class DeltaLakeMergeSink
                     dataColumns,
                     DATA);
 
-            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
+            // The deletionVectors key is the path in AddFileEntry, which is the URI-formatted sourceReferencePath
+            DeletionVectorEntry oldDeletionVector = deletionVectors.get(uriFormatReferencedPath(tablePath, sourcePath));
+            RoaringBitmapArray rowsPreviouslyDeleted = loadDeletionVector(sourceLocation);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, rowsPreviouslyDeleted, writer);
             writtenBytes += writer.getWrittenBytes();
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.empty(), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
@@ -574,7 +597,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private Optional<DataFileInfo> rewriteParquetFile(Location path, FileDeletion deletion, DeltaLakeWriter fileWriter)
+    private Optional<DataFileInfo> rewriteParquetFile(Location path, FileDeletion deletion, RoaringBitmapArray rowsPreviouslyDeleted, DeltaLakeWriter fileWriter)
             throws IOException
     {
         RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
@@ -582,6 +605,7 @@ public class DeltaLakeMergeSink
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path)) {
             readConnectorPageSource(
                     connectorPageSource,
+                    rowsPreviouslyDeleted,
                     rowsDeletedByDelete,
                     rowsDeletedByUpdate,
                     deletion,
@@ -613,6 +637,7 @@ public class DeltaLakeMergeSink
 
     private void readConnectorPageSource(
             ConnectorPageSource connectorPageSource,
+            RoaringBitmapArray rowsPreviouslyDeleted,
             RoaringBitmapArray rowsDeletedByDelete,
             RoaringBitmapArray rowsDeletedByUpdate,
             FileDeletion deletion,
@@ -635,6 +660,11 @@ public class DeltaLakeMergeSink
             int deletedByUpdateCount = 0;
             int deletedByDeleteCount = 0;
             for (int position = 0; position < positionCount; position++) {
+                // rows already deleted by the existing deletion vector are dropped without change data feed entries
+                if (rowsPreviouslyDeleted.contains(filePosition)) {
+                    filePosition++;
+                    continue;
+                }
                 if (rowsDeletedByDelete.contains(filePosition)) {
                     deletedByDelete[deletedByDeleteCount] = position;
                     deletedByDeleteCount++;

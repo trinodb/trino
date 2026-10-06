@@ -276,7 +276,11 @@ public final class PatternRecognitionPartition
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
                     range.getStart(),
-                    range.getEnd());
+                    range.getEnd(),
+                    // pattern recognition does not allow frame exclusion
+                    0,
+                    -1,
+                    -1);
             channel++;
         }
     }
@@ -305,7 +309,11 @@ public final class PatternRecognitionPartition
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
                     range.getStart(),
-                    range.getEnd());
+                    range.getEnd(),
+                    // pattern recognition does not allow frame exclusion
+                    0,
+                    -1,
+                    -1);
             channel++;
         }
     }
@@ -333,7 +341,11 @@ public final class PatternRecognitionPartition
                     peerGroupStart - partitionStart,
                     peerGroupEnd - partitionStart - 1,
                     patternStart - partitionStart,
-                    patternStart + labels.length() - 1 - partitionStart);
+                    patternStart + labels.length() - 1 - partitionStart,
+                    // pattern recognition does not allow frame exclusion
+                    0,
+                    -1,
+                    -1);
             channel++;
         }
     }

@@ -31,12 +31,23 @@ public interface WindowFunction
      * of the rows that are peers within the specified ordering. Rows are peers if they
      * compare equal to each other using the specified ordering expression. The ordering
      * of rows within a peer group is undefined (otherwise they would not be peers).
+     * <p>
+     * The window frame is the contiguous range of positions {@code [frameStart, frameEnd]}
+     * with the positions {@code [excludedStart, excludedEnd]} removed, as directed by the
+     * {@code EXCLUDE} clause of the frame specification. The excluded range is a contiguous
+     * sub-range of the frame; when it is empty ({@code excludedStart > excludedEnd}) no
+     * positions are excluded. {@code keptRow}, when non-negative, is a single position that
+     * falls within the excluded range but is nevertheless part of the frame (this expresses
+     * {@code EXCLUDE TIES}, which removes the current row's peers but keeps the current row).
      *
      * @param output the {@link BlockBuilder} to use for writing the output row
      * @param peerGroupStart the position of the first row in the peer group
      * @param peerGroupEnd the position of the last row in the peer group
      * @param frameStart the position of the first row in the window frame
      * @param frameEnd the position of the last row in the window frame
+     * @param excludedStart the position of the first excluded row, or {@code 0} if no rows are excluded
+     * @param excludedEnd the position of the last excluded row, or {@code -1} if no rows are excluded
+     * @param keptRow a position within the excluded range that remains part of the frame, or {@code -1} if none
      */
-    void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd);
+    void processRow(BlockBuilder output, int peerGroupStart, int peerGroupEnd, int frameStart, int frameEnd, int excludedStart, int excludedEnd, int keptRow);
 }

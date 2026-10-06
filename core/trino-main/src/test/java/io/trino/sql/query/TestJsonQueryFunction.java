@@ -13,12 +13,15 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -45,6 +48,79 @@ public class TestJsonQueryFunction
     public void teardown()
     {
         assertions.close();
+    }
+
+    @Test
+    public void testMemberAccessorChain()
+    {
+        // A path that is a plain chain of by-key lookups takes the fast path in
+        // JsonPathEvaluator, which must agree with the general visitor on every
+        // member-accessor rule.
+        String nested = "{\"a\" : {\"b\" : {\"c\" : 42}}}";
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'strict $.a.b.c')"))
+                .matches("VALUES VARCHAR '42'");
+
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'lax $.a.b.c')"))
+                .matches("VALUES VARCHAR '42'");
+
+        // strict mode: a missing member is a structural error
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'strict $.a.missing.c' ERROR ON ERROR)"))
+                .failure().hasMessageContaining("missing member 'missing' in JSON object");
+
+        // lax mode: a missing member yields an empty sequence, not an error
+        assertThat(assertions.query(
+                "SELECT json_query('" + nested + "', 'lax $.a.missing.c')"))
+                .matches("VALUES cast(null AS varchar)");
+
+        // lax mode unwraps arrays before applying the key
+        assertThat(assertions.query(
+                "SELECT json_query('{\"a\" : [{\"b\" : 1}, {\"b\" : 2}]}', 'lax $.a.b' WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1,2]'");
+
+        // strict mode does not unwrap: the array has no member 'b'
+        assertThat(assertions.query(
+                "SELECT json_query('{\"a\" : [{\"b\" : 1}]}', 'strict $.a.b' ERROR ON ERROR)"))
+                .failure().hasMessageContaining("invalid item type");
+    }
+
+    @Test
+    public void testMemberAccessorFastPathMatchesGeneralVisitor()
+    {
+        // The fast path only runs when there are no PASSING parameters; adding an otherwise
+        // unused one forces the general visitor. The two must agree on the tricky shapes:
+        // duplicate keys (WITHOUT UNIQUE KEYS) and multiply-nested arrays.
+
+        // duplicate keys: every matching member surfaces, in document order, in both modes
+        String duplicateKeys = "{\"a\" : 1, \"a\" : 2}";
+        for (String mode : new String[] {"lax", "strict"}) {
+            assertThat(assertions.query(
+                    "SELECT json_query('" + duplicateKeys + "', '" + mode + " $.a' WITH ARRAY WRAPPER)"))
+                    .describedAs("fast path, " + mode)
+                    .matches("VALUES VARCHAR '[1,2]'");
+            assertThat(assertions.query(
+                    "SELECT json_query('" + duplicateKeys + "', '" + mode + " $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                    .describedAs("general visitor, " + mode)
+                    .matches("VALUES VARCHAR '[1,2]'");
+        }
+
+        // lax unwraps exactly one array layer per accessor: a singly-nested object is reached,
+        // a doubly-nested one is not (the inner value is still an array, which has no member)
+        assertThat(assertions.query(
+                "SELECT json_query('[{\"a\" : 1}]', 'lax $.a' WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1]'");
+        assertThat(assertions.query(
+                "SELECT json_query('[{\"a\" : 1}]', 'lax $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                .matches("VALUES VARCHAR '[1]'");
+        assertThat(assertions.query(
+                "SELECT json_query('[[{\"a\" : 1}]]', 'lax $.a' WITH ARRAY WRAPPER)"))
+                .matches("VALUES cast(null AS varchar)");
+        assertThat(assertions.query(
+                "SELECT json_query('[[{\"a\" : 1}]]', 'lax $.a' PASSING 1 AS x WITH ARRAY WRAPPER)"))
+                .matches("VALUES cast(null AS varchar)");
     }
 
     @Test
@@ -251,10 +327,10 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[$number]' PASSING 5 AS \"number\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        // parameter cannot be converted to JSON -- returns null, because NULL ON ERROR is implicit
+        // datetime parameters preserve their value in the JSON result
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING DATE '2001-01-31' AS \"parameter\")"))
-                .matches("VALUES cast(null AS varchar)");
+                .matches("VALUES VARCHAR '\"2001-01-31\"'");
 
         // parameter cast to varchar
         assertThat(assertions.query(
@@ -264,6 +340,14 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59' AS \"parameter\")"))
                 .matches("VALUES cast('\"12151fd2-7586-11e9-8f9e-2a86e4085a59\"' AS varchar)");
+    }
+
+    @Test
+    public void testNumberParameter()
+    {
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $parameter' PASSING CAST(1 AS number) AS \"parameter\")"))
+                .matches("VALUES VARCHAR '1'");
     }
 
     @Test
@@ -329,6 +413,24 @@ public class TestJsonQueryFunction
         assertThat(assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $' RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
                 .matches("VALUES " + varbinaryLiteral);
+    }
+
+    @Test
+    public void testOutputNestingDepth()
+    {
+        for (int depth : new int[] {1000, 1001, 1024}) {
+            for (String json : List.of("[".repeat(depth) + "0" + "]".repeat(depth), "{\"a\":".repeat(depth) + "0" + "}".repeat(depth))) {
+                for (String errorBehavior : List.of("NULL", "ERROR")) {
+                    assertThat(assertions.query("SELECT JSON_QUERY(json_parse('%s'), 'strict $' RETURNING VARCHAR %s ON ERROR)".formatted(json, errorBehavior)))
+                            .matches("VALUES VARCHAR '%s'".formatted(json));
+
+                    for (var encoding : Map.of("UTF8", UTF_8, "UTF16", UTF_16LE, "UTF32", StandardCharsets.UTF_32LE).entrySet()) {
+                        assertThat(assertions.query("SELECT JSON_QUERY(json_parse('%s'), 'strict $' RETURNING VARBINARY FORMAT JSON ENCODING %s %s ON ERROR)".formatted(json, encoding.getKey(), errorBehavior)))
+                                .matches("VALUES X'%s'".formatted(base16().encode(json.getBytes(encoding.getValue()))));
+                    }
+                }
+            }
+        }
     }
 
     @Test
@@ -406,16 +508,48 @@ public class TestJsonQueryFunction
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
 
-        // default RETURNING (VARCHAR) leaves OMIT QUOTES legal — SR 1 maps the input's varchar type to the
-        // return type, and SR 3 only applies to JSON returns. Both a direct character input and a JSON_QUERY
-        // input fall in this bucket today (the SQL/JSON producers default to VARCHAR; an explicit
-        // RETURNING JSON on the input would be caught at JSON_QUERY's input-coercion step).
+        // SR 1: input is JSON-typed and no RETURNING clause given, so the effective return type is JSON
         assertThat(assertions.query(
-                "SELECT json_query('" + INPUT + "', 'lax \"some scalar text value\"' OMIT QUOTES ON SCALAR STRING)"))
-                .matches("VALUES cast('some scalar text value' AS varchar)");
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+
+        // SR 1: input is a JSON-returning function call (the nested call's own SR 1 makes it JSON-typed)
         assertThat(assertions.query(
-                "SELECT json_query(json_query('" + INPUT + "', 'lax \"some scalar text value\"'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                "SELECT json_query(json_query(JSON '" + INPUT + "', 'lax $'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .failure()
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("OMIT QUOTES behavior is not allowed when JSON_QUERY returns JSON");
+
+        // a nested call over a character string input returns varchar, so the outer input is not JSON-typed
+        assertThat(assertions.query(
+                "SELECT json_query(json_query('" + INPUT + "', 'lax $'), 'lax $' OMIT QUOTES ON SCALAR STRING)"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
+
+        // explicit RETURNING varchar with JSON-typed input keeps OMIT QUOTES legal
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '\"some scalar text value\"', 'lax $' RETURNING varchar OMIT QUOTES ON SCALAR STRING)"))
                 .matches("VALUES cast('some scalar text value' AS varchar)");
+    }
+
+    @Test
+    public void testImplicitJsonReturnTypeForJsonTypedInput()
+    {
+        // SQL:2023 §6.35 SR 1: JSON-typed input with no RETURNING clause yields a JSON-typed result
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $')"))
+                .matches("VALUES JSON '[\"a\",\"b\",\"c\"]'");
+
+        // a character string input keeps the varchar default
+        assertThat(assertions.query(
+                "SELECT json_query('" + INPUT + "', 'lax $')"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
+
+        // an explicit RETURNING clause overrides the implicit JSON return
+        assertThat(assertions.query(
+                "SELECT json_query(JSON '" + INPUT + "', 'lax $' RETURNING varchar)"))
+                .matches("VALUES cast('[\"a\",\"b\",\"c\"]' AS varchar)");
     }
 
     @Test
@@ -511,5 +645,64 @@ public class TestJsonQueryFunction
                                 omit quotes)
                 """))
                 .matches("VALUES cast(NULL as varchar)");
+    }
+
+    @Test
+    public void testCharResultCoercionPolicy()
+    {
+        for (boolean legacyCoercion : new boolean[] {true, false}) {
+            Session session = assertions.sessionBuilder()
+                    .setSystemProperty("legacy_varchar_to_char_coercion", Boolean.toString(legacyCoercion))
+                    .build();
+
+            assertThat(assertions.query(
+                    session,
+                    "SELECT length(JSON_VALUE(JSON 'null', 'lax $x' PASSING CAST('a' AS CHAR(3)) AS \"x\"))"))
+                    .matches("VALUES BIGINT '" + (legacyCoercion ? 3 : 1) + "'");
+
+            assertThat(assertions.query(session,
+                    """
+                    WITH t(j) AS (
+                        VALUES JSON_QUERY(JSON 'null', 'lax $x'
+                            PASSING CAST('a' AS CHAR(3)) AS "x" RETURNING JSON)
+                    )
+                    SELECT length(JSON_VALUE(j, 'lax $')),
+                           length(JSON_VALUE(ARRAY[j][1], 'lax $'))
+                    FROM t
+                    """))
+                    .matches("VALUES (BIGINT '3', BIGINT '3')");
+
+            for (String wrapper : new String[] {"WITHOUT ARRAY WRAPPER", "WITH CONDITIONAL ARRAY WRAPPER", "WITH UNCONDITIONAL ARRAY WRAPPER"}) {
+                String expected = wrapper.startsWith("WITHOUT") ? "\"é\\uD83D\\uDE42  \"" : "[\"é\\uD83D\\uDE42  \"]";
+                assertThat(assertions.query(
+                        session,
+                        "SELECT JSON_QUERY(JSON 'null', 'lax $x' PASSING CAST('é🙂' AS CHAR(4)) AS \"x\" RETURNING VARCHAR " + wrapper + " ERROR ON ERROR)"))
+                        .matches("VALUES VARCHAR '" + expected + "'");
+            }
+        }
+    }
+
+    @Test
+    public void testDatetimeResults()
+    {
+        for (String value : new String[] {"2026-09-30", "12:34:56"}) {
+            for (String errorBehavior : new String[] {"", " ERROR ON ERROR"}) {
+                assertThat(assertions.query(
+                        "SELECT json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING VARCHAR" + errorBehavior + ")"))
+                        .matches("VALUES VARCHAR '\"" + value + "\"'");
+                assertThat(assertions.query(
+                        "SELECT json_format(json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING JSON" + errorBehavior + "))"))
+                        .matches("VALUES VARCHAR '\"" + value + "\"'");
+            }
+            for (String wrapper : new String[] {"WITH CONDITIONAL ARRAY WRAPPER", "WITH UNCONDITIONAL ARRAY WRAPPER"}) {
+                assertThat(assertions.query(
+                        "SELECT json_format(json_query(JSON '\"" + value + "\"', 'lax $.datetime()' RETURNING JSON " + wrapper + " ERROR ON ERROR))"))
+                        .matches("VALUES VARCHAR '[\"" + value + "\"]'");
+            }
+        }
+
+        assertThat(assertions.query(
+                "SELECT json_format(json_query(JSON 'null', 'lax $value' PASSING DATE '2026-09-30' AS \"value\" RETURNING JSON ERROR ON ERROR))"))
+                .matches("VALUES VARCHAR '\"2026-09-30\"'");
     }
 }

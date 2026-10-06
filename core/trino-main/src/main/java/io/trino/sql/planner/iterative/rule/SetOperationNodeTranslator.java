@@ -42,17 +42,16 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameExclusion.NO_OTHERS;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +87,7 @@ public class SetOperationNodeTranslator
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", fromTypes(BOOLEAN));
+        this.countFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "count", ImmutableList.of(BOOLEAN));
         this.rowNumberFunction = metadata.resolveBuiltinFunction(getCharVarcharCoercion(session), "row_number", ImmutableList.of());
     }
 
@@ -190,7 +189,7 @@ public class SetOperationNodeTranslator
     private WindowNode appendCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> countOutputs, Symbol rowNumberSymbol)
     {
         ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
-        WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty());
+        WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), NO_OTHERS);
 
         for (int i = 0; i < markers.size(); i++) {
             Symbol output = countOutputs.get(i);
@@ -220,38 +219,18 @@ public class SetOperationNodeTranslator
                 0);
     }
 
-    public static class TranslationResult
+    public record TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
     {
-        private final PlanNode planNode;
-        private final List<Symbol> countSymbols;
-        private final Optional<Symbol> rowNumberSymbol;
+        public TranslationResult
+        {
+            requireNonNull(planNode, "planNode is null");
+            countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
+            requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
+        }
 
         public TranslationResult(PlanNode planNode, List<Symbol> countSymbols)
         {
             this(planNode, countSymbols, Optional.empty());
-        }
-
-        public TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
-        {
-            this.planNode = requireNonNull(planNode, "planNode is null");
-            this.countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
-            this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        }
-
-        public PlanNode getPlanNode()
-        {
-            return this.planNode;
-        }
-
-        public List<Symbol> getCountSymbols()
-        {
-            return countSymbols;
-        }
-
-        public Symbol getRowNumberSymbol()
-        {
-            checkState(rowNumberSymbol.isPresent(), "rowNumberSymbol is empty");
-            return rowNumberSymbol.get();
         }
     }
 }

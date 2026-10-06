@@ -19,7 +19,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.spi.cache.Blob;
 import io.trino.spi.cache.BlobCache;
-import io.trino.spi.cache.BlobSource;
 import io.trino.spi.cache.CacheKey;
 
 import java.io.IOException;
@@ -53,9 +52,9 @@ public final class CacheInputFile
     public TrinoInput newInput()
             throws IOException
     {
-        Optional<CacheKey> key = cacheKey();
-        if (key.isPresent()) {
-            return new BlobTrinoInput(cache.get(key.orElseThrow(), source()));
+        Optional<Blob> blob = blob();
+        if (blob.isPresent()) {
+            return new BlobTrinoInput(blob.orElseThrow());
         }
         return delegate.newInput();
     }
@@ -64,9 +63,9 @@ public final class CacheInputFile
     public TrinoInputStream newStream()
             throws IOException
     {
-        Optional<CacheKey> key = cacheKey();
-        if (key.isPresent()) {
-            return new BlobTrinoInputStream(cache.get(key.orElseThrow(), source()));
+        Optional<Blob> blob = blob();
+        if (blob.isPresent()) {
+            return new BlobTrinoInputStream(blob.orElseThrow());
         }
         return delegate.newStream();
     }
@@ -76,13 +75,13 @@ public final class CacheInputFile
             throws IOException
     {
         if (length.isEmpty()) {
-            Optional<CacheKey> key = cacheKey();
-            if (key.isPresent()) {
-                // Answered from the cache: a cached entry knows its size without a remote call,
-                // and a caller asking for the length almost always reads the file next, so
-                // populating the entry here is not wasted work
-                try (Blob blob = cache.get(key.orElseThrow(), source())) {
-                    length = OptionalLong.of(blob.length());
+            // Answered from the cache: a cached entry knows its size without a remote call,
+            // and a caller asking for the length almost always reads the file next, so
+            // populating the entry here is not wasted work
+            Optional<Blob> blob = blob();
+            if (blob.isPresent()) {
+                try (Blob cached = blob.orElseThrow()) {
+                    length = OptionalLong.of(cached.length());
                 }
             }
             else {
@@ -90,6 +89,20 @@ public final class CacheInputFile
             }
         }
         return length.orElseThrow();
+    }
+
+    /**
+     * The cached blob of this file, or empty when the file is not cacheable or the cache
+     * declines it, in which case the delegate serves the read.
+     */
+    private Optional<Blob> blob()
+            throws IOException
+    {
+        Optional<CacheKey> key = cacheKey();
+        if (key.isEmpty()) {
+            return Optional.empty();
+        }
+        return cache.get(key.orElseThrow(), new TrinoInputFileBlobSource(delegate));
     }
 
     private Optional<CacheKey> cacheKey()
@@ -122,11 +135,6 @@ public final class CacheInputFile
     public Location location()
     {
         return delegate.location();
-    }
-
-    private BlobSource source()
-    {
-        return new TrinoInputFileBlobSource(delegate);
     }
 
     @Override

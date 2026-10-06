@@ -203,13 +203,13 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetUseColum
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetVectorizedDecodingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
-import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
@@ -256,9 +256,10 @@ public class IcebergPageSourceProvider
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
     private final ParquetFooterCache parquetFooterCache;
-    private final Optional<BlocksHashFactory> blocksHashFactory;
+    private final BlocksHashFactory blocksHashFactory;
     private final EncryptionManagerFactory encryptionManagerFactory;
     private final MemoryContext sharedMemoryContext;
+    private final int domainCompactionThreshold;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -271,9 +272,10 @@ public class IcebergPageSourceProvider
             ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager,
             ParquetFooterCache parquetFooterCache,
-            Optional<BlocksHashFactory> blocksHashFactory,
+            BlocksHashFactory blocksHashFactory,
             EncryptionManagerFactory encryptionManagerFactory,
-            MemoryContext sharedMemoryContext)
+            MemoryContext sharedMemoryContext,
+            int domainCompactionThreshold)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -285,6 +287,8 @@ public class IcebergPageSourceProvider
         this.blocksHashFactory = requireNonNull(blocksHashFactory, "blocksHashFactory is null");
         this.encryptionManagerFactory = requireNonNull(encryptionManagerFactory, "encryptionManagerFactory is null");
         this.sharedMemoryContext = requireNonNull(sharedMemoryContext, "sharedMemoryContext is null");
+        checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
+        this.domainCompactionThreshold = domainCompactionThreshold;
         this.unpartitionedTableDeleteManager = new DeleteManager(typeManager, blocksHashFactory, this::reportDeleteFilterMemoryUsage);
     }
 
@@ -410,8 +414,12 @@ public class IcebergPageSourceProvider
         List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
 
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
+        // compare by field id not handle; IcebergColumnHandle can differ when fields have comments
+        Set<Integer> projectedIds = icebergColumns.stream()
+                .map(IcebergColumnHandle::getId)
+                .collect(toImmutableSet());
         deleteFilterRequiredColumns.stream()
-                .filter(not(icebergColumns::contains))
+                .filter(column -> !projectedIds.contains(column.getId()))
                 .forEach(requiredColumns::add);
 
         Optional<FileDecryptionProperties> parquetFileDecryptionProperties = createParquetFileDecryptionProperties(parquetFileDecryptionData, arePlaintextFilesAllowedForEncryptedTables(session));
@@ -526,7 +534,7 @@ public class IcebergPageSourceProvider
                         fileStatisticsDomain,
                         dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))),
                 fileStatisticsDomain)
-                .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+                .simplify(domainCompactionThreshold);
     }
 
     private TupleDomain<IcebergColumnHandle> prunePredicate(
@@ -557,15 +565,18 @@ public class IcebergPageSourceProvider
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
+        ImmutableSet.Builder<Integer> equalityFieldIds = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
             if (deleteFile.content() == POSITION_DELETES) {
                 requiredColumns.add(getColumnHandle(ROW_POSITION, typeManager));
             }
             else if (deleteFile.content() == EQUALITY_DELETES) {
-                deleteFile.equalityFieldIds().stream()
-                        .map(id -> getColumnHandle(schema.findField(id), typeManager))
-                        .forEach(requiredColumns::add);
+                equalityFieldIds.addAll(deleteFile.equalityFieldIds());
             }
+        }
+        Set<Integer> fieldIds = equalityFieldIds.build();
+        if (!fieldIds.isEmpty()) {
+            requiredColumns.addAll(getProjectedColumns(schema, typeManager, fieldIds));
         }
 
         return requiredColumns.build();
@@ -650,6 +661,7 @@ public class IcebergPageSourceProvider
                     fileSchema,
                     dataColumns,
                     predicate,
+                    domainCompactionThreshold,
                     orcReaderOptions
                             .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                             .withMaxBufferSize(getOrcMaxBufferSize(session))
@@ -686,6 +698,7 @@ public class IcebergPageSourceProvider
                             .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
                             .build(),
                     predicate,
+                    domainCompactionThreshold,
                     fileFormatDataSourceStats,
                     parquetFooterCache,
                     nameMapping,
@@ -757,6 +770,7 @@ public class IcebergPageSourceProvider
             Schema tableSchema,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
+            int domainCompactionThreshold,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
@@ -777,7 +791,8 @@ public class IcebergPageSourceProvider
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumnsByIcebergId(reader, nameMapping);
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
-                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
+                    .setBloomFiltersEnabled(options.isBloomFiltersEnabled())
+                    .setDomainCompactionThreshold(domainCompactionThreshold);
             Map<IcebergColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
             for (IcebergColumnHandle column : columns) {
@@ -1112,6 +1127,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> columns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
+            int domainCompactionThreshold,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             ParquetFooterCache parquetFooterCache,
             Optional<NameMapping> nameMapping,
@@ -1272,7 +1288,7 @@ public class IcebergPageSourceProvider
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,
                     UTC,
-                    ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
+                    domainCompactionThreshold,
                     options);
 
             ParquetDataSourceId dataSourceId = dataSource.getId();

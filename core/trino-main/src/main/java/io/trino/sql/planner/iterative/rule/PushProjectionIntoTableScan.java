@@ -35,6 +35,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -96,6 +97,12 @@ public class PushProjectionIntoTableScan
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
         Session session = context.getSession();
+
+        // Keep non-determinism on engine side to retain awareness of it.
+        // Sometimes table scans are duplicated (e.g. MultipleDistinctAggregationsToSubqueries).
+        if (!project.getAssignments().assignments().values().stream().allMatch(DeterminismEvaluator::isDeterministic)) {
+            return Result.empty();
+        }
 
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.

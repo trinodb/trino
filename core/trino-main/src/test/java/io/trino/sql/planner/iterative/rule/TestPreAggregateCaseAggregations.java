@@ -437,6 +437,34 @@ public class TestPreAggregateCaseAggregations
                 """);
     }
 
+    @Test
+    public void testDoesNotFireForNonDeterministicCondition()
+    {
+        assertThatDoesNotFire(
+                "SELECT " +
+                        "col_varchar, " +
+                        "sum(CASE WHEN col_bigint = 1 AND random() < 0.5 THEN col_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 1 THEN col_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 2 THEN col_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 3 THEN col_decimal END) " +
+                        "FROM t " +
+                        "GROUP BY col_varchar");
+    }
+
+    @Test
+    public void testDoesNotFireForNonDeterministicResult()
+    {
+        assertThatDoesNotFire(
+                "SELECT " +
+                        "col_varchar, " +
+                        "sum(CASE WHEN col_bigint = 1 THEN random() END), " +
+                        "sum(CASE WHEN col_bigint IN (1, 100) THEN random() END), " +
+                        "sum(CASE WHEN col_bigint = 2 THEN col_decimal END), " +
+                        "sum(CASE WHEN col_bigint = 3 THEN col_decimal END) " +
+                        "FROM t " +
+                        "GROUP BY col_varchar");
+    }
+
     private void assertFires(@Language("SQL") String query)
     {
         assertThat(countOfMatchingNodes(plan(query), AggregationNode.class::isInstance)).isEqualTo(2);

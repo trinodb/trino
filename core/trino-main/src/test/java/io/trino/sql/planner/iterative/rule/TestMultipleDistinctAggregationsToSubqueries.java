@@ -32,6 +32,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
@@ -62,15 +63,17 @@ import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregationFunction;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
@@ -104,16 +107,19 @@ public class TestMultipleDistinctAggregationsToSubqueries
     private static final ColumnHandle GROUPING_KEY_COLUMN_HANDLE = new MockConnectorColumnHandle(GROUPING_KEY_COLUMN, BIGINT);
     private static final String GROUPING_KEY2_COLUMN = "comment";
     private static final ColumnHandle GROUPING_KEY2_COLUMN_HANDLE = new MockConnectorColumnHandle(GROUPING_KEY2_COLUMN, VARCHAR);
+    private static final String ROW_GROUPING_KEY_COLUMN = "rowkey";
+    private static final ColumnHandle ROW_GROUPING_KEY_COLUMN_HANDLE = new MockConnectorColumnHandle(ROW_GROUPING_KEY_COLUMN, RowType.anonymous(ImmutableList.of(BIGINT)));
 
     private static final SchemaTableName TABLE_SCHEMA = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
 
-    private static final List<ColumnMetadata> ALL_COLUMNS = Stream.of(COLUMN_1_HANDLE, COLUMN_2_HANDLE, COLUMN_3_HANDLE, COLUMN_4_HANDLE, GROUPING_KEY_COLUMN_HANDLE, GROUPING_KEY2_COLUMN_HANDLE)
+    private static final List<ColumnMetadata> ALL_COLUMNS = Stream.of(COLUMN_1_HANDLE, COLUMN_2_HANDLE, COLUMN_3_HANDLE, COLUMN_4_HANDLE, GROUPING_KEY_COLUMN_HANDLE, GROUPING_KEY2_COLUMN_HANDLE, ROW_GROUPING_KEY_COLUMN_HANDLE)
             .map(columnHandle -> (MockConnectorColumnHandle) columnHandle)
             .map(column -> new ColumnMetadata(column.name(), column.type()))
             .collect(toImmutableList());
 
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
+    private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", fromTypes());
 
     private RuleTester ruleTester = tester(true);
 
@@ -339,6 +345,58 @@ public class TestMultipleDistinctAggregationsToSubqueries
     }
 
     @Test
+    public void testDoesNotFireForNondeterministicSource()
+    {
+        Call random = new Call(RANDOM, ImmutableList.of());
+        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .on(p -> {
+                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
+                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
+                    return p.aggregation(builder -> builder
+                            .globalGrouping()
+                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .source(
+                                    p.filter(
+                                            comparison(LESS_THAN, random, new Constant(DOUBLE, 0.5)),
+                                            p.tableScan(
+                                                    testTableHandle(ruleTester),
+                                                    ImmutableList.of(input1Symbol, input2Symbol),
+                                                    ImmutableMap.of(
+                                                            input1Symbol, COLUMN_1_HANDLE,
+                                                            input2Symbol, COLUMN_2_HANDLE)))));
+                })
+                .doesNotFire();
+
+        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .on(p -> {
+                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
+                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
+                    Symbol groupingKey = p.symbol("groupingKey", DOUBLE);
+                    return p.aggregation(builder -> builder
+                            .singleGroupingSet(groupingKey)
+                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .source(
+                                    p.project(
+                                            Assignments.builder()
+                                                    .put(groupingKey, random)
+                                                    .putIdentity(input1Symbol)
+                                                    .putIdentity(input2Symbol)
+                                                    .build(),
+                                            p.tableScan(
+                                                    testTableHandle(ruleTester),
+                                                    ImmutableList.of(input1Symbol, input2Symbol),
+                                                    ImmutableMap.of(
+                                                            input1Symbol, COLUMN_1_HANDLE,
+                                                            input2Symbol, COLUMN_2_HANDLE)))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testAutomaticDecisionForAggregationOnTableScan()
     {
         // automatic but single_step is preferred
@@ -389,68 +447,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input2Symbol, COLUMN_2_HANDLE,
                                                     groupingKey, GROUPING_KEY_COLUMN_HANDLE)))));
                 })
-                .matches(project(
-                        ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "group_by_key", PlanMatchPattern.expression(new Reference(BIGINT, "left_groupingKey"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input1Symbol", COLUMN_1,
-                                                                "left_groupingKey", GROUPING_KEY_COLUMN))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input2Symbol", COLUMN_2,
-                                                                "right_groupingKey", GROUPING_KEY_COLUMN)))))));
-
-        // single_step is not preferred, the overhead of groupingKeys is bigger than 50%
-        String aggregationId = "aggregationId";
-        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
-                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "automatic")
-                .overrideStats(aggregationSourceId, PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol(BIGINT, "groupingKey"), SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())
-                        .addSymbolStatistics(new Symbol(BIGINT, "groupingKey2"), SymbolStatsEstimate.builder().setAverageRowSize(1_000_000).build())
-                        .build())
-                .overrideStats(aggregationId, PlanNodeStatsEstimate.builder().setOutputRowCount(10).build())
-                .on(p -> {
-                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
-                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
-                    Symbol groupingKey = p.symbol("groupingKey", BIGINT);
-                    Symbol groupingKey2 = p.symbol("groupingKey2", VARCHAR);
-                    return p.aggregation(builder -> builder
-                            .nodeId(new PlanNodeId(aggregationId))
-                            .singleGroupingSet(groupingKey, groupingKey2)
-                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
-                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
-                            .source(
-                                    p.tableScan(tableScan -> tableScan
-                                            .setNodeId(new PlanNodeId(aggregationSourceId))
-                                            .setTableHandle(testTableHandle(ruleTester))
-                                            .setSymbols(ImmutableList.of(input1Symbol, input2Symbol, groupingKey, groupingKey2))
-                                            .setAssignments(ImmutableMap.of(
-                                                    input1Symbol, COLUMN_1_HANDLE,
-                                                    input2Symbol, COLUMN_2_HANDLE,
-                                                    groupingKey, GROUPING_KEY_COLUMN_HANDLE,
-                                                    groupingKey2, GROUPING_KEY2_COLUMN_HANDLE)))));
-                })
-                .doesNotFire();
+                .matches(groupedSplitOverTableScan(GROUPING_KEY_COLUMN));
     }
 
     @Test
@@ -613,41 +610,47 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                             groupingKey, GROUPING_KEY_COLUMN_HANDLE,
                                                             filterInput, GROUPING_KEY2_COLUMN_HANDLE))))));
                 })
-                .matches(project(
+                .matches(aggregation(
+                        singleGroupingSet("groupingKey"),
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "group_by_key", PlanMatchPattern.expression(new Reference(BIGINT, "left_groupingKey"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
+                                Optional.of("final_output1"), aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                Optional.of("final_output2"), aggregationFunction("any_value", ImmutableList.of("union_output2"))),
+                        Optional.empty(),
+                        SINGLE,
+                        union(
+                                project(
+                                        ImmutableMap.of("null_output2", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
+                                                singleGroupingSet("groupingKey_1"),
                                                 ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "left_filterInput"))),
+                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "filterInput_1"))),
                                                         tableScan(
                                                                 TABLE_SCHEMA.getTableName(),
                                                                 ImmutableMap.of(
                                                                         "input1Symbol", COLUMN_1,
-                                                                        "left_groupingKey", GROUPING_KEY_COLUMN,
-                                                                        "left_filterInput", GROUPING_KEY2_COLUMN)))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
+                                                                        "groupingKey_1", GROUPING_KEY_COLUMN,
+                                                                        "filterInput_1", GROUPING_KEY2_COLUMN))))),
+                                project(
+                                        ImmutableMap.of("null_output1", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
+                                                singleGroupingSet("groupingKey_2"),
                                                 ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 filter(
-                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "right_filterInput"))),
+                                                        not(ruleTester.getMetadata(), CHAR_VARCHAR_COERCION, new IsNull(new Reference(BIGINT, "filterInput_2"))),
                                                         tableScan(
                                                                 TABLE_SCHEMA.getTableName(),
                                                                 ImmutableMap.of(
                                                                         "input2Symbol", COLUMN_2,
-                                                                        "right_groupingKey", GROUPING_KEY_COLUMN,
-                                                                        "right_filterInput", GROUPING_KEY2_COLUMN))))))));
+                                                                        "groupingKey_2", GROUPING_KEY_COLUMN,
+                                                                        "filterInput_2", GROUPING_KEY2_COLUMN))))))
+                                .withAlias("groupingKey", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(1))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(2))));
     }
 
     @Test
@@ -734,19 +737,23 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input1Symbol, COLUMN_1_HANDLE,
                                                     input2Symbol, COLUMN_2_HANDLE))));
                 })
-                .matches(project(
+                .matches(aggregation(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .left(aggregation(
+                                "final_output1", aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                "final_output2", aggregationFunction("any_value", ImmutableList.of("union_output2"))),
+                        union(
+                                project(
+                                        ImmutableMap.of("null_output2", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
                                                 ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1))))
-                                        .right(aggregation(
+                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1)))),
+                                project(
+                                        ImmutableMap.of("null_output1", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
                                                 ImmutableMap.of("output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))))));
+                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(1))));
     }
 
     @Test
@@ -772,29 +779,26 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input2Symbol, COLUMN_2_HANDLE,
                                                     input3Symbol, COLUMN_3_HANDLE))));
                 })
-                .matches(project(
+                .matches(aggregation(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "final_output3", PlanMatchPattern.expression(new Reference(BIGINT, "output3"))),
-                        join(
-                                INNER,
-                                join -> join
-                                        .left(aggregation(
-                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1))))
-                                        .right(join(
-                                                INNER,
-                                                subJoin -> subJoin
-                                                        .left(aggregation(
-                                                                ImmutableMap.of("output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2))))
-                                                        .right(aggregation(
-                                                                ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
-                                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input3Symbol", COLUMN_3)))))))));
+                                "final_output1", aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                "final_output2", aggregationFunction("any_value", ImmutableList.of("union_output2")),
+                                "final_output3", aggregationFunction("any_value", ImmutableList.of("union_output3"))),
+                        union(
+                                project(aggregation(
+                                        ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1)))),
+                                project(aggregation(
+                                        ImmutableMap.of("output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))),
+                                project(aggregation(
+                                        ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input3Symbol", COLUMN_3)))))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(1))
+                                .withAlias("union_output3", new SetOperationOutputMatcher(2))));
     }
 
-    // tests right deep join hierarchy
     @Test
     public void testGlobalWith4DistinctToSubqueries()
     {
@@ -821,33 +825,29 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input3Symbol, COLUMN_3_HANDLE,
                                                     input4Symbol, COLUMN_4_HANDLE))));
                 })
-                .matches(project(
+                .matches(aggregation(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "final_output3", PlanMatchPattern.expression(new Reference(BIGINT, "output3")),
-                                "final_output4", PlanMatchPattern.expression(new Reference(BIGINT, "output4"))),
-                        join(
-                                INNER,
-                                join -> join
-                                        .left(aggregation(
-                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1))))
-                                        .right(join(
-                                                INNER,
-                                                subJoin -> subJoin
-                                                        .left(aggregation(
-                                                                ImmutableMap.of("output2", aggregationFunction("count", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2))))
-                                                        .right(join(
-                                                                INNER,
-                                                                subJoin2 -> subJoin2
-                                                                        .left(aggregation(
-                                                                                ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
-                                                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input3Symbol", COLUMN_3))))
-                                                                        .right(aggregation(
-                                                                                ImmutableMap.of("output4", aggregationFunction("count", true, ImmutableList.of(symbol("input4Symbol")))),
-                                                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input4Symbol", COLUMN_4)))))))))));
+                                "final_output1", aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                "final_output2", aggregationFunction("any_value", ImmutableList.of("union_output2")),
+                                "final_output3", aggregationFunction("any_value", ImmutableList.of("union_output3")),
+                                "final_output4", aggregationFunction("any_value", ImmutableList.of("union_output4"))),
+                        union(
+                                project(aggregation(
+                                        ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1)))),
+                                project(aggregation(
+                                        ImmutableMap.of("output2", aggregationFunction("count", true, ImmutableList.of(symbol("input2Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))),
+                                project(aggregation(
+                                        ImmutableMap.of("output3", aggregationFunction("count", true, ImmutableList.of(symbol("input3Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input3Symbol", COLUMN_3)))),
+                                project(aggregation(
+                                        ImmutableMap.of("output4", aggregationFunction("count", true, ImmutableList.of(symbol("input4Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input4Symbol", COLUMN_4)))))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(1))
+                                .withAlias("union_output3", new SetOperationOutputMatcher(2))
+                                .withAlias("union_output4", new SetOperationOutputMatcher(3))));
     }
 
     @Test
@@ -871,22 +871,25 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input1Symbol, COLUMN_1_HANDLE,
                                                     input2Symbol, COLUMN_2_HANDLE))));
                 })
-                .matches(project(
+                .matches(aggregation(
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "final_output3", PlanMatchPattern.expression(new Reference(BIGINT, "output3"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .left(aggregation(
-                                                ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1))))
-                                        .right(aggregation(
+                                "final_output1", aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                "final_output2", aggregationFunction("any_value", ImmutableList.of("union_output2")),
+                                "final_output3", aggregationFunction("any_value", ImmutableList.of("union_output3"))),
+                        union(
+                                project(aggregation(
+                                        ImmutableMap.of("output1", aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                        tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input1Symbol", COLUMN_1)))),
+                                project(
+                                        ImmutableMap.of("null_output1", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
                                                 ImmutableMap.of(
                                                         "output2", aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol"))),
                                                         "output3", aggregationFunction("count", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))))));
+                                                tableScan(TABLE_SCHEMA.getTableName(), ImmutableMap.of("input2Symbol", COLUMN_2)))))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(1))
+                                .withAlias("union_output3", new SetOperationOutputMatcher(2))));
     }
 
     @Test
@@ -914,35 +917,28 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                     input2Symbol, COLUMN_2_HANDLE,
                                                     groupingKey, GROUPING_KEY_COLUMN_HANDLE))));
                 })
-                .matches(project(
-                        ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "group_by_key", PlanMatchPattern.expression(new Reference(BIGINT, "left_groupingKey"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input1Symbol", COLUMN_1,
-                                                                "left_groupingKey", GROUPING_KEY_COLUMN))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
-                                                ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
-                                                Optional.empty(),
-                                                SINGLE,
-                                                tableScan(
-                                                        TABLE_SCHEMA.getTableName(),
-                                                        ImmutableMap.of(
-                                                                "input2Symbol", COLUMN_2,
-                                                                "right_groupingKey", GROUPING_KEY_COLUMN)))))));
+                .matches(groupedSplitOverTableScan(GROUPING_KEY_COLUMN));
+        // ROW grouping key
+        ruleTester.assertThat(newMultipleDistinctAggregationsToSubqueries(ruleTester))
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "split_to_subqueries")
+                .on(p -> {
+                    Symbol input1Symbol = p.symbol("input1Symbol", BIGINT);
+                    Symbol input2Symbol = p.symbol("input2Symbol", BIGINT);
+                    Symbol groupingKey = p.symbol("groupingKey", RowType.anonymous(ImmutableList.of(BIGINT)));
+                    return p.aggregation(builder -> builder
+                            .singleGroupingSet(groupingKey)
+                            .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1Symbol"))), ImmutableList.of(BIGINT))
+                            .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input2Symbol"))), ImmutableList.of(BIGINT))
+                            .source(
+                                    p.tableScan(
+                                            testTableHandle(ruleTester),
+                                            ImmutableList.of(input1Symbol, input2Symbol, groupingKey),
+                                            ImmutableMap.of(
+                                                    input1Symbol, COLUMN_1_HANDLE,
+                                                    input2Symbol, COLUMN_2_HANDLE,
+                                                    groupingKey, ROW_GROUPING_KEY_COLUMN_HANDLE))));
+                })
+                .matches(groupedSplitOverTableScan(ROW_GROUPING_KEY_COLUMN));
     }
 
     @Test
@@ -998,17 +994,18 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                             input22Symbol, COLUMN_2_HANDLE,
                                                                             groupingKey2, GROUPING_KEY_COLUMN_HANDLE)))))));
                 })
-                .matches(project(
+                .matches(aggregation(
+                        singleGroupingSet("groupingKey"),
                         ImmutableMap.of(
-                                "final_output1", PlanMatchPattern.expression(new Reference(BIGINT, "output1")),
-                                "final_output2", PlanMatchPattern.expression(new Reference(BIGINT, "output2")),
-                                "group_by_key", PlanMatchPattern.expression(new Reference(BIGINT, "left_groupingKey"))),
-                        join(
-                                INNER,
-                                builder -> builder
-                                        .equiCriteria("left_groupingKey", "right_groupingKey")
-                                        .left(aggregation(
-                                                singleGroupingSet("left_groupingKey"),
+                                Optional.of("final_output1"), aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                                Optional.of("final_output2"), aggregationFunction("any_value", ImmutableList.of("union_output2"))),
+                        Optional.empty(),
+                        SINGLE,
+                        union(
+                                project(
+                                        ImmutableMap.of("null_output2", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
+                                                singleGroupingSet("groupingKey_1"),
                                                 ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol1")))),
                                                 Optional.empty(),
                                                 SINGLE,
@@ -1020,7 +1017,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                         ImmutableMap.of(
                                                                                 "input1_1_1Symbol", COLUMN_1,
                                                                                 "input2_1_1Symbol", COLUMN_2,
-                                                                                "left_groupingKey1", GROUPING_KEY_COLUMN))),
+                                                                                "groupingKey1_1", GROUPING_KEY_COLUMN))),
                                                         filter(
                                                                 comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_1Symbol"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
@@ -1028,12 +1025,14 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                         ImmutableMap.of(
                                                                                 "input1_2_1Symbol", COLUMN_1,
                                                                                 "input2_2_1Symbol", COLUMN_2,
-                                                                                "left_groupingKey2", GROUPING_KEY_COLUMN))))
+                                                                                "groupingKey2_1", GROUPING_KEY_COLUMN))))
                                                         .withAlias("input1Symbol1", new SetOperationOutputMatcher(0))
                                                         .withAlias("input2Symbol1", new SetOperationOutputMatcher(1))
-                                                        .withAlias("left_groupingKey", new SetOperationOutputMatcher(2))))
-                                        .right(aggregation(
-                                                singleGroupingSet("right_groupingKey"),
+                                                        .withAlias("groupingKey_1", new SetOperationOutputMatcher(2)))),
+                                project(
+                                        ImmutableMap.of("null_output1", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                        aggregation(
+                                                singleGroupingSet("groupingKey_2"),
                                                 ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol2")))),
                                                 Optional.empty(),
                                                 SINGLE,
@@ -1045,7 +1044,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                         ImmutableMap.of(
                                                                                 "input1_1_2Symbol", COLUMN_1,
                                                                                 "input2_1_2Symbol", COLUMN_2,
-                                                                                "right_groupingKey1", GROUPING_KEY_COLUMN))),
+                                                                                "groupingKey1_2", GROUPING_KEY_COLUMN))),
                                                         filter(
                                                                 comparison(GREATER_THAN, new Reference(BIGINT, "input2_2_2Symbol"), new Constant(BIGINT, 2L)),
                                                                 tableScan(
@@ -1053,10 +1052,52 @@ public class TestMultipleDistinctAggregationsToSubqueries
                                                                         ImmutableMap.of(
                                                                                 "input1_2_2Symbol", COLUMN_1,
                                                                                 "input2_2_2Symbol", COLUMN_2,
-                                                                                "right_groupingKey2", GROUPING_KEY_COLUMN))))
+                                                                                "groupingKey2_2", GROUPING_KEY_COLUMN))))
                                                         .withAlias("input1Symbol2", new SetOperationOutputMatcher(0))
                                                         .withAlias("input2Symbol2", new SetOperationOutputMatcher(1))
-                                                        .withAlias("right_groupingKey", new SetOperationOutputMatcher(2)))))));
+                                                        .withAlias("groupingKey_2", new SetOperationOutputMatcher(2)))))
+                                .withAlias("groupingKey", new SetOperationOutputMatcher(0))
+                                .withAlias("union_output1", new SetOperationOutputMatcher(1))
+                                .withAlias("union_output2", new SetOperationOutputMatcher(2))));
+    }
+
+    private static PlanMatchPattern groupedSplitOverTableScan(String groupingKeyColumn)
+    {
+        return aggregation(
+                singleGroupingSet("groupingKey"),
+                ImmutableMap.of(
+                        Optional.of("final_output1"), aggregationFunction("any_value", ImmutableList.of("union_output1")),
+                        Optional.of("final_output2"), aggregationFunction("any_value", ImmutableList.of("union_output2"))),
+                Optional.empty(),
+                SINGLE,
+                union(
+                        project(
+                                ImmutableMap.of("null_output2", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                aggregation(
+                                        singleGroupingSet("groupingKey_1"),
+                                        ImmutableMap.of(Optional.of("output1"), aggregationFunction("count", true, ImmutableList.of(symbol("input1Symbol")))),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        tableScan(
+                                                TABLE_SCHEMA.getTableName(),
+                                                ImmutableMap.of(
+                                                        "input1Symbol", COLUMN_1,
+                                                        "groupingKey_1", groupingKeyColumn)))),
+                        project(
+                                ImmutableMap.of("null_output1", PlanMatchPattern.expression(new Constant(BIGINT, null))),
+                                aggregation(
+                                        singleGroupingSet("groupingKey_2"),
+                                        ImmutableMap.of(Optional.of("output2"), aggregationFunction("sum", true, ImmutableList.of(symbol("input2Symbol")))),
+                                        Optional.empty(),
+                                        SINGLE,
+                                        tableScan(
+                                                TABLE_SCHEMA.getTableName(),
+                                                ImmutableMap.of(
+                                                        "input2Symbol", COLUMN_2,
+                                                        "groupingKey_2", groupingKeyColumn)))))
+                        .withAlias("groupingKey", new SetOperationOutputMatcher(0))
+                        .withAlias("union_output1", new SetOperationOutputMatcher(1))
+                        .withAlias("union_output2", new SetOperationOutputMatcher(2)));
     }
 
     private static MultipleDistinctAggregationsToSubqueries newMultipleDistinctAggregationsToSubqueries(RuleTester ruleTester)

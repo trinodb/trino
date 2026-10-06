@@ -59,19 +59,19 @@ public class RemoveRedundantCaseClauses
         Set<Expression> seen = new HashSet<>();
         boolean changed = false;
         for (WhenClause whenClause : whenClauses) {
-            if (seen.contains(whenClause.getOperand()) || whenClause.getOperand().equals(FALSE) || whenClause.getOperand().equals(NULL_BOOLEAN)) {
+            if (seen.contains(whenClause.operand()) || whenClause.operand().equals(FALSE) || whenClause.operand().equals(NULL_BOOLEAN)) {
                 changed = true;
             }
-            else if (whenClause.getOperand().equals(TRUE)) {
+            else if (whenClause.operand().equals(TRUE)) {
                 changed = true;
-                newDefault = whenClause.getResult();
+                newDefault = whenClause.result();
                 break;
             }
             else {
                 newClauses.add(whenClause);
 
-                if (isDeterministic(whenClause.getOperand())) {
-                    seen.add(whenClause.getOperand());
+                if (isDeterministic(whenClause.operand())) {
+                    seen.add(whenClause.operand());
                 }
             }
         }

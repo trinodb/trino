@@ -311,7 +311,7 @@ This example is for a MySQL database.
 INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
 -- Every row in resource_groups table indicates a resource group.
--- The enviroment name is 'test_environment', make sure it matches `node.environment` in your cluster.
+-- The environment name is 'test_environment', make sure it matches `node.environment` in your cluster.
 -- The parent-child relationship is indicated by the ID in 'parent' column.
 
 -- create a root group 'global' with NULL parent

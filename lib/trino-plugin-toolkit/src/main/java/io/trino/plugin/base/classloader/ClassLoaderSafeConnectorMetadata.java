@@ -576,6 +576,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.setMaterializedViewComment(session, viewName, comment);
+        }
+    }
+
+    @Override
     public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

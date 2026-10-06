@@ -89,14 +89,14 @@ public class ImplementIntersectDistinctAsUnion
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForDistinct(node);
 
         // intersect predicate: the row must be present in every source
-        Expression predicate = and(result.getCountSymbols().stream()
+        Expression predicate = and(result.countSymbols().stream()
                 .map(symbol -> comparison(metadata, getCharVarcharCoercion(context.getSession()), GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new Constant(BIGINT, 1L)))
                 .collect(toImmutableList()));
 
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), predicate),
+                        new FilterNode(context.getIdAllocator().getNextId(), result.planNode(), predicate),
                         Assignments.identity(node.getOutputSymbols())));
     }
 }

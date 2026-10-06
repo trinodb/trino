@@ -19,15 +19,15 @@ import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
+import org.objectweb.asm.MethodTooLargeException;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -124,19 +124,55 @@ public final class CompilerUtils
         return makeClassName(baseName, Optional.empty());
     }
 
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
+    /**
+     * Defines a named class in the generated class package and loader. Named classes stay
+     * visible in stack traces, which hidden class frames are not, so this exists only for
+     * classes whose name is the point, like the version frame. The class shares the
+     * process-lifetime generated class loader and can never unload, and a name can only be
+     * defined once, so callers must memoize.
+     */
+    public static <T> Class<? extends T> defineNamedClass(ClassDefinition classDefinition, Class<T> superType)
     {
-        return defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
-    }
-
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        log.debug("Defining class: %s", classDefinition.getName());
-
-        return classGenerator(classLoader)
+        log.debug("Defining named class: %s", classDefinition.getName());
+        byte[] bytecode = hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
                 .omitDebugInfo(DUMP_CLASSES_DIRECTORY.isEmpty())
                 .dumpClassFilesTo(DUMP_CLASSES_DIRECTORY)
-                .defineClass(classDefinition, superType);
+                .generateBytes(classDefinition);
+        try {
+            return GENERATED_CLASS_LOOKUP.defineClass(bytecode).asSubclass(superType);
+        }
+        catch (IllegalAccessException e) {
+            throw new RuntimeException("Failed to define class " + classDefinition.getName(), e);
+        }
+    }
+
+    public static boolean isClassDumpEnabled()
+    {
+        return DUMP_CLASSES_DIRECTORY.isPresent();
+    }
+
+    /**
+     * Generates the class file bytes of a hidden class without defining it. The bytes can be
+     * defined multiple times with {@link #defineHiddenClassFromBytes}, each definition with
+     * its own class data, since all constants live in the class data rather than the bytes.
+     *
+     * <p>A too-large generated method surfaces as {@link io.airlift.bytecode.CompilationException}
+     * (with {@link MethodTooLargeException} as its cause) and propagates uncaught: callers that
+     * generate bytecode from a user expression know what advice fits their case (too many
+     * columns, too many filters, and so on) and are expected to translate it into their own
+     * {@link TrinoException} by checking {@link com.google.common.base.Throwables#getRootCause}.
+     */
+    public static byte[] generateHiddenClassBytes(ClassDefinition classDefinition)
+    {
+        return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .omitDebugInfo(true)
+                .generateBytes(classDefinition);
+    }
+
+    public static <T> Class<? extends T> defineHiddenClassFromBytes(byte[] bytecode, Class<T> superType, List<Object> classData)
+    {
+        return hiddenClassGenerator(GENERATED_CLASS_LOOKUP)
+                .defineHiddenClass(bytecode, superType, Optional.of(ImmutableList.copyOf(classData)));
     }
 
     /**

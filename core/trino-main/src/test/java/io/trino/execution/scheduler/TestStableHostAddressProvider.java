@@ -41,12 +41,25 @@ public class TestStableHostAddressProvider
 {
     private static final int KEY_COUNT = 10_000;
     private static final int PREFERRED_HOSTS = 2;
+    private static final String KEY = "s3://bucket/data/file.parquet:0:1024";
 
     @Test
     public void testEmptyWhenNoWorkerNodes()
     {
         StableHostAddressProvider provider = createProvider(TestingInternalNodeManager.createDefault());
         assertThat(provider.getHosts("s3://bucket/data/file.parquet:0:1024")).isEmpty();
+    }
+
+    @Test
+    public void testNodesSampledOnFirstUseNotAtConstruction()
+    {
+        TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
+        StableHostAddressProvider provider = createProvider(nodeManager);
+
+        // Sampling in the constructor would cache the empty startup set for the whole refresh
+        // window, hiding workers that register just after it.
+        nodeManager.addNodes(node(0));
+        assertThat(provider.getHosts(KEY)).containsExactly(node(0).getHostAndPort());
     }
 
     @Test

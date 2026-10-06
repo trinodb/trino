@@ -63,11 +63,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -373,10 +373,15 @@ public class PreAggregateCaseAggregations
             return Optional.empty();
         }
 
+        // The pre-aggregation evaluates the operand once per group and shares one result between aggregations
+        if (!isDeterministic(caseExpression)) {
+            return Optional.empty();
+        }
+
         Type aggregationType = resolvedFunction.signature().getReturnType();
         ResolvedFunction cumulativeFunction;
         try {
-            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), name.functionName(), fromTypes(aggregationType));
+            cumulativeFunction = plannerContext.getMetadata().resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), name.functionName(), ImmutableList.of(aggregationType));
         }
         catch (TrinoException e) {
             // there is no cumulative aggregation
@@ -416,8 +421,8 @@ public class PreAggregateCaseAggregations
                     resolvedFunction,
                     cumulativeFunction,
                     name,
-                    caseExpression.whenClauses().get(0).getOperand(),
-                    caseExpression.whenClauses().get(0).getResult(),
+                    caseExpression.whenClauses().get(0).operand(),
+                    caseExpression.whenClauses().get(0).result(),
                     cast(plannerContext.getTypeManager(), getCharVarcharCoercion(context.getSession()), caseExpression.defaultValue(), aggregationType)));
         }
 

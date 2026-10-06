@@ -31,6 +31,7 @@ import io.trino.spi.function.ScalarOperator;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -39,10 +40,13 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.trino.spi.type.TimeWithTimeZoneTypes.normalizePackedTime;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -125,6 +129,33 @@ final class ShortTimeWithTimeZoneType
     public int getFlatFixedSize()
     {
         return Long.BYTES;
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        // values are ordered by the time normalized to the +00:00 offset, so the offset doesn't matter for ordering
+        long nanos = normalizePackedTime((long) value) - nanosPerUnit();
+        if (nanos < 0) {
+            return Optional.empty();
+        }
+        return Optional.of(packTimeWithTimeZone(nanos, 0));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        // values are ordered by the time normalized to the +00:00 offset, so the offset doesn't matter for ordering
+        long nanos = normalizePackedTime((long) value) + nanosPerUnit();
+        if (nanos >= NANOSECONDS_PER_DAY) {
+            return Optional.empty();
+        }
+        return Optional.of(packTimeWithTimeZone(nanos, 0));
+    }
+
+    private long nanosPerUnit()
+    {
+        return rescale(1, 0, MAX_SHORT_PRECISION - getPrecision());
     }
 
     @ScalarOperator(READ_VALUE)

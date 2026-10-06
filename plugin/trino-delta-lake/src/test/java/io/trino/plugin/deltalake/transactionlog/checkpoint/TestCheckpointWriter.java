@@ -24,8 +24,10 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -38,34 +40,50 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertParquetToJsonStatistics;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.addFileEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.metadataEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.protocolEntry;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.removeFileEntry;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -73,6 +91,7 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
+import static java.math.RoundingMode.HALF_UP;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -80,6 +99,30 @@ public class TestCheckpointWriter
 {
     private final TypeManager typeManager = TESTING_TYPE_MANAGER;
     private final CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
+
+    @Test
+    public void testDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "true"));
+    }
+
+    @Test
+    public void testRestoredFileWithoutDeletionVectorRoundtrip()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "true"));
+    }
+
+    @Test
+    public void testDeletionVectorRoundtripWithPropertyDisabled()
+            throws IOException
+    {
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of("delta.enableDeletionVectors", "false"));
+        assertDeletionVectorRoundtrip(false, ImmutableMap.of());
+        assertDeletionVectorRoundtrip(true, ImmutableMap.of());
+    }
 
     @Test
     public void testCheckpointWriteReadJsonRoundtrip()
@@ -94,26 +137,35 @@ public class TestCheckpointWriter
                         ImmutableMap.of(
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
-                "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"l\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"in\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"sh\",\"type\":\"short\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"byt\",\"type\":\"byte\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"fl\",\"type\":\"float\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dou\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"bool\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"bin\",\"type\":\"binary\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dat\",\"type\":\"date\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"arr\",\"type\":{\"type\":\"array\",\"elementType\":\"integer\",\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"m\",\"type\":{\"type\":\"map\",\"keyType\":\"integer\",\"valueType\":\"string\",\"valueContainsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
+                """
+                {
+                  "type": "struct",
+                  "fields": [
+                    {"name": "part_key", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "ts", "type": "timestamp", "nullable": true, "metadata": {}},
+                    {"name": "ts_ntz", "type": "timestamp_ntz", "nullable": true, "metadata": {}},
+                    {"name": "str", "type": "string", "nullable": true, "metadata": {}},
+                    {"name": "dec_short", "type": "decimal(5,1)", "nullable": true, "metadata": {}},
+                    {"name": "dec_long", "type": "decimal(25,3)", "nullable": true, "metadata": {}},
+                    {"name": "l", "type": "long", "nullable": true, "metadata": {}},
+                    {"name": "in", "type": "integer", "nullable": true, "metadata": {}},
+                    {"name": "sh", "type": "short", "nullable": true, "metadata": {}},
+                    {"name": "byt", "type": "byte", "nullable": true, "metadata": {}},
+                    {"name": "fl", "type": "float", "nullable": true, "metadata": {}},
+                    {"name": "dou", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "bool", "type": "boolean", "nullable": true, "metadata": {}},
+                    {"name": "bin", "type": "binary", "nullable": true, "metadata": {}},
+                    {"name": "dat", "type": "date", "nullable": true, "metadata": {}},
+                    {"name": "arr", "type": {"type": "array", "elementType": "integer", "containsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "m", "type": {"type": "map", "keyType": "integer", "valueType": "string", "valueContainsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "row", "type": {
+                        "type": "struct",
+                        "fields": [
+                          {"name": "s1", "type": "integer", "nullable": true, "metadata": {}},
+                          {"name": "s2", "type": "string", "nullable": true, "metadata": {}}
+                        ]}, "nullable": true, "metadata": {}}
+                  ]
+                }""",
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(
                         "delta.checkpoint.writeStatsAsStruct", "false",
@@ -128,54 +180,68 @@ public class TestCheckpointWriter
                 1000,
                 1001,
                 true,
-                Optional.of("{" +
-                        "\"numRecords\":20," +
-                        "\"minValues\":{" +
-                        "\"ts\":\"2960-10-31T01:00:00.000Z\"," +
-                        "\"ts_ntz\":\"2020-01-01T01:02:03.123\"," +
-                        "\"str\":\"a\"," +
-                        "\"dec_short\":10.1," +
-                        "\"dec_long\":111111111111.123," +
-                        "\"l\":1000000000," +
-                        "\"in\":100000," +
-                        "\"sh\":100," +
-                        "\"byt\":10," +
-                        "\"fl\":0.100," +
-                        "\"dou\":0.101," +
-                        "\"dat\":\"2000-01-01\"," +
-                        "\"row\":{\"s1\":1,\"s2\":\"a\"}" +
-                        "}," +
-                        "\"maxValues\":{" +
-                        "\"ts\":\"2960-10-31T02:00:00.000Z\"," +
-                        "\"ts_ntz\":\"3000-01-01T01:02:03.123\"," +
-                        "\"str\":\"z\"," +
-                        "\"dec_short\":20.1," +
-                        "\"dec_long\":222222222222.123," +
-                        "\"l\":2000000000," +
-                        "\"in\":200000," +
-                        "\"sh\":200," +
-                        "\"byt\":20," +
-                        "\"fl\":0.200," +
-                        "\"dou\":0.202," +
-                        "\"dat\":\"3000-01-01\"," +
-                        "\"row\":{\"s1\":1,\"s2\":\"a\"}" +
-                        "}," +
-                        "\"nullCount\":{" +
-                        "\"ts\":1," +
-                        "\"str\":2," +
-                        "\"dec_short\":3," +
-                        "\"dec_long\":4," +
-                        "\"l\":5," +
-                        "\"in\":6," +
-                        "\"sh\":7," +
-                        "\"byt\":8," +
-                        "\"fl\":9," +
-                        "\"dou\":10," +
-                        "\"bool\":11," +
-                        "\"bin\":12," +
-                        "\"dat\":13," +
-                        "\"arr\":0,\"m\":14," +
-                        "\"row\":{\"s1\":0,\"s2\":15}}}"),
+                Optional.of(
+                        """
+                        {
+                          "numRecords": 20,
+                          "minValues": {
+                            "ts": "2960-10-31T01:00:00.000Z",
+                            "ts_ntz": "2020-01-01T01:02:03.123",
+                            "str": "a",
+                            "dec_short": 10.1,
+                            "dec_long": 111111111111.123,
+                            "l": 1000000000,
+                            "in": 100000,
+                            "sh": 100,
+                            "byt": 10,
+                            "fl": 0.100,
+                            "dou": 0.101,
+                            "dat": "2000-01-01",
+                            "row": {
+                              "s1": 1,
+                              "s2": "a"
+                            }
+                          },
+                          "maxValues": {
+                            "ts": "2960-10-31T02:00:00.000Z",
+                            "ts_ntz": "3000-01-01T01:02:03.123",
+                            "str": "z",
+                            "dec_short": 20.1,
+                            "dec_long": 222222222222.123,
+                            "l": 2000000000,
+                            "in": 200000,
+                            "sh": 200,
+                            "byt": 20,
+                            "fl": 0.200,
+                            "dou": 0.202,
+                            "dat": "3000-01-01",
+                            "row": {
+                              "s1": 1,
+                              "s2": "a"
+                            }
+                          },
+                          "nullCount": {
+                            "ts": 1,
+                            "str": 2,
+                            "dec_short": 3,
+                            "dec_long": 4,
+                            "l": 5,
+                            "in": 6,
+                            "sh": 7,
+                            "byt": 8,
+                            "fl": 9,
+                            "dou": 10,
+                            "bool": 11,
+                            "bin": 12,
+                            "dat": 13,
+                            "arr": 0,
+                            "m": 14,
+                            "row": {
+                              "s1": 0,
+                              "s2": 15
+                            }
+                          }
+                        }"""),
                 Optional.empty(),
                 ImmutableMap.of(
                         "someTag", "someValue",
@@ -205,12 +271,16 @@ public class TestCheckpointWriter
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
+        ImmutableMap<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
+
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
         assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
         assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
         assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
-        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()))
+                .isEqualTo(entries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()));
     }
 
     @Test
@@ -226,26 +296,35 @@ public class TestCheckpointWriter
                         ImmutableMap.of(
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
-                "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"ts_ntz\",\"type\":\"timestamp_ntz\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"l\",\"type\":\"long\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"in\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"sh\",\"type\":\"short\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"byt\",\"type\":\"byte\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"fl\",\"type\":\"float\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dou\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"bool\",\"type\":\"boolean\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"bin\",\"type\":\"binary\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"dat\",\"type\":\"date\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"arr\",\"type\":{\"type\":\"array\",\"elementType\":\"integer\",\"containsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"m\",\"type\":{\"type\":\"map\",\"keyType\":\"integer\",\"valueType\":\"string\",\"valueContainsNull\":true},\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
+                """
+                {
+                  "type": "struct",
+                  "fields": [
+                    {"name": "part_key", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "ts", "type": "timestamp", "nullable": true, "metadata": {}},
+                    {"name": "ts_ntz", "type": "timestamp_ntz", "nullable": true, "metadata": {}},
+                    {"name": "str", "type": "string", "nullable": true, "metadata": {}},
+                    {"name": "dec_short", "type": "decimal(5,1)", "nullable": true, "metadata": {}},
+                    {"name": "dec_long", "type": "decimal(25,3)", "nullable": true, "metadata": {}},
+                    {"name": "l", "type": "long", "nullable": true, "metadata": {}},
+                    {"name": "in", "type": "integer", "nullable": true, "metadata": {}},
+                    {"name": "sh", "type": "short", "nullable": true, "metadata": {}},
+                    {"name": "byt", "type": "byte", "nullable": true, "metadata": {}},
+                    {"name": "fl", "type": "float", "nullable": true, "metadata": {}},
+                    {"name": "dou", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "bool", "type": "boolean", "nullable": true, "metadata": {}},
+                    {"name": "bin", "type": "binary", "nullable": true, "metadata": {}},
+                    {"name": "dat", "type": "date", "nullable": true, "metadata": {}},
+                    {"name": "arr", "type": {"type": "array", "elementType": "integer", "containsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "m", "type": {"type": "map", "keyType": "integer", "valueType": "string", "valueContainsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "row", "type": {
+                        "type": "struct",
+                        "fields": [
+                          {"name": "s1", "type": "integer", "nullable": true, "metadata": {}},
+                          {"name": "s2", "type": "string", "nullable": true, "metadata": {}}
+                        ]}, "nullable": true, "metadata": {}}
+                  ]
+                }""",
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(
                         "configOption1", "blah",
@@ -347,12 +426,268 @@ public class TestCheckpointWriter
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
+        ImmutableMap<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
+
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
         assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
         assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
         assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
         assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
-        assertThat(readEntries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.addFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()))
+                .isEqualTo(entries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()));
+    }
+
+    @Test
+    void testCheckpointWriteJsonReadParquet()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format(
+                        "metadataFormatProvider",
+                        ImmutableMap.of(
+                                "formatOptionX", "blah",
+                                "fomatOptionY", "plah")),
+                """
+                {
+                  "type": "struct",
+                  "fields": [
+                    {"name": "part_key", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "ts", "type": "timestamp", "nullable": true, "metadata": {}},
+                    {"name": "ts_ntz", "type": "timestamp_ntz", "nullable": true, "metadata": {}},
+                    {"name": "str", "type": "string", "nullable": true, "metadata": {}},
+                    {"name": "dec_short", "type": "decimal(5,1)", "nullable": true, "metadata": {}},
+                    {"name": "dec_long", "type": "decimal(25,3)", "nullable": true, "metadata": {}},
+                    {"name": "l", "type": "long", "nullable": true, "metadata": {}},
+                    {"name": "in", "type": "integer", "nullable": true, "metadata": {}},
+                    {"name": "sh", "type": "short", "nullable": true, "metadata": {}},
+                    {"name": "byt", "type": "byte", "nullable": true, "metadata": {}},
+                    {"name": "fl", "type": "float", "nullable": true, "metadata": {}},
+                    {"name": "dou", "type": "double", "nullable": true, "metadata": {}},
+                    {"name": "bool", "type": "boolean", "nullable": true, "metadata": {}},
+                    {"name": "bin", "type": "binary", "nullable": true, "metadata": {}},
+                    {"name": "dat", "type": "date", "nullable": true, "metadata": {}},
+                    {"name": "arr", "type": {"type": "array", "elementType": "integer", "containsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "m", "type": {"type": "map", "keyType": "integer", "valueType": "string", "valueContainsNull": true}, "nullable": true, "metadata": {}},
+                    {"name": "row", "type": {
+                        "type": "struct",
+                        "fields": [
+                          {"name": "s1", "type": "integer", "nullable": true, "metadata": {}},
+                          {"name": "s2", "type": "string", "nullable": true, "metadata": {}}
+                        ]}, "nullable": true, "metadata": {}}
+                  ]
+                }""",
+                ImmutableList.of("part_key"),
+                ImmutableMap.of(
+                        "configOption1", "blah",
+                        "configOption2", "plah"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
+        AddFileEntry addFileEntryJsonStats = new AddFileEntry(
+                "addFilePathJson",
+                ImmutableMap.of("part_key", "7.0"),
+                1000,
+                1001,
+                true,
+                Optional.of(
+                        """
+                        {
+                          "numRecords": 20,
+                          "minValues": {
+                            "ts": "2960-10-31T01:00:00.001Z",
+                            "ts_ntz": "2020-01-01T01:02:03.123",
+                            "str": "a",
+                            "dec_short": 10.1,
+                            "dec_long": 111111111111.123,
+                            "l": 1000000000,
+                            "in": 100000,
+                            "sh": 100,
+                            "byt": 10,
+                            "fl": 0.100,
+                            "dou": "-Infinity",
+                            "dat": "2000-01-01"
+                          },
+                          "maxValues": {
+                            "ts": "2960-10-31T02:00:00.002Z",
+                            "ts_ntz": "3000-01-01T01:02:03.123",
+                            "str": "z",
+                            "dec_short": 20.1,
+                            "dec_long": 222222222222.123,
+                            "l": 2000000000,
+                            "in": 200000,
+                            "sh": 200,
+                            "byt": 20,
+                            "fl": 0.200,
+                            "dou": 0.202,
+                            "dat": "3000-01-01"
+                          },
+                          "nullCount": {
+                            "ts": 1,
+                            "str": 2,
+                            "dec_short": 3,
+                            "dec_long": 4,
+                            "l": 5,
+                            "in": 6,
+                            "sh": 7,
+                            "byt": 8,
+                            "fl": 9,
+                            "dou": 10,
+                            "bool": 11,
+                            "bin": 12,
+                            "dat": 13,
+                            "arr": 0,
+                            "m": 14
+                          }
+                        }"""),
+                Optional.empty(),
+                ImmutableMap.of(
+                        "someTag", "someValue",
+                        "otherTag", "otherValue"),
+                Optional.empty());
+
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry(
+                "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
+                1000,
+                true,
+                Optional.empty());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(transactionEntry),
+                ImmutableSet.of(addFileEntryJsonStats),
+                ImmutableSet.of(removeFileEntry));
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+
+        File targetFile = Files.createTempFile("testCheckpointWriteJsonReadParquet-", ".checkpoint.parquet").toFile();
+        targetFile.deleteOnExit();
+
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(entries, createOutputFile(targetPath));
+
+        ImmutableMap<String, Type> columnTypeMapping = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::physicalName, DeltaLakeColumnMetadata::physicalColumnType));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        assertThat(readEntries.transactionEntries()).isEqualTo(entries.transactionEntries());
+        assertThat(readEntries.removeFileEntries()).isEqualTo(entries.removeFileEntries());
+        assertThat(readEntries.metadataEntry()).isEqualTo(entries.metadataEntry());
+        assertThat(readEntries.protocolEntry()).isEqualTo(entries.protocolEntry());
+        assertThat(readEntries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()))
+                .isEqualTo(entries.addFileEntries().stream().map(x -> makeComparable(columnTypeMapping, x)).collect(toImmutableSet()));
+    }
+
+    @Test
+    void testCheckpointTightBounds(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = MetadataEntry.builder()
+                .setSchemaString("{\"type\":\"struct\",\"fields\":[{\"name\":\"x\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")
+                .setConfiguration(ImmutableMap.of("delta.enableDeletionVectors", "true"))
+                .build();
+        ProtocolEntry protocolEntry = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of(DELETION_VECTORS_FEATURE_NAME)), Optional.of(ImmutableSet.of(DELETION_VECTORS_FEATURE_NAME)));
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                ImmutableSet.of(
+                        fileWithTightBounds("wide.parquet", Optional.of(false)),
+                        fileWithTightBounds("tight.parquet", Optional.of(true)),
+                        fileWithTightBounds("unknown.parquet", Optional.empty())),
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String checkpointPath = directory.resolve("bounds.checkpoint.parquet").toUri().toString();
+        writer.write(entries, createOutputFile(checkpointPath));
+        Map<String, Optional<Boolean>> expectedTightBounds = ImmutableMap.of(
+                "wide.parquet", Optional.of(false),
+                "tight.parquet", Optional.of(true),
+                "unknown.parquet", Optional.empty());
+        assertThat(tightBoundsByPath(readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true))).isEqualTo(expectedTightBounds);
+
+        MetadataEntry parsedOnlyMetadata = MetadataEntry.builder(metadataEntry)
+                .setConfiguration(ImmutableMap.of("delta.enableDeletionVectors", "true", "delta.checkpoint.writeStatsAsJson", "false"))
+                .build();
+        CheckpointEntries parsedOnlyEntries = new CheckpointEntries(
+                parsedOnlyMetadata,
+                protocolEntry,
+                entries.transactionEntries(),
+                entries.addFileEntries(),
+                entries.removeFileEntries());
+        String parsedOnlyPath = directory.resolve("parsed.checkpoint.parquet").toUri().toString();
+        writer.write(parsedOnlyEntries, createOutputFile(parsedOnlyPath));
+        assertThat(tightBoundsByPath(readCheckpoint(parsedOnlyPath, parsedOnlyMetadata, protocolEntry, true))).isEqualTo(expectedTightBounds);
+    }
+
+    @Test
+    void testStreamingWriterCountsEntries(@TempDir Path directory)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = MetadataEntry.builder()
+                .setSchemaString("{\"type\":\"struct\",\"fields\":[{\"name\":\"x\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")
+                .setConfiguration(ImmutableMap.of())
+                .build();
+        ProtocolEntry protocolEntry = new ProtocolEntry(1, 2, Optional.empty(), Optional.empty());
+        TransactionEntry transactionEntry = new TransactionEntry("appId", 1, 1001);
+        AddFileEntry firstAdd = fileWithTightBounds("first.parquet", Optional.empty());
+        AddFileEntry secondAdd = fileWithTightBounds("second.parquet", Optional.empty());
+        RemoveFileEntry removeFileEntry = new RemoveFileEntry("removed.parquet", ImmutableMap.of(), 1000, true, Optional.empty());
+
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        String checkpointPath = directory.resolve("streamed.checkpoint.parquet").toUri().toString();
+        try (CheckpointWriter.CheckpointFileWriter checkpointFileWriter = writer.createWriter(metadataEntry, protocolEntry, createOutputFile(checkpointPath))) {
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(2);
+            checkpointFileWriter.writeTransaction(transactionEntry);
+            checkpointFileWriter.writeAddFile(firstAdd);
+            checkpointFileWriter.writeRemoveFile(removeFileEntry);
+            checkpointFileWriter.writeAddFile(secondAdd);
+            checkpointFileWriter.finish();
+            assertThat(checkpointFileWriter.getEntryCount()).isEqualTo(6);
+        }
+
+        CheckpointEntries readEntries = readCheckpoint(checkpointPath, metadataEntry, protocolEntry, true);
+        assertThat(readEntries.metadataEntry()).isEqualTo(metadataEntry);
+        assertThat(readEntries.protocolEntry()).isEqualTo(protocolEntry);
+        assertThat(readEntries.transactionEntries()).containsExactly(transactionEntry);
+        assertThat(readEntries.addFileEntries().stream().map(AddFileEntry::getPath)).containsExactlyInAnyOrder("first.parquet", "second.parquet");
+        assertThat(readEntries.removeFileEntries()).containsExactly(removeFileEntry);
+    }
+
+    private static Map<String, Optional<Boolean>> tightBoundsByPath(CheckpointEntries entries)
+    {
+        return entries.addFileEntries().stream()
+                .collect(toImmutableMap(AddFileEntry::getPath, entry -> {
+                    DeltaLakeFileStatistics statistics = entry.getStats().orElseThrow();
+                    assertThat(statistics).isInstanceOf(DeltaLakeParquetFileStatistics.class);
+                    assertThat(statistics.getNumRecords()).contains(5L);
+                    return statistics.getTightBounds();
+                }));
+    }
+
+    private static AddFileEntry fileWithTightBounds(String path, Optional<Boolean> tightBounds)
+    {
+        return new AddFileEntry(
+                path,
+                ImmutableMap.of(),
+                100,
+                1000,
+                false,
+                Optional.empty(),
+                Optional.of(new DeltaLakeParquetFileStatistics(
+                        Optional.of(5L),
+                        Optional.of(ImmutableMap.of("x", 1L)),
+                        Optional.of(ImmutableMap.of("x", 5L)),
+                        Optional.of(ImmutableMap.of("x", 0L)),
+                        tightBounds)),
+                ImmutableMap.of(),
+                Optional.of(new DeletionVectorEntry("i", "encoded", OptionalInt.empty(), 1, 1)));
     }
 
     private static long convertToTimestamp(String value)
@@ -360,6 +695,68 @@ public class TestCheckpointWriter
         LocalDateTime localDateTime = LocalDateTime.parse(value);
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+    }
+
+    @Test
+    public void testJsonStatsTimestampMaximumRoundsUpInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        DeltaLakeParquetFileStatistics statistics = roundTripJsonStatistics(directory, "{" +
+                "\"numRecords\":1," +
+                "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123456Z\"}," +
+                "\"nullCount\":{\"ts\":0}}");
+
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600124L, UTC_KEY)));
+    }
+
+    @Test
+    public void testJsonStatsTimestampOnMillisecondBoundaryIsUnchangedInCheckpointStruct(@TempDir Path directory)
+            throws IOException
+    {
+        DeltaLakeParquetFileStatistics statistics = roundTripJsonStatistics(directory, "{" +
+                "\"numRecords\":1," +
+                "\"minValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                "\"maxValues\":{\"ts\":\"2024-01-15T10:30:00.123Z\"}," +
+                "\"nullCount\":{\"ts\":0}}");
+
+        assertThat(statistics.getMinValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+        assertThat(statistics.getMaxValues()).contains(ImmutableMap.of("ts", packDateTimeWithZone(1705314600123L, UTC_KEY)));
+    }
+
+    private DeltaLakeParquetFileStatistics roundTripJsonStatistics(Path directory, String jsonStatistics)
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format("metadataFormatProvider", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                ImmutableMap.of(
+                        "delta.checkpoint.writeStatsAsStruct", "true",
+                        "delta.checkpoint.writeStatsAsJson", "false"),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
+        AddFileEntry addFileEntry = new AddFileEntry(
+                "addFilePath",
+                ImmutableMap.of(),
+                1000,
+                1001,
+                true,
+                Optional.of(jsonStatistics),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+        CheckpointEntries entries = new CheckpointEntries(metadataEntry, protocolEntry, ImmutableSet.of(), ImmutableSet.of(addFileEntry), ImmutableSet.of());
+
+        String targetPath = directory.resolve("checkpoint.parquet").toUri().toString();
+        new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
+        return (DeltaLakeParquetFileStatistics) getOnlyElement(readEntries.addFileEntries()).getStats().orElseThrow();
     }
 
     @Test
@@ -375,10 +772,14 @@ public class TestCheckpointWriter
                         ImmutableMap.of(
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
-                "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
-                        "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
+                """
+                {
+                  "type":"struct",
+                  "fields":[
+                    {"name":"part_key","type":"double","nullable":true,"metadata":{}},
+                    {"name":"row","type":{"type":"struct","fields":[{"name":"s1","type":"integer","nullable":true,"metadata":{}},{"name":"s2","type":"string","nullable":true,"metadata":{}}]},"nullable":true,"metadata":{}}
+                  ]
+                }""",
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
@@ -432,7 +833,55 @@ public class TestCheckpointWriter
         assertThat(fileStatistics.getNullCount().get()).isEmpty();
     }
 
-    private AddFileEntry makeComparable(AddFileEntry original)
+    private void assertDeletionVectorRoundtrip(boolean restoreWithoutDeletionVector, Map<String, String> configuration)
+            throws IOException
+    {
+        MetadataEntry metadata = new MetadataEntry(
+                "metadataId",
+                "",
+                "",
+                new MetadataEntry.Format("parquet", ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":[{\"name\":\"value\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of(),
+                configuration,
+                1);
+        ProtocolEntry protocol = new ProtocolEntry(3, 7, Optional.of(ImmutableSet.of("deletionVectors")), Optional.of(ImmutableSet.of("deletionVectors")));
+        CheckpointBuilder builder = new CheckpointBuilder();
+        builder.addLogEntry(metadataEntry(metadata));
+        builder.addLogEntry(protocolEntry(protocol));
+        AddFileEntry original = new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.empty());
+        builder.addLogEntry(addFileEntry(original));
+
+        Optional<DeletionVectorEntry> previousDeletionVector = Optional.empty();
+        for (DeletionVectorEntry deletionVector : ImmutableList.of(
+                new DeletionVectorEntry("i", "inline", OptionalInt.empty(), 34, 1),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(1), 36, 2),
+                new DeletionVectorEntry("p", "file:///deletion_vector.bin", OptionalInt.of(39), 38, 3))) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 1, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(new AddFileEntry("a", ImmutableMap.of(), 1, 1, true, Optional.empty(), Optional.empty(), ImmutableMap.of(), Optional.of(deletionVector))));
+            previousDeletionVector = Optional.of(deletionVector);
+        }
+        if (restoreWithoutDeletionVector) {
+            builder.addLogEntry(removeFileEntry(new RemoveFileEntry("a", ImmutableMap.of(), 2, true, previousDeletionVector)));
+            builder.addLogEntry(addFileEntry(original));
+        }
+
+        CheckpointEntries expected = builder.build();
+        CheckpointEntries entries = expected;
+        for (int checkpoint = 0; checkpoint < 2; checkpoint++) {
+            File targetFile = Files.createTempFile("testDeletionVectorRoundtrip-", ".checkpoint.parquet").toFile();
+            targetFile.deleteOnExit();
+            String targetPath = targetFile.toURI().toString();
+            targetFile.delete();
+            new CheckpointWriter(typeManager, checkpointSchemaManager, "test").write(entries, createOutputFile(targetPath));
+
+            entries = readCheckpoint(targetPath, metadata, protocol, true);
+            assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
+            assertThat(entries.removeFileEntries()).containsExactlyInAnyOrderElementsOf(expected.removeFileEntries());
+        }
+    }
+
+    private AddFileEntry makeComparable(Map<String, Type> columnTypeMapping, AddFileEntry original)
     {
         return new AddFileEntry(
                 original.getPath(),
@@ -441,27 +890,38 @@ public class TestCheckpointWriter
                 original.getModificationTime(),
                 original.isDataChange(),
                 original.getStatsString(),
-                makeComparable(original.getStats()),
+                makeComparable(columnTypeMapping, original.getStats()),
                 original.getTags(),
                 original.getDeletionVector());
     }
 
-    private Optional<DeltaLakeParquetFileStatistics> makeComparable(Optional<? extends DeltaLakeFileStatistics> original)
+    private Optional<DeltaLakeParquetFileStatistics> makeComparable(Map<String, Type> columnTypeMapping, Optional<? extends DeltaLakeFileStatistics> original)
     {
-        if (original.isEmpty() || original.get() instanceof DeltaLakeJsonFileStatistics) {
+        if (original.isEmpty()) {
             return Optional.empty();
         }
 
-        DeltaLakeParquetFileStatistics originalStatistics = (DeltaLakeParquetFileStatistics) original.get();
+        DeltaLakeJsonFileStatistics stats;
+        if (original.get() instanceof DeltaLakeJsonFileStatistics jsonStats) {
+            stats = jsonStats;
+        }
+        else if (original.get() instanceof DeltaLakeParquetFileStatistics parquetStats) {
+            stats = convertParquetToJsonStatistics(columnTypeMapping, parquetStats);
+        }
+        else {
+            throw new RuntimeException("Unsupported subclass of DeltaLakeFileStatistics");
+        }
+
         return Optional.of(
                 new DeltaLakeParquetFileStatistics(
-                        originalStatistics.getNumRecords(),
-                        makeComparableStatistics(originalStatistics.getMinValues()),
-                        makeComparableStatistics(originalStatistics.getMaxValues()),
-                        makeComparableStatistics(originalStatistics.getNullCount())));
+                        stats.getNumRecords(),
+                        makeComparableStatistics(columnTypeMapping, stats.getMinValues()),
+                        makeComparableStatistics(columnTypeMapping, stats.getMaxValues()),
+                        makeComparableStatistics(columnTypeMapping, stats.getNullCount()),
+                        stats.getTightBounds()));
     }
 
-    private Optional<Map<String, Object>> makeComparableStatistics(Optional<Map<String, Object>> original)
+    private Optional<Map<String, Object>> makeComparableStatistics(Map<String, Type> columnTypeMapping, Optional<Map<String, Object>> original)
     {
         if (original.isEmpty()) {
             return Optional.empty();
@@ -471,6 +931,7 @@ public class TestCheckpointWriter
         ImmutableMap.Builder<String, Object> comparableStats = ImmutableMap.builder();
         for (String key : stats.keySet()) {
             Object statsValue = stats.get(key);
+            Type type = columnTypeMapping.get(key);
             if (statsValue instanceof SqlRow sqlRow) {
                 // todo: this validation is just broken. The only way to compare values is to use types.
                 // see https://github.com/trinodb/trino/issues/19557
@@ -482,8 +943,21 @@ public class TestCheckpointWriter
             else if (statsValue instanceof Slice slice) {
                 comparableStats.put(key, slice.toStringUtf8());
             }
+            else if (type instanceof TimestampType && statsValue instanceof String stringValue) {
+                // Coerce ntz timestamps to tz as we support reading both
+                if (!stringValue.endsWith("Z")) {
+                    stringValue += "Z";
+                }
+                comparableStats.put(key, stringValue);
+            }
+            else if (type instanceof DecimalType decimalType && statsValue instanceof Double doubleValue) {
+                // Convert Decimals to a String representation for comparison
+                comparableStats.put(key, BigDecimal.valueOf(doubleValue)
+                        .setScale(decimalType.getScale(), HALF_UP)
+                        .toPlainString());
+            }
             else {
-                comparableStats.put(key, statsValue);
+                comparableStats.put(key, statsValue.toString());
             }
         }
 

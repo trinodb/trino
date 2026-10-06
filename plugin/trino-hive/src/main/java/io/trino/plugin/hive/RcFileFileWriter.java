@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriter;
@@ -28,7 +29,6 @@ import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -50,7 +50,8 @@ public final class RcFileFileWriter
     private static final int INSTANCE_SIZE = instanceSize(RcFileFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    private final CountingOutputStream outputStream;
+    private final TrinoOutputStream outputStream;
+    private final CountingOutputStream countingOutputStream;
     private final AggregatedMemoryContext outputStreamMemoryContext;
     private final RcFileWriter rcFileWriter;
     private final RollbackAction rollbackAction;
@@ -61,7 +62,7 @@ public final class RcFileFileWriter
     private long validationCpuNanos;
 
     public RcFileFileWriter(
-            OutputStream outputStream,
+            TrinoOutputStream outputStream,
             AggregatedMemoryContext outputStreamMemoryContext,
             RollbackAction rollbackAction,
             ColumnEncodingFactory columnEncodingFactory,
@@ -72,10 +73,11 @@ public final class RcFileFileWriter
             Optional<Supplier<TrinoInputFile>> validationInputFactory)
             throws IOException
     {
-        this.outputStream = new CountingOutputStream(outputStream);
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
+        this.countingOutputStream = new CountingOutputStream(outputStream);
         this.outputStreamMemoryContext = outputStreamMemoryContext;
         rcFileWriter = new RcFileWriter(
-                this.outputStream,
+                countingOutputStream,
                 fileColumnTypes,
                 columnEncodingFactory,
                 compressionKind,
@@ -96,7 +98,7 @@ public final class RcFileFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return outputStream.getCount();
+        return countingOutputStream.getCount();
     }
 
     @Override
@@ -162,7 +164,7 @@ public final class RcFileFileWriter
     public void rollback()
     {
         try (Closeable _ = rollbackAction::run) {
-            rcFileWriter.close();
+            outputStream.abort();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);

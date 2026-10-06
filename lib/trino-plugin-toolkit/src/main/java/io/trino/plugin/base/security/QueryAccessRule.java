@@ -34,9 +34,7 @@ import static java.util.function.Function.identity;
 public class QueryAccessRule
 {
     private final Set<AccessMode> allow;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
+    private final IdentityMatcher identityMatcher;
     private final Optional<Pattern> queryOwnerRegex;
 
     @JsonCreator
@@ -48,9 +46,7 @@ public class QueryAccessRule
             @JsonProperty("queryOwner") Optional<Pattern> queryOwnerRegex)
     {
         this.allow = ImmutableSet.copyOf(requireNonNull(allow, "allow is null"));
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
         this.queryOwnerRegex = requireNonNull(queryOwnerRegex, "ownerRegex is null");
         checkState(
                 queryOwnerRegex.isEmpty() || !allow.contains(AccessMode.EXECUTE),
@@ -59,9 +55,7 @@ public class QueryAccessRule
 
     public Optional<Set<AccessMode>> match(String user, Set<String> roles, Set<String> groups, Optional<String> queryOwner)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
+        if (identityMatcher.matches(user, roles, groups) &&
                 ((queryOwner.isEmpty() && queryOwnerRegex.isEmpty()) || (queryOwner.isPresent() && queryOwnerRegex.map(regex -> regex.matcher(queryOwner.get()).matches()).orElse(true)))) {
             return Optional.of(allow);
         }
@@ -74,9 +68,7 @@ public class QueryAccessRule
         return toStringHelper(this)
                 .omitNullValues()
                 .add("allow", allow)
-                .add("userRegex", userRegex.orElse(null))
-                .add("roleRegex", roleRegex.orElse(null))
-                .add("groupRegex", groupRegex.orElse(null))
+                .add("identityMatcher", identityMatcher)
                 .add("ownerRegex", queryOwnerRegex.orElse(null))
                 .toString();
     }

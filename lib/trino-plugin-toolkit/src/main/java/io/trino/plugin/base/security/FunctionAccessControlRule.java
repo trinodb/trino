@@ -32,10 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class FunctionAccessControlRule
 {
     private final Set<FunctionPrivilege> privileges;
-    private final Optional<Pattern> userRegex;
-    private final Optional<Pattern> roleRegex;
-    private final Optional<Pattern> groupRegex;
-    private final Optional<Pattern> schemaRegex;
+    private final IdentityMatcher identityMatcher;
+    private final Optional<UserSubstitutingPattern> schemaPattern;
     private final Optional<Pattern> functionRegex;
 
     @JsonCreator
@@ -44,15 +42,13 @@ public class FunctionAccessControlRule
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
-            @JsonProperty("schema") Optional<Pattern> schemaRegex,
+            @JsonProperty("schema") Optional<UserSubstitutingPattern> schemaPattern,
             @JsonProperty("function") Optional<Pattern> functionRegex,
             @JsonProperty("function_kinds") @JsonAlias("functionKinds") Set<FunctionKind> functionKinds)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
+        this.identityMatcher = new IdentityMatcher(userRegex, roleRegex, groupRegex);
+        this.schemaPattern = requireNonNull(schemaPattern, "schemaPattern is null");
         this.functionRegex = requireNonNull(functionRegex, "functionRegex is null");
         if (functionKinds != null && !functionKinds.isEmpty()) {
             throw new IllegalArgumentException("function_kind is no longer supported in security rules");
@@ -61,10 +57,8 @@ public class FunctionAccessControlRule
 
     public boolean matches(String user, Set<String> roles, Set<String> groups, SchemaRoutineName functionName)
     {
-        return userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
-                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                groupRegex.map(regex -> groups.stream().anyMatch(group -> regex.matcher(group).matches())).orElse(true) &&
-                schemaRegex.map(regex -> regex.matcher(functionName.getSchemaName()).matches()).orElse(true) &&
+        return identityMatcher.matches(user, roles, groups) &&
+                schemaPattern.map(pattern -> pattern.matches(user, functionName.getSchemaName())).orElse(true) &&
                 functionRegex.map(regex -> regex.matcher(functionName.getRoutineName()).matches()).orElse(true);
     }
 
@@ -88,7 +82,7 @@ public class FunctionAccessControlRule
         if (privileges.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new AnySchemaPermissionsRule(userRegex, roleRegex, groupRegex, schemaRegex));
+        return Optional.of(new AnySchemaPermissionsRule(identityMatcher, schemaPattern));
     }
 
     Set<FunctionPrivilege> getPrivileges()
@@ -96,24 +90,14 @@ public class FunctionAccessControlRule
         return privileges;
     }
 
-    Optional<Pattern> getUserRegex()
+    IdentityMatcher getIdentityMatcher()
     {
-        return userRegex;
+        return identityMatcher;
     }
 
-    Optional<Pattern> getRoleRegex()
+    Optional<UserSubstitutingPattern> getSchemaPattern()
     {
-        return roleRegex;
-    }
-
-    Optional<Pattern> getGroupRegex()
-    {
-        return groupRegex;
-    }
-
-    Optional<Pattern> getSchemaRegex()
-    {
-        return schemaRegex;
+        return schemaPattern;
     }
 
     public enum FunctionPrivilege

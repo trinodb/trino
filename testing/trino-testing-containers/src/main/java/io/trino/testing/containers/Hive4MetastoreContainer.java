@@ -31,7 +31,7 @@ import java.time.Duration;
  * Key features:
  * <ul>
  *   <li>Hive Metastore on port 9083</li>
- *   <li>Configured for S3 (MinIO) storage via hive-site.xml</li>
+ *   <li>Configured for S3 (Floci) storage via hive-site.xml</li>
  *   <li>Uses SERVICE_NAME=metastore to run as standalone metastore</li>
  * </ul>
  *
@@ -129,14 +129,14 @@ public class Hive4MetastoreContainer
         super(DockerImageName.parse(imageName));
         withExposedPorts(HIVE_METASTORE_PORT);
         withEnv("SERVICE_NAME", "metastore");
-        // Default S3 configuration pointing to MinIO
+        // Default S3 configuration pointing to Floci
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(
                         DEFAULT_WAREHOUSE_DIR,
-                        Minio.MINIO_ROOT_USER,
-                        Minio.MINIO_ROOT_PASSWORD,
-                        Minio.DEFAULT_HOST_NAME,
-                        Minio.MINIO_API_PORT)),
+                        Floci.FLOCI_ACCESS_KEY,
+                        Floci.FLOCI_SECRET_KEY,
+                        "floci",
+                        Floci.FLOCI_PORT)),
                 "/opt/hive/conf/hive-site.xml");
         waitingFor(Wait.forListeningPort()
                 .withStartupTimeout(Duration.ofMinutes(3)));
@@ -179,10 +179,10 @@ public class Hive4MetastoreContainer
         withCopyToContainer(
                 Transferable.of(getHiveSiteXml(
                         warehouseDir,
-                        Minio.MINIO_ROOT_USER,
-                        Minio.MINIO_ROOT_PASSWORD,
-                        Minio.DEFAULT_HOST_NAME,
-                        Minio.MINIO_API_PORT)),
+                        Floci.FLOCI_ACCESS_KEY,
+                        Floci.FLOCI_SECRET_KEY,
+                        "floci",
+                        Floci.FLOCI_PORT)),
                 "/opt/hive/conf/hive-site.xml");
         super.start();
     }

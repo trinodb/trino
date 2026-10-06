@@ -222,6 +222,18 @@ public class TestSimpleFormat
                         .lastColumnTakesRest()
                         .build(),
                 true);
+
+        // escape byte equal to the field separator
+        assertLine(
+                ImmutableList.of(
+                        new Column("a", VARCHAR, 0),
+                        new Column("b", VARCHAR, 1)),
+                "x\1y",
+                Arrays.asList("x", "y"),
+                TextEncodingOptions.builder()
+                        .escapeByte((byte) 1)
+                        .build(),
+                true);
     }
 
     @Test

@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
@@ -103,6 +104,8 @@ class StageManager
             stages.put(stageId, stage);
             stagesInTopologicalOrder.add(stage);
             if (fragment.getPartitioning().isCoordinatorOnly()) {
+                // Coordinator stages are scheduled with no connector splits, so a split source here would be dropped and the stage would produce no rows.
+                verify(fragment.getPartitionedSources().isEmpty(), "Coordinator only fragment %s has partitioned sources: %s", fragment.getId(), fragment.getPartitionedSources());
                 coordinatorStagesInTopologicalOrder.add(stage);
             }
             else {

@@ -33,7 +33,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.metadata.TestingMetadataManager.createTestingMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -61,8 +60,8 @@ public class TestPruneOrderByInWindowAggregation
                     Symbol mask = planBuilder.symbol("mask");
                     List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
 
-                    ResolvedFunction avgFunction = METADATA.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "avg", fromTypes(BIGINT));
-                    ResolvedFunction arrayAggFunction = METADATA.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "array_agg", fromTypes(BIGINT));
+                    ResolvedFunction avgFunction = METADATA.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "avg", ImmutableList.of(BIGINT));
+                    ResolvedFunction arrayAggFunction = METADATA.resolveBuiltinFunction(getCharVarcharCoercion(TEST_SESSION), "array_agg", ImmutableList.of(BIGINT));
 
                     return planBuilder.window(
                             new DataOrganizationSpecification(ImmutableList.of(planBuilder.symbol("key", BIGINT)), Optional.empty()),

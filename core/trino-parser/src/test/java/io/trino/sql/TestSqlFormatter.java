@@ -680,6 +680,20 @@ public class TestSqlFormatter
     }
 
     @Test
+    public void testCommentOnMaterializedView()
+    {
+        assertThat(formatSql(
+                new Comment(new NodeLocation(1, 1), Comment.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), Optional.of("test"))))
+                .isEqualTo("COMMENT ON MATERIALIZED VIEW a IS 'test'");
+        assertThat(formatSql(
+                new Comment(new NodeLocation(1, 1), Comment.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                .isEqualTo("COMMENT ON MATERIALIZED VIEW a IS '攻殻機動隊'");
+        assertThat(formatSql(
+                new Comment(new NodeLocation(1, 1), Comment.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), Optional.empty())))
+                .isEqualTo("COMMENT ON MATERIALIZED VIEW a IS NULL");
+    }
+
+    @Test
     public void testCommentOnColumn()
     {
         assertThat(formatSql(

@@ -16,6 +16,8 @@ package io.trino;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -42,6 +44,7 @@ import io.trino.transaction.TransactionManager;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -84,8 +87,12 @@ public final class Session
     private final ResourceEstimates resourceEstimates;
     private final Instant start;
     private final Map<String, String> systemProperties;
+    // subset of systemProperties that came from session property defaults rather than from the user
+    private final Set<String> defaultedSystemProperties;
     // TODO use Table
     private final Map<String, Map<String, String>> catalogProperties;
+    // subset of catalogProperties that came from session property defaults rather than from the user
+    private final Map<String, Set<String>> defaultedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
@@ -114,7 +121,9 @@ public final class Session
             ResourceEstimates resourceEstimates,
             Instant start,
             Map<String, String> systemProperties,
+            Set<String> defaultedSystemProperties,
             Map<String, Map<String, String>> catalogProperties,
+            Map<String, Set<String>> defaultedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
@@ -142,6 +151,7 @@ public final class Session
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.start = start;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
+        this.defaultedSystemProperties = ImmutableSet.copyOf(requireNonNull(defaultedSystemProperties, "defaultedSystemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
@@ -154,6 +164,7 @@ public final class Session
                 .map(entry -> Map.entry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
         this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
+        this.defaultedCatalogProperties = ImmutableMap.copyOf(Maps.transformValues(defaultedCatalogProperties, ImmutableSet::copyOf));
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
     }
@@ -390,7 +401,9 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
+                defaultedSystemProperties,
                 connectorProperties.buildOrThrow(),
+                defaultedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
@@ -398,7 +411,7 @@ public final class Session
                 queryDataEncoding);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
@@ -409,6 +422,7 @@ public final class Session
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
+        Set<String> defaultedSystemProperties = ImmutableSet.copyOf(Sets.difference(systemPropertyDefaults.keySet(), this.systemProperties.keySet()));
 
         Map<String, Map<String, String>> catalogProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), new HashMap<>(entry.getValue())))
@@ -417,11 +431,28 @@ public final class Session
             catalogProperties.computeIfAbsent(catalogEntry.getKey(), _ -> new HashMap<>())
                     .putAll(catalogEntry.getValue());
         }
+        Map<String, Set<String>> defaultedCatalogProperties = new HashMap<>();
+        for (Entry<String, Map<String, String>> catalogEntry : catalogPropertyDefaults.entrySet()) {
+            Set<String> userProperties = this.catalogProperties.getOrDefault(catalogEntry.getKey(), ImmutableMap.of()).keySet();
+            Set<String> defaulted = ImmutableSet.copyOf(Sets.difference(catalogEntry.getValue().keySet(), userProperties));
+            if (!defaulted.isEmpty()) {
+                defaultedCatalogProperties.put(catalogEntry.getKey(), defaulted);
+            }
+        }
 
-        return withProperties(systemProperties, catalogProperties);
+        return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
     }
 
     public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    {
+        return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
+    }
+
+    private Session withProperties(
+            Map<String, String> systemProperties,
+            Set<String> defaultedSystemProperties,
+            Map<String, Map<String, String>> catalogProperties,
+            Map<String, Set<String>> defaultedCatalogProperties)
     {
         return new Session(
                 queryId,
@@ -445,7 +476,9 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
+                defaultedSystemProperties,
                 catalogProperties,
+                defaultedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
@@ -478,7 +511,9 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
+                defaultedSystemProperties,
                 catalogProperties,
+                defaultedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
@@ -510,7 +545,9 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
+                defaultedSystemProperties,
                 catalogProperties,
+                defaultedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
@@ -617,9 +654,10 @@ public final class Session
             CatalogHandle catalogHandle,
             Map<String, String> catalogProperties)
     {
+        Set<String> defaultedProperties = defaultedCatalogProperties.getOrDefault(catalogName, ImmutableSet.of());
         for (Entry<String, String> property : catalogProperties.entrySet()) {
             // verify permissions
-            if (transactionId.isPresent()) {
+            if (transactionId.isPresent() && !defaultedProperties.contains(property.getKey())) {
                 accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId, start), catalogName, property.getKey());
             }
 
@@ -632,7 +670,9 @@ public final class Session
     {
         for (Entry<String, String> property : systemProperties.entrySet()) {
             // verify permissions
-            accessControl.checkCanSetSystemSessionProperty(identity, queryId, property.getKey());
+            if (!defaultedSystemProperties.contains(property.getKey())) {
+                accessControl.checkCanSetSystemSessionProperty(identity, queryId, property.getKey());
+            }
 
             // validate session property value
             sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
@@ -705,7 +745,9 @@ public final class Session
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
+        private final Set<String> defaultedSystemProperties = new HashSet<>();
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
+        private final Map<String, Set<String>> defaultedCatalogProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
         private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
@@ -742,6 +784,9 @@ public final class Session
             this.systemProperties.putAll(session.systemProperties);
             session.catalogProperties
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
+            this.defaultedSystemProperties.addAll(session.defaultedSystemProperties);
+            session.defaultedCatalogProperties
+                    .forEach((catalog, properties) -> defaultedCatalogProperties.put(catalog, new HashSet<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.protocolHeaders = session.protocolHeaders;
         }
@@ -944,6 +989,7 @@ public final class Session
         public SessionBuilder setSystemProperty(String propertyName, String propertyValue)
         {
             systemProperties.put(propertyName, propertyValue);
+            defaultedSystemProperties.remove(propertyName);
             return this;
         }
 
@@ -956,6 +1002,7 @@ public final class Session
             requireNonNull(systemProperties, "systemProperties is null");
             this.systemProperties.clear();
             this.systemProperties.putAll(systemProperties);
+            this.defaultedSystemProperties.clear();
             return this;
         }
 
@@ -968,6 +1015,10 @@ public final class Session
         {
             checkArgument(transactionId == null, "Catalog session properties cannot be set if there is an open transaction");
             catalogSessionProperties.computeIfAbsent(catalogName, _ -> new HashMap<>()).put(propertyName, propertyValue);
+            Set<String> defaultedProperties = defaultedCatalogProperties.get(catalogName);
+            if (defaultedProperties != null) {
+                defaultedProperties.remove(propertyName);
+            }
             return this;
         }
 
@@ -1015,7 +1066,9 @@ public final class Session
                     Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
                     start,
                     systemProperties,
+                    defaultedSystemProperties,
                     catalogSessionProperties,
+                    defaultedCatalogProperties,
                     sessionPropertyManager,
                     preparedStatements,
                     protocolHeaders,

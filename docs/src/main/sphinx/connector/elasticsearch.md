@@ -439,8 +439,11 @@ The `raw_query` function requires three parameters:
 - `index`: The index in Elasticsearch to be searched.
 - `query`: The query to execute, written in [Elastic Query DSL](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html).
 
-Once executed, the query returns a single row containing the resulting JSON
-payload returned by Elasticsearch.
+The function returns a single row with a `result` column of type `VARCHAR`
+containing the JSON response from Elasticsearch. Trino does not reorder the
+hits within this response. Use the `sort` parameter in the query to specify
+the order of the hits. If you expand the hits into SQL rows, use `ORDER BY`
+in the outermost query to order those rows.
 
 For example, query the `example` catalog and use the `raw_query` table function
 to search for documents in the `orders` index where the country name is
@@ -464,9 +467,6 @@ FROM
       }'
     )
   );
-```
-
-```{include} query-table-function-ordering.fragment
 ```
 
 ## Performance

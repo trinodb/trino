@@ -20,6 +20,7 @@ import io.trino.spi.cache.CacheKey;
 import io.trino.spi.catalog.CatalogName;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +45,7 @@ final class ScopedBlobCache
     }
 
     @Override
-    public Blob get(CacheKey key, BlobSource source)
+    public Optional<Blob> get(CacheKey key, BlobSource source)
             throws IOException
     {
         return delegate.get(scope.append(key), source);

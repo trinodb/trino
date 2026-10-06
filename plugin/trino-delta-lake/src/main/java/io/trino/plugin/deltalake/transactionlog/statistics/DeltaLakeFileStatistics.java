@@ -33,6 +33,8 @@ public interface DeltaLakeFileStatistics
 
     Optional<Map<String, Object>> getNullCount();
 
+    Optional<Boolean> getTightBounds();
+
     Optional<Long> getNullCount(String columnName);
 
     Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle);

@@ -70,6 +70,16 @@ driver documentation](https://clickhouse.com/docs/en/interfaces/jdbc/)
 ```{include} jdbc-authentication.fragment
 ```
 
+(clickhouse-cluster-mode)=
+### Cluster mode
+
+If the server in `connection-url` belongs to a ClickHouse cluster, set
+`clickhouse.cluster-name` to the name of that cluster:
+
+```properties
+clickhouse.cluster-name=example_cluster
+```
+
 ### Multiple ClickHouse servers
 
 If you have multiple ClickHouse servers you need to configure one

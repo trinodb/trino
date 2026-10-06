@@ -67,7 +67,7 @@ public class DeltaLakeTransactionsTable
         for (Transaction transaction : transactions) {
             pagesBuilder.beginRow();
             pagesBuilder.appendBigint(transaction.transactionId());
-            pagesBuilder.appendVarchar(TRANSACTION_LOG_ENTRIES_CODEC.toJson(
+            pagesBuilder.appendJson(TRANSACTION_LOG_ENTRIES_CODEC.toJson(
                     transaction.transactionEntries().getEntriesList(fileSystem)));
             pagesBuilder.endRow();
         }

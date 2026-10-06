@@ -36,7 +36,6 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.UUID;
 
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,7 +120,7 @@ public class TestMemoryBlobCache
         byte[] buffer = new byte[100];
 
         TestingBlobSource missSource = new TestingBlobSource(content);
-        Blob miss = cache.get(key, missSource);
+        Blob miss = cache.get(key, missSource).orElseThrow();
         assertThat(miss.length()).isEqualTo(content.length);
         // The whole entry is read from the source on a miss, before anything is served from it
         assertThat(miss.loadedSize()).isEqualTo(content.length);
@@ -135,7 +134,7 @@ public class TestMemoryBlobCache
         miss.close();
 
         TestingBlobSource hitSource = new TestingBlobSource(content);
-        Blob hit = cache.get(key, hitSource);
+        Blob hit = cache.get(key, hitSource).orElseThrow();
         // Nothing is fetched on a hit, so the read is not reported as external
         assertThat(hit.loadedSize()).isEqualTo(0);
         assertThat(hitSource.readBytes()).isEqualTo(0);
@@ -149,27 +148,18 @@ public class TestMemoryBlobCache
     }
 
     @Test
-    public void testOversizedContentReadsThroughToSource()
+    public void testOversizedContentIsDeclined()
             throws IOException
     {
-        CacheKey key = CacheKey.of("testOversizedContentReadsThroughToSource", UUID.randomUUID().toString());
+        CacheKey key = CacheKey.of("testOversizedContentIsDeclined", UUID.randomUUID().toString());
         byte[] content = content(MAX_CONTENT_LENGTH + 200);
-        byte[] buffer = new byte[100];
 
         TestingBlobSource source = new TestingBlobSource(content);
         long largeFileSkippedCount = cache.getLargeFileSkippedCount();
-        try (Blob blob = cache.get(key, source)) {
-            assertThat(cache.getLargeFileSkippedCount()).isEqualTo(largeFileSkippedCount + 1);
-            assertThat(cache.isCached(key)).isFalse();
-            // The pass-through blob owns the source, so it stays open for its reads
-            assertThat(source.isClosed()).isFalse();
-            assertThat(source.readBytes()).isEqualTo(0);
-
-            blob.read(0, buffer, 0, buffer.length);
-            // Everything served by a pass-through blob comes from the source
-            assertThat(blob.loadedSize()).isEqualTo(buffer.length);
-            assertThat(blob.cachedSize()).isEqualTo(0);
-        }
+        assertThat(cache.get(key, source)).isEmpty();
+        assertThat(cache.getLargeFileSkippedCount()).isEqualTo(largeFileSkippedCount + 1);
+        assertThat(cache.isCached(key)).isFalse();
+        assertThat(source.readBytes()).isEqualTo(0);
         assertThat(source.isClosed()).isTrue();
     }
 

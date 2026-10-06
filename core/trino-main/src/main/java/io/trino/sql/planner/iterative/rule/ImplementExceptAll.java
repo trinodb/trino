@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.ProjectNode;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.planner.plan.Patterns.Except.distinct;
@@ -95,25 +94,25 @@ public class ImplementExceptAll
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForAll(node);
 
         // compute expected multiplicity for every row
-        checkState(result.getCountSymbols().size() > 0, "ExceptNode translation result has no count symbols");
-        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", fromTypes(BIGINT, BIGINT));
+        checkState(result.countSymbols().size() > 0, "ExceptNode translation result has no count symbols");
+        ResolvedFunction greatest = metadata.resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "greatest", ImmutableList.of(BIGINT, BIGINT));
 
-        Expression count = result.getCountSymbols().get(0).toSymbolReference();
-        for (int i = 1; i < result.getCountSymbols().size(); i++) {
+        Expression count = result.countSymbols().get(0).toSymbolReference();
+        for (int i = 1; i < result.countSymbols().size(); i++) {
             count = new Call(
                     greatest,
                     ImmutableList.of(
                             new Call(
                                     metadata.resolveOperator(getCharVarcharCoercion(context.getSession()), OperatorType.SUBTRACT, ImmutableList.of(BIGINT, BIGINT)),
-                                    ImmutableList.of(count, result.getCountSymbols().get(i).toSymbolReference())),
+                                    ImmutableList.of(count, result.countSymbols().get(i).toSymbolReference())),
                             new Constant(BIGINT, 0L)));
         }
 
         // filter rows so that expected number of rows remains
-        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.getRowNumberSymbol().toSymbolReference(), count);
+        Expression removeExtraRows = comparison(metadata, getCharVarcharCoercion(context.getSession()), LESS_THAN_OR_EQUAL, result.rowNumberSymbol().orElseThrow().toSymbolReference(), count);
         FilterNode filter = new FilterNode(
                 context.getIdAllocator().getNextId(),
-                result.getPlanNode(),
+                result.planNode(),
                 removeExtraRows);
 
         // prune helper symbols

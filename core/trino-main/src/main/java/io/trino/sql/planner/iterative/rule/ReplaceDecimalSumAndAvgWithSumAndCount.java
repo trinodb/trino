@@ -22,7 +22,6 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.TypeDescriptorProvider;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
@@ -104,7 +103,7 @@ public class ReplaceDecimalSumAndAvgWithSumAndCount
             Symbol countSymbol = matchingAggregation(aggregations, COUNT_NAME, argument, avg.getMask())
                     .orElseGet(() -> {
                         ResolvedFunction countFunction = plannerContext.getMetadata()
-                                .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", TypeDescriptorProvider.fromTypes(argument.type()));
+                                .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), "count", ImmutableList.of(argument.type()));
                         Symbol newCount = context.getSymbolAllocator().newSymbol("count", BIGINT);
                         newAggregations.put(newCount, new Aggregation(
                                 countFunction,
@@ -120,7 +119,7 @@ public class ReplaceDecimalSumAndAvgWithSumAndCount
 
             Type sumType = aggregations.get(sumSymbol.get()).getResolvedFunction().signature().getReturnType();
             ResolvedFunction reconstruct = plannerContext.getMetadata()
-                    .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), DivideRoundToScale.NAME, TypeDescriptorProvider.fromTypes(sumType, BIGINT));
+                    .resolveBuiltinFunction(getCharVarcharCoercion(context.getSession()), DivideRoundToScale.NAME, ImmutableList.of(sumType, BIGINT));
             Expression average = new Call(reconstruct, ImmutableList.of(
                     sumSymbol.get().toSymbolReference(),
                     countSymbol.toSymbolReference()));

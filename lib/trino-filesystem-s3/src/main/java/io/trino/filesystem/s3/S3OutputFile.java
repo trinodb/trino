@@ -15,13 +15,13 @@ package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.filesystem.s3.S3OutputStream.ByteArrayStreamProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -74,7 +74,7 @@ final class S3OutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
     {
         return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, key);
     }

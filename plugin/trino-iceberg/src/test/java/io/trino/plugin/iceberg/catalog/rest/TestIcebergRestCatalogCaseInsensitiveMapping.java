@@ -27,6 +27,7 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -47,8 +48,12 @@ import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+// All tests share one namespace and the catalog's case-insensitive name mapping cache,
+// which several of them mutate on purpose.
+@Execution(SAME_THREAD)
 final class TestIcebergRestCatalogCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {

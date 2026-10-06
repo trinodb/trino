@@ -39,10 +39,4 @@ public record CheckpointEntries(
         addFileEntries = ImmutableSet.copyOf(requireNonNull(addFileEntries, "addFileEntries is null"));
         removeFileEntries = ImmutableSet.copyOf(requireNonNull(removeFileEntries, "removeFileEntries is null"));
     }
-
-    public long size()
-    {
-        // The additional 2 are for the MetadataEntry and ProtocolEntry
-        return transactionEntries.size() + addFileEntries.size() + removeFileEntries.size() + 2;
-    }
 }

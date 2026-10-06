@@ -61,7 +61,7 @@ public final class DynamicFilterConsumerMatcher
         if (!(node instanceof FilterNode filterNode)) {
             return false;
         }
-        return expectedConsumers.isEmpty() || !extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().isEmpty();
+        return expectedConsumers.isEmpty() || !extractDynamicFilters(filterNode.getPredicate()).dynamicConjuncts().isEmpty();
     }
 
     @Override
@@ -71,7 +71,7 @@ public final class DynamicFilterConsumerMatcher
 
         FilterNode filterNode = (FilterNode) node;
         Map<DynamicFilterId, Set<DynamicFilters.Descriptor>> actualDynamicFilters = groupByKey(
-                extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts(),
+                extractDynamicFilters(filterNode.getPredicate()).dynamicConjuncts(),
                 DynamicFilters.Descriptor::getId);
 
         if (actualDynamicFilters.size() != expectedConsumers.size()) {

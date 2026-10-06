@@ -18,8 +18,10 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractDistributedEngineOnlyQueries
@@ -42,5 +44,25 @@ public class TestDistributedEngineOnlyQueries
             throw closeAllSuppress(e, queryRunner);
         }
         return queryRunner;
+    }
+
+    @Test
+    public void testAggregationOverCrossJoinWithSingleNodeProbe()
+    {
+        // The probe side is a cross join of two single-node UNNEST sources, which the planner may spread
+        // across nodes. The aggregation above it must still be merged into one group per key.
+        assertThat(query(
+                """
+                SELECT s.k, COUNT(*) AS n
+                FROM UNNEST(SEQUENCE(1, 1000)) AS a(x)
+                CROSS JOIN UNNEST(SEQUENCE(1, 10)) AS b(y)
+                CROSS JOIN (
+                    SELECT z % 2 AS k
+                    FROM UNNEST(SEQUENCE(1, 10)) AS c(z)
+                    GROUP BY z % 2
+                ) AS s
+                GROUP BY s.k
+                """))
+                .matches("VALUES (BIGINT '0', BIGINT '10000'), (BIGINT '1', BIGINT '10000')");
     }
 }

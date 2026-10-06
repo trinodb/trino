@@ -168,7 +168,7 @@ public class SplitSourceFactory
         {
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
-                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .map(DynamicFilters.ExtractResult::dynamicConjuncts)
                     .orElse(ImmutableList.of());
 
             DynamicFilter dynamicFilter = EMPTY;

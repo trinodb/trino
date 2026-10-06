@@ -71,6 +71,22 @@ public abstract class BaseOrcWithBloomFiltersTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testBloomFilterPrunesRangePredicate()
+    {
+        String tableName = "orc_bloom_filter_range_" + randomNameSuffix();
+        // orderkey in tpch.tiny.orders jumps from 7 to 32, so this range lies between the min and max
+        // of the data without matching a row, and only the bloom filter can rule it out
+        assertUpdate(
+                format(
+                        "CREATE TABLE %s WITH (%s) AS SELECT orderkey, orderstatus FROM tpch.tiny.orders",
+                        tableName,
+                        getTableProperties("orderkey", "orderstatus")),
+                15000);
+        assertBloomFilterBasedRowGroupPruning(format("SELECT * FROM %s WHERE orderkey BETWEEN 8 AND 31", tableName));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void assertBloomFilterBasedRowGroupPruning(@Language("SQL") String sql)
     {
         assertQueryStats(

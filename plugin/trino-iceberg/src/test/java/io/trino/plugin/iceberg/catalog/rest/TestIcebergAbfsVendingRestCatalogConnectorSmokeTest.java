@@ -45,7 +45,7 @@ import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.azure.adlsv2.ADLSFileIO;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
-import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
+import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -111,13 +111,13 @@ final class TestIcebergAbfsVendingRestCatalogConnectorSmokeTest
             public Map<String, String> getVendedCredentialsConfig(String restServerUri)
             {
                 return ImmutableMap.<String, String>builder()
-                        .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account, sasToken)
-                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account, Long.toString(sasTokenExpiresAtMs))
+                        .put(AzureProperties.ADLS_SAS_TOKEN_PREFIX + account + ".dfs.core.windows.net", sasToken)
+                        .put(AzureProperties.ADLS_SAS_TOKEN_EXPIRES_AT_MS_PREFIX + account + ".dfs.core.windows.net", Long.toString(sasTokenExpiresAtMs))
                         .buildOrThrow();
             }
         };
 
-        QuotedETagRestCatalogServlet servlet = new QuotedETagRestCatalogServlet(adapter);
+        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
 
         NodeInfo nodeInfo = new NodeInfo("test");
         HttpServerConfig config = new HttpServerConfig()

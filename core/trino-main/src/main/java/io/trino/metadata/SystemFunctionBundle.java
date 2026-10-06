@@ -153,6 +153,7 @@ import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.JsonFunctions;
 import io.trino.operator.scalar.JsonOperators;
+import io.trino.operator.scalar.JsonScalarFunction;
 import io.trino.operator.scalar.LuhnCheckFunction;
 import io.trino.operator.scalar.MapCardinalityFunction;
 import io.trino.operator.scalar.MapConcatFunction;
@@ -312,7 +313,6 @@ import static io.trino.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static io.trino.operator.scalar.JsonStringArrayExtractScalar.JSON_STRING_ARRAY_EXTRACT_SCALAR;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
@@ -620,8 +620,13 @@ public final class SystemFunctionBundle
                 .aggregates(MinByNAggregationFunction.class)
                 .aggregates(MaxByNAggregationFunction.class)
                 .aggregates(CountColumn.class)
-                .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
+                .functions(JSON_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON)
+                .scalars(JsonScalarFunction.class)
+                .scalar(JsonScalarFunction.FromDecimal.class)
+                .scalar(JsonScalarFunction.FromTimeWithTimeZone.class)
+                .scalar(JsonScalarFunction.FromTimestamp.class)
+                .scalar(JsonScalarFunction.FromTimestampWithTimeZone.class)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)

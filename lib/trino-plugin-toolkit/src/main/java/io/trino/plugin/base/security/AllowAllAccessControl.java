@@ -186,6 +186,9 @@ public class AllowAllAccessControl
     public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties) {}
 
     @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName) {}
+
+    @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName) {}
 
     @Override

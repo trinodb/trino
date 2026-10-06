@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -48,12 +49,12 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,12 +62,11 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertParquetToJsonStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValues;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toNullCounts;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValueUpperBound;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
@@ -109,97 +109,147 @@ public class CheckpointWriter
         this.parquetWriterOptions = requireNonNull(parquetWriterOptions, "parquetWriterOptions is null");
     }
 
+    @VisibleForTesting
     public void write(CheckpointEntries entries, TrinoOutputFile outputFile)
             throws IOException
     {
-        Map<String, String> configuration = entries.metadataEntry().getConfiguration();
-        boolean writeStatsAsJson = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY, "true"));
-        // The default value is false in https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-format, but Databricks defaults to true
-        boolean writeStatsAsStruct = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY, "true"));
-
-        ProtocolEntry protocolEntry = entries.protocolEntry();
-
-        RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
-        RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.readerFeatures().isPresent(), protocolEntry.writerFeatures().isPresent());
-        RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
-        RowType addEntryType = checkpointSchemaManager.getAddEntryType(
-                entries.metadataEntry(),
-                entries.protocolEntry(),
-                alwaysTrue(),
-                writeStatsAsJson,
-                writeStatsAsStruct,
-                true);
-        RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
-
-        List<String> columnNames = ImmutableList.of(
-                "metaData",
-                "protocol",
-                "txn",
-                "add",
-                "remove");
-        List<Type> columnTypes = ImmutableList.of(
-                metadataEntryType,
-                protocolEntryType,
-                txnEntryType,
-                addEntryType,
-                removeEntryType);
-
-        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(columnTypes, columnNames, false, false);
-
-        ParquetWriter parquetWriter = new ParquetWriter(
-                outputFile.create(),
-                schemaConverter.getMessageType(),
-                schemaConverter.getPrimitiveTypes(),
-                parquetWriterOptions,
-                CompressionCodec.SNAPPY,
-                trinoVersion,
-                Optional.of(DateTimeZone.UTC),
-                Optional.empty());
-
-        PageBuilder pageBuilder = new PageBuilder(columnTypes);
-
-        try (CheckpointPageWriter writer = new CheckpointPageWriter(parquetWriter, pageBuilder)) {
-            writer.addEntry(_ -> writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry()));
-            writer.addEntry(_ -> writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry()));
+        try (CheckpointFileWriter writer = createWriter(entries.metadataEntry(), entries.protocolEntry(), outputFile)) {
             for (TransactionEntry transactionEntry : entries.transactionEntries()) {
-                writer.addEntry(_ -> writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry));
+                writer.writeTransaction(transactionEntry);
             }
-            List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
-            List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
-                    .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
-                    .collect(toImmutableList());
             for (AddFileEntry addFileEntry : entries.addFileEntries()) {
-                writer.addEntry(_ -> writeAddFileEntry(
-                        pageBuilder,
-                        addEntryType,
-                        addFileEntry,
-                        entries.metadataEntry(),
-                        entries.protocolEntry(),
-                        partitionColumns,
-                        partitionValuesParsedFieldTypes,
-                        writeStatsAsJson,
-                        writeStatsAsStruct));
+                writer.writeAddFile(addFileEntry);
             }
             for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
-                writer.addEntry(_ -> writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry));
+                writer.writeRemoveFile(removeFileEntry);
             }
+            writer.finish();
         }
-        // Not writing commit infos for now. DB does not keep them in the checkpoints by default
     }
 
-    private record CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
-            implements AutoCloseable
+    /**
+     * Opens a checkpoint file and buffers the metadata and protocol entries. Callers stream the remaining entries through the returned writer
+     * and call {@link CheckpointFileWriter#finish()} to create the file. Closing the writer before calling finish discards the file.
+     * A failed finish may leave a partially written file.
+     */
+    public CheckpointFileWriter createWriter(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TrinoOutputFile outputFile)
+            throws IOException
     {
-        private CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
-        {
-            this.writer = requireNonNull(writer, "writer is null");
-            this.pageBuilder = requireNonNull(pageBuilder, "pageBuilder is null");
-        }
+        return new CheckpointFileWriter(metadataEntry, protocolEntry, outputFile);
+    }
 
-        public void addEntry(Consumer<PageBuilder> entryWriter)
+    public class CheckpointFileWriter
+            implements Closeable
+    {
+        private final MetadataEntry metadataEntry;
+        private final ProtocolEntry protocolEntry;
+        private final boolean writeStatsAsJson;
+        private final boolean writeStatsAsStruct;
+        private final RowType txnEntryType;
+        private final RowType addEntryType;
+        private final RowType removeEntryType;
+        private final List<DeltaLakeColumnHandle> partitionColumns;
+        private final List<RowType.Field> partitionValuesParsedFieldTypes;
+        private final PageBuilder pageBuilder;
+        private final TrinoOutputStream outputStream;
+        private final ParquetWriter parquetWriter;
+        private long entryCount;
+        private boolean finished;
+
+        private CheckpointFileWriter(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TrinoOutputFile outputFile)
                 throws IOException
         {
-            entryWriter.accept(pageBuilder);
+            this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
+            this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
+
+            Map<String, String> configuration = metadataEntry.getConfiguration();
+            this.writeStatsAsJson = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY, "true"));
+            // The default value is false in https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-format, but Databricks defaults to true
+            this.writeStatsAsStruct = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY, "true"));
+
+            RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
+            RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.readerFeatures().isPresent(), protocolEntry.writerFeatures().isPresent());
+            this.txnEntryType = checkpointSchemaManager.getTxnEntryType();
+            this.addEntryType = checkpointSchemaManager.getAddEntryType(
+                    metadataEntry,
+                    protocolEntry,
+                    alwaysTrue(),
+                    writeStatsAsJson,
+                    writeStatsAsStruct,
+                    true);
+            this.removeEntryType = checkpointSchemaManager.getRemoveEntryType();
+
+            // commitInfo entries are not written to checkpoints
+            List<String> columnNames = ImmutableList.of(
+                    "metaData",
+                    "protocol",
+                    "txn",
+                    "add",
+                    "remove");
+            List<Type> columnTypes = ImmutableList.of(
+                    metadataEntryType,
+                    protocolEntryType,
+                    txnEntryType,
+                    addEntryType,
+                    removeEntryType);
+
+            this.partitionColumns = extractPartitionColumns(metadataEntry, protocolEntry, typeManager);
+            this.partitionValuesParsedFieldTypes = partitionColumns.stream()
+                    .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
+                    .collect(toImmutableList());
+
+            this.pageBuilder = new PageBuilder(columnTypes);
+            writeMetadataEntry(pageBuilder, metadataEntryType, metadataEntry);
+            writeProtocolEntry(pageBuilder, protocolEntryType, protocolEntry);
+            entryCount = 2;
+
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(columnTypes, columnNames, false, false);
+            this.outputStream = outputFile.create();
+            this.parquetWriter = new ParquetWriter(
+                    outputStream,
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
+                    parquetWriterOptions,
+                    CompressionCodec.SNAPPY,
+                    trinoVersion,
+                    Optional.of(DateTimeZone.UTC),
+                    Optional.empty());
+        }
+
+        public void writeTransaction(TransactionEntry transactionEntry)
+                throws IOException
+        {
+            writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
+            entryWritten();
+        }
+
+        public void writeAddFile(AddFileEntry addFileEntry)
+                throws IOException
+        {
+            writeAddFileEntry(
+                    pageBuilder,
+                    addEntryType,
+                    addFileEntry,
+                    metadataEntry,
+                    protocolEntry,
+                    partitionColumns,
+                    partitionValuesParsedFieldTypes,
+                    writeStatsAsJson,
+                    writeStatsAsStruct);
+            entryWritten();
+        }
+
+        public void writeRemoveFile(RemoveFileEntry removeFileEntry)
+                throws IOException
+        {
+            writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
+            entryWritten();
+        }
+
+        private void entryWritten()
+                throws IOException
+        {
+            entryCount++;
             if (pageBuilder.isFull()) {
                 flush();
             }
@@ -209,17 +259,37 @@ public class CheckpointWriter
                 throws IOException
         {
             if (!pageBuilder.isEmpty()) {
-                writer.write(pageBuilder.build());
+                parquetWriter.write(pageBuilder.build());
                 pageBuilder.reset();
             }
+        }
+
+        /**
+         * Number of entries written so far, including the metadata and protocol entries.
+         */
+        public long getEntryCount()
+        {
+            return entryCount;
+        }
+
+        /**
+         * Writes the remaining entries and the file footer, and creates the file.
+         */
+        public void finish()
+                throws IOException
+        {
+            flush();
+            parquetWriter.close();
+            finished = true;
         }
 
         @Override
         public void close()
                 throws IOException
         {
-            flush();
-            writer.close();
+            if (!finished) {
+                outputStream.abort();
+            }
         }
     }
 
@@ -296,7 +366,6 @@ public class CheckpointWriter
             boolean writeStatsAsJson,
             boolean writeStatsAsStruct)
     {
-        boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
         pageBuilder.declarePosition();
         RowBlockBuilder blockBuilder = (RowBlockBuilder) pageBuilder.getBlockBuilder(ADD_BLOCK_CHANNEL);
         blockBuilder.buildEntry(fieldBuilders -> {
@@ -333,9 +402,7 @@ public class CheckpointWriter
             writeStringMap(fieldBuilders.get(fieldId), entryType, fieldId, "tags", addFileEntry.getTags());
             fieldId++;
 
-            if (deletionVectorEnabled) {
-                writeDeletionVector(fieldBuilders.get(fieldId), entryType, addFileEntry.getDeletionVector(), fieldId);
-            }
+            writeDeletionVector(fieldBuilders.get(fieldId), entryType, addFileEntry.getDeletionVector(), fieldId);
         });
 
         // null for others
@@ -349,11 +416,7 @@ public class CheckpointWriter
             DeltaLakeFileStatistics statistics = addFileEntry.getStats().get();
             if (statistics instanceof DeltaLakeParquetFileStatistics parquetFileStatistics) {
                 Map<String, Type> columnTypeMapping = getColumnTypeMapping(metadataEntry, protocolEntry);
-                DeltaLakeJsonFileStatistics jsonFileStatistics = new DeltaLakeJsonFileStatistics(
-                        parquetFileStatistics.getNumRecords(),
-                        parquetFileStatistics.getMinValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getMaxValues().map(values -> toJsonValues(columnTypeMapping, values)),
-                        parquetFileStatistics.getNullCount().map(nullCounts -> toNullCounts(columnTypeMapping, nullCounts)));
+                DeltaLakeJsonFileStatistics jsonFileStatistics = convertParquetToJsonStatistics(columnTypeMapping, parquetFileStatistics);
                 statsJson = getStatsString(jsonFileStatistics).orElse(null);
             }
             else {
@@ -416,9 +479,10 @@ public class CheckpointWriter
         ((RowBlockBuilder) entryBlockBuilder).buildEntry(fieldBuilders -> {
             if (stats instanceof DeltaLakeParquetFileStatistics) {
                 writeLong(fieldBuilders.get(0), statsType, 0, "numRecords", stats.getNumRecords().orElse(null));
-                writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false);
-                writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false);
+                writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false, false);
+                writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false, false);
                 writeNullCountAsFields(fieldBuilders.get(3), statsType, 3, "nullCount", stats.getNullCount());
+                writeBoolean(fieldBuilders.get(4), statsType, 4, "tightBounds", stats.getTightBounds().orElse(null));
             }
             else {
                 int internalFieldId = 0;
@@ -427,14 +491,17 @@ public class CheckpointWriter
                 internalFieldId++;
 
                 if (statsType.getFields().stream().anyMatch(field -> field.getName().orElseThrow().equals("minValues"))) {
-                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "minValues", stats.getMinValues(), true);
+                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "minValues", stats.getMinValues(), true, false);
                     internalFieldId++;
                 }
                 if (statsType.getFields().stream().anyMatch(field -> field.getName().orElseThrow().equals("maxValues"))) {
-                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "maxValues", stats.getMaxValues(), true);
+                    writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "maxValues", stats.getMaxValues(), true, true);
                     internalFieldId++;
                 }
                 writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount());
+                internalFieldId++;
+
+                writeBoolean(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "tightBounds", stats.getTightBounds().orElse(null));
             }
         });
     }
@@ -450,17 +517,17 @@ public class CheckpointWriter
         ((RowBlockBuilder) entryBlockBuilder).buildEntry(builders -> {
             writeString(builders.get(0), type, 0, "storageType", deletionVector.get().storageType());
             writeString(builders.get(1), type, 1, "pathOrInlineDv", deletionVector.get().pathOrInlineDv());
-            writeLong(builders.get(2), type, 2, "offset", (long) deletionVector.get().offset().orElse(0));
+            writeLong(builders.get(2), type, 2, "offset", deletionVector.get().offset().isPresent() ? (long) deletionVector.get().offset().orElseThrow() : null);
             writeLong(builders.get(3), type, 3, "sizeInBytes", (long) deletionVector.get().sizeInBytes());
             writeLong(builders.get(4), type, 4, "cardinality", deletionVector.get().cardinality());
         });
     }
 
-    private void writeMinMaxMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson)
+    private void writeMinMaxMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson, boolean upperBound)
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson, upperBound));
     }
 
     private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -487,7 +554,7 @@ public class CheckpointWriter
         });
     }
 
-    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
+    private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson, boolean upperBound)
     {
         return valuesOptional.map(
                 values -> {
@@ -502,6 +569,9 @@ public class CheckpointWriter
                                     entry -> {
                                         Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
+                                        if (isJson && upperBound) {
+                                            return jsonValueToTrinoValueUpperBound(type, value);
+                                        }
                                         if (isJson) {
                                             return jsonValueToTrinoValue(type, value);
                                         }
@@ -544,6 +614,7 @@ public class CheckpointWriter
             writeStringMap(fieldBuilders.get(1), entryType, 1, "partitionValues", removeFileEntry.partitionValues());
             writeLong(fieldBuilders.get(2), entryType, 2, "deletionTimestamp", removeFileEntry.deletionTimestamp());
             writeBoolean(fieldBuilders.get(3), entryType, 3, "dataChange", removeFileEntry.dataChange());
+            writeDeletionVector(fieldBuilders.get(4), entryType, removeFileEntry.deletionVector(), 4);
         });
 
         // null for others
@@ -580,9 +651,13 @@ public class CheckpointWriter
         field.getType().writeLong(blockBuilder, value);
     }
 
-    private void writeBoolean(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, boolean value)
+    private void writeBoolean(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, @Nullable Boolean value)
     {
         RowType.Field field = validateAndGetField(type, fieldId, fieldName);
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
         field.getType().writeBoolean(blockBuilder, value);
     }
 

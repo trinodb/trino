@@ -13,27 +13,35 @@
  */
 package io.trino.plugin.opa.schema;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.spi.security.Identity;
 
+import java.util.Map;
 import java.util.Set;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY;
 import static java.util.Objects.requireNonNull;
 
 public record TrinoIdentity(
         String user,
-        Set<String> groups)
+        Set<String> groups,
+        @JsonInclude(NON_EMPTY) Map<String, String> extraCredentials)
 {
-    public static TrinoIdentity fromTrinoIdentity(Identity identity)
+    public static TrinoIdentity fromTrinoIdentity(Identity identity, Set<String> allowedExtraCredentialsKeys)
     {
         return new TrinoIdentity(
                 identity.getUser(),
-                identity.getGroups());
+                identity.getGroups(),
+                Maps.filterKeys(identity.getExtraCredentials(), allowedExtraCredentialsKeys::contains));
     }
 
     public TrinoIdentity
     {
         requireNonNull(user, "user is null");
         groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
+        extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
     }
 }

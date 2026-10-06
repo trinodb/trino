@@ -40,6 +40,7 @@ import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
+import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrExpressions.Between;
 import io.trino.sql.ir.IrExpressions.Comparison;
 import io.trino.sql.ir.IsNull;
@@ -54,6 +55,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.zone.ZoneOffsetTransition;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -150,6 +153,9 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
+    // Safety measure to avoid producing large expression. The limit is arbitrary.
+    private static final int MAX_EXPANDED_IN_LIST_SIZE = 10;
+
     public UnwrapCastInComparison(PlannerContext plannerContext)
     {
         super(createRewrite(plannerContext));
@@ -212,6 +218,82 @@ public class UnwrapCastInComparison
             Let expression = treeRewriter.defaultRewrite(node, null);
             // A BETWEEN over a non-trivial value binds it in a Let; unwrap a cast in that bound value here.
             return unwrapCastInBetween(expression).orElse(expression);
+        }
+
+        @Override
+        public Expression rewriteIn(In node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            In expression = treeRewriter.defaultRewrite(node, null);
+            return unwrapCastInIn(expression).orElse(expression);
+        }
+
+        /// Unwraps the cast in `CAST(s AS T) IN (t1, ..., tn)`. Returns `s IN (t1', ..., tn')` if possible,
+        /// otherwise, if `s` is simple and deterministic and `n` is small, returns disjuncts over `s`.
+        private Optional<Expression> unwrapCastInIn(In node)
+        {
+            if (!(node.value() instanceof Cast cast)) {
+                return Optional.empty();
+            }
+            List<Expression> items = node.valueList();
+            if (items.isEmpty()) {
+                // v in () handled elsewhere
+                return Optional.empty();
+            }
+            Expression source = cast.expression();
+
+            List<Expression> disjuncts = new ArrayList<>();
+            List<Expression> equalityValues = new ArrayList<>();
+            boolean rebuildsIn = true;
+            for (int i = 0; i < items.size(); i++) {
+                Optional<Expression> unwrapped = tryUnwrapCast(EQUAL, cast, items.get(i));
+                if (unwrapped.isEmpty()) {
+                    return Optional.empty();
+                }
+                if (isNeverSatisfied(unwrapped.get(), source)) {
+                    // Drop: no source value matches, and a null source is null with or without this item.
+                    continue;
+                }
+                disjuncts.add(unwrapped.get());
+                if (rebuildsIn) {
+                    Optional<Expression> value = equalityValue(unwrapped.get(), source);
+                    if (value.isPresent()) {
+                        equalityValues.add(value.get());
+                    }
+                    else {
+                        rebuildsIn = false;
+                        // This item unwrapped to a non-equality, so we won't rebuild an IN list.
+                        // We can produce disjuncts only when source is cheap, deterministic, and
+                        // the resulting disjunct won't be very large (inefficient).
+                        boolean canRepeatSource = isCastOverTrivial(cast);
+                        int expectedFinalDisjuncts = disjuncts.size() + (items.size() - i - 1);
+                        if (!canRepeatSource || expectedFinalDisjuncts > MAX_EXPANDED_IN_LIST_SIZE) {
+                            return Optional.empty();
+                        }
+                    }
+                }
+            }
+            verify(!rebuildsIn || disjuncts.size() == equalityValues.size(), "Every kept item should have an equality value");
+            if (disjuncts.isEmpty()) {
+                return Optional.of(falseIfNotNull(source));
+            }
+            if (rebuildsIn && equalityValues.size() > 1) {
+                // Every item unwrapped to an equality, so keep the IN.
+                return Optional.of(new In(source, equalityValues));
+            }
+            return Optional.of(or(disjuncts));
+        }
+
+        /// The value an unwrapped item compares `source` to, when the item is an equality; empty when it
+        /// unwrapped to something else, such as the range a `CAST(ts AS date)` item unwraps to.
+        private static Optional<Expression> equalityValue(Expression unwrapped, Expression source)
+        {
+            if (unwrapped.equals(new Constant(BOOLEAN, null))) {
+                // A null item compares to null whatever the source is, which is what a null in an IN list means.
+                return Optional.of(new Constant(source.type(), null));
+            }
+            return comparisonBound(unwrapped, source)
+                    .filter(bound -> bound.operator() == EQUAL)
+                    .map(bound -> new Constant(source.type(), bound.value()));
         }
 
         private Optional<Expression> unwrapCastInBetween(Expression expression)
@@ -361,6 +443,10 @@ public class UnwrapCastInComparison
 
             if (sourceType instanceof CharType charType && targetType instanceof VarcharType varcharType) {
                 return unwrapCharToVarcharCast(charType, varcharType, operator, cast.expression(), (Slice) rightValue);
+            }
+
+            if (sourceType instanceof VarcharType varcharType && targetType instanceof CharType charType) {
+                return unwrapVarcharToCharCast(varcharType, charType, operator, cast.expression(), (Slice) rightValue);
             }
 
             if (!isInjectiveOrderPreservingCastAtValue(sourceType, targetType, rightValue)) {
@@ -563,6 +649,44 @@ public class UnwrapCastInComparison
             });
         }
 
+        private Optional<Expression> unwrapVarcharToCharCast(VarcharType varcharType, CharType charType, ComparisonOperator operator, Expression varcharExpression, Slice value)
+        {
+            // CHAR comparison is PAD SPACE while VARCHAR comparison is NO PAD, so the cast does not preserve order:
+            // VARCHAR 'ab' sorts before 'ab\0', while CHAR 'ab' sorts after CHAR 'ab\0'. Only the equality family is
+            // safe to unwrap; leave ordering comparisons as a residual filter.
+            if (operator != EQUAL && operator != NOT_EQUAL && operator != IDENTICAL) {
+                return Optional.empty();
+            }
+
+            // VARCHAR(x) -> CHAR(n) with x longer than the char length is not injective on the source: distinct
+            // varchar values that share their first n characters collapse to the same char, so a single varchar
+            // equality cannot represent the comparison.
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > charType.getLength()) {
+                return Optional.empty();
+            }
+
+            // Char values are stored with trailing spaces trimmed, and the cast trims them too, so every varchar of
+            // the form value + padding casts to value. The literal is the sole source value only when it leaves no
+            // room for padding, that is when it is as long as the source varchar.
+            int valueLength = countCodePoints(value);
+            if (valueLength == varcharType.getBoundedLength()) {
+                return Optional.of(comparison(plannerContext.getMetadata(), getCharVarcharCoercion(session), operator, varcharExpression, new Constant(varcharType, value)));
+            }
+
+            // A literal longer than the source varchar has no source value at all, since the cast never lengthens.
+            if (valueLength > varcharType.getBoundedLength()) {
+                return Optional.of(switch (operator) {
+                    case EQUAL -> falseIfNotNull(varcharExpression);
+                    case NOT_EQUAL -> trueIfNotNull(varcharExpression);
+                    case IDENTICAL -> FALSE;
+                    default -> throw new IllegalStateException("Unexpected operator: " + operator);
+                });
+            }
+
+            // The literal is shorter than the source varchar, so it has several source values differing in padding.
+            return Optional.empty();
+        }
+
         private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonOperator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
@@ -683,25 +807,8 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session)).canCoerce(source, target);
-            if (source instanceof VarcharType sourceVarchar && target instanceof CharType targetChar) {
-                if (sourceVarchar.isUnbounded() || sourceVarchar.getBoundedLength() > targetChar.getLength()) {
-                    // Truncation, not injective.
-                    return false;
-                }
-                // char should probably be coercible to varchar, not vice-versa. The code here needs to be updated when things change.
-                verify(coercible, "%s was expected to be coercible to %s", source, target);
-                if (sourceVarchar.getBoundedLength() == 0) {
-                    // the source domain is single-element set
-                    return true;
-                }
-                int actualLengthWithoutSpaces = countCodePoints((Slice) value);
-                verify(actualLengthWithoutSpaces <= targetChar.getLength(), "Incorrect char value [%s] for %s", ((Slice) value).toStringUtf8(), targetChar);
-                return sourceVarchar.getBoundedLength() == actualLengthWithoutSpaces;
-            }
-
             // Well-behaved implicit casts are injective
-            return coercible;
+            return new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session)).canCoerce(source, target);
         }
 
         private Object coerce(Object value, ResolvedFunction coercion)

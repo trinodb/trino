@@ -38,7 +38,6 @@ public class DeltaTableOptimizeHandle
     private final List<String> originalPartitionColumns;
     private final DataSize maxScannedFileSize;
     private final Optional<Long> currentVersion;
-    private final boolean retriesEnabled;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
     private final VendedCredentialsHandle credentialsHandle;
 
@@ -50,7 +49,6 @@ public class DeltaTableOptimizeHandle
             List<String> originalPartitionColumns,
             DataSize maxScannedFileSize,
             Optional<Long> currentVersion,
-            boolean retriesEnabled,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             VendedCredentialsHandle credentialsHandle)
     {
@@ -60,7 +58,6 @@ public class DeltaTableOptimizeHandle
         this.originalPartitionColumns = ImmutableList.copyOf(requireNonNull(originalPartitionColumns, "originalPartitionColumns is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.currentVersion = requireNonNull(currentVersion, "currentVersion is null");
-        this.retriesEnabled = retriesEnabled;
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
     }
@@ -75,7 +72,6 @@ public class DeltaTableOptimizeHandle
                 originalPartitionColumns,
                 maxScannedFileSize,
                 Optional.of(currentVersion),
-                retriesEnabled,
                 enforcedPartitionConstraint,
                 credentialsHandle);
     }
@@ -89,7 +85,6 @@ public class DeltaTableOptimizeHandle
                 originalPartitionColumns,
                 maxScannedFileSize,
                 currentVersion,
-                retriesEnabled,
                 requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null"),
                 credentialsHandle);
     }
@@ -131,12 +126,6 @@ public class DeltaTableOptimizeHandle
     public DataSize getMaxScannedFileSize()
     {
         return maxScannedFileSize;
-    }
-
-    @JsonProperty
-    public boolean isRetriesEnabled()
-    {
-        return retriesEnabled;
     }
 
     @JsonProperty

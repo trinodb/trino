@@ -55,7 +55,6 @@ public class StableHostAddressProvider
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.preferredHostsCount = config.getPreferredHostsCount();
-        refreshSnapshot();
     }
 
     public List<HostAddress> getHosts(String cacheKey)

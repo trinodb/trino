@@ -70,7 +70,6 @@ import static io.trino.sql.ir.Logical.Operator.OR;
 import static io.trino.sql.ir.TestingIr.between;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.ir.TestingIr.nullIf;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TestingSymbolAllocator.emptySymbolAllocator;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;

@@ -76,14 +76,14 @@ public class TransformCorrelatedJoinToJoin
         DecorrelatedNode decorrelatedSubquery = decorrelatedNodeOptional.get();
 
         Expression filter = combineConjuncts(
-                decorrelatedSubquery.getCorrelatedPredicates().orElse(TRUE),
+                decorrelatedSubquery.correlatedPredicate().orElse(TRUE),
                 correlatedJoinNode.getFilter());
 
         return Result.ofPlanNode(new JoinNode(
                 correlatedJoinNode.getId(),
                 correlatedJoinNode.getType(),
                 correlatedJoinNode.getInput(),
-                decorrelatedSubquery.getNode(),
+                decorrelatedSubquery.node(),
                 ImmutableList.of(),
                 correlatedJoinNode.getInput().getOutputSymbols(),
                 correlatedJoinNode.getSubquery().getOutputSymbols(),

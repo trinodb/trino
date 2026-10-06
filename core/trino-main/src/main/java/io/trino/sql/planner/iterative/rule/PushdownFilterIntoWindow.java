@@ -91,7 +91,7 @@ public class PushdownFilterIntoWindow
         WindowNode windowNode = captures.get(childCapture);
 
         DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
         Optional<RankingType> rankingType = toTopNRankingType(windowNode);
 
@@ -121,7 +121,7 @@ public class PushdownFilterIntoWindow
         // Remove the row number domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
+                extractionResult.remainingExpression(),
                 domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {

@@ -24,8 +24,8 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.DistributedQueryRunner;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.HTTPRequest;
-import org.apache.iceberg.rest.QuotedETagRestCatalogServlet;
 import org.apache.iceberg.rest.RESTCatalogAdapter;
+import org.apache.iceberg.rest.RESTCatalogServlet;
 import org.apache.iceberg.rest.RESTResponse;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.rest.responses.OAuthTokenResponse;
@@ -93,7 +93,7 @@ final class TestOAuth2TokenFetch
         HttpServerConfig config = new HttpServerConfig()
                 .setHttpEnabled(true);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, Optional.of(new HttpConfig().setHttpPort(0)), Optional.empty(), nodeInfo);
-        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, new QuotedETagRestCatalogServlet(adapter), ServerFeature.builder()
+        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, new RESTCatalogServlet(adapter), ServerFeature.builder()
                 .withLegacyUriCompliance(true)
                 .build());
     }

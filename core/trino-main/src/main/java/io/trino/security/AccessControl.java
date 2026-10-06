@@ -379,6 +379,13 @@ public interface AccessControl
     void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties);
 
     /**
+     * Check if identity is allowed to comment the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetMaterializedViewComment(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
      *
      * @throws AccessDeniedException if not allowed

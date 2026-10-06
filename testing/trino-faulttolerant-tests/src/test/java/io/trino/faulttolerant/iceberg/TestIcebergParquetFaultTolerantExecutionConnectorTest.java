@@ -14,7 +14,7 @@
 package io.trino.faulttolerant.iceberg;
 
 import io.trino.filesystem.Location;
-import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
+import io.trino.plugin.exchange.filesystem.containers.FlociStorage;
 import io.trino.plugin.iceberg.BaseIcebergParquetConnectorTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
 
-import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.NONE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         extends BaseIcebergParquetConnectorTest
 {
-    private MinioStorage minioStorage;
+    private FlociStorage storage;
 
     public TestIcebergParquetFaultTolerantExecutionConnectorTest()
     {
@@ -45,12 +45,12 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     @Override
     protected IcebergQueryRunner.Builder createQueryRunnerBuilder()
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
-        minioStorage.start();
+        storage = new FlociStorage("test-exchange-spooling-" + randomNameSuffix(), NONE);
+        storage.start();
 
         return super.createQueryRunnerBuilder()
                 .addExtraProperties(getExtraProperties())
-                .withExchange("filesystem", getExchangeManagerProperties(minioStorage));
+                .withExchange("filesystem", storage.getExchangeManagerProperties());
     }
 
     @Test
@@ -59,6 +59,17 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     {
         // TODO: figure out why
         assertThatThrownBy(super::testSplitPruningForFilterOnPartitionColumn)
+                .hasMessageContaining("Couldn't find operator summary, probably due to query statistic collection error");
+        abort("fails currently on FTE");
+    }
+
+    @Test
+    @Override
+    public void testSplitPruningForAtTimeZoneFilterOnPartitionColumn()
+    {
+        // Operator summaries are not collected reliably under fault-tolerant execution, and verifySplitCount
+        // depends on them, same as in testSplitPruningForFilterOnPartitionColumn above
+        assertThatThrownBy(super::testSplitPruningForAtTimeZoneFilterOnPartitionColumn)
                 .hasMessageContaining("Couldn't find operator summary, probably due to query statistic collection error");
         abort("fails currently on FTE");
     }
@@ -108,9 +119,9 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     public void destroy()
             throws Exception
     {
-        if (minioStorage != null) {
-            minioStorage.close();
-            minioStorage = null;
+        if (storage != null) {
+            storage.close();
+            storage = null;
         }
     }
 }

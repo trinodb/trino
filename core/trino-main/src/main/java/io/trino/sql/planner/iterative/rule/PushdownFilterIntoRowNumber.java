@@ -73,7 +73,7 @@ public class PushdownFilterIntoRowNumber
         Session session = context.getSession();
 
         DomainTranslator.ExtractionResult extractionResult = DomainTranslator.getExtractionResult(plannerContext, session, node.getPredicate());
-        TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
+        TupleDomain<Symbol> tupleDomain = extractionResult.tupleDomain();
 
         RowNumberNode source = captures.get(CHILD);
         Symbol rowNumberSymbol = source.getRowNumberSymbol();
@@ -102,7 +102,7 @@ public class PushdownFilterIntoRowNumber
 
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, _) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = combineConjuncts(
-                extractionResult.getRemainingExpression(),
+                extractionResult.remainingExpression(),
                 domainTranslator.toPredicate(getCharVarcharCoercion(session), newTupleDomain));
 
         if (newPredicate.equals(Booleans.TRUE)) {

@@ -169,7 +169,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
             }
         }
 
-        source = decorrelatedSource.get().getNode();
+        source = decorrelatedSource.get().node();
         AggregationNode globalAggregation = captures.get(AGGREGATION);
         Optional<Symbol> nonNull = Optional.empty();
 
@@ -203,7 +203,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
                 inputWithUniqueId.getOutputSymbols(),
                 source.getOutputSymbols(),
                 false,
-                decorrelatedSource.get().getCorrelatedPredicates(),
+                decorrelatedSource.get().correlatedPredicate(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),

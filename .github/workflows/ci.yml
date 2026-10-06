@@ -5,6 +5,8 @@ on:
   merge_group:
   repository_dispatch:
     types: [test-with-secrets-command]
+  schedule:
+    - cron: '0 0 * * *' # nightly at 00:00 UTC
 
 # Default for all jobs; jobs that need more declare their own permissions block, which fully replaces this one.
 permissions:
@@ -74,7 +76,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run zizmor
-        uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           inputs: .github
           # Version of the zizmor tool to install and run
@@ -114,8 +116,8 @@ jobs:
       matrix:
         include:
           - { java-version: 25.0.4, cache: 'true', cleanup-node: true }
-          - { java-version: 26, cache: 'restore', cleanup-node: true }
-          #- { java-version: 27-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 27, cache: 'restore', cleanup-node: true }
+          - { java-version: 28-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
@@ -353,7 +355,7 @@ jobs:
     needs: path-filters
     if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -519,7 +521,7 @@ jobs:
     strategy:
       fail-fast: ${{ github.event_name == 'merge_group' }}
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout-minutes || 30 }}
     env:
       MATRIX_MODULES: ${{ matrix.modules }}
       MATRIX_PROFILE: ${{ matrix.profile }}
@@ -548,7 +550,6 @@ jobs:
           ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-google-sheets') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-hive') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
@@ -624,19 +625,6 @@ jobs:
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl "${MATRIX_MODULES}" -P "${MATRIX_PROFILE}"
-      - name: Cloud Hive Tests
-        id: tests-hive
-        env:
-          AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
-          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
-          S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
-        if: >-
-          contains(matrix.modules, 'trino-hive') && contains(matrix.profile, 'cloud-tests') &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_SECRET_ACCESS_KEY != '')
-        run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-hive -Pcloud-tests
       - name: Cloud Delta Lake Tests
         id: tests-delta
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
@@ -718,6 +706,7 @@ jobs:
           S3_TABLES_BUCKET: ${{ vars.TRINO_S3_TABLES_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+          GCP_CREDENTIALS_VENDING_STORAGE_BUCKET: ${{ vars.GCP_CREDENTIALS_VENDING_STORAGE_BUCKET }}
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
@@ -818,7 +807,6 @@ jobs:
               || steps.tests-azure.outcome == 'failure'
               || steps.tests-filesystem-exchange.outcome == 'failure'
               || steps.tests-gcs.outcome == 'failure'
-              || steps.tests-hive.outcome == 'failure'
               || steps.tests-delta.outcome == 'failure'
               || steps.tests-bq.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
@@ -828,6 +816,15 @@ jobs:
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      - name: Notify Slack on nightly failure
+        if: failure() && github.event_name == 'schedule' && matrix.notify-channels
+        uses: archive/github-actions-slack@433fef9978d3adae73168bfc9c5a7ce722780231 # v3.1.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ secrets.SLACK_CI_BOT_TOKEN }}
+          slack-channel: ${{ join(matrix.notify-channels, ',') }}
+          slack-text: |
+            :x: Nightly test failed: `${{ matrix.name }}`
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
@@ -906,6 +903,7 @@ jobs:
           path: |
             testing/trino-product-tests/target/product-test-distribution
             testing/trino-product-tests/target/iceberg-spark-runtime.jar
+            testing/trino-product-tests/target/iceberg-aws-bundle.jar
           retention-days: 1
       - name: Build product-test matrix from impacted modules
         if: >-

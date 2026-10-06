@@ -348,7 +348,10 @@ public class ParquetWriter
             columnMetaDataBuilder.add(columnMetaData);
             currentOffset += columnMetaData.getTotal_compressed_size();
         }
-        updateRowGroups(columnMetaDataBuilder.build(), outputStream.longSize());
+        CompressionStats compressionStats = columnWriters.stream()
+                .map(ColumnWriter::getCompressionStats)
+                .reduce(CompressionStats.EMPTY, CompressionStats::add);
+        updateRowGroups(columnMetaDataBuilder.build(), outputStream.longSize(), compressionStats);
 
         // flush pages
         for (BufferData bufferData : bufferDataList) {
@@ -408,11 +411,11 @@ public class ParquetWriter
         }
     }
 
-    private void updateRowGroups(List<ColumnMetaData> columnMetaData, long fileOffset)
+    private void updateRowGroups(List<ColumnMetaData> columnMetaData, long fileOffset, CompressionStats compressionStats)
     {
         long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
-        previousCompressionStats = previousCompressionStats.add(new CompressionStats(totalCompressedBytes, totalBytes));
+        previousCompressionStats = previousCompressionStats.add(compressionStats);
         List<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
         fileFooter.addRowGroup(new RowGroup(columnChunks, totalBytes, rows)
                 .setTotal_compressed_size(totalCompressedBytes)

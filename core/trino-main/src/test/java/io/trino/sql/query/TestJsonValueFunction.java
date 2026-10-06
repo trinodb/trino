@@ -49,6 +49,21 @@ public class TestJsonValueFunction
     }
 
     @Test
+    public void testDecimalFidelity()
+    {
+        // A JSON number carries the digits its text spells out. Parsed as a Double, the
+        // trailing digits of this value are unrecoverable; parsed as a BigDecimal they survive.
+        assertThat(assertions.query(
+                "SELECT json_value('{\"a\" : 3.14159265358979323846}', 'lax $.a' RETURNING decimal(21, 20))"))
+                .matches("VALUES DECIMAL '3.14159265358979323846'");
+
+        // Trailing zeros are part of the scale the text declared: 1.0 is DECIMAL(2, 1).
+        assertThat(assertions.query(
+                "SELECT json_value('{\"a\" : 1.0}', 'lax $.a' RETURNING varchar)"))
+                .matches("VALUES VARCHAR '1.0'");
+    }
+
+    @Test
     public void testJsonValue()
     {
         assertThat(assertions.query(
@@ -337,6 +352,27 @@ public class TestJsonValueFunction
         assertThat(assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax 1000000000000 * 1000000000000' RETURNING bigint DEFAULT TINYINT '-1' ON ERROR)"))
                 .matches("VALUES BIGINT '-1'");
+    }
+
+    @Test
+    public void testNumber()
+    {
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax 1' RETURNING number)"))
+                .matches("VALUES CAST(1 AS NUMBER)");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $parameter' PASSING CAST(1.5 AS number) AS \"parameter\")"))
+                .matches("VALUES cast('1.5' AS varchar)");
+
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $parameter + 1' PASSING CAST(1 AS number) AS \"parameter\")"))
+                .matches("VALUES VARCHAR '2'");
+
+        // the double() method converts the numeric parameter
+        assertThat(assertions.query(
+                "SELECT json_value('" + INPUT + "', 'lax $parameter.double()' PASSING CAST(1 AS number) AS \"parameter\")"))
+                .matches("VALUES VARCHAR '1.0E0'");
     }
 
     @Test

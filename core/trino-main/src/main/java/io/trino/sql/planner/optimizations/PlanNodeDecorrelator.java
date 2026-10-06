@@ -528,10 +528,10 @@ public class PlanNodeDecorrelator
             if (!(expression instanceof Cast cast)) {
                 return false;
             }
-            if (!(cast.expression() instanceof Reference)) {
+            if (!(cast.expression() instanceof Reference sourceReference)) {
                 return false;
             }
-            Symbol sourceSymbol = Symbol.from(cast.expression());
+            Symbol sourceSymbol = Symbol.from(sourceReference);
 
             Type sourceType = sourceSymbol.type();
             Type targetType = cast.type();
@@ -541,8 +541,8 @@ public class PlanNodeDecorrelator
 
         private Symbol getSymbol(Expression expression)
         {
-            if (expression instanceof Reference) {
-                return Symbol.from(expression);
+            if (expression instanceof Reference reference) {
+                return Symbol.from(reference);
             }
             return Symbol.from(((Cast) expression).expression());
         }
@@ -616,29 +616,20 @@ public class PlanNodeDecorrelator
         return Sets.union(SymbolsExtractor.extractUnique(node, lookup), SymbolsExtractor.extractOutputSymbols(node, lookup)).stream().anyMatch(correlation::contains);
     }
 
-    public static class DecorrelatedNode
+    public record DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
     {
-        private final List<Expression> correlatedPredicates;
-        private final PlanNode node;
-
-        public DecorrelatedNode(List<Expression> correlatedPredicates, PlanNode node)
+        public DecorrelatedNode
         {
-            requireNonNull(correlatedPredicates, "correlatedPredicates is null");
-            this.correlatedPredicates = ImmutableList.copyOf(correlatedPredicates);
-            this.node = requireNonNull(node, "node is null");
+            correlatedPredicates = ImmutableList.copyOf(requireNonNull(correlatedPredicates, "correlatedPredicates is null"));
+            requireNonNull(node, "node is null");
         }
 
-        public Optional<Expression> getCorrelatedPredicates()
+        public Optional<Expression> correlatedPredicate()
         {
             if (correlatedPredicates.isEmpty()) {
                 return Optional.empty();
             }
             return Optional.of(and(correlatedPredicates));
-        }
-
-        public PlanNode getNode()
-        {
-            return node;
         }
     }
 }

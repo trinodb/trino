@@ -58,10 +58,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -313,7 +315,7 @@ public class TestParquetWriter
 
         List<BlockMetadata> rowGroups = writeParquetAndReadRowGroups(
                 ParquetWriterOptions.builder()
-                        .setMaxBlockSize(DataSize.ofBytes(1000))
+                        .setMaxBlockSize(DataSize.ofBytes(500))
                         .setMaxRowGroupRowCount(500)
                         .build(),
                 types,
@@ -395,7 +397,7 @@ public class TestParquetWriter
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
-                                .setMaxBlockSize(DataSize.of(12, KILOBYTE))
+                                .setMaxBlockSize(DataSize.of(4, KILOBYTE))
                                 .build(),
                         types,
                         columnNames,
@@ -504,6 +506,159 @@ public class TestParquetWriter
         long actualWrittenBytes = outputStream.size();
 
         assertThat(estimatedWrittenBytes).isCloseTo(actualWrittenBytes, Percentage.withPercentage(10));
+    }
+
+    @Test
+    public void testEstimatedWrittenBytesForOpenDictionaryPages()
+            throws IOException
+    {
+        int rowCount = 42_000;
+        int dictionaryColumnCount = 125;
+        int plainColumnCount = 43;
+        int columnCount = dictionaryColumnCount + plainColumnCount;
+        List<String> columnNames = IntStream.range(0, columnCount)
+                .mapToObj("column_%s"::formatted)
+                .collect(toImmutableList());
+        List<Type> types = Collections.nCopies(columnCount, VARCHAR);
+
+        BlockBuilder dictionaryBlockBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        BlockBuilder plainBlockBuilder = VARCHAR.createBlockBuilder(null, rowCount);
+        for (int position = 0; position < rowCount; position++) {
+            if (position % 8 == 0) {
+                dictionaryBlockBuilder.appendNull();
+            }
+            else {
+                VARCHAR.writeString(dictionaryBlockBuilder, "dimension-%02d".formatted(position % 16));
+            }
+            VARCHAR.writeString(plainBlockBuilder, "payload-%05d-payload-%05d".formatted(position, position));
+        }
+        Block dictionaryBlock = dictionaryBlockBuilder.build();
+        Block plainBlock = plainBlockBuilder.build();
+        Block[] blocks = new Block[columnCount];
+        for (int column = 0; column < dictionaryColumnCount; column++) {
+            blocks[column] = dictionaryBlock;
+        }
+        for (int column = dictionaryColumnCount; column < columnCount; column++) {
+            blocks[column] = plainBlock;
+        }
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(8, MEGABYTE))
+                        .setMaxPageValueCount(50_000)
+                        .setMaxBlockSize(DataSize.of(150, MEGABYTE))
+                        .build(),
+                types,
+                columnNames,
+                CompressionCodec.ZSTD);
+        writer.write(new Page(blocks));
+
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(actualWrittenBytes).isLessThan(DataSize.of(64, MEGABYTE).toBytes());
+        assertThat(estimatedWrittenBytes).isLessThan(DataSize.of(64, MEGABYTE).toBytes());
+        assertThat(estimatedWrittenBytes).isBetween(actualWrittenBytes, actualWrittenBytes + DataSize.of(56, MEGABYTE).toBytes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDictionaryEstimateDoesNotUseDataPageCompression(boolean writeOpenPage)
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .build(),
+                ImmutableList.of(VARBINARY),
+                ImmutableList.of("column"),
+                CompressionCodec.ZSTD);
+
+        writer.write(dictionaryVarbinaryPage(20_000, 900, 1024, false));
+        if (writeOpenPage) {
+            writer.write(dictionaryVarbinaryPage(10_000, 900, 1024, false));
+        }
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEstimatedWrittenBytesUsesDictionaryCompressionHistory(boolean compressibleDictionary)
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .setMaxRowGroupRowCount(20_000)
+                        .build(),
+                ImmutableList.of(VARBINARY),
+                ImmutableList.of("column"),
+                CompressionCodec.ZSTD);
+
+        writer.write(dictionaryVarbinaryPage(20_000, 900, 1024, compressibleDictionary));
+        long firstRowGroupWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.write(dictionaryVarbinaryPage(10_000, 900, 1024, compressibleDictionary));
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+        if (compressibleDictionary) {
+            assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
+        }
+        else {
+            assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isGreaterThan(DataSize.of(800, KILOBYTE).toBytes());
+        }
+    }
+
+    @Test
+    public void testDictionaryCompressionHistoryIsIndependentFromDataPageHistory()
+            throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(
+                outputStream,
+                ParquetWriterOptions.builder()
+                        .setMaxPageSize(DataSize.of(64, MEGABYTE))
+                        .setMaxPageValueCount(20_000)
+                        .setMaxBlockSize(DataSize.of(128, MEGABYTE))
+                        .setMaxRowGroupRowCount(20_000)
+                        .build(),
+                ImmutableList.of(VARBINARY, VARBINARY),
+                ImmutableList.of("dictionary", "data"),
+                CompressionCodec.ZSTD);
+
+        writer.write(new Page(
+                dictionaryVarbinaryBlock(20_000, 900, 1024, false),
+                compressibleUniqueVarbinaryBlock(20_000, 256)));
+        long firstRowGroupWrittenBytes = writer.getEstimatedWrittenBytes();
+        writer.write(new Page(
+                dictionaryVarbinaryBlock(10_000, 900, 1024, false),
+                compressibleUniqueVarbinaryBlock(10_000, 256)));
+        long estimatedWrittenBytes = writer.getEstimatedWrittenBytes();
+
+        writer.close();
+        long actualWrittenBytes = outputStream.size();
+
+        assertThat(estimatedWrittenBytes - firstRowGroupWrittenBytes).isGreaterThan(DataSize.of(800, KILOBYTE).toBytes());
+        assertThat(Math.abs(estimatedWrittenBytes - actualWrittenBytes)).isLessThan(DataSize.of(64, KILOBYTE).toBytes());
     }
 
     @Test
@@ -858,6 +1013,52 @@ public class TestParquetWriter
             blocks[column] = blockBuilder.build();
         }
         return new Page(blocks);
+    }
+
+    private static Page dictionaryVarbinaryPage(int positionCount, int dictionarySize, int valueSize, boolean compressible)
+    {
+        return new Page(dictionaryVarbinaryBlock(positionCount, dictionarySize, valueSize, compressible));
+    }
+
+    private static Block dictionaryVarbinaryBlock(int positionCount, int dictionarySize, int valueSize, boolean compressible)
+    {
+        Random random = new Random(42);
+        Slice[] dictionary = new Slice[dictionarySize];
+        for (int index = 0; index < dictionarySize; index++) {
+            byte[] bytes = new byte[valueSize];
+            if (compressible) {
+                Arrays.fill(bytes, (byte) 'x');
+            }
+            else {
+                random.nextBytes(bytes);
+            }
+            bytes[0] = (byte) (index >>> 24);
+            bytes[1] = (byte) (index >>> 16);
+            bytes[2] = (byte) (index >>> 8);
+            bytes[3] = (byte) index;
+            dictionary[index] = Slices.wrappedBuffer(bytes);
+        }
+
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            VARBINARY.writeSlice(blockBuilder, dictionary[position % dictionarySize]);
+        }
+        return blockBuilder.build();
+    }
+
+    private static Block compressibleUniqueVarbinaryBlock(int positionCount, int valueSize)
+    {
+        byte[] bytes = new byte[valueSize];
+        Arrays.fill(bytes, (byte) 'x');
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            bytes[0] = (byte) (position >>> 24);
+            bytes[1] = (byte) (position >>> 16);
+            bytes[2] = (byte) (position >>> 8);
+            bytes[3] = (byte) position;
+            VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
+        }
+        return blockBuilder.build();
     }
 
     private static List<BlockMetadata> writeParquetAndReadRowGroups(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<Page> inputPages)

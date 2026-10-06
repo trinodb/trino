@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.cache.CacheCapability.LOW_LATENCY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -85,20 +86,20 @@ public class CacheManagerRegistry
 
     public synchronized void loadCacheManagers()
     {
-        if (configFiles.isEmpty()) {
-            // Coordinator metadata caching is an engine default: load the memory manager with
-            // default configuration when the operator configured nothing explicitly. Operators
-            // using cache-manager.config-files take full control of what is loaded.
-            if (blobCacheFactories.containsKey(DEFAULT_CACHE_MANAGER_NAME)) {
-                loadBlobCacheManager(DEFAULT_CACHE_MANAGER_NAME, Map.of());
-            }
-            return;
-        }
         for (File configFile : configFiles) {
             Map<String, String> properties = loadProperties(configFile);
             String name = properties.remove(CACHE_MANAGER_NAME_PROPERTY);
             checkArgument(!isNullOrEmpty(name), "Cache manager configuration %s does not contain %s", configFile, CACHE_MANAGER_NAME_PROPERTY);
             loadBlobCacheManager(name, properties);
+        }
+
+        // Coordinator metadata caching is an engine default: load the memory manager with
+        // default configuration unless a configured manager already serves low latency reads.
+        // Listing only a data cache manager such as alluxio must not turn metadata caching off.
+        boolean lowLatencyManagerLoaded = blobCacheManagers.values().stream()
+                .anyMatch(loaded -> loaded.manager().hasCapability(LOW_LATENCY));
+        if (!lowLatencyManagerLoaded && blobCacheFactories.containsKey(DEFAULT_CACHE_MANAGER_NAME) && !blobCacheManagers.containsKey(DEFAULT_CACHE_MANAGER_NAME)) {
+            loadBlobCacheManager(DEFAULT_CACHE_MANAGER_NAME, Map.of());
         }
     }
 

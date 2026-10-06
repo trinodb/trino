@@ -82,7 +82,6 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
-import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -391,16 +390,15 @@ public final class ConnectorExpressionTranslator
 
             ResolvedFunction resolved;
             if (JSON_STRING_TO_MAP_NAME.equals(call.getFunctionName().getName()) ||
-                    JSON_STRING_TO_ARRAY_NAME.equals(call.getFunctionName().getName()) ||
-                    JSON_STRING_TO_ROW_NAME.equals(call.getFunctionName().getName())) {
-                // These are special functions that currently need to be resolved via getCoercion() -- TODO: fix this
+                    JSON_STRING_TO_ARRAY_NAME.equals(call.getFunctionName().getName())) {
+                // These casts need the declared return type to bind their type variables.
                 resolved = plannerContext.getMetadata().getCoercion(getCharVarcharCoercion(session), builtinFunctionName(call.getFunctionName().getName()), call.getArguments().get(0).getType(), call.getType());
             }
             else {
                 resolved = plannerContext.getMetadata().resolveBuiltinFunction(
                         getCharVarcharCoercion(session),
                         call.getFunctionName().getName(),
-                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+                        call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList()));
             }
 
             return translateCall(call.getFunctionName().getName(), resolved, call.getArguments(), lambdaArguments);
@@ -683,7 +681,7 @@ public final class ConnectorExpressionTranslator
             if (binding != null) {
                 return Optional.of(binding);
             }
-            return Optional.of(new Variable(node.name(), ((Expression) node).type()));
+            return Optional.of(new Variable(node.name(), node.type()));
         }
 
         @Override
@@ -764,7 +762,7 @@ public final class ConnectorExpressionTranslator
         @Override
         protected Optional<ConnectorExpression> visitCast(Cast node, Context context)
         {
-            if (isSpecialType(((Expression) node).type())) {
+            if (isSpecialType(node.type())) {
                 // We don't want to expose some internal types to connectors.
                 // These should be constant-folded (if appropriate) separately and
                 // handled by the regular visitConstant path
@@ -794,6 +792,12 @@ public final class ConnectorExpressionTranslator
         protected Optional<ConnectorExpression> visitCall(Call node, Context context)
         {
             if (!isComplexExpressionPushdown(session)) {
+                return Optional.empty();
+            }
+
+            // Keep non-determinism on engine side to retain awareness of it.
+            // Sometimes table scans are duplicated (e.g. MultipleDistinctAggregationsToSubqueries).
+            if (!node.function().deterministic()) {
                 return Optional.empty();
             }
 
@@ -850,7 +854,7 @@ public final class ConnectorExpressionTranslator
             else {
                 name = new FunctionName(Optional.of(new CatalogSchemaName(functionName.catalogName(), functionName.schemaName())), functionName.functionName());
             }
-            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), name, arguments.build()));
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), name, arguments.build()));
         }
 
         @Override
@@ -980,7 +984,7 @@ public final class ConnectorExpressionTranslator
             if (nullIf == null) {
                 return Optional.empty();
             }
-            return translateNullIfPattern(nullIf, ((Expression) node).type(), context);
+            return translateNullIfPattern(nullIf, node.type(), context);
         }
 
         private Optional<ConnectorExpression> translateNullIfPattern(IrExpressions.NullIf pattern, Type type, Context context)
@@ -1020,7 +1024,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(((Expression) node).type(), translatedBase.get(), node.field()));
+            return Optional.of(new FieldDereference(node.type(), translatedBase.get(), node.field()));
         }
 
         @Override
@@ -1049,7 +1053,7 @@ public final class ConnectorExpressionTranslator
             }
 
             ConnectorExpression arrayExpression = new io.trino.spi.expression.Call(new ArrayType(node.value().type()), ARRAY_CONSTRUCTOR_FUNCTION_NAME, values.build());
-            return Optional.of(new io.trino.spi.expression.Call(((Expression) node).type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
+            return Optional.of(new io.trino.spi.expression.Call(node.type(), IN_PREDICATE_FUNCTION_NAME, List.of(valueExpression.get(), arrayExpression)));
         }
 
         @Override

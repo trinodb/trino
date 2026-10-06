@@ -117,12 +117,14 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JsonArray;
 import io.trino.sql.tree.JsonArrayElement;
+import io.trino.sql.tree.JsonConstructor;
 import io.trino.sql.tree.JsonExists;
 import io.trino.sql.tree.JsonObject;
 import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonSerialize;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTablePlan;
 import io.trino.sql.tree.JsonValue;
@@ -4880,6 +4882,15 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCommentMaterializedView()
+    {
+        QualifiedName materializedView = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "a", false)));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("test")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.of("")));
+        assertThat(statement("COMMENT ON MATERIALIZED VIEW a IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.MATERIALIZED_VIEW, materializedView, Optional.empty()));
+    }
+
+    @Test
     public void testCommentColumn()
     {
         QualifiedName column = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false)));
@@ -8363,7 +8374,7 @@ public class TestSqlParser
                                 Optional.of(new Identifier(location(1, 14), "someWindow", false)),
                                 ImmutableList.of(new Identifier(location(1, 38), "x", false)),
                                 Optional.of(new OrderBy(location(1, 40), ImmutableList.of(new SortItem(location(1, 49), new Identifier(location(1, 49), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8380,7 +8391,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 ImmutableList.of(new Identifier(location(1, 27), "x", false)),
                                 Optional.of(new OrderBy(location(1, 29), ImmutableList.of(new SortItem(location(1, 38), new Identifier(location(1, 38), "y", false), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), WindowFrame.Exclusion.NO_OTHERS, ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -8469,6 +8480,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(7, 17), CURRENT_ROW),
                                         Optional.of(new FrameBound(location(7, 33), FOLLOWING, new LongLiteral(location(7, 33), "5"))),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(
                                                 new MeasureDefinition(
                                                         location(5, 8),
@@ -8550,6 +8562,7 @@ public class TestSqlParser
                                         ROWS,
                                         new FrameBound(location(3, 8), CURRENT_ROW),
                                         Optional.empty(),
+                                        WindowFrame.Exclusion.NO_OTHERS,
                                         ImmutableList.of(new MeasureDefinition(
                                                 location(2, 12),
                                                 new Identifier(location(2, 12), "z", false),
@@ -9241,6 +9254,115 @@ public class TestSqlParser
                         Optional.of(JsonQuery.QuotesBehavior.OMIT),
                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
                         JsonQuery.EmptyOrErrorBehavior.ERROR));
+    }
+
+    @Test
+    public void testJsonConstructor()
+    {
+        for (String sql : List.of("JSON(json_column)", "json(json_column)")) {
+            assertThat(expression(sql))
+                    .isEqualTo(new JsonConstructor(
+                            location(1, 1),
+                            new Identifier(location(1, 6), "json_column", false),
+                            JSON));
+        }
+
+        assertThat(expression("JSON(binary_column FORMAT JSON ENCODING UTF16)"))
+                .isEqualTo(new JsonConstructor(
+                        location(1, 1),
+                        new Identifier(location(1, 6), "binary_column", false),
+                        UTF16));
+    }
+
+    @Test
+    public void testJsonFunctionCall()
+    {
+        QualifiedName name = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "json", false)));
+        for (String sql : List.of("json()", "json(*)")) {
+            assertThat(expression(sql))
+                    .isEqualTo(new FunctionCall(location(1, 1), name, ImmutableList.of()));
+        }
+
+        assertThat(expression("json(1, 2)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        name,
+                        ImmutableList.of(new LongLiteral(location(1, 6), "1"), new LongLiteral(location(1, 9), "2"))));
+
+        assertThat(expression("json(DISTINCT x)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        name,
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        true,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(new CallArgument(location(1, 15), Optional.empty(), new Identifier(location(1, 15), "x", false)))));
+
+        for (String sql : List.of(
+                "json(ALL x)",
+                "json(t.*)",
+                "json(x ORDER BY y)",
+                "json(x) FILTER (WHERE true)",
+                "json(x) OVER ()",
+                "json(x) IGNORE NULLS OVER ()",
+                "schema.json(x)",
+                "\"json\"(x)")) {
+            assertThat(SQL_PARSER.createExpression(sql))
+                    .isInstanceOf(FunctionCall.class);
+        }
+
+        assertThat(expression("json.foo.bar(1)"))
+                .isEqualTo(new FunctionCall(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 1), "json", false),
+                                new Identifier(location(1, 6), "foo", false),
+                                new Identifier(location(1, 10), "bar", false))),
+                        ImmutableList.of(new LongLiteral(location(1, 14), "1"))));
+    }
+
+    @Test
+    public void testJsonSerialize()
+    {
+        // The ON ERROR clause is a Trino extension (SQL:2023 §6.37 has none); the default is ERROR.
+        assertThat(expression("JSON_SERIALIZE(json_column)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(binary_column FORMAT JSON ENCODING UTF16 RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "binary_column", false),
+                        UTF16,
+                        Optional.of(new GenericDataType(location(1, 67), new Identifier(location(1, 67), "varbinary", false), ImmutableList.of())),
+                        Optional.of(UTF32),
+                        JsonSerialize.OnErrorBehavior.ERROR));
+
+        assertThat(expression("JSON_SERIALIZE(json_column NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.empty(),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
+
+        assertThat(expression("JSON_SERIALIZE(json_column RETURNING varchar NULL ON ERROR)"))
+                .isEqualTo(new JsonSerialize(
+                        location(1, 1),
+                        new Identifier(location(1, 16), "json_column", false),
+                        JSON,
+                        Optional.of(new GenericDataType(location(1, 38), new Identifier(location(1, 38), "varchar", false), ImmutableList.of())),
+                        Optional.empty(),
+                        JsonSerialize.OnErrorBehavior.NULL));
     }
 
     @Test

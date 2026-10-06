@@ -62,6 +62,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
@@ -99,10 +100,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -162,7 +160,7 @@ public class SqlStandardAccessControl
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
         if (!isAdmin(context)) {
-            denySetSchemaAuthorization(schemaName, principal);
+            denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
         }
     }
 
@@ -326,7 +324,7 @@ public class SqlStandardAccessControl
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
         if (!isAdmin(context)) {
-            denySetTableAuthorization(tableName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
         }
     }
 
@@ -419,7 +417,7 @@ public class SqlStandardAccessControl
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
         if (!isAdmin(context)) {
-            denySetViewAuthorization(viewName.toString(), principal);
+            denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
         }
     }
 
@@ -494,6 +492,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, materializedViewName)) {
             denySetMaterializedViewProperties(materializedViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewComment(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        if (!isTableOwner(context, materializedViewName)) {
+            denyCommentMaterializedView(materializedViewName.toString());
         }
     }
 

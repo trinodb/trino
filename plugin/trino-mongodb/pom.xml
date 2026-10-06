@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <mongo-java.version>5.11.0</mongo-java.version>
+        <mongo-java.version>5.13.0</mongo-java.version>
     </properties>
 
     <dependencies>
@@ -62,6 +62,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-json</artifactId>
         </dependency>
 
         <dependency>

@@ -47,9 +47,9 @@ public final class TrinoInputFileBlobSource
         input().readFully(position, buffer, offset, length);
     }
 
-    // The input is held open across reads: pass-through blobs (uncached or oversized files)
-    // read repeatedly, and opening a fresh input per read would issue one remote request per
-    // call. The cache or the wrapping blob closes this source when done.
+    // The input is held open across reads: a cache populating an entry page by page reads
+    // repeatedly, and opening a fresh input per read would issue one remote request per call.
+    // The cache closes this source when done.
     private TrinoInput input()
             throws IOException
     {

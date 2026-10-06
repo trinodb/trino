@@ -19,6 +19,7 @@ import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobStorageException;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.TrinoOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.FileNotFoundException;
@@ -63,7 +64,7 @@ class AzureOutputFile
     }
 
     @Override
-    public OutputStream create(AggregatedMemoryContext memoryContext)
+    public TrinoOutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
         // Azure can enforce that the file is not overwritten, but it only enforces this during data upload.
@@ -98,7 +99,7 @@ class AzureOutputFile
         }
     }
 
-    private OutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
+    private TrinoOutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
             throws IOException
     {
         if (multipartWriteEnabled) {

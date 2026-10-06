@@ -219,6 +219,7 @@ public class IcebergPageSinkProvider
                 tableHandle.storageProperties(),
                 partitionsSpecs,
                 pageSink,
-                schema.columns().size());
+                schema.columns().size(),
+                memoryContext);
     }
 }

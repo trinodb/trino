@@ -43,15 +43,21 @@ public interface ColumnWriter
 
     long getRetainedBytes();
 
-    record CompressionStats(long compressedSize, long uncompressedSize)
+    record CompressionStats(
+            long dataPageCompressedSize,
+            long dataPageUncompressedSize,
+            long dictionaryPageCompressedSize,
+            long dictionaryPageUncompressedSize)
     {
-        static final CompressionStats EMPTY = new CompressionStats(0, 0);
+        static final CompressionStats EMPTY = new CompressionStats(0, 0, 0, 0);
 
         CompressionStats add(CompressionStats compressionStats)
         {
             return new CompressionStats(
-                    addExact(this.compressedSize, compressionStats.compressedSize()),
-                    addExact(this.uncompressedSize, compressionStats.uncompressedSize()));
+                    addExact(this.dataPageCompressedSize, compressionStats.dataPageCompressedSize()),
+                    addExact(this.dataPageUncompressedSize, compressionStats.dataPageUncompressedSize()),
+                    addExact(this.dictionaryPageCompressedSize, compressionStats.dictionaryPageCompressedSize()),
+                    addExact(this.dictionaryPageUncompressedSize, compressionStats.dictionaryPageUncompressedSize()));
         }
     }
 

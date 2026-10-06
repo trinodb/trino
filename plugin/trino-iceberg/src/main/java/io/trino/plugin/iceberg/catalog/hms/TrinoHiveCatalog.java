@@ -104,6 +104,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_SCHEMA;
@@ -111,6 +113,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
@@ -448,7 +451,9 @@ public class TrinoHiveCatalog
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, metastoreTable.getStorage().getLocation());
+        if (isGcEnabled(metadata)) {
+            deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, metastoreTable.getStorage().getLocation());
+        }
         invalidateTableCache(schemaTableName);
     }
 
@@ -696,6 +701,33 @@ public class TrinoHiveCatalog
     }
 
     @Override
+    public void updateMaterializedViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
+    {
+        Table existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+
+        if (!isTrinoMaterializedView(existing.getTableType(), existing.getParameters())) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
+        }
+        ConnectorMaterializedViewDefinition definition = doGetMaterializedView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns(),
+                definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
+                comment,
+                definition.getOwner(),
+                definition.getPath());
+
+        replaceMaterializedView(session, viewName, existing, newDefinition);
+    }
+
+    @Override
     public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         Table existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
@@ -846,7 +878,7 @@ public class TrinoHiveCatalog
             if (e.getCause() instanceof NotFoundException) {
                 return Optional.empty();
             }
-            throw e;
+            throw translateMetadataException(e.getCause(), storageTableName.toString());
         }
     }
 
@@ -854,7 +886,9 @@ public class TrinoHiveCatalog
     {
         return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
             String storageMetadataLocation = materializedView.getParameters().get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", materializedView.getTableName());
+            if (storageMetadataLocation == null) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Storage location missing in definition of materialized view " + materializedView.getTableName());
+            }
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         });

@@ -118,7 +118,12 @@ export function getTaskNumber(taskId: string): number {
 }
 
 export function getHostname(url: string): string {
-    let hostname = new URL(url).hostname
+    let hostname
+    try {
+        hostname = new URL(url).hostname
+    } catch {
+        hostname = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/?#]*@)?(\[[^\]]*\]|[^:/?#]*)/i.exec(url)?.[1] ?? url
+    }
     if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
         hostname = hostname.substring(1, hostname.length - 1)
     }

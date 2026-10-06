@@ -84,6 +84,7 @@ statement
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
+    | COMMENT ON MATERIALIZED VIEW qualifiedName IS (string | NULL)    #commentMaterializedView
     | COMMENT ON COLUMN qualifiedName IS (string | NULL)               #commentColumn
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
@@ -641,6 +642,9 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
+    // Keep jsonConstructor before the functionCall alternatives: JSON is non-reserved,
+    // so JSON(x) matches both. ANTLR selects the first matching alternative.
+    | JSON '(' jsonValueExpression ')'                                                    #jsonConstructor
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? argument (',' argument)*)?
@@ -699,6 +703,11 @@ primaryExpression
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
       ')'                                                                                 #jsonQuery
+    | JSON_SERIALIZE '('
+        jsonValueExpression
+        (RETURNING type (FORMAT jsonRepresentation)?)?
+        (errorBehavior=jsonSerializeOnErrorBehavior ON ERROR)?
+      ')'                                                                                 #jsonSerialize
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -772,6 +781,11 @@ jsonQueryBehavior
     | NULL
     | EMPTY ARRAY
     | EMPTY OBJECT
+    ;
+
+jsonSerializeOnErrorBehavior
+    : ERROR
+    | NULL
     ;
 
 jsonObjectMember
@@ -883,6 +897,7 @@ over
 windowFrame
     : (MEASURES measureDefinition (',' measureDefinition)*)?
       frameExtent
+      frameExclusion?
       (AFTER MATCH skipTo)?
       (INITIAL | SEEK)?
       (PATTERN '(' rowPattern ')')?
@@ -897,6 +912,13 @@ frameExtent
     | frameType=RANGE BETWEEN start=frameBound AND end=frameBound
     | frameType=ROWS BETWEEN start=frameBound AND end=frameBound
     | frameType=GROUPS BETWEEN start=frameBound AND end=frameBound
+    ;
+
+frameExclusion
+    : EXCLUDE CURRENT ROW
+    | EXCLUDE GROUP
+    | EXCLUDE TIES
+    | EXCLUDE NO OTHERS
     ;
 
 frameBound
@@ -1105,7 +1127,7 @@ nonReserved
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
-    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
+    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDE | EXCLUDING | EXECUTE | EXPLAIN
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
@@ -1115,7 +1137,7 @@ nonReserved
     | LANGUAGE | LAST | LATERAL | LEADING | LEAVE | LEVEL | LIMIT | LOCAL | LOGICAL | LOOP
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEAREST | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW | OVERLAY
+    | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OTHERS | OUTPUT | OVER | OVERFLOW | OVERLAY
     | PARTIAL | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PIVOT | PLACING | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEAT  | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNING | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
@@ -1208,6 +1230,7 @@ END: 'END';
 ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
+EXCLUDE: 'EXCLUDE';
 EXCLUDING: 'EXCLUDING';
 EXECUTE: 'EXECUTE';
 EXISTS: 'EXISTS';
@@ -1262,6 +1285,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_SERIALIZE: 'JSON_SERIALIZE';
 JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';
@@ -1318,6 +1342,7 @@ OPTION: 'OPTION';
 OR: 'OR';
 ORDER: 'ORDER';
 ORDINALITY: 'ORDINALITY';
+OTHERS: 'OTHERS';
 OUTER: 'OUTER';
 OUTPUT: 'OUTPUT';
 OVER: 'OVER';

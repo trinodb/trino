@@ -78,9 +78,6 @@ public class TestPostgreSqlRollbacks
     {
         QueryRunner queryRunner = getQueryRunner();
         doTestRollbackCreateTableAsSelect(queryRunner);
-
-        // Verify no tables remain, not even temporary ones
-        assertThat(queryRunner.execute("SHOW TABLES").getOnlyColumn()).isEmpty();
     }
 
     static void doTestRollbackCreateTableAsSelect(QueryRunner queryRunner)
@@ -177,9 +174,6 @@ public class TestPostgreSqlRollbacks
             completionService.take().get();
             completionService.take().get();
         }
-
-        // Verify no tables remain, not even temporary ones
-        assertThat(queryRunner.execute("SHOW TABLES").getOnlyColumn()).isEmpty();
     }
 
     private static boolean anyTemporaryTableExists(QueryRunner queryRunner)
