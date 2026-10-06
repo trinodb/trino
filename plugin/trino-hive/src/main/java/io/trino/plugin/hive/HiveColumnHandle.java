@@ -39,7 +39,9 @@ import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -201,6 +203,9 @@ public class HiveColumnHandle
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(getType())
+                // The ORC and Parquet readers produce timestamp with time zone in UTC, and so does
+                // HiveUtil#getPrefilledColumnValue for $file_modified_time; no other format reads the type
+                .setTimeZone(containsTimestampWithTimeZone(getType()) ? Optional.of(UTC_KEY) : Optional.empty())
                 .setHidden(isHidden())
                 .build();
     }
