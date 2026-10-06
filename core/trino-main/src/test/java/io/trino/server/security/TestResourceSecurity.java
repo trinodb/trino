@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -44,6 +45,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import jakarta.annotation.Nullable;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -84,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -510,6 +513,57 @@ public class TestResourceSecurity
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
+        }
+    }
+
+    @Test
+    public void testJwtAuthenticatorWithGroupsField()
+            throws Exception
+    {
+        // List claim: every string value becomes a group
+        verifyJwtAuthenticatorGroups("aud", builder -> builder.audience().add("app-a").add("app-b").and(), "app-a,app-b");
+
+        // String claim: the value becomes a single group
+        verifyJwtAuthenticatorGroups("team", builder -> builder.claim("team", "observability"), "observability");
+
+        // Missing claim: still authenticated, no groups
+        verifyJwtAuthenticatorGroups("team", builder -> builder, null);
+
+        // Empty string claim is ignored
+        verifyJwtAuthenticatorGroups("team", builder -> builder.claim("team", ""), null);
+    }
+
+    private void verifyJwtAuthenticatorGroups(String groupsField, UnaryOperator<JwtBuilder> claims, @Nullable String expectedGroups)
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", HMAC_KEY)
+                        .put("http-server.authentication.jwt.groups-field", groupsField)
+                        .buildOrThrow())
+                .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
+                .setSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION)
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Path.of(HMAC_KEY)).trim()));
+            String token = claims.apply(newJwtBuilder()
+                            .signWith(hmac)
+                            .subject(TEST_USER)
+                            .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant())))
+                    .compact();
+
+            Request request = new Request.Builder()
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
+                    .addHeader(AUTHORIZATION, "Bearer " + token)
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertThat(response.code()).isEqualTo(SC_OK);
+                assertThat(response.header("user")).isEqualTo(TEST_USER);
+                assertThat(response.header("groups")).isEqualTo(expectedGroups);
+            }
         }
     }
 
@@ -1200,6 +1254,7 @@ public class TestResourceSecurity
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
+                    .header("groups", identity.getGroups().isEmpty() ? null : String.join(",", ImmutableSortedSet.copyOf(identity.getGroups())))
                     .build();
         }
     }
