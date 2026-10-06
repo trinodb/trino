@@ -7,6 +7,7 @@ In this document you can find information about developing Trino.
 * [Code style](#code-style)
 * [Configuration and session properties](#configuration-and-session-properties)
 * [Building](#building)
+* [Running benchmarks](#running-benchmarks)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building docs](#building-docs)
 * [Building the Web UI](#building-the-web-ui)
@@ -35,7 +36,7 @@ the client protocol, writing tests and other lower level details.
 
 We recommend you use IntelliJ as your IDE. Code style is managed through [airstyle](https://github.com/airlift/airstyle).
 
-To run airstyle and other maven checks before opening a PR: `mvnd validate`
+To run airstyle and other maven checks before opening a PR, see [Building](#building).
 
 In addition to those you should also adhere to the following:
 
@@ -240,8 +241,35 @@ mvnd clean install -nsu -DskipTests -Dmaven.javadoc.skip=true -Dair.check.skip-a
 ```
 
 This skips snapshot update checks, tests, Javadoc, and the airbase checks (checkstyle,
-modernizer, dependency analysis). Run `mvnd validate` separately
-before opening a PR to get those checks back.
+modernizer, dependency analysis).
+
+After that, build and test a single module without rebuilding everything. Modules it depends
+on come from their `target` directories, so repackage any you change first:
+
+```bash
+mvnd package -DskipTests -Dair.check.skip-all=true -pl <changed module>
+mvnd test -Dair.check.skip-all=true -pl <module> -Dtest=<TestClass>
+```
+
+Before opening a PR, run the static checks CI runs on the modules you changed. Both commands
+skip tests. The first runs the airbase checks and Javadoc. The second runs Error Prone.
+
+```bash
+mvnd verify -DskipTests -P ci -pl <changed modules>
+mvnd clean test-compile -Dair.check.skip-all=true -P errorprone-compiler -pl <changed modules>
+```
+
+## Running benchmarks
+
+Benchmarks use JMH. Compile them with annotation processing turned on. Without it, JMH
+generates no benchmark classes, or the run uses stale ones. Then run the benchmark's `main`
+method:
+
+```bash
+mvnd test-compile exec:exec -Dair.check.skip-all=true -Dmaven.compiler.proc=full -pl <module> \
+    -Dexec.classpathScope=test -Dexec.executable=java \
+    -Dexec.args="-cp %classpath <benchmark class>"
+```
 
 ## Additional IDE configuration
 
