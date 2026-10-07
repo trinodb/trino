@@ -22,6 +22,7 @@ import java.math.RoundingMode;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.Decimals.bigIntegerTenToNth;
 import static io.trino.spi.type.Int128Math.add;
+import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.divideRoundUp;
 import static io.trino.spi.type.Int128Math.multiply;
 import static io.trino.spi.type.Int128Math.multiply256Destructive;
@@ -413,6 +414,23 @@ final class TestInt128Math
         assertCompare(Int128.valueOf(10), Int128.valueOf(11), -1);
         assertCompare(Int128.valueOf(11), Int128.valueOf(11), 0);
         assertCompare(Int128.valueOf(12), Int128.valueOf(11), 1);
+    }
+
+    @Test
+    public void testCompareAbsolute()
+    {
+        assertThat(compareAbsolute(Int128.valueOf(5), Int128.valueOf(3))).isPositive();
+        assertThat(compareAbsolute(Int128.valueOf(-5), Int128.valueOf(3))).isPositive();
+        assertThat(compareAbsolute(Int128.valueOf(-3), Int128.valueOf(5))).isNegative();
+        assertThat(compareAbsolute(Int128.valueOf(3), Int128.valueOf(-5))).isNegative();
+        assertThat(compareAbsolute(Int128.valueOf(-5), Int128.valueOf(5))).isZero();
+        assertThat(compareAbsolute(Int128.valueOf(-5), Int128.valueOf(-3))).isPositive();
+        assertThat(compareAbsolute(Int128.valueOf(0), Int128.valueOf(-1))).isNegative();
+        // -2^64 and 2^64 - 1
+        assertThat(compareAbsolute(Int128.valueOf(-1, 0), Int128.valueOf(0, -1))).isPositive();
+        assertThat(compareAbsolute(MIN_DECIMAL, MAX_DECIMAL)).isZero();
+        assertThat(compareAbsolute(Int128.MIN_VALUE, Int128.MAX_VALUE)).isPositive();
+        assertThat(compareAbsolute(Int128.MAX_VALUE, Int128.MIN_VALUE)).isNegative();
     }
 
     @Test
