@@ -59,6 +59,8 @@ import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,6 +99,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
@@ -944,6 +947,59 @@ public class TestParquetReader
             values.add(DATE.getLong(block, position));
         }
         return values.build();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    public void testJsonAnnotatedBinary(boolean dictionaryEnabled, boolean nullable, @TempDir Path directory)
+            throws IOException
+    {
+        MessageType schema = MessageTypeParser.parseMessageType(
+                """
+                message schema {
+                  optional binary payload (JSON);
+                  optional group nested {
+                    optional binary payload (JSON);
+                  }
+                }
+                """);
+        List<String> jsonValues = Arrays.asList(
+                "{\"currency\":\"USD\",\"tags\":[\"red\",\"green\"]}",
+                "[1,true,{\"nested\":null}]",
+                "\"text\"",
+                "42",
+                "true",
+                "null",
+                nullable ? null : "{}");
+        List<String> values = IntStream.range(0, 100)
+                .mapToObj(position -> jsonValues.get(position % jsonValues.size()))
+                .toList();
+        Path file = directory.resolve("json.parquet");
+        try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new LocalOutputFile(file))
+                .withType(schema)
+                .withDictionaryEncoding(dictionaryEnabled)
+                .build()) {
+            SimpleGroupFactory factory = new SimpleGroupFactory(schema);
+            for (String value : values) {
+                Group row = factory.newGroup();
+                Group nested = row.addGroup("nested");
+                if (value != null) {
+                    row.append("payload", value);
+                    nested.append("payload", value);
+                }
+                writer.write(row);
+            }
+        }
+
+        try (ParquetDataSource dataSource = new FileParquetDataSource(file.toFile(), ParquetReaderOptions.defaultOptions())) {
+            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            metadata.getBlocks().forEach(block -> block.columns().forEach(column ->
+                    assertThat(column.getEncodingStats().hasDictionaryEncodedPages()).isEqualTo(dictionaryEnabled)));
+        }
+        assertReadValues(file.toFile(), ImmutableList.of("payload"), JSON, values);
+        assertReadValues(file.toFile(), ImmutableList.of("nested"), rowType(field("payload", JSON)), values.stream()
+                .map(value -> singletonList(value))
+                .collect(toImmutableList()));
     }
 
     @Test

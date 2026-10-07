@@ -58,6 +58,7 @@ import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder.getFlatDefinitionLevelDecoder;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
+import static io.trino.parquet.reader.flat.JsonColumnAdapter.JSON_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -67,6 +68,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -264,6 +266,9 @@ public final class ColumnReaderFactory
         }
         if (type instanceof CharType && primitiveType == BINARY) {
             return createColumnReader(field, valueDecoders::getCharBinaryDecoder, BINARY_ADAPTER, memoryContext);
+        }
+        if (type.getBaseName().equals(JSON) && primitiveType == BINARY) {
+            return createColumnReader(field, valueDecoders::getBinaryDecoder, JSON_ADAPTER, memoryContext);
         }
         if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
             return createColumnReader(field, valueDecoders::getBinaryDecoder, BINARY_ADAPTER, memoryContext);
