@@ -22,15 +22,25 @@ import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class DecimalParametricType
         implements ParametricType
 {
-    public static final DecimalParametricType DECIMAL = new DecimalParametricType();
+    public static final DecimalParametricType DECIMAL = new DecimalParametricType(StandardTypes.DECIMAL);
+    public static final DecimalParametricType NUMERIC = new DecimalParametricType("numeric");
+
+    private final String name;
+
+    private DecimalParametricType(String name)
+    {
+        this.name = requireNonNull(name, "name is null");
+    }
 
     @Override
     public String getName()
     {
-        return StandardTypes.DECIMAL;
+        return name;
     }
 
     @Override
