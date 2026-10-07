@@ -34,6 +34,8 @@ import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.PlanFragmentRedactor;
+import io.trino.sql.planner.RedactedPlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
@@ -83,6 +85,7 @@ public class StageStateMachine
 
     private final StageId stageId;
     private final PlanFragment fragment;
+    private final RedactedPlanFragment redactedFragment;
     private final Map<PlanNodeId, TableInfo> tables;
     private final SplitSchedulerStats scheduledStats;
 
@@ -113,6 +116,7 @@ public class StageStateMachine
         this.stageId = requireNonNull(stageId, "stageId is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
+        this.redactedFragment = PlanFragmentRedactor.redact(fragment, this.tables);
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
@@ -677,7 +681,7 @@ public class StageStateMachine
         return new StageInfo(
                 stageId,
                 state,
-                fragment,
+                redactedFragment,
                 fragment.getPartitioning().isCoordinatorOnly(),
                 fragment.getTypes(),
                 stageStats,

@@ -83,6 +83,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
+import static io.trino.sql.ir.SecureExpressions.describeFailure;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Collections.nCopies;
@@ -102,6 +103,7 @@ public class ColumnarFilterCompiler
     private final NonEvictableCache<InSetDynamicFilterKey, Class<? extends ColumnarFilter>> inSetDynamicFilterCache;
     // Structurally identical filters with different literals share one compiled template
     private final ClassTemplateCache<ColumnarFilter> filterTemplates;
+    private final boolean secure;
 
     @Inject
     public ColumnarFilterCompiler(PlannerContext plannerContext, CompilerConfig config)
@@ -127,6 +129,27 @@ public class ColumnarFilterCompiler
             filterCacheStats = null;
         }
         inSetDynamicFilterCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(64));
+        this.secure = false;
+    }
+
+    private ColumnarFilterCompiler(ColumnarFilterCompiler compiler)
+    {
+        this.plannerContext = compiler.plannerContext;
+        this.functionManager = compiler.functionManager;
+        this.metadata = compiler.metadata;
+        this.filterCache = compiler.filterCache;
+        this.filterCacheStats = compiler.filterCacheStats;
+        this.inSetDynamicFilterCache = compiler.inSetDynamicFilterCache;
+        this.filterTemplates = compiler.filterTemplates;
+        this.secure = true;
+    }
+
+    /**
+     * Returns a compiler for the terms of a secure expression. Its diagnostics leave out the terms, since they are part of the policy.
+     */
+    ColumnarFilterCompiler forSecureExpression()
+    {
+        return new ColumnarFilterCompiler(this);
     }
 
     @Nullable
@@ -267,6 +290,10 @@ public class ColumnarFilterCompiler
             };
         }
         catch (Throwable t) {
+            if (secure) {
+                log.debug("Falling back from columnar evaluation for a secure filter: %s", describeFailure(t));
+                return Optional.empty();
+            }
             if (t instanceof UnsupportedOperationException || t.getCause() instanceof UnsupportedOperationException) {
                 log.debug("Unsupported filter for columnar evaluation %s, %s", filter, t);
             }

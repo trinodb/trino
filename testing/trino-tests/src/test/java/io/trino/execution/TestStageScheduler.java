@@ -128,7 +128,7 @@ final class TestStageScheduler
                 .getFullQueryInfo(result.queryId());
         List<StageInfo> stages = StagesInfo.getAllStages(queryInfo.getStages());
         StageInfo partitionedStage = stages.stream()
-                .filter(stage -> stage.plan() != null && stage.plan().getPartitioning().getConnectorHandle() instanceof TestPartitionHandle)
+                .filter(stage -> stage.plan() != null && stage.plan().fragment().getPartitioning().getConnectorHandle() instanceof TestPartitionHandle)
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("No stage with connector partitioning found"));
 
