@@ -259,6 +259,7 @@ public final class IcebergQueryRunner
             Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
             floci.start();
             floci.createBucket(bucketName);
+            floci.createRole("iceberg");
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 
@@ -319,6 +320,7 @@ public final class IcebergQueryRunner
             Floci floci = new Floci().withNetwork(network).withNetworkAliases("floci");
             floci.start();
             floci.createBucket(bucketName);
+            floci.createRole("iceberg");
 
             String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 

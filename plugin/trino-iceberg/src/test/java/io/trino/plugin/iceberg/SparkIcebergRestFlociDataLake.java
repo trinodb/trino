@@ -44,6 +44,7 @@ public final class SparkIcebergRestFlociDataLake
         floci.withNetwork(network).withNetworkAliases("floci");
         floci.start();
         floci.createBucket(bucketName);
+        floci.createRole("iceberg");
 
         String warehouseLocation = "s3://%s/default/".formatted(bucketName);
 

@@ -31,7 +31,14 @@ import static io.trino.testing.containers.Floci.FLOCI_SECRET_KEY;
 final class TestIcebergAwsEncryptionStsFloci
         extends BaseIcebergEncryptionFlociTest
 {
-    private static final String ROLE_ARN = "arn:aws:iam::000000000000:role/test";
+    private static final String ROLE_NAME = "test";
+    private static final String ROLE_ARN = "arn:aws:iam::000000000000:role/" + ROLE_NAME;
+
+    @Override
+    protected void onFlociStarted()
+    {
+        hiveFlociDataLake.floci().createRole(ROLE_NAME);
+    }
 
     @Override
     protected String kmsKey()

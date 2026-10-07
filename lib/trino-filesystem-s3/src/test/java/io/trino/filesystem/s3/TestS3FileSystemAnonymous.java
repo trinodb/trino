@@ -25,6 +25,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -57,7 +59,11 @@ public class TestS3FileSystemAnonymous
     {
         floci = new Floci().withEnv("FLOCI_SERVICES_S3_ENFORCE_AUTH", "true");
         floci.start();
-        try (S3Client s3Client = floci.createS3Client()) {
+        // With auth enforcement, Floci only accepts the built-in "test" credentials or keys registered in IAM
+        try (S3Client s3Client = S3Client.builder()
+                .applyMutation(floci::updateClient)
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test")))
+                .build()) {
             s3Client.createBucket(builder -> builder.bucket(PUBLIC_BUCKET));
             s3Client.putBucketPolicy(builder -> builder.bucket(PUBLIC_BUCKET).policy(publicReadPolicy(PUBLIC_BUCKET)));
             s3Client.putObject(builder -> builder.bucket(PUBLIC_BUCKET).key(KNOWN_KEY), RequestBody.fromBytes(KNOWN_CONTENT));
