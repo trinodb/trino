@@ -57,6 +57,7 @@ import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -66,6 +67,7 @@ import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.Symbol;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
@@ -103,6 +105,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.gen.RowConstructorCodeGenerator.MEGAMORPHIC_FIELD_COUNT;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN;
+import static io.trino.sql.ir.ComparisonOperator.LESS_THAN;
 import static io.trino.sql.ir.IrExpressions.call;
 import static io.trino.sql.ir.TestingIr.comparison;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
@@ -787,6 +790,39 @@ public class TestPageFunctionCompiler
         TestingSourcePage someRejected = new TestingSourcePage(3, createLongsBlock(101L, 2L, 103L), createLongsBlock(1L, 2L, 3L));
         assertThat(compiled.filter(SESSION, compiled.getInputChannels().getInputChannels(someRejected)).size()).isEqualTo(2);
         assertThat(someRejected.wasLoaded(1)).isTrue();
+    }
+
+    @Test
+    public void testCaseProjectionSkipsChannelLoad()
+    {
+        Expression projection = new Case(
+                ImmutableList.of(
+                        new WhenClause(
+                                comparison(GREATER_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 100L)),
+                                new Reference(BIGINT, "$col_1")),
+                        new WhenClause(
+                                comparison(LESS_THAN, new Reference(BIGINT, "$col_0"), new Constant(BIGINT, 0L)),
+                                new Reference(BIGINT, "$col_1"))),
+                new Constant(BIGINT, null));
+        Map<Symbol, Integer> layout = ImmutableMap.of(
+                new Symbol(BIGINT, "$col_0"), 0,
+                new Symbol(BIGINT, "$col_1"), 1);
+        PageProjection compiled = FUNCTION_RESOLUTION.getPageFunctionCompiler()
+                .compileProjection(projection, layout, SQL_STANDARD, Optional.empty())
+                .get();
+
+        TestingSourcePage noneTaken = new TestingSourcePage(3, createLongsBlock(1L, 2L, 3L), createLongsBlock(200L, 201L, 202L));
+        Block result = compiled.project(SESSION, compiled.getInputChannels().getInputChannels(noneTaken), SelectedPositions.positionsRange(0, 3));
+        assertThat(result.isNull(0)).isTrue();
+        assertThat(noneTaken.wasLoaded(0)).isTrue();
+        assertThat(noneTaken.wasLoaded(1)).isFalse();
+
+        TestingSourcePage someTaken = new TestingSourcePage(3, createLongsBlock(-1L, 200L, 3L), createLongsBlock(200L, 201L, 202L));
+        result = compiled.project(SESSION, compiled.getInputChannels().getInputChannels(someTaken), SelectedPositions.positionsRange(0, 3));
+        assertThat(BIGINT.getLong(result, 0)).isEqualTo(200L);
+        assertThat(BIGINT.getLong(result, 1)).isEqualTo(201L);
+        assertThat(result.isNull(2)).isTrue();
+        assertThat(someTaken.wasLoaded(1)).isTrue();
     }
 
     private static Page createLongBlockPage(long... values)
