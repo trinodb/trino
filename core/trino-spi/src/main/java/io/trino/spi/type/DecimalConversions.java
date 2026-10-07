@@ -20,8 +20,6 @@ import java.math.BigInteger;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.rescale;
@@ -72,11 +70,16 @@ public final class DecimalConversions
         if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
             return ((double) decimal) / tenToScale;
         }
-        int scale = Long.numberOfTrailingZeros(tenToScale);
-        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
-            return BigDecimal.valueOf(decimal, scale).doubleValue();
+        if (tenToScale == 1) {
+            return decimal;
         }
-        return BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).doubleValue();
+        // The dividend rounds to double, so the quotient can be an ulp off. The residual decimal - value * tenToScale
+        // corrects it, and is exact: value * tenToScale is a multiple of ulp(value) * 2^scale within a few
+        // ulp(value) * 10^scale of the dividend, so the fma result spans about log2(5^scale) <= 42 bits, and adding
+        // back the small integer the dividend lost to rounding keeps it under 53.
+        double dividend = decimal;
+        double value = dividend / tenToScale;
+        return value + (fma(-value, tenToScale, dividend) + (decimal - (long) dividend)) / tenToScale;
     }
 
     public static double longDecimalToDouble(Int128 decimal, long scale)
@@ -97,30 +100,34 @@ public final class DecimalConversions
         }
         // Dividing in double and narrowing to float rounds twice, which can only misround near a float midpoint.
         double value = (double) decimal / tenToScale;
-        long discardedBits = doubleToRawLongBits(value) & DISCARDED_FLOAT_BITS_MASK;
-        if (abs(discardedBits - DISCARDED_FLOAT_BITS_MIDPOINT) > DISCARDED_FLOAT_BITS_MARGIN) {
+        if (abs(discardedFloatBits(value) - DISCARDED_FLOAT_BITS_MIDPOINT) > DISCARDED_FLOAT_BITS_MARGIN) {
             return floatToRawIntBits((float) value);
         }
-        if (-MAX_EXACT_DOUBLE_LONG <= decimal && decimal <= MAX_EXACT_DOUBLE_LONG) {
-            // An exact dividend rounds the divide correctly, so only a true midpoint misrounds.
-            if (discardedBits != DISCARDED_FLOAT_BITS_MIDPOINT) {
-                return floatToRawIntBits((float) value);
-            }
-            // Exact operands make the residual's sign exact: zero is a tie, its sign gives the side.
-            double residual = fma(value, tenToScale, -(double) decimal);
-            if (residual == 0) {
-                return floatToRawIntBits((float) value);
-            }
-            if (residual < 0) {
-                return floatToRawIntBits((float) nextUp(value));
-            }
-            return floatToRawIntBits((float) nextDown(value));
+        // A correctly rounded quotient only misrounds on a float midpoint it does not equal exactly. There, the sign
+        // of the residual decimal - value * tenToScale gives the side.
+        double dividend = decimal;
+        double dividendError = 0;
+        if (decimal < -MAX_EXACT_DOUBLE_LONG || decimal > MAX_EXACT_DOUBLE_LONG) {
+            // Correct the quotient as shortDecimalToDouble does
+            dividendError = decimal - (long) dividend;
+            value += (fma(-value, tenToScale, dividend) + dividendError) / tenToScale;
         }
-        int scale = Long.numberOfTrailingZeros(tenToScale);
-        if (scale <= MAX_SHORT_PRECISION && longTenToNth(scale) == tenToScale) {
-            return floatToRawIntBits(BigDecimal.valueOf(decimal, scale).floatValue());
+        if (discardedFloatBits(value) != DISCARDED_FLOAT_BITS_MIDPOINT) {
+            return floatToRawIntBits((float) value);
         }
-        return floatToRawIntBits(BigDecimal.valueOf(decimal).divide(BigDecimal.valueOf(tenToScale)).floatValue());
+        double residual = fma(-value, tenToScale, dividend) + dividendError;
+        if (residual == 0) {
+            return floatToRawIntBits((float) value);
+        }
+        if (residual > 0) {
+            return floatToRawIntBits((float) nextUp(value));
+        }
+        return floatToRawIntBits((float) nextDown(value));
+    }
+
+    private static long discardedFloatBits(double value)
+    {
+        return doubleToRawLongBits(value) & DISCARDED_FLOAT_BITS_MASK;
     }
 
     public static long longDecimalToReal(Int128 decimal, long scale)
