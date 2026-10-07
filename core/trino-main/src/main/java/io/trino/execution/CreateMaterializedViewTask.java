@@ -51,9 +51,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
+import static io.trino.execution.ParameterExtractor.extractParameters;
 import static io.trino.metadata.MaterializedViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
+import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
@@ -114,6 +116,11 @@ public class CreateMaterializedViewTask
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
+
+        List<Parameter> queryParameters = extractParameters(statement.getQuery());
+        if (!queryParameters.isEmpty()) {
+            throw semanticException(INVALID_PARAMETER_USAGE, queryParameters.getFirst(), "Query parameters are not allowed in the query of a materialized view");
+        }
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
