@@ -189,12 +189,16 @@ import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MatchPredicate;
 import io.trino.sql.tree.MaterializedViewExecute;
 import io.trino.sql.tree.MeasureDefinition;
+import io.trino.sql.tree.MemberPredicate;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.MethodCall;
+import io.trino.sql.tree.MultisetConstructor;
+import io.trino.sql.tree.MultisetSetOperation;
+import io.trino.sql.tree.MultisetSubquery;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Nearest;
 import io.trino.sql.tree.NestedColumns;
@@ -276,6 +280,7 @@ import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
+import io.trino.sql.tree.SetPredicate;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
@@ -303,6 +308,7 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubmultisetPredicate;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SubsetDefinition;
@@ -2671,6 +2677,66 @@ class AstBuilder
     }
 
     @Override
+    public Node visitMultisetConstructor(SqlBaseParser.MultisetConstructorContext context)
+    {
+        return new MultisetConstructor(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitSubmultiset(SqlBaseParser.SubmultisetContext context)
+    {
+        return new SubmultisetPredicate(
+                getLocation(context),
+                context.NOT() != null,
+                (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitMember(SqlBaseParser.MemberContext context)
+    {
+        return new MemberPredicate(
+                getLocation(context),
+                context.NOT() != null,
+                (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitSetPredicate(SqlBaseParser.SetPredicateContext context)
+    {
+        return new SetPredicate(getLocation(context), context.NOT() != null);
+    }
+
+    @Override
+    public Node visitMultisetIntersect(SqlBaseParser.MultisetIntersectContext context)
+    {
+        // unlike the relational set operations, the multiset operators default to ALL
+        boolean distinct = context.setQuantifier() != null && context.setQuantifier().DISTINCT() != null;
+        return new MultisetSetOperation(
+                getLocation(context),
+                MultisetSetOperation.Operator.INTERSECT,
+                distinct,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
+    }
+
+    @Override
+    public Node visitMultisetUnion(SqlBaseParser.MultisetUnionContext context)
+    {
+        boolean distinct = context.setQuantifier() != null && context.setQuantifier().DISTINCT() != null;
+        MultisetSetOperation.Operator operator = switch (context.operator.getType()) {
+            case SqlBaseLexer.UNION -> MultisetSetOperation.Operator.UNION;
+            case SqlBaseLexer.EXCEPT -> MultisetSetOperation.Operator.EXCEPT;
+            default -> throw new IllegalArgumentException("Unsupported multiset operator: " + context.operator.getText());
+        };
+        return new MultisetSetOperation(
+                getLocation(context),
+                operator,
+                distinct,
+                (Expression) visit(context.left),
+                (Expression) visit(context.right));
+    }
+
+    @Override
     public Node visitCast(SqlBaseParser.CastContext context)
     {
         boolean isTryCast = context.TRY_CAST() != null;
@@ -3211,6 +3277,12 @@ class AstBuilder
     public Node visitSubqueryExpression(SqlBaseParser.SubqueryExpressionContext context)
     {
         return new SubqueryExpression(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitMultisetSubquery(SqlBaseParser.MultisetSubqueryContext context)
+    {
+        return new MultisetSubquery(getLocation(context), (Query) visit(context.query()));
     }
 
     @Override
@@ -4011,6 +4083,15 @@ class AstBuilder
         return new GenericDataType(
                 getLocation(context),
                 new Identifier(getLocation(context.ARRAY()), context.ARRAY().getText(), false),
+                ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
+    }
+
+    @Override
+    public Node visitMultisetType(SqlBaseParser.MultisetTypeContext context)
+    {
+        return new GenericDataType(
+                getLocation(context),
+                new Identifier(getLocation(context.MULTISET()), context.MULTISET().getText(), false),
                 ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
     }
 
