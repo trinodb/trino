@@ -21,7 +21,11 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.fma;
 
 @ScalarFunction("to_unixtime")
 public final class ToUnixTime
@@ -39,6 +43,14 @@ public final class ToUnixTime
     @SqlType(StandardTypes.DOUBLE)
     public static double toUnixTime(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return timestamp.getEpochMillis() * 1.0 / MILLISECONDS_PER_SECOND + timestamp.getPicosOfMilli() * 1.0 / PICOSECONDS_PER_SECOND;
+        long epochSeconds = floorDiv(timestamp.getEpochMillis(), MILLISECONDS_PER_SECOND);
+        long picosOfSecond = (long) floorMod(timestamp.getEpochMillis(), MILLISECONDS_PER_SECOND) * PICOSECONDS_PER_MILLISECOND + timestamp.getPicosOfMilli();
+        // Carry the rounding errors of the fraction and of the sum, and round once at the end. The exact result is a multiple
+        // of 10^-12, so it is either a midpoint between adjacent doubles or far from one compared to the errors left.
+        double fraction = (double) picosOfSecond / PICOSECONDS_PER_SECOND;
+        double fractionError = fma(-fraction, PICOSECONDS_PER_SECOND, picosOfSecond) / PICOSECONDS_PER_SECOND;
+        double sum = epochSeconds + fraction;
+        double sumError = fraction - (sum - epochSeconds);
+        return sum + (sumError + fractionError);
     }
 }
