@@ -154,16 +154,16 @@ public class CachingDirectoryLister
     @Override
     public void invalidate(Table table)
     {
-        if (isCacheEnabledFor(table.getSchemaTableName()) && isLocationPresent(table.getStorage())) {
-            if (table.getPartitionColumns().isEmpty()) {
-                log.debug("Invalidating cache for unpartitioned table: %s", table.getSchemaTableName());
-                cache.invalidate(new CacheKey(Location.of(table.getStorage().getLocation()), table.getSchemaTableName()));
-            }
-            else {
-                // a partitioned table can have multiple paths in cache
+        if (isCacheEnabledFor(table.getSchemaTableName())) {
+            if (!table.getPartitionColumns().isEmpty()) {
+                // a partitioned table can have multiple paths in cache, which need not be under the table location
                 SchemaTableName tableName = table.getSchemaTableName();
                 log.debug("Invalidating cache for partitioned table: %s", table.getSchemaTableName());
                 cache.asMap().keySet().removeIf(key -> key.schemaTableName().equals(tableName));
+            }
+            else if (isLocationPresent(table.getStorage())) {
+                log.debug("Invalidating cache for unpartitioned table: %s", table.getSchemaTableName());
+                cache.invalidate(new CacheKey(Location.of(table.getStorage().getLocation()), table.getSchemaTableName()));
             }
         }
     }
