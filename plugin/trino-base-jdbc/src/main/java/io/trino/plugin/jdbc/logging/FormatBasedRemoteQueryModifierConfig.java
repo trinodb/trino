@@ -37,7 +37,7 @@ public class FormatBasedRemoteQueryModifierConfig
         return format;
     }
 
-    @AssertTrue(message = "Incorrect format it may consist of only letters, digits, underscores, commas, spaces, equal signs and predefined values")
+    @AssertTrue(message = "Incorrect format: it may consist only of letters, digits, underscores, hyphens, commas, spaces, equal signs, and predefined values")
     boolean isFormatValid()
     {
         return hasValidPlaceholders(format, SessionInterpolatedValues.values());
