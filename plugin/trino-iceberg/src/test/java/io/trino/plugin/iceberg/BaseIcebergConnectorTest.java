@@ -6065,6 +6065,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testProjectionPushdownWithBetweenSymmetric()
+    {
+        try (TestTable table = newTrinoTable("test_projection_between_symmetric", "(value integer, bounds row(low integer, high integer))")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, ROW(0, 10)), (5, ROW(10, 0)), (20, ROW(0, 10))", 3);
+            assertQuery("SELECT value + 1 BETWEEN SYMMETRIC bounds.low AND bounds.high FROM " + table.getName(), "VALUES true, true, false");
+        }
+    }
+
+    @Test
     public void testProjectionPushdownAfterRename()
     {
         assertUpdate("CREATE TABLE projection_pushdown_after_rename (id INT, a ROW(b INT, c ROW (d INT)))");

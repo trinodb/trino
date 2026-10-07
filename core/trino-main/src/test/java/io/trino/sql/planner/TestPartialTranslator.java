@@ -30,6 +30,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.NodeRef;
 import io.trino.sql.ir.Reference;
 import io.trino.transaction.TransactionId;
@@ -44,6 +45,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.between;
+import static io.trino.sql.ir.IrExpressions.nullIf;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -122,6 +125,62 @@ public class TestPartialTranslator
                         new Call(ADD_BIGINT, ImmutableList.of(argument.toSymbolReference(), captureArgument.toSymbolReference()))));
 
         assertThat(extractPartialTranslations(bind, TEST_SESSION)).isEmpty();
+    }
+
+    @Test
+    public void testDoesNotExtractPartialTranslationsFromLetBody()
+    {
+        Symbol local = new Symbol(BIGINT, "let");
+        Expression value = new FieldReference(new Reference(RowType.anonymousRow(BIGINT), "row"), 0);
+        Expression let = new Let(local, value, local.toSymbolReference());
+
+        assertThat(extractPartialTranslations(let, TEST_SESSION))
+                .containsExactly(Map.entry(NodeRef.of(value), translate(TEST_SESSION, value).orElseThrow()));
+    }
+
+    @Test
+    public void testExtractsIndependentExpressionsFromLetBody()
+    {
+        Symbol local = new Symbol(BIGINT, "let");
+        Expression value = new FieldReference(new Reference(RowType.anonymousRow(BIGINT), "row"), 0);
+        Expression independent = new Call(ADD_BIGINT, ImmutableList.of(new Reference(BIGINT, "other"), new Constant(BIGINT, 1L)));
+        Expression let = new Let(local, value, new Call(ADD_BIGINT, ImmutableList.of(local.toSymbolReference(), independent)));
+
+        assertThat(extractPartialTranslations(let, TEST_SESSION))
+                .containsOnly(
+                        Map.entry(NodeRef.of(value), translate(TEST_SESSION, value).orElseThrow()),
+                        Map.entry(NodeRef.of(independent), translate(TEST_SESSION, independent).orElseThrow()));
+    }
+
+    @Test
+    public void testNestedLetScopes()
+    {
+        Symbol outer = new Symbol(BIGINT, "outer");
+        Symbol inner = new Symbol(BIGINT, "inner");
+        Expression value = new FieldReference(new Reference(RowType.anonymousRow(BIGINT), "row"), 0);
+
+        // A nested binding in the body can depend on the enclosing binding.
+        Expression nestedBody = new Let(outer, value, new Let(inner, outer.toSymbolReference(), inner.toSymbolReference()));
+        assertThat(extractPartialTranslations(nestedBody, TEST_SESSION))
+                .containsExactly(Map.entry(NodeRef.of(value), translate(TEST_SESSION, value).orElseThrow()));
+
+        // A nested binding in the value still allows extracting its own value.
+        Expression nestedValue = new Let(outer, new Let(inner, value, inner.toSymbolReference()), outer.toSymbolReference());
+        assertThat(extractPartialTranslations(nestedValue, TEST_SESSION))
+                .containsExactly(Map.entry(NodeRef.of(value), translate(TEST_SESSION, value).orElseThrow()));
+    }
+
+    @Test
+    public void testTranslatesLetAsSingleExpression()
+    {
+        Expression value = new FieldReference(new Reference(RowType.anonymousRow(BIGINT), "row"), 0);
+        Expression between = between(PLANNER_CONTEXT.getMetadata(), getCharVarcharCoercion(TEST_SESSION), new SymbolAllocator(ImmutableList.of()), value, new Constant(BIGINT, 1L), new Constant(BIGINT, 10L));
+        assertThat(between).isInstanceOf(Let.class);
+        assertFullTranslation(between);
+
+        Expression nullIf = nullIf(PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), getCharVarcharCoercion(TEST_SESSION), new SymbolAllocator(ImmutableList.of()), value, new Constant(BIGINT, 1L));
+        assertThat(nullIf).isInstanceOf(Let.class);
+        assertFullTranslation(nullIf);
     }
 
     private void assertFullTranslation(Expression expression)
