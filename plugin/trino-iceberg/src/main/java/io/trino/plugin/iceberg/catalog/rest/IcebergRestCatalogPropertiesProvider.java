@@ -21,6 +21,7 @@ import org.apache.iceberg.CatalogProperties;
 
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
@@ -35,10 +36,12 @@ public class IcebergRestCatalogPropertiesProvider
     @Inject
     public IcebergRestCatalogPropertiesProvider(
             IcebergRestCatalogConfig restConfig,
+            Optional<IcebergRestCatalogS3Config> s3Config,
             SecurityProperties securityProperties,
             NodeVersion nodeVersion)
     {
         requireNonNull(restConfig, "restConfig is null");
+        requireNonNull(s3Config, "s3Config is null");
         requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(nodeVersion, "nodeVersion is null");
 
@@ -56,7 +59,10 @@ public class IcebergRestCatalogPropertiesProvider
         // Hardcoded literal because org.apache.iceberg.rest.HTTPClient.REST_MAX_RETRIES is private.
         properties.put("rest.client.max-retries", String.valueOf(restConfig.getMaxRetries()));
         properties.putAll(securityProperties.get());
-        if (restConfig.isVendedCredentialsEnabled()) {
+        if (s3Config.map(IcebergRestCatalogS3Config::isRemoteSigningEnabled).orElse(false)) {
+            properties.put("header.X-Iceberg-Access-Delegation", "remote-signing");
+        }
+        else if (restConfig.isVendedCredentialsEnabled()) {
             properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
         }
 
