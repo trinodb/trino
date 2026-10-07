@@ -36,7 +36,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class FlociGcp
         extends GenericContainer<FlociGcp>
 {
-    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.7.0";
+    public static final String FLOCI_GCP_IMAGE = "floci/floci-gcp:0.10.0";
     public static final String FLOCI_GCP_PROJECT_ID = "floci-local";
 
     private static final String FLOCI_GCP_NETWORK_ALIAS = "floci-gcp";
