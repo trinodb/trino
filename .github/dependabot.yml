@@ -21,6 +21,10 @@ updates:
         patterns:
           - "io.airlift:airbase"
           - "io.airlift:bom"
+      maven-model:
+        patterns:
+          - "org.apache.maven:maven-model-builder"
+          - "org.apache.maven:maven-model"
     cooldown:
       # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
       # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
