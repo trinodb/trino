@@ -952,7 +952,7 @@ public class TestParquetReader
     {
         File parquetFile = new File(Resources.getResource("parquet_repeated_primitives/string/old-repeated-string.parquet").toURI());
         List<List<String>> expectedValues = ImmutableList.of(Arrays.asList("hello", "world"), Arrays.asList("good", "bye"), Arrays.asList("one", "two", "three"));
-        testReadingOldParquetFiles(parquetFile, ImmutableList.of("myString"), new ArrayType(VARCHAR), expectedValues);
+        assertReadValues(parquetFile, ImmutableList.of("myString"), new ArrayType(VARCHAR), expectedValues);
     }
 
     @Test
@@ -961,7 +961,7 @@ public class TestParquetReader
     {
         File parquetFile = new File(Resources.getResource("parquet_repeated_primitives/int/old-repeated-int.parquet").toURI());
         List<List<Integer>> expectedValues = ImmutableList.of(Arrays.asList(1, 2, 3));
-        testReadingOldParquetFiles(parquetFile, ImmutableList.of("repeatedInt"), new ArrayType(INTEGER), expectedValues);
+        assertReadValues(parquetFile, ImmutableList.of("repeatedInt"), new ArrayType(INTEGER), expectedValues);
     }
 
     @Test
@@ -970,7 +970,7 @@ public class TestParquetReader
         assertThatThrownBy(() -> {
             File parquetFile = new File(Resources.getResource("parquet_repeated_primitives/int/old-repeated-int.parquet").toURI());
             List<List<Integer>> expectedValues = ImmutableList.of(Arrays.asList(1, 2, 3));
-            testReadingOldParquetFiles(parquetFile, ImmutableList.of("repeatedInt"), INTEGER, expectedValues);
+            assertReadValues(parquetFile, ImmutableList.of("repeatedInt"), INTEGER, expectedValues);
         }).hasMessage("Unsupported Trino column type (integer) for Parquet column ([repeatedint] repeated int32 repeatedint)")
                 .isInstanceOf(TrinoException.class);
     }
@@ -1029,13 +1029,13 @@ public class TestParquetReader
             writer.write(factory.newGroup());
         }
 
-        testReadingOldParquetFiles(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(new ArrayType(VARCHAR)), Arrays.asList(
+        assertReadValues(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(new ArrayType(VARCHAR)), Arrays.asList(
                 ImmutableList.of(ImmutableList.of("a", "b"), ImmutableList.of("c")),
                 singletonList(null),
                 ImmutableList.of(ImmutableList.of()),
                 ImmutableList.of(),
                 null));
-        testReadingOldParquetFiles(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(rowType(field("inner_list", new ArrayType(VARCHAR)))), Arrays.asList(
+        assertReadValues(file.toFile(), ImmutableList.of("nested_list"), new ArrayType(rowType(field("inner_list", new ArrayType(VARCHAR)))), Arrays.asList(
                 ImmutableList.of(ImmutableList.of(ImmutableList.of("a", "b")), ImmutableList.of(ImmutableList.of("c"))),
                 ImmutableList.of(singletonList(null)),
                 ImmutableList.of(ImmutableList.of(ImmutableList.of())),
@@ -1154,7 +1154,7 @@ public class TestParquetReader
         assertThat(metadata.getBlocks().stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
     }
 
-    private void testReadingOldParquetFiles(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
+    private void assertReadValues(File file, List<String> columnNames, Type columnType, List<?> expectedValues)
             throws IOException
     {
         ParquetDataSource dataSource = new FileParquetDataSource(
