@@ -22,9 +22,11 @@ import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
+import static java.util.Objects.requireNonNull;
 
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
@@ -34,15 +36,26 @@ public final class S3FileSystemFactory
     private final S3Context context;
     private final Executor uploadExecutor;
     private final S3Presigner preSigner;
+    private final Optional<S3RemoteSignerProvider> remoteSignerProvider;
 
     @Inject
-    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    public S3FileSystemFactory(
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            S3FileSystemStats stats,
+            Optional<S3RemoteSignerProvider> remoteSignerProvider)
     {
-        this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
+        this.loader = new S3FileSystemLoader(openTelemetry, config, stats, remoteSignerProvider);
         this.client = loader.createClient();
         this.preSigner = createS3PreSigner(config, client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
+        this.remoteSignerProvider = requireNonNull(remoteSignerProvider, "remoteSignerProvider is null");
+    }
+
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    {
+        this(openTelemetry, config, stats, Optional.empty());
     }
 
     @PreDestroy
@@ -56,6 +69,10 @@ public final class S3FileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
+        return new S3FileSystem(
+                uploadExecutor,
+                client,
+                preSigner,
+                context.withCredentials(identity, remoteSignerProvider.flatMap(provider -> provider.getSigner(identity))));
     }
 }
