@@ -376,6 +376,14 @@ public class TestInformationSchemaConnector
                 "Error listing table columns for catalog broken_catalog: Catalog is broken");
     }
 
+    @Test
+    public void testMissingTableNameAddsNoRows()
+    {
+        assertQuery(
+                "SELECT table_name FROM test_catalog.information_schema.tables WHERE table_schema = 'test_schema1' AND table_name IN ('test_table1', 'test_table2', 'test_table_missing')",
+                "VALUES 'test_table1', 'test_table2'");
+    }
+
     private void assertMetadataCalls(@Language("SQL") String actualSql, @Language("SQL") String expectedSql, Multiset<String> expectedMetadataCallsCount)
     {
         expectedMetadataCallsCount = ImmutableMultiset.<String>builder()

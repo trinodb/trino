@@ -616,7 +616,7 @@ public final class MetadataManager
                 if (relationType.isPresent()) {
                     return ImmutableList.of(objectName.get());
                 }
-                // TODO we can probably return empty list here
+                // TODO return empty list here unless getRelationTypeIfExists caught exception, see also https://github.com/trinodb/trino/issues/6551
             }
             catch (RuntimeException e) {
                 handleListingError(e, prefix);
@@ -639,6 +639,7 @@ public final class MetadataManager
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(table -> !isExternalInformationSchema(catalogHandle, table.schemaName()))
+                        .filter(prefix::matches)
                         .forEach(tables::add);
             }
         }
