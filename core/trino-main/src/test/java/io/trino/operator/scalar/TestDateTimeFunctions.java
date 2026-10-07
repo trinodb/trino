@@ -133,6 +133,9 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("from_unixtime", "980172245.888"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.888 Pacific/Apia'");
 
+        assertThat(assertions.function("from_unixtime", "nan()", "'UTC'"))
+                .matches("TIMESTAMP '1970-01-01 00:00:00.000 UTC'");
+
         assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Millis overflow: 9223372036854775807");
