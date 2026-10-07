@@ -24,7 +24,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -57,11 +56,9 @@ public class AggregateQueryPageSource
     private long readTimeNanos;
     private Optional<Map<String, Object>> after = Optional.empty();
     private boolean fetched;
-    private long fetchedSize;
 
     public AggregateQueryPageSource(
             ElasticsearchClient client,
-            TypeManager typeManager,
             ElasticsearchTableHandle table,
             ElasticsearchSplit split,
             List<ElasticsearchColumnHandle> columns,
@@ -70,7 +67,6 @@ public class AggregateQueryPageSource
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
         requireNonNull(split, "split is null");
-        requireNonNull(typeManager, "typeManager is null");
         requireNonNull(columns, "columns is null");
 
         this.client = client;
@@ -104,10 +100,7 @@ public class AggregateQueryPageSource
     @Override
     public boolean isFinished()
     {
-        // One of the following situation may stop the fetching
-        // 1. afterKey is empty, that means no more result can be fetched
-        // 2. fetchedSize >= the potential limit constraint
-        return (fetched && after.isEmpty()) || (table.topN().isPresent() && fetchedSize >= table.topN().get().limit());
+        return fetched && after.isEmpty();
     }
 
     @Override
@@ -123,15 +116,17 @@ public class AggregateQueryPageSource
     public SourcePage getNextSourcePage()
     {
         long start = System.nanoTime();
-        OptionalInt pageSize = table.topN().isEmpty() ? OptionalInt.of(aggregationPageSize) : OptionalInt.of((int) table.topN().get().limit());
         JsonNode searchResponse = client.beginAggregationSearch(
                 split.index(),
                 queryBuilder,
-                buildAggregationQuery(table.termAggregations(), table.metricAggregations(), pageSize, after));
+                buildAggregationQuery(
+                        table.termAggregations(),
+                        table.metricAggregations(),
+                        OptionalInt.of(aggregationPageSize),
+                        after));
         readTimeNanos += System.nanoTime() - start;
         fetched = true;
         List<Map<String, Object>> flatResult = getResult(searchResponse);
-        fetchedSize += flatResult.size();
         after = extractAfter(searchResponse);
         for (Map<String, Object> result : flatResult) {
             for (int i = 0; i < columns.size(); i++) {
@@ -144,7 +139,7 @@ public class AggregateQueryPageSource
             blocks[i] = columnBuilders[i].build();
             columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
         }
-        return SourcePage.create(new Page(blocks));
+        return SourcePage.create(new Page(flatResult.size(), blocks));
     }
 
     private static Optional<Map<String, Object>> extractAfter(JsonNode searchResponse)

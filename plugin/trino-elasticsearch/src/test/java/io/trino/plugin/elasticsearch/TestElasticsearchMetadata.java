@@ -19,6 +19,10 @@ import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
+import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
+import io.trino.plugin.elasticsearch.decoders.SmallintDecoder;
+import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
 import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.connector.AggregateFunction;
@@ -44,6 +48,10 @@ import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem.DEFAULT_SORT_BY_DOC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -221,12 +229,12 @@ public class TestElasticsearchMetadata
         try {
             ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
             ElasticsearchColumnHandle regionkey = bigintColumn("regionkey");
-            ElasticsearchColumnHandle nationkey = bigintColumn("nationkey");
+            ElasticsearchColumnHandle nationkey = doubleColumn("nationkey");
 
             AggregationApplicationResult<ConnectorTableHandle> result = metadata.applyAggregation(
                             SESSION,
                             scanHandle(),
-                            List.of(sumAggregation("nationkey")),
+                            List.of(sumAggregation("nationkey", DOUBLE, DOUBLE)),
                             Map.of("nationkey", nationkey),
                             List.of(List.of(regionkey)))
                     .orElseThrow();
@@ -238,15 +246,43 @@ public class TestElasticsearchMetadata
             assertThat(newHandle.metricAggregations())
                     .containsExactly(new MetricAggregation(
                             "sum",
-                            BIGINT,
+                            DOUBLE,
                             Optional.of(nationkey),
                             result.getAssignments().getFirst().getVariable()));
             assertThat(result.getAssignments()).singleElement().satisfies(assignment -> {
                 ElasticsearchColumnHandle assignmentColumn = (ElasticsearchColumnHandle) assignment.getColumn();
 
-                assertThat(assignment.getType()).isEqualTo(BIGINT);
+                assertThat(assignment.getType()).isEqualTo(DOUBLE);
                 assertThat(assignmentColumn.name()).isEqualTo(assignment.getVariable());
             });
+            assertThat(newHandle.topN()).isEmpty();
+        }
+        finally {
+            client.close();
+        }
+    }
+
+    @Test
+    public void testApplyAggregationRejectsIntegralSum()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+
+            assertThat(List.of(TINYINT, SMALLINT, INTEGER, BIGINT).stream()
+                    .filter(type -> {
+                        ElasticsearchColumnHandle value = integralColumn("value", type);
+                        return metadata.applyAggregation(
+                                        SESSION,
+                                        scanHandle(),
+                                        List.of(sumAggregation("value", type, BIGINT)),
+                                        Map.of("value", value),
+                                        List.of(List.of()))
+                                .isPresent();
+                    })
+                    .toList())
+                    .isEmpty();
         }
         finally {
             client.close();
@@ -290,6 +326,31 @@ public class TestElasticsearchMetadata
                     Map.of(),
                     List.of(List.of())))
                     .isEmpty();
+        }
+        finally {
+            client.close();
+        }
+    }
+
+    @Test
+    public void testApplyAggregationRejectsExistingTopN()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+
+            for (TopN topN : List.of(
+                    TopN.fromLimit(5),
+                    new TopN(5, List.of(DEFAULT_SORT_BY_DOC)))) {
+                assertThat(metadata.applyAggregation(
+                        SESSION,
+                        tableHandleWithTopN(topN),
+                        List.of(countStarAggregation()),
+                        Map.of(),
+                        List.of(List.of())))
+                        .isEmpty();
+            }
         }
         finally {
             client.close();
@@ -460,6 +521,53 @@ public class TestElasticsearchMetadata
                 true);
     }
 
+    private static ElasticsearchColumnHandle doubleColumn(String name)
+    {
+        return new ElasticsearchColumnHandle(
+                List.of(name),
+                DOUBLE,
+                new IndexMetadata.PrimitiveType("double"),
+                new DoubleDecoder.Descriptor(name),
+                true);
+    }
+
+    private static ElasticsearchColumnHandle integralColumn(String name, Type type)
+    {
+        if (TINYINT.equals(type)) {
+            return new ElasticsearchColumnHandle(
+                    List.of(name),
+                    type,
+                    new IndexMetadata.PrimitiveType("byte"),
+                    new TinyintDecoder.Descriptor(name),
+                    true);
+        }
+        if (SMALLINT.equals(type)) {
+            return new ElasticsearchColumnHandle(
+                    List.of(name),
+                    type,
+                    new IndexMetadata.PrimitiveType("short"),
+                    new SmallintDecoder.Descriptor(name),
+                    true);
+        }
+        if (INTEGER.equals(type)) {
+            return new ElasticsearchColumnHandle(
+                    List.of(name),
+                    type,
+                    new IndexMetadata.PrimitiveType("integer"),
+                    new IntegerDecoder.Descriptor(name),
+                    true);
+        }
+        if (BIGINT.equals(type)) {
+            return new ElasticsearchColumnHandle(
+                    List.of(name),
+                    type,
+                    new IndexMetadata.PrimitiveType("long"),
+                    new BigintDecoder.Descriptor(name),
+                    true);
+        }
+        throw new IllegalArgumentException("Unsupported integral type: " + type);
+    }
+
     private static ElasticsearchColumnHandle keywordColumn(String name)
     {
         return new ElasticsearchColumnHandle(
@@ -506,6 +614,17 @@ public class TestElasticsearchMetadata
         return new AggregateFunction(
                 "sum",
                 BIGINT,
+                List.of(new Variable(variableName, inputType)),
+                List.of(),
+                false,
+                Optional.empty());
+    }
+
+    private static AggregateFunction sumAggregation(String variableName, Type inputType, Type outputType)
+    {
+        return new AggregateFunction(
+                "sum",
+                outputType,
                 List.of(new Variable(variableName, inputType)),
                 List.of(),
                 false,

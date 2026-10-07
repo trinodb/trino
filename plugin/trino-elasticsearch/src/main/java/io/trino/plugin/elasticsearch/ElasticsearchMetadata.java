@@ -465,10 +465,7 @@ public class ElasticsearchMetadata
                         return Stream.of(TableColumnsMetadata.forTable(tableMetadata.getTable(), tableMetadata.getColumns()));
                     }
                     catch (TrinoException e) {
-                        // this may happen when a table is being deleted concurrently or has invalid metadata
-                        if (e.getErrorCode().equals(ELASTICSEARCH_INVALID_METADATA.toErrorCode())) {
-                            return Stream.empty();
-                        }
+                        // this may happen when table is being deleted concurrently
                         if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 404) {
                             return Stream.empty();
                         }
@@ -911,6 +908,9 @@ public class ElasticsearchMetadata
             // aggregation pushdown currently not supported passthrough query
             return Optional.empty();
         }
+        if (handle.topN().isPresent()) {
+            return Optional.empty();
+        }
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
 
@@ -981,7 +981,7 @@ public class ElasticsearchMetadata
                 handle.columns(),
                 termAggregationList,
                 aggregationList,
-                handle.topN());
+                Optional.empty());
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }
 

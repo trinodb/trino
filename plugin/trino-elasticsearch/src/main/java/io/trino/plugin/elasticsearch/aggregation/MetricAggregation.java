@@ -96,10 +96,11 @@ public class MetricAggregation
         return switch (functionName) {
             // COUNT works on any column that supports predicates
             case COUNT -> true;
-            // MIN/MAX work on numeric types and any column that supports predicates (e.g., keywords for lexicographic ordering)
-            case MIN, MAX -> true;
-            // SUM/AVG only work on numeric types
-            case SUM, AVG -> isNumericType(column.type());
+            // Elasticsearch calculates MIN/MAX in double, so BIGINT can lose precision.
+            case MIN, MAX -> isNumericType(column.type()) && !BIGINT.equals(column.type());
+            // SUM returns BIGINT for integral inputs, which can lose precision in Elasticsearch.
+            case SUM -> REAL.equals(column.type()) || DOUBLE.equals(column.type());
+            case AVG -> isNumericType(column.type());
             default -> false;
         };
     }
@@ -122,13 +123,6 @@ public class MetricAggregation
             return Optional.of(new MetricAggregation(COUNT, function.getOutputType(), Optional.empty(), alias));
         }
 
-        // check
-        // 1. Function input can be found in assignments
-        // 2. Target type of column being aggregate must be appropriate for the aggregation function:
-        //    - COUNT: any column that supports predicates (keyword, numeric)
-        //    - MIN/MAX: numeric types OR columns that support predicates (keyword fields for lexicographic ordering)
-        //    - SUM/AVG: only numeric types
-        // 3. ColumnHandle must support predicates (e.g., keyword fields are OK, but text fields are not)
         Optional<ElasticsearchColumnHandle> parameterColumnHandle = function.getArguments().stream()
                 .filter(input -> input instanceof Variable)
                 .map(Variable.class::cast)

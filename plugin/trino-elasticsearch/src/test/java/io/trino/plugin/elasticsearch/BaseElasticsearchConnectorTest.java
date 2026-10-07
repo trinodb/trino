@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions;
@@ -289,7 +290,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .isFullyPushedDown();
         assertThat(query("SELECT COUNT(*), SUM(nationkey) FROM nation"))
                 .matches("VALUES (BIGINT '25', BIGINT '300')")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(AggregationNode.class);
         assertThat(query("SELECT regionkey, COUNT(*) FROM nation GROUP BY regionkey"))
                 .isFullyPushedDown();
 
@@ -322,6 +323,32 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT regionkey, COUNT(*), MIN(nationkey), MAX(nationkey) FROM nation GROUP BY regionkey ORDER BY regionkey",
                 "VALUES (0, 5, 0, 16), (1, 5, 1, 24), (2, 5, 8, 21), (3, 5, 6, 23), (4, 5, 4, 20)");
+    }
+
+    @Test
+    public void testCountStarWithDoubleSumPushdown()
+            throws IOException
+    {
+        String tableName = "count_star_double_sum_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"group_key": {"type": "keyword"}, "value": {"type": "double"}}}
+                """);
+        try {
+            index(tableName, ImmutableMap.of("group_key", "a", "value", 1.25));
+            index(tableName, ImmutableMap.of("group_key", "a", "value", 2.5));
+            index(tableName, ImmutableMap.of("group_key", "b", "value", 3.0));
+
+            assertThat(query("SELECT COUNT(*), SUM(value) FROM " + tableName))
+                    .matches("VALUES (BIGINT '3', DOUBLE '6.75')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT group_key, COUNT(*), SUM(value) FROM " + tableName + " GROUP BY group_key"))
+                    .matches("VALUES (VARCHAR 'a', BIGINT '2', DOUBLE '3.75'), (VARCHAR 'b', BIGINT '1', DOUBLE '3.0')")
+                    .isFullyPushedDown();
+        }
+        finally {
+            deleteIndex(tableName);
+        }
     }
 
     @Test
@@ -359,24 +386,94 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
-    public void testAggregationOnKeywordFields()
+    public void testAggregationOnTextFieldsFallsBack()
     {
         assertThat(query("SELECT MIN(name), MAX(name) FROM nation"))
                 .skippingTypesCheck()
-                .matches("VALUES ('ALGERIA', 'VIETNAM')");
+                .matches("VALUES ('ALGERIA', 'VIETNAM')")
+                .isNotFullyPushedDown(AggregationNode.class);
 
-        // COUNT on keyword field
+        // COUNT on text field
         assertQuery("SELECT COUNT(name) FROM nation", "VALUES (25)");
 
-        // MIN/MAX on keyword field (lexicographic ordering)
+        // MIN/MAX on text field
         assertQuery(
                 "SELECT regionkey, MIN(name), MAX(name) FROM nation GROUP BY regionkey ORDER BY regionkey LIMIT 2",
                 "VALUES (0, 'ALGERIA', 'MOZAMBIQUE'), (1, 'ARGENTINA', 'UNITED STATES')");
 
-        // COUNT(*) and COUNT(keyword) together
+        // COUNT(*) and COUNT(text) together
         assertQuery(
                 "SELECT regionkey, COUNT(*), COUNT(name) FROM nation GROUP BY regionkey ORDER BY regionkey LIMIT 2",
                 "VALUES (0, 5, 5), (1, 5, 5)");
+    }
+
+    @Test
+    public void testCountStarOnDistinctPushdown()
+            throws IOException
+    {
+        String tableName = "count_star_distinct_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"k": {"type": "keyword"}}}
+                """);
+        try {
+            index(tableName, ImmutableMap.of("k", "a"));
+            index(tableName, ImmutableMap.of("k", "a"));
+            index(tableName, ImmutableMap.of("k", "b"));
+
+            assertThat(query("SELECT count(*) FROM (SELECT DISTINCT k FROM " + tableName + ")"))
+                    .matches("VALUES BIGINT '2'");
+        }
+        finally {
+            deleteIndex(tableName);
+        }
+    }
+
+    @Test
+    public void testMinMaxOnNonNumericColumns()
+            throws IOException
+    {
+        String tableName = "min_max_non_numeric_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"k": {"type": "keyword"}, "b": {"type": "boolean"}}}
+                """);
+        try {
+            index(tableName, ImmutableMap.of("k", "a", "b", true));
+            index(tableName, ImmutableMap.of("k", "b", "b", false));
+
+            assertThat(query("SELECT min(k), max(k), min(b), max(b) FROM " + tableName))
+                    .matches("VALUES (VARCHAR 'a', VARCHAR 'b', false, true)")
+                    .isNotFullyPushedDown(AggregationNode.class);
+        }
+        finally {
+            deleteIndex(tableName);
+        }
+    }
+
+    @Test
+    public void testBigintMinMaxAndSumAreNotPushedDown()
+            throws IOException
+    {
+        String tableName = "bigint_aggregation_precision_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"kind": {"type": "keyword"}, "value": {"type": "long"}}}
+                """);
+        try {
+            index(tableName, ImmutableMap.of("kind", "precision", "value", 9_007_199_254_740_993L));
+            index(tableName, ImmutableMap.of("kind", "precision", "value", 9_007_199_254_740_994L));
+            index(tableName, ImmutableMap.of("kind", "overflow", "value", Long.MAX_VALUE));
+            index(tableName, ImmutableMap.of("kind", "overflow", "value", 1L));
+
+            assertThat(query("SELECT MIN(value), MAX(value), SUM(value) FROM " + tableName + " WHERE kind = 'precision'"))
+                    .matches("VALUES (BIGINT '9007199254740993', BIGINT '9007199254740994', BIGINT '18014398509481987')")
+                    .isNotFullyPushedDown(AggregationNode.class);
+            assertQueryFails("SELECT SUM(value) FROM " + tableName + " WHERE kind = 'overflow'", ".*bigint addition overflow.*");
+        }
+        finally {
+            deleteIndex(tableName);
+        }
     }
 
     @Test
@@ -393,7 +490,7 @@ public abstract class BaseElasticsearchConnectorTest
                             "type": "keyword"
                         },
                         "value": {
-                            "type": "long"
+                            "type": "double"
                         }
                     }
                 }
@@ -403,21 +500,21 @@ public abstract class BaseElasticsearchConnectorTest
         try {
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("group_key", "a")
-                    .put("value", 10)
+                    .put("value", 10.0)
                     .buildOrThrow());
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("group_key", "a")
-                    .put("value", 20)
+                    .put("value", 20.0)
                     .buildOrThrow());
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("group_key", "b")
-                    .put("value", 5)
+                    .put("value", 5.0)
                     .buildOrThrow());
             index(tableName, ImmutableMap.of("value", 7));
             index(tableName, ImmutableMap.of("value", 8));
 
             assertThat(query("SELECT group_key, COUNT(*), SUM(value) FROM " + tableName + " GROUP BY group_key"))
-                    .matches("VALUES (CAST(NULL AS VARCHAR), BIGINT '2', BIGINT '15'), (CAST('a' AS VARCHAR), BIGINT '2', BIGINT '30'), (CAST('b' AS VARCHAR), BIGINT '1', BIGINT '5')")
+                    .matches("VALUES (CAST(NULL AS VARCHAR), BIGINT '2', DOUBLE '15.0'), (CAST('a' AS VARCHAR), BIGINT '2', DOUBLE '30.0'), (CAST('b' AS VARCHAR), BIGINT '1', DOUBLE '5.0')")
                     .isFullyPushedDown();
         }
         finally {
@@ -427,10 +524,23 @@ public abstract class BaseElasticsearchConnectorTest
 
     @Test
     public void testMixedAggregationsWithEmptyInput()
+            throws IOException
     {
-        assertThat(query("SELECT COUNT(*), COUNT(nationkey), SUM(nationkey), AVG(nationkey), MIN(nationkey), MAX(nationkey) FROM nation WHERE nationkey < 0"))
-                .matches("VALUES (BIGINT '0', BIGINT '0', CAST(NULL AS bigint), CAST(NULL AS double), CAST(NULL AS bigint), CAST(NULL AS bigint))")
-                .isFullyPushedDown();
+        String tableName = "mixed_aggregations_empty_input_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"value": {"type": "double"}}}
+                """);
+        try {
+            index(tableName, ImmutableMap.of("value", 1.0));
+
+            assertThat(query("SELECT COUNT(*), COUNT(value), SUM(value), AVG(value), MIN(value), MAX(value) FROM " + tableName + " WHERE value < 0"))
+                    .matches("VALUES (BIGINT '0', BIGINT '0', CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double))")
+                    .isFullyPushedDown();
+        }
+        finally {
+            deleteIndex(tableName);
+        }
     }
 
     @Test
@@ -447,7 +557,7 @@ public abstract class BaseElasticsearchConnectorTest
                                     "type": "keyword"
                                 },
                                 "value": {
-                                    "type": "long"
+                                    "type": "double"
                                 }
                             }
                         }
@@ -457,11 +567,11 @@ public abstract class BaseElasticsearchConnectorTest
         try {
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("kind", "with_value")
-                    .put("value", 10)
+                    .put("value", 10.0)
                     .buildOrThrow());
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("kind", "with_value")
-                    .put("value", 20)
+                    .put("value", 20.0)
                     .buildOrThrow());
             index(tableName, ImmutableMap.<String, Object>builder()
                     .put("kind", "without_value")
@@ -471,7 +581,7 @@ public abstract class BaseElasticsearchConnectorTest
                     .buildOrThrow());
 
             assertThat(query("SELECT COUNT(*), COUNT(value), SUM(value), AVG(value), MIN(value), MAX(value) FROM " + tableName + " WHERE kind = 'without_value'"))
-                    .matches("VALUES (BIGINT '2', BIGINT '0', CAST(NULL AS bigint), CAST(NULL AS double), CAST(NULL AS bigint), CAST(NULL AS bigint))")
+                    .matches("VALUES (BIGINT '2', BIGINT '0', CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double), CAST(NULL AS double))")
                     .isFullyPushedDown();
         }
         finally {

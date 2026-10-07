@@ -72,7 +72,6 @@ public class ElasticsearchPageSourceProvider
         if (elasticsearchTable.type().equals(AGGREGATION)) {
             return new AggregateQueryPageSource(
                     client,
-                    typeManager,
                     elasticsearchTable,
                     elasticsearchSplit,
                     columns.stream()

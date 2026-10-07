@@ -57,8 +57,8 @@ The following table details all general configuration properties:
     alive for scroll requests.
   - `1m`
 * - `elasticsearch.aggregation-page-size`
-  - Default page size for aggregation queries when no explicit limit is specified.
-    Controls the number of buckets returned per request to Elasticsearch.
+  - Default number of buckets returned per request to Elasticsearch for
+    aggregation queries.
   - `10000`
 * - `elasticsearch.request-timeout`
   - Timeout [duration](prop-type-duration) for all Elasticsearch requests.
@@ -539,11 +539,11 @@ following aggregate functions:
 * - `COUNT(column)`
   - All column types that support predicate push down
 * - `MIN(column)`
-  - Numeric types and `keyword` columns (lexicographic ordering)
+  - Numeric types except `BIGINT`
 * - `MAX(column)`
-  - Numeric types and `keyword` columns (lexicographic ordering)
+  - Numeric types except `BIGINT`
 * - `SUM(column)`
-  - Numeric types only
+  - `REAL` and `DOUBLE`
 * - `AVG(column)`
   - Numeric types only
 :::

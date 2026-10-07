@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
@@ -87,8 +88,8 @@ public record ElasticsearchTableHandle(
         regexes = ImmutableMap.copyOf(regexes);
         columns = ImmutableSet.copyOf(columns);
         requireNonNull(query, "query is null");
-        requireNonNull(termAggregations, "aggTerms is null");
-        requireNonNull(metricAggregations, "aggregates is null");
+        termAggregations = ImmutableList.copyOf(termAggregations);
+        metricAggregations = ImmutableList.copyOf(metricAggregations);
         requireNonNull(topN, "topN is null");
     }
 
