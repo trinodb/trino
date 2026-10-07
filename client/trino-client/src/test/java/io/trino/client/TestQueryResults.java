@@ -29,7 +29,11 @@ public class TestQueryResults
             "  \"id\" : \"20160128_214710_00012_rk68b\",\n" +
             "  \"infoUri\" : \"http://localhost:54855/query.html?20160128_214710_00012_rk68b\",\n" +
             "  \"columns\" : [ {\n" +
+            "    \"catalog\" : \"_cat0\",\n" +
+            "    \"schema\" : \"_sch0\",\n" +
+            "    \"table\" : \"_tab0\",\n" +
             "    \"name\" : \"_col0\",\n" +
+            "    \"label\" : \"_lab0\",\n" +
             "    \"type\" : \"bigint\",\n" +
             "    \"typeSignature\" : {\n" +
             "      \"rawType\" : \"varchar\",\n" +
