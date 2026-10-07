@@ -390,6 +390,7 @@ public class ServerMainModule
 
         // function
         binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FunctionManager.class).withGeneratedName();
         newSetBinder(binder, FunctionBundle.class);
         binder.bind(RegisterFunctionBundles.class).asEagerSingleton();
 

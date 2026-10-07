@@ -16,6 +16,7 @@ package io.trino.spi.function;
 import io.trino.spi.Unstable;
 
 import java.util.Collection;
+import java.util.Optional;
 
 @Unstable
 public interface FunctionBundle
@@ -31,6 +32,21 @@ public interface FunctionBundle
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention);
+
+    /**
+     * Selects an optional per-expression implementation that consumes a
+     * non-empty subset of the constants in {@code specializationContext}.
+     * Returned implementations use the residual SQL signature and supply a
+     * zero-argument instance factory.
+     */
+    default Optional<ConstantSpecializedImplementation> getConstantSpecializedScalarFunctionImplementation(
+            FunctionId functionId,
+            BoundSignature boundSignature,
+            FunctionDependencies functionDependencies,
+            ScalarFunctionSpecializationContext specializationContext)
+    {
+        return Optional.empty();
+    }
 
     AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 
