@@ -51,11 +51,13 @@ import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
@@ -75,6 +77,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -314,6 +317,48 @@ public class TestPushProjectionIntoTableScan
                                             "projected_array", projectedArrayColumn::equals,
                                             "projected_capture", projectedCaptureColumn::equals)))
                             .with(ProjectNode.class, project -> project.getAssignments().get(output).equals(expectedOutput)));
+        }
+    }
+
+    @Test
+    public void testPushProjectionWithLet()
+    {
+        Symbol input = new Symbol(ROW_TYPE, "input");
+        ColumnHandle inputColumn = column(input.name(), input.type());
+        Symbol local = new Symbol(BIGINT, "let");
+        Symbol output = new Symbol(BIGINT, "output");
+        Expression firstField = new FieldReference(input.toSymbolReference(), 0);
+        Expression secondField = new FieldReference(input.toSymbolReference(), 1);
+        Expression projection = new Let(local, firstField, new io.trino.sql.ir.Call(ADD_BIGINT, ImmutableList.of(local.toSymbolReference(), secondField)));
+        ConnectorExpression firstProjection = new FieldDereference(BIGINT, new Variable(input.name(), ROW_TYPE), 0);
+        ConnectorExpression secondProjection = new FieldDereference(BIGINT, new Variable(input.name(), ROW_TYPE), 1);
+        Map<ColumnHandle, Expression> projectedFields = ImmutableMap.of(
+                column("projected_dereference_" + firstProjection, BIGINT), firstField,
+                column("projected_dereference_" + secondProjection, BIGINT), secondField);
+        MockConnectorFactory factory = createMockFactory(
+                ImmutableMap.of(input.name(), inputColumn),
+                Optional.of((session, table, projections, assignments) -> {
+                    assertThat(projections).containsExactlyInAnyOrder(firstProjection, secondProjection);
+                    assertThat(assignments).containsExactlyEntriesOf(ImmutableMap.of(input.name(), inputColumn));
+                    return mockApplyProjection(session, table, projections, assignments);
+                }));
+
+        try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
+            ruleTester.assertThat(createRule(ruleTester))
+                    .withSession(MOCK_SESSION)
+                    .on(p -> p.project(
+                            Assignments.of(output, projection),
+                            p.tableScan(
+                                    ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
+                                    ImmutableList.of(input),
+                                    ImmutableMap.of(input, inputColumn))))
+                    .matches(node(ProjectNode.class, node(TableScanNode.class))
+                            .with(ProjectNode.class, project -> {
+                                TableScanNode scan = (TableScanNode) project.getSource();
+                                assertThat(scan.getAssignments().values()).containsExactlyInAnyOrderElementsOf(projectedFields.keySet());
+                                // Expanding the projected columns must recover the original expression, including its local binding.
+                                return inlineSymbols(symbol -> projectedFields.get(scan.getAssignments().get(symbol)), project.getAssignments().get(output)).equals(projection);
+                            }));
         }
     }
 

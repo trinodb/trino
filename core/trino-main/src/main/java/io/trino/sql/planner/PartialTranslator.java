@@ -14,17 +14,20 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.sql.ir.Bind;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Lambda;
+import io.trino.sql.ir.Let;
 import io.trino.sql.ir.NodeRef;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,12 +47,12 @@ public final class PartialTranslator
         requireNonNull(session, "session is null");
 
         Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = new HashMap<>();
-        new Visitor(session, partialTranslations).process(inputExpression);
+        new Visitor(session, partialTranslations).process(inputExpression, ImmutableSet.of());
         return ImmutableMap.copyOf(partialTranslations);
     }
 
     private static class Visitor
-            extends IrVisitor<Void, Void>
+            extends IrVisitor<Void, Set<Symbol>>
     {
         private final Map<NodeRef<Expression>, ConnectorExpression> translatedSubExpressions;
         private final ConnectorExpressionTranslator.SqlToConnectorExpressionTranslator translator;
@@ -61,22 +64,30 @@ public final class PartialTranslator
         }
 
         @Override
-        public Void visitExpression(Expression node, Void context)
+        public Void visitExpression(Expression node, Set<Symbol> boundSymbols)
         {
-            Optional<ConnectorExpression> result = translator.process(node);
+            Optional<ConnectorExpression> result = Optional.empty();
+            if (boundSymbols.isEmpty() || SymbolsExtractor.extractUnique(node).stream().noneMatch(boundSymbols::contains)) {
+                result = translator.process(node);
+            }
 
             if (result.isPresent()) {
                 translatedSubExpressions.put(NodeRef.of(node), result.get());
             }
+            else if (node instanceof Let let) {
+                process(let.value(), boundSymbols);
+                // Body expressions can be pushed only when they do not depend on local bindings.
+                process(let.body(), ImmutableSet.<Symbol>builder().addAll(boundSymbols).add(let.name()).build());
+            }
             else {
-                node.children().forEach(this::process);
+                node.children().forEach(child -> process(child, boundSymbols));
             }
 
             return null;
         }
 
         @Override
-        public Void visitLambda(Lambda lambda, Void context)
+        public Void visitLambda(Lambda lambda, Set<Symbol> boundSymbols)
         {
             // Do not extract partial translations from lambda bodies. Lambdas are pushed
             // only as part of an enclosing expression that can be translated as a whole.
@@ -84,7 +95,7 @@ public final class PartialTranslator
         }
 
         @Override
-        public Void visitBind(Bind bind, Void context)
+        public Void visitBind(Bind bind, Set<Symbol> boundSymbols)
         {
             // Bind is a function-typed expression used to model lambda captures,
             // so it follows the same rule as Lambda.
