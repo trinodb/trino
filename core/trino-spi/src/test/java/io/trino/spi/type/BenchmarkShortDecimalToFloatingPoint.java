@@ -32,6 +32,7 @@ import java.math.RoundingMode;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.shortDecimalToReal;
 
 @BenchmarkMode(Mode.AverageTime)
@@ -39,10 +40,21 @@ import static io.trino.spi.type.DecimalConversions.shortDecimalToReal;
 @Fork(value = 1)
 @Warmup(iterations = 10)
 @Measurement(iterations = 20)
-public class BenchmarkShortDecimalToReal
+public class BenchmarkShortDecimalToFloatingPoint
 {
     @Benchmark
-    public long convert(Data data)
+    public double toDouble(Data data)
+    {
+        long tenToScale = data.tenToScale;
+        double result = 0;
+        for (long decimal : data.decimals) {
+            result += shortDecimalToDouble(decimal, tenToScale);
+        }
+        return result;
+    }
+
+    @Benchmark
+    public long toReal(Data data)
     {
         long tenToScale = data.tenToScale;
         long result = 0;
@@ -80,6 +92,10 @@ public class BenchmarkShortDecimalToReal
         RANDOM_SCALE_8(8),
         RANDOM_SCALE_18(18),
         /**
+         * Unscaled values exactly representable in double, which a double divide alone rounds correctly.
+         */
+        RANDOM_BELOW_MAX_EXACT_SCALE_2(2),
+        /**
          * Quotients that sit exactly on a float midpoint and are exactly representable, so the tie breaks
          * to even. Exact multiples of a power of one half qualify wherever the float spacing lines up:
          * scale 1 values ending in .5 between 2^23 and 2^24, all .25 and .75 values an octave below
@@ -92,8 +108,9 @@ public class BenchmarkShortDecimalToReal
          */
         MIDPOINT_INEXACT_QUOTIENT(14),
         /**
-         * The same, but with an unscaled value above 2^53, where the dividend has itself rounded and only
-         * {@link BigDecimal} can settle the direction. About 1 in 2^25 uniformly distributed values.
+         * The same, but with an unscaled value above 2^53, where the dividend has itself rounded and the
+         * quotient needs correcting before the residual settles the direction. About 1 in 2^25 uniformly
+         * distributed values.
          */
         MIDPOINT_ABOVE_MAX_EXACT(18);
 
@@ -116,7 +133,8 @@ public class BenchmarkShortDecimalToReal
         public long[] decimals(int count)
         {
             return switch (this) {
-                case RANDOM_SCALE_0, RANDOM_SCALE_2, RANDOM_SCALE_8, RANDOM_SCALE_18 -> randomDecimals(count);
+                case RANDOM_SCALE_0, RANDOM_SCALE_2, RANDOM_SCALE_8, RANDOM_SCALE_18 -> randomDecimals(count, 1_000_000_000_000_000_000L);
+                case RANDOM_BELOW_MAX_EXACT_SCALE_2 -> randomDecimals(count, 1L << 53);
                 case MIDPOINT_EXACT_QUOTIENT -> exactMidpointDecimals(count);
                 // An unscaled value only lands on a midpoint once tenToScale exceeds the quotient's ulp, and the
                 // midpoint is only inexact while it still has a fractional part. Both hold near 70 at scale 14.
@@ -125,12 +143,12 @@ public class BenchmarkShortDecimalToReal
             };
         }
 
-        private static long[] randomDecimals(int count)
+        private static long[] randomDecimals(int count, long bound)
         {
             Random random = new Random(0);
             long[] decimals = new long[count];
             for (int i = 0; i < count; i++) {
-                long decimal = (long) (random.nextDouble() * 1e18);
+                long decimal = random.nextLong(bound);
                 if (random.nextBoolean()) {
                     decimal = -decimal;
                 }
@@ -167,6 +185,6 @@ public class BenchmarkShortDecimalToReal
     static void main()
             throws RunnerException
     {
-        Benchmarks.benchmark(BenchmarkShortDecimalToReal.class).run();
+        Benchmarks.benchmark(BenchmarkShortDecimalToFloatingPoint.class).run();
     }
 }
