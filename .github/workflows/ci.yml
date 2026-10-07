@@ -94,6 +94,7 @@ jobs:
       ci: ${{ steps.filter.outputs.ci }}
       docs: ${{ steps.filter.outputs.docs }}
       non_docs: ${{ steps.filter.outputs.non_docs }}
+      maven: ${{ steps.filter.outputs.maven }}
     steps:
       # The filter lists changed files with the GitHub API for pull requests, but needs a checkout for merge queue runs
       - uses: actions/checkout@v7.0.1
@@ -110,6 +111,11 @@ jobs:
             ci: '.github/**'
             docs: 'docs/**'
             non_docs: '!docs/**'
+            maven:
+              - '.mvn/**'
+              - 'mvnw'
+              - '**/pom.xml'
+              - '.github/**'
 
   maven-checks:
     permissions:
@@ -158,6 +164,41 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: .github/bin/cancel-merge-queue-workflow.sh "maven-checks ${{ matrix.java-version }}"
+
+  # Ensure mvnd works
+  mvnd-build:
+    permissions:
+      actions: write # to dispatch cancel-merge-queue-workflow on failure
+      contents: read
+    needs: path-filters
+    if: github.event_name == 'schedule' || needs.path-filters.outputs.maven == 'true'
+    runs-on: macos-latest # Homebrew installs a different mvnd version on Linux than on macOS
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: false
+          cleanup-node: false
+      - name: Install Maven Daemon
+        run: .github/bin/retry brew install mvndaemon/mvnd/mvnd
+      - name: Build with Maven Daemon
+        # Start from an empty local repository, as artifacts already present there bypass repository filtering.
+        # trino-docs is excluded because its build runs Sphinx in Docker, which macOS runners do not provide.
+        # mvnd ignores the MAVEN_ARGS environment variable, so pass it explicitly.
+        # The daemon heap is capped below the runner's memory, overriding the -Xmx from .mvn/jvm.config.
+        # Daemon GC pauses of over 3s were observed on CI. The client's default 3s keep-alive timeout then
+        # reports the daemon as crashed and fails the build, so allow 60s.
+        run: |
+          mvnd ${MAVEN_ARGS} -B -V install -DskipTests -Dmaven.repo.local="${RUNNER_TEMP}/mvnd-repository" -Dmvnd.maxHeapSize=4g -Dmvnd.maxLostKeepAlive=600 -pl '!:trino-docs'
+      - name: Cancel merge queue workflow
+        if: ${{ failure() && github.event_name == 'merge_group' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/bin/cancel-merge-queue-workflow.sh "mvnd-build"
 
   artifact-checks:
     permissions:
@@ -1214,6 +1255,7 @@ jobs:
       - check-commits-dispatcher
       - error-prone-checks
       - maven-checks
+      - mvnd-build
       - path-filters
       - pt
       - test
@@ -1232,6 +1274,7 @@ jobs:
           echo '${{ needs.check-commits-dispatcher.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commits-dispatcher" failed' >&2; exit 1; }
           echo '${{ needs.error-prone-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "error-prone-checks" failed' >&2; exit 1; }
           echo '${{ needs.maven-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "maven-checks" failed' >&2; exit 1; }
+          echo '${{ needs.mvnd-build.result }}' | grep -xE 'success|skipped' || { echo 'Job "mvnd-build" failed' >&2; exit 1; }
           echo '${{ needs.path-filters.result }}' | grep -xE 'success|skipped' || { echo 'Job "path-filters" failed' >&2; exit 1; }
           echo '${{ needs.pt.result }}' | grep -xE 'success|skipped' || { echo 'Job "pt" failed' >&2; exit 1; }
           echo '${{ needs.test.result }}' | grep -xE 'success|skipped' || { echo 'Job "test" failed' >&2; exit 1; }
