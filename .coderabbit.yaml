@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  path_filters:
+    # Bytecode generation lives in io.trino.sql.gen, which the default filters drop
+    - "**/gen/**"
