@@ -17,6 +17,7 @@ import io.trino.spi.TrinoException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.stream.LongStream;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -26,13 +27,14 @@ import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.rescale;
 import static java.lang.Double.doubleToRawLongBits;
-import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.parseFloat;
+import static java.lang.Long.numberOfLeadingZeros;
 import static java.lang.Math.abs;
 import static java.lang.Math.fma;
+import static java.lang.Math.min;
 import static java.lang.Math.nextDown;
 import static java.lang.Math.nextUp;
+import static java.lang.Math.scalb;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
@@ -64,6 +66,11 @@ public final class DecimalConversions
     private static final long DISCARDED_FLOAT_BITS_MASK = (1L << 29) - 1;
     private static final long DISCARDED_FLOAT_BITS_MIDPOINT = 1L << 28;
     private static final long DISCARDED_FLOAT_BITS_MARGIN = 8;
+    // The largest power of five below 2^31
+    private static final int MAX_INT_POWER_OF_FIVE = 13;
+    private static final long[] POWERS_OF_FIVE = LongStream.iterate(1, power -> power * 5)
+            .limit(MAX_INT_POWER_OF_FIVE + 1)
+            .toArray();
 
     private DecimalConversions() {}
 
@@ -85,9 +92,8 @@ public final class DecimalConversions
         if (scale < DOUBLE_10_POW.length && compareAbsolute(decimal, MAX_EXACT_DOUBLE) <= 0) {
             return (double) decimal.toLong() / DOUBLE_10_POW[intScale(scale)];
         }
-
-        // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
-        return parseDouble(Decimals.toString(decimal, intScale(scale)));
+        // Converting 63 bits with a sticky bit to double rounds correctly
+        return stickyQuotient(decimal, intScale(scale), 63);
     }
 
     public static long shortDecimalToReal(long decimal, long tenToScale)
@@ -129,9 +135,86 @@ public final class DecimalConversions
         if (scale < FLOAT_10_POW.length && compareAbsolute(decimal, MAX_EXACT_FLOAT) <= 0) {
             return floatToRawIntBits((float) decimal.toLong() / FLOAT_10_POW[intScale(scale)]);
         }
+        // 53 bits with a sticky bit round the quotient to odd, which narrows to float correctly, subnormal or not.
+        // Narrowing a correctly rounded double could round twice.
+        return floatToRawIntBits((float) stickyQuotient(decimal, intScale(scale), 53));
+    }
 
-        // TODO: optimize and convert directly to float in similar fashion as in double to decimal casts
-        return floatToRawIntBits(parseFloat(Decimals.toString(decimal, intScale(scale))));
+    /**
+     * Returns {@code decimal / 10^scale} truncated to {@code significandBits}, with the lowest bit set if any
+     * discarded bit is nonzero.
+     */
+    private static double stickyQuotient(Int128 decimal, int scale, int significandBits)
+    {
+        long high = decimal.getHigh();
+        long low = decimal.getLow();
+        boolean negative = high < 0;
+        if (negative) {
+            high = (low == 0) ? -high : ~high;
+            low = -low;
+        }
+        if ((high | low) == 0) {
+            return 0;
+        }
+
+        // Shift the unsigned magnitude to the top of the 192-bit dividend u2:u1:u0, so that the quotient keeps over
+        // 100 bits after dividing by 5^38 < 2^89. The 2^scale part of 10^scale goes to the exponent:
+        // decimal / 10^scale = u2:u1:u0 / 5^scale * 2^(exponent - 128).
+        int shift = (high == 0) ? 64 + numberOfLeadingZeros(low) : numberOfLeadingZeros(high);
+        long u2;
+        long u1;
+        if (shift >= 64) {
+            u2 = low << (shift - 64);
+            u1 = 0;
+        }
+        else {
+            u2 = (high << shift) | (low >>> 1 >>> (63 - shift));
+            u1 = low << shift;
+        }
+        long u0 = 0;
+        int exponent = 64 - shift - scale;
+
+        boolean sticky = false;
+        for (int remaining = scale; remaining > 0; remaining -= MAX_INT_POWER_OF_FIVE) {
+            long divisor = POWERS_OF_FIVE[min(remaining, MAX_INT_POWER_OF_FIVE)];
+            long quotient = divideLimb(0, u2, divisor);
+            long remainder = u2 - quotient * divisor;
+            u2 = quotient;
+            quotient = divideLimb(remainder, u1, divisor);
+            remainder = u1 - quotient * divisor;
+            u1 = quotient;
+            quotient = divideLimb(remainder, u0, divisor);
+            remainder = u0 - quotient * divisor;
+            u0 = quotient;
+            sticky |= remainder != 0;
+        }
+
+        // The quotient exceeds 2^102, so its top 64 bits lie in u2:u1, or in u1:u0 when u2 is zero
+        if (u2 == 0) {
+            u2 = u1;
+            u1 = u0;
+            u0 = 0;
+            exponent -= 64;
+        }
+        int leading = numberOfLeadingZeros(u2);
+        long top = (u2 << leading) | (u1 >>> 1 >>> (63 - leading));
+        sticky |= ((u1 << leading) | u0) != 0 || (top << significandBits) != 0;
+        int discarded = 64 - significandBits;
+        long significand = (top >>> discarded) | (sticky ? 1 : 0);
+        double value = scalb((double) significand, exponent - leading + discarded);
+        return negative ? -value : value;
+    }
+
+    /**
+     * Returns {@code (remainder * 2^64 + limb) / divisor}, where {@code remainder < divisor < 2^31}, which keeps each
+     * 32-bit step below 2^63. The new remainder is {@code limb - quotient * divisor}, in wrapping arithmetic.
+     */
+    private static long divideLimb(long remainder, long limb, long divisor)
+    {
+        long dividend = (remainder << 32) | (limb >>> 32);
+        long quotientHigh = dividend / divisor;
+        dividend = ((dividend - quotientHigh * divisor) << 32) | (limb & 0xFFFF_FFFFL);
+        return (quotientHigh << 32) | (dividend / divisor);
     }
 
     public static long doubleToShortDecimal(double value, long precision, long scale)

@@ -130,6 +130,42 @@ class TestDecimalConversions
         }
     }
 
+    @Test
+    void testLongDecimalNearMidpoints()
+    {
+        Random random = new Random(42);
+        for (int scale = 0; scale <= 38; scale++) {
+            for (int i = 0; i < 200; i++) {
+                double quotient = Math.scalb(1 + random.nextDouble(), random.nextInt(255) - 128);
+                float floatQuotient = (float) quotient;
+                assertLongDecimalConversionsAround(new BigDecimal(quotient), scale);
+                assertLongDecimalConversionsAround(new BigDecimal(quotient).add(new BigDecimal(Math.ulp(quotient) / 2)), scale);
+                assertLongDecimalConversionsAround(new BigDecimal(floatQuotient).add(new BigDecimal(Math.ulp(floatQuotient) / 2)), scale);
+            }
+        }
+    }
+
+    private static void assertLongDecimalConversionsAround(BigDecimal value, int scale)
+    {
+        BigInteger center = value.movePointRight(scale).toBigInteger();
+        for (int delta = -3; delta <= 3; delta++) {
+            BigInteger unscaled = center.add(BigInteger.valueOf(delta));
+            if (unscaled.abs().compareTo(BigInteger.TEN.pow(38)) >= 0) {
+                continue;
+            }
+            for (BigInteger signedUnscaled : List.of(unscaled, unscaled.negate())) {
+                Int128 decimal = Int128.valueOf(signedUnscaled);
+                BigDecimal exact = new BigDecimal(signedUnscaled, scale);
+                assertThat(longDecimalToDouble(decimal, scale))
+                        .as("longDecimalToDouble(%s, %d)", signedUnscaled, scale)
+                        .isEqualTo(exact.doubleValue());
+                assertThat(Float.intBitsToFloat(toIntExact(longDecimalToReal(decimal, scale))))
+                        .as("longDecimalToReal(%s, %d)", signedUnscaled, scale)
+                        .isEqualTo(exact.floatValue());
+            }
+        }
+    }
+
     private static List<BigInteger> testValues()
     {
         ImmutableList.Builder<BigInteger> values = ImmutableList.builder();
