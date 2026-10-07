@@ -13,6 +13,22 @@
             </configuration>
         </server>
     </servers>
+    <mirrors>
+        <!--
+            Block repositories declared by dependency POMs.
+            Downside: an artifact missing from the allowed repositories, such as a reactor
+            SNAPSHOT not built yet, fails with "Blocked mirror for repositories: [...]"
+            instead of a plain "could not find artifact".
+            TODO: once mvnd is based on Maven 3.10, replace this mirror with the cleaner
+            groupId filter rules from commit df3a3e95aad, which mvnd on Maven 3.9 cannot use.
+        -->
+        <mirror>
+            <id>block-undeclared-repositories</id>
+            <mirrorOf>*,!central,!google-maven-central,!confluent</mirrorOf>
+            <url>https://0.0.0.0/</url>
+            <blocked>true</blocked>
+        </mirror>
+    </mirrors>
     <profiles>
         <profile>
             <id>ci-google-maven-central</id>
