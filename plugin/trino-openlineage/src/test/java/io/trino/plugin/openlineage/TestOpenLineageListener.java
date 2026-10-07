@@ -14,6 +14,7 @@
 package io.trino.plugin.openlineage;
 
 import com.google.common.collect.ImmutableMap;
+import io.openlineage.client.OpenLineage.ColumnLineageDatasetFacetFieldsAdditional;
 import io.openlineage.client.OpenLineage.Job;
 import io.openlineage.client.OpenLineage.Run;
 import io.openlineage.client.OpenLineage.RunEvent;
@@ -190,6 +191,43 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getName)
                 .isEqualTo("queryId-user-some-trino-client-127.0.0.1-abc123");
+    }
+
+    @Test
+    void testColumnLineageTransformationSubtypes()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEventWithColumnLineage);
+
+        assertThat(result.getOutputs())
+                .hasSize(1)
+                .satisfiesExactly(output -> {
+                    assertThat(output.getName()).isEqualTo("marquez.default.target");
+                    Map<String, ColumnLineageDatasetFacetFieldsAdditional> fields =
+                            output.getFacets().getColumnLineage().getFields().getAdditionalProperties();
+                    assertThat(fields).containsOnlyKeys("identity_col", "transformation_col", "aggregation_col");
+                    assertDirectSubtype(fields, "identity_col", "a", "IDENTITY");
+                    assertDirectSubtype(fields, "transformation_col", "c", "TRANSFORMATION");
+                    assertDirectSubtype(fields, "aggregation_col", "b", "AGGREGATION");
+                });
+    }
+
+    private static void assertDirectSubtype(Map<String, ColumnLineageDatasetFacetFieldsAdditional> fields, String outputColumn, String sourceField, String expectedSubtype)
+    {
+        assertThat(fields.get(outputColumn).getInputFields())
+                .satisfiesExactly(input -> {
+                    assertThat(input.getNamespace()).isEqualTo("trino://testhost");
+                    assertThat(input.getName()).isEqualTo("marquez.default.base_table");
+                    assertThat(input.getField()).isEqualTo(sourceField);
+                    assertThat(input.getTransformations())
+                            .satisfiesExactly(transformation -> {
+                                assertThat(transformation.getType()).isEqualTo("DIRECT");
+                                assertThat(transformation.getSubtype()).isEqualTo(expectedSubtype);
+                            });
+                });
     }
 
     private static EventListener createEventListener(Map<String, String> config)
