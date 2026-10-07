@@ -48,6 +48,8 @@ runs:
             echo "Skipping disk cleanup, ${available_gb} GiB available"
           fi
       - name: Configure Docker Hub mirror
+        # The script configures the Linux Docker daemon; other runners do not provide Docker
+        if: runner.os == 'Linux'
         shell: bash
         run: ./.github/bin/configure-docker-hub-mirror.sh
       - uses: actions/setup-java@v6.0.1
