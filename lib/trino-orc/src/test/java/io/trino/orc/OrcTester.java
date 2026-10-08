@@ -444,8 +444,8 @@ public class OrcTester
         for (CompressionKind compression : compressions) {
             boolean hiveSupported = (compression != LZ4) && (compression != ZSTD)
                     && !containsTimeMicros(writeType) && !containsTimeMicros(readType)
-                    && !isTimestampTz(writeType) && !isTimestampTz(readType)
-                    && !isUuid(writeType) && !isUuid(readType);
+                    && !containsTimestampTz(writeType) && !containsTimestampTz(readType)
+                    && !containsUuid(writeType) && !containsUuid(readType);
 
             for (Format format : formats) {
                 // write Hive, read Trino
@@ -1390,40 +1390,40 @@ public class OrcTester
         return false;
     }
 
-    private static boolean isTimestampTz(Type type)
+    private static boolean containsTimestampTz(Type type)
     {
         if (type instanceof TimestampWithTimeZoneType) {
             return true;
         }
         if (type instanceof ArrayType arrayType) {
-            return isTimestampTz(arrayType.getElementType());
+            return containsTimestampTz(arrayType.getElementType());
         }
         if (type instanceof MapType mapType) {
-            return isTimestampTz(mapType.getKeyType()) || isTimestampTz(mapType.getValueType());
+            return containsTimestampTz(mapType.getKeyType()) || containsTimestampTz(mapType.getValueType());
         }
         if (type instanceof RowType rowType) {
             return rowType.getFields().stream()
                     .map(RowType.Field::getType)
-                    .anyMatch(OrcTester::isTimestampTz);
+                    .anyMatch(OrcTester::containsTimestampTz);
         }
         return false;
     }
 
-    private static boolean isUuid(Type type)
+    private static boolean containsUuid(Type type)
     {
         if (type.equals(UUID)) {
             return true;
         }
         if (type instanceof ArrayType arrayType) {
-            return isUuid(arrayType.getElementType());
+            return containsUuid(arrayType.getElementType());
         }
         if (type instanceof MapType mapType) {
-            return isUuid(mapType.getKeyType()) || isUuid(mapType.getValueType());
+            return containsUuid(mapType.getKeyType()) || containsUuid(mapType.getValueType());
         }
         if (type instanceof RowType rowType) {
             return rowType.getFields().stream()
                     .map(RowType.Field::getType)
-                    .anyMatch(OrcTester::isUuid);
+                    .anyMatch(OrcTester::containsUuid);
         }
         return false;
     }
