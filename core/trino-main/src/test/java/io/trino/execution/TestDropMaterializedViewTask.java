@@ -90,7 +90,7 @@ public class TestDropMaterializedViewTask
     public void testDropMaterializedViewOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)
@@ -101,7 +101,7 @@ public class TestDropMaterializedViewTask
     public void testDropMaterializedViewOnViewIfExists()
     {
         QualifiedName viewName = qualifiedName("existing_view");
-        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropMaterializedView(viewName, false)))
                 .hasErrorCode(GENERIC_USER_ERROR)

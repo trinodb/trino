@@ -687,11 +687,20 @@ public class ClassLoaderSafeConnectorMetadata
         }
     }
 
+    @Deprecated
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.createView(session, viewName, definition, viewProperties, replace);
+        }
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.createView(session, viewName, definition, viewProperties, saveMode);
         }
     }
 

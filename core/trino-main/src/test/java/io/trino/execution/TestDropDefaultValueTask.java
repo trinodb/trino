@@ -132,7 +132,7 @@ final class TestDropDefaultValueTask
     void testDropDefaultValueOnView()
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
-        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
+        metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(viewName), "test", false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
