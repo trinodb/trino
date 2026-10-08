@@ -14,6 +14,11 @@
 package io.trino.client;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Locale;
 
 import static io.trino.client.IntervalYearMonth.formatMonths;
 import static io.trino.client.IntervalYearMonth.parseMonths;
@@ -21,6 +26,7 @@ import static io.trino.client.IntervalYearMonth.toMonths;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Isolated("Changes the default locale")
 public class TestIntervalYearMonth
 {
     @Test
@@ -43,6 +49,23 @@ public class TestIntervalYearMonth
         assertMonths(Integer.MAX_VALUE, "178956970-7");
         assertMonths(Integer.MIN_VALUE + 1, "-178956970-7");
         assertMonths(Integer.MIN_VALUE, "-178956970-8");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"en-US", "ar-EG", "fa-IR"})
+    public void testFormatIsLocaleIndependent(String languageTag)
+    {
+        Locale previousLocale = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(languageTag));
+
+            assertThat(formatMonths(28)).isEqualTo("2-4");
+            assertThat(formatMonths(-28)).isEqualTo("-2-4");
+            assertThat(formatMonths(Integer.MAX_VALUE)).isEqualTo("178956970-7");
+        }
+        finally {
+            Locale.setDefault(Locale.Category.FORMAT, previousLocale);
+        }
     }
 
     private static void assertMonths(int months, String formatted)

@@ -181,6 +181,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -668,7 +669,7 @@ public final class TestHiveFileFormats
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .filter(column -> !column.name().equals("t_null_array_int"))
                 .filter(column -> !column.name().equals("t_array_empty"))
-                .filter(column -> column.partitionKey() || !hasType(column.type(), TINYINT))
+                .filter(column -> column.partitionKey() || !containsType(column.type(), TINYINT::equals))
                 .collect(toList());
     }
 
@@ -1154,21 +1155,6 @@ public final class TestHiveFileFormats
                 }
             }
         }
-    }
-
-    private static boolean hasType(Type actualType, Type testType)
-    {
-        if (actualType.equals(testType)) {
-            return true;
-        }
-
-        return switch (actualType) {
-            case ArrayType arrayType -> hasType(arrayType.getElementType(), testType);
-            case MapType mapType -> hasType(mapType.getKeyType(), testType) || hasType(mapType.getValueType(), testType);
-            case RowType rowType -> rowType.getFields().stream()
-                    .anyMatch(field -> hasType(field.getType(), testType));
-            default -> false;
-        };
     }
 
     private static boolean withoutNullMapKeyTests(TestColumn testColumn)

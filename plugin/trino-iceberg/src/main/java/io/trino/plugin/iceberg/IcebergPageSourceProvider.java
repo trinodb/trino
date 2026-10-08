@@ -218,6 +218,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.addExact;
@@ -1881,19 +1882,7 @@ public class IcebergPageSourceProvider
 
     private static boolean containsGeospatial(Type type)
     {
-        if (isGeospatialType(type)) {
-            return true;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return containsGeospatial(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsGeospatial(mapType.getKeyType()) || containsGeospatial(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream().anyMatch(field -> containsGeospatial(field.getType()));
-        }
-        return false;
+        return containsType(type, GeoSpatialUtils::isGeospatialType);
     }
 
     private static boolean containsGeospatial(org.apache.iceberg.types.Type type)

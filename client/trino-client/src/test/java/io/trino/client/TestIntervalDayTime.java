@@ -14,9 +14,15 @@
 package io.trino.client;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Locale;
 
 import static io.trino.client.IntervalDayTime.formatInterval;
 import static io.trino.client.IntervalDayTime.formatMicros;
+import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.client.IntervalDayTime.parseMicros;
 import static io.trino.client.IntervalDayTime.parseToPicos;
 import static io.trino.client.IntervalDayTime.toMicros;
@@ -24,6 +30,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Isolated("Changes the default locale")
 public class TestIntervalDayTime
 {
     @Test
@@ -53,6 +60,24 @@ public class TestIntervalDayTime
         assertMicros(Long.MAX_VALUE, "106751991 04:00:54.775807");
         assertMicros(Long.MIN_VALUE + 1, "-106751991 04:00:54.775807");
         assertMicros(Long.MIN_VALUE, "-106751991 04:00:54.775808");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"en-US", "ar-EG", "fa-IR"})
+    public void testFormatIsLocaleIndependent(String languageTag)
+    {
+        Locale previousLocale = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(languageTag));
+
+            assertThat(formatMicros(1_234_567)).isEqualTo("0 00:00:01.234567");
+            assertThat(formatInterval(1_234_567, 891_234, 12)).isEqualTo("0 00:00:01.234567891234");
+            assertThat(formatInterval(1_234_567, 0, 0)).isEqualTo("0 00:00:01");
+            assertThat(formatMillis(1_234)).isEqualTo("0 00:00:01.234");
+        }
+        finally {
+            Locale.setDefault(Locale.Category.FORMAT, previousLocale);
+        }
     }
 
     private static void assertMicros(long micros, String formatted)
