@@ -25,6 +25,7 @@ import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -99,6 +100,9 @@ public class CreateViewTask
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
         }
         if (metadata.isView(session, name)) {
+            if (statement.isNotExists()) {
+                return immediateVoidFuture();
+            }
             if (!statement.isReplace()) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
             }
@@ -148,11 +152,22 @@ public class CreateViewTask
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
                         .collect(toImmutableList()));
 
-        metadata.createView(session, name, definition, properties, statement.isReplace());
+        metadata.createView(session, name, definition, properties, saveMode(statement));
 
         stateMachine.setOutput(analysis.getTarget());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
 
         return immediateVoidFuture();
+    }
+
+    private static SaveMode saveMode(CreateView statement)
+    {
+        if (statement.isReplace()) {
+            return SaveMode.REPLACE;
+        }
+        if (statement.isNotExists()) {
+            return SaveMode.IGNORE;
+        }
+        return SaveMode.FAIL;
     }
 }

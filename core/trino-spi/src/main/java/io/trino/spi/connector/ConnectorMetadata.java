@@ -971,10 +971,26 @@ public interface ConnectorMetadata
     /**
      * Create the specified view. The view definition is intended to
      * be serialized by the connector for permanent storage.
+     *
+     * @deprecated use {@link #createView(ConnectorSession, SchemaTableName, ConnectorViewDefinition, Map, SaveMode)}
      */
+    @Deprecated
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
+    }
+
+    /**
+     * Creates a view using the specified view definition.
+     * IGNORE means the view is created using CREATE VIEW ... IF NOT EXISTS syntax.
+     * REPLACE means the view is created using CREATE OR REPLACE VIEW syntax.
+     *
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the view already exists and {@code saveMode} is FAIL.
+     */
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, SaveMode saveMode)
+    {
+        // Delegate to deprecated SPI to not break existing connectors
+        createView(session, viewName, definition, viewProperties, saveMode == REPLACE);
     }
 
     /**

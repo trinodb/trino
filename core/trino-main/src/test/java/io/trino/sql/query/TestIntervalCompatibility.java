@@ -19,6 +19,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeId;
 import io.trino.testing.TestingMetadata;
@@ -49,7 +50,7 @@ final class TestIntervalCompatibility
                 @Override
                 public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition)
                 {
-                    createView(session, viewName, definition, Map.of(), true);
+                    createView(session, viewName, definition, Map.of(), SaveMode.REPLACE);
                 }
             };
             var runner = assertions.getQueryRunner();
@@ -67,7 +68,7 @@ final class TestIntervalCompatibility
                     Optional.empty(),
                     Optional.empty(),
                     true,
-                    List.of()), Map.of(), false);
+                    List.of()), Map.of(), SaveMode.FAIL);
 
             assertThat(assertions.query("SELECT CAST(x AS VARCHAR) FROM legacy_interval"))
                     .matches("VALUES VARCHAR '340 00:00:00.000'");
