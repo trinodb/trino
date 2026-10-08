@@ -121,5 +121,11 @@ public class TestThriftHiveMetastoreClient
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public void resetMessageSizeAndConsumedBytes(long size)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
