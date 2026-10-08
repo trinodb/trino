@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -21,16 +22,25 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.DecimalConversions.MAX_EXACT_DOUBLE;
 import static io.trino.spi.type.DecimalConversions.MAX_EXACT_FLOAT;
+import static io.trino.spi.type.DecimalConversions.doubleToLongDecimal;
+import static io.trino.spi.type.DecimalConversions.doubleToShortDecimal;
 import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.longDecimalToReal;
+import static io.trino.spi.type.DecimalConversions.realToLongDecimal;
+import static io.trino.spi.type.DecimalConversions.realToShortDecimal;
 import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
 import static io.trino.spi.type.DecimalConversions.shortDecimalToReal;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestDecimalConversions
 {
@@ -200,6 +210,93 @@ class TestDecimalConversions
                         .isEqualTo(exact.floatValue());
             }
         }
+    }
+
+    @Test
+    void testFloatingPointToDecimal()
+    {
+        long seed = ThreadLocalRandom.current().nextLong();
+        Random random = new Random(seed);
+        try {
+            for (int scale = 0; scale <= MAX_PRECISION; scale++) {
+                for (double value : floatingPointTestValues(random, scale)) {
+                    for (double signedValue : new double[] {value, -value}) {
+                        for (int precision = Math.max(scale, 1); precision <= MAX_PRECISION; precision++) {
+                            assertDoubleToDecimal(signedValue, precision, scale);
+                            if (Float.isFinite((float) signedValue)) {
+                                assertRealToDecimal((float) signedValue, precision, scale);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (AssertionError | RuntimeException e) {
+            e.addSuppressed(new RuntimeException("Random seed: " + seed));
+            throw e;
+        }
+    }
+
+    private static List<Double> floatingPointTestValues(Random random, int scale)
+    {
+        ImmutableList.Builder<Double> values = ImmutableList.builder();
+        values.add(0.0, Double.MIN_VALUE, Double.MIN_NORMAL, Double.MAX_VALUE, 0.5, 1.5, 2.5, 0x1p52, 0x1p53, Math.nextDown(0x1p52), Math.nextUp(0x1p53));
+        for (int precision = 1; precision <= MAX_PRECISION; precision++) {
+            double bound = BigDecimal.ONE.movePointRight(precision - scale).doubleValue();
+            double halfUnit = BigDecimal.valueOf(5, scale + 1).doubleValue();
+            values.add(bound, bound - halfUnit, Math.nextDown(bound - halfUnit), Math.nextUp(bound - halfUnit));
+        }
+        if (scale <= 22) {
+            // value * 10^scale is an integer just above 2^52
+            values.add(Math.scalb((double) Math.ceilDiv(1L << 52, BigInteger.valueOf(5).pow(scale).longValueExact()), -scale));
+        }
+        for (int i = 0; i < 50; i++) {
+            values.add(Math.scalb(1 + random.nextDouble(), random.nextInt(140) - 80));
+            int digits = 1 + random.nextInt(16);
+            double tie = BigDecimal.valueOf(random.nextLong(BigInteger.TEN.pow(digits).longValueExact()) * 10 + 5, scale + 1).doubleValue();
+            values.add(tie, Math.nextDown(tie), Math.nextUp(tie));
+            float floatTie = BigDecimal.valueOf(random.nextLong(BigInteger.TEN.pow(Math.min(digits, 8)).longValueExact()) * 10 + 5, scale + 1).floatValue();
+            values.add((double) floatTie, (double) Math.nextDown(floatTie), (double) Math.nextUp(floatTie));
+        }
+        return values.build();
+    }
+
+    private static void assertDoubleToDecimal(double value, int precision, int scale)
+    {
+        assertToDecimal(
+                BigDecimal.valueOf(value),
+                precision,
+                scale,
+                () -> precision <= MAX_SHORT_PRECISION
+                        ? BigInteger.valueOf(doubleToShortDecimal(value, precision, scale))
+                        : doubleToLongDecimal(value, precision, scale).toBigInteger(),
+                "DOUBLE " + value);
+    }
+
+    private static void assertRealToDecimal(float value, int precision, int scale)
+    {
+        assertToDecimal(
+                new BigDecimal(String.valueOf(value)),
+                precision,
+                scale,
+                () -> precision <= MAX_SHORT_PRECISION
+                        ? BigInteger.valueOf(realToShortDecimal(value, precision, scale))
+                        : realToLongDecimal(value, precision, scale).toBigInteger(),
+                "REAL " + value);
+    }
+
+    private static void assertToDecimal(BigDecimal value, int precision, int scale, Supplier<BigInteger> conversion, String description)
+    {
+        BigInteger expected = value.setScale(scale, RoundingMode.HALF_UP).unscaledValue();
+        if (expected.abs().compareTo(BigInteger.TEN.pow(precision)) >= 0) {
+            assertThatThrownBy(conversion::get)
+                    .as("%s to DECIMAL(%d, %d)", description, precision, scale)
+                    .isInstanceOfSatisfying(TrinoException.class, e -> assertThat(e.getErrorCode()).isEqualTo(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode()));
+            return;
+        }
+        assertThat(conversion.get())
+                .as("%s to DECIMAL(%d, %d)", description, precision, scale)
+                .isEqualTo(expected);
     }
 
     private static List<BigInteger> testValues()
