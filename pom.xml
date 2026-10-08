@@ -2025,7 +2025,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.24.0</version>
+                <version>0.25.0</version>
             </dependency>
 
             <dependency>
