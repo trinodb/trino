@@ -14,13 +14,11 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import jakarta.annotation.Nullable;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.NumberType.NUMBER;
 import static io.trino.spi.type.RealType.REAL;
@@ -120,12 +118,5 @@ public final class TypeUtils
             return ((TrinoNumber) value).isNaN();
         }
         return false;
-    }
-
-    static void checkElementNotNull(boolean isNull, String errorMsg)
-    {
-        if (isNull) {
-            throw new TrinoException(NOT_SUPPORTED, errorMsg);
-        }
     }
 }
