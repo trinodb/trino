@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.CurrentTimestamp;
@@ -27,6 +28,7 @@ import io.trino.sql.tree.Node;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,6 +36,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class DeterminismEvaluator
 {
+    private static final CatalogSchemaFunctionName NOW_FUNCTION_NAME = builtinFunctionName("now");
+
     private DeterminismEvaluator() {}
 
     public static boolean isDeterministic(Expression expression, Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
@@ -74,6 +78,16 @@ public final class DeterminismEvaluator
         AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
         new DeterminismEvaluator.TemporalFunctionVisitor().process(node, hasTemporalFunction);
         return hasTemporalFunction.get();
+    }
+
+    /**
+     * Returns whether the function returns the current time. Such functions are deterministic within a query,
+     * and unlike {@code current_timestamp} are function calls, so {@link #containsCurrentTimeFunctions(Node)} does not detect them.
+     */
+    public static boolean isCurrentTimeFunction(ResolvedFunction function)
+    {
+        // now() is an alias for current_timestamp
+        return function.name().equals(NOW_FUNCTION_NAME);
     }
 
     private static class TemporalFunctionVisitor

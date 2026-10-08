@@ -1641,10 +1641,31 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("REFRESH MATERIALIZED VIEW " + mvName4, 1);
         assertFreshness(mvName4, "FRESH");
 
+        // Test with now(), which is an alias for current_timestamp, but is a function call rather than a current time AST node
+        String mvName5 = "mv_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName5 + " AS SELECT *, now() AS ts FROM " + sourceTableName);
+
+        assertFreshness(mvName5, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName5, 1);
+        assertFreshness(mvName5, "UNKNOWN");
+
+        // Test with now() in a view, which is detected via analysis.getResolvedFunctions() as well
+        String viewName = "view_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT *, now() AS ts FROM " + sourceTableName);
+        String mvName6 = "mv_on_view_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvName6 + " AS SELECT * FROM " + viewName);
+
+        assertFreshness(mvName6, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvName6, 1);
+        assertFreshness(mvName6, "UNKNOWN");
+
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP MATERIALIZED VIEW " + mvName2);
         assertUpdate("DROP MATERIALIZED VIEW " + mvName3);
         assertUpdate("DROP MATERIALIZED VIEW " + mvName4);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName5);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvName6);
+        assertUpdate("DROP VIEW " + viewName);
         assertUpdate("DROP TABLE " + sourceTableName);
     }
 
@@ -1882,9 +1903,14 @@ public abstract class BaseIcebergMaterializedViewTest
         String mvInWhere = materializedViewName + "_where";
         assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b FROM %s WHERE (a < 3 OR a > 5) AND current_timestamp > timestamp '2000-01-01'".formatted(mvInWhere, sourceTableName));
 
+        // now() is an alias for current_timestamp, but is a function call rather than a current time AST node
+        String mvWithNow = materializedViewName + "_now";
+        assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b, now() AS ts FROM %s WHERE a < 3 OR a > 5".formatted(mvWithNow, sourceTableName));
+
         // first refresh is always full, should contain 2 rows
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 2);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 2);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvWithNow), 2);
 
         // add new rows to source
         assertUpdate("INSERT INTO %s VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')".formatted(sourceTableName), 4);
@@ -1894,12 +1920,15 @@ public abstract class BaseIcebergMaterializedViewTest
         // incremental would only return the new matching row: (6, 'pqr') = 1 row
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 3);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvWithNow), 3);
         assertThat(query("SELECT a, b FROM %s".formatted(mvInSelect))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
         assertThat(query("SELECT a, b FROM %s".formatted(mvInWhere))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+        assertThat(query("SELECT a, b FROM %s".formatted(mvWithNow))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
 
         // cleanup
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInSelect));
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInWhere));
+        assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvWithNow));
         assertUpdate("DROP TABLE %s".formatted(sourceTableName));
     }
 
