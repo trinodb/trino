@@ -210,7 +210,7 @@
         <dep.parquet.version>1.18.1</dep.parquet.version>
         <dep.protobuf.version>4.36.2</dep.protobuf.version>
         <dep.sis.version>1.6</dep.sis.version>
-        <dep.snowflake.version>4.3.4</dep.snowflake.version>
+        <dep.snowflake.version>4.4.0</dep.snowflake.version>
         <dep.swagger.version>2.2.55</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
         <dep.tcnative.version>2.0.84.Final</dep.tcnative.version>
