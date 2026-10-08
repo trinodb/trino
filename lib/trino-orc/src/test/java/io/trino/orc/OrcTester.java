@@ -166,6 +166,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -1373,58 +1374,16 @@ public class OrcTester
 
     private static boolean containsTimeMicros(Type type)
     {
-        if (type.equals(TIME_MICROS)) {
-            return true;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return containsTimeMicros(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsTimeMicros(mapType.getKeyType()) || containsTimeMicros(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream()
-                    .map(RowType.Field::getType)
-                    .anyMatch(OrcTester::containsTimeMicros);
-        }
-        return false;
+        return containsType(type, TIME_MICROS::equals);
     }
 
     private static boolean containsTimestampTz(Type type)
     {
-        if (type instanceof TimestampWithTimeZoneType) {
-            return true;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return containsTimestampTz(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsTimestampTz(mapType.getKeyType()) || containsTimestampTz(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream()
-                    .map(RowType.Field::getType)
-                    .anyMatch(OrcTester::containsTimestampTz);
-        }
-        return false;
+        return containsType(type, TimestampWithTimeZoneType.class::isInstance);
     }
 
     private static boolean containsUuid(Type type)
     {
-        if (type.equals(UUID)) {
-            return true;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return containsUuid(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsUuid(mapType.getKeyType()) || containsUuid(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream()
-                    .map(RowType.Field::getType)
-                    .anyMatch(OrcTester::containsUuid);
-        }
-        return false;
+        return containsType(type, UUID::equals);
     }
 }

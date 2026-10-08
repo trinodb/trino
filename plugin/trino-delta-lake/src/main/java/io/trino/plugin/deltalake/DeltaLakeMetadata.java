@@ -370,6 +370,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.blockToNativeValue;
+import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1878,16 +1879,7 @@ public class DeltaLakeMetadata
 
     private static boolean containsTimestampType(Type type)
     {
-        if (type instanceof ArrayType arrayType) {
-            return containsTimestampType(arrayType.getElementType());
-        }
-        if (type instanceof MapType mapType) {
-            return containsTimestampType(mapType.getKeyType()) || containsTimestampType(mapType.getValueType());
-        }
-        if (type instanceof RowType rowType) {
-            return rowType.getFields().stream().anyMatch(field -> containsTimestampType(field.getType()));
-        }
-        return type instanceof TimestampType;
+        return containsType(type, TimestampType.class::isInstance);
     }
 
     @Override
