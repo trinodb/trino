@@ -21,6 +21,7 @@ import java.util.stream.LongStream;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Int128Math.compareAbsolute;
 import static io.trino.spi.type.Int128Math.rescale;
@@ -32,7 +33,9 @@ import static java.lang.Math.fma;
 import static java.lang.Math.min;
 import static java.lang.Math.nextDown;
 import static java.lang.Math.nextUp;
+import static java.lang.Math.rint;
 import static java.lang.Math.scalb;
+import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 
@@ -57,6 +60,7 @@ public final class DecimalConversions
     // visible for testing
     static final Int128 MAX_EXACT_DOUBLE = Int128.valueOf(1L << 53);
     private static final long MAX_EXACT_DOUBLE_LONG = MAX_EXACT_DOUBLE.toLongExact();
+    private static final long NOT_ROUNDED = Long.MIN_VALUE;
     // visible for testing
     static final Int128 MAX_EXACT_FLOAT = Int128.valueOf(1L << 24);
     // The 29 significand bits a double loses when narrowed to a float: a midpoint sets them to 2^28, and the margin
@@ -226,19 +230,19 @@ public final class DecimalConversions
 
     public static long doubleToShortDecimal(double value, long precision, long scale)
     {
-        // TODO: implement specialized version for short decimals
-        Int128 decimal = internalDoubleToLongDecimal(value, precision, scale);
-
-        long low = decimal.getLow();
-        long high = decimal.getHigh();
-
-        checkState(high == (low >> 63), "Unexpected long decimal");
-
-        return low;
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return rounded;
+        }
+        return toShortDecimal(internalDoubleToLongDecimal(value, precision, scale));
     }
 
     public static Int128 doubleToLongDecimal(double value, long precision, long scale)
     {
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return Int128.valueOf(rounded);
+        }
         return internalDoubleToLongDecimal(value, precision, scale);
     }
 
@@ -267,18 +271,23 @@ public final class DecimalConversions
 
     public static long realToShortDecimal(float value, long precision, long scale)
     {
-        // TODO: implement specialized version for short decimals
-        Int128 decimal = realToLongDecimal(value, precision, scale);
-
-        long low = decimal.getLow();
-        long high = decimal.getHigh();
-
-        checkState(high == (low >> 63), "Unexpected long decimal");
-
-        return low;
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return rounded;
+        }
+        return toShortDecimal(internalRealToLongDecimal(value, precision, scale));
     }
 
-    public static Int128 realToLongDecimal(float floatValue, long precision, long scale)
+    public static Int128 realToLongDecimal(float value, long precision, long scale)
+    {
+        long rounded = roundToScale(value, ulp(value), precision, scale);
+        if (rounded != NOT_ROUNDED) {
+            return Int128.valueOf(rounded);
+        }
+        return internalRealToLongDecimal(value, precision, scale);
+    }
+
+    private static Int128 internalRealToLongDecimal(float floatValue, long precision, long scale)
     {
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
@@ -299,6 +308,45 @@ public final class DecimalConversions
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
         }
+    }
+
+    /**
+     * Returns the unscaled value of the shortest decimal string of a double or float {@code value}, rounded
+     * {@code HALF_UP} to {@code scale}, or {@link #NOT_ROUNDED} when the double arithmetic cannot settle it or the
+     * result does not fit {@code precision}. The string lies within half of {@code ulp} of {@code value}, so it
+     * rounds the same as {@code value} itself unless {@code value * 10^scale} is within that distance, scaled, of a
+     * midpoint between integers.
+     */
+    private static long roundToScale(double value, double ulp, long precision, long scale)
+    {
+        if (scale >= DOUBLE_10_POW.length) {
+            return NOT_ROUNDED;
+        }
+        double tenToScale = DOUBLE_10_POW[intScale(scale)];
+        double product = value * tenToScale;
+        // Rejects NaN and infinities. Above 2^53, ulp * tenToScale / 2 exceeds 1/2, so the margin below never holds.
+        if (!(abs(product) < MAX_EXACT_DOUBLE_LONG)) {
+            return NOT_ROUNDED;
+        }
+        double rounded = rint(product);
+        // product - rounded is exact, and fma gives the exact error of the product, so only the sum rounds, by at most
+        // 2^-54. ulp * tenToScale / 2 is exact too, short of underflow.
+        double distance = abs((product - rounded) + fma(value, tenToScale, -product));
+        if (distance >= 0.5 - (ulp * tenToScale / 2 + 0x1p-50)) {
+            return NOT_ROUNDED;
+        }
+        long result = (long) rounded;
+        if (precision <= MAX_SHORT_PRECISION && overflows(result, intScale(precision))) {
+            return NOT_ROUNDED;
+        }
+        return result;
+    }
+
+    private static long toShortDecimal(Int128 decimal)
+    {
+        long low = decimal.getLow();
+        checkState(decimal.getHigh() == (low >> 63), "Unexpected long decimal");
+        return low;
     }
 
     public static long shortToShortCast(
