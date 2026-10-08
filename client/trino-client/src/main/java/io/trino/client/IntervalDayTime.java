@@ -22,6 +22,7 @@ import static java.lang.Math.addExact;
 import static java.lang.Math.decrementExact;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class IntervalDayTime
 {
@@ -98,7 +99,7 @@ public final class IntervalDayTime
         micros %= MICROS_IN_SECOND;
 
         if (fractionalPrecision == 0) {
-            return format("%s%d %02d:%02d:%02d", sign, day, hour, minute, second);
+            return format(ENGLISH, "%s%d %02d:%02d:%02d", sign, day, hour, minute, second);
         }
         // combine the microsecond and picosecond fractions into a twelve-digit picosecond fraction, then
         // scale it down to the requested precision
@@ -107,7 +108,7 @@ public final class IntervalDayTime
         for (int i = fractionalPrecision; i < MAX_PRECISION; i++) {
             divisor *= 10;
         }
-        return format("%s%d %02d:%02d:%02d.%0" + fractionalPrecision + "d", sign, day, hour, minute, second, picoFraction / divisor);
+        return format(ENGLISH, "%s%d %02d:%02d:%02d.%0" + fractionalPrecision + "d", sign, day, hour, minute, second, picoFraction / divisor);
     }
 
     public static long parseMicros(String value)
@@ -194,7 +195,7 @@ public final class IntervalDayTime
         long second = millis / MILLIS_IN_SECOND;
         millis %= MILLIS_IN_SECOND;
 
-        return format("%s%d %02d:%02d:%02d.%03d", sign, day, hour, minute, second, millis);
+        return format(ENGLISH, "%s%d %02d:%02d:%02d.%03d", sign, day, hour, minute, second, millis);
     }
 
     /// Legacy millisecond parser. Retained for binary compatibility; prefer {@link #parseMicros} or
