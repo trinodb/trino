@@ -20,18 +20,17 @@ import com.google.common.primitives.Longs;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.json.JsonBlock;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.BitArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.BooleanType;
@@ -101,6 +100,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.Math.max;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -111,6 +111,7 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.decimalType;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.jsonType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timeType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.timestampType;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
@@ -141,6 +142,7 @@ public class TestingColumnReader
             .put(REAL, IntArrayBlock.class)
             .put(DoubleType.DOUBLE, LongArrayBlock.class)
             .put(VARCHAR, VariableWidthBlock.class)
+            .put(JSON, JsonBlock.class)
             .put(createDecimalType(8, 0), LongArrayBlock.class)
             .put(createDecimalType(38, 2), Int128ArrayBlock.class)
             .put(TIME_MILLIS, LongArrayBlock.class)
@@ -255,6 +257,18 @@ public class TestingColumnReader
         }
         return result;
     };
+    private static final Writer<String> WRITE_JSON = (writer, values) -> {
+        String[] result = new String[values.length];
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] != null) {
+                String value = values[i] == 0 ? "null" : "{\"value\":" + values[i] + "}";
+                writer.writeBytes(Binary.fromCharSequence(value));
+                result[i] = value;
+            }
+        }
+        return result;
+    };
+
     private static final Writer<Number> WRITE_BINARY_DECIMAL = (writer, values) -> {
         Number[] result = new Number[values.length];
         for (int i = 0; i < values.length; i++) {
@@ -505,6 +519,10 @@ public class TestingColumnReader
         assertThat(VARBINARY.getSlice(block, blockOffset).getBytes()).isEqualTo(values[offset].getBytes(UTF_8));
     };
 
+    private static final Assertion<String> ASSERT_JSON = (values, block, offset, blockOffset) -> {
+        assertThat(JSON.getObjectValue(block, blockOffset)).isEqualTo(values[offset]);
+    };
+
     private static Assertion<Number> assertTime(TimeType timeType, int precision)
     {
         return assertTime(timeType, precision, -precision);
@@ -695,6 +713,7 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN, DELTA_BINARY_PACKED, WRITE_SHORT, ASSERT_SHORT),
                 new ColumnReaderFormat<>(INT32, TINYINT, PLAIN, DELTA_BINARY_PACKED, WRITE_BYTE, ASSERT_BYTE),
                 new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN, DELTA_BYTE_ARRAY, WRITE_BINARY, ASSERT_BINARY),
+                new ColumnReaderFormat<>(BINARY, jsonType(), JSON, PLAIN, DELTA_BYTE_ARRAY, WRITE_JSON, ASSERT_JSON),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, null, VARCHAR, PLAIN, DELTA_BYTE_ARRAY, writeFixedWidthBinary(8), ASSERT_BINARY),
                 new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, BIGINT, PLAIN, DELTA_BINARY_PACKED, WRITE_LONG, ASSERT_LONG),
@@ -880,6 +899,12 @@ public class TestingColumnReader
             return typeName != PrimitiveTypeName.BOOLEAN;
         }
 
+        public boolean expectsDictionaryBlock()
+        {
+            // Keep expected output independent of the reader's dictionary eligibility check.
+            return trinoType.equals(VARCHAR) || trinoType.equals(JSON);
+        }
+
         public int getTypeLengthInBytes()
         {
             return typeLengthInBytes;
@@ -929,9 +954,7 @@ public class TestingColumnReader
                     .filter(entry -> entry.getKey().getClass().isAssignableFrom(trinoType.getClass()))
                     .map(Entry::getValue)
                     .collect(onlyElement());
-            if (block.getClass() != RunLengthEncodedBlock.class && block.getClass() != DictionaryBlock.class) {
-                assertThat(block).isInstanceOf(blockClass);
-            }
+            assertThat(block.getUnderlyingValueBlock()).isInstanceOf(blockClass);
             assertion.assertBlock(expected, block);
         }
 
