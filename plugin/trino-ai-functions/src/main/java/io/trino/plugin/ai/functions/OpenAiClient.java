@@ -23,6 +23,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.OAuth2Token;
+import io.trino.spi.security.OAuth2TokenExchanger;
+import io.trino.spi.security.TokenExchangeRequest;
 
 import java.net.URI;
 import java.util.List;
@@ -61,19 +65,36 @@ public class OpenAiClient
     private final Tracer tracer;
     private final URI endpoint;
     private final String apiKey;
+    private final boolean useOauth2TokenExchange;
+    private final List<String> oauth2TokenExchangeAudience;
+    private final List<String> oauth2TokenExchangeScope;
+    private final OAuth2TokenExchanger oAuth2TokenExchanger;
 
     @Inject
-    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig)
+    public OpenAiClient(@ForAiClient HttpClient httpClient, Tracer tracer, OpenAiConfig openAiConfig, AiConfig aiConfig, OAuth2TokenExchanger oAuth2TokenExchanger)
     {
         super(aiConfig);
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.endpoint = openAiConfig.getEndpoint();
+        this.useOauth2TokenExchange = openAiConfig.isUseOauth2TokenExchange();
+        this.oauth2TokenExchangeAudience = openAiConfig.getOauth2TokenExchangeAudience();
+        this.oauth2TokenExchangeScope = openAiConfig.getOauth2TokenExchangeScope();
+        this.oAuth2TokenExchanger = requireNonNull(oAuth2TokenExchanger, "oAuth2TokenExchanger is null");
+        if (!useOauth2TokenExchange) {
+            requireNonNull(openAiConfig.getApiKey(), "apiKey is null; set ai.openai.api-key or use ai.openai.oauth2-token-exchange=true");
+        }
         this.apiKey = openAiConfig.getApiKey();
     }
 
     @Override
-    protected String generateCompletion(String model, String prompt)
+    protected boolean usesPerUserCredentials()
+    {
+        return useOauth2TokenExchange;
+    }
+
+    @Override
+    protected String generateCompletion(ConnectorSession session, String model, String prompt)
     {
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/chat/completions")
@@ -82,9 +103,10 @@ public class OpenAiClient
         ChatRequest.Message messages = new ChatRequest.Message("user", prompt);
         ChatRequest body = new ChatRequest(model, List.of(messages), 0);
 
+        String bearerToken = resolveBearerToken(session);
         Request request = preparePost()
                 .setUri(uri)
-                .setHeader(AUTHORIZATION, "Bearer " + apiKey)
+                .setHeader(AUTHORIZATION, "Bearer " + bearerToken)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
                 .build();
@@ -126,6 +148,18 @@ public class OpenAiClient
         }
 
         return message.message().content();
+    }
+
+    private String resolveBearerToken(ConnectorSession session)
+    {
+        if (!useOauth2TokenExchange) {
+            return apiKey;
+        }
+        OAuth2Token token = oAuth2TokenExchanger.exchangeToken(
+                        session.getIdentity(),
+                        new TokenExchangeRequest(oauth2TokenExchangeAudience, oauth2TokenExchangeScope))
+                .orElseThrow(() -> new TrinoException(AI_ERROR, "Failed to exchange OAuth2 token for AI provider access"));
+        return token.accessToken();
     }
 
     public record ChatRequest(String model, List<Message> messages, int seed)

@@ -34,6 +34,7 @@ import java.util.UUID;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
+import static io.trino.spi.security.OAuth2TokenExchanger.INTERNAL_ACCESS_TOKEN_KEY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +47,7 @@ public class OAuth2Authenticator
     private final UserMapping userMapping;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
+    private final boolean captureAccessToken;
 
     @Inject
     public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
@@ -55,6 +57,7 @@ public class OAuth2Authenticator
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+        this.captureAccessToken = config.isCaptureAccessToken();
     }
 
     @Override
@@ -80,6 +83,9 @@ public class OAuth2Authenticator
         }
         Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
         builder.withPrincipal(new BasicPrincipal(principal.get()));
+        if (captureAccessToken) {
+            builder.withAdditionalExtraCredentials(Map.of(INTERNAL_ACCESS_TOKEN_KEY, tokenPair.accessToken()));
+        }
         return Optional.of(builder.build());
     }
 

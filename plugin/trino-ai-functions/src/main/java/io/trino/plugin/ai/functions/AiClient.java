@@ -13,22 +13,24 @@
  */
 package io.trino.plugin.ai.functions;
 
+import io.trino.spi.connector.ConnectorSession;
+
 import java.util.List;
 import java.util.Map;
 
 public interface AiClient
 {
-    String analyzeSentiment(String text);
+    String analyzeSentiment(ConnectorSession session, String text);
 
-    String classify(String text, List<String> labels);
+    String classify(ConnectorSession session, String text, List<String> labels);
 
-    Map<String, String> extract(String text, List<String> labels);
+    Map<String, String> extract(ConnectorSession session, String text, List<String> labels);
 
-    String fixGrammar(String text);
+    String fixGrammar(ConnectorSession session, String text);
 
-    String generate(String prompt);
+    String generate(ConnectorSession session, String prompt);
 
-    String mask(String text, List<String> labels);
+    String mask(ConnectorSession session, String text, List<String> labels);
 
-    String translate(String text, String language);
+    String translate(ConnectorSession session, String text, String language);
 }

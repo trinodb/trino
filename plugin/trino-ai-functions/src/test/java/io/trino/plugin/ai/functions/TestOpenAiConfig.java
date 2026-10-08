@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -30,7 +31,10 @@ class TestOpenAiConfig
     {
         assertRecordedDefaults(recordDefaults(OpenAiConfig.class)
                 .setEndpoint(URI.create("https://api.openai.com"))
-                .setApiKey(null));
+                .setApiKey(null)
+                .setUseOauth2TokenExchange(false)
+                .setOauth2TokenExchangeAudience(List.of())
+                .setOauth2TokenExchangeScope(List.of()));
     }
 
     @Test
@@ -39,11 +43,17 @@ class TestOpenAiConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("ai.openai.endpoint", "https://api.example.com")
                 .put("ai.openai.api-key", "test-key")
+                .put("ai.openai.oauth2-token-exchange", "true")
+                .put("ai.openai.oauth2-token-exchange.audience", "api://openai-example")
+                .put("ai.openai.oauth2-token-exchange.scope", "api.read,api.write")
                 .buildOrThrow();
 
         OpenAiConfig expected = new OpenAiConfig()
                 .setEndpoint(URI.create("https://api.example.com"))
-                .setApiKey("test-key");
+                .setApiKey("test-key")
+                .setUseOauth2TokenExchange(true)
+                .setOauth2TokenExchangeAudience(List.of("api://openai-example"))
+                .setOauth2TokenExchangeScope(List.of("api.read", "api.write"));
 
         assertFullMapping(properties, expected);
     }

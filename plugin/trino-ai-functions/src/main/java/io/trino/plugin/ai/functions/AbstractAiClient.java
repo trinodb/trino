@@ -18,6 +18,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
 import java.util.Locale;
@@ -62,7 +63,7 @@ public abstract class AbstractAiClient
     }
 
     @Override
-    public String analyzeSentiment(String text)
+    public String analyzeSentiment(ConnectorSession session, String text)
     {
         String prompt =
                 """
@@ -72,12 +73,12 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(text);
 
-        String response = completion(analyzeSentimentModel, prompt);
+        String response = completion(session, analyzeSentimentModel, prompt);
         return response.toLowerCase(Locale.ROOT);
     }
 
     @Override
-    public String classify(String text, List<String> labels)
+    public String classify(ConnectorSession session, String text, List<String> labels)
     {
         String prompt =
                 """
@@ -88,7 +89,7 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(LIST_CODEC.toJson(labels), text);
 
-        String response = completion(classifyModel, prompt);
+        String response = completion(session, classifyModel, prompt);
         try {
             return STRING_CODEC.fromJson(response);
         }
@@ -98,7 +99,7 @@ public abstract class AbstractAiClient
     }
 
     @Override
-    public Map<String, String> extract(String text, List<String> labels)
+    public Map<String, String> extract(ConnectorSession session, String text, List<String> labels)
     {
         String prompt =
                 """
@@ -112,7 +113,7 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(LIST_CODEC.toJson(labels), text);
 
-        String response = completion(extractModel, prompt);
+        String response = completion(session, extractModel, prompt);
         try {
             return filterValues(MAP_CODEC.fromJson(response), Objects::nonNull);
         }
@@ -122,7 +123,7 @@ public abstract class AbstractAiClient
     }
 
     @Override
-    public String fixGrammar(String text)
+    public String fixGrammar(ConnectorSession session, String text)
     {
         String prompt =
                 """
@@ -132,17 +133,17 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(text);
 
-        return completion(fixGrammarModel, prompt);
+        return completion(session, fixGrammarModel, prompt);
     }
 
     @Override
-    public String generate(String prompt)
+    public String generate(ConnectorSession session, String prompt)
     {
-        return completion(generateModel, prompt);
+        return completion(session, generateModel, prompt);
     }
 
     @Override
-    public String mask(String text, List<String> labels)
+    public String mask(ConnectorSession session, String text, List<String> labels)
     {
         String prompt =
                 """
@@ -155,11 +156,11 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(LIST_CODEC.toJson(labels), text);
 
-        return completion(maskModel, prompt);
+        return completion(session, maskModel, prompt);
     }
 
     @Override
-    public String translate(String text, String language)
+    public String translate(ConnectorSession session, String text, String language)
     {
         String prompt =
                 """
@@ -171,14 +172,23 @@ public abstract class AbstractAiClient
                 %s
                 """.formatted(STRING_CODEC.toJson(language), text);
 
-        return completion(translateModel, prompt);
+        return completion(session, translateModel, prompt);
     }
 
-    private String completion(String model, String prompt)
+    /**
+     * Whether generated completions depend on the caller's identity. When true, cached completions
+     * are isolated per user, so one user's result is never served to another user.
+     */
+    protected boolean usesPerUserCredentials()
+    {
+        return false;
+    }
+
+    private String completion(ConnectorSession session, String model, String prompt)
     {
         try {
-            String key = model + "\0" + prompt;
-            return completionCache.get(key, () -> generateCompletion(model, prompt));
+            String key = (usesPerUserCredentials() ? session.getUser() + "\0" : "") + model + "\0" + prompt;
+            return completionCache.get(key, () -> generateCompletion(session, model, prompt));
         }
         catch (ExecutionException e) {
             throw new UncheckedExecutionException(e);
@@ -191,5 +201,5 @@ public abstract class AbstractAiClient
         }
     }
 
-    protected abstract String generateCompletion(String model, String prompt);
+    protected abstract String generateCompletion(ConnectorSession session, String model, String prompt);
 }
