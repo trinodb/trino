@@ -17,8 +17,12 @@ import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
 import jakarta.annotation.Nullable;
+
+import java.util.List;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -102,7 +106,7 @@ public final class TypeUtils
 
     public static boolean typeHasNaN(Type type)
     {
-        return type == REAL || type == DOUBLE || type == NUMBER;
+        return type == REAL || type == DOUBLE || type == NUMBER || type.getTypeParameters().stream().anyMatch(TypeUtils::typeHasNaN);
     }
 
     public static boolean isFloatingPointNaN(Type type, Object value)
@@ -120,6 +124,74 @@ public final class TypeUtils
             return ((TrinoNumber) value).isNaN();
         }
         return false;
+    }
+
+    /**
+     * Similar to isFloatingPointNaN but considers if a value has NaN nested anywhere inside it.
+     */
+    public static boolean valueHasNaN(Type type, Object value)
+    {
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+
+        if (isFloatingPointNaN(type, value)) {
+            return true;
+        }
+        if (!typeHasNaN(type)) {
+            return false;
+        }
+        return switch (type) {
+            case ArrayType arrayType -> {
+                Type elementType = arrayType.getElementType();
+                if (!typeHasNaN(elementType)) {
+                    yield false;
+                }
+                Block arrayBlock = (Block) value;
+                for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                    if (!arrayBlock.isNull(i) && valueHasNaN(elementType, readNativeValue(elementType, arrayBlock, i))) {
+                        yield true;
+                    }
+                }
+                yield false;
+            }
+            case MapType mapType -> {
+                Type keyType = mapType.getKeyType();
+                Type valueType = mapType.getValueType();
+                boolean keyTypeHasNaN = typeHasNaN(keyType);
+                boolean valueTypeHasNaN = typeHasNaN(valueType);
+                SqlMap sqlMap = (SqlMap) value;
+                Block rawKeyBlock = sqlMap.getRawKeyBlock();
+                Block rawValueBlock = sqlMap.getRawValueBlock();
+                int rawOffset = sqlMap.getRawOffset();
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    int position = rawOffset + i;
+                    if (keyTypeHasNaN && !rawKeyBlock.isNull(position) && valueHasNaN(keyType, readNativeValue(keyType, rawKeyBlock, position))) {
+                        yield true;
+                    }
+                    if (valueTypeHasNaN && !rawValueBlock.isNull(position) && valueHasNaN(valueType, readNativeValue(valueType, rawValueBlock, position))) {
+                        yield true;
+                    }
+                }
+                yield false;
+            }
+            case RowType rowType -> {
+                SqlRow sqlRow = (SqlRow) value;
+                int rawIndex = sqlRow.getRawIndex();
+                List<RowType.Field> fields = rowType.getFields();
+                for (int i = 0; i < fields.size(); i++) {
+                    Type fieldType = fields.get(i).getType();
+                    if (!typeHasNaN(fieldType)) {
+                        continue;
+                    }
+                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                    if (!fieldBlock.isNull(rawIndex) && valueHasNaN(fieldType, readNativeValue(fieldType, fieldBlock, rawIndex))) {
+                        yield true;
+                    }
+                }
+                yield false;
+            }
+            default -> false;
+        };
     }
 
     static void checkElementNotNull(boolean isNull, String errorMsg)

@@ -281,6 +281,24 @@ public class TestMemoryConnectorTest
     }
 
     @Test
+    public void testJoinDynamicFilteringWithNestedNaN()
+    {
+        // force min/max range to be collected by having too many values on the build side
+        try (TestTable probe = newTrinoTable("test_nested_nan_probe", "AS SELECT CAST(ROW(CAST(orderkey AS double)) AS ROW(x double)) key FROM lineitem");
+                TestTable build = newTrinoTable("test_nested_nan_build", "AS SELECT CAST(ROW(CAST(orderkey AS double)) AS ROW(x double)) key FROM orders UNION ALL SELECT CAST(ROW(nan()) AS ROW(x double))")) {
+            for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+                // the probe side is fully scanned, as no range is collected
+                assertDynamicFiltering(
+                        "SELECT * FROM %s p JOIN %s b ON p.key = b.key".formatted(probe.getName(), build.getName()),
+                        noJoinReordering(joinDistributionType),
+                        LINEITEM_COUNT,
+                        LINEITEM_COUNT,
+                        ORDERS_COUNT + 1);
+            }
+        }
+    }
+
+    @Test
     @Timeout(30)
     public void testJoinDynamicFilteringBlockProbeSide()
     {

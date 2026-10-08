@@ -23,7 +23,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -59,6 +62,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.LEGACY_VARCHAR_TO_CHAR_COERCION;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
+import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -97,6 +103,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.Reals.toReal;
+import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ONE;
 import static java.math.BigDecimal.TWO;
@@ -137,6 +144,12 @@ public class TestDomainTranslator
     private static final Symbol C_REAL_1 = new Symbol(REAL, "c_real_1");
     private static final Symbol C_TIMESTAMP_TZ = new Symbol(TIMESTAMP_TZ_MILLIS, "c_timestamp_tz");
     private static final Symbol C_INTERVAL_DAY_TIME = new Symbol(INTERVAL_DAY_TIME, "c_interval_day_time");
+    private static final Symbol C_ARRAY_DOUBLE = new Symbol(new ArrayType(DOUBLE), "c_array_double");
+    private static final Symbol C_ROW_DOUBLE = new Symbol(RowType.anonymousRow(DOUBLE), "c_row_double");
+    private static final Symbol C_ARRAY_DOUBLE_1 = new Symbol(new ArrayType(DOUBLE), "c_array_double_1");
+    private static final Symbol C_ROW_DOUBLE_1 = new Symbol(RowType.anonymousRow(DOUBLE), "c_row_double_1");
+    private static final Symbol C_MAP_DOUBLE = new Symbol(mapType(BIGINT, DOUBLE), "c_map_double");
+    private static final Symbol C_MAP_DOUBLE_1 = new Symbol(mapType(BIGINT, DOUBLE), "c_map_double_1");
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
@@ -508,6 +521,21 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
         assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+
+        // Domain union implicitly adds NaN as an accepted value, even when NaN is nested in a container
+        originalPredicate = or(
+                greaterThan(C_ARRAY_DOUBLE, nestedDoubleLiteral(C_ARRAY_DOUBLE.type(), 1.0)),
+                lessThanOrEqual(C_ARRAY_DOUBLE, nestedDoubleLiteral(C_ARRAY_DOUBLE.type(), 1.0)));
+        result = fromPredicate(originalPredicate);
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_ARRAY_DOUBLE, Domain.notNull(C_ARRAY_DOUBLE.type())));
+
+        originalPredicate = or(
+                greaterThan(C_ROW_DOUBLE, nestedDoubleLiteral(C_ROW_DOUBLE.type(), 1.0)),
+                lessThanOrEqual(C_ROW_DOUBLE, nestedDoubleLiteral(C_ROW_DOUBLE.type(), 1.0)));
+        result = fromPredicate(originalPredicate);
+        assertThat(result.remainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.tupleDomain()).isEqualTo(tupleDomain(C_ROW_DOUBLE, Domain.notNull(C_ROW_DOUBLE.type())));
 
         originalPredicate = or(
                 greaterThan(C_REAL, realLiteral(2.0f)),
@@ -964,6 +992,101 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromBasicComparisonsWithNestedNaN()
+    {
+        // A domain is extracted when the value does not contain NaN, even when the type could hold a nested NaN
+        assertComparisonsWithoutNestedNaN(C_ARRAY_DOUBLE, nestedDoubleLiteral(C_ARRAY_DOUBLE.type(), 1.0));
+        assertComparisonsWithoutNestedNaN(C_ROW_DOUBLE, nestedDoubleLiteral(C_ROW_DOUBLE.type(), 1.0));
+
+        // No domain is extracted when NaN is actually nested in the compared value
+        assertComparisonsWithNestedNaN(C_ARRAY_DOUBLE, nestedDoubleLiteral(C_ARRAY_DOUBLE.type(), Double.NaN));
+        assertComparisonsWithNestedNaN(C_ROW_DOUBLE, nestedDoubleLiteral(C_ROW_DOUBLE.type(), Double.NaN));
+    }
+
+    @Test
+    public void testFromBasicComparisonsWithMapNestedNaN()
+    {
+        // similar to testFromBasicComparisonsWithNestedNaN
+        // MAP is comparable but not orderable, so only equality comparisons apply
+        Type type = C_MAP_DOUBLE.type();
+        Expression one = nestedDoubleLiteral(type, 1.0);
+        Object oneValue = ((Constant) one).value();
+
+        assertPredicateTranslates(equal(C_MAP_DOUBLE, one), tupleDomain(C_MAP_DOUBLE, Domain.singleValue(type, oneValue)));
+        assertPredicateTranslates(notEqual(C_MAP_DOUBLE, one), tupleDomain(C_MAP_DOUBLE, Domain.create(ValueSet.of(type, oneValue).complement(), false)));
+        assertPredicateTranslates(not(equal(C_MAP_DOUBLE, one)), tupleDomain(C_MAP_DOUBLE, Domain.create(ValueSet.of(type, oneValue).complement(), false)));
+        assertPredicateTranslates(not(notEqual(C_MAP_DOUBLE, one)), tupleDomain(C_MAP_DOUBLE, Domain.singleValue(type, oneValue)));
+        assertPredicateTranslates(comparison(IDENTICAL, C_MAP_DOUBLE.toSymbolReference(), one), tupleDomain(C_MAP_DOUBLE, Domain.singleValue(type, oneValue)));
+
+        // A map with a NaN value is not equal to any map, including itself
+        Expression nan = nestedDoubleLiteral(type, Double.NaN);
+        assertPredicateIsAlwaysFalse(equal(C_MAP_DOUBLE, nan));
+        assertPredicateIsAlwaysFalse(not(notEqual(C_MAP_DOUBLE, nan)));
+        assertPredicateTranslates(notEqual(C_MAP_DOUBLE, nan), tupleDomain(C_MAP_DOUBLE, Domain.notNull(type)));
+        assertPredicateTranslates(not(equal(C_MAP_DOUBLE, nan)), tupleDomain(C_MAP_DOUBLE, Domain.notNull(type)));
+        assertUnsupportedPredicate(comparison(IDENTICAL, C_MAP_DOUBLE.toSymbolReference(), nan));
+    }
+
+    private void assertComparisonsWithoutNestedNaN(Symbol symbol, Expression value)
+    {
+        Type type = symbol.type();
+        Object nativeValue = ((Constant) value).value();
+
+        assertPredicateTranslates(
+                equal(symbol, value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.equal(type, nativeValue)), false)));
+        assertPredicateTranslates(
+                greaterThan(symbol, value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.greaterThan(type, nativeValue)), false)));
+        assertPredicateTranslates(
+                greaterThanOrEqual(symbol, value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, nativeValue)), false)));
+        assertPredicateTranslates(
+                lessThan(symbol, value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.lessThan(type, nativeValue)), false)));
+        assertPredicateTranslates(
+                lessThanOrEqual(symbol, value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, nativeValue)), false)));
+        // NOT_EQUAL and IS DISTINCT FROM would need to represent "range union NaN", which Domain cannot express
+        assertUnsupportedPredicate(notEqual(symbol, value));
+        assertUnsupportedPredicate(isDistinctFrom(symbol, value));
+
+        // Negating an ordering comparison would also need to add back NaN, which Domain cannot express
+        assertUnsupportedPredicate(not(equal(symbol, value)));
+        assertUnsupportedPredicate(not(greaterThan(symbol, value)));
+        assertUnsupportedPredicate(not(greaterThanOrEqual(symbol, value)));
+        assertUnsupportedPredicate(not(lessThan(symbol, value)));
+        assertUnsupportedPredicate(not(lessThanOrEqual(symbol, value)));
+        assertPredicateTranslates(
+                not(notEqual(symbol, value)),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.equal(type, nativeValue)), false)));
+        assertPredicateTranslates(
+                comparison(IDENTICAL, symbol.toSymbolReference(), value),
+                tupleDomain(symbol, Domain.create(ValueSet.ofRanges(Range.equal(type, nativeValue)), false)));
+    }
+
+    private void assertComparisonsWithNestedNaN(Symbol symbol, Expression value)
+    {
+        Type type = symbol.type();
+
+        assertPredicateIsAlwaysFalse(equal(symbol, value));
+        assertPredicateIsAlwaysFalse(greaterThan(symbol, value));
+        assertPredicateIsAlwaysFalse(greaterThanOrEqual(symbol, value));
+        assertPredicateIsAlwaysFalse(lessThan(symbol, value));
+        assertPredicateIsAlwaysFalse(lessThanOrEqual(symbol, value));
+        assertPredicateTranslates(notEqual(symbol, value), tupleDomain(symbol, Domain.notNull(type)));
+        assertUnsupportedPredicate(isDistinctFrom(symbol, value));
+
+        assertPredicateTranslates(not(equal(symbol, value)), tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(not(greaterThan(symbol, value)), tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(not(greaterThanOrEqual(symbol, value)), tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(not(lessThan(symbol, value)), tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(not(lessThanOrEqual(symbol, value)), tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateIsAlwaysFalse(not(notEqual(symbol, value)));
+        assertUnsupportedPredicate(comparison(IDENTICAL, symbol.toSymbolReference(), value));
+    }
+
+    @Test
     public void testFromCoercionComparisonsWithNaN()
     {
         Expression nanDouble = new Constant(DOUBLE, Double.NaN);
@@ -1304,6 +1427,132 @@ public class TestDomainTranslator
                 not(equal(symbol, otherSymbol)));
         assertPredicateIsAlwaysFalse(
                 not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))));
+    }
+
+    @Test
+    public void testInPredicateWithArrayOfDouble()
+    {
+        testInPredicateWithNestedNaN(C_ARRAY_DOUBLE, C_ARRAY_DOUBLE_1);
+    }
+
+    @Test
+    public void testInPredicateWithRowOfDouble()
+    {
+        testInPredicateWithNestedNaN(C_ROW_DOUBLE, C_ROW_DOUBLE_1);
+    }
+
+    @Test
+    public void testInPredicateWithMapOfDouble()
+    {
+        testInPredicateWithNestedNaN(C_MAP_DOUBLE, C_MAP_DOUBLE_1);
+    }
+
+    private void testInPredicateWithNestedNaN(Symbol symbol, Symbol symbol2)
+    {
+        // A domain is extracted for values that do not contain NaN; NaN nested in a container is excluded
+        // from the domain exactly like a plain floating-point NaN (see testInPredicateWithFloatingPoint)
+        Type type = symbol.type();
+        Expression oneExpression = nestedDoubleLiteral(type, 1.0);
+        Expression twoExpression = nestedDoubleLiteral(type, 2.0);
+        Expression nanExpression = nestedDoubleLiteral(type, Double.NaN);
+        Expression nullExpression = new Constant(type, null);
+        Expression otherSymbol = symbol2.toSymbolReference();
+        Object one = ((Constant) oneExpression).value();
+        Object two = ((Constant) twoExpression).value();
+
+        // IN, single value
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression)),
+                tupleDomain(symbol, Domain.singleValue(type, one)));
+
+        // IN, two values
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with null
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nullExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nullExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with NaN
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nanExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nanExpression, twoExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with null and NaN
+        assertPredicateIsAlwaysFalse(
+                in(symbol, List.of(nanExpression, nullExpression)));
+        assertPredicateTranslates(
+                in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression)),
+                tupleDomain(symbol, Domain.multipleValues(type, List.of(one, two))));
+
+        // IN, with expression
+        assertUnsupportedPredicate(
+                in(symbol, List.of(otherSymbol)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nanExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression)));
+        assertUnsupportedPredicate(
+                in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression)));
+
+        // NOT IN, single value
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(equal(symbol, oneExpression)));
+
+        // NOT IN, two values
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(in(symbol, List.of(oneExpression, twoExpression))));
+
+        // NOT IN, with null
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(nullExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, nullExpression, twoExpression))));
+
+        // NOT IN, with NaN
+        assertPredicateTranslates(
+                not(in(symbol, List.of(nanExpression))),
+                tupleDomain(symbol, Domain.notNull(type)));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(in(symbol, List.of(oneExpression, twoExpression))));
+
+        // NOT IN, with null and NaN
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(nanExpression, nullExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, nanExpression, twoExpression, nullExpression))));
+
+        // NOT IN, with expression
+        assertPredicateTranslates(
+                not(in(symbol, List.of(otherSymbol))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(equal(symbol, otherSymbol)));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))));
+        assertPredicateTranslates(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nanExpression))),
+                tupleDomain(symbol, Domain.notNull(type)),
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, otherSymbol, twoExpression, nullExpression))));
+        assertPredicateIsAlwaysFalse(
+                not(in(symbol, List.of(oneExpression, otherSymbol, nanExpression, twoExpression, nullExpression))));
     }
 
     private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
@@ -2186,6 +2435,19 @@ public class TestDomainTranslator
     private static Constant bigintLiteral(long value)
     {
         return new Constant(BIGINT, value);
+    }
+
+    private static Constant nestedDoubleLiteral(Type type, double value)
+    {
+        return switch (type) {
+            case ArrayType arrayType -> new Constant(type, buildArrayValue(arrayType, 1, elementBuilder -> DOUBLE.writeDouble(elementBuilder, value)));
+            case RowType rowType -> new Constant(type, buildRowValue(rowType, fieldBuilders -> DOUBLE.writeDouble(fieldBuilders.getFirst(), value)));
+            case MapType mapType -> new Constant(type, buildMapValue(mapType, 1, (keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 1);
+                DOUBLE.writeDouble(valueBuilder, value);
+            }));
+            default -> throw new IllegalArgumentException("Unsupported type: " + type);
+        };
     }
 
     private static Constant doubleLiteral(double value)

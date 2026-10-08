@@ -149,6 +149,17 @@ public class TestJoin
     }
 
     @Test
+    public void testJoinOnNestedNan()
+    {
+        assertThat(assertions.query(
+                """
+                WITH t(x) AS (VALUES ARRAY[nan()])
+                SELECT * FROM t t1 JOIN t t2 ON NOT t1.x < t2.x
+                """))
+                .matches("VALUES (ARRAY[nan()], ARRAY[nan()])");
+    }
+
+    @Test
     public void testJoinWithComplexCriteria()
     {
         // Test for https://github.com/trinodb/trino/issues/13145

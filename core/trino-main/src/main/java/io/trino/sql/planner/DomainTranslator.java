@@ -91,8 +91,8 @@ import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.predicate.TupleDomain.strictUnion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.typeHasNaN;
+import static io.trino.spi.type.TypeUtils.valueHasNaN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.EQUAL;
@@ -920,6 +920,16 @@ public final class DomainTranslator
                     }
                 };
             }
+            // Handle comparisons against NaN
+            if (valueHasNaN(type, value)) {
+                Optional<Domain> nanDomain = switch (comparisonOperator) {
+                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL,
+                         LESS_THAN, LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
+                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
+                    case IDENTICAL -> Optional.empty(); // The Domain should be "NaN". It is currently not supported.
+                };
+                return nanDomain.map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)), TRUE));
+            }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)
                         .map(domain -> new ExtractionResult(TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)), TRUE));
@@ -947,16 +957,6 @@ public final class DomainTranslator
                     case LESS_THAN -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false));
                     case LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false));
                     case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false));
-                };
-            }
-
-            // Handle comparisons against NaN
-            if (isFloatingPointNaN(type, value)) {
-                return switch (comparisonOperator) {
-                    case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL,
-                         LESS_THAN, LESS_THAN_OR_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.none(type), complement), false));
-                    case NOT_EQUAL -> Optional.of(Domain.create(complementIfNecessary(ValueSet.all(type), complement), false));
-                    case IDENTICAL -> Optional.empty(); // The Domain should be "NaN". It is currently not supported.
                 };
             }
 
@@ -1177,7 +1177,7 @@ public final class DomainTranslator
                     }
                     else if (typeHasNaN(type)) {
                         // NaN can be ignored: it always compares to false, as if it was not among IN's values
-                        if (!isFloatingPointNaN(type, constant.value())) {
+                        if (!valueHasNaN(type, constant.value())) {
                             if (complement) {
                                 // in case of NOT IN with floating point, the NaN on the left passes the test (unless a NULL is found, and we exited earlier)
                                 // but this cannot currently be described with a Domain other than Domain.all
