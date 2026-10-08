@@ -24,6 +24,7 @@ import io.trino.spi.Unstable;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.cache.ConnectorCacheFactory;
 import io.trino.spi.function.FunctionBundleFactory;
+import io.trino.spi.security.OAuth2TokenExchanger;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
@@ -108,5 +109,10 @@ public interface ConnectorContext
     default ConnectorCacheFactory getCacheFactory()
     {
         return _ -> Optional.empty();
+    }
+
+    default OAuth2TokenExchanger getOAuth2TokenExchanger()
+    {
+        return (_, _) -> Optional.empty();
     }
 }

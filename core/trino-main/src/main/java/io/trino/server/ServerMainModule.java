@@ -102,6 +102,7 @@ import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.SpoolingServerModule;
 import io.trino.server.remotetask.HttpLocationFactory;
+import io.trino.server.security.oauth2.OAuth2TokenExchangeModule;
 import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
@@ -217,6 +218,7 @@ public class ServerMainModule
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
         install(new SpoolingServerModule());
+        install(new OAuth2TokenExchangeModule());
 
         QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
         RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();

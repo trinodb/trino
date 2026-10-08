@@ -51,7 +51,8 @@ public class TestOAuth2Config
                 .setUserMappingFile(null)
                 .setEnableRefreshTokens(false)
                 .setEnableDiscovery(true)
-                .setDomainHint(null));
+                .setDomainHint(null)
+                .setCaptureAccessToken(false));
     }
 
     @Test
@@ -75,6 +76,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.refresh-tokens", "true")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .put("http-server.authentication.oauth2.domain-hint", "example.com")
+                .put("http-server.authentication.oauth2.capture-access-token", "true")
                 .buildOrThrow();
 
         OAuth2Config expected = new OAuth2Config()
@@ -92,7 +94,8 @@ public class TestOAuth2Config
                 .setUserMappingFile(userMappingFile.toFile())
                 .setEnableRefreshTokens(true)
                 .setEnableDiscovery(false)
-                .setDomainHint("example.com");
+                .setDomainHint("example.com")
+                .setCaptureAccessToken(true);
 
         assertFullMapping(properties, expected);
     }
