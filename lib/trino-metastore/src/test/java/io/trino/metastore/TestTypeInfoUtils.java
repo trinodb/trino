@@ -28,6 +28,7 @@ import static io.trino.metastore.type.TypeInfoFactory.getListTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getMapTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getStructTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getUnknownTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getVarcharTypeInfo;
 import static io.trino.metastore.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -164,6 +165,20 @@ public class TestTypeInfoUtils
                         List.of("x", "y"),
                         List.of(getPrimitiveTypeInfo("int"),
                                 getListTypeInfo(getPrimitiveTypeInfo("string")))));
+    }
+
+    @Test
+    public void testUnknown()
+    {
+        assertThat(getTypeInfoFromTypeString("unknown"))
+                .isSameAs(getUnknownTypeInfo())
+                .hasToString("unknown");
+
+        assertThat(getTypeInfoFromTypeString("array<unknown>"))
+                .isEqualTo(getListTypeInfo(getUnknownTypeInfo()));
+
+        assertThat(getTypeInfoFromTypeString("struct<x:unknown>"))
+                .isEqualTo(getStructTypeInfo(List.of("x"), List.of(getUnknownTypeInfo())));
     }
 
     private static ObjectAssert<TypeInfo> assertTypeInfo(String typeString)
