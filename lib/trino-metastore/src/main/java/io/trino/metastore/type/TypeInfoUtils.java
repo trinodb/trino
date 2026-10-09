@@ -23,6 +23,7 @@ import static io.trino.metastore.type.TypeConstants.LIST_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.MAP_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.STRUCT_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.UNION_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.UNKNOWN_TYPE_NAME;
 import static io.trino.metastore.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getDecimalTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getListTypeInfo;
@@ -30,6 +31,7 @@ import static io.trino.metastore.type.TypeInfoFactory.getMapTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getStructTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getUnionTypeInfo;
+import static io.trino.metastore.type.TypeInfoFactory.getUnknownTypeInfo;
 import static io.trino.metastore.type.TypeInfoFactory.getVarcharTypeInfo;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.Integer.parseInt;
@@ -327,6 +329,10 @@ public final class TypeInfoUtils
                 while (true);
 
                 return getUnionTypeInfo(objectTypeInfos);
+            }
+
+            if (UNKNOWN_TYPE_NAME.equals(token.text)) {
+                return getUnknownTypeInfo();
             }
 
             throw new RuntimeException("Internal error parsing position %s of '%s'".formatted(token.position(), typeInfoString));

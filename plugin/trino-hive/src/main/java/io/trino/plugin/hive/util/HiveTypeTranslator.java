@@ -219,6 +219,7 @@ public final class HiveTypeTranslator
                         .map(unionObjectType -> toTypeDescriptor(unionObjectType, timestampPrecision))
                         .collect(toImmutableList()));
             }
+            case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Hive type: %s".formatted(typeInfo));
         };
     }
 

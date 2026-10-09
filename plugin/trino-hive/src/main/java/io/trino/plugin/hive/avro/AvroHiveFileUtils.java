@@ -249,6 +249,7 @@ public final class AvroHiveFileUtils
                 }
                 yield Schema.createUnion(removeDuplicateNullSchemas(childSchemas));
             }
+            case UNKNOWN -> throw new UnsupportedOperationException("UNKNOWN HiveType category  is not supported");
         };
 
         return wrapInUnionWithNull(schema);

@@ -409,9 +409,11 @@ the following table:
   - `ARRAY(e)`
 * - `MAP(k,v)`
   - `MAP(k,v)`
+* - `UNKNOWN`
+  - `UNKNOWN`
 :::
 
-`TIMESTAMP_NS` and `TIMESTAMPTZ_NS` are supported only for Iceberg format
+`TIMESTAMP_NS`, `TIMESTAMPTZ_NS` and `UNKNOWN` are supported only for Iceberg format
 version `3` tables.
 
 No other types are supported.

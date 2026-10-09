@@ -84,6 +84,11 @@ public final class TypeInfoFactory
         return new UnionTypeInfo(typeInfos);
     }
 
+    public static TypeInfo getUnknownTypeInfo()
+    {
+        return UnknownTypeInfo.get();
+    }
+
     public static TypeInfo getListTypeInfo(TypeInfo elementTypeInfo)
     {
         return new ListTypeInfo(elementTypeInfo);

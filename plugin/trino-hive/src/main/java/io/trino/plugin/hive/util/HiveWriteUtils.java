@@ -280,7 +280,7 @@ public final class HiveWriteUtils
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 yield structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
             }
-            case UNION -> false;
+            case UNION, UNKNOWN -> false;
         };
     }
 
