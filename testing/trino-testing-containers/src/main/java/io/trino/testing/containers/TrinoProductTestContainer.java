@@ -81,11 +81,14 @@ public final class TrinoProductTestContainer
      * the container's limit. An environment can copy its own {@code jvm.config} afterwards.
      * <p>
      * Off-heap memory grows with the number of CPUs, as Trino and the JVM size their thread pools
-     * from it. Limiting CPUs keeps the memory use independent of the host.
+     * from it. Limiting CPUs keeps the memory use independent of the host. glibc ignores the CPU
+     * limit and creates up to 8 malloc arenas per host CPU, each retaining freed memory, so the
+     * number of arenas is limited as well.
      */
     public static <T extends GenericContainer<?>> T withResourceLimits(T container)
     {
         container.withCopyFileToContainer(MountableFile.forClasspathResource("io/trino/testing/containers/jvm.config"), "/etc/trino/jvm.config");
+        container.withEnv("MALLOC_ARENA_MAX", "2");
         container.withCreateContainerCmdModifier(command -> command.getHostConfig()
                 .withMemory(MEMORY_LIMIT.toBytes())
                 .withMemorySwap(MEMORY_LIMIT.toBytes())
