@@ -18,11 +18,11 @@ import java.util.List;
 public interface TypeManager
 {
     /**
-     * Gets the type with the specified signature.
+     * Gets the type with the specified descriptor.
      *
      * @throws TypeNotFoundException if not found
      */
-    Type getType(TypeDescriptor signature);
+    Type getType(TypeDescriptor descriptor);
 
     /**
      * Gets a type given it's SQL representation
