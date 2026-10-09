@@ -18,7 +18,6 @@ import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.iceberg.catalog.hms.AbstractMetastoreTableOperations;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.TrinoException;
@@ -32,7 +31,9 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
@@ -99,8 +100,9 @@ public class FileMetastoreTableOperations
 
         Table updatedTable = tableUpdateFunction.apply(table, newMetadataLocation);
 
-        // todo privileges should not be replaced for an alter
-        PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+        PrincipalPrivileges privileges = fromHivePrivilegeInfos(metastore.listTablePrivileges(table.getDatabaseName(), table.getTableName(), table.getOwner(), Optional.empty()).stream()
+                .filter(privilege -> privilege.getHivePrivilege() != OWNERSHIP)
+                .collect(toImmutableSet()));
 
         try {
             metastore.replaceTable(database, table.getTableName(), updatedTable, privileges, ImmutableMap.of());

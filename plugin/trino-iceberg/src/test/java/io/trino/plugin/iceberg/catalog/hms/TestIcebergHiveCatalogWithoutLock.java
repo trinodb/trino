@@ -14,6 +14,10 @@
 package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.containers.Hive4FlociDataLake;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -25,7 +29,12 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Floci.FLOCI_ACCESS_KEY;
 import static io.trino.testing.containers.Floci.FLOCI_REGION;
@@ -77,6 +86,30 @@ final class TestIcebergHiveCatalogWithoutLock
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 3");
+        }
+    }
+
+    @Test
+    void testPrivilegesPreservedOnInsert()
+    {
+        HiveMetastore metastore = getHiveMetastore(getQueryRunner());
+        String schema = getSession().getSchema().orElseThrow();
+        try (TestTable table = newTrinoTable("test_privileges_preserved_", "(id INTEGER)")) {
+            String tableName = table.getName();
+            String tableOwner = metastore.getTable(schema, tableName).orElseThrow().getOwner().orElseThrow();
+            HivePrincipal grantee = new HivePrincipal(USER, "test_user");
+            HivePrincipal grantor = new HivePrincipal(USER, tableOwner);
+            metastore.grantTablePrivileges(schema, tableName, tableOwner, grantee, grantor, ImmutableSet.of(SELECT), false);
+
+            Set<HivePrivilegeInfo> privilegesBefore = metastore.listTablePrivileges(schema, tableName, Optional.of(tableOwner), Optional.of(grantee));
+            assertThat(privilegesBefore)
+                    .extracting(HivePrivilegeInfo::getHivePrivilege)
+                    .containsExactly(SELECT);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+            assertThat(metastore.listTablePrivileges(schema, tableName, Optional.of(tableOwner), Optional.of(grantee)))
+                    .containsExactlyInAnyOrderElementsOf(privilegesBefore);
         }
     }
 }
