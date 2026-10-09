@@ -163,7 +163,7 @@ public class RowType
 
     public static RowType from(List<Field> fields)
     {
-        return new RowType(makeSignature(fields), fields);
+        return new RowType(makeDescriptor(fields), fields);
     }
 
     public static RowType anonymous(List<Type> types)
@@ -172,7 +172,7 @@ public class RowType
                 .map(type -> new Field(Optional.empty(), type))
                 .toList();
 
-        return new RowType(makeSignature(fields), fields);
+        return new RowType(makeDescriptor(fields), fields);
     }
 
     public static RowType rowType(Field... field)
@@ -195,7 +195,7 @@ public class RowType
         return new Field(Optional.empty(), type);
     }
 
-    private static TypeDescriptor makeSignature(List<Field> fields)
+    private static TypeDescriptor makeDescriptor(List<Field> fields)
     {
         List<TypeParameter> parameters = fields.stream()
                 .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeDescriptor()))
