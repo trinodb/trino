@@ -38,9 +38,9 @@ public class ModelType
         super(new TypeDescriptor("Model"), Slice.class);
     }
 
-    protected ModelType(TypeDescriptor signature)
+    protected ModelType(TypeDescriptor descriptor)
     {
-        super(signature, Slice.class);
+        super(descriptor, Slice.class);
     }
 
     @Override

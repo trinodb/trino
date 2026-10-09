@@ -58,9 +58,9 @@ public abstract class AbstractGeometryType
 
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(GeometryTypeOperators.class, lookup(), Geometry.class);
 
-    protected AbstractGeometryType(TypeDescriptor signature)
+    protected AbstractGeometryType(TypeDescriptor descriptor)
     {
-        super(signature, Geometry.class);
+        super(descriptor, Geometry.class);
     }
 
     @Override
