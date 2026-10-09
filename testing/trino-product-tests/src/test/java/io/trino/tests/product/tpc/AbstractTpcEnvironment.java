@@ -49,6 +49,8 @@ abstract class AbstractTpcEnvironment
         trinoCluster = MultiNodeTrinoCluster.builder()
                 .withNetwork(network)
                 .withWorkerCount(1)
+                // Tests run one query at a time
+                .withConfigProperty("query.max-memory-per-node", "2GB")
                 .withFile("/etc/trino/hdfs-site.xml", hadoop.getHdfsClientSiteXml())
                 .withCatalog("hive", hiveCatalog(hadoop.getHiveMetastoreUri())
                         .withHadoopFileSystem()
