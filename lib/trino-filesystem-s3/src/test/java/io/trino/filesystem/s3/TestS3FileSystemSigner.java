@@ -13,11 +13,16 @@
  */
 package io.trino.filesystem.s3;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.s3.S3FileSystemConfig.SignerType;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import software.amazon.awssdk.http.auth.aws.scheme.AwsV4AuthScheme;
 import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
 import software.amazon.awssdk.http.auth.spi.scheme.AuthSchemeOption;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeParams;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 
@@ -60,10 +65,50 @@ final class TestS3FileSystemSigner
         assertThat(option.signerProperty(AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED)).isFalse();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"PutObject", "UploadPart"})
+    void testChunkedEncodingEnabledByDefault(String operation)
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config), operation).signerProperty(AwsV4HttpSigner.CHUNK_ENCODING_ENABLED)).isTrue();
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config.setSignerType(Aws4Signer)), operation).signerProperty(AwsV4HttpSigner.CHUNK_ENCODING_ENABLED)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PutObject", "UploadPart"})
+    void testChunkedEncodingDisabled(String operation)
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig().setChunkedEncodingEnabled(false);
+        assertThat(resolveSigV4(createClientAuthSchemeProvider(config), operation).signerProperty(AwsV4HttpSigner.CHUNK_ENCODING_ENABLED)).isFalse();
+        // chunked encoding must also be disabled when a custom signer is configured
+        for (SignerType signerType : SignerType.values()) {
+            AuthSchemeOption option = resolveSigV4(createClientAuthSchemeProvider(config.setSignerType(signerType)), operation);
+            assertThat(option.signerProperty(AwsV4HttpSigner.CHUNK_ENCODING_ENABLED))
+                    .as("chunked encoding for %s with %s signer", operation, signerType)
+                    .isFalse();
+        }
+    }
+
+    private static S3AuthSchemeProvider createClientAuthSchemeProvider(S3FileSystemConfig config)
+    {
+        S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config.setRegion(Region.US_EAST_1.id()), new S3FileSystemStats());
+        try (S3Client client = loader.createClient()) {
+            return client.serviceClientConfiguration().authSchemeProvider();
+        }
+        finally {
+            loader.destroy();
+        }
+    }
+
     private static AuthSchemeOption resolveSigV4(S3AuthSchemeProvider provider)
     {
+        return resolveSigV4(provider, "GetObject");
+    }
+
+    private static AuthSchemeOption resolveSigV4(S3AuthSchemeProvider provider, String operation)
+    {
         return provider.resolveAuthScheme(S3AuthSchemeParams.builder()
-                        .operation("GetObject")
+                        .operation(operation)
                         .region(Region.US_EAST_1)
                         .build()).stream()
                 .filter(option -> option.schemeId().equals(AwsV4AuthScheme.SCHEME_ID))

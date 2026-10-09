@@ -16,21 +16,35 @@ package io.trino.filesystem.s3;
 import com.google.common.io.Closer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.s3.S3FileSystemConfig.S3ChecksumAlgorithm;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.filesystem.s3.S3FileSystem.DELETE_BATCH_SIZE;
+import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE;
+import static software.amazon.awssdk.services.s3.model.ChecksumMode.ENABLED;
 
 public class TestS3FileSystemMinIo
         extends AbstractTestS3FileSystem
@@ -77,16 +91,18 @@ public class TestS3FileSystemMinIo
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(
-                OpenTelemetry.noop(),
-                new S3FileSystemConfig()
-                        .setEndpoint(minio.getMinioAddress())
-                        .setRegion(Minio.MINIO_REGION)
-                        .setPathStyleAccess(true)
-                        .setAwsAccessKey(Minio.MINIO_ROOT_USER)
-                        .setAwsSecretKey(Minio.MINIO_ROOT_PASSWORD)
-                        .setStreamingPartSize(STREAMING_PART_SIZE),
-                new S3FileSystemStats());
+        return new S3FileSystemFactory(OpenTelemetry.noop(), createS3FileSystemConfig(), new S3FileSystemStats());
+    }
+
+    private S3FileSystemConfig createS3FileSystemConfig()
+    {
+        return new S3FileSystemConfig()
+                .setEndpoint(minio.getMinioAddress())
+                .setRegion(Minio.MINIO_REGION)
+                .setPathStyleAccess(true)
+                .setAwsAccessKey(Minio.MINIO_ROOT_USER)
+                .setAwsSecretKey(Minio.MINIO_ROOT_PASSWORD)
+                .setStreamingPartSize(STREAMING_PART_SIZE);
     }
 
     @Test
@@ -152,5 +168,84 @@ public class TestS3FileSystemMinIo
                 assertThat(getFileSystem().newInputFile(location).exists()).isFalse();
             }
         }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = S3ChecksumAlgorithm.class, names = "DEFAULT", mode = EXCLUDE)
+    void testChecksumAlgorithm(S3ChecksumAlgorithm checksumAlgorithm)
+            throws IOException
+    {
+        testWriteAndDelete(createS3FileSystemConfig(), checksumAlgorithm);
+    }
+
+    @ParameterizedTest
+    @EnumSource(S3ChecksumAlgorithm.class)
+    void testChunkedEncodingDisabled(S3ChecksumAlgorithm checksumAlgorithm)
+            throws IOException
+    {
+        testWriteAndDelete(createS3FileSystemConfig().setChunkedEncodingEnabled(false), checksumAlgorithm);
+    }
+
+    private void testWriteAndDelete(S3FileSystemConfig config, S3ChecksumAlgorithm checksumAlgorithm)
+            throws IOException
+    {
+        S3FileSystemFactory fileSystemFactory = new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                config.setChecksumAlgorithm(checksumAlgorithm),
+                new S3FileSystemStats());
+        try (S3Client s3Client = createS3Client()) {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
+            Location singlePartLocation = getRootLocation().appendPath("checksum/single-part-" + randomUUID());
+            Location multipartLocation = getRootLocation().appendPath("checksum/multipart-" + randomUUID());
+
+            byte[] singlePartData = "test data".getBytes(UTF_8);
+            byte[] multipartData = new byte[toIntExact(STREAMING_PART_SIZE.toBytes()) * 2 + 1];
+            Arrays.fill(multipartData, (byte) 42);
+            fileSystem.newOutputFile(singlePartLocation).createOrOverwrite(singlePartData);
+            try (OutputStream outputStream = fileSystem.newOutputFile(multipartLocation).create()) {
+                outputStream.write(multipartData);
+            }
+
+            assertThat(readAllBytes(fileSystem, singlePartLocation)).isEqualTo(singlePartData);
+            assertThat(readAllBytes(fileSystem, multipartLocation)).isEqualTo(multipartData);
+
+            if (checksumAlgorithm != S3ChecksumAlgorithm.DEFAULT) {
+                for (Location location : List.of(singlePartLocation, multipartLocation)) {
+                    HeadObjectResponse response = s3Client.headObject(request -> request
+                            .bucket(bucket)
+                            .key(new S3Location(location).key())
+                            .checksumMode(ENABLED));
+                    assertThat(storedChecksum(response, checksumAlgorithm))
+                            .as("%s checksum of %s", checksumAlgorithm, location)
+                            .isNotNull();
+                }
+            }
+
+            fileSystem.deleteFiles(List.of(singlePartLocation, multipartLocation));
+            assertThat(fileSystem.newInputFile(singlePartLocation).exists()).isFalse();
+            assertThat(fileSystem.newInputFile(multipartLocation).exists()).isFalse();
+        }
+        finally {
+            fileSystemFactory.destroy();
+        }
+    }
+
+    private static byte[] readAllBytes(TrinoFileSystem fileSystem, Location location)
+            throws IOException
+    {
+        try (InputStream inputStream = fileSystem.newInputFile(location).newStream()) {
+            return inputStream.readAllBytes();
+        }
+    }
+
+    private static String storedChecksum(HeadObjectResponse response, S3ChecksumAlgorithm checksumAlgorithm)
+    {
+        return switch (checksumAlgorithm) {
+            case DEFAULT -> throw new IllegalArgumentException("No checksum for DEFAULT algorithm");
+            case CRC32 -> response.checksumCRC32();
+            case CRC32C -> response.checksumCRC32C();
+            case SHA1 -> response.checksumSHA1();
+            case SHA256 -> response.checksumSHA256();
+        };
     }
 }

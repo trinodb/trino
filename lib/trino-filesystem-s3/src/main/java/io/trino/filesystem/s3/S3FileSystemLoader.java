@@ -40,6 +40,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -106,7 +107,8 @@ final class S3FileSystemLoader
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                config.getChecksumAlgorithm());
     }
 
     @Override
@@ -163,6 +165,9 @@ final class S3FileSystemLoader
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
+        S3Configuration serviceConfiguration = S3Configuration.builder()
+                .chunkedEncodingEnabled(config.isChunkedEncodingEnabled())
+                .build();
         S3AuthType authType = config.getAuthType();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
@@ -187,6 +192,7 @@ final class S3FileSystemLoader
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
             s3.addPlugin(LegacyMd5Plugin.create());
+            s3.serviceConfiguration(serviceConfiguration);
             authSchemeProvider.ifPresent(s3::authSchemeProvider);
 
             region.map(Region::of).ifPresent(s3::region);
