@@ -27,6 +27,7 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,10 +46,13 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Test {@link io.trino.sql.query.QueryAssertions}.
  */
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 public class TestQueryAssertions
         extends AbstractTestQueryFramework
 {
