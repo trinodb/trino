@@ -92,13 +92,13 @@ public final class TypeTemplates
 
     /// Lifts a ground type descriptor into a template: every parameter is lifted structurally, with a
     /// numeric parameter becoming a literal numeric argument.
-    public static TypeTemplate fromTypeDescriptor(TypeDescriptor signature)
+    public static TypeTemplate fromTypeDescriptor(TypeDescriptor descriptor)
     {
-        List<TemplateParameter> parameters = new ArrayList<>(signature.getParameters().size());
-        for (TypeParameter parameter : signature.getParameters()) {
+        List<TemplateParameter> parameters = new ArrayList<>(descriptor.getParameters().size());
+        for (TypeParameter parameter : descriptor.getParameters()) {
             parameters.add(fromTypeParameter(parameter));
         }
-        return new TypeApplication(signature.getBase(), parameters);
+        return new TypeApplication(descriptor.getBase(), parameters);
     }
 
     private static TemplateParameter fromTypeParameter(TypeParameter parameter)
