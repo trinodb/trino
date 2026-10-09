@@ -1196,8 +1196,8 @@ public class TestAnnotationEngineForAggregates
 
         ImmutableMap.Builder<TypeDescriptor, Type> typeDependencies = ImmutableMap.builder();
         for (TypeTemplate typeTemplate : dependencyDeclaration.getTypeDependencies()) {
-            TypeDescriptor typeSignature = applyBoundVariables(typeTemplate, functionBinding.variables());
-            typeDependencies.put(typeSignature, PLANNER_CONTEXT.getTypeManager().getType(typeSignature));
+            TypeDescriptor typeDescriptor = applyBoundVariables(typeTemplate, functionBinding.variables());
+            typeDependencies.put(typeDescriptor, PLANNER_CONTEXT.getTypeManager().getType(typeDescriptor));
         }
 
         ImmutableSet.Builder<ResolvedFunction> functionDependencies = ImmutableSet.builder();

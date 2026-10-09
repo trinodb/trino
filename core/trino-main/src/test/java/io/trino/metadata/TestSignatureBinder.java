@@ -1240,10 +1240,10 @@ public class TestSignatureBinder
         assertThat("array(decimal(p,s))", boundVariables, "array(decimal(1,2))");
     }
 
-    private static void assertThat(String typeSignature, VariableBindings typeVariables, String expectedTypeSignature)
+    private static void assertThat(String typeTemplate, VariableBindings typeVariables, String expectedTypeDescriptor)
     {
-        TypeTemplate template = parseTypeTemplate(typeSignature, typeVariables.getTypeVariables().keySet(), ImmutableSet.of("p", "s"));
-        Assertions.assertThat(applyBoundVariables(template, typeVariables).toString()).isEqualTo(expectedTypeSignature);
+        TypeTemplate template = parseTypeTemplate(typeTemplate, typeVariables.getTypeVariables().keySet(), ImmutableSet.of("p", "s"));
+        Assertions.assertThat(applyBoundVariables(template, typeVariables).toString()).isEqualTo(expectedTypeDescriptor);
     }
 
     private static Signature.Builder functionSignature()
@@ -1251,9 +1251,9 @@ public class TestSignatureBinder
         return Signature.builder();
     }
 
-    private Type resolveType(TypeDescriptor signature)
+    private Type resolveType(TypeDescriptor descriptor)
     {
-        return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(signature));
+        return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(descriptor));
     }
 
     private BindSignatureAssertion assertThat(Signature function)
@@ -1287,8 +1287,8 @@ public class TestSignatureBinder
                     builder.add(new TypeDescriptorProvider(type.getTypeDescriptor()));
                     continue;
                 }
-                if (argument instanceof TypeDescriptorProvider typeSignatureProvider) {
-                    builder.add(typeSignatureProvider);
+                if (argument instanceof TypeDescriptorProvider typeDescriptorProvider) {
+                    builder.add(typeDescriptorProvider);
                     continue;
                 }
                 throw new IllegalArgumentException(format("argument is of type %s. It should be Type or TypeDescriptorProvider", argument.getClass()));
