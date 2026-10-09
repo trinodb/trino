@@ -29,6 +29,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
+import io.trino.plugin.base.util.UncheckedCloser;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.spi.QueryId;
@@ -1235,10 +1236,13 @@ public final class MetadataManager
     public void cleanupQuery(Session session)
     {
         QueryCatalogs queryCatalogs = catalogsByQueryId.remove(session.getQueryId());
-        if (queryCatalogs != null) {
-            queryCatalogs.finish();
+        try (var closer = UncheckedCloser.create()) {
+            // A connector failing to clean up must not leak the query's functions for the lifetime of the server
+            closer.register(() -> languageFunctionManager.unregisterQuery(session));
+            if (queryCatalogs != null) {
+                closer.register(queryCatalogs::finish);
+            }
         }
-        languageFunctionManager.unregisterQuery(session);
     }
 
     @Override
@@ -3045,9 +3049,11 @@ public final class MetadataManager
                 catalogs = new ArrayList<>(this.catalogs.values());
             }
 
-            for (CatalogMetadata catalogMetadata : catalogs) {
-                ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
-                catalogMetadata.getMetadata(session).cleanupQuery(connectorSession);
+            try (var closer = UncheckedCloser.create()) {
+                for (CatalogMetadata catalogMetadata : catalogs) {
+                    ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+                    closer.register(() -> catalogMetadata.getMetadata(session).cleanupQuery(connectorSession));
+                }
             }
         }
     }
