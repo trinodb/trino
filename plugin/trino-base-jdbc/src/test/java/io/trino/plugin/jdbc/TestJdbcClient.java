@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -42,7 +43,10 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 @TestInstance(PER_CLASS)
 public class TestJdbcClient
 {

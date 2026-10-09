@@ -16,9 +16,13 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+// H2 does not support concurrent DDL: https://github.com/h2database/h2database/issues/2913#issuecomment-704267549
+@Execution(SAME_THREAD)
 public class TestJdbcCachingConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
