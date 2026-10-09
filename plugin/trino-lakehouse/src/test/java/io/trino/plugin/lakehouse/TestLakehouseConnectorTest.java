@@ -341,7 +341,18 @@ public class TestLakehouseConnectorTest
     @Override
     public void testRenameSchema()
     {
-        assertQueryFails("ALTER SCHEMA tpch RENAME TO tpch_renamed", "Hive metastore does not support renaming schemas");
+        // Use a temporary schema: even a failed attempt to rename the tpch schema breaks concurrent tests using its ORC ACID tables,
+        // as Hive 3 moves the schema's transactional write IDs to the new name despite rejecting the rename
+        String schemaName = "test_rename_schema_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            assertQueryFails(
+                    "ALTER SCHEMA %s RENAME TO %s_renamed".formatted(schemaName, schemaName),
+                    "Hive metastore does not support renaming schemas");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
     }
 
     @Test
