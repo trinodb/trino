@@ -27,7 +27,7 @@ import static java.util.stream.Collectors.joining;
 /// It is the counterpart to the ground [TypeDescriptor]: where a `TypeDescriptor` denotes one
 /// concrete type, a `TypeTemplate` denotes a family parameterized by type and numeric variables.
 /// Binding its variables (see [TypeTemplates#bind]) produces a ground [TypeDescriptor];
-/// [TypeTemplates#fromTypeDescriptor] lifts a variable-free signature back into a template.
+/// [TypeTemplates#fromTypeDescriptor] lifts a variable-free descriptor back into a template.
 public sealed interface TypeTemplate
         permits TypeTemplate.TypeApplication, TypeTemplate.TypeVariable
 {
