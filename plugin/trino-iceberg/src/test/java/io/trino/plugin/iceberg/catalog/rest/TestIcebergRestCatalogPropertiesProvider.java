@@ -17,6 +17,9 @@ import io.trino.plugin.iceberg.TrinoMetricsReporter;
 import io.trino.spi.NodeVersion;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+import java.util.Optional;
+
 import static org.apache.iceberg.CatalogUtil.loadMetricsReporter;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -27,10 +30,35 @@ final class TestIcebergRestCatalogPropertiesProvider
     {
         IcebergRestCatalogPropertiesProvider catalogPropertiesProvider = new IcebergRestCatalogPropertiesProvider(
                 new IcebergRestCatalogConfig().setBaseUri("http://localhost"),
+                Optional.empty(),
                 new NoneSecurityProperties(),
                 new NodeVersion("test"));
 
         assertThat(loadMetricsReporter(catalogPropertiesProvider.catalogProperties()))
                 .isInstanceOf(TrinoMetricsReporter.class);
+    }
+
+    @Test
+    void testAccessDelegationHeader()
+    {
+        assertThat(catalogProperties(false, Optional.empty())).doesNotContainKey("header.X-Iceberg-Access-Delegation");
+        assertThat(catalogProperties(true, Optional.empty())).containsEntry("header.X-Iceberg-Access-Delegation", "vended-credentials");
+
+        Optional<IcebergRestCatalogS3Config> disabled = Optional.of(new IcebergRestCatalogS3Config());
+        assertThat(catalogProperties(false, disabled)).doesNotContainKey("header.X-Iceberg-Access-Delegation");
+        assertThat(catalogProperties(true, disabled)).containsEntry("header.X-Iceberg-Access-Delegation", "vended-credentials");
+
+        Optional<IcebergRestCatalogS3Config> enabled = Optional.of(new IcebergRestCatalogS3Config().setRemoteSigningEnabled(true));
+        assertThat(catalogProperties(false, enabled)).containsEntry("header.X-Iceberg-Access-Delegation", "remote-signing");
+    }
+
+    private static Map<String, String> catalogProperties(boolean vendedCredentialsEnabled, Optional<IcebergRestCatalogS3Config> s3Config)
+    {
+        return new IcebergRestCatalogPropertiesProvider(
+                new IcebergRestCatalogConfig().setBaseUri("http://localhost").setVendedCredentialsEnabled(vendedCredentialsEnabled),
+                s3Config,
+                new NoneSecurityProperties(),
+                new NodeVersion("test"))
+                .catalogProperties();
     }
 }

@@ -75,27 +75,43 @@ final class S3FileSystemLoader
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
     private final Map<Optional<S3SecurityMappingResult>, S3Presigner> preSigners = new ConcurrentHashMap<>();
+    private final Optional<S3RemoteSignerProvider> remoteSignerProvider;
 
     @Inject
-    public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    public S3FileSystemLoader(
+            S3SecurityMappingProvider mappingProvider,
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            S3FileSystemStats stats,
+            Optional<S3RemoteSignerProvider> remoteSignerProvider)
     {
-        this(Optional.of(mappingProvider), openTelemetry, config, stats);
+        this(Optional.of(mappingProvider), openTelemetry, config, stats, remoteSignerProvider);
     }
 
-    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    S3FileSystemLoader(
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            S3FileSystemStats stats,
+            Optional<S3RemoteSignerProvider> remoteSignerProvider)
     {
-        this(Optional.empty(), openTelemetry, config, stats);
+        this(Optional.empty(), openTelemetry, config, stats, remoteSignerProvider);
     }
 
-    private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    private S3FileSystemLoader(
+            Optional<S3SecurityMappingProvider> mappingProvider,
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            S3FileSystemStats stats,
+            Optional<S3RemoteSignerProvider> remoteSignerProvider)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
+        this.remoteSignerProvider = requireNonNull(remoteSignerProvider, "remoteSignerProvider is null");
         this.httpClient = createHttpClient(config);
 
         requireNonNull(stats, "stats is null");
 
         MetricPublisher metricPublisher = stats.newMetricPublisher();
-        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher);
+        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher, this.remoteSignerProvider.isPresent());
         this.config = requireNonNull(config, "config is null");
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
@@ -117,7 +133,9 @@ final class S3FileSystemLoader
 
             S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
             S3Presigner preSigner = preSigners.computeIfAbsent(mapping, _ -> createS3PreSigner(config, client));
-            S3Context context = this.context.withCredentials(identity);
+            S3Context context = this.context.withCredentials(
+                    identity,
+                    remoteSignerProvider.flatMap(provider -> provider.getSigner(identity)));
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
                 checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
@@ -155,7 +173,12 @@ final class S3FileSystemLoader
         return uploadExecutor;
     }
 
-    private static S3ClientFactory s3ClientFactory(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
+    private static S3ClientFactory s3ClientFactory(
+            SdkHttpClient httpClient,
+            OpenTelemetry openTelemetry,
+            S3FileSystemConfig config,
+            MetricPublisher metricPublisher,
+            boolean remoteSigningEnabled)
     {
         ClientOverrideConfiguration overrideConfiguration = createOverrideConfiguration(openTelemetry, config, metricPublisher);
 
@@ -181,6 +204,9 @@ final class S3FileSystemLoader
             String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
 
             S3ClientBuilder s3 = S3Client.builder();
+            if (remoteSigningEnabled) {
+                s3.putAuthScheme(new S3RemoteSigningAuthScheme());
+            }
             s3.overrideConfiguration(overrideConfiguration);
             s3.crossRegionAccessEnabled(config.isCrossRegionAccessEnabled());
             s3.httpClient(httpClient);

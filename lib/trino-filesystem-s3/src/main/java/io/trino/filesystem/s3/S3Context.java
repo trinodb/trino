@@ -17,10 +17,13 @@ import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import io.trino.spi.security.ConnectorIdentity;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
+import software.amazon.awssdk.http.auth.spi.signer.HttpSigner;
+import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
 import java.util.Optional;
@@ -39,7 +42,8 @@ record S3Context(
         S3SseContext s3SseContext,
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
         StorageClassType storageClass,
-        ObjectCannedAcl cannedAcl)
+        ObjectCannedAcl cannedAcl,
+        Optional<HttpSigner<AwsCredentialsIdentity>> remoteSigner)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -48,6 +52,18 @@ record S3Context(
         checkArgument(partSize >= MIN_PART_SIZE, "partSize must be at least %s bytes", MIN_PART_SIZE);
         requireNonNull(s3SseContext, "sseContext is null");
         requireNonNull(credentialsProviderOverride, "credentialsProviderOverride is null");
+        requireNonNull(remoteSigner, "remoteSigner is null");
+    }
+
+    public S3Context(
+            int partSize,
+            boolean requesterPays,
+            S3SseContext s3SseContext,
+            Optional<AwsCredentialsProvider> credentialsProviderOverride,
+            StorageClassType storageClass,
+            ObjectCannedAcl cannedAcl)
+    {
+        this(partSize, requesterPays, s3SseContext, credentialsProviderOverride, storageClass, cannedAcl, Optional.empty());
     }
 
     public RequestPayer requestPayer()
@@ -57,11 +73,21 @@ record S3Context(
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl);
+        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, remoteSigner);
     }
 
-    public S3Context withCredentials(ConnectorIdentity identity)
+    public S3Context withCredentials(ConnectorIdentity identity, Optional<HttpSigner<AwsCredentialsIdentity>> remoteSigner)
     {
+        if (remoteSigner.isPresent()) {
+            return new S3Context(
+                    partSize,
+                    requesterPays,
+                    s3SseContext,
+                    Optional.of(AnonymousCredentialsProvider.create()),
+                    storageClass,
+                    cannedAcl,
+                    remoteSigner);
+        }
         if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY)) {
             AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(AwsSessionCredentials.create(
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY),
@@ -74,7 +100,7 @@ record S3Context(
 
     public S3Context withSseCustomerKey(String key)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl);
+        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, remoteSigner);
     }
 
     public S3Context withCredentialsProviderOverride(AwsCredentialsProvider credentialsProviderOverride)
@@ -85,12 +111,19 @@ record S3Context(
                 s3SseContext,
                 Optional.of(credentialsProviderOverride),
                 storageClass,
-                cannedAcl);
+                cannedAcl,
+                remoteSigner);
     }
 
-    public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
+    public void applyRequestOverrides(AwsRequestOverrideConfiguration.Builder builder)
     {
         credentialsProviderOverride.ifPresent(builder::credentialsProvider);
+        remoteSigner.ifPresent(signer -> S3RemoteSigningAuthScheme.addSignerOverride(builder, signer));
+    }
+
+    public boolean remoteSigningEnabled()
+    {
+        return remoteSigner.isPresent();
     }
 
     record S3SseContext(S3SseType sseType, Optional<String> sseKmsKeyId, Optional<S3SseCustomerKey> sseCustomerKey)

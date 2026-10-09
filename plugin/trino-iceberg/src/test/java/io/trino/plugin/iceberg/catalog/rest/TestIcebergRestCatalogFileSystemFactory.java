@@ -28,6 +28,7 @@ import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
@@ -57,6 +58,98 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergRestCatalogFileSystemFactory
 {
+    @Test
+    void testS3RemoteSigning()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                CatalogProperties.URI, "http://localhost",
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials())
+                .containsEntry(IcebergRestCatalogS3RemoteSignerProvider.EXTRA_CREDENTIALS_PREFIX + CatalogProperties.URI, "http://localhost")
+                .containsEntry(IcebergRestCatalogS3RemoteSignerProvider.EXTRA_CREDENTIALS_PREFIX + S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
+    }
+
+    @Test
+    void testS3RemoteSigningIgnoresStorageCredentials()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                CatalogProperties.URI, "http://localhost",
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true",
+                S3FileIOProperties.ACCESS_KEY_ID, "vended-access-key",
+                S3FileIOProperties.SECRET_ACCESS_KEY, "vended-secret-key",
+                S3FileIOProperties.SESSION_TOKEN, "vended-session-token");
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties)
+                .newInputFile(Location.of("s3://bucket/file"));
+
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsEntry(IcebergRestCatalogS3RemoteSignerProvider.EXTRA_CREDENTIALS_PREFIX + CatalogProperties.URI, "http://localhost")
+                .doesNotContainKeys(
+                        EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY,
+                        EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY,
+                        EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY);
+    }
+
+    @Test
+    void testS3RemoteSigningDisabled()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, false);
+
+        assertThatThrownBy(() -> factory.create(
+                ConnectorIdentity.ofUser("test"),
+                ImmutableMap.of(
+                        CatalogProperties.URI, "http://localhost",
+                        S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true")))
+                .hasMessageContaining("Table requires remote signing");
+        assertThat(capturedIdentity.get()).isNull();
+    }
+
+    @Test
+    void testS3RemoteSigningPropertiesCannotBeProvidedByUser()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        "user-property", "value",
+                        IcebergRestCatalogS3RemoteSignerProvider.EXTRA_CREDENTIALS_PREFIX + CatalogProperties.URI, "http://attacker"))
+                .build();
+
+        factory.create(identity, ImmutableMap.of());
+
+        assertThat(capturedIdentity.get().getExtraCredentials()).containsOnlyKeys("user-property");
+    }
+
     @Test
     void testS3VendedCredentials()
     {
@@ -581,16 +674,28 @@ final class TestIcebergRestCatalogFileSystemFactory
 
     private static IcebergRestCatalogFileSystemFactory createFactory(TrinoFileSystemFactory delegate, boolean vendedCredentialsEnabled)
     {
+        return createFactory(delegate, vendedCredentialsEnabled, false);
+    }
+
+    private static IcebergRestCatalogFileSystemFactory createFactory(
+            TrinoFileSystemFactory delegate,
+            boolean vendedCredentialsEnabled,
+            boolean remoteSigningEnabled)
+    {
         IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
                 .setBaseUri("http://localhost")
                 .setVendedCredentialsEnabled(vendedCredentialsEnabled);
+        Optional<IcebergRestCatalogS3Config> s3Config = Optional.of(new IcebergRestCatalogS3Config()
+                .setRemoteSigningEnabled(remoteSigningEnabled));
         IcebergRestCatalogPropertiesProvider catalogPropertiesProvider = new IcebergRestCatalogPropertiesProvider(
                 config,
+                s3Config,
                 new NoneSecurityProperties(),
                 new NodeVersion("test"));
         return new IcebergRestCatalogFileSystemFactory(
                 delegate,
                 config,
+                s3Config,
                 catalogPropertiesProvider);
     }
 
