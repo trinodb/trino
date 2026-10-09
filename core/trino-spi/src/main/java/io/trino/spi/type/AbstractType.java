@@ -23,13 +23,13 @@ import java.util.List;
 public abstract class AbstractType
         implements Type
 {
-    private final TypeDescriptor signature;
+    private final TypeDescriptor descriptor;
     private final Class<?> javaType;
     private final Class<? extends ValueBlock> valueBlockType;
 
-    protected AbstractType(TypeDescriptor signature, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
+    protected AbstractType(TypeDescriptor descriptor, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        this.signature = signature;
+        this.descriptor = descriptor;
         this.javaType = javaType;
         this.valueBlockType = valueBlockType;
     }
@@ -37,7 +37,7 @@ public abstract class AbstractType
     @Override
     public final TypeDescriptor getTypeDescriptor()
     {
-        return signature;
+        return descriptor;
     }
 
     @Override
@@ -167,6 +167,6 @@ public abstract class AbstractType
     @Override
     public int hashCode()
     {
-        return signature.hashCode();
+        return descriptor.hashCode();
     }
 }
