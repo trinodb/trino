@@ -71,12 +71,13 @@ public final class DeterminismEvaluator
         }
     }
 
-    public static boolean containsCurrentTimeFunctions(Node node)
+    public static boolean containsCurrentTimeFunctions(Expression expression, Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
     {
-        requireNonNull(node, "node is null");
+        requireNonNull(resolvedFunctionSupplier, "resolvedFunctionSupplier is null");
+        requireNonNull(expression, "expression is null");
 
         AtomicBoolean hasTemporalFunction = new AtomicBoolean(false);
-        new DeterminismEvaluator.TemporalFunctionVisitor().process(node, hasTemporalFunction);
+        new DeterminismEvaluator.TemporalFunctionVisitor(resolvedFunctionSupplier).process(expression, hasTemporalFunction);
         return hasTemporalFunction.get();
     }
 
@@ -94,7 +95,7 @@ public final class DeterminismEvaluator
 
     /**
      * Returns whether the function returns the current time. Such functions are deterministic within a query,
-     * and unlike {@code current_timestamp} are function calls, so {@link #containsCurrentTimeFunctions(Node)} does not detect them.
+     * and unlike {@code current_timestamp} are function calls rather than current time AST nodes.
      */
     public static boolean isCurrentTimeFunction(ResolvedFunction function)
     {
@@ -105,6 +106,13 @@ public final class DeterminismEvaluator
     private static class TemporalFunctionVisitor
             extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
+        private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
+
+        public TemporalFunctionVisitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
+        {
+            this.resolvedFunctionSupplier = resolvedFunctionSupplier;
+        }
+
         @Override
         public Void process(Node node, AtomicBoolean currentTime)
         {
@@ -113,6 +121,16 @@ public final class DeterminismEvaluator
                 return null;
             }
             return super.process(node, currentTime);
+        }
+
+        @Override
+        protected Void visitFunctionCall(FunctionCall node, AtomicBoolean currentTime)
+        {
+            if (isCurrentTimeFunction(resolvedFunctionSupplier.apply(node))) {
+                currentTime.set(true);
+                return null;
+            }
+            return super.visitFunctionCall(node, currentTime);
         }
     }
 }
