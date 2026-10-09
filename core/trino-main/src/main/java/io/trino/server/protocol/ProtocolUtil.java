@@ -164,34 +164,34 @@ public final class ProtocolUtil
         };
     }
 
-    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor signature, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
+    private static ClientTypeSignature toClientTypeSignature(TypeDescriptor descriptor, boolean supportsParametricDateTime, boolean supportsNumberType, boolean supportsVariant, boolean supportsVariantBinary, boolean supportsParametricInterval)
     {
-        if (!supportsParametricInterval && (signature.getBase().equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || signature.getBase().equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH))) {
-            return new ClientTypeSignature(toClientBase(signature.getBase()));
+        if (!supportsParametricInterval && (descriptor.getBase().equalsIgnoreCase(INTERVAL_DAY_TO_SECOND) || descriptor.getBase().equalsIgnoreCase(INTERVAL_YEAR_TO_MONTH))) {
+            return new ClientTypeSignature(toClientBase(descriptor.getBase()));
         }
         if (!supportsParametricDateTime) {
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIMESTAMP)) {
                 return new ClientTypeSignature(TIMESTAMP);
             }
-            if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE);
             }
-            if (signature.getBase().equalsIgnoreCase(TIME)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIME)) {
                 return new ClientTypeSignature(TIME);
             }
-            if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            if (descriptor.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(ClientStandardTypes.TIME_WITH_TIME_ZONE);
             }
         }
-        if (!supportsNumberType && signature.getBase().equalsIgnoreCase(NUMBER)) {
+        if (!supportsNumberType && descriptor.getBase().equalsIgnoreCase(NUMBER)) {
             return new ClientTypeSignature(VARCHAR);
         }
-        if (!supportsVariant && !supportsVariantBinary && signature.getBase().equalsIgnoreCase(VARIANT)) {
+        if (!supportsVariant && !supportsVariantBinary && descriptor.getBase().equalsIgnoreCase(VARIANT)) {
             return new ClientTypeSignature(JSON);
         }
 
-        return new ClientTypeSignature(toClientBase(signature.getBase()), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
+        return new ClientTypeSignature(toClientBase(descriptor.getBase()), descriptor.getParameters().stream()
+                .map(parameter -> toClientTypeSignatureParameter(descriptor.getBase(), parameter, supportsParametricDateTime, supportsNumberType, supportsVariant, supportsVariantBinary, supportsParametricInterval))
                 .collect(toImmutableList()));
     }
 
