@@ -36,6 +36,10 @@ support:
   - Enable the HTTP expect-continue handshake for S3 PUT requests. Defaults to
     `true`. Set to `false` for S3-compatible storage systems that reject
     requests using this handshake.
+* - `s3.chunked-encoding-enabled`
+  - Enable [chunked encoding](https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html)
+    for upload requests. Defaults to `true`. Set to `false` for S3-compatible
+    storage systems that do not support `aws-chunked` content encoding.
 * - `s3.storage-class`
   - S3 storage class to use while writing data. Defaults to `STANDARD`. Other allowed
     values are: `STANDARD_IA`, `INTELLIGENT_TIERING`, `REDUCED_REDUNDANCY`, `ONEZONE_IA`,

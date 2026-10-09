@@ -169,6 +169,7 @@ public class S3FileSystemConfig
     private String region;
     private boolean pathStyleAccess;
     private boolean expectContinueEnabled = true;
+    private boolean chunkedEncodingEnabled = true;
     private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
@@ -273,6 +274,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setExpectContinueEnabled(boolean expectContinueEnabled)
     {
         this.expectContinueEnabled = expectContinueEnabled;
+        return this;
+    }
+
+    public boolean isChunkedEncodingEnabled()
+    {
+        return chunkedEncodingEnabled;
+    }
+
+    @Config("s3.chunked-encoding-enabled")
+    @ConfigDescription("Enable chunked encoding for S3 upload requests; disable for S3-compatible storage systems that do not support it")
+    public S3FileSystemConfig setChunkedEncodingEnabled(boolean chunkedEncodingEnabled)
+    {
+        this.chunkedEncodingEnabled = chunkedEncodingEnabled;
         return this;
     }
 

@@ -31,8 +31,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.filesystem.s3.S3FileSystem.DELETE_BATCH_SIZE;
@@ -173,28 +175,50 @@ public class TestS3FileSystemMinIo
     void testChecksumAlgorithm(S3ChecksumAlgorithm checksumAlgorithm)
             throws IOException
     {
+        testWriteAndDelete(createS3FileSystemConfig(), checksumAlgorithm);
+    }
+
+    @ParameterizedTest
+    @EnumSource(S3ChecksumAlgorithm.class)
+    void testChunkedEncodingDisabled(S3ChecksumAlgorithm checksumAlgorithm)
+            throws IOException
+    {
+        testWriteAndDelete(createS3FileSystemConfig().setChunkedEncodingEnabled(false), checksumAlgorithm);
+    }
+
+    private void testWriteAndDelete(S3FileSystemConfig config, S3ChecksumAlgorithm checksumAlgorithm)
+            throws IOException
+    {
         S3FileSystemFactory fileSystemFactory = new S3FileSystemFactory(
                 OpenTelemetry.noop(),
-                createS3FileSystemConfig().setChecksumAlgorithm(checksumAlgorithm),
+                config.setChecksumAlgorithm(checksumAlgorithm),
                 new S3FileSystemStats());
         try (S3Client s3Client = createS3Client()) {
             TrinoFileSystem fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
             Location singlePartLocation = getRootLocation().appendPath("checksum/single-part-" + randomUUID());
             Location multipartLocation = getRootLocation().appendPath("checksum/multipart-" + randomUUID());
 
-            fileSystem.newOutputFile(singlePartLocation).createOrOverwrite("test data".getBytes(UTF_8));
+            byte[] singlePartData = "test data".getBytes(UTF_8);
+            byte[] multipartData = new byte[toIntExact(STREAMING_PART_SIZE.toBytes()) * 2 + 1];
+            Arrays.fill(multipartData, (byte) 42);
+            fileSystem.newOutputFile(singlePartLocation).createOrOverwrite(singlePartData);
             try (OutputStream outputStream = fileSystem.newOutputFile(multipartLocation).create()) {
-                outputStream.write(new byte[toIntExact(STREAMING_PART_SIZE.toBytes()) * 2 + 1]);
+                outputStream.write(multipartData);
             }
 
-            for (Location location : List.of(singlePartLocation, multipartLocation)) {
-                HeadObjectResponse response = s3Client.headObject(request -> request
-                        .bucket(bucket)
-                        .key(new S3Location(location).key())
-                        .checksumMode(ENABLED));
-                assertThat(storedChecksum(response, checksumAlgorithm))
-                        .as("%s checksum of %s", checksumAlgorithm, location)
-                        .isNotNull();
+            assertThat(readAllBytes(fileSystem, singlePartLocation)).isEqualTo(singlePartData);
+            assertThat(readAllBytes(fileSystem, multipartLocation)).isEqualTo(multipartData);
+
+            if (checksumAlgorithm != S3ChecksumAlgorithm.DEFAULT) {
+                for (Location location : List.of(singlePartLocation, multipartLocation)) {
+                    HeadObjectResponse response = s3Client.headObject(request -> request
+                            .bucket(bucket)
+                            .key(new S3Location(location).key())
+                            .checksumMode(ENABLED));
+                    assertThat(storedChecksum(response, checksumAlgorithm))
+                            .as("%s checksum of %s", checksumAlgorithm, location)
+                            .isNotNull();
+                }
             }
 
             fileSystem.deleteFiles(List.of(singlePartLocation, multipartLocation));
@@ -203,6 +227,14 @@ public class TestS3FileSystemMinIo
         }
         finally {
             fileSystemFactory.destroy();
+        }
+    }
+
+    private static byte[] readAllBytes(TrinoFileSystem fileSystem, Location location)
+            throws IOException
+    {
+        try (InputStream inputStream = fileSystem.newInputFile(location).newStream()) {
+            return inputStream.readAllBytes();
         }
     }
 
