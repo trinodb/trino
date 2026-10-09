@@ -37,112 +37,112 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestTypeDescriptor
 {
     @Test
-    public void parseRowSignature()
+    public void parseRowDescriptor()
     {
-        // row signature with named fields
-        assertRowSignature(
+        // row descriptor with named fields
+        assertRowDescriptor(
                 "row(a bigint,b varchar)",
-                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
-        assertRowSignature(
+                rowDescriptor(namedParameter("a", descriptor("bigint")), namedParameter("b", varchar())));
+        assertRowDescriptor(
                 "row(a bigint,b array(bigint),c row(a bigint))",
-                rowSignature(
-                        namedParameter("a", signature("bigint")),
-                        namedParameter("b", array(signature("bigint"))),
-                        namedParameter("c", rowSignature(namedParameter("a", signature("bigint"))))));
-        assertRowSignature(
+                rowDescriptor(
+                        namedParameter("a", descriptor("bigint")),
+                        namedParameter("b", array(descriptor("bigint"))),
+                        namedParameter("c", rowDescriptor(namedParameter("a", descriptor("bigint"))))));
+        assertRowDescriptor(
                 "row(a varchar(10),b row(a bigint))",
-                rowSignature(
+                rowDescriptor(
                         namedParameter("a", varchar(10)),
-                        namedParameter("b", rowSignature(namedParameter("a", signature("bigint"))))));
-        assertRowSignature(
+                        namedParameter("b", rowDescriptor(namedParameter("a", descriptor("bigint"))))));
+        assertRowDescriptor(
                 "array(row(col0 bigint,col1 double))",
-                array(rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))));
-        assertRowSignature(
+                array(rowDescriptor(namedParameter("col0", descriptor("bigint")), namedParameter("col1", descriptor("double")))));
+        assertRowDescriptor(
                 "row(col0 array(row(col0 bigint,col1 double)))",
-                rowSignature(namedParameter("col0", array(
-                        rowSignature(namedParameter("col0", signature("bigint")), namedParameter("col1", signature("double")))))));
+                rowDescriptor(namedParameter("col0", array(
+                        rowDescriptor(namedParameter("col0", descriptor("bigint")), namedParameter("col1", descriptor("double")))))));
 
         // row with mixed fields
-        assertRowSignature(
+        assertRowDescriptor(
                 "row(bigint,varchar)",
-                rowSignature(unnamedParameter(signature("bigint")), unnamedParameter(varchar())));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(descriptor("bigint")), unnamedParameter(varchar())));
+        assertRowDescriptor(
                 "row(bigint,array(bigint),row(a bigint))",
-                rowSignature(
-                        unnamedParameter(signature("bigint")),
-                        unnamedParameter(array(signature("bigint"))),
-                        unnamedParameter(rowSignature(namedParameter("a", signature("bigint"))))));
-        assertRowSignature(
+                rowDescriptor(
+                        unnamedParameter(descriptor("bigint")),
+                        unnamedParameter(array(descriptor("bigint"))),
+                        unnamedParameter(rowDescriptor(namedParameter("a", descriptor("bigint"))))));
+        assertRowDescriptor(
                 "row(varchar(10),b row(bigint))",
-                rowSignature(
+                rowDescriptor(
                         unnamedParameter(varchar(10)),
-                        namedParameter("b", rowSignature(unnamedParameter(signature("bigint"))))));
-        assertRowSignature(
+                        namedParameter("b", rowDescriptor(unnamedParameter(descriptor("bigint"))))));
+        assertRowDescriptor(
                 "array(row(col0 bigint,double))",
-                array(rowSignature(namedParameter("col0", signature("bigint")), unnamedParameter(signature("double")))));
-        assertRowSignature(
+                array(rowDescriptor(namedParameter("col0", descriptor("bigint")), unnamedParameter(descriptor("double")))));
+        assertRowDescriptor(
                 "row(col0 array(row(bigint,double)))",
-                rowSignature(namedParameter("col0", array(
-                        rowSignature(unnamedParameter(signature("bigint")), unnamedParameter(signature("double")))))));
+                rowDescriptor(namedParameter("col0", array(
+                        rowDescriptor(unnamedParameter(descriptor("bigint")), unnamedParameter(descriptor("double")))))));
 
         // named fields of types with spaces
-        assertRowSignature(
+        assertRowDescriptor(
                 "row(time time with time zone)",
-                rowSignature(namedParameter("time", signature(StandardTypes.TIME_WITH_TIME_ZONE))));
-        assertRowSignature(
+                rowDescriptor(namedParameter("time", descriptor(StandardTypes.TIME_WITH_TIME_ZONE))));
+        assertRowDescriptor(
                 "row(time timestamp with time zone)",
-                rowSignature(namedParameter("time", signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
-        assertRowSignature(
+                rowDescriptor(namedParameter("time", descriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
+        assertRowDescriptor(
                 "row(interval interval day to second)",
-                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
-        assertRowSignature(
+                rowDescriptor(namedParameter("interval", interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
+        assertRowDescriptor(
                 "row(interval interval year to month)",
-                rowSignature(namedParameter("interval", interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
-        assertRowSignature(
+                rowDescriptor(namedParameter("interval", interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
+        assertRowDescriptor(
                 "row(double double precision)",
-                rowSignature(namedParameter("double", signature("double"))));
+                rowDescriptor(namedParameter("double", descriptor("double"))));
 
         // unnamed fields of types with spaces
-        assertRowSignature(
+        assertRowDescriptor(
                 "row(time with time zone)",
-                rowSignature(unnamedParameter(signature(StandardTypes.TIME_WITH_TIME_ZONE))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(descriptor(StandardTypes.TIME_WITH_TIME_ZONE))));
+        assertRowDescriptor(
                 "row(timestamp with time zone)",
-                rowSignature(unnamedParameter(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(descriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE))));
+        assertRowDescriptor(
                 "row(interval day to second)",
-                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5))));
+        assertRowDescriptor(
                 "row(interval year to month)",
-                rowSignature(unnamedParameter(interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(interval(StandardTypes.INTERVAL_YEAR_TO_MONTH, 0, 1))));
+        assertRowDescriptor(
                 "row(double precision)",
-                rowSignature(unnamedParameter(signature("double"))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(descriptor("double"))));
+        assertRowDescriptor(
                 "row(array(time with time zone))",
-                rowSignature(unnamedParameter(array(signature(StandardTypes.TIME_WITH_TIME_ZONE)))));
-        assertRowSignature(
+                rowDescriptor(unnamedParameter(array(descriptor(StandardTypes.TIME_WITH_TIME_ZONE)))));
+        assertRowDescriptor(
                 "row(map(timestamp with time zone,interval day to second))",
-                rowSignature(unnamedParameter(map(signature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5)))));
+                rowDescriptor(unnamedParameter(map(descriptor(StandardTypes.TIMESTAMP_WITH_TIME_ZONE), interval(StandardTypes.INTERVAL_DAY_TO_SECOND, 2, 5)))));
 
         // quoted field names
-        assertRowSignature(
+        assertRowDescriptor(
                 "row(\"time with time zone\" time with time zone,\"double\" double)",
-                rowSignature(
-                        namedParameter("time with time zone", signature(StandardTypes.TIME_WITH_TIME_ZONE)),
-                        namedParameter("double", signature("double"))));
+                rowDescriptor(
+                        namedParameter("time with time zone", descriptor(StandardTypes.TIME_WITH_TIME_ZONE)),
+                        namedParameter("double", descriptor("double"))));
 
         // allow spaces
-        assertSignature(
+        assertDescriptor(
                 "row( time  time with time zone, array( interval day to second ) )",
                 "row",
                 ImmutableList.of("\"time\" time with time zone", "array(interval day(2) to second(6))"),
                 "row(\"time\" time with time zone,array(interval day(2) to second(6)))");
 
         // preserve base name case
-        assertRowSignature(
+        assertRowDescriptor(
                 "RoW(a bigint,b varchar)",
-                rowSignature(namedParameter("a", signature("bigint")), namedParameter("b", varchar())));
+                rowDescriptor(namedParameter("a", descriptor("bigint")), namedParameter("b", varchar())));
     }
 
     private TypeDescriptor varchar()
@@ -155,7 +155,7 @@ public class TestTypeDescriptor
         return new TypeDescriptor(StandardTypes.VARCHAR, TypeParameter.numericParameter(length));
     }
 
-    private static TypeDescriptor rowSignature(Field... fields)
+    private static TypeDescriptor rowDescriptor(Field... fields)
     {
         return new TypeDescriptor(
                 "row",
@@ -184,12 +184,12 @@ public class TestTypeDescriptor
         return new TypeDescriptor(StandardTypes.MAP, TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType));
     }
 
-    private TypeDescriptor signature(String name)
+    private TypeDescriptor descriptor(String name)
     {
         return new TypeDescriptor(name);
     }
 
-    // An interval signature is parametric: the parser fills a bare qualifier with the start and end
+    // An interval descriptor is parametric: the parser fills a bare qualifier with the start and end
     // field codes (year=0 .. second=5) and the implicit leading precision of 2. A day-time interval
     // also carries the implicit fractional-seconds precision of 6 in a fourth parameter.
     private static TypeDescriptor interval(String base, long startField, long endField)
@@ -201,48 +201,48 @@ public class TestTypeDescriptor
     }
 
     @Test
-    public void parseSignature()
+    public void parseDescriptor()
     {
-        assertSignature("boolean", "boolean", ImmutableList.of());
+        assertDescriptor("boolean", "boolean", ImmutableList.of());
         // parsing the SQL `varchar` yields the unbounded descriptor, which renders back to the bare `varchar`
         // surface even though the parameter carries the sentinel length
-        assertSignature("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)), "varchar");
+        assertDescriptor("varchar", "varchar", ImmutableList.of(Integer.toString(VarcharType.UNBOUNDED_LENGTH)), "varchar");
 
-        assertSignature("array(bigint)", "array", ImmutableList.of("bigint"));
+        assertDescriptor("array(bigint)", "array", ImmutableList.of("bigint"));
 
-        assertSignature("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
-        assertSignature(
+        assertDescriptor("array(array(bigint))", "array", ImmutableList.of("array(bigint)"));
+        assertDescriptor(
                 "array(timestamp with time zone)",
                 "array",
                 ImmutableList.of("timestamp with time zone"));
 
-        assertSignature(
+        assertDescriptor(
                 "map(bigint,bigint)",
                 "map",
                 ImmutableList.of("bigint", "bigint"));
-        assertSignature(
+        assertDescriptor(
                 "map(bigint,array(bigint))",
                 "map",
                 ImmutableList.of("bigint", "array(bigint)"));
         // a nested unbounded varchar renders back to the bare `varchar` surface
-        assertSignature(
+        assertDescriptor(
                 "map(bigint,map(bigint,map(varchar,bigint)))",
                 "map",
                 ImmutableList.of("bigint", "map(bigint,map(varchar,bigint))"));
 
-        assertSignatureFail("blah()");
-        assertSignatureFail("array()");
-        assertSignatureFail("map()");
+        assertDescriptorFail("blah()");
+        assertDescriptorFail("array()");
+        assertDescriptorFail("map()");
 
         // ensure this is not treated as a row type
-        assertSignature("rowxxx(a)", "rowxxx", ImmutableList.of("a"));
+        assertDescriptor("rowxxx(a)", "rowxxx", ImmutableList.of("a"));
     }
 
     @Test
     public void parseWithLiteralParameters()
     {
-        assertSignature("foo(42)", "foo", ImmutableList.of("42"));
-        assertSignature("varchar(10)", "varchar", ImmutableList.of("10"));
+        assertDescriptor("foo(42)", "foo", ImmutableList.of("42"));
+        assertDescriptor("varchar(10)", "varchar", ImmutableList.of("10"));
     }
 
     @Test
@@ -302,35 +302,35 @@ public class TestTypeDescriptor
         }
     }
 
-    private static void assertRowSignature(
+    private static void assertRowDescriptor(
             String typeName,
-            TypeDescriptor expectedSignature)
+            TypeDescriptor expectedDescriptor)
     {
-        TypeDescriptor signature = parseTypeDescriptor(typeName);
-        assertThat(signature).isEqualTo(expectedSignature);
+        TypeDescriptor descriptor = parseTypeDescriptor(typeName);
+        assertThat(descriptor).isEqualTo(expectedDescriptor);
     }
 
-    private static void assertSignature(String typeName, String base, List<String> parameters)
+    private static void assertDescriptor(String typeName, String base, List<String> parameters)
     {
-        assertSignature(typeName, base, parameters, typeName);
+        assertDescriptor(typeName, base, parameters, typeName);
     }
 
-    private static void assertSignature(
+    private static void assertDescriptor(
             String typeName,
             String base,
             List<String> parameters,
             String expectedTypeName)
     {
-        TypeDescriptor signature = parseTypeDescriptor(typeName);
-        assertThat(signature.getBase()).isEqualTo(base);
-        assertThat(signature.getParameters()).hasSize(parameters.size());
-        for (int i = 0; i < signature.getParameters().size(); i++) {
-            assertThat(TypeSyntax.toSql(signature.getParameters().get(i))).isEqualTo(parameters.get(i));
+        TypeDescriptor descriptor = parseTypeDescriptor(typeName);
+        assertThat(descriptor.getBase()).isEqualTo(base);
+        assertThat(descriptor.getParameters()).hasSize(parameters.size());
+        for (int i = 0; i < descriptor.getParameters().size(); i++) {
+            assertThat(TypeSyntax.toSql(descriptor.getParameters().get(i))).isEqualTo(parameters.get(i));
         }
-        assertThat(TypeSyntax.toSql(signature)).isEqualTo(expectedTypeName);
+        assertThat(TypeSyntax.toSql(descriptor)).isEqualTo(expectedTypeName);
     }
 
-    private void assertSignatureFail(String typeName)
+    private void assertDescriptorFail(String typeName)
     {
         assertThatThrownBy(() -> parseTypeDescriptor(typeName))
                 .isInstanceOf(ParsingException.class)
