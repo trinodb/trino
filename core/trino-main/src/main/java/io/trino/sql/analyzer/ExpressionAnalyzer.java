@@ -2349,13 +2349,13 @@ public class ExpressionAnalyzer
             if (receiver.getParts().size() != 1 || !plannerContext.getTypeManager().isTypeRegistered(receiver.getSuffix())) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", receiver);
             }
-            TypeDescriptor receiverSignature = new TypeDescriptor(receiver.getSuffix());
+            TypeDescriptor receiverDescriptor = new TypeDescriptor(receiver.getSuffix());
             String methodName = node.getMethod().getValue();
 
             List<CallArgument> arguments = node.getArguments();
             List<Integer> binding;
             if (node.hasNamedArguments()) {
-                List<FunctionMetadata> candidates = findStaticMethodCandidates(methodName, receiverSignature.getBase());
+                List<FunctionMetadata> candidates = findStaticMethodCandidates(methodName, receiverDescriptor.getBase());
                 // With no static method of this name on the receiver type, bind positionally so
                 // resolution reports method-not-found rather than a misleading "No argument named ...".
                 binding = candidates.isEmpty()
@@ -2373,7 +2373,7 @@ public class ExpressionAnalyzer
             try {
                 function = functionResolver.resolveStaticMethod(
                         session,
-                        receiverSignature,
+                        receiverDescriptor,
                         QualifiedName.of(methodName),
                         argumentTypes,
                         accessControl);
