@@ -69,6 +69,7 @@ public final class TrinoProductTestContainer
 {
     private static final String DEFAULT_IMAGE = "trinodb/trino";
     private static final DataSize MEMORY_LIMIT = DataSize.of(6, GIGABYTE);
+    private static final long CPU_LIMIT = 4;
 
     private TrinoProductTestContainer() {}
 
@@ -78,13 +79,17 @@ public final class TrinoProductTestContainer
      * heap from the whole host's memory, and together they overcommit it. The provided
      * {@code jvm.config} sets the heap explicitly instead, leaving room for off-heap memory within
      * the container's limit. An environment can copy its own {@code jvm.config} afterwards.
+     * <p>
+     * Off-heap memory grows with the number of CPUs, as Trino and the JVM size their thread pools
+     * from it. Limiting CPUs keeps the memory use independent of the host.
      */
     public static <T extends GenericContainer<?>> T withResourceLimits(T container)
     {
         container.withCopyFileToContainer(MountableFile.forClasspathResource("io/trino/testing/containers/jvm.config"), "/etc/trino/jvm.config");
         container.withCreateContainerCmdModifier(command -> command.getHostConfig()
                 .withMemory(MEMORY_LIMIT.toBytes())
-                .withMemorySwap(MEMORY_LIMIT.toBytes()));
+                .withMemorySwap(MEMORY_LIMIT.toBytes())
+                .withNanoCPUs(CPU_LIMIT * 1_000_000_000));
         return container;
     }
 
