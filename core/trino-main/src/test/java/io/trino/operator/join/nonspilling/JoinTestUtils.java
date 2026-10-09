@@ -53,6 +53,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.OperatorFactories.join;
@@ -149,6 +150,7 @@ public final class JoinTestUtils
                 hashChannels,
                 hashChannelTypes,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
+                newSimpleAggregatedMemoryContext(),
                 HASH_COMPILER,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
                 () -> 0L);

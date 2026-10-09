@@ -19,12 +19,14 @@ import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.jmh.Benchmarks;
 import io.trino.operator.NullSafeHashCompiler;
+import io.trino.operator.TaskContext;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.testing.TestingTaskContext;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -43,10 +45,12 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -54,6 +58,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -143,12 +148,18 @@ public class BenchmarkLocalExchange
             throw new UnsupportedOperationException();
         });
         private ExecutorService executor;
+        private ScheduledExecutorService scheduledExecutor;
+        private TaskContext taskContext;
         private List<Page> pages;
 
         @Setup
         public void setup()
         {
             executor = newCachedThreadPool(daemonThreadsNamed(BenchmarkLocalExchange.class.getSimpleName() + "-%s"));
+            scheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed(BenchmarkLocalExchange.class.getSimpleName() + "-scheduler-%s"));
+            taskContext = TestingTaskContext.builder(executor, scheduledExecutor, SESSION)
+                    .setMemoryPoolSize(DataSize.of(1, GIGABYTE))
+                    .build();
             pages = range(0, POSITIONS_PER_WRITER / positionsPerPage)
                     .mapToObj(page -> SequencePageBuilder.createSequencePage(TYPES, positionsPerPage, page * positionsPerPage))
                     .collect(toImmutableList());
@@ -158,6 +169,7 @@ public class BenchmarkLocalExchange
         public void tearDown()
         {
             executor.shutdownNow();
+            scheduledExecutor.shutdownNow();
         }
 
         private LocalExchange createLocalExchange()
@@ -178,6 +190,7 @@ public class BenchmarkLocalExchange
                     partitionChannels,
                     partitionChannelTypes,
                     MAX_BUFFERED_BYTES,
+                    taskContext.aggregateUserMemoryContext(),
                     HASH_COMPILER,
                     WRITER_SCALING_MIN_DATA_PROCESSED,
                     () -> 0L);
