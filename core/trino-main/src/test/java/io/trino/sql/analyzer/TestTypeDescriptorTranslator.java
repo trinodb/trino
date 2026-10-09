@@ -146,7 +146,7 @@ public class TestTypeDescriptorTranslator
         // Regression test for a cache poisoning bug where DATA_TYPE_CACHE was keyed by the lowercased signature
         // while storing the DataType parsed from the original-cased signature. The first case-variant of a row
         // signature would then win for every later lookup, returning field names with the wrong casing.
-        // Downstream, NamedTypeSignature.equals is case-sensitive on field names, so function dependency
+        // Downstream, TypeParameter.Type.equals is case-sensitive on field names, so function dependency
         // resolution would miss and throw UndeclaredDependencyException at filter compile time.
         TypeDescriptor camelCaseFirst = parseTypeDescriptor("row(\"memberId\" integer, \"viewerUrn\" varchar)");
         TypeDescriptor lowerCaseAfter = parseTypeDescriptor("row(\"memberid\" integer, \"viewerurn\" varchar)");
