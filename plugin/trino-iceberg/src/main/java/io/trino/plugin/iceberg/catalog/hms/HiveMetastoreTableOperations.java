@@ -20,7 +20,6 @@ import io.trino.metastore.AcidTransactionOwner;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.iceberg.encryption.EncryptionManagerFactory;
 import io.trino.spi.connector.ConnectorSession;
@@ -35,7 +34,9 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -129,8 +130,9 @@ public class HiveMetastoreTableOperations
             // Passing environment context causes redundant operations if Hive locking is enabled
             Map<String, String> environmentContext = lockingEnabled ? ImmutableMap.of() : environmentContext(metadataLocation);
 
-            // todo privileges should not be replaced for an alter
-            PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
+            PrincipalPrivileges privileges = fromHivePrivilegeInfos(metastore.listTablePrivileges(table.getDatabaseName(), table.getTableName(), table.getOwner(), Optional.empty()).stream()
+                    .filter(privilege -> privilege.getHivePrivilege() != OWNERSHIP)
+                    .collect(toImmutableSet()));
             try {
                 metastore.replaceTable(table.getDatabaseName(), table.getTableName(), updatedTable, privileges, environmentContext);
             }
