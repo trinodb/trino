@@ -48,7 +48,10 @@ public final class S3FileSystemFactory
     @PreDestroy
     public void destroy()
     {
-        try (client) {
+        try (S3Presigner ignoredPreSigner = preSigner; S3Client ignoredClient = client) {
+            // Resources automatically closed
+        }
+        finally {
             loader.destroy();
         }
     }
