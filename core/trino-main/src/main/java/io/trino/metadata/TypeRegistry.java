@@ -179,12 +179,12 @@ public final class TypeRegistry
         verifyTypes();
     }
 
-    public Type getType(TypeDescriptor signature)
+    public Type getType(TypeDescriptor descriptor)
     {
-        Type type = types.get(signature);
+        Type type = types.get(descriptor);
         if (type == null) {
             try {
-                return uncheckedCacheGet(parametricTypeCache, signature, () -> instantiateParametricType(signature));
+                return uncheckedCacheGet(parametricTypeCache, descriptor, () -> instantiateParametricType(descriptor));
             }
             catch (UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
@@ -226,23 +226,23 @@ public final class TypeRegistry
         }
     }
 
-    private Type instantiateParametricType(TypeDescriptor signature)
+    private Type instantiateParametricType(TypeDescriptor descriptor)
     {
-        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        ParametricType parametricType = parametricTypes.get(descriptor.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature.toString());
+            throw new TypeNotFoundException(descriptor.toString());
         }
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
+            instantiatedType = parametricType.createType(typeManager, descriptor.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature.toString(), e);
+            throw new TypeNotFoundException(descriptor.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        // checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        // checkState(instantiatedType.equalsSignature(descriptor), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, descriptor);
         return instantiatedType;
     }
 
@@ -457,9 +457,9 @@ public final class TypeRegistry
         }
 
         @Override
-        public Type getType(TypeDescriptor signature)
+        public Type getType(TypeDescriptor descriptor)
         {
-            return typeRegistry.getType(signature);
+            return typeRegistry.getType(descriptor);
         }
 
         @Override

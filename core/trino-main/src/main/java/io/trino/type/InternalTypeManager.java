@@ -35,9 +35,9 @@ public final class InternalTypeManager
     }
 
     @Override
-    public Type getType(TypeDescriptor signature)
+    public Type getType(TypeDescriptor descriptor)
     {
-        return typeRegistry.getType(signature);
+        return typeRegistry.getType(descriptor);
     }
 
     @Override
