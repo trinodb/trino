@@ -83,7 +83,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.unique-table-location", "false")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
-                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1beta/restcatalog")
+                .addIcebergProperty("iceberg.rest-catalog.uri", "https://biglake.googleapis.com/iceberg/v1/restcatalog")
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "gs://" + GCP_STORAGE_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.security", "GOOGLE")
                 .addIcebergProperty("iceberg.rest-catalog.google-project-id", projectId)
