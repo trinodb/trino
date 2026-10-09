@@ -106,7 +106,8 @@ final class S3FileSystemLoader
                         config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getStorageClass(),
-                config.getCannedAcl());
+                config.getCannedAcl(),
+                config.getChecksumAlgorithm());
     }
 
     @Override
