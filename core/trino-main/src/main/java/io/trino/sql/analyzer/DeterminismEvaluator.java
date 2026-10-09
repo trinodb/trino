@@ -81,6 +81,18 @@ public final class DeterminismEvaluator
     }
 
     /**
+     * Returns whether the node is a current time AST node, such as {@code current_timestamp}.
+     */
+    public static boolean isCurrentTimeExpression(Node node)
+    {
+        return node instanceof CurrentDate
+                || node instanceof CurrentTime
+                || node instanceof CurrentTimestamp
+                || node instanceof LocalTime
+                || node instanceof LocalTimestamp;
+    }
+
+    /**
      * Returns whether the function returns the current time. Such functions are deterministic within a query,
      * and unlike {@code current_timestamp} are function calls, so {@link #containsCurrentTimeFunctions(Node)} does not detect them.
      */
@@ -94,38 +106,13 @@ public final class DeterminismEvaluator
             extends DefaultExpressionTraversalVisitor<AtomicBoolean>
     {
         @Override
-        protected Void visitCurrentDate(CurrentDate node, AtomicBoolean currentTime)
+        public Void process(Node node, AtomicBoolean currentTime)
         {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitCurrentTimestamp(CurrentTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTime(LocalTime node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
-        }
-
-        @Override
-        protected Void visitLocalTimestamp(LocalTimestamp node, AtomicBoolean currentTime)
-        {
-            currentTime.set(true);
-            return null;
+            if (isCurrentTimeExpression(node)) {
+                currentTime.set(true);
+                return null;
+            }
+            return super.process(node, currentTime);
         }
     }
 }

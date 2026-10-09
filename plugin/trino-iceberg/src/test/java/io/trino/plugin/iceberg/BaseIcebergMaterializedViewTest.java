@@ -1670,6 +1670,71 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewWithCurrentTimeFunctionInNestedViewOrSubquery()
+    {
+        String sourceTableName = "source_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " (value INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES 1", 1);
+
+        // Test with current_timestamp in a view used by another view, as views are not part of the materialized view query
+        String innerViewWithCurrentTimestamp = "inner_view_with_current_timestamp_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + innerViewWithCurrentTimestamp + " AS SELECT *, current_timestamp AS ts FROM " + sourceTableName);
+        String outerViewWithCurrentTimestamp = "outer_view_with_current_timestamp_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + outerViewWithCurrentTimestamp + " AS SELECT * FROM " + innerViewWithCurrentTimestamp);
+        String mvOnViewsWithCurrentTimestamp = "mv_on_views_with_current_timestamp_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp + " AS SELECT * FROM " + outerViewWithCurrentTimestamp);
+
+        assertFreshness(mvOnViewsWithCurrentTimestamp, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp, 1);
+        assertFreshness(mvOnViewsWithCurrentTimestamp, "UNKNOWN");
+
+        // Test with now() in a view used by another view
+        String innerViewWithNow = "inner_view_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + innerViewWithNow + " AS SELECT *, now() AS ts FROM " + sourceTableName);
+        String outerViewWithNow = "outer_view_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + outerViewWithNow + " AS SELECT * FROM " + innerViewWithNow);
+        String mvOnViewsWithNow = "mv_on_views_with_now_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvOnViewsWithNow + " AS SELECT * FROM " + outerViewWithNow);
+
+        assertFreshness(mvOnViewsWithNow, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnViewsWithNow, 1);
+        assertFreshness(mvOnViewsWithNow, "UNKNOWN");
+
+        // Test with current_timestamp in a subquery, which the traversal of the materialized view query does not descend into
+        String mvWithSubquery = "mv_with_current_timestamp_in_subquery_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvWithSubquery + " AS SELECT * FROM " + sourceTableName
+                + " WHERE value IN (SELECT value FROM " + sourceTableName + " WHERE current_timestamp > TIMESTAMP '2000-01-01 00:00:00.000 UTC')");
+
+        assertFreshness(mvWithSubquery, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvWithSubquery, 1);
+        assertFreshness(mvWithSubquery, "UNKNOWN");
+
+        // Verify that a materialized view on deterministic nested views is still FRESH after refresh
+        String innerDeterministicView = "inner_deterministic_view_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + innerDeterministicView + " AS SELECT * FROM " + sourceTableName);
+        String outerDeterministicView = "outer_deterministic_view_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW " + outerDeterministicView + " AS SELECT * FROM " + innerDeterministicView);
+        String mvOnDeterministicViews = "mv_on_deterministic_views_" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + mvOnDeterministicViews + " AS SELECT * FROM " + outerDeterministicView);
+
+        assertFreshness(mvOnDeterministicViews, "STALE");
+        assertUpdate("REFRESH MATERIALIZED VIEW " + mvOnDeterministicViews, 1);
+        assertFreshness(mvOnDeterministicViews, "FRESH");
+
+        assertUpdate("DROP MATERIALIZED VIEW " + mvOnViewsWithCurrentTimestamp);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvOnViewsWithNow);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvWithSubquery);
+        assertUpdate("DROP MATERIALIZED VIEW " + mvOnDeterministicViews);
+        assertUpdate("DROP VIEW " + outerViewWithCurrentTimestamp);
+        assertUpdate("DROP VIEW " + innerViewWithCurrentTimestamp);
+        assertUpdate("DROP VIEW " + outerViewWithNow);
+        assertUpdate("DROP VIEW " + innerViewWithNow);
+        assertUpdate("DROP VIEW " + outerDeterministicView);
+        assertUpdate("DROP VIEW " + innerDeterministicView);
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
     public void testMaterializedViewWithSessionScopedExpressions()
     {
         String sourceTableName = "source_table_" + randomNameSuffix();
@@ -1907,10 +1972,17 @@ public abstract class BaseIcebergMaterializedViewTest
         String mvWithNow = materializedViewName + "_now";
         assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b, now() AS ts FROM %s WHERE a < 3 OR a > 5".formatted(mvWithNow, sourceTableName));
 
+        // non-deterministic function in WHERE of a view used by the materialized view
+        String viewName = "test_view_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW %s AS SELECT a, b FROM %s WHERE (a < 3 OR a > 5) AND current_timestamp > timestamp '2000-01-01'".formatted(viewName, sourceTableName));
+        String mvOnView = materializedViewName + "_view";
+        assertUpdate("CREATE MATERIALIZED VIEW %s AS SELECT a, b FROM %s".formatted(mvOnView, viewName));
+
         // first refresh is always full, should contain 2 rows
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 2);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 2);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvWithNow), 2);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvOnView), 2);
 
         // add new rows to source
         assertUpdate("INSERT INTO %s VALUES (3, 'ghi'), (4, 'jkl'), (5, 'mno'), (6, 'pqr')".formatted(sourceTableName), 4);
@@ -1921,14 +1993,18 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInSelect), 3);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvInWhere), 3);
         assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvWithNow), 3);
+        assertUpdate("REFRESH MATERIALIZED VIEW %s".formatted(mvOnView), 3);
         assertThat(query("SELECT a, b FROM %s".formatted(mvInSelect))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
         assertThat(query("SELECT a, b FROM %s".formatted(mvInWhere))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
         assertThat(query("SELECT a, b FROM %s".formatted(mvWithNow))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
+        assertThat(query("SELECT a, b FROM %s".formatted(mvOnView))).matches("VALUES (1, VARCHAR 'abc'), (2, VARCHAR 'def'), (6, VARCHAR 'pqr')");
 
         // cleanup
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInSelect));
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvInWhere));
         assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvWithNow));
+        assertUpdate("DROP MATERIALIZED VIEW %s".formatted(mvOnView));
+        assertUpdate("DROP VIEW %s".formatted(viewName));
         assertUpdate("DROP TABLE %s".formatted(sourceTableName));
     }
 
