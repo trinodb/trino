@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 /**
@@ -99,7 +100,7 @@ public class PostgresqlSecretsProviderEnvironment
 
     private GenericContainer<?> createTrinoContainer(String alias, String fullyQualifiedName, String configProperties)
     {
-        GenericContainer<?> container = new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage()))
+        GenericContainer<?> container = withResourceLimits(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases(alias, fullyQualifiedName)
                 .withCreateContainerCmdModifier(command -> command.withHostName(alias))

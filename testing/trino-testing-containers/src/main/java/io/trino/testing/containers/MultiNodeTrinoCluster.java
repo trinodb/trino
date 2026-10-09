@@ -34,6 +34,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -392,7 +393,7 @@ public class MultiNodeTrinoCluster
             }
 
             // Build coordinator
-            TrinoContainer coordinator = new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino"));
+            TrinoContainer coordinator = withResourceLimits(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
             coordinator.withNetwork(network);
             coordinator.withNetworkAliases(COORDINATOR_ALIAS);
 
@@ -443,7 +444,7 @@ public class MultiNodeTrinoCluster
             String discoveryUri = "http://" + COORDINATOR_ALIAS + ":8080";
 
             for (int i = 0; i < workerCount; i++) {
-                TrinoWorkerContainer worker = new TrinoWorkerContainer(imageName);
+                TrinoWorkerContainer worker = withResourceLimits(new TrinoWorkerContainer(imageName));
                 worker.withNetwork(network);
                 worker.withNetworkAliases("trino-worker-" + i);
                 worker.withDiscoveryUri(discoveryUri);

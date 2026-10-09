@@ -13,11 +13,14 @@
  */
 package io.trino.testing.containers;
 
+import io.airlift.units.DataSize;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -29,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -64,8 +68,25 @@ import static java.util.Objects.requireNonNull;
 public final class TrinoProductTestContainer
 {
     private static final String DEFAULT_IMAGE = "trinodb/trino";
+    private static final DataSize MEMORY_LIMIT = DataSize.of(6, GIGABYTE);
 
     private TrinoProductTestContainer() {}
+
+    /**
+     * Limits the resources of a container running the Trino image. The image sizes the JVM heap
+     * as a percentage of the available memory, so without a limit every Trino container sizes its
+     * heap from the whole host's memory, and together they overcommit it. The provided
+     * {@code jvm.config} sets the heap explicitly instead, leaving room for off-heap memory within
+     * the container's limit. An environment can copy its own {@code jvm.config} afterwards.
+     */
+    public static <T extends GenericContainer<?>> T withResourceLimits(T container)
+    {
+        container.withCopyFileToContainer(MountableFile.forClasspathResource("io/trino/testing/containers/jvm.config"), "/etc/trino/jvm.config");
+        container.withCreateContainerCmdModifier(command -> command.getHostConfig()
+                .withMemory(MEMORY_LIMIT.toBytes())
+                .withMemorySwap(MEMORY_LIMIT.toBytes()));
+        return container;
+    }
 
     /**
      * Creates a JDBC connection to the given Trino container using the default user "hive".
@@ -269,7 +290,7 @@ public final class TrinoProductTestContainer
          */
         public TrinoContainer build()
         {
-            TrinoContainer container = new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino"));
+            TrinoContainer container = withResourceLimits(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
 
             // Legacy product tests always ran Trino with Asia/Kathmandu timezone.
             // Keep that behavior for JUnit parity.
