@@ -129,11 +129,11 @@ class TestTypeTemplate
     void testLiftRoundTrip()
     {
         // array(decimal(10, 2)) lifts to a variable-free template and binds back to itself
-        TypeDescriptor signature = new TypeDescriptor("array", List.of(typeParameter(
+        TypeDescriptor descriptor = new TypeDescriptor("array", List.of(typeParameter(
                 new TypeDescriptor("decimal", List.of(numericParameter(10), numericParameter(2))))));
 
-        TypeTemplate template = TypeTemplates.fromTypeDescriptor(signature);
-        assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(signature);
+        TypeTemplate template = TypeTemplates.fromTypeDescriptor(descriptor);
+        assertThat(TypeTemplates.bind(template, Map.of(), Map.of())).isEqualTo(descriptor);
     }
 
     @Test
