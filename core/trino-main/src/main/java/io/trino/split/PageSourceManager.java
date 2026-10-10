@@ -97,7 +97,7 @@ public class PageSourceManager
             }
             return pageSourceProvider.createPageSource(
                     table.transaction(),
-                    session.toConnectorSession(table.catalogHandle()),
+                    session.toTableConnectorSession(table),
                     split.getConnectorSplit(),
                     table.connectorHandle(),
                     tableCredentials,

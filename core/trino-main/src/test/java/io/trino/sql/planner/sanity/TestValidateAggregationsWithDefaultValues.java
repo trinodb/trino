@@ -41,6 +41,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -61,7 +62,8 @@ public class TestValidateAggregationsWithDefaultValues
         TableHandle nationTableHandle = new TableHandle(
                 catalogHandle,
                 new TpchTableHandle("sf1", "nation", 1.0),
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol(UNKNOWN, "nationkey");
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));

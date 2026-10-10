@@ -13,22 +13,50 @@
  */
 package io.trino.split;
 
+import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableHandle.ResolvingIdentity;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Identity;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSplit.createLocalSplit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPageSourceManager
 {
+    private static final Identity CALLER = Identity.forUser("caller")
+            .withGroups(Set.of("callers"))
+            .withExtraCredentials(Map.of("caller_credential", "value"))
+            .build();
+
     @Test
     public void testSharedMemoryReleasedWithLastReference()
     {
@@ -61,6 +89,30 @@ public class TestPageSourceManager
                 .hasMessage("Reference has already been freed");
     }
 
+    @Test
+    public void testTableResolvingIdentity()
+    {
+        ConnectorIdentity owner = ConnectorIdentity.forUser("view_owner")
+                .withGroups(Set.of("owners"))
+                .build();
+        ConnectorIdentity actual = pageSourceIdentity(ResolvingIdentity.from(owner));
+
+        assertThat(actual.getUser()).isEqualTo(owner.getUser());
+        assertThat(actual.getGroups()).isEqualTo(owner.getGroups());
+        // extra credentials belong to the session identity only
+        assertThat(actual.getExtraCredentials()).isEmpty();
+    }
+
+    @Test
+    public void testTableResolvedAsSessionIdentity()
+    {
+        ConnectorIdentity actual = pageSourceIdentity(ResolvingIdentity.from(CALLER.toConnectorIdentity(TEST_CATALOG_NAME)));
+
+        assertThat(actual.getUser()).isEqualTo(CALLER.getUser());
+        assertThat(actual.getGroups()).isEqualTo(CALLER.getGroups());
+        assertThat(actual.getExtraCredentials()).isEqualTo(CALLER.getExtraCredentials());
+    }
+
     private static PageSourceProvider createPageSourceProvider(AtomicReference<MemoryContext> sharedMemoryContext, AggregatedMemoryContext scanMemoryContext)
     {
         ConnectorPageSourceProviderFactory factory = memoryContext -> {
@@ -69,5 +121,39 @@ public class TestPageSourceManager
         };
         return new PageSourceManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, factory))
                 .createPageSourceProvider(TEST_CATALOG_HANDLE, scanMemoryContext);
+    }
+
+    private static ConnectorIdentity pageSourceIdentity(ResolvingIdentity resolvingIdentity)
+    {
+        Session session = testSessionBuilder().setIdentity(CALLER).build();
+        TableHandle table = new TableHandle(TEST_CATALOG_HANDLE, TEST_TABLE_HANDLE.connectorHandle(), TEST_TABLE_HANDLE.transaction(), resolvingIdentity);
+        RecordingPageSourceProvider connector = new RecordingPageSourceProvider();
+        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, _ -> connector));
+
+        pageSourceManager.createPageSourceProvider(TEST_CATALOG_HANDLE, newSimpleAggregatedMemoryContext())
+                .createPageSource(session, new Split(TEST_CATALOG_HANDLE, createLocalSplit()), table, Optional.empty(), List.of(), DynamicFilter.EMPTY, MemoryContext.NO_LIMIT);
+
+        assertThat(connector.session.getQueryId()).isEqualTo(session.getQueryId().toString());
+        return connector.session.getIdentity();
+    }
+
+    private static class RecordingPageSourceProvider
+            implements ConnectorPageSourceProvider
+    {
+        private ConnectorSession session;
+
+        @Override
+        public ConnectorPageSource createPageSource(
+                ConnectorTransactionHandle transaction,
+                ConnectorSession session,
+                ConnectorSplit split,
+                ConnectorTableHandle table,
+                Optional<ConnectorTableCredentials> tableCredentials,
+                List<ColumnHandle> columns,
+                DynamicFilter dynamicFilter)
+        {
+            this.session = session;
+            return new EmptyPageSource();
+        }
     }
 }

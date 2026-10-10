@@ -86,6 +86,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -129,13 +130,15 @@ public class TestPushPredicateIntoTableScan
         nationTableHandle = new TableHandle(
                 catalogHandle,
                 nation,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogHandle,
                 orders,
-                TpchTransactionHandle.INSTANCE);
+                TpchTransactionHandle.INSTANCE,
+                TEST_RESOLVING_IDENTITY);
     }
 
     @Test
@@ -541,6 +544,7 @@ public class TestPushPredicateIntoTableScan
         return new TableHandle(
                 mockCatalogHandle,
                 connectorTableHandle,
-                TestingTransactionHandle.create());
+                TestingTransactionHandle.create(),
+                TEST_RESOLVING_IDENTITY);
     }
 }

@@ -89,6 +89,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.types.Types.NestedField.optional;
@@ -188,7 +189,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             ImmutableSet.of(),
                             Optional.of(false)),
-                    transaction);
+                    transaction,
+                    TEST_RESOLVING_IDENTITY);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
                     ImmutableMap.of(
@@ -249,7 +251,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             ImmutableSet.of(),
                             Optional.of(false)),
-                    transaction);
+                    transaction,
+                    TEST_RESOLVING_IDENTITY);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
                 assertThat(emptyPageSource.getNextSourcePage()).isNull();
@@ -362,7 +365,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             ImmutableSet.of(),
                             Optional.of(false)),
-                    transaction);
+                    transaction,
+                    TEST_RESOLVING_IDENTITY);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
             // the amount of data to be processed from the current table
@@ -520,7 +524,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             ImmutableSet.of(),
                             Optional.of(false)),
-                    transaction);
+                    transaction,
+                    TEST_RESOLVING_IDENTITY);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
             // the amount of data to be processed from the current table

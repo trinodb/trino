@@ -26,12 +26,14 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.session.ResourceEstimates;
@@ -443,6 +445,40 @@ public final class Session
         return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
     }
 
+    public Session withIdentity(Identity identity)
+    {
+        return new Session(
+                queryId,
+                querySpan,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                originalIdentity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                defaultedSystemProperties,
+                catalogProperties,
+                defaultedCatalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                exchangeEncryptionKey,
+                queryDataEncoding);
+    }
+
     public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
     {
         return withProperties(systemProperties, defaultedSystemProperties, catalogProperties, defaultedCatalogProperties);
@@ -562,12 +598,29 @@ public final class Session
 
     public ConnectorSession toConnectorSession(CatalogHandle catalogHandle)
     {
+        return toConnectorSession(catalogHandle, identity.toConnectorIdentity(catalogHandle.getCatalogName().toString()));
+    }
+
+    /**
+     * Creates a connector session for the identity the table was resolved as, for example the owner of a SECURITY DEFINER view.
+     * A table resolved as the session identity uses that identity, including the extra credentials a table handle does not carry.
+     */
+    public ConnectorSession toTableConnectorSession(TableHandle tableHandle)
+    {
+        if (tableHandle.isResolvedAs(identity)) {
+            return toConnectorSession(tableHandle.catalogHandle());
+        }
+        return toConnectorSession(tableHandle.catalogHandle(), tableHandle.resolvingIdentity().toConnectorIdentity());
+    }
+
+    private ConnectorSession toConnectorSession(CatalogHandle catalogHandle, ConnectorIdentity identity)
+    {
         requireNonNull(catalogHandle, "catalogHandle is null");
 
         String catalogName = catalogHandle.getCatalogName().toString();
         return new FullConnectorSession(
                 this,
-                identity.toConnectorIdentity(catalogName),
+                identity,
                 catalogProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogHandle,
                 catalogName,
