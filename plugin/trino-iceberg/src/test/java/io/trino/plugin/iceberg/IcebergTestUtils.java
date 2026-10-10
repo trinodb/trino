@@ -23,6 +23,8 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcPredicate;
@@ -52,6 +54,7 @@ import io.trino.plugin.iceberg.encryption.IcebergEncryptionConfig;
 import io.trino.plugin.iceberg.encryption.PlaintextEncryptionManagerFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.spi.BlocksHashFactory;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.catalog.CatalogName;
@@ -61,6 +64,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
@@ -117,6 +121,8 @@ public final class IcebergTestUtils
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
 
     public static final EncryptionManagerFactory ENCRYPTION_MANAGER_FACTORY = new PlaintextEncryptionManagerFactory();
+
+    public static final BlocksHashFactory BLOCKS_HASH_FACTORY = new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory();
 
     private IcebergTestUtils() {}
 
