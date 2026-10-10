@@ -401,11 +401,14 @@ public abstract class BaseIcebergConnectorTest
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
-                .matches("CREATE SCHEMA iceberg.tpch\n" +
-                        "AUTHORIZATION USER user\n" +
-                        "WITH \\(\n" +
-                        "\\s+location = '.*/tpch'\n" +
-                        "\\)");
+                .matches(
+                        """
+                        CREATE SCHEMA iceberg.tpch
+                        AUTHORIZATION USER user
+                        WITH \\(
+                        \\s+location = '.*/tpch'
+                        \\)\
+                        """);
     }
 
     @Override
@@ -1388,17 +1391,19 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT count(*) from orders");
 
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   \"order key\" bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = 2,\n" +
-                        "   location = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   "order key" bigint,
+                   ship_priority integer,
+                   order_status varchar
+                )
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s',
+                   partitioning = ARRAY['order_status','ship_priority','bucket("order key", 9)']
+                )\
+                """,
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",

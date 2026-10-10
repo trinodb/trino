@@ -88,20 +88,26 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s/%s'\n" +
-                ")";
+        String expectedHiveCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s/%s'
+                )\
+                """;
         return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory, schema);
     }
 
     @Override
     protected String getExpectedDeltaLakeCreateSchema(String catalogName)
     {
-        String expectedDeltaLakeCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s/%s'\n" +
-                ")";
+        String expectedDeltaLakeCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s/%s'
+                )\
+                """;
         return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory, schema);
     }
 }

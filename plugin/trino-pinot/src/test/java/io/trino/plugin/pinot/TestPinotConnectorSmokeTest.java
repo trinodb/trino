@@ -894,12 +894,14 @@ public class TestPinotConnectorSmokeTest
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .isEqualTo(
-                        "CREATE TABLE %s.%s.region (\n" +
-                                "   comment varchar,\n" +
-                                "   name varchar,\n" +
-                                "   regionkey bigint,\n" +
-                                "   updated_at_seconds bigint\n" +
-                                ")",
+                        """
+                        CREATE TABLE %s.%s.region (
+                           comment varchar,
+                           name varchar,
+                           regionkey bigint,
+                           updated_at_seconds bigint
+                        )\
+                        """,
                         getSession().getCatalog().orElseThrow(),
                         getSession().getSchema().orElseThrow());
     }

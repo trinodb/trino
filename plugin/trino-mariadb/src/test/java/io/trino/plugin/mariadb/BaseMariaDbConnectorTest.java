@@ -151,17 +151,20 @@ public abstract class BaseMariaDbConnectorTest
     {
         // varchar length is different from base test
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE mariadb.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(255),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(255),\n" +
-                        "   clerk varchar(255),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(255)\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE mariadb.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(255),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(255),
+                           clerk varchar(255),
+                           shippriority integer,
+                           comment varchar(255)
+                        )\
+                        """);
     }
 
     @Test

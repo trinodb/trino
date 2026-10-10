@@ -70,14 +70,16 @@ public class TestConfluentContentSchemaProvider
 
     private static String getAvroSchemaWithReference()
     {
-        return "{\n" +
-                "    \"type\":\"record\",\n" +
-                "    \"name\":\"Schema2\",\n" +
-                "    \"fields\":[\n" +
-                "        {\"name\":\"referred\",\"type\": \"test\"},\n" +
-                "        {\"name\":\"col3\",\"type\": \"string\"}\n" +
-                "    ]\n" +
-                "}";
+        return """
+               {
+                   "type":"record",
+                   "name":"Schema2",
+                   "fields":[
+                       {"name":"referred","type": "test"},
+                       {"name":"col3","type": "string"}
+                   ]
+               }
+               """;
     }
 
     private static AvroSchema getAvroSchema()

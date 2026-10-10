@@ -453,15 +453,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [name]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [name]]
+                        """);
     }
 
     @Test
@@ -482,15 +486,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query(sessionWithAggregationPushdown, "SELECT count(*) FROM nation WHERE rand() = 42")).isFullyPushedDown())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [_col0]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [_col0]]
+                        """);
     }
 
     @Test
@@ -501,15 +509,19 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT 1 WHERE true")).isReplacedWithEmptyValues())
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- node(OutputNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - node(OutputNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [_col0]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [_col0]]
+                        """);
     }
 
     @Test
@@ -520,16 +532,20 @@ public class TestQueryAssertions
         // Test that, in case of failure, there is no failure when rendering expected and actual plans
         assertThatThrownBy(() -> assertThat(query("SELECT name FROM nation")).isNotFullyPushedDown(FilterNode.class))
                 .hasMessageContaining(
-                        "Plan does not match, expected [\n" +
-                                "\n" +
-                                "- anyTree\n" +
-                                "    - node(FilterNode)\n")
+                        """
+                        Plan does not match, expected [
+
+                        - anyTree
+                            - node(FilterNode)
+                        """)
                 .hasMessageContaining(
-                        "\n" +
-                                "\n" +
-                                "] but found [\n" +
-                                "\n" +
-                                "Output[columnNames = [name]]\n");
+                        """
+
+
+                        ] but found [
+
+                        Output[columnNames = [name]]
+                        """);
     }
 
     @Test

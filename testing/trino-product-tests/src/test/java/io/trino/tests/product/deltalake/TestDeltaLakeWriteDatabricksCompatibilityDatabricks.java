@@ -450,10 +450,12 @@ class TestDeltaLakeWriteDatabricksCompatibilityDatabricks
             this.rows = List.copyOf(rows);
 
             env.executeDatabricksSql(format(
-                    "CREATE TABLE default.%1$s (lower int, UPPER int, %3$s int)\n" +
-                            "USING DELTA\n" +
-                            "PARTITIONED BY (%3$s)\n" +
-                            "LOCATION '%2$s%1$s'\n",
+                    """
+                    CREATE TABLE default.%1$s (lower int, UPPER int, %3$s int)
+                    USING DELTA
+                    PARTITIONED BY (%3$s)
+                    LOCATION '%2$s%1$s'
+                    """,
                     name,
                     getBaseLocation(env),
                     partitionColumnName));

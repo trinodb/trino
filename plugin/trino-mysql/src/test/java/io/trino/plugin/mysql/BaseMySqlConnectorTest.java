@@ -183,17 +183,20 @@ public abstract class BaseMySqlConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE mysql.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(255),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(255),\n" +
-                        "   clerk varchar(255),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(255)\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE mysql.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(255),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(255),
+                           clerk varchar(255),
+                           shippriority integer,
+                           comment varchar(255)
+                        )\
+                        """);
     }
 
     @Test

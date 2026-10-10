@@ -148,13 +148,16 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testTooManyStages()
     {
-        @Language("SQL") String query = "WITH\n" +
-                "  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),\n" +
-                "  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),\n" +
-                "  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),\n" +
-                "  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),\n" +
-                "  t5 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t4 a, t4 b, t4 c, t4 d)\n" +
-                "SELECT x FROM t5\n";
+        @Language("SQL") String query =
+                """
+                WITH
+                  t1 AS (SELECT nationkey AS x FROM nation where name='UNITED STATES'),
+                  t2 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t1 a, t1 b, t1 c, t1 d),
+                  t3 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t2 a, t2 b, t2 c, t2 d),
+                  t4 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t3 a, t3 b, t3 c, t3 d),
+                  t5 AS (SELECT a.x+b.x+c.x+d.x AS x FROM t4 a, t4 b, t4 c, t4 d)
+                SELECT x FROM t5
+                """;
         assertQueryFails(query, "Number of stages in the query \\([0-9]+\\) exceeds the allowed maximum \\([0-9]+\\).*");
     }
 

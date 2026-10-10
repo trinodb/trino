@@ -250,14 +250,17 @@ public class TestIgniteConnectorTest
                 "create_table_with_comma_column",
                 "(`a,b` bigint primary key, `c,d` bigint, `x` varchar(79))",
                 List.of("1, 1, 'a'", "2, 2, 'b'", "3, 3, null"))) {
-            String pattern = "CREATE TABLE %s.%s.%s (\n" +
-                    "   \"a,b\" bigint,\n" +
-                    "   \"c,d\" bigint,\n" +
-                    "   x varchar(79)\n" +
-                    ")\n" +
-                    "WITH (\n" +
-                    "   primary_key = ARRAY['a,b']\n" +
-                    ")";
+            String pattern =
+                    """
+                    CREATE TABLE %s.%s.%s (
+                       "a,b" bigint,
+                       "c,d" bigint,
+                       x varchar(79)
+                    )
+                    WITH (
+                       primary_key = ARRAY['a,b']
+                    )\
+                    """;
             String tableName = testTable.getName();
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" < 2", "values (1)");
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" > 1", "values (2), (3)");
@@ -307,20 +310,23 @@ public class TestIgniteConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE ignite.public.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   primary_key = ARRAY['dummy_id']\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE ignite.public.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority integer,
+                           comment varchar(79)
+                        )
+                        WITH (
+                           primary_key = ARRAY['dummy_id']
+                        )\
+                        """);
     }
 
     @Test

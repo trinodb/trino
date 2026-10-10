@@ -385,19 +385,23 @@ class TestHiveBucketedTables
             String createTableStatement = (String) showCreateTableResult.getOnlyValue();
             assertThat(createTableStatement)
                     .matches(Pattern.compile(format(
-                            "\\QCREATE TABLE hive.default.%s (\n" +
-                                    "   n_integer integer,\n" +
-                                    "   n_decimal decimal(9, 2),\n" +
-                                    "   n_timestamp timestamp(3),\n" +
-                                    "   n_char char(10),\n" +
-                                    "   n_binary varbinary,\n" +
-                                    "   n_union ROW(tag tinyint, field0 integer, field1 varchar),\n" +
-                                    "   n_struct ROW(field1 integer, field2 varchar)\n" +
-                                    ")\n" +
-                                    "WITH (\\E(?s:.*)" +
-                                    "bucket_count = 2,\n(?s:.*)" +
-                                    "bucketed_by = ARRAY\\['%s'\\],\n(?s:.*)" +
-                                    "bucketing_version = %s,(?s:.*)",
+                            """
+                            \\QCREATE TABLE hive.default.%s (
+                               n_integer integer,
+                               n_decimal decimal(9, 2),
+                               n_timestamp timestamp(3),
+                               n_char char(10),
+                               n_binary varbinary,
+                               n_union ROW(tag tinyint, field0 integer, field1 varchar),
+                               n_struct ROW(field1 integer, field2 varchar)
+                            )
+                            WITH (\\E(?s:.*)\
+                            bucket_count = 2,
+                            (?s:.*)\
+                            bucketed_by = ARRAY\\['%s'\\],
+                            (?s:.*)\
+                            bucketing_version = %s,(?s:.*)\
+                            """,
                             tableName,
                             Pattern.quote(columnToBeBucketed),
                             getExpectedBucketVersion(bucketingType))));

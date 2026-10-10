@@ -560,27 +560,28 @@ public abstract class AbstractTestAggregations
         // this test verifies that the two streams produced by the right join
         // are handled gathered for the aggregation operator
         assertQueryOrdered(
-                "" +
-                        "SELECT\n" +
-                        "  value\n" +
-                        "FROM\n" +
-                        "(\n" +
-                        "    SELECT\n" +
-                        "        key\n" +
-                        "    FROM\n" +
-                        "        (VALUES 'match') AS a(key)\n" +
-                        "        LEFT JOIN (SELECT * FROM (VALUES (0)) LIMIT 0) AS x(ignored)\n" +
-                        "        ON TRUE\n" +
-                        "    GROUP BY 1\n" +
-                        ") a\n" +
-                        "RIGHT JOIN\n" +
-                        "(\n" +
-                        "    VALUES\n" +
-                        "    ('match', 'value'),\n" +
-                        "    ('no-match', 'value')\n" +
-                        ") AS b(key, value)\n" +
-                        "ON a.key = b.key\n" +
-                        "GROUP BY 1\n",
+                """
+                SELECT
+                  value
+                FROM
+                (
+                    SELECT
+                        key
+                    FROM
+                        (VALUES 'match') AS a(key)
+                        LEFT JOIN (SELECT * FROM (VALUES (0)) LIMIT 0) AS x(ignored)
+                        ON TRUE
+                    GROUP BY 1
+                ) a
+                RIGHT JOIN
+                (
+                    VALUES
+                    ('match', 'value'),
+                    ('no-match', 'value')
+                ) AS b(key, value)
+                ON a.key = b.key
+                GROUP BY 1
+                """,
                 "VALUES 'value'");
     }
 
@@ -693,38 +694,55 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupBySearchedCase()
     {
-        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+        assertQuery(
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END
+                """);
 
         assertQuery(
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END
+                """);
     }
 
     @Test
     public void testGroupBySearchedCaseNoElse()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+        assertQuery(
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END
+                """);
 
         assertQuery(
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END
+                """);
 
-        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE WHEN true THEN orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
@@ -732,70 +750,103 @@ public abstract class AbstractTestAggregations
     {
         assertQuery(
                 "SELECT IF(orderkey between 1 and 5, 'orders', 'others'), sum(totalprice) FROM orders GROUP BY 1",
-                "SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END");
+                """
+                SELECT CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END, sum(totalprice)
+                FROM orders
+                GROUP BY CASE WHEN orderkey BETWEEN 1 AND 5 THEN 'orders' ELSE 'others' END
+                """);
     }
 
     @Test
     public void testGroupByCase()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END
+                """);
 
         assertQuery(
-                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY 1",
-                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                        "FROM orders\n" +
-                        "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY 1
+                """,
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END
+                """);
 
         // operand in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // condition in GROUP BY clause
-        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'then' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'else' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
     public void testGroupByCaseNoElse()
     {
         // whole CASE in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END
+                """);
 
         // operand in GROUP BY clause
-        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // condition in GROUP BY clause
-        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
 
         // 'then' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
+        assertQuery(
+                """
+                SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)
+                FROM orders
+                GROUP BY orderstatus
+                """);
     }
 
     @Test
@@ -863,28 +914,32 @@ public abstract class AbstractTestAggregations
     @Test
     public void testGroupByNullConstant()
     {
-        assertQuery("" +
-                "SELECT count(*)\n" +
-                "FROM (\n" +
-                "  SELECT CAST(null AS VARCHAR) constant, orderdate\n" +
-                "  FROM orders\n" +
-                ") a\n" +
-                "group by constant, orderdate\n");
+        assertQuery(
+                """
+                SELECT count(*)
+                FROM (
+                  SELECT CAST(null AS VARCHAR) constant, orderdate
+                  FROM orders
+                ) a
+                group by constant, orderdate
+                """);
     }
 
     @Test
     public void test15WayGroupBy()
     {
         // Among other things, this test verifies we are not getting for overflow in the distributed HashPagePartitionFunction
-        assertQuery("" +
-                "SELECT " +
-                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
-                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10, " +
-                "    count(*) " +
-                "FROM orders " +
-                "GROUP BY " +
-                "    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5, " +
-                "    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10");
+        assertQuery(
+                """
+                SELECT
+                    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5,
+                    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10,
+                    count(*)
+                FROM orders
+                GROUP BY
+                    orderkey + 1, orderkey + 2, orderkey + 3, orderkey + 4, orderkey + 5,
+                    orderkey + 6, orderkey + 7, orderkey + 8, orderkey + 9, orderkey + 10
+                """);
     }
 
     @Test

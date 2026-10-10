@@ -85,15 +85,17 @@ public class TestHiveConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("" +
-                        "CREATE TABLE hive.tpch.region (\n" +
-                        "   regionkey bigint,\n" +
-                        "   name varchar(25),\n" +
-                        "   comment varchar(152)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'PARQUET'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE hive.tpch.region (
+                           regionkey bigint,
+                           name varchar(25),
+                           comment varchar(152)
+                        )
+                        WITH (
+                           format = 'PARQUET'
+                        )\
+                        """);
     }
 
     @Test

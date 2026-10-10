@@ -298,31 +298,35 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinWithConstantPredicatePushDown()
     {
-        assertQuery("" +
-                "SELECT\n" +
-                "  a.orderstatus\n" +
-                "  , a.clerk\n" +
-                "FROM (\n" +
-                "  SELECT DISTINCT orderstatus, clerk FROM orders\n" +
-                ") a\n" +
-                "INNER JOIN (\n" +
-                "  SELECT DISTINCT orderstatus, clerk FROM orders\n" +
-                ") b\n" +
-                "ON\n" +
-                "  a.orderstatus = b.orderstatus\n" +
-                "  and a.clerk = b.clerk\n" +
-                "where a.orderstatus = 'F'\n");
+        assertQuery(
+                """
+                SELECT
+                  a.orderstatus
+                  , a.clerk
+                FROM (
+                  SELECT DISTINCT orderstatus, clerk FROM orders
+                ) a
+                INNER JOIN (
+                  SELECT DISTINCT orderstatus, clerk FROM orders
+                ) b
+                ON
+                  a.orderstatus = b.orderstatus
+                  and a.clerk = b.clerk
+                where a.orderstatus = 'F'
+                """);
     }
 
     @Test
     public void testJoinWithInferredFalseJoinClause()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM orders\n" +
-                "JOIN lineitem\n" +
-                "ON CAST(orders.orderkey AS VARCHAR) = CAST(lineitem.orderkey AS VARCHAR)\n" +
-                "WHERE orders.orderkey = 1 AND lineitem.orderkey = 2\n");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM orders
+                JOIN lineitem
+                ON CAST(orders.orderkey AS VARCHAR) = CAST(lineitem.orderkey AS VARCHAR)
+                WHERE orders.orderkey = 1 AND lineitem.orderkey = 2
+                """);
     }
 
     @Test
@@ -834,19 +838,21 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinWithNullValues()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 512 = 0\n" +
-                ") AS lineitem \n" +
-                "JOIN (\n" +
-                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM orders\n" +
-                "  WHERE custkey % 512 = 0\n" +
-                ") AS orders\n" +
-                "ON lineitem.orderkey = orders.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM lineitem
+                  WHERE partkey % 512 = 0
+                ) AS lineitem
+                JOIN (
+                  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM orders
+                  WHERE custkey % 512 = 0
+                ) AS orders
+                ON lineitem.orderkey = orders.orderkey
+                """);
     }
 
     @Test
@@ -1042,43 +1048,47 @@ public abstract class AbstractTestJoinQueries
     public void testJoinWithExpressionsThatMayReturnNull()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "    SELECT a, nullif(a, 1)\n" +
-                        "    FROM (VALUES 1) w(a)\n" +
-                        ") t(a,b)\n" +
-                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                """
+                SELECT *
+                FROM (
+                    SELECT a, nullif(a, 1)
+                    FROM (VALUES 1) w(a)
+                ) t(a,b)
+                JOIN (VALUES 1) u(x) ON t.a = u.x
+                """,
                 "SELECT 1, NULL, 1");
 
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "    SELECT a, contains(array[2, null], a)\n" +
-                        "    FROM (VALUES 1) w(a)\n" +
-                        ") t(a,b)\n" +
-                        "JOIN (VALUES 1) u(x) ON t.a = u.x\n",
+                """
+                SELECT *
+                FROM (
+                    SELECT a, contains(array[2, null], a)
+                    FROM (VALUES 1) w(a)
+                ) t(a,b)
+                JOIN (VALUES 1) u(x) ON t.a = u.x
+                """,
                 "SELECT 1, NULL, 1");
 
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "    SELECT a, array[null][a]\n" +
-                        "    FROM (VALUES 1) w(a)\n" +
-                        ") t(a,b)\n" +
-                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                """
+                SELECT *
+                FROM (
+                    SELECT a, array[null][a]
+                    FROM (VALUES 1) w(a)
+                ) t(a,b)
+                JOIN (VALUES 1) u(x) ON t.a = u.x
+                """,
                 "SELECT 1, NULL, 1");
 
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "    SELECT a, try(a / 0)\n" +
-                        "    FROM (VALUES 1) w(a)\n" +
-                        ") t(a,b)\n" +
-                        "JOIN (VALUES 1) u(x) ON t.a = u.x",
+                """
+                SELECT *
+                FROM (
+                    SELECT a, try(a / 0)
+                    FROM (VALUES 1) w(a)
+                ) t(a,b)
+                JOIN (VALUES 1) u(x) ON t.a = u.x
+                """,
                 "SELECT 1, NULL, 1");
     }
 
@@ -1105,11 +1115,14 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinPredicateMoveAround()
     {
-        assertQuery("SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
-                "JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
-                "ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0\n" +
-                "WHERE orders.custkey % 8 < 7 AND orders.custkey % 8 = lineitem.orderkey % 8 AND lineitem.suppkey % 7 > orders.custkey % 7");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem
+                JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders
+                ON lineitem.orderkey % 8 = orders.orderkey % 8 AND lineitem.linenumber % 2 = 0
+                WHERE orders.custkey % 8 < 7 AND orders.custkey % 8 = lineitem.orderkey % 8 AND lineitem.suppkey % 7 > orders.custkey % 7
+                """);
     }
 
     @Test
@@ -1350,40 +1363,48 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testLeftJoinPredicateMoveAround()
     {
-        assertQuery("SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
-                "LEFT JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
-                "ON lineitem.orderkey % 8 = orders.orderkey % 8\n" +
-                "WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem
+                LEFT JOIN (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders
+                ON lineitem.orderkey % 8 = orders.orderkey % 8
+                WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8
+                """);
     }
 
     @Test
     public void testLeftJoinEqualityInference()
     {
         // Test that we can infer orders.orderkey % 4 = orders.custkey % 3 on the inner side
-        assertQuery("SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem\n" +
-                "LEFT JOIN (SELECT * FROM orders WHERE orderkey % 4 = 0) orders\n" +
-                "ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3\n" +
-                "WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem
+                LEFT JOIN (SELECT * FROM orders WHERE orderkey % 4 = 0) orders
+                ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3
+                WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3
+                """);
     }
 
     @Test
     public void testLeftJoinWithNullValues()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 512 = 0\n" +
-                ") AS lineitem \n" +
-                "LEFT JOIN (\n" +
-                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM orders\n" +
-                "  WHERE custkey % 512 = 0\n" +
-                ") AS orders\n" +
-                "ON lineitem.orderkey = orders.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM lineitem
+                  WHERE partkey % 512 = 0
+                ) AS lineitem
+                LEFT JOIN (
+                  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM orders
+                  WHERE custkey % 512 = 0
+                ) AS orders
+                ON lineitem.orderkey = orders.orderkey
+                """);
     }
 
     @Test
@@ -1468,50 +1489,60 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testRightJoinPredicateMoveAround()
     {
-        assertQuery("SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders\n" +
-                "RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem\n" +
-                "ON lineitem.orderkey % 8 = orders.orderkey % 8\n" +
-                "WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM orders WHERE orderkey % 16 = 0 AND custkey % 2 = 0) orders
+                RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 16 = 0 AND partkey % 2 = 0) lineitem
+                ON lineitem.orderkey % 8 = orders.orderkey % 8
+                WHERE (orders.custkey % 8 < 7 OR orders.custkey % 8 IS NULL) AND orders.custkey % 8 = lineitem.orderkey % 8
+                """);
     }
 
     @Test
     public void testRightJoinEqualityInference()
     {
         // Test that we can infer orders.orderkey % 4 = orders.custkey % 3 on the inner side
-        assertQuery("SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM orders WHERE orderkey % 4 = 0) orders\n" +
-                "RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem\n" +
-                "ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3\n" +
-                "WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM orders WHERE orderkey % 4 = 0) orders
+                RIGHT JOIN (SELECT * FROM lineitem WHERE orderkey % 4 = 0 AND suppkey % 2 = partkey % 2 AND linenumber % 3 = orderkey % 3) lineitem
+                ON lineitem.linenumber % 3 = orders.orderkey % 4 AND lineitem.orderkey % 3 = orders.custkey % 3
+                WHERE lineitem.suppkey % 2 = lineitem.linenumber % 3
+                """);
     }
 
     @Test
     public void testRightJoinWithNullValues()
     {
-        assertQuery("" +
-                "SELECT lineitem.orderkey, orders.orderkey\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 512 = 0\n" +
-                ") AS lineitem \n" +
-                "RIGHT JOIN (\n" +
-                "  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM orders\n" +
-                "  WHERE custkey % 512 = 0\n" +
-                ") AS orders\n" +
-                "ON lineitem.orderkey = orders.orderkey");
+        assertQuery(
+                """
+                SELECT lineitem.orderkey, orders.orderkey
+                FROM (
+                  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM lineitem
+                  WHERE partkey % 512 = 0
+                ) AS lineitem\s
+                RIGHT JOIN (
+                  SELECT CASE WHEN orderkey % 2 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM orders
+                  WHERE custkey % 512 = 0
+                ) AS orders
+                ON lineitem.orderkey = orders.orderkey
+                """);
     }
 
     @Test
     public void testJoinWithStatefulFilterFunction()
     {
         assertQuery(
-                "SELECT *\n" +
-                        "FROM (VALUES 1, 2) a(id)\n" +
-                        "FULL JOIN (VALUES 2, 3) b(id)\n" +
-                        "ON (array_intersect(array[a.id], array[b.id]) = array[a.id])",
+                """
+                SELECT *
+                FROM (VALUES 1, 2) a(id)
+                FULL JOIN (VALUES 2, 3) b(id)
+                ON (array_intersect(array[a.id], array[b.id]) = array[a.id])
+                """,
                 "VALUES (1, null), (2, 2), (null, 3)");
 
         // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
@@ -1559,26 +1590,32 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testRowNumberJoin()
     {
-        MaterializedResult actual = computeActual("SELECT a, rn\n" +
-                "FROM (\n" +
-                "    SELECT a, row_number() OVER (ORDER BY a) rn\n" +
-                "    FROM (VALUES (1), (2)) t (a)\n" +
-                ") a\n" +
-                "JOIN (VALUES (2)) b (b) ON a.a = b.b\n" +
-                "LIMIT 1");
+        MaterializedResult actual = computeActual(
+                """
+                SELECT a, rn
+                FROM (
+                    SELECT a, row_number() OVER (ORDER BY a) rn
+                    FROM (VALUES (1), (2)) t (a)
+                ) a
+                JOIN (VALUES (2)) b (b) ON a.a = b.b
+                LIMIT 1
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
-        actual = computeActual("SELECT a, rn\n" +
-                "FROM (\n" +
-                "    SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
-                "    FROM (VALUES (1), (2), (1), (2)) t (a)\n" +
-                ") a\n" +
-                "JOIN (VALUES (2)) b (b) ON a.a = b.b\n" +
-                "LIMIT 2");
+        actual = computeActual(
+                """
+                SELECT a, rn
+                FROM (
+                    SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn
+                    FROM (VALUES (1), (2), (1), (2)) t (a)
+                ) a
+                JOIN (VALUES (2)) b (b) ON a.a = b.b
+                LIMIT 2
+                """);
 
         expected = resultBuilder(getSession(), BIGINT, BIGINT)
                 .row(2, 1L)
@@ -1598,25 +1635,30 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testWithSelfJoin()
     {
-        assertQuery("" +
-                "WITH x AS (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "SELECT count(*) FROM x a JOIN x b USING (orderkey)", "" +
-                "SELECT count(*)\n" +
-                "FROM (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) a\n" +
-                "JOIN (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) b ON a.orderkey = b.orderkey");
+        assertQuery(
+                "" +
+                        "WITH x AS (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10)\n" +
+                        "SELECT count(*) FROM x a JOIN x b USING (orderkey)",
+                """
+                SELECT count(*)
+                FROM (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) a
+                JOIN (SELECT DISTINCT orderkey FROM orders ORDER BY orderkey LIMIT 10) b ON a.orderkey = b.orderkey
+                """);
     }
 
     @Test
     public void testJoinProjectionPushDown()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM\n" +
-                "  (SELECT orderkey, abs(orderkey) a FROM orders) t\n" +
-                "JOIN\n" +
-                "  (SELECT orderkey, abs(orderkey) a FROM orders) u\n" +
-                "ON\n" +
-                "  t.orderkey = u.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM
+                  (SELECT orderkey, abs(orderkey) a FROM orders) t
+                JOIN
+                  (SELECT orderkey, abs(orderkey) a FROM orders) u
+                ON
+                  t.orderkey = u.orderkey
+                """);
     }
 
     @Test
@@ -1747,14 +1789,15 @@ public abstract class AbstractTestJoinQueries
     public void testCrossJoinUnnestWithUnion()
     {
         assertQuery(
-                "" +
-                        "SELECT col, COUNT(*)\n" +
-                        "FROM ((\n" +
-                        "    SELECT ARRAY[1, 2] AS a\n" +
-                        "    UNION ALL\n" +
-                        "    SELECT ARRAY[1, 3] AS a)  unionresult\n" +
-                        "  CROSS JOIN UNNEST(unionresult.a) t(col))\n" +
-                        "GROUP BY col",
+                """
+                SELECT col, COUNT(*)
+                FROM ((
+                    SELECT ARRAY[1, 2] AS a
+                    UNION ALL
+                    SELECT ARRAY[1, 3] AS a)  unionresult
+                  CROSS JOIN UNNEST(unionresult.a) t(col))
+                GROUP BY col
+                """,
                 "SELECT * FROM VALUES (1, 2), (2, 1), (3, 1)");
     }
 
@@ -1805,80 +1848,88 @@ public abstract class AbstractTestJoinQueries
         assertQuery("SELECT (1 = ANY(SELECT 1)) IN (SELECT TRUE)");
 
         // Throw in a bunch of IN subquery predicates
-        assertQuery("" +
-                "SELECT *, o2.custkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 5 = 0)\n" +
-                "FROM (SELECT * FROM orders WHERE custkey % 256 = 0) o1\n" +
-                "JOIN (SELECT * FROM orders WHERE custkey % 256 = 0) o2\n" +
-                "  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))\n" +
-                "WHERE o1.orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 4 = 0)\n" +
-                "ORDER BY o1.orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 7 = 0)");
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE partkey % 4 = 0),\n" +
-                "  SUM(\n" +
-                "    CASE\n" +
-                "      WHEN orderkey\n" +
-                "        IN (\n" +
-                "          SELECT orderkey\n" +
-                "          FROM lineitem\n" +
-                "          WHERE suppkey % 4 = 0)\n" +
-                "      THEN 1\n" +
-                "      ELSE 0\n" +
-                "      END)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE partkey % 4 = 0)\n" +
-                "HAVING SUM(\n" +
-                "  CASE\n" +
-                "    WHEN orderkey\n" +
-                "      IN (\n" +
-                "        SELECT orderkey\n" +
-                "        FROM lineitem\n" +
-                "        WHERE suppkey % 4 = 0)\n" +
-                "      THEN 1\n" +
-                "      ELSE 0\n" +
-                "      END) > 1");
+        assertQuery(
+                """
+                SELECT *, o2.custkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE orderkey % 5 = 0)
+                FROM (SELECT * FROM orders WHERE custkey % 256 = 0) o1
+                JOIN (SELECT * FROM orders WHERE custkey % 256 = 0) o2
+                  ON (o1.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0)) = (o2.orderkey IN (SELECT orderkey FROM lineitem WHERE orderkey % 4 = 0))
+                WHERE o1.orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE orderkey % 4 = 0)
+                ORDER BY o1.orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE orderkey % 7 = 0)
+                """);
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE partkey % 4 = 0),
+                  SUM(
+                    CASE
+                      WHEN orderkey
+                        IN (
+                          SELECT orderkey
+                          FROM lineitem
+                          WHERE suppkey % 4 = 0)
+                      THEN 1
+                      ELSE 0
+                      END)
+                FROM orders
+                GROUP BY orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE partkey % 4 = 0)
+                HAVING SUM(
+                  CASE
+                    WHEN orderkey
+                      IN (
+                        SELECT orderkey
+                        FROM lineitem
+                        WHERE suppkey % 4 = 0)
+                      THEN 1
+                      ELSE 0
+                      END) > 1
+                """);
     }
 
     @Test
     public void testJoinConstantPropagation()
     {
-        assertQuery("" +
-                "SELECT x, y, COUNT(*)\n" +
-                "FROM (SELECT orderkey, 0 AS x FROM orders) a \n" +
-                "JOIN (SELECT orderkey, 1 AS y FROM orders) b \n" +
-                "ON a.orderkey = b.orderkey\n" +
-                "GROUP BY 1, 2");
+        assertQuery(
+                """
+                SELECT x, y, COUNT(*)
+                FROM (SELECT orderkey, 0 AS x FROM orders) a\s
+                JOIN (SELECT orderkey, 1 AS y FROM orders) b\s
+                ON a.orderkey = b.orderkey
+                GROUP BY 1, 2
+                """);
     }
 
     @Test
     public void testAntiJoin()
     {
-        assertQuery("" +
-                "SELECT *, orderkey\n" +
-                "  NOT IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 3 = 0)\n" +
-                "FROM orders");
+        assertQuery(
+                """
+                SELECT *, orderkey
+                  NOT IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE orderkey % 3 = 0)
+                FROM orders
+                """);
     }
 
     @Test
@@ -1898,16 +1949,18 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSemiJoinLimitPushDown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 2 = 0)\n" +
-                "  FROM orders\n" +
-                "  LIMIT 10)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem
+                    WHERE orderkey % 2 = 0)
+                  FROM orders
+                  LIMIT 10)
+                """);
     }
 
     @Test
@@ -1918,28 +1971,34 @@ public abstract class AbstractTestJoinQueries
                         "SELECT 3 FROM (VALUES 1) WHERE NULL IN (SELECT * FROM empty)",
                 "SELECT 0 WHERE FALSE");
 
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem)\n" +
-                "FROM orders");
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM lineitem)\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM orders)");
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem)\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN orderkey % 4 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "  FROM orders)");
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem)
+                FROM orders
+                """);
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM lineitem)
+                FROM (
+                  SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM orders)
+                """);
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 3 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem)
+                FROM (
+                  SELECT CASE WHEN orderkey % 4 = 0 THEN NULL ELSE orderkey END AS orderkey
+                  FROM orders)
+                """);
     }
 
     @Test
@@ -1987,236 +2046,264 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSemiJoinUnionNullHandling()
     {
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM orders\n" +
-                "    WHERE orderkey % 200 = 0\n" +
-                "    UNION ALL\n" +
-                "    SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM orders\n" +
-                "    WHERE orderkey % 300 = 0\n" +
-                "  )\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE orderkey % 100 = 0)");
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END
+                    FROM orders
+                    WHERE orderkey % 200 = 0
+                    UNION ALL
+                    SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END
+                    FROM orders
+                    WHERE orderkey % 300 = 0
+                  )
+                FROM (
+                  SELECT orderkey
+                  FROM lineitem
+                  WHERE orderkey % 100 = 0)
+                """);
     }
 
     @Test
     public void testSemiJoinAggregationNullHandling()
     {
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 10 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 2 = 0\n" +
-                "    GROUP BY orderkey\n" +
-                "  )\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 3 = 0)");
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 10 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem
+                    WHERE orderkey % 2 = 0
+                    GROUP BY orderkey
+                  )
+                FROM (
+                  SELECT orderkey
+                  FROM orders
+                  WHERE orderkey % 3 = 0)
+                """);
     }
 
     @Test
     public void testSemiJoinUnionAggregationNullHandling()
     {
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 250 = 0\n" +
-                "    UNION ALL\n" +
-                "    SELECT CASE WHEN orderkey % 300 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem\n" +
-                "    WHERE orderkey % 200 = 0\n" +
-                "    GROUP BY orderkey\n" +
-                "  )\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 100 = 0)\n");
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem
+                    WHERE orderkey % 250 = 0
+                    UNION ALL
+                    SELECT CASE WHEN orderkey % 300 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem
+                    WHERE orderkey % 200 = 0
+                    GROUP BY orderkey
+                  )
+                FROM (
+                  SELECT orderkey
+                  FROM orders
+                  WHERE orderkey % 100 = 0)
+                """);
     }
 
     @Test
     public void testSemiJoinAggregationUnionNullHandling()
     {
-        assertQuery("" +
-                "SELECT orderkey\n" +
-                "  IN (\n" +
-                "    SELECT orderkey\n" +
-                "    FROM (\n" +
-                "      SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "      FROM orders\n" +
-                "      WHERE orderkey % 200 = 0\n" +
-                "      UNION ALL\n" +
-                "      SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END AS orderkey\n" +
-                "      FROM orders\n" +
-                "      WHERE orderkey % 300 = 0\n" +
-                "    )\n" +
-                "    GROUP BY orderkey\n" +
-                "  )\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE orderkey % 100 = 0)");
+        assertQuery(
+                """
+                SELECT orderkey
+                  IN (
+                    SELECT orderkey
+                    FROM (
+                      SELECT CASE WHEN orderkey % 500 = 0 THEN NULL ELSE orderkey END AS orderkey
+                      FROM orders
+                      WHERE orderkey % 200 = 0
+                      UNION ALL
+                      SELECT CASE WHEN orderkey % 600 = 0 THEN NULL ELSE orderkey END AS orderkey
+                      FROM orders
+                      WHERE orderkey % 300 = 0
+                    )
+                    GROUP BY orderkey
+                  )
+                FROM (
+                  SELECT orderkey
+                  FROM lineitem
+                  WHERE orderkey % 100 = 0)
+                """);
     }
 
     @Test
     public void testJoinPredicatePushdown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM lineitem \n" +
-                "JOIN (\n" +
-                "  SELECT * FROM orders\n" +
-                ") orders \n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE orders.orderkey % 4 = 0\n" +
-                "  AND lineitem.suppkey > orders.orderkey");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM lineitem
+                JOIN (
+                  SELECT * FROM orders
+                ) orders
+                ON lineitem.orderkey = orders.orderkey
+                WHERE orders.orderkey % 4 = 0
+                  AND lineitem.suppkey > orders.orderkey
+                """);
     }
 
     @Test
     public void testLeftJoinAsInnerPredicatePushdown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM lineitem \n" +
-                "LEFT JOIN (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders \n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE orders.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM lineitem
+                LEFT JOIN (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                ON lineitem.orderkey = orders.orderkey
+                WHERE orders.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)
+                """);
     }
 
     @Test
     public void testPlainLeftJoinPredicatePushdown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM lineitem \n" +
-                "LEFT JOIN (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders \n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE lineitem.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM lineitem
+                LEFT JOIN (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                ON lineitem.orderkey = orders.orderkey
+                WHERE lineitem.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)
+                """);
     }
 
     @Test
     public void testLeftJoinPredicatePushdownWithSelfEquality()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM lineitem \n" +
-                "LEFT JOIN (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders \n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE orders.orderkey = orders.orderkey\n" +
-                "  AND lineitem.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM lineitem
+                LEFT JOIN (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                ON lineitem.orderkey = orders.orderkey
+                WHERE orders.orderkey = orders.orderkey
+                  AND lineitem.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)
+                """);
     }
 
     @Test
     public void testLeftJoinPredicatePushdownWithNullConstant()
     {
-        assertQuery("" +
-                "SELECT count(*)\n" +
-                "FROM orders a\n" +
-                "LEFT OUTER JOIN orders b\n" +
-                "  ON a.clerk = b.clerk\n" +
-                "WHERE a.orderpriority='5-LOW'\n" +
-                "  AND b.orderpriority='1-URGENT'\n" +
-                "  AND b.clerk is null\n" +
-                "  AND a.orderkey % 4 = 0\n");
+        assertQuery(
+                """
+                SELECT count(*)
+                FROM orders a
+                LEFT OUTER JOIN orders b
+                  ON a.clerk = b.clerk
+                WHERE a.orderpriority='5-LOW'
+                  AND b.orderpriority='1-URGENT'
+                  AND b.clerk is null
+                  AND a.orderkey % 4 = 0
+                """);
     }
 
     @Test
     public void testRightJoinAsInnerPredicatePushdown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders\n" +
-                "RIGHT JOIN lineitem\n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE orders.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                RIGHT JOIN lineitem
+                ON lineitem.orderkey = orders.orderkey
+                WHERE orders.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.custkey IS NULL)
+                """);
     }
 
     @Test
     public void testPlainRightJoinPredicatePushdown()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders \n" +
-                "RIGHT JOIN lineitem\n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE lineitem.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                RIGHT JOIN lineitem
+                ON lineitem.orderkey = orders.orderkey
+                WHERE lineitem.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)
+                """);
     }
 
     @Test
     public void testRightJoinPredicatePushdownWithSelfEquality()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT * FROM orders WHERE orders.orderkey % 2 = 0\n" +
-                ") orders \n" +
-                "RIGHT JOIN lineitem\n" +
-                "ON lineitem.orderkey = orders.orderkey \n" +
-                "WHERE orders.orderkey = orders.orderkey\n" +
-                "  AND lineitem.orderkey % 4 = 0\n" +
-                "  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT * FROM orders WHERE orders.orderkey % 2 = 0
+                ) orders
+                RIGHT JOIN lineitem
+                ON lineitem.orderkey = orders.orderkey
+                WHERE orders.orderkey = orders.orderkey
+                  AND lineitem.orderkey % 4 = 0
+                  AND (lineitem.suppkey % 2 = orders.orderkey % 2 OR orders.orderkey IS NULL)
+                """);
     }
 
     @Test
     public void testPredicatePushdownJoinEqualityGroups()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT custkey custkey1, custkey%4 custkey1a, custkey%8 custkey1b, custkey%16 custkey1c\n" +
-                "  FROM orders\n" +
-                ") orders1 \n" +
-                "JOIN (\n" +
-                "  SELECT custkey custkey2, custkey%4 custkey2a, custkey%8 custkey2b\n" +
-                "  FROM orders\n" +
-                ") orders2 ON orders1.custkey1 = orders2.custkey2\n" +
-                "WHERE custkey2a = custkey2b\n" +
-                "  AND custkey1 = custkey1a\n" +
-                "  AND custkey2 = custkey2a\n" +
-                "  AND custkey1a = custkey1c\n" +
-                "  AND custkey1b = custkey1c\n" +
-                "  AND custkey1b % 2 = 0");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT custkey custkey1, custkey%4 custkey1a, custkey%8 custkey1b, custkey%16 custkey1c
+                  FROM orders
+                ) orders1
+                JOIN (
+                  SELECT custkey custkey2, custkey%4 custkey2a, custkey%8 custkey2b
+                  FROM orders
+                ) orders2 ON orders1.custkey1 = orders2.custkey2
+                WHERE custkey2a = custkey2b
+                  AND custkey1 = custkey1a
+                  AND custkey2 = custkey2a
+                  AND custkey1a = custkey1c
+                  AND custkey1b = custkey1c
+                  AND custkey1b % 2 = 0
+                """);
     }
 
     @Test
     public void testNonDeterministicJoinPredicatePushdown()
     {
-        MaterializedResult materializedResult = computeActual("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT DISTINCT *\n" +
-                "  FROM (\n" +
-                "    SELECT 'abc' AS col1a, 500 AS col1b FROM lineitem LIMIT 1\n" +
-                "  ) table1\n" +
-                "  JOIN (\n" +
-                "    SELECT 'abc' AS col2a FROM lineitem LIMIT 1000000\n" +
-                "  ) table2\n" +
-                "  ON table1.col1a = table2.col2a\n" +
-                "  WHERE rand() * 1000 > table1.col1b\n" +
-                ")");
+        MaterializedResult materializedResult = computeActual(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT DISTINCT *
+                  FROM (
+                    SELECT 'abc' AS col1a, 500 AS col1b FROM lineitem LIMIT 1
+                  ) table1
+                  JOIN (
+                    SELECT 'abc' AS col2a FROM lineitem LIMIT 1000000
+                  ) table2
+                  ON table1.col1a = table2.col2a
+                  WHERE rand() * 1000 > table1.col1b
+                )
+                """);
         MaterializedRow row = getOnlyElement(materializedResult.getMaterializedRows());
         assertThat(row.getFieldCount()).isEqualTo(1);
         long count = (Long) row.getField(0);
@@ -2227,16 +2314,18 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testSemiJoinPredicateMoveAround()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (SELECT * FROM orders WHERE custkey % 2 = 0 AND orderkey % 3 = 0)\n" +
-                "WHERE orderkey\n" +
-                "  IN (\n" +
-                "    SELECT CASE WHEN orderkey % 7 = 0 THEN NULL ELSE orderkey END\n" +
-                "    FROM lineitem\n" +
-                "    WHERE partkey % 2 = 0)\n" +
-                "  AND\n" +
-                "    orderkey % 2 = 0");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (SELECT * FROM orders WHERE custkey % 2 = 0 AND orderkey % 3 = 0)
+                WHERE orderkey
+                  IN (
+                    SELECT CASE WHEN orderkey % 7 = 0 THEN NULL ELSE orderkey END
+                    FROM lineitem
+                    WHERE partkey % 2 = 0)
+                  AND
+                    orderkey % 2 = 0
+                """);
     }
 
     @Test

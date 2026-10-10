@@ -735,22 +735,24 @@ public class TestAddExchangesPlans
     public void testAggregateIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    AVG(1)\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        orderstatus,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM orders\n" +
-                        "    WHERE\n" +
-                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
-                        "    GROUP BY\n" +
-                        "        orderkey,\n" +
-                        "        orderstatus\n" +
-                        ")\n" +
-                        "GROUP BY\n" +
-                        "    orderkey",
+                """
+                SELECT
+                    AVG(1)
+                FROM (
+                    SELECT
+                        orderkey,
+                        orderstatus,
+                        COUNT(*)
+                    FROM orders
+                    WHERE
+                        orderdate > CAST('2042-01-01' AS DATE)
+                    GROUP BY
+                        orderkey,
+                        orderstatus
+                )
+                GROUP BY
+                    orderkey
+                """,
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
@@ -909,24 +911,26 @@ public class TestAddExchangesPlans
     public void testWindowIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    AVG(otherwindow) OVER (\n" +
-                        "        PARTITION BY\n" +
-                        "            orderkey\n" +
-                        "    )\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        orderstatus,\n" +
-                        "        COUNT(*) OVER (\n" +
-                        "            PARTITION BY\n" +
-                        "                orderkey,\n" +
-                        "                orderstatus\n" +
-                        "        ) AS otherwindow\n" +
-                        "    FROM orders\n" +
-                        "    WHERE\n" +
-                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
-                        ")",
+                """
+                SELECT
+                    AVG(otherwindow) OVER (
+                        PARTITION BY
+                            orderkey
+                    )
+                FROM (
+                    SELECT
+                        orderkey,
+                        orderstatus,
+                        COUNT(*) OVER (
+                            PARTITION BY
+                                orderkey,
+                                orderstatus
+                        ) AS otherwindow
+                    FROM orders
+                    WHERE
+                        orderdate > CAST('2042-01-01' AS DATE)
+                )
+                """,
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
@@ -942,20 +946,22 @@ public class TestAddExchangesPlans
     public void testRowNumberIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    *\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        a,\n" +
-                        "        ROW_NUMBER() OVER (\n" +
-                        "            PARTITION BY\n" +
-                        "                a\n" +
-                        "        ) rn\n" +
-                        "    FROM (\n" +
-                        "        VALUES\n" +
-                        "            (1)\n" +
-                        "    ) t (a)\n" +
-                        ") t",
+                """
+                SELECT
+                    *
+                FROM (
+                    SELECT
+                        a,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY
+                                a
+                        ) rn
+                    FROM (
+                        VALUES
+                            (1)
+                    ) t (a)
+                ) t
+                """,
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE,
@@ -967,29 +973,31 @@ public class TestAddExchangesPlans
     public void testTopNRowNumberIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    a,\n" +
-                        "    ROW_NUMBER() OVER (\n" +
-                        "        PARTITION BY\n" +
-                        "            a\n" +
-                        "        ORDER BY\n" +
-                        "            a\n" +
-                        "    ) rn\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        a,\n" +
-                        "        b,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM (\n" +
-                        "        VALUES\n" +
-                        "            (1, 2)\n" +
-                        "    ) t (a, b)\n" +
-                        "    GROUP BY\n" +
-                        "        a,\n" +
-                        "        b\n" +
-                        ")\n" +
-                        "LIMIT\n" +
-                        "    2",
+                """
+                SELECT
+                    a,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY
+                            a
+                        ORDER BY
+                            a
+                    ) rn
+                FROM (
+                    SELECT
+                        a,
+                        b,
+                        COUNT(*)
+                    FROM (
+                        VALUES
+                            (1, 2)
+                    ) t (a, b)
+                    GROUP BY
+                        a,
+                        b
+                )
+                LIMIT
+                    2
+                """,
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
@@ -1001,22 +1009,24 @@ public class TestAddExchangesPlans
     public void testJoinIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    orders.orderkey,\n" +
-                        "    orders.orderstatus\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        ARBITRARY(orderstatus) AS orderstatus,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM orders\n" +
-                        "    GROUP BY\n" +
-                        "        orderkey\n" +
-                        ") t,\n" +
-                        "orders\n" +
-                        "WHERE\n" +
-                        "    orders.orderkey = t.orderkey\n" +
-                        "    AND orders.orderstatus = t.orderstatus",
+                """
+                SELECT
+                    orders.orderkey,
+                    orders.orderstatus
+                FROM (
+                    SELECT
+                        orderkey,
+                        ARBITRARY(orderstatus) AS orderstatus,
+                        COUNT(*)
+                    FROM orders
+                    GROUP BY
+                        orderkey
+                ) t,
+                orders
+                WHERE
+                    orders.orderkey = t.orderkey
+                    AND orders.orderstatus = t.orderstatus
+                """,
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
@@ -1042,17 +1052,19 @@ public class TestAddExchangesPlans
     public void testMarkDistinctIsExactlyPartitioned()
     {
         assertDistributedPlan(
-                "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        orderstatus,\n" +
-                        "        COUNT(DISTINCT orderdate),\n" +
-                        "        COUNT(DISTINCT clerk)\n" +
-                        "    FROM orders\n" +
-                        "    WHERE\n" +
-                        "        orderdate > CAST('2042-01-01' AS DATE)\n" +
-                        "    GROUP BY\n" +
-                        "        orderkey,\n" +
-                        "        orderstatus\n",
+                """
+                    SELECT
+                        orderkey,
+                        orderstatus,
+                        COUNT(DISTINCT orderdate),
+                        COUNT(DISTINCT clerk)
+                    FROM orders
+                    WHERE
+                        orderdate > CAST('2042-01-01' AS DATE)
+                    GROUP BY
+                        orderkey,
+                        orderstatus
+                """,
                 useExactPartitioningWithMarkDistinct(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,
