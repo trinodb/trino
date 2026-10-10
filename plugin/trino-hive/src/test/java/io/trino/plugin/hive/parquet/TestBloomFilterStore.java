@@ -35,6 +35,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
@@ -57,6 +58,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -64,7 +66,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
@@ -83,6 +85,9 @@ import static org.apache.parquet.hadoop.ParquetOutputFormat.BLOOM_FILTER_ENABLED
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
@@ -92,8 +97,12 @@ public class TestBloomFilterStore
     private static final String COLUMN_NAME = "test_column";
     private static final int DOMAIN_COMPACTION_THRESHOLD = 32;
 
-    // here PrimitiveType#getPrimitiveTypeName is dummy, since predicate matches is via column name
-    ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {COLUMN_NAME}, new PrimitiveType(REQUIRED, BINARY, COLUMN_NAME), 0, 0);
+    // The filter is looked up by column name, but parquet-mr hashed each value at the physical width of the column,
+    // so the descriptor has to carry the type the column was actually written with
+    private static ColumnDescriptor columnDescriptor(PrimitiveTypeName typeName)
+    {
+        return new ColumnDescriptor(new String[] {COLUMN_NAME}, new PrimitiveType(REQUIRED, typeName, COLUMN_NAME), 0, 0);
+    }
 
     static Stream<BloomFilterTypeTestCase> bloomFilterTypeTests()
     {
@@ -102,55 +111,65 @@ public class TestBloomFilterStore
                 new BloomFilterTypeTestCase(
                         Arrays.asList("hello", "parquet", "bloom", "filter"),
                         Arrays.asList("NotExist", "fdsvit"),
-                        createVarcharType(255),
+                        createUnboundedVarcharType(),
+                        BINARY,
                         javaStringObjectInspector),
                 // integer test case, 32-bit signed two’s complement integer, between -2^31 and 2^31 - 1
                 new BloomFilterTypeTestCase(
                         Arrays.asList(12321, 3344, 72334, 321, Integer.MAX_VALUE, Integer.MIN_VALUE),
                         Arrays.asList(89899, 897773),
                         INTEGER,
+                        INT32,
                         javaIntObjectInspector),
                 // double test case, 64-bit inexact
                 new BloomFilterTypeTestCase(
                         Arrays.asList(892.22d, 341112.2222d, 43232.222121d, 99988.22d, Double.MAX_VALUE, Double.POSITIVE_INFINITY, Double.MIN_VALUE, Double.NEGATIVE_INFINITY),
                         Arrays.asList(321.44d, 776541.3214d, Double.MAX_VALUE / 2),
                         DOUBLE,
+                        PrimitiveTypeName.DOUBLE,
                         javaDoubleObjectInspector),
                 // real test case, 32-bit inexact
                 new BloomFilterTypeTestCase(
                         Arrays.asList(32.22f, 341112.2222f, 43232.222121f, 32322.22f, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.MIN_VALUE, Float.MAX_VALUE),
                         Arrays.asList(321.44f, 321.3214f, Float.MIN_VALUE / 2),
                         REAL,
+                        FLOAT,
                         javaFloatObjectInspector),
                 // tinyint test case, 8 bits signed integer, between -2^7 and 2^7 - 1
                 new BloomFilterTypeTestCase(
                         Arrays.asList((byte) 32, (byte) 67, Byte.MAX_VALUE, Byte.MAX_VALUE, (byte) 89),
                         Arrays.asList((byte) 0, (byte) 33, (byte) 75),
                         TINYINT,
+                        INT32,
                         javaByteObjectInspector),
                 // smallint test case, 16 bits signed integer, between -2^15 and 2^15 - 1
                 new BloomFilterTypeTestCase(
                         Arrays.asList((short) 32, (short) 3000, Short.MIN_VALUE, Short.MAX_VALUE),
                         Arrays.asList((short) 0, (short) 33, (short) 43),
                         SMALLINT,
+                        INT32,
                         javaShortObjectInspector),
                 // date test case
                 new BloomFilterTypeTestCase(
                         Arrays.asList(ofEpochDay(0), ofEpochDay(325), ofEpochDay(99875553), ofEpochDay(2456524)),
                         Arrays.asList(ofEpochDay(45), ofEpochDay(67439216)),
                         DATE,
+                        INT32,
                         javaDateObjectInspector),
                 // varbinary test case, variable length binary data.
                 new BloomFilterTypeTestCase(
                         Arrays.asList("hello".getBytes(StandardCharsets.UTF_8), "parquet  ".getBytes(StandardCharsets.UTF_8), "bloom".getBytes(StandardCharsets.UTF_8), "filter".getBytes(StandardCharsets.UTF_8)),
                         Arrays.asList("not".getBytes(StandardCharsets.UTF_8), "exist".getBytes(StandardCharsets.UTF_8), "testcaseX".getBytes(StandardCharsets.UTF_8), "parquet".getBytes(StandardCharsets.UTF_8)),
                         VARBINARY,
+                        BINARY,
                         javaByteArrayObjectInspector),
                 // uuid test case, represents a UUID
                 new BloomFilterTypeTestCase(
                         Arrays.asList(uuidToBytes(UUID.fromString("783176de-b6c5-4c5a-905d-0460ae103050")), uuidToBytes(UUID.fromString("b1a71c78-bd96-4117-a91a-18671530196a"))),
                         Arrays.asList(uuidToBytes(UUID.fromString("98a5f99c-7adb-4a92-ae10-6d2469d59423")), uuidToBytes(UUID.fromString("19fd9aed-7a93-4ada-8966-f89014f499ec"))),
                         UuidType.UUID,
+                        // a uuid column is stored as a 16 byte fixed length array; the bytes hash the same either way
+                        FIXED_LEN_BYTE_ARRAY,
                         javaByteArrayObjectInspector));
     }
 
@@ -164,11 +183,14 @@ public class TestBloomFilterStore
             assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME))).isPresent();
             BloomFilter bloomFilter = bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).get();
 
+            TupleDomainParquetPredicate.BloomFilterHasher hasher = TupleDomainParquetPredicate
+                    .bloomFilterHasher(typeTestCase.sqlType, columnDescriptor(typeTestCase.physicalType).getPrimitiveType())
+                    .orElseThrow();
             for (Object data : typeTestCase.matchingValues) {
-                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isTrue();
+                assertThat(bloomFilter.findHash(hasher.hash(bloomFilter, data))).isTrue();
             }
             for (Object data : typeTestCase.nonMatchingValues) {
-                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isFalse();
+                assertThat(bloomFilter.findHash(hasher.hash(bloomFilter, data))).isFalse();
             }
         }
 
@@ -185,6 +207,7 @@ public class TestBloomFilterStore
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, typeTestCase.writeValues, typeTestCase.objectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(typeTestCase.physicalType);
 
             TupleDomain<ColumnDescriptor> domain = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.matchingValues)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
@@ -196,9 +219,9 @@ public class TestBloomFilterStore
             // bloomfilter store has the column, but values not match
             assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
 
-            ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"non_exist_path"}, Types.optional(BINARY).named("Test column"), 0, 0);
-            TupleDomain<ColumnDescriptor> domainForColumnWithoutBloomFilter = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
-            TupleDomainParquetPredicate predicateForColumnWithoutBloomFilter = new TupleDomainParquetPredicate(domainForColumnWithoutBloomFilter, singletonList(columnDescriptor), UTC);
+            ColumnDescriptor missingColumn = new ColumnDescriptor(new String[] {"non_exist_path"}, Types.optional(BINARY).named("Test column"), 0, 0);
+            TupleDomain<ColumnDescriptor> domainForColumnWithoutBloomFilter = withColumnDomains(singletonMap(missingColumn, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
+            TupleDomainParquetPredicate predicateForColumnWithoutBloomFilter = new TupleDomainParquetPredicate(domainForColumnWithoutBloomFilter, singletonList(missingColumn), UTC);
             // bloomfilter store does not have the column
             assertThat(predicateForColumnWithoutBloomFilter.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
         }
@@ -210,6 +233,7 @@ public class TestBloomFilterStore
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(60, 61, 62, 63, 64, 65), javaIntObjectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(INT32);
 
             // case 1, bloomfilter store has the column, and ranges expanded successfully and overlap
             TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
@@ -241,6 +265,7 @@ public class TestBloomFilterStore
         // null values in parquet will only update column's repetition level and definition level, bloomfilter matching will be based on non-null values
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(null, null, 62, 63, 64, 65), javaIntObjectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(INT32);
 
             TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
                     INTEGER,
@@ -265,12 +290,34 @@ public class TestBloomFilterStore
         // if the predicate contains null values, bloomfilter matches will return true, since the bloom filter bitset contains only non-null values
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(62, 63, 64, 65), javaIntObjectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(INT32);
 
             TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(
                     INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), true)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
             assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
+        }
+    }
+
+    @Test
+    public void testBloomFilterIsIgnoredWhenTypeDoesNotMatchColumn()
+            throws Exception
+    {
+        // parquet-mr hashed these values at the 32 bits of the physical column. Looking one of them up as a bigint
+        // hashes at 64 bits and finds nothing, which would drop a row group that does hold the value
+        try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
+            BloomFilterStore bloomFilterStore = generateBloomFilterStore(tempFile, true, Arrays.asList(62, 63, 64, 65), javaIntObjectInspector);
+            ColumnDescriptor columnDescriptor = columnDescriptor(INT32);
+
+            TupleDomain<ColumnDescriptor> presentValue = withColumnDomains(singletonMap(columnDescriptor, multipleValues(BIGINT, ImmutableList.of(63L))));
+            assertThat(new TupleDomainParquetPredicate(presentValue, singletonList(columnDescriptor), UTC).matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD))
+                    .isTrue();
+
+            // and with the filter out of reach, a value which is genuinely absent no longer eliminates anything either
+            TupleDomain<ColumnDescriptor> absentValue = withColumnDomains(singletonMap(columnDescriptor, multipleValues(BIGINT, ImmutableList.of(4242L))));
+            assertThat(new TupleDomainParquetPredicate(absentValue, singletonList(columnDescriptor), UTC).matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD))
+                    .isTrue();
         }
     }
 
@@ -310,11 +357,13 @@ public class TestBloomFilterStore
         private final List<Object> nonMatchingValues;
         private final List<Object> writeValues;
         private final Type sqlType;
+        private final PrimitiveTypeName physicalType;
         private final ObjectInspector objectInspector;
 
-        private BloomFilterTypeTestCase(List<Object> writeValues, List<Object> nonMatchingValues, Type sqlType, ObjectInspector objectInspector)
+        private BloomFilterTypeTestCase(List<Object> writeValues, List<Object> nonMatchingValues, Type sqlType, PrimitiveTypeName physicalType, ObjectInspector objectInspector)
         {
             this.sqlType = requireNonNull(sqlType);
+            this.physicalType = requireNonNull(physicalType);
             this.objectInspector = requireNonNull(objectInspector);
             this.writeValues = requireNonNull(writeValues);
 
