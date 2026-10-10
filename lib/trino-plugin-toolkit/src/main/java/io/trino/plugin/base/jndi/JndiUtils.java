@@ -18,6 +18,8 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
+import javax.naming.ldap.InitialLdapContext;
+import javax.naming.ldap.LdapContext;
 
 import java.util.Hashtable;
 import java.util.Map;
@@ -30,6 +32,12 @@ public final class JndiUtils
             throws NamingException
     {
         return new InitialDirContext(createHashtable(environment));
+    }
+
+    public static LdapContext createLdapContext(Map<String, String> environment)
+            throws NamingException
+    {
+        return new InitialLdapContext(createHashtable(environment), null);
     }
 
     @SuppressModernizer
