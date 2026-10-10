@@ -191,7 +191,7 @@ public class IcebergPageSink
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.metricsConfig = MetricsConfig.from(requireNonNull(storageProperties, "storageProperties is null"), null, null);
+        this.metricsConfig = MetricsConfig.from(requireNonNull(storageProperties, "storageProperties is null"), outputSchema, null);
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(partitionColumns, partitionSpec, outputSchema));
         this.targetMaxFileSizeBytes = getTargetMaxFileSizeBytes(storageProperties, targetMaxFileSize);
