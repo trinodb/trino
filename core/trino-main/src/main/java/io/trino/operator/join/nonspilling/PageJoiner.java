@@ -28,6 +28,7 @@ import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -61,6 +62,8 @@ public class PageJoiner
     private int joinSourcePositions;
     private boolean currentProbePositionProducedRow;
 
+    private final OptionalInt buildPipeline;
+
     public PageJoiner(
             OperatorContext operatorContext,
             List<Type> buildOutputTypes,
@@ -68,7 +71,8 @@ public class PageJoiner
             boolean outputSingleMatch,
             JoinProbeFactory joinProbeFactory,
             ListenableFuture<LookupSource> lookupSource,
-            JoinStatisticsCounter statisticsCounter)
+            JoinStatisticsCounter statisticsCounter,
+            OptionalInt buildPipeline)
     {
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
         this.lookupSourceFuture = requireNonNull(lookupSource, "lookupSource is null");
@@ -76,6 +80,7 @@ public class PageJoiner
         this.yieldSignal = operatorContext.getDriverContext().getYieldSignal();
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
         this.outputSingleMatch = outputSingleMatch;
+        this.buildPipeline = requireNonNull(buildPipeline, "buildPipeline is null");
 
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
@@ -100,7 +105,7 @@ public class PageJoiner
 
         if (lookupSource == null) {
             if (!lookupSourceFuture.isDone()) {
-                return blocked(asVoid(lookupSourceFuture));
+                return blocked(asVoid(lookupSourceFuture), buildPipeline);
             }
 
             lookupSource = requireNonNull(getDone(lookupSourceFuture));

@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -82,6 +83,30 @@ public class TestWorkProcessor
         assertThatThrownBy(iterator::hasNext)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Cannot iterate over blocking WorkProcessor");
+    }
+
+    @Test
+    public void testBlockedProducerPipelinePropagates()
+    {
+        // A block that names a producer pipeline keeps that hint as it flows up a transform chain.
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.<ProcessState<Integer>>of(
+                ProcessState.blocked(SettableFuture.create(), OptionalInt.of(7))))
+                .map(value -> value);
+
+        assertThat(processor.process()).isFalse();
+        assertThat(processor.isBlocked()).isTrue();
+        assertThat(processor.getBlockedProducerPipeline()).hasValue(7);
+    }
+
+    @Test
+    public void testBlockedWithoutProducerPipeline()
+    {
+        WorkProcessor<Integer> processor = processorFrom(ImmutableList.<ProcessState<Integer>>of(
+                ProcessState.blocked(SettableFuture.create())));
+
+        assertThat(processor.process()).isFalse();
+        assertThat(processor.isBlocked()).isTrue();
+        assertThat(processor.getBlockedProducerPipeline()).isEmpty();
     }
 
     @Test

@@ -16,6 +16,8 @@ package io.trino.execution.executor.scheduler;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.annotation.NotThreadSafe;
 
+import java.util.Collection;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 @NotThreadSafe
@@ -57,6 +59,17 @@ public final class SchedulerContext
         checkArgument(handle.getState() == TaskControl.State.RUNNING, "Task is not running");
 
         return scheduler.block(handle, future);
+    }
+
+    /// Indicate that the current task is blocked waiting on whole producer groups — e.g. the build
+    /// pipeline a hash-join probe reads from, or the co-located upstream tasks a consumer reads from
+    /// over an exchange. While blocked, every driver in each of `producerPipelines` is scheduled ahead
+    /// of fair order so the dependency clears sooner (priority donation).
+    public boolean blockOnProducerPipelines(ListenableFuture<?> future, Collection<Group> producerPipelines)
+    {
+        checkArgument(handle.getState() == TaskControl.State.RUNNING, "Task is not running");
+
+        return scheduler.blockOnProducerPipelines(handle, future, producerPipelines);
     }
 
     public long getStartNanos()
