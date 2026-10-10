@@ -151,7 +151,8 @@ public class TestConnectorPushdownRulesWithHive
                         toHiveType(BIGINT),
                         BIGINT)),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, hiveTable, new HiveTransactionHandle(false));
@@ -306,7 +307,8 @@ public class TestConnectorPushdownRulesWithHive
                         toHiveType(BIGINT),
                         BIGINT)),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         // Test projection pushdown with duplicate column references
         tester().assertThat(pushProjectionIntoTableScan)

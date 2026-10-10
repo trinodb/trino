@@ -123,6 +123,6 @@ public class TestMetastoreUtil
 
     private static HiveColumnHandle partitionColumn(String name)
     {
-        return new HiveColumnHandle(name, 0, HIVE_STRING, VARCHAR, Optional.empty(), PARTITION_KEY, Optional.empty());
+        return new HiveColumnHandle(name, 0, HIVE_STRING, VARCHAR, Optional.empty(), PARTITION_KEY, Optional.empty(), true);
     }
 }
