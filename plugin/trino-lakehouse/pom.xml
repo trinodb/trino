@@ -272,6 +272,7 @@
                         <ignoredResourcePattern>org/conscrypt/conscrypt.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
+                        <ignoredClassPattern>org.apache.orc.*</ignoredClassPattern>
                         <ignoredClassPattern>org.conscrypt.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                 </configuration>
