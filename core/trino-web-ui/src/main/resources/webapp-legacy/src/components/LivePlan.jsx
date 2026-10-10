@@ -194,7 +194,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
     refreshLoop = () => {
         clearTimeout(this.timeoutId) // to stop multiple series of refreshLoop from going on simultaneously
-        fetch('/ui/api/query/' + this.props.queryId)
+        fetch('../api/query/' + this.props.queryId)
             .then((response) => response.json())
             .then((query) => {
                 this.setState({
