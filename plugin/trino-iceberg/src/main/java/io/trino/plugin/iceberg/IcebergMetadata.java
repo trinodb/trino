@@ -111,6 +111,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -608,19 +609,20 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle));
+        List<ReferencingView> referencingViews = tableHandle instanceof IcebergTableHandle handle ? handle.getReferencingViews() : ImmutableList.of();
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle), referencingViews);
     }
 
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorWritableTableHandle tableHandle)
     {
-        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle));
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableHandle), ImmutableList.of());
     }
 
     @Override
     public Optional<ConnectorTableCredentials> getTableCredentials(ConnectorSession session, ConnectorTableFunctionHandle tableFunctionHandle)
     {
-        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableFunctionHandle));
+        return tableCredentialsProvider.getTableCredentials(session, getSchemaTableName(tableFunctionHandle), ImmutableList.of());
     }
 
     private static SchemaTableName getSchemaTableName(ConnectorTableHandle tableHandle)
@@ -703,7 +705,8 @@ public class IcebergMetadata
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
-            Optional<ConnectorTableVersion> endVersion)
+            Optional<ConnectorTableVersion> endVersion,
+            List<ReferencingView> referencingViews)
     {
         if (startVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
@@ -730,9 +733,10 @@ public class IcebergMetadata
                         storageTable,
                         OptionalLong.of(snapshotId),
                         schemaFor(storageTable, snapshotId),
-                        Optional.empty());
+                        Optional.empty(),
+                        ImmutableList.of());
             }
-            return tableHandleForCurrentSnapshot(session, tableName, storageTable);
+            return tableHandleForCurrentSnapshot(session, tableName, storageTable, ImmutableList.of());
         }
 
         if (!isDataTable(tableName.getTableName())) {
@@ -742,7 +746,7 @@ public class IcebergMetadata
 
         BaseTable table;
         try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()), referencingViews);
         }
         catch (TableNotFoundException e) {
             return null;
@@ -764,9 +768,10 @@ public class IcebergMetadata
                     table,
                     OptionalLong.of(snapshotId),
                     schemaFor(table, snapshotId),
-                    Optional.empty());
+                    Optional.empty(),
+                    referencingViews);
         }
-        return tableHandleForCurrentSnapshot(session, tableName, table);
+        return tableHandleForCurrentSnapshot(session, tableName, table, referencingViews);
     }
 
     // TODO: Remove when Iceberg v3 is fully supported
@@ -784,7 +789,7 @@ public class IcebergMetadata
         }
     }
 
-    private IcebergTableHandle tableHandleForCurrentSnapshot(ConnectorSession session, SchemaTableName tableName, BaseTable table)
+    private IcebergTableHandle tableHandleForCurrentSnapshot(ConnectorSession session, SchemaTableName tableName, BaseTable table, List<ReferencingView> referencingViews)
     {
         return tableHandleForSnapshot(
                 session,
@@ -792,7 +797,8 @@ public class IcebergMetadata
                 table,
                 getCurrentSnapshotId(table),
                 table.schema(),
-                Optional.of(table.spec()));
+                Optional.of(table.spec()),
+                referencingViews);
     }
 
     private IcebergTableHandle tableHandleForSnapshot(
@@ -801,7 +807,8 @@ public class IcebergMetadata
             BaseTable table,
             OptionalLong tableSnapshotId,
             Schema tableSchema,
-            Optional<PartitionSpec> partitionSpec)
+            Optional<PartitionSpec> partitionSpec,
+            List<ReferencingView> referencingViews)
     {
         validateTableForTrino(table, tableSnapshotId);
         Map<String, String> tableProperties = table.properties();
@@ -825,7 +832,8 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                referencingViews);
     }
 
     private Optional<IcebergTablePartitioning> getTablePartitioning(ConnectorSession session, Table icebergTable)
@@ -1018,7 +1026,7 @@ public class IcebergMetadata
             return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
         }
 
-        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName(), table.getReferencingViews());
 
         // Extract identity partition fields that are present in all partition specs, for creating the discrete predicates.
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
@@ -1162,7 +1170,7 @@ public class IcebergMetadata
         IcebergTableHandle tableHandle = checkValidTableHandle(table);
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
-        BaseTable icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        BaseTable icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName(), tableHandle.getReferencingViews());
         List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager, tableHandle.getFormatVersion());
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
@@ -1399,7 +1407,7 @@ public class IcebergMetadata
                 dropView(session, viewName);
             }
             for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
-                ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), ImmutableList.of());
                 if (tableHandle != null) {
                     // getTableHandle method returns null if the table is dropped concurrently
                     dropTable(session, tableHandle);
@@ -1554,7 +1562,7 @@ public class IcebergMetadata
         String tableLocation = null;
         Transaction transaction = null;
         if (replace) {
-            ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty());
+            ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty(), ImmutableList.of());
             if (tableHandle != null) {
                 checkValidTableHandle(tableHandle);
                 IcebergTableHandle table = (IcebergTableHandle) tableHandle;
@@ -2636,7 +2644,7 @@ public class IcebergMetadata
 
         Map<String, String> summary = ImmutableMap.of();
         if (icebergTableHandle.getSnapshotId().isPresent()) {
-            Table table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            Table table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getReferencingViews());
             summary = table.snapshot(icebergTableHandle.getSnapshotId().orElseThrow()).summary();
         }
         Optional<String> totalRecords = Optional.ofNullable(summary.get(TOTAL_RECORDS_PROP));
@@ -3248,7 +3256,7 @@ public class IcebergMetadata
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
 
-        ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
+        ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty(), ImmutableList.of());
         if (tableHandle == null) {
             // Assume new table (CTAS), collect NDV stats on all columns
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
@@ -3754,11 +3762,23 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
+        return getView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public boolean managesViewSecurity()
+    {
+        return catalog.managesViewSecurity();
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
         if (isIcebergTableName(viewName.getTableName()) && !isDataTable(viewName.getTableName())) {
             return getRawSystemView(session, viewName);
         }
 
-        return catalog.getView(session, viewName);
+        return catalog.getView(session, viewName, referencingViews);
     }
 
     @Override
@@ -3839,7 +3859,8 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.getReferencingViews());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -3872,7 +3893,7 @@ public class IcebergMetadata
             remainingConstraint = TupleDomain.all();
         }
         else {
-            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+            Table icebergTable = catalog.loadTable(session, table.getSchemaTableName(), table.getReferencingViews());
 
             Set<Integer> partitionSpecIds = getPartitionSpecIdsFromSnapshot(icebergTable, table.getSnapshotId());
 
@@ -3939,7 +3960,8 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.getReferencingViews()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -4112,13 +4134,14 @@ public class IcebergMetadata
                 false, // recordScannedFiles does not affect stats
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
-                Optional.empty()); // forAnalyze does not affect stats
+                Optional.empty(), // forAnalyze does not affect stats
+                ImmutableList.of()); // referencingViews do not affect stats
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
                 currentStatistics -> currentStatistics.getColumnStatistics().keySet().containsAll(originalHandle.getProjectedColumns()),
                 projectedColumns -> {
-                    Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName());
+                    Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName(), originalHandle.getReferencingViews());
                     return tableStatisticsReader.getTableStatistics(
                             originalHandle,
                             projectedColumns,
@@ -4144,6 +4167,11 @@ public class IcebergMetadata
     Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return catalog.loadTable(session, schemaTableName);
+    }
+
+    Table getIcebergTable(ConnectorSession session, IcebergTableHandle tableHandle)
+    {
+        return catalog.loadTable(session, tableHandle.getSchemaTableName(), tableHandle.getReferencingViews());
     }
 
     @Override
@@ -4530,7 +4558,7 @@ public class IcebergMetadata
         String schema = strings.get(0);
         String name = strings.get(1);
         SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-        ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
+        ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty(), ImmutableList.of());
 
         if (tableHandle == null || tableHandle instanceof CorruptedIcebergTableHandle) {
             // Base table is gone or table is corrupted
