@@ -131,7 +131,7 @@ public final class UrlFunctions
 
         for (String queryArg : queryArgs) {
             Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
-            if (arg.next().equals(parameter)) {
+            if (decodeUrl(arg.next()).toStringUtf8().equals(parameter)) {
                 if (arg.hasNext()) {
                     return decodeUrl(arg.next());
                 }
