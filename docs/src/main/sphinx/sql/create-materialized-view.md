@@ -65,6 +65,20 @@ Note that the `WHEN STALE` clause requires connector support. If a connector
 does not support this feature, using `WHEN STALE` with any value other than 
 `INLINE` results in an error.
 
+Note that a zero `GRACE PERIOD` accepts no staleness at all, and therefore
+requires the freshness of the materialized view to be known. It is rejected in
+combination with `WHEN STALE FAIL` if the `query` reads from a source whose
+freshness cannot be tracked:
+
+* a table in a catalog other than the catalog of the materialized view,
+* a table function,
+* a non-deterministic function, such as `random()`, or a function returning the
+  current time, such as `current_timestamp`.
+
+Such a materialized view is never known to be fresh, and is therefore always
+considered stale, so every query accessing it fails, even directly after a
+refresh. Use a non-zero grace period or `WHEN STALE INLINE` instead.
+
 The optional `COMMENT` clause causes a `string` comment to be stored with
 the metadata about the materialized view. The comment is displayed with the
 {doc}`show-create-materialized-view` statement and is available in the table
