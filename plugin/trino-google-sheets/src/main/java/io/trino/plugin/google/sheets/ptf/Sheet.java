@@ -43,8 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.google.sheets.SheetsClient.DEFAULT_RANGE;
 import static io.trino.plugin.google.sheets.SheetsClient.RANGE_SEPARATOR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
@@ -87,10 +85,11 @@ public class Sheet
                                     .name(ID_ARGUMENT)
                                     .type(VARCHAR)
                                     .build(),
+                            // Without a range the first visible sheet is read, subject to the configured row limit
                             ScalarArgumentSpecification.builder()
                                     .name(RANGE_ARGUMENT)
                                     .type(VARCHAR)
-                                    .defaultValue(utf8Slice(DEFAULT_RANGE))
+                                    .defaultValue(null)
                                     .build()),
                     GENERIC_TABLE,
                     "");
@@ -106,7 +105,8 @@ public class Sheet
         {
             String sheetId = ((Slice) ((ScalarArgument) arguments.get(ID_ARGUMENT)).getValue()).toStringUtf8();
             validateSheetId(sheetId);
-            String rangeArgument = ((Slice) ((ScalarArgument) arguments.get(RANGE_ARGUMENT)).getValue()).toStringUtf8();
+            Optional<String> rangeArgument = Optional.ofNullable((Slice) ((ScalarArgument) arguments.get(RANGE_ARGUMENT)).getValue())
+                    .map(Slice::toStringUtf8);
 
             SheetsConnectorTableHandle tableHandle = new SheetsSheetTableHandle(sheetId, rangeArgument);
             SheetFunctionHandle handle = new SheetFunctionHandle(tableHandle);
