@@ -141,7 +141,6 @@ public class SqlTaskManager
     private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
-    private final LanguageFunctionProvider languageFunctionProvider;
 
     @Inject
     public SqlTaskManager(
@@ -202,7 +201,7 @@ public class SqlTaskManager
             Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
     {
         this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
-        this.languageFunctionProvider = languageFunctionProvider;
+        requireNonNull(languageFunctionProvider, "languageFunctionProvider is null");
 
         requireNonNull(nodeInfo, "nodeInfo is null");
         infoCacheTime = config.getInfoMaxAge();
@@ -240,6 +239,7 @@ public class SqlTaskManager
                             tracer,
                             sqlTaskExecutionFactory,
                             taskNotificationExecutor,
+                            fragment -> languageFunctionProvider.registerTask(taskId, fragment.getLanguageFunctions()),
                             sqlTask -> {
                                 languageFunctionProvider.unregisterTask(taskId);
                                 finishedTaskTotals.accumulateAndGet(sqlTask.getIoTotals(), SqlTaskIoTotals::add);
@@ -561,9 +561,6 @@ public class SqlTaskManager
                         sqlTask.setCatalogsLoaded();
                     }
                 });
-
-        fragment.map(PlanFragment::getLanguageFunctions)
-                .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, stageSpan, fragment, tableCredentials, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);
