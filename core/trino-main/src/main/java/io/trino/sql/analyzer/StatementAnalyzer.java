@@ -6609,7 +6609,7 @@ class StatementAnalyzer
             return table
                     // branch is explicitly provided for INSERT @ branch, UPDATE @ branch, DELETE @ branch and MERGE @ branch:
                     .getBranch().map(Identifier::getValue)
-                    // the version pointer is used for SELECT FROM table FOR VERSION AS OF 'branch':
+                    // the end version is used as the branch name for SELECT FROM table FOR VERSION:
                     .or(() -> table.getQueryPeriod()
                             .filter(queryPeriod -> queryPeriod.getRangeType() == QueryPeriod.RangeType.VERSION)
                             .flatMap(QueryPeriod::getEnd)
