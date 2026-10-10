@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -131,18 +132,19 @@ public class Memo
         incrementReferenceCounts(node, groupId);
         group.membership = node;
         decrementReferenceCounts(old, groupId);
-        evictStatisticsAndCost(group);
+        evictDerivedProperties(group);
 
         return node;
     }
 
-    private void evictStatisticsAndCost(Group group)
+    private void evictDerivedProperties(Group group)
     {
         group.stats = null;
         group.cost = null;
+        group.effectivePredicate = null;
         for (int parentGroup : group.incomingReferences.elementSet()) {
             if (parentGroup != ROOT_GROUP_REF) {
-                evictStatisticsAndCost(getGroup(parentGroup));
+                evictDerivedProperties(getGroup(parentGroup));
             }
         }
     }
@@ -156,7 +158,7 @@ public class Memo
     {
         Group group = getGroup(groupId);
         if (group.stats != null) {
-            evictStatisticsAndCost(group); // cost is derived from stats, also needs eviction
+            evictDerivedProperties(group); // cost is derived from stats, also needs eviction
         }
         group.stats = requireNonNull(stats, "stats is null");
     }
@@ -164,6 +166,16 @@ public class Memo
     public Optional<PlanCostEstimate> getCost(int group)
     {
         return Optional.ofNullable(getGroup(group).cost);
+    }
+
+    public Optional<Expression> getEffectivePredicate(int group)
+    {
+        return Optional.ofNullable(getGroup(group).effectivePredicate);
+    }
+
+    public void storeEffectivePredicate(int group, Expression predicate)
+    {
+        getGroup(group).effectivePredicate = requireNonNull(predicate, "predicate is null");
     }
 
     public void storeCost(int group, PlanCostEstimate cost)
@@ -260,6 +272,8 @@ public class Memo
         private PlanNodeStatsEstimate stats;
         @Nullable
         private PlanCostEstimate cost;
+        @Nullable
+        private Expression effectivePredicate;
 
         private Group(PlanNode member)
         {
