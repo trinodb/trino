@@ -90,6 +90,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteQuery;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -148,6 +149,7 @@ public class FileBasedSystemAccessControl
     private final List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules;
     private final List<CatalogFunctionAccessControlRule> functionRules;
     private final List<CatalogProcedureAccessControlRule> procedureRules;
+    private final List<CatalogTableProcedureAccessControlRule> tableProcedureRules;
     private final Set<AnyCatalogPermissionsRule> anyCatalogPermissionsRules;
     private final Set<AnyCatalogSchemaPermissionsRule> anyCatalogSchemaPermissionsRules;
 
@@ -164,7 +166,8 @@ public class FileBasedSystemAccessControl
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
             List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules,
             List<CatalogFunctionAccessControlRule> functionRules,
-            List<CatalogProcedureAccessControlRule> procedureRules)
+            List<CatalogProcedureAccessControlRule> procedureRules,
+            List<CatalogTableProcedureAccessControlRule> tableProcedureRules)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.catalogRules = catalogRules;
@@ -179,6 +182,7 @@ public class FileBasedSystemAccessControl
         this.catalogSessionPropertyRules = catalogSessionPropertyRules;
         this.functionRules = functionRules;
         this.procedureRules = procedureRules;
+        this.tableProcedureRules = tableProcedureRules;
 
         ImmutableSet.Builder<AnyCatalogPermissionsRule> anyCatalogPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
@@ -199,6 +203,10 @@ public class FileBasedSystemAccessControl
                 .forEach(anyCatalogPermissionsRules::add);
         procedureRules.stream()
                 .map(CatalogProcedureAccessControlRule::toAnyCatalogPermissionsRule)
+                .flatMap(Optional::stream)
+                .forEach(anyCatalogPermissionsRules::add);
+        tableProcedureRules.stream()
+                .map(CatalogTableProcedureAccessControlRule::toAnyCatalogPermissionsRule)
                 .flatMap(Optional::stream)
                 .forEach(anyCatalogPermissionsRules::add);
         this.anyCatalogPermissionsRules = anyCatalogPermissionsRules.build();
@@ -1016,6 +1024,7 @@ public class FileBasedSystemAccessControl
     public void checkCanExecuteProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName procedure)
     {
         Identity identity = systemSecurityContext.getIdentity();
+        // TODO: Shouldn't this permission check be ALL instead of READ_ONLY as procedures can mutate too (e.g. register_table, flush_metadata_cache)
         boolean allowed = canAccessCatalog(systemSecurityContext, procedure.getCatalogName(), READ_ONLY) &&
                 procedureRules.stream()
                         .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), procedure))
@@ -1040,7 +1049,19 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure) {}
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
+    {
+        Identity identity = systemSecurityContext.getIdentity();
+        boolean allowed = canAccessCatalog(systemSecurityContext, table.getCatalogName(), ALL) &&
+                tableProcedureRules.stream()
+                        .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table.getCatalogName(), procedure))
+                        .findFirst()
+                        .filter(CatalogTableProcedureAccessControlRule::canExecuteTableProcedure)
+                        .isPresent();
+        if (!allowed) {
+            denyExecuteTableProcedure(table.toString(), procedure);
+        }
+    }
 
     @Override
     public void checkCanShowFunctions(SystemSecurityContext context, CatalogSchemaName schema)
@@ -1361,6 +1382,7 @@ public class FileBasedSystemAccessControl
         private List<CatalogSessionPropertyAccessControlRule> catalogSessionPropertyRules = ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL);
         private List<CatalogFunctionAccessControlRule> functionRules = ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_BUILTIN);
         private List<CatalogProcedureAccessControlRule> procedureRules = ImmutableList.of(CatalogProcedureAccessControlRule.ALLOW_BUILTIN);
+        private List<CatalogTableProcedureAccessControlRule> tableProcedureRules = ImmutableList.of(CatalogTableProcedureAccessControlRule.ALLOW_BUILTIN);
 
         public Builder setLifeCycleManager(LifeCycleManager lifeCycleManager)
         {
@@ -1383,6 +1405,7 @@ public class FileBasedSystemAccessControl
             catalogSessionPropertyRules = ImmutableList.of();
             functionRules = ImmutableList.of();
             procedureRules = ImmutableList.of();
+            tableProcedureRules = ImmutableList.of();
             return this;
         }
 
@@ -1458,6 +1481,12 @@ public class FileBasedSystemAccessControl
             return this;
         }
 
+        public Builder setTableProcedureRules(List<CatalogTableProcedureAccessControlRule> tableProcedureRules)
+        {
+            this.tableProcedureRules = tableProcedureRules;
+            return this;
+        }
+
         public FileBasedSystemAccessControl build()
         {
             return new FileBasedSystemAccessControl(
@@ -1473,7 +1502,8 @@ public class FileBasedSystemAccessControl
                     sessionPropertyRules,
                     catalogSessionPropertyRules,
                     functionRules,
-                    procedureRules);
+                    procedureRules,
+                    tableProcedureRules);
         }
     }
 }
