@@ -29,7 +29,7 @@ function test_trino_starts {
         fi
         sleep ${QUERY_PERIOD}
     done
-    if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null); then
+    if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --user=trino --execute "SELECT 'success'" 2>/dev/null); then
         echo "🚨 Failed to execute a query after Trino container started" >&2
     fi
     set -e
