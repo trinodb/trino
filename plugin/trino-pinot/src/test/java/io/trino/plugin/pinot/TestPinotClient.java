@@ -24,14 +24,19 @@ import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
+import io.trino.plugin.pinot.client.InstanceInfo;
 import io.trino.plugin.pinot.client.PinotClient;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPinotClient
 {
@@ -80,22 +85,141 @@ public class TestPinotClient
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
                 .setControllerUrls(ImmutableList.of("localhost:7900"));
+        AtomicReference<PinotClient> clientReference = new AtomicReference<>();
         PinotClient pinotClient = new PinotClient(
                 pinotConfig,
-                new IdentityPinotHostMapper(),
+                new IdentityPinotHostMapper(clientReference::get),
                 httpClient,
                 newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
                 MetadataUtil.TABLES_JSON_CODEC,
                 MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC,
                 MetadataUtil.TIME_BOUNDARY_JSON_CODEC,
                 MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC,
+                MetadataUtil.INSTANCE_INFO_JSON_CODEC,
                 PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
+        clientReference.set(pinotClient);
         assertThat(pinotClient.getAllBrokersForTable("dummy"))
                 .containsExactlyInAnyOrder(
                         "dummy-broker-host1-datacenter1:6513",
                         "dummy-broker-host2-datacenter1:6513",
                         "dummy-broker-host3-datacenter1:6513",
                         "dummy-broker-host4-datacenter1:6513");
+    }
+
+    @Test
+    public void testInstanceInfoParsed()
+    {
+        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8,
+                """
+                {
+                  "instanceName": "Server_dummy-server-host1-datacenter1_8098",
+                  "hostName": "Server_dummy-server-host1-datacenter1",
+                  "enabled": true,
+                  "port": "8098",
+                  "tags": ["DefaultTenant_OFFLINE"],
+                  "grpcPort": 8091,
+                  "adminPort": 8097
+                }
+                """));
+        assertThat(createPinotClient(httpClient, new Duration(30, TimeUnit.MINUTES)).getInstanceInfo("Server_dummy-server-host1-datacenter1_8098"))
+                .isEqualTo(new InstanceInfo("Server_dummy-server-host1-datacenter1_8098", "Server_dummy-server-host1-datacenter1", 8098, 8091));
+    }
+
+    @Test
+    public void testInstanceInfoLookupFailureIsNotWrapped()
+    {
+        // The cache loader throws an unchecked PinotException, which Guava wraps before it reaches the caller
+        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(HttpStatus.NOT_FOUND, MediaType.JSON_UTF_8, "{}"));
+        assertThatThrownBy(() -> createPinotClient(httpClient, new Duration(30, TimeUnit.MINUTES)).getInstanceInfo("Server_missing_8098"))
+                .isInstanceOf(PinotException.class);
+    }
+
+    @Test
+    public void testResolvedInstanceInfoIsRefreshedInTheBackground()
+    {
+        // The controller reports a new host on every call after the first: a read after the refresh interval
+        // must be served immediately from the cache, and the new host must show up once the refresh completes.
+        AtomicInteger controllerCalls = new AtomicInteger();
+        HttpClient httpClient = new TestingHttpClient(_ -> TestingResponse.mockResponse(
+                HttpStatus.OK,
+                MediaType.JSON_UTF_8,
+                instanceJson(controllerCalls.getAndIncrement() == 0 ? "Server_dummy-server-host1-datacenter1" : "dummy-server-host1-datacenter1-0")));
+        PinotClient pinotClient = createPinotClient(httpClient, new Duration(1, TimeUnit.MILLISECONDS));
+
+        InstanceInfo resolved = pinotClient.resolveInstanceInfo("Server_dummy-server-host1-datacenter1_8098");
+        assertThat(resolved.hostName()).isEqualTo("Server_dummy-server-host1-datacenter1");
+        assertEventually(() -> assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098").hostName())
+                .isEqualTo("dummy-server-host1-datacenter1-0"));
+    }
+
+    @Test
+    public void testResolvedInstanceInfoSurvivesFailingRefresh()
+    {
+        // The controller answers the first lookup and then becomes unavailable. Once an instance has been resolved,
+        // a failing background refresh must keep serving the last good value rather than surface to the query.
+        AtomicInteger controllerCalls = new AtomicInteger();
+        HttpClient httpClient = new TestingHttpClient(_ -> controllerCalls.getAndIncrement() == 0
+                ? TestingResponse.mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, instanceJson("Server_dummy-server-host1-datacenter1"))
+                : TestingResponse.mockResponse(HttpStatus.SERVICE_UNAVAILABLE, MediaType.JSON_UTF_8, "{}"));
+        PinotClient pinotClient = createPinotClient(httpClient, new Duration(1, TimeUnit.MILLISECONDS));
+
+        InstanceInfo resolved = pinotClient.resolveInstanceInfo("Server_dummy-server-host1-datacenter1_8098");
+        assertEventually(() -> {
+            assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isEqualTo(resolved);
+            assertThat(controllerCalls.get()).isGreaterThan(1);
+        });
+        assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isEqualTo(resolved);
+    }
+
+    @Test
+    public void testInstanceInfoFromSplitIsServedWithoutCallingController()
+    {
+        // A worker that received the instance config with its split must not contact the controller at all,
+        // while resolving still goes to the controller
+        AtomicInteger controllerCalls = new AtomicInteger();
+        HttpClient httpClient = new TestingHttpClient(_ -> {
+            controllerCalls.incrementAndGet();
+            return TestingResponse.mockResponse(HttpStatus.SERVICE_UNAVAILABLE, MediaType.JSON_UTF_8, "{}");
+        });
+        PinotClient pinotClient = createPinotClient(httpClient, new Duration(30, TimeUnit.MINUTES));
+        InstanceInfo fromCoordinator = new InstanceInfo("Server_dummy-server-host1-datacenter1_8098", "dummy-server-host1-datacenter1-0", 8098, 8091);
+
+        pinotClient.cacheInstanceInfoFromSplit("Server_dummy-server-host1-datacenter1_8098", fromCoordinator);
+
+        assertThat(pinotClient.getInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isEqualTo(fromCoordinator);
+        assertThat(controllerCalls.get()).isEqualTo(0);
+        assertThatThrownBy(() -> pinotClient.resolveInstanceInfo("Server_dummy-server-host1-datacenter1_8098")).isInstanceOf(PinotException.class);
+        assertThat(controllerCalls.get()).isEqualTo(1);
+    }
+
+    private static String instanceJson(String hostName)
+    {
+        return """
+               {"instanceName": "Server_dummy-server-host1-datacenter1_8098", "hostName": "%s", "port": "8098", "grpcPort": 8091}
+               """.formatted(hostName);
+    }
+
+    private static PinotClient createPinotClient(HttpClient httpClient, Duration instanceConfigRefreshInterval)
+    {
+        PinotConfig pinotConfig = new PinotConfig()
+                .setMetadataCacheExpiry(new Duration(1, TimeUnit.MILLISECONDS))
+                .setInstanceConfigRefreshInterval(instanceConfigRefreshInterval)
+                .setControllerUrls(ImmutableList.of("localhost:7900"));
+        AtomicReference<PinotClient> clientReference = new AtomicReference<>();
+        PinotClient pinotClient = new PinotClient(
+                pinotConfig,
+                new IdentityPinotHostMapper(clientReference::get),
+                httpClient,
+                newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-testing")),
+                MetadataUtil.TABLES_JSON_CODEC,
+                MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC,
+                MetadataUtil.TIME_BOUNDARY_JSON_CODEC,
+                MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC,
+                MetadataUtil.INSTANCE_INFO_JSON_CODEC,
+                PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
+        clientReference.set(pinotClient);
+        return pinotClient;
     }
 }
