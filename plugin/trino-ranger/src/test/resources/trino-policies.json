@@ -229,7 +229,7 @@
         "catalog": { "values": [ "alice-catalog" ] },
         "schema":  { "values": [ "sch1" ] },
         "table":   { "values": [ "tbl1" ] },
-        "column":  { "values": [ "national_id", "new-column" ] }
+        "column":  { "values": [ "national_id", "new-column", "first name" ] }
       },
       "dataMaskPolicyItems": [
         { "accesses": [ { "type": "select" } ], "users": [ "alice" ],  "dataMaskInfo": { "dataMaskType": "MASK_NONE" } },
