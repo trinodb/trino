@@ -95,6 +95,7 @@ public class IcebergConfig
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
     private Optional<String> sortedWritingLocalStagingPath = Optional.empty();
+    private Optional<String> sortedWritingStagingLocation = Optional.empty();
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
@@ -517,6 +518,20 @@ public class IcebergConfig
         return scheme.isEmpty()
                 || scheme.equals(Optional.of("file"))
                 || scheme.equals(Optional.of("local"));
+    }
+
+    @NotNull
+    public Optional<String> getSortedWritingStagingLocation()
+    {
+        return sortedWritingStagingLocation;
+    }
+
+    @Config("iceberg.sorted-writing.staging-location")
+    @ConfigDescription("Use provided file system location instead of the table location for staging writes to sorted tables. Use ${USER} placeholder to use different location for each user")
+    public IcebergConfig setSortedWritingStagingLocation(String sortedWritingStagingLocation)
+    {
+        this.sortedWritingStagingLocation = Optional.ofNullable(sortedWritingStagingLocation);
+        return this;
     }
 
     @Config("iceberg.query-partition-filter-required")
