@@ -76,6 +76,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -287,7 +288,14 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
+        return getTableHandle(session, table, startVersion, endVersion, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
         requireNonNull(table, "table is null");
+        requireNonNull(referencingViews, "referencingViews is null");
         if (cannotExist(table)) {
             return Optional.empty();
         }
@@ -305,7 +313,8 @@ public final class MetadataManager
                     connectorSession,
                     table.asSchemaTableName(),
                     startTableVersion,
-                    endTableVersion);
+                    endTableVersion,
+                    referencingViews);
             return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
@@ -2083,12 +2092,18 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
+        return getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, ImmutableList.of());
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion, referencingViews));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion, referencingViews);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }

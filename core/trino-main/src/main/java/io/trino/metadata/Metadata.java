@@ -46,6 +46,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -908,6 +909,12 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 
     /**
+     * Get the target table handle after performing redirection with a table version,
+     * for a table resolved through the given views (outermost first).
+     */
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews);
+
+    /**
      * Get the target view after performing redirection.
      */
     RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName);
@@ -916,6 +923,12 @@ public interface Metadata
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Returns a table handle for the specified table name with a specified version,
+     * for a table resolved through the given views (outermost first).
+     */
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews);
 
     /**
      * Returns maximum number of tasks that can be created while writing data to specific connector.
