@@ -98,12 +98,16 @@ public class TwoMixedHivesEnvironment
     private static final String HDFS_PRINCIPAL = "hdfs/" + HADOOP1_HOST;
     private static final String HIVE_PRINCIPAL = "hive/" + HADOOP1_HOST;
     private static final String HTTP_PRINCIPAL = "HTTP/" + HADOOP1_HOST;
+    private static final String MAPRED_PRINCIPAL = "mapred/" + HADOOP1_HOST;
+    private static final String YARN_PRINCIPAL = "yarn/" + HADOOP1_HOST;
     private static final String TRINO_PRINCIPAL = "trino/trino-master";
 
     // Keytab paths in KDC container
     private static final String KDC_HDFS_KEYTAB_PATH = "/keytabs/hdfs.keytab";
     private static final String KDC_HIVE_KEYTAB_PATH = "/keytabs/hive.keytab";
-    private static final String KDC_HTTP_KEYTAB_PATH = "/keytabs/http.keytab";
+    private static final String KDC_HTTP_KEYTAB_PATH = "/keytabs/HTTP.keytab";
+    private static final String KDC_MAPRED_KEYTAB_PATH = "/keytabs/mapred.keytab";
+    private static final String KDC_YARN_KEYTAB_PATH = "/keytabs/yarn.keytab";
     private static final String KDC_TRINO_KEYTAB_PATH = "/keytabs/trino.keytab";
 
     // Paths where keytabs are mounted in Hadoop container
@@ -143,6 +147,8 @@ public class TwoMixedHivesEnvironment
                 .withPrincipal(HDFS_PRINCIPAL, KDC_HDFS_KEYTAB_PATH)
                 .withPrincipal(HIVE_PRINCIPAL, KDC_HIVE_KEYTAB_PATH)
                 .withPrincipal(HTTP_PRINCIPAL, KDC_HTTP_KEYTAB_PATH)
+                .withPrincipal(MAPRED_PRINCIPAL, KDC_MAPRED_KEYTAB_PATH)
+                .withPrincipal(YARN_PRINCIPAL, KDC_YARN_KEYTAB_PATH)
                 .withPrincipal(TRINO_PRINCIPAL, KDC_TRINO_KEYTAB_PATH);
         kdc.start();
 
@@ -181,7 +187,9 @@ public class TwoMixedHivesEnvironment
             // Write Hadoop cluster 1 keytabs
             writeKeytab(keytabDir, "hdfs.keytab", KDC_HDFS_KEYTAB_PATH);
             writeKeytab(keytabDir, "hive.keytab", KDC_HIVE_KEYTAB_PATH);
-            writeKeytab(keytabDir, "http.keytab", KDC_HTTP_KEYTAB_PATH);
+            writeKeytab(keytabDir, "HTTP.keytab", KDC_HTTP_KEYTAB_PATH);
+            writeKeytab(keytabDir, "mapred.keytab", KDC_MAPRED_KEYTAB_PATH);
+            writeKeytab(keytabDir, "yarn.keytab", KDC_YARN_KEYTAB_PATH);
 
             // Write Trino keytab
             writeKeytab(trinoKeytabDir, "trino.keytab", KDC_TRINO_KEYTAB_PATH);
@@ -211,12 +219,9 @@ public class TwoMixedHivesEnvironment
 
     private HadoopContainer createKerberosHadoopContainer()
     {
-        HadoopContainer container = new HadoopContainer()
+        HadoopContainer container = HadoopContainer.kerberized()
                 .withNetwork(network)
                 .withNetworkAliases(HADOOP1_HOST);
-
-        // Set JAVA_TOOL_OPTIONS so all JVM processes can find krb5.conf
-        container.withEnv("JAVA_TOOL_OPTIONS", "-Djava.security.krb5.conf=/etc/krb5.conf");
 
         // Bind mount Kerberos files
         container.withFileSystemBind(
@@ -238,85 +243,23 @@ public class TwoMixedHivesEnvironment
         return container;
     }
 
-    private String generateKerberosInitScript()
+    private static String generateKerberosInitScript()
     {
-        String realm = kdc.getRealm();
-        String hdfsPrincipalFull = HDFS_PRINCIPAL + "@" + realm;
-        String httpPrincipalFull = HTTP_PRINCIPAL + "@" + realm;
-        String hivePrincipalFull = HIVE_PRINCIPAL + "@" + realm;
-
         return """
                #!/bin/bash
-               echo "=========================================="
-               echo "KERBEROS INIT SCRIPT STARTING"
-               echo "=========================================="
+               set -euo pipefail
 
-               HADOOP_CONF="/opt/hadoop/etc/hadoop"
-               HIVE_CONF="/opt/hive/conf"
-               KEYTAB_DIR="%1$s"
-
-               echo "=== Ensuring Kerberos workstation tools are available ==="
-               if ! command -v kinit >/dev/null 2>&1; then
-                   yum install -y -q krb5-workstation
-               else
-                   echo "krb5-workstation already present; skipping yum install"
-               fi
-
-               echo "=== Configuring supervisord for Kerberos ==="
-               for conf in /etc/supervisord.d/*.conf; do
-                   sed -i '2i environment=JAVA_TOOL_OPTIONS="-Djava.security.krb5.conf=/etc/krb5.conf"' "$conf"
-               done
-
-               echo "=== Adding Kerberos properties to core-site.xml ==="
                sed -i '/<\\/configuration>/i \\
-               <property><name>hadoop.security.authentication</name><value>kerberos</value></property>\\
-               <property><name>hadoop.security.authorization</name><value>true</value></property>\\
-               <property><name>hadoop.proxyuser.hive.hosts</name><value>*</value></property>\\
-               <property><name>hadoop.proxyuser.hive.groups</name><value>*</value></property>\\
-               <property><name>hadoop.proxyuser.hive.users</name><value>*</value></property>\\
-               <property><name>hadoop.proxyuser.trino.hosts</name><value>*</value></property>\\
-               <property><name>hadoop.proxyuser.trino.groups</name><value>*</value></property>\\
-               <property><name>hadoop.proxyuser.trino.users</name><value>*</value></property>' \\
-                 ${HADOOP_CONF}/core-site.xml
-
-               echo "=== Adding Kerberos properties to hdfs-site.xml ==="
-               sed -i '/<\\/configuration>/i \\
-               <property><name>dfs.namenode.kerberos.principal</name><value>%2$s</value></property>\\
-               <property><name>dfs.namenode.keytab.file</name><value>%1$s/hdfs.keytab</value></property>\\
-               <property><name>dfs.namenode.kerberos.internal.spnego.principal</name><value>%3$s</value></property>\\
-               <property><name>dfs.datanode.kerberos.principal</name><value>%2$s</value></property>\\
-               <property><name>dfs.datanode.keytab.file</name><value>%1$s/hdfs.keytab</value></property>\\
-               <property><name>dfs.web.authentication.kerberos.principal</name><value>%3$s</value></property>\\
-               <property><name>dfs.web.authentication.kerberos.keytab</name><value>%1$s/http.keytab</value></property>\\
-               <property><name>dfs.block.access.token.enable</name><value>true</value></property>\\
-               <property><name>dfs.datanode.address</name><value>0.0.0.0:50010</value></property>\\
-               <property><name>dfs.datanode.http.address</name><value>0.0.0.0:50075</value></property>\\
-               <property><name>dfs.data.transfer.protection</name><value>authentication</value></property>\\
-               <property><name>dfs.http.policy</name><value>HTTP_ONLY</value></property>\\
-               <property><name>ignore.secure.ports.for.testing</name><value>true</value></property>' \\
-                 ${HADOOP_CONF}/hdfs-site.xml
-
-               echo "=== Adding Kerberos properties to hive-site.xml ==="
-               sed -i '/<\\/configuration>/i \\
-               <property><name>hive.metastore.sasl.enabled</name><value>true</value></property>\\
-               <property><name>hive.metastore.kerberos.principal</name><value>%4$s</value></property>\\
-               <property><name>hive.metastore.kerberos.keytab.file</name><value>%1$s/hive.keytab</value></property>\\
-               <property><name>hive.server2.authentication</name><value>KERBEROS</value></property>\\
-               <property><name>hive.server2.authentication.kerberos.principal</name><value>%4$s</value></property>\\
-               <property><name>hive.server2.authentication.kerberos.keytab</name><value>%1$s/hive.keytab</value></property>' \\
-                 ${HIVE_CONF}/hive-site.xml
-
-               echo "=== Testing keytab ==="
-               kinit -kt ${KEYTAB_DIR}/hdfs.keytab %2$s && echo "kinit successful" || echo "kinit FAILED"
-
-               echo "=========================================="
-               echo "KERBEROS INIT SCRIPT FINISHED"
-               echo "=========================================="
-               """.formatted(
-                HADOOP_KEYTAB_DIR,  // %1$s - KEYTAB_DIR
-                hdfsPrincipalFull,  // %2$s - HDFS principal with realm
-                httpPrincipalFull,  // %3$s - HTTP principal with realm
-                hivePrincipalFull); // %4$s - Hive principal with realm
+               <property><name>dfs.client.use.datanode.hostname</name><value>true</value></property>\\
+               <property><name>dfs.datanode.use.datanode.hostname</name><value>true</value></property>\\
+               <property><name>dfs.datanode.hostname</name><value>%s</value></property>\\
+               <property><name>dfs.client.socket-timeout</name><value>180000</value></property>\\
+               <property><name>dfs.datanode.socket.write.timeout</name><value>600000</value></property>\\
+               <property><name>dfs.replication</name><value>1</value></property>\\
+               <property><name>dfs.client.read.shortcircuit</name><value>false</value></property>\\
+               <property><name>dfs.data.transfer.protection</name><value>authentication</value></property>' \\
+                   /opt/hadoop/etc/hadoop/hdfs-site.xml
+               """.formatted(HADOOP1_HOST);
     }
 
     private String getKerberosHdfsClientSiteXml()
