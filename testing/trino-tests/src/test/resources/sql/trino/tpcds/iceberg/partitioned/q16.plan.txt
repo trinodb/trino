@@ -7,9 +7,9 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, [cs_order_number_25, group])
                             partial aggregation over (cs_order_number_25, group)
                                 join (LEFT, PARTITIONED):
-                                    final aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
+                                    final aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique_53)
                                         local exchange (GATHER, SINGLE, [])
-                                            partial aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique)
+                                            partial aggregation over (cs_ship_date_sk, cs_ship_addr_sk, cs_call_center_sk, cs_warehouse_sk, cs_order_number_25, cs_ext_ship_cost, cs_net_profit, d_date, ca_state, cc_county, unique_53)
                                                 join (INNER, PARTITIONED, can skip output duplicates):
                                                     remote exchange (REPARTITION, HASH, [cs_order_number_25])
                                                         dynamic filter (cs_order_number_25::EQUAL)
