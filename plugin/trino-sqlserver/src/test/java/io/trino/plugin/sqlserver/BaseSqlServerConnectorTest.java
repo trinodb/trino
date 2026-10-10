@@ -536,20 +536,23 @@ public abstract class BaseSqlServerConnectorTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = 'NONE'\n" +
-                        ")");
+                .matches(
+                        """
+                        CREATE TABLE \\w+\\.\\w+\\.orders \\Q(
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority integer,
+                           comment varchar(79)
+                        )
+                        WITH (
+                           data_compression = 'NONE'
+                        )\
+                        """);
     }
 
     @Test
@@ -564,13 +567,15 @@ public abstract class BaseSqlServerConnectorTest
     {
         String tableName = "test_create_with_compression_" + randomNameSuffix();
         String createQuery = format(
-                "CREATE TABLE sqlserver.dbo.%s (\n" +
-                        "   a bigint,\n" +
-                        "   b bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = '%s'\n" +
-                        ")",
+                """
+                CREATE TABLE sqlserver.dbo.%s (
+                   a bigint,
+                   b bigint
+                )
+                WITH (
+                   data_compression = '%s'
+                )\
+                """,
                 tableName,
                 dataCompression);
         assertUpdate(createQuery);

@@ -864,14 +864,15 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeSparkUpdate(format(
-                "" +
-                        "CREATE TABLE %s (" +
-                        "  doc_id string,\n" +
-                        "  info MAP<STRING, INT>,\n" +
-                        "  pets ARRAY<STRING>,\n" +
-                        "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                        "  USING ICEBERG" +
-                        " TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                """
+                CREATE TABLE %s (
+                  doc_id string,
+                  info MAP<STRING, INT>,
+                  pets ARRAY<STRING>,
+                  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)
+                  USING ICEBERG
+                 TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)
+                """,
                 sparkTableName,
                 storageFormat,
                 specVersion));
@@ -896,12 +897,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeTrinoUpdate(format(
-                "CREATE TABLE %s (" +
-                        "  doc_id VARCHAR,\n" +
-                        "  info MAP(VARCHAR, INTEGER),\n" +
-                        "  pets ARRAY(VARCHAR),\n" +
-                        "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR)) " +
-                        "  WITH (format = '%s')",
+                """
+                CREATE TABLE %s (
+                  doc_id VARCHAR,
+                  info MAP(VARCHAR, INTEGER),
+                  pets ARRAY(VARCHAR),
+                  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))
+                  WITH (format = '%s')
+                """,
                 trinoTableName,
                 storageFormat));
 
@@ -929,14 +932,16 @@ class TestIcebergSparkCompatibility
 
         env.executeSparkUpdate("DROP TABLE IF EXISTS " + sparkTableName);
         env.executeSparkUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        " doc_id STRING)\n" +
-                        " USING ICEBERG TBLPROPERTIES (" +
-                        " 'write.format.default'='%s'," +
-                        " 'write.object-storage.enabled'=true," +
-                        " 'write.data.path'='local:///write-data-path'," +
-                        " 'format-version' = %s," +
-                        " 'custom.table-property' = 'my_custom_value')",
+                """
+                CREATE TABLE %s (
+                 doc_id STRING)
+                 USING ICEBERG TBLPROPERTIES (
+                 'write.format.default'='%s',
+                 'write.object-storage.enabled'=true,
+                 'write.data.path'='local:///write-data-path',
+                 'format-version' = %s,
+                 'custom.table-property' = 'my_custom_value')
+                """,
                 sparkTableName,
                 storageFormat.toString(),
                 specVersion));
@@ -988,12 +993,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeSparkUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id STRING\n" +
-                        ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
-                        ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
-                        ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                        " USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>
+                , nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>
+                , nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)
+                 USING ICEBERG TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)
+                """,
                 sparkTableName,
                 storageFormat,
                 specVersion));
@@ -1046,12 +1053,14 @@ class TestIcebergSparkCompatibility
         String sparkTableName = sparkTableName(baseTableName);
 
         env.executeTrinoUpdate(format(
-                "CREATE TABLE %s (\n" +
-                        "  doc_id VARCHAR\n" +
-                        ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
-                        ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                        ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
-                        "  WITH (format = '%s')",
+                """
+                CREATE TABLE %s (
+                  doc_id VARCHAR
+                , nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))
+                , nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))
+                , nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))\
+                  WITH (format = '%s')
+                """,
                 trinoTableName,
                 storageFormat));
 
@@ -3174,13 +3183,15 @@ class TestIcebergSparkCompatibility
         String baseTableName = "test_trino_reading_migrated_nested_data_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>\n" +
-                ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)\n" +
-                " USING %s";
+        String sparkTableDefinition =
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_map MAP<STRING, ARRAY<STRUCT<sName: STRING, sNumber: INT>>>
+                , nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mName: STRING, mNumber: INT>>>>
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<street_number:INT, street_name:STRING>>)
+                 USING %s
+                """;
         env.executeSparkUpdate(format(sparkTableDefinition, defaultCatalogTableName, storageFormat.name().toLowerCase(ENGLISH)));
 
         String insert = "" +
@@ -3248,11 +3259,13 @@ class TestIcebergSparkCompatibility
         String baseTableName = "test_migrated_data_with_altered_schema_" + randomNameSuffix();
         String defaultCatalogTableName = sparkDefaultCatalogTableName(baseTableName);
 
-        String sparkTableDefinition = "" +
-                "CREATE TABLE %s (\n" +
-                "  doc_id STRING\n" +
-                ", nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)\n" +
-                " USING %s";
+        String sparkTableDefinition =
+                """
+                CREATE TABLE %s (
+                  doc_id STRING
+                , nested_struct STRUCT<id:INT, name:STRING, address:STRUCT<a:INT, b:STRING>>)
+                 USING %s
+                """;
         env.executeSparkUpdate(format(sparkTableDefinition, defaultCatalogTableName, storageFormat));
 
         String insert = "" +

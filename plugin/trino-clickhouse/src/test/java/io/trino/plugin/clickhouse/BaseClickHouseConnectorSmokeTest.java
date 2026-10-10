@@ -40,14 +40,16 @@ public abstract class BaseClickHouseConnectorSmokeTest
     {
         // Override to add table properties
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
-                .isEqualTo("" +
-                        "CREATE TABLE clickhouse.tpch.region (\n" +
-                        "   regionkey bigint,\n" +
-                        "   name varchar,\n" +
-                        "   comment varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'LOG'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE clickhouse.tpch.region (
+                           regionkey bigint,
+                           name varchar,
+                           comment varchar
+                        )
+                        WITH (
+                           engine = 'LOG'
+                        )\
+                        """);
     }
 }

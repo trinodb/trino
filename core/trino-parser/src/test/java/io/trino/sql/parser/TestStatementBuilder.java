@@ -94,17 +94,19 @@ public class TestStatementBuilder
         printStatement("select sum(distinct x) filter (where x > 4) y, sum(x) filter (where x < 2) z from t");
         printStatement("select sum(x) filter (where x > 4) over (partition by y) z from t");
 
-        printStatement("" +
-                "select depname, empno, salary\n" +
-                ", count(*) over ()\n" +
-                ", avg(salary) over (partition by depname)\n" +
-                ", rank() over (partition by depname order by salary desc)\n" +
-                ", sum(salary) over (order by salary rows unbounded preceding)\n" +
-                ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
-                ", sum(salary) over (partition by depname order by salary rows between current row and empno following)\n" +
-                ", sum(salary) over (partition by depname range unbounded preceding)\n" +
-                ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
-                "from emp");
+        printStatement(
+                """
+                select depname, empno, salary
+                , count(*) over ()
+                , avg(salary) over (partition by depname)
+                , rank() over (partition by depname order by salary desc)
+                , sum(salary) over (order by salary rows unbounded preceding)
+                , sum(salary) over (partition by depname order by salary rows between current row and 3 following)
+                , sum(salary) over (partition by depname order by salary rows between current row and empno following)
+                , sum(salary) over (partition by depname range unbounded preceding)
+                , sum(salary) over (rows between 2 preceding and unbounded following)
+                from emp
+                """);
 
         printStatement("select sum(x) over (order by y rows between unbounded preceding and unbounded following exclude current row) from t");
         printStatement("select sum(x) over (order by y range between unbounded preceding and current row exclude group) from t");
@@ -329,15 +331,17 @@ public class TestStatementBuilder
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
 
-        printStatement("" +
-                "merge into inventory as i\n" +
-                "using changes as c\n" +
-                "on i.part = c.part\n" +
-                "when matched and c.action = 'mod' then\n" +
-                "update set qty = qty + c.qty\n" +
-                "when matched and c.action = 'del' then delete\n" +
-                "when not matched and c.action = 'new' then\n" +
-                "insert (part, qty) values (c.part, c.qty)");
+        printStatement(
+                """
+                merge into inventory as i
+                using changes as c
+                on i.part = c.part
+                when matched and c.action = 'mod' then
+                update set qty = qty + c.qty
+                when matched and c.action = 'del' then delete
+                when not matched and c.action = 'new' then
+                insert (part, qty) values (c.part, c.qty)
+                """);
 
         printStatement("set session authorization user");
         printStatement("reset session authorization");

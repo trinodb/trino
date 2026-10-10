@@ -776,10 +776,13 @@ class TestHiveViews
 
         try {
             String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
-            String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
-                    "SELECT *\n" +
-                    "FROM\n" +
-                    "  \"default\".\"nation\" \"nation\"";
+            String expectedResult =
+                    """
+                    CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS
+                    SELECT *
+                    FROM
+                      "default"."nation" "nation"\
+                    """;
 
             QueryResult actualResult = env.executeTrino(format(showCreateViewSql, "hive"));
             assertThat(actualResult).hasRowsCount(1);
@@ -1034,19 +1037,25 @@ class TestHiveViews
     void testUnionAllViews(HiveBasicEnvironment env)
     {
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
-        env.executeHiveUpdate("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
+        env.executeHiveUpdate(
+                """
+                CREATE TABLE union_helper (
+                r_regionkey BIGINT,
+                r_name VARCHAR(25),
+                r_comment VARCHAR(152)
+                )
+                """);
         env.executeHiveUpdate("INSERT INTO union_helper\n"
                 + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
 
         env.executeHiveUpdate("DROP VIEW IF EXISTS union_all_view");
-        env.executeHiveUpdate("CREATE VIEW union_all_view AS\n"
-                + "SELECT r_regionkey FROM region\n"
-                + "UNION ALL\n"
-                + "SELECT r_regionkey FROM union_helper\n");
+        env.executeHiveUpdate(
+                """
+                CREATE VIEW union_all_view AS
+                SELECT r_regionkey FROM region
+                UNION ALL
+                SELECT r_regionkey FROM union_helper
+                """);
 
         assertThat(env.executeTrino("SELECT r_regionkey FROM union_all_view"))
                 // Copy the keys 5 times because there are 5 nations per region
@@ -1070,11 +1079,14 @@ class TestHiveViews
     void testUnionDistinctViews(HiveBasicEnvironment env)
     {
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
-        env.executeHiveUpdate("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
+        env.executeHiveUpdate(
+                """
+                CREATE TABLE union_helper (
+                r_regionkey BIGINT,
+                r_name VARCHAR(25),
+                r_comment VARCHAR(152)
+                )
+                """);
         env.executeHiveUpdate("INSERT INTO union_helper\n"
                 + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
 
@@ -1083,10 +1095,12 @@ class TestHiveViews
             env.executeHiveUpdate(format("DROP VIEW IF EXISTS %s", name));
             // Add mod to one side to add duplicate and non-overlapping values
             env.executeHiveUpdate(format(
-                    "CREATE VIEW %s AS\n"
-                            + "SELECT r_regionkey FROM region\n"
-                            + "%s\n"
-                            + "SELECT r_regionkey FROM union_helper\n",
+                    """
+                    CREATE VIEW %s AS
+                    SELECT r_regionkey FROM region
+                    %s
+                    SELECT r_regionkey FROM union_helper
+                    """,
                     name,
                     operator));
 

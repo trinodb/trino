@@ -48,80 +48,93 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testExplainAnalyzeIndexJoin()
     {
-        assertQuerySucceeds(getSession(), "EXPLAIN ANALYZE " +
-                " SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuerySucceeds(getSession(),
+                """
+                EXPLAIN ANALYZE
+                 SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testBasicIndexJoin()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testBasicIndexJoinReverseCandidates()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM orders o " +
-                "JOIN (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "  ON o.orderkey = l.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM orders o
+                JOIN (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                  ON o.orderkey = l.orderkey
+                """);
     }
 
     @Test
     public void testBasicIndexJoinWithNullKeys()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT CASE WHEN suppkey % 2 = 0 THEN orderkey ELSE NULL END AS orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT CASE WHEN suppkey % 2 = 0 THEN orderkey ELSE NULL END AS orderkey
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testMultiKeyIndexJoinAligned()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey AND l.orderstatus = o.orderstatus");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey AND l.orderstatus = o.orderstatus
+                """);
     }
 
     @Test
     public void testMultiKeyIndexJoinUnaligned()
     {
         // This test a join order that is different from the inner select column ordering
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderstatus = o.orderstatus AND l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderstatus = o.orderstatus AND l.orderkey = o.orderkey
+                """);
     }
 
     @Test
@@ -133,247 +146,281 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testPredicateDerivedKey()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey\n" +
-                "WHERE o.orderstatus = 'F'");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey
+                WHERE o.orderstatus = 'F'
+                """);
     }
 
     @Test
     public void testCompoundPredicateDerivedKey()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey\n" +
-                "WHERE o.orderstatus = 'F'\n" +
-                "  AND o.custkey % 2 = 0");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey
+                WHERE o.orderstatus = 'F'
+                  AND o.custkey % 2 = 0
+                """);
     }
 
     @Test
     public void testChainedIndexJoin()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o1\n" +
-                "  ON l.orderkey = o1.orderkey AND l.orderstatus = o1.orderstatus\n" +
-                "JOIN orders o2\n" +
-                "  ON o1.custkey % 1024 = o2.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey, CASE WHEN suppkey % 2 = 0 THEN 'F' ELSE 'O' END AS orderstatus
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o1
+                  ON l.orderkey = o1.orderkey AND l.orderstatus = o1.orderstatus
+                JOIN orders o2
+                  ON o1.custkey % 1024 = o2.orderkey
+                """);
     }
 
     @Test
     public void testBasicLeftIndexJoin()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "LEFT JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                LEFT JOIN orders o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testNonIndexLeftJoin()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM orders o " +
-                "LEFT JOIN (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "  ON o.orderkey = l.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM orders o
+                LEFT JOIN (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                  ON o.orderkey = l.orderkey
+                """);
     }
 
     @Test
     public void testBasicRightIndexJoin()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM orders o " +
-                "RIGHT JOIN (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "  ON o.orderkey = l.orderkey");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM orders o
+                RIGHT JOIN (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                  ON o.orderkey = l.orderkey
+                """);
     }
 
     @Test
     public void testNonIndexRightJoin()
     {
-        assertQuery("" +
-                "SELECT COUNT(*)\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "RIGHT JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT COUNT(*)
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                RIGHT JOIN orders o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testIndexJoinThroughAggregation()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT orderkey, COUNT(*)\n" +
-                "  FROM orders\n" +
-                "  WHERE custkey % 8 = 0\n" +
-                "  GROUP BY orderkey\n" +
-                "  ORDER BY orderkey) o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN (
+                  SELECT orderkey, COUNT(*)
+                  FROM orders
+                  WHERE custkey % 8 = 0
+                  GROUP BY orderkey
+                  ORDER BY orderkey) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testIndexJoinThroughMultiKeyAggregation()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT shippriority, orderkey, COUNT(*)\n" +
-                "  FROM orders\n" +
-                "  WHERE custkey % 8 = 0\n" +
-                "  GROUP BY shippriority, orderkey\n" +
-                "  ORDER BY orderkey) o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN (
+                  SELECT shippriority, orderkey, COUNT(*)
+                  FROM orders
+                  WHERE custkey % 8 = 0
+                  GROUP BY shippriority, orderkey
+                  ORDER BY orderkey) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testNonIndexableKeys()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT orderkey % 2 as orderkey\n" +
-                "  FROM orders) o\n" +
-                "  ON l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN (
+                  SELECT orderkey % 2 as orderkey
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testComposableIndexJoins()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) x\n" +
-                "JOIN (\n" +
-                "  SELECT o1.orderkey as orderkey, o2.custkey as custkey\n" +
-                "  FROM orders o1\n" +
-                "  JOIN orders o2\n" +
-                "    ON o1.orderkey = o2.orderkey) y\n" +
-                "  ON x.orderkey = y.orderkey\n");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) x
+                JOIN (
+                  SELECT o1.orderkey as orderkey, o2.custkey as custkey
+                  FROM orders o1
+                  JOIN orders o2
+                    ON o1.orderkey = o2.orderkey) y
+                  ON x.orderkey = y.orderkey
+                """);
     }
 
     @Test
     public void testNonComposableIndexJoins()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) x\n" +
-                "JOIN (\n" +
-                "  SELECT l.orderkey as orderkey, o.custkey as custkey\n" +
-                "  FROM lineitem l\n" +
-                "  JOIN orders o\n" +
-                "    ON l.orderkey = o.orderkey) y\n" +
-                "  ON x.orderkey = y.orderkey\n");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) x
+                JOIN (
+                  SELECT l.orderkey as orderkey, o.custkey as custkey
+                  FROM lineitem l
+                  JOIN orders o
+                    ON l.orderkey = o.orderkey) y
+                  ON x.orderkey = y.orderkey
+                """);
     }
 
     @Test
     public void testOverlappingIndexJoinLookupSymbol()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey % 1024 = o.orderkey AND l.partkey % 1024 = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey % 1024 = o.orderkey AND l.partkey % 1024 = o.orderkey
+                """);
     }
 
     @Test
     public void testOverlappingSourceOuterIndexJoinLookupSymbol()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "LEFT JOIN orders o\n" +
-                "  ON l.orderkey % 1024 = o.orderkey AND l.partkey % 1024 = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                LEFT JOIN orders o
+                  ON l.orderkey % 1024 = o.orderkey AND l.partkey % 1024 = o.orderkey
+                """);
     }
 
     @Test
     public void testOverlappingIndexJoinProbeSymbol()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey
+                """);
     }
 
     @Test
     public void testOverlappingSourceOuterIndexJoinProbeSymbol()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "LEFT JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                LEFT JOIN orders o
+                  ON l.orderkey = o.orderkey AND l.orderkey = o.custkey
+                """);
     }
 
     @Test
     public void testRepeatedIndexJoinClause()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN orders o\n" +
-                "  ON l.orderkey = o.orderkey AND l.orderkey = o.orderkey");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN orders o
+                  ON l.orderkey = o.orderkey AND l.orderkey = o.orderkey
+                """);
     }
 
     /**
@@ -390,17 +437,19 @@ public abstract class AbstractTestIndexedQueries
     @Test
     public void testHighCardinalityIndexJoinResult()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 10000 = 0) o1\n" +
-                "JOIN (\n" +
-                "  SELECT *\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 4 = 0) o2\n" +
-                "  ON o1.orderstatus = o2.orderstatus AND o1.shippriority = o2.shippriority");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM orders
+                  WHERE orderkey % 10000 = 0) o1
+                JOIN (
+                  SELECT *
+                  FROM orders
+                  WHERE orderkey % 4 = 0) o2
+                  ON o1.orderstatus = o2.orderstatus AND o1.shippriority = o2.shippriority
+                """);
     }
 
     @Test
@@ -457,222 +506,242 @@ public abstract class AbstractTestIndexedQueries
     public void testReducedIndexProbeKeyNegativeCaching()
     {
         // Not every column 'b' can be matched through the join
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey % 64 AS a, (suppkey % 2) + 1 AS b\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT orderkey AS a, SUM(LENGTH(comment)) % 2 AS b\n" +
-                "  FROM orders\n" +
-                "  GROUP BY orderkey) o\n" +
-                "  ON l.a = o.a AND l.b = o.b");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey % 64 AS a, (suppkey % 2) + 1 AS b
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN (
+                  SELECT orderkey AS a, SUM(LENGTH(comment)) % 2 AS b
+                  FROM orders
+                  GROUP BY orderkey) o
+                  ON l.a = o.a AND l.b = o.b
+                """);
     }
 
     @Test
     public void testHighCardinalityReducedIndexProbeKey()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT *, custkey % 4 AS x, custkey % 2 AS y\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 10000 = 0) o1\n" +
-                "JOIN (\n" +
-                "  SELECT *, custkey % 5 AS x, custkey % 3 AS y\n" +
-                "  FROM orders\n" +
-                "  WHERE orderkey % 4 = 0) o2\n" +
-                "  ON o1.orderstatus = o2.orderstatus AND o1.shippriority = o2.shippriority AND o1.x = o2.x AND o1.y = o2.y");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT *, custkey % 4 AS x, custkey % 2 AS y
+                  FROM orders
+                  WHERE orderkey % 10000 = 0) o1
+                JOIN (
+                  SELECT *, custkey % 5 AS x, custkey % 3 AS y
+                  FROM orders
+                  WHERE orderkey % 4 = 0) o2
+                  ON o1.orderstatus = o2.orderstatus AND o1.shippriority = o2.shippriority AND o1.x = o2.x AND o1.y = o2.y
+                """);
     }
 
     @Test
     public void testReducedIndexProbeKeyComplexQueryShapes()
     {
         // Reduce the probe key through projections, aggregations, and joins
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey % 64 AS a, suppkey % 2 AS b, orderkey AS c, linenumber % 2 AS d\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 7 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT t1.a AS a, t1.b AS b, t2.orderkey AS c, SUM(LENGTH(t2.comment)) % 2 AS d\n" +
-                "  FROM (\n" +
-                "    SELECT orderkey AS a, custkey % 3 AS b\n" +
-                "    FROM orders\n" +
-                "  ) t1\n" +
-                "  JOIN orders t2 ON t1.a = (t2.orderkey % 1000)\n" +
-                "  WHERE t1.a % 1000 = 0\n" +
-                "  GROUP BY t1.a, t1.b, t2.orderkey) o\n" +
-                "  ON l.a = o.a AND l.b = o.b AND l.c = o.c AND l.d = o.d");
+        assertQuery(
+                """
+                SELECT *
+                FROM (
+                  SELECT orderkey % 64 AS a, suppkey % 2 AS b, orderkey AS c, linenumber % 2 AS d
+                  FROM lineitem
+                  WHERE partkey % 7 = 0) l
+                JOIN (
+                  SELECT t1.a AS a, t1.b AS b, t2.orderkey AS c, SUM(LENGTH(t2.comment)) % 2 AS d
+                  FROM (
+                    SELECT orderkey AS a, custkey % 3 AS b
+                    FROM orders
+                  ) t1
+                  JOIN orders t2 ON t1.a = (t2.orderkey % 1000)
+                  WHERE t1.a % 1000 = 0
+                  GROUP BY t1.a, t1.b, t2.orderkey) o
+                  ON l.a = o.a AND l.b = o.b AND l.c = o.c AND l.d = o.d
+                """);
     }
 
     @Test
     public void testIndexJoinConstantPropagation()
     {
-        assertQuery("" +
-                "SELECT x, y, COUNT(*)\n" +
-                "FROM (SELECT orderkey, 0 AS x FROM orders) a \n" +
-                "JOIN (SELECT orderkey, 1 AS y FROM orders) b \n" +
-                "ON a.orderkey = b.orderkey\n" +
-                "GROUP BY 1, 2");
+        assertQuery(
+                """
+                SELECT x, y, COUNT(*)
+                FROM (SELECT orderkey, 0 AS x FROM orders) a\s
+                JOIN (SELECT orderkey, 1 AS y FROM orders) b\s
+                ON a.orderkey = b.orderkey
+                GROUP BY 1, 2
+                """);
     }
 
     @Test
     public void testIndexJoinThroughWindow()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey)\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, COUNT(*) OVER (PARTITION BY orderkey)
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testIndexJoinThroughWindowDoubleAggregation()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey), SUM(orderkey) OVER (PARTITION BY orderkey)\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1, orderkey as o\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, COUNT(*) OVER (PARTITION BY orderkey), SUM(orderkey) OVER (PARTITION BY orderkey)
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1, orderkey as o
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testIndexJoinThroughWindowPartialPartition()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey, custkey)\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, COUNT(*) OVER (PARTITION BY orderkey, custkey)
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testNoIndexJoinThroughWindowWithRowNumberFunction()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, row_number() OVER (PARTITION BY orderkey)\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, row_number() OVER (PARTITION BY orderkey)
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testNoIndexJoinThroughWindowWithOrderBy()
     {
         assertQuery(
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT *\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ORDER BY custkey)
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT *
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test
     public void testNoIndexJoinThroughWindowWithRowFrame()
     {
         assertQuery(
-                "" +
-                        "SELECT l.orderkey, o.c\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ROWS 1 PRECEDING) as c\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey",
-                "" +
-                        "SELECT l.orderkey, o.c\n" +
-                        "FROM (\n" +
-                        "  SELECT *\n" +
-                        "  FROM lineitem\n" +
-                        "  WHERE partkey % 16 = 0) l\n" +
-                        "JOIN (\n" +
-                        "  SELECT *, 1 as c\n" +
-                        "  FROM orders) o\n" +
-                        "  ON l.orderkey = o.orderkey");
+                """
+                SELECT l.orderkey, o.c
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, COUNT(*) OVER (PARTITION BY orderkey ROWS 1 PRECEDING) as c
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """,
+                """
+                SELECT l.orderkey, o.c
+                FROM (
+                  SELECT *
+                  FROM lineitem
+                  WHERE partkey % 16 = 0) l
+                JOIN (
+                  SELECT *, 1 as c
+                  FROM orders) o
+                  ON l.orderkey = o.orderkey
+                """);
     }
 
     @Test

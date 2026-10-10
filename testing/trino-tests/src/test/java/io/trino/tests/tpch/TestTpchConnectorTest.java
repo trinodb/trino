@@ -168,17 +168,20 @@ public class TestTpchConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE tpch.tiny.orders (\n" +
-                        "   orderkey bigint NOT NULL,\n" +
-                        "   custkey bigint NOT NULL,\n" +
-                        "   orderstatus varchar(1) NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
-                        "   orderdate date NOT NULL,\n" +
-                        "   orderpriority varchar(15) NOT NULL,\n" +
-                        "   clerk varchar(15) NOT NULL,\n" +
-                        "   shippriority integer NOT NULL,\n" +
-                        "   comment varchar(79) NOT NULL\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE tpch.tiny.orders (
+                           orderkey bigint NOT NULL,
+                           custkey bigint NOT NULL,
+                           orderstatus varchar(1) NOT NULL,
+                           totalprice double NOT NULL,
+                           orderdate date NOT NULL,
+                           orderpriority varchar(15) NOT NULL,
+                           clerk varchar(15) NOT NULL,
+                           shippriority integer NOT NULL,
+                           comment varchar(79) NOT NULL
+                        )\
+                        """);
     }
 
     @Test

@@ -109,22 +109,25 @@ class TestHiveViewsLegacy
     void testRichSqlSyntax(HiveBasicEnvironment env)
     {
         env.executeHiveUpdate("DROP VIEW IF EXISTS view_with_rich_syntax");
-        env.executeHiveUpdate("CREATE VIEW view_with_rich_syntax AS " +
-                "SELECT \n" +
-                "   `n_nationkey`, \n" +
-                "   n_name, \n" +
-                "   `n_regionkey` AS `n_regionkey`, \n" +
-                "   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2, \n" +
-                "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
-                "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" +
-                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" +
-                "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" +
-                "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" +
-                "   round(tan(n_nationkey), 3) AS rounded_tan, \n" +
-                "   o_orderdate AS the_orderdate, \n" +
-                "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
-                "FROM `default`.`nation` AS `n` \n" +
-                "LEFT JOIN (SELECT * FROM orders WHERE o_custkey > 1000) `o` ON `o`.`o_orderkey` = `n`.`n_nationkey` ");
+        env.executeHiveUpdate(
+                """
+                CREATE VIEW view_with_rich_syntax AS
+                SELECT
+                   `n_nationkey`,
+                   n_name,
+                   `n_regionkey` AS `n_regionkey`,
+                   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2,
+                   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`,
+                   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`,
+                   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`,
+                   CASE WHEN n_name = "BRAZIL" THEN 'is BRAZIL' WHEN n_name = "ALGERIA" THEN 'is ALGERIA' ELSE "" END is_something,
+                   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name,
+                   round(tan(n_nationkey), 3) AS rounded_tan,
+                   o_orderdate AS the_orderdate,
+                   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space
+                FROM `default`.`nation` AS `n`
+                LEFT JOIN (SELECT * FROM orders WHERE o_custkey > 1000) `o` ON `o`.`o_orderkey` = `n`.`n_nationkey`
+                """);
 
         executeInSession(env, session -> {
             QueryResult result = session.executeQuery(
@@ -404,19 +407,25 @@ class TestHiveViewsLegacy
     void testUnionAllViews(HiveBasicEnvironment env)
     {
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
-        env.executeHiveUpdate("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
+        env.executeHiveUpdate(
+                """
+                CREATE TABLE union_helper (
+                r_regionkey BIGINT,
+                r_name VARCHAR(25),
+                r_comment VARCHAR(152)
+                )
+                """);
         env.executeHiveUpdate("INSERT INTO union_helper\n"
                 + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
 
         env.executeHiveUpdate("DROP VIEW IF EXISTS union_all_view");
-        env.executeHiveUpdate("CREATE VIEW union_all_view AS\n"
-                + "SELECT r_regionkey FROM region\n"
-                + "UNION ALL\n"
-                + "SELECT r_regionkey FROM union_helper\n");
+        env.executeHiveUpdate(
+                """
+                CREATE VIEW union_all_view AS
+                SELECT r_regionkey FROM region
+                UNION ALL
+                SELECT r_regionkey FROM union_helper
+                """);
 
         executeInSession(env, session -> {
             QueryResult result = session.executeQuery("SELECT r_regionkey FROM union_all_view");
@@ -441,21 +450,26 @@ class TestHiveViewsLegacy
     void testUnionDistinctViews(HiveBasicEnvironment env)
     {
         env.executeHiveUpdate("DROP TABLE IF EXISTS union_helper");
-        env.executeHiveUpdate("CREATE TABLE union_helper (\n"
-                + "r_regionkey BIGINT,\n"
-                + "r_name VARCHAR(25),\n"
-                + "r_comment VARCHAR(152)\n"
-                + ")");
+        env.executeHiveUpdate(
+                """
+                CREATE TABLE union_helper (
+                r_regionkey BIGINT,
+                r_name VARCHAR(25),
+                r_comment VARCHAR(152)
+                )
+                """);
         env.executeHiveUpdate("INSERT INTO union_helper\n"
                 + "SELECT r_regionkey % 3, r_name, r_comment FROM region");
 
         // Test UNION view
         env.executeHiveUpdate("DROP VIEW IF EXISTS UNION_view");
         env.executeHiveUpdate(
-                "CREATE VIEW UNION_view AS\n"
-                        + "SELECT r_regionkey FROM region\n"
-                        + "UNION\n"
-                        + "SELECT r_regionkey FROM union_helper\n");
+                """
+                CREATE VIEW UNION_view AS
+                SELECT r_regionkey FROM region
+                UNION
+                SELECT r_regionkey FROM union_helper
+                """);
 
         executeInSession(env, session -> {
             QueryResult result = session.executeQuery("SELECT r_regionkey FROM UNION_view");
@@ -465,10 +479,12 @@ class TestHiveViewsLegacy
         // Test UNION DISTINCT view
         env.executeHiveUpdate("DROP VIEW IF EXISTS UNION_DISTINCT_view");
         env.executeHiveUpdate(
-                "CREATE VIEW UNION_DISTINCT_view AS\n"
-                        + "SELECT r_regionkey FROM region\n"
-                        + "UNION DISTINCT\n"
-                        + "SELECT r_regionkey FROM union_helper\n");
+                """
+                CREATE VIEW UNION_DISTINCT_view AS
+                SELECT r_regionkey FROM region
+                UNION DISTINCT
+                SELECT r_regionkey FROM union_helper
+                """);
 
         executeInSession(env, session -> {
             QueryResult result = session.executeQuery("SELECT r_regionkey FROM UNION_DISTINCT_view");

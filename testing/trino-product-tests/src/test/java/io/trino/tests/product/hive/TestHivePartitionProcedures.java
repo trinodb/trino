@@ -333,11 +333,13 @@ class TestHivePartitionProcedures
     private QueryResult dropPartition(HiveTransactionalEnvironment env, String tableName, String partitionCol, String partition)
     {
         return env.executeTrino(format(
-                "CALL hive.system.unregister_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'])",
+                """
+                CALL hive.system.unregister_partition(
+                    schema_name => '%s',
+                    table_name => '%s',
+                    partition_columns => ARRAY['%s'],
+                    partition_values => ARRAY['%s'])
+                """,
                 "default",
                 tableName,
                 partitionCol,
@@ -347,12 +349,14 @@ class TestHivePartitionProcedures
     private QueryResult addPartition(HiveTransactionalEnvironment env, String tableName, String partitionCol, String partition, String location)
     {
         return env.executeTrino(format(
-                "CALL hive.system.register_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'],\n" +
-                        "    location => '%s')",
+                """
+                CALL hive.system.register_partition(
+                    schema_name => '%s',
+                    table_name => '%s',
+                    partition_columns => ARRAY['%s'],
+                    partition_values => ARRAY['%s'],
+                    location => '%s')
+                """,
                 "default",
                 tableName,
                 partitionCol,
@@ -363,11 +367,13 @@ class TestHivePartitionProcedures
     private QueryResult addPartition(HiveTransactionalEnvironment env, String tableName, String partitionCol, String partition)
     {
         return env.executeTrino(format(
-                "CALL hive.system.register_partition(\n" +
-                        "    schema_name => '%s',\n" +
-                        "    table_name => '%s',\n" +
-                        "    partition_columns => ARRAY['%s'],\n" +
-                        "    partition_values => ARRAY['%s'])",
+                """
+                CALL hive.system.register_partition(
+                    schema_name => '%s',
+                    table_name => '%s',
+                    partition_columns => ARRAY['%s'],
+                    partition_values => ARRAY['%s'])
+                """,
                 "default",
                 tableName,
                 partitionCol,
