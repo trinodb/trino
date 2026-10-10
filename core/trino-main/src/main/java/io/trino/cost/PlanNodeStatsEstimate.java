@@ -19,10 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
-import org.pcollections.HashTreePMap;
-import org.pcollections.PMap;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -41,7 +40,7 @@ public class PlanNodeStatsEstimate
     private static final PlanNodeStatsEstimate UNKNOWN = new PlanNodeStatsEstimate(NaN, ImmutableMap.of());
 
     private final double outputRowCount;
-    private final PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+    private final Map<Symbol, SymbolStatsEstimate> symbolStatistics;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -53,14 +52,10 @@ public class PlanNodeStatsEstimate
             @JsonProperty("outputRowCount") double outputRowCount,
             @JsonProperty("symbolStatistics") Map<Symbol, SymbolStatsEstimate> symbolStatistics)
     {
-        this(outputRowCount, HashTreePMap.from(requireNonNull(symbolStatistics, "symbolStatistics is null")));
-    }
-
-    private PlanNodeStatsEstimate(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
-    {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
-        this.symbolStatistics = symbolStatistics;
+        // copyOf returns the same instance when it is already an ImmutableMap, so build() pays no copy
+        this.symbolStatistics = ImmutableMap.copyOf(requireNonNull(symbolStatistics, "symbolStatistics is null"));
     }
 
     /**
@@ -188,17 +183,20 @@ public class PlanNodeStatsEstimate
     public static final class Builder
     {
         private double outputRowCount;
-        private PMap<Symbol, SymbolStatsEstimate> symbolStatistics;
+        // Shared with the source estimate until the first mutation, then a private copy
+        private Map<Symbol, SymbolStatsEstimate> symbolStatistics;
+        private boolean ownStatistics;
 
         public Builder()
         {
-            this(NaN, HashTreePMap.empty());
+            this(NaN, ImmutableMap.of());
         }
 
-        private Builder(double outputRowCount, PMap<Symbol, SymbolStatsEstimate> symbolStatistics)
+        private Builder(double outputRowCount, Map<Symbol, SymbolStatsEstimate> symbolStatistics)
         {
             this.outputRowCount = outputRowCount;
             this.symbolStatistics = symbolStatistics;
+            this.ownStatistics = false;
         }
 
         public Builder setOutputRowCount(double outputRowCount)
@@ -209,20 +207,29 @@ public class PlanNodeStatsEstimate
 
         public Builder addSymbolStatistics(Symbol symbol, SymbolStatsEstimate statistics)
         {
-            symbolStatistics = symbolStatistics.plus(symbol, statistics);
+            mutableStatistics().put(symbol, statistics);
             return this;
         }
 
         public Builder addSymbolStatistics(Map<Symbol, SymbolStatsEstimate> symbolStatistics)
         {
-            this.symbolStatistics = this.symbolStatistics.plusAll(symbolStatistics);
+            mutableStatistics().putAll(symbolStatistics);
             return this;
         }
 
         public Builder removeSymbolStatistics(Symbol symbol)
         {
-            symbolStatistics = symbolStatistics.minus(symbol);
+            mutableStatistics().remove(symbol);
             return this;
+        }
+
+        private Map<Symbol, SymbolStatsEstimate> mutableStatistics()
+        {
+            if (!ownStatistics) {
+                symbolStatistics = new HashMap<>(symbolStatistics);
+                ownStatistics = true;
+            }
+            return symbolStatistics;
         }
 
         public PlanNodeStatsEstimate build()

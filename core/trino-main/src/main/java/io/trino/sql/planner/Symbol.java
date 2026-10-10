@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
@@ -22,8 +24,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize(keyUsing = SymbolKeySerializer.class)
-public record Symbol(Type type, String name)
+public final class Symbol
 {
+    private final Type type;
+    private final String name;
+    // Symbols are pervasive map and set keys, so the hash is computed once and kept
+    private final int hash;
+
     public static Symbol from(Expression expression)
     {
         if (!(expression instanceof Reference reference)) {
@@ -37,16 +44,48 @@ public record Symbol(Type type, String name)
         return new Symbol(reference.type(), reference.name());
     }
 
-    public Symbol
+    @JsonCreator
+    public Symbol(@JsonProperty("type") Type type, @JsonProperty("name") String name)
     {
-        requireNonNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
-        requireNonNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
+        this.hash = 31 * type.hashCode() + name.hashCode();
+    }
+
+    @JsonProperty("type")
+    public Type type()
+    {
+        return type;
+    }
+
+    @JsonProperty("name")
+    public String name()
+    {
+        return name;
     }
 
     public Reference toSymbolReference()
     {
         return new Reference(type, name);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Symbol other)) {
+            return false;
+        }
+        return hash == other.hash && name.equals(other.name) && type.equals(other.type);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return hash;
     }
 
     @Override
