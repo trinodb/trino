@@ -1344,6 +1344,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<CatalogSchemaTableName> redirectTableForWrite(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.redirectTableForWrite(session, tableName);
+        }
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
