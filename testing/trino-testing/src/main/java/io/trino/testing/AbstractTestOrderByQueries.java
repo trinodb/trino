@@ -112,11 +112,12 @@ public abstract class AbstractTestOrderByQueries
     public void testOrderByWithAggregation()
     {
         assertQuery(
-                "" +
-                        "SELECT x, sum(cast(x AS double))\n" +
-                        "FROM (VALUES '1.0') t(x)\n" +
-                        "GROUP BY x\n" +
-                        "ORDER BY sum(cast(t.x AS double))",
+                """
+                SELECT x, sum(cast(x AS double))
+                FROM (VALUES '1.0') t(x)
+                GROUP BY x
+                ORDER BY sum(cast(t.x AS double))
+                """,
                 "VALUES ('1.0', 1.0)");
 
         queryTemplate("SELECT count(*) %output% FROM (SELECT substr(name,1,1) letter FROM nation) x GROUP BY %groupBy% ORDER BY %orderBy%")

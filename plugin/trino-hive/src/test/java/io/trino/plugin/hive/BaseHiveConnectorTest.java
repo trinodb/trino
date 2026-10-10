@@ -1162,12 +1162,13 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "CREATE SCHEMA test_show_create_schema");
 
         String createSchemaSql = format(
-                "" +
-                        "CREATE SCHEMA %s.test_show_create_schema\n" +
-                        "AUTHORIZATION USER hive\n" +
-                        "WITH \\(\n" +
-                        "   location = '.*test_show_create_schema'\n" +
-                        "\\)",
+                """
+                CREATE SCHEMA %s.test_show_create_schema
+                AUTHORIZATION USER hive
+                WITH \\(
+                   location = '.*test_show_create_schema'
+                \\)\
+                """,
                 getSession().getCatalog().get());
 
         String actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -1178,12 +1179,13 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "ALTER SCHEMA test_show_create_schema SET AUTHORIZATION ROLE test_show_create_schema_role");
 
         createSchemaSql = format(
-                "" +
-                        "CREATE SCHEMA %s.test_show_create_schema\n" +
-                        "AUTHORIZATION ROLE test_show_create_schema_role\n" +
-                        "WITH \\(\n" +
-                        "   location = '.*test_show_create_schema'\n" +
-                        "\\)",
+                """
+                CREATE SCHEMA %s.test_show_create_schema
+                AUTHORIZATION ROLE test_show_create_schema_role
+                WITH \\(
+                   location = '.*test_show_create_schema'
+                \\)\
+                """,
                 getSession().getCatalog().get());
 
         actualResult = getOnlyElement(computeActual(admin, "SHOW CREATE SCHEMA test_show_create_schema").getOnlyColumnAsSet()).toString();
@@ -1464,12 +1466,14 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 admin,
-                "create table io_explain_test_no_filter(\n"
-                        + "id integer,\n"
-                        + "a varchar,\n"
-                        + "b varchar,\n"
-                        + "ds varchar)"
-                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                """
+                create table io_explain_test_no_filter(
+                id integer,
+                a varchar,
+                b varchar,
+                ds varchar)
+                WITH (format='PARQUET', partitioned_by = ARRAY['ds'])
+                """);
         assertUpdate(admin, "insert into io_explain_test_no_filter(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 0.0);
@@ -1509,12 +1513,14 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 admin,
-                "create table io_explain_test_filter_on_agg(\n"
-                        + "id integer,\n"
-                        + "a varchar,\n"
-                        + "b varchar,\n"
-                        + "ds varchar)"
-                        + "WITH (format='PARQUET', partitioned_by = ARRAY['ds'])");
+                """
+                create table io_explain_test_filter_on_agg(
+                id integer,
+                a varchar,
+                b varchar,
+                ds varchar)
+                WITH (format='PARQUET', partitioned_by = ARRAY['ds'])
+                """);
         assertUpdate(admin, "insert into io_explain_test_filter_on_agg(id,a,ds) values(1, 'a','a')", 1);
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(1.0, 5.0, 5.0, 0.0, 0.0);
@@ -2135,10 +2141,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreatePartitionedTableInvalidColumnOrdering()
     {
-        assertThatThrownBy(() -> getQueryRunner().execute("" +
-                "CREATE TABLE test_create_table_invalid_column_ordering\n" +
-                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['apple'])"))
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                """
+                CREATE TABLE test_create_table_invalid_column_ordering
+                (grape bigint, apple varchar, orange bigint, pear varchar)
+                WITH (partitioned_by = ARRAY['apple'])
+                """))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageMatching("Partition keys must be the last columns in the table and in the same order as the table properties.*");
     }
@@ -2159,10 +2167,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateTableOnlyPartitionColumns()
     {
-        assertThatThrownBy(() -> getQueryRunner().execute("" +
-                "CREATE TABLE test_create_table_only_partition_columns\n" +
-                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])"))
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                """
+                CREATE TABLE test_create_table_only_partition_columns
+                (grape bigint, apple varchar, orange bigint, pear varchar)
+                WITH (partitioned_by = ARRAY['grape', 'apple', 'orange', 'pear'])
+                """))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Table contains only partition columns");
     }
@@ -2170,10 +2180,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateTableNonExistentPartitionColumns()
     {
-        assertThatThrownBy(() -> getQueryRunner().execute("" +
-                "CREATE TABLE test_create_table_nonexistent_partition_columns\n" +
-                "(grape bigint, apple varchar, orange bigint, pear varchar)\n" +
-                "WITH (partitioned_by = ARRAY['dragonfruit'])"))
+        assertThatThrownBy(() -> getQueryRunner().execute(
+                """
+                CREATE TABLE test_create_table_nonexistent_partition_columns
+                (grape bigint, apple varchar, orange bigint, pear varchar)
+                WITH (partitioned_by = ARRAY['dragonfruit'])
+                """))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageMatching("Partition columns .* not present in schema");
     }
@@ -3888,10 +3900,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowColumnsPartitionKey()
     {
-        assertUpdate("" +
-                "CREATE TABLE test_show_columns_partition_key\n" +
-                "(grape bigint, orange bigint, pear varchar(65535), mango integer, lychee smallint, kiwi tinyint, apple varchar, pineapple varchar(65535))\n" +
-                "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
+        assertUpdate(
+                """
+                CREATE TABLE test_show_columns_partition_key
+                (grape bigint, orange bigint, pear varchar(65535), mango integer, lychee smallint, kiwi tinyint, apple varchar, pineapple varchar(65535))
+                WITH (partitioned_by = ARRAY['apple', 'pineapple'])
+                """);
 
         Type unboundedVarchar = canonicalizeType(VARCHAR);
         MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
@@ -4089,12 +4103,14 @@ public abstract class BaseHiveConnectorTest
         assertQuery(
                 session,
                 format("SELECT col0, col1.f0, col2.f1.f1 FROM %s", tableName),
-                "SELECT * FROM \n" +
-                        "    (SELECT 1, 2, 6) UNION\n" +
-                        "    (SELECT 7, 8, NULL) UNION\n" +
-                        "    (SELECT NULL, NULL, NULL) UNION\n" +
-                        "    (SELECT 13, NULL, NULL) UNION\n" +
-                        "    (SELECT 15, 16, 18)");
+                """
+                SELECT * FROM
+                    (SELECT 1, 2, 6) UNION
+                    (SELECT 7, 8, NULL) UNION
+                    (SELECT NULL, NULL, NULL) UNION
+                    (SELECT 13, NULL, NULL) UNION
+                    (SELECT 15, 16, 18)
+                """);
 
         assertQuery(session, format("SELECT col0 FROM %s WHERE col2.f1.f1 IS NOT NULL", tableName), "SELECT * FROM UNNEST(array[1, 15])");
 
@@ -4351,33 +4367,37 @@ public abstract class BaseHiveConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE hive.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'PARQUET'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE hive.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority integer,
+                           comment varchar(79)
+                        )
+                        WITH (
+                           format = 'PARQUET'
+                        )\
+                        """);
 
         String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 double,\n" +
-                        "   \"c 3\" varchar,\n" +
-                        "   \"c'4\" array(bigint),\n" +
-                        "   c5 map(bigint, varchar)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   c1 bigint,
+                   c2 double,
+                   "c 3" varchar,
+                   "c'4" array(bigint),
+                   c5 map(bigint, varchar)
+                )
+                WITH (
+                   format = 'RCBINARY'
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_show_create_table");
@@ -4387,24 +4407,26 @@ public abstract class BaseHiveConnectorTest
         assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   \"c 2\" varchar,\n" +
-                        "   \"c'3\" array(bigint),\n" +
-                        "   c4 map(bigint, varchar) COMMENT 'comment test4',\n" +
-                        "   c5 double COMMENT ''\n)\n" +
-                        "COMMENT 'test'\n" +
-                        "WITH (\n" +
-                        "   bucket_count = 5,\n" +
-                        "   bucketed_by = ARRAY['c1','c 2'],\n" +
-                        "   bucketing_version = 1,\n" +
-                        "   format = 'ORC',\n" +
-                        "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
-                        "   orc_bloom_filter_fpp = 7E-1,\n" +
-                        "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   c1 bigint,
+                   "c 2" varchar,
+                   "c'3" array(bigint),
+                   c4 map(bigint, varchar) COMMENT 'comment test4',
+                   c5 double COMMENT ''
+                )
+                COMMENT 'test'
+                WITH (
+                   bucket_count = 5,
+                   bucketed_by = ARRAY['c1','c 2'],
+                   bucketing_version = 1,
+                   format = 'ORC',
+                   orc_bloom_filter_columns = ARRAY['c1','c 2'],
+                   orc_bloom_filter_fpp = 7E-1,
+                   partitioned_by = ARRAY['c5'],
+                   sorted_by = ARRAY['c1','c 2 DESC']
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "\"test_show_create_table'2\"");
@@ -4413,12 +4435,14 @@ public abstract class BaseHiveConnectorTest
         assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   c1 ROW(\"$a\" bigint, \"$b\" varchar)\n)\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   c1 ROW("$a" bigint, "$b" varchar)
+                )
+                WITH (
+                   format = 'ORC'
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_show_create_table_with_special_characters");
@@ -4473,14 +4497,15 @@ public abstract class BaseHiveConnectorTest
         tableProperties.forEach(propertiesSql::add);
 
         @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.%s (\n" +
-                        "   col1 varchar,\n" +
-                        "   col2 varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   %s\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   col1 varchar,
+                   col2 varchar
+                )
+                WITH (
+                   %s
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
@@ -4606,14 +4631,15 @@ public abstract class BaseHiveConnectorTest
         String tableName = "%s.%s.%s_table_skip_header_%s".formatted(getSession().getCatalog().get(), getSession().getSchema().get(), format.toLowerCase(ENGLISH), randomNameSuffix());
 
         @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name varchar
+                )
+                WITH (
+                   format = '%s',
+                   skip_header_line_count = 1
+                )\
+                """,
                 tableName,
                 format);
 
@@ -4624,14 +4650,15 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_footer_line_count = 1\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name varchar
+                )
+                WITH (
+                   format = '%s',
+                   skip_footer_line_count = 1
+                )\
+                """,
                 tableName,
                 format);
 
@@ -4642,15 +4669,16 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_footer_line_count = 1,\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name varchar
+                )
+                WITH (
+                   format = '%s',
+                   skip_footer_line_count = 1,
+                   skip_header_line_count = 1
+                )\
+                """,
                 tableName,
                 format);
 
@@ -4661,12 +4689,13 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s " +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ") AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) as col_name2",
+                """
+                CREATE TABLE %s
+                WITH (
+                   format = '%s',
+                   skip_header_line_count = 1
+                ) AS SELECT CAST(1 AS VARCHAR) AS col_name1, CAST(2 AS VARCHAR) as col_name2\
+                """,
                 tableName,
                 format);
 
@@ -4698,14 +4727,15 @@ public abstract class BaseHiveConnectorTest
     {
         String tableName = "%s.%s.csv_table_skip_header_%s".formatted(getSession().getCatalog().get(), getSession().getSchema().get(), randomNameSuffix());
         @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name VARCHAR\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_header_line_count = 2\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name VARCHAR
+                )
+                WITH (
+                   format = 'CSV',
+                   skip_header_line_count = 2
+                )\
+                """,
                 tableName);
 
         assertUpdate(createTableSql);
@@ -4716,14 +4746,15 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name VARCHAR\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name VARCHAR
+                )
+                WITH (
+                   format = 'CSV',
+                   skip_footer_line_count = 1
+                )\
+                """,
                 tableName);
 
         assertUpdate(createTableSql);
@@ -4734,15 +4765,16 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         createTableSql = format(
-                "" +
-                        "CREATE TABLE %s (\n" +
-                        "   name VARCHAR\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'CSV',\n" +
-                        "   skip_footer_line_count = 1,\n" +
-                        "   skip_header_line_count = 1\n" +
-                        ")",
+                """
+                CREATE TABLE %s (
+                   name VARCHAR
+                )
+                WITH (
+                   format = 'CSV',
+                   skip_footer_line_count = 1,
+                   skip_header_line_count = 1
+                )\
+                """,
                 tableName);
 
         assertUpdate(createTableSql);
@@ -5201,13 +5233,15 @@ public abstract class BaseHiveConnectorTest
     public void testDropColumnHiveSpecific()
     {
         // Additional tests for hive partition columns invariants
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_drop_column\n" +
-                "WITH (\n" +
-                "  partitioned_by = ARRAY ['orderstatus']\n" +
-                ")\n" +
-                "AS\n" +
-                "SELECT custkey, orderkey, orderstatus FROM orders";
+        @Language("SQL") String createTable =
+                """
+                CREATE TABLE test_drop_column
+                WITH (
+                  partitioned_by = ARRAY ['orderstatus']
+                )
+                AS
+                SELECT custkey, orderkey, orderstatus FROM orders
+                """;
 
         assertUpdate(createTable, "SELECT count(*) FROM orders");
         assertQuery("SELECT orderkey, orderstatus FROM test_drop_column", "SELECT orderkey, orderstatus FROM orders");
@@ -6133,14 +6167,18 @@ public abstract class BaseHiveConnectorTest
     {
         try {
             assertUpdate(
-                    "CREATE TABLE test_mismatch_bucketing16\n" +
-                            "WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS\n" +
-                            "SELECT orderkey key16, comment value16 FROM orders",
+                    """
+                    CREATE TABLE test_mismatch_bucketing16
+                    WITH (bucket_count = 16, bucketed_by = ARRAY['key16']) AS
+                    SELECT orderkey key16, comment value16 FROM orders
+                    """,
                     15000);
             assertUpdate(
-                    "CREATE TABLE test_mismatch_bucketing32\n" +
-                            "WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS\n" +
-                            "SELECT orderkey key32, comment value32 FROM orders",
+                    """
+                    CREATE TABLE test_mismatch_bucketing32
+                    WITH (bucket_count = 32, bucketed_by = ARRAY['key32']) AS
+                    SELECT orderkey key32, comment value32 FROM orders
+                    """,
                     15000);
             assertUpdate(
                     "CREATE TABLE test_mismatch_bucketingN AS\n" +
@@ -6158,30 +6196,36 @@ public abstract class BaseHiveConnectorTest
                     .setCatalogSessionProperty(catalog, "optimize_mismatched_bucket_count", "false")
                     .build();
 
-            @Language("SQL") String writeToTableWithMoreBuckets = "CREATE TABLE test_mismatch_bucketing_out32\n" +
-                    "WITH (bucket_count = 32, bucketed_by = ARRAY['key16'])\n" +
-                    "AS\n" +
-                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
-                    "FROM\n" +
-                    "  test_mismatch_bucketing16\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketing32\n" +
-                    "ON key16=key32\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketingN\n" +
-                    "ON key16=keyN";
-            @Language("SQL") String writeToTableWithFewerBuckets = "CREATE TABLE test_mismatch_bucketing_out8\n" +
-                    "WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])\n" +
-                    "AS\n" +
-                    "SELECT key16, value16, key32, value32, keyN, valueN\n" +
-                    "FROM\n" +
-                    "  test_mismatch_bucketing16\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketing32\n" +
-                    "ON key16=key32\n" +
-                    "JOIN\n" +
-                    "  test_mismatch_bucketingN\n" +
-                    "ON key16=keyN";
+            @Language("SQL") String writeToTableWithMoreBuckets =
+                    """
+                    CREATE TABLE test_mismatch_bucketing_out32
+                    WITH (bucket_count = 32, bucketed_by = ARRAY['key16'])
+                    AS
+                    SELECT key16, value16, key32, value32, keyN, valueN
+                    FROM
+                      test_mismatch_bucketing16
+                    JOIN
+                      test_mismatch_bucketing32
+                    ON key16=key32
+                    JOIN
+                      test_mismatch_bucketingN
+                    ON key16=keyN
+                    """;
+            @Language("SQL") String writeToTableWithFewerBuckets =
+                    """
+                    CREATE TABLE test_mismatch_bucketing_out8
+                    WITH (bucket_count = 8, bucketed_by = ARRAY['key16'])
+                    AS
+                    SELECT key16, value16, key32, value32, keyN, valueN
+                    FROM
+                      test_mismatch_bucketing16
+                    JOIN
+                      test_mismatch_bucketing32
+                    ON key16=key32
+                    JOIN
+                      test_mismatch_bucketingN
+                    ON key16=keyN
+                    """;
 
             assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(3));
             assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders");
@@ -6207,9 +6251,11 @@ public abstract class BaseHiveConnectorTest
     {
         try {
             assertUpdate(
-                    "CREATE TABLE test_bucketed_select\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                            "SELECT orderkey key1, comment value1 FROM orders",
+                    """
+                    CREATE TABLE test_bucketed_select
+                    WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS
+                    SELECT orderkey key1, comment value1 FROM orders
+                    """,
                     15000);
             Session planWithTableNodePartitioning = Session.builder(getSession())
                     .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
@@ -6245,19 +6291,25 @@ public abstract class BaseHiveConnectorTest
     {
         try {
             assertUpdate(
-                    "CREATE TABLE test_grouped_join1\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
-                            "SELECT orderkey key1, comment value1 FROM orders",
+                    """
+                    CREATE TABLE test_grouped_join1
+                    WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS
+                    SELECT orderkey key1, comment value1 FROM orders
+                    """,
                     15000);
             assertUpdate(
-                    "CREATE TABLE test_grouped_join2\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS\n" +
-                            "SELECT orderkey key2, comment value2 FROM orders",
+                    """
+                    CREATE TABLE test_grouped_join2
+                    WITH (bucket_count = 13, bucketed_by = ARRAY['key2']) AS
+                    SELECT orderkey key2, comment value2 FROM orders
+                    """,
                     15000);
             assertUpdate(
-                    "CREATE TABLE test_grouped_join3\n" +
-                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS\n" +
-                            "SELECT orderkey key3, comment value3 FROM orders",
+                    """
+                    CREATE TABLE test_grouped_join3
+                    WITH (bucket_count = 13, bucketed_by = ARRAY['key3']) AS
+                    SELECT orderkey key3, comment value3 FROM orders
+                    """,
                     15000);
             assertUpdate(
                     "CREATE TABLE test_grouped_joinN AS\n" +
@@ -6274,23 +6326,29 @@ public abstract class BaseHiveConnectorTest
             // =========
 
             @Language("SQL") String joinThreeBucketedTable =
-                    "SELECT key1, value1, key2, value2, key3, value3\n" +
-                            "FROM test_grouped_join1\n" +
-                            "JOIN test_grouped_join2\n" +
-                            "ON key1 = key2\n" +
-                            "JOIN test_grouped_join3\n" +
-                            "ON key2 = key3";
+                    """
+                    SELECT key1, value1, key2, value2, key3, value3
+                    FROM test_grouped_join1
+                    JOIN test_grouped_join2
+                    ON key1 = key2
+                    JOIN test_grouped_join3
+                    ON key2 = key3
+                    """;
             @Language("SQL") String expectedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
             @Language("SQL") String leftJoinBucketedTable =
-                    "SELECT key1, value1, key2, value2\n" +
-                            "FROM test_grouped_join1\n" +
-                            "LEFT JOIN (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)\n" +
-                            "ON key1 = key2";
+                    """
+                    SELECT key1, value1, key2, value2
+                    FROM test_grouped_join1
+                    LEFT JOIN (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)
+                    ON key1 = key2
+                    """;
             @Language("SQL") String rightJoinBucketedTable =
-                    "SELECT key1, value1, key2, value2\n" +
-                            "FROM (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)\n" +
-                            "RIGHT JOIN test_grouped_join1\n" +
-                            "ON key1 = key2";
+                    """
+                    SELECT key1, value1, key2, value2
+                    FROM (SELECT * FROM test_grouped_join2 WHERE key2 % 2 = 0)
+                    RIGHT JOIN test_grouped_join1
+                    ON key1 = key2
+                    """;
             @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END FROM orders";
 
             assertQuery(session, joinThreeBucketedTable, expectedJoinQuery);
@@ -6302,35 +6360,41 @@ public abstract class BaseHiveConnectorTest
             // ==============================
 
             @Language("SQL") String crossJoin =
-                    "SELECT key1, value1, key2, value2, key3, value3\n" +
-                            "FROM test_grouped_join1\n" +
-                            "JOIN test_grouped_join2\n" +
-                            "ON key1 = key2\n" +
-                            "CROSS JOIN (SELECT * FROM test_grouped_join3 WHERE key3 <= 3)";
+                    """
+                    SELECT key1, value1, key2, value2, key3, value3
+                    FROM test_grouped_join1
+                    JOIN test_grouped_join2
+                    ON key1 = key2
+                    CROSS JOIN (SELECT * FROM test_grouped_join3 WHERE key3 <= 3)
+                    """;
             @Language("SQL") String expectedCrossJoinQuery =
-                    "SELECT key1, value1, key1, value1, key3, value3\n" +
-                            "FROM\n" +
-                            "  (SELECT orderkey key1, comment value1 FROM orders)\n" +
-                            "CROSS JOIN\n" +
-                            "  (SELECT orderkey key3, comment value3 FROM orders WHERE orderkey <= 3)";
+                    """
+                    SELECT key1, value1, key1, value1, key3, value3
+                    FROM
+                      (SELECT orderkey key1, comment value1 FROM orders)
+                    CROSS JOIN
+                      (SELECT orderkey key3, comment value3 FROM orders WHERE orderkey <= 3)
+                    """;
             assertQuery(session, crossJoin, expectedCrossJoinQuery);
 
             //
             // Bucketed and unbucketed HASH JOIN mixed
             // =======================================
             @Language("SQL") String bucketedAndUnbucketedJoin =
-                    "SELECT key1, value1, keyN, valueN, key2, value2, key3, value3\n" +
-                            "FROM\n" +
-                            "  test_grouped_join1\n" +
-                            "JOIN (\n" +
-                            "  SELECT *\n" +
-                            "  FROM test_grouped_joinN\n" +
-                            "  JOIN test_grouped_join2\n" +
-                            "  ON keyN = key2\n" +
-                            ")\n" +
-                            "ON key1 = keyN\n" +
-                            "JOIN test_grouped_join3\n" +
-                            "ON key1 = key3";
+                    """
+                    SELECT key1, value1, keyN, valueN, key2, value2, key3, value3
+                    FROM
+                      test_grouped_join1
+                    JOIN (
+                      SELECT *
+                      FROM test_grouped_joinN
+                      JOIN test_grouped_join2
+                      ON keyN = key2
+                    )
+                    ON key1 = keyN
+                    JOIN test_grouped_join3
+                    ON key1 = key3
+                    """;
             @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment FROM orders";
             assertQuery(session, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
 
@@ -6340,40 +6404,50 @@ public abstract class BaseHiveConnectorTest
 
             // Chain on the probe side to test duplicating OperatorFactory
             @Language("SQL") String chainedOuterJoin =
-                    "SELECT key1, value1, key2, value2, key3, value3\n" +
-                            "FROM\n" +
-                            "  (SELECT * FROM test_grouped_join1 WHERE mod(key1, 2) = 0)\n" +
-                            "RIGHT JOIN\n" +
-                            "  (SELECT * FROM test_grouped_join2 WHERE mod(key2, 3) = 0)\n" +
-                            "ON key1 = key2\n" +
-                            "FULL JOIN\n" +
-                            "  (SELECT * FROM test_grouped_join3 WHERE mod(key3, 5) = 0)\n" +
-                            "ON key2 = key3";
+                    """
+                    SELECT key1, value1, key2, value2, key3, value3
+                    FROM
+                      (SELECT * FROM test_grouped_join1 WHERE mod(key1, 2) = 0)
+                    RIGHT JOIN
+                      (SELECT * FROM test_grouped_join2 WHERE mod(key2, 3) = 0)
+                    ON key1 = key2
+                    FULL JOIN
+                      (SELECT * FROM test_grouped_join3 WHERE mod(key3, 5) = 0)
+                    ON key2 = key3
+                    """;
             // Probe is grouped execution, but build is not
             @Language("SQL") String sharedBuildOuterJoin =
-                    "SELECT key1, value1, keyN, valueN\n" +
-                            "FROM\n" +
-                            "  (SELECT key1, arbitrary(value1) value1 FROM test_grouped_join1 WHERE mod(key1, 2) = 0 group by key1)\n" +
-                            "RIGHT JOIN\n" +
-                            "  (SELECT * FROM test_grouped_joinN WHERE mod(keyN, 3) = 0)\n" +
-                            "ON key1 = keyN";
+                    """
+                    SELECT key1, value1, keyN, valueN
+                    FROM
+                      (SELECT key1, arbitrary(value1) value1 FROM test_grouped_join1 WHERE mod(key1, 2) = 0 group by key1)
+                    RIGHT JOIN
+                      (SELECT * FROM test_grouped_joinN WHERE mod(keyN, 3) = 0)
+                    ON key1 = keyN
+                    """;
             // The preceding test case, which then feeds into another join
-            @Language("SQL") String expectedChainedOuterJoinResult = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 3) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 3) = 0 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 5) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 5) = 0 THEN comment END\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 3) = 0 OR mod(orderkey, 5) = 0";
-            @Language("SQL") String expectedSharedBuildOuterJoinResult = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 2) = 0 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 2) = 0 THEN comment END,\n" +
-                    "  orderkey,\n" +
-                    "  comment\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 3) = 0";
+            @Language("SQL") String expectedChainedOuterJoinResult =
+                    """
+                    SELECT
+                      CASE WHEN mod(orderkey, 2 * 3) = 0 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 2 * 3) = 0 THEN comment END,
+                      CASE WHEN mod(orderkey, 3) = 0 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 3) = 0 THEN comment END,
+                      CASE WHEN mod(orderkey, 5) = 0 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 5) = 0 THEN comment END
+                    FROM ORDERS
+                    WHERE mod(orderkey, 3) = 0 OR mod(orderkey, 5) = 0
+                    """;
+            @Language("SQL") String expectedSharedBuildOuterJoinResult =
+                    """
+                    SELECT
+                      CASE WHEN mod(orderkey, 2) = 0 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 2) = 0 THEN comment END,
+                      orderkey,
+                      comment
+                    FROM ORDERS
+                    WHERE mod(orderkey, 3) = 0
+                    """;
 
             assertQuery(session, chainedOuterJoin, expectedChainedOuterJoinResult);
             assertQuery(session, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
@@ -6382,31 +6456,38 @@ public abstract class BaseHiveConnectorTest
             // Filter out all or majority of splits
             // ====================================
             @Language("SQL") String noSplits =
-                    "SELECT key1, arbitrary(value1)\n" +
-                            "FROM test_grouped_join1\n" +
-                            "WHERE \"$bucket\" < 0\n" +
-                            "GROUP BY key1";
+                    """
+                    SELECT key1, arbitrary(value1)
+                    FROM test_grouped_join1
+                    WHERE "$bucket" < 0
+                    GROUP BY key1
+                    """;
             @Language("SQL") String joinMismatchedBuckets =
-                    "SELECT key1, value1, key2, value2\n" +
-                            "FROM (\n" +
-                            "  SELECT *\n" +
-                            "  FROM test_grouped_join1\n" +
-                            "  WHERE \"$bucket\"=1\n" +
-                            ")\n" +
-                            "FULL OUTER JOIN (\n" +
-                            "  SELECT *\n" +
-                            "  FROM test_grouped_join2\n" +
-                            "  WHERE \"$bucket\"=11\n" +
-                            ")\n" +
-                            "ON key1=key2";
+                    """
+                    SELECT key1, value1, key2, value2
+                    FROM (
+                      SELECT *
+                      FROM test_grouped_join1
+                      WHERE "$bucket"=1
+                    )
+                    FULL OUTER JOIN (
+                      SELECT *
+                      FROM test_grouped_join2
+                      WHERE "$bucket"=11
+                    )
+                    ON key1=key2
+                    """;
             @Language("SQL") String expectedNoSplits = "SELECT 1, 'a' WHERE FALSE";
-            @Language("SQL") String expectedJoinMismatchedBuckets = "SELECT\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 1 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 1 THEN comment END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 11 THEN orderkey END,\n" +
-                    "  CASE WHEN mod(orderkey, 13) = 11 THEN comment END\n" +
-                    "FROM ORDERS\n" +
-                    "WHERE mod(orderkey, 13) IN (1, 11)";
+            @Language("SQL") String expectedJoinMismatchedBuckets =
+                    """
+                    SELECT
+                      CASE WHEN mod(orderkey, 13) = 1 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 13) = 1 THEN comment END,
+                      CASE WHEN mod(orderkey, 13) = 11 THEN orderkey END,
+                      CASE WHEN mod(orderkey, 13) = 11 THEN comment END
+                    FROM ORDERS
+                    WHERE mod(orderkey, 13) IN (1, 11)
+                    """;
 
             assertQuery(session, noSplits, expectedNoSplits);
             assertQuery(session, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
@@ -8230,14 +8311,16 @@ public abstract class BaseHiveConnectorTest
         }
 
         String createTableSql = format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   stringCol varchar,\n" +
-                        "   a INT\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   stringCol varchar,
+                   a INT
+                )
+                WITH (
+                   avro_schema_url = '%s',
+                   format = 'AVRO'
+                )
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
@@ -8290,13 +8373,15 @@ public abstract class BaseHiveConnectorTest
         }
 
         String createTableSql = format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   nestedRow ROW(stringCol varchar, intCol int)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   nestedRow ROW(stringCol varchar, intCol int)
+                )
+                WITH (
+                   avro_schema_url = '%s',
+                   format = 'AVRO'
+                )
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
@@ -8365,14 +8450,16 @@ public abstract class BaseHiveConnectorTest
     private String getAvroCreateTableSql(String tableName, Location schemaFile)
     {
         return format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   dummy_col varchar,\n" +
-                        "   another_dummy_col varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   dummy_col varchar,
+                   another_dummy_col varchar
+                )
+                WITH (
+                   avro_schema_url = '%s',
+                   format = 'AVRO'
+                )\
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 tableName,
@@ -8383,14 +8470,15 @@ public abstract class BaseHiveConnectorTest
     public void testCreateOrcTableWithSchemaUrl()
     {
         @Language("SQL") String createTableSql = format(
-                "" +
-                        "CREATE TABLE %s.%s.test_orc (\n" +
-                        "   dummy_col varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = 'dummy.avsc',\n" +
-                        "   format = 'ORC'\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.test_orc (
+                   dummy_col varchar
+                )
+                WITH (
+                   avro_schema_url = 'dummy.avsc',
+                   format = 'ORC'
+                )
+                """,
                 getSession().getCatalog().get(),
                 getSession().getSchema().get());
 
@@ -8400,15 +8488,21 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCtasFailsWithAvroSchemaUrl()
     {
-        @Language("SQL") String ctasSqlWithoutData = "CREATE TABLE create_avro\n" +
-                "WITH (avro_schema_url = 'dummy_schema')\n" +
-                "AS SELECT 'dummy_value' as dummy_col WITH NO DATA";
+        @Language("SQL") String ctasSqlWithoutData =
+                """
+                CREATE TABLE create_avro
+                WITH (avro_schema_url = 'dummy_schema')
+                AS SELECT 'dummy_value' as dummy_col WITH NO DATA
+                """;
 
         assertQueryFails(ctasSqlWithoutData, "CREATE TABLE AS not supported when Avro schema url is set");
 
-        @Language("SQL") String ctasSql = "CREATE TABLE create_avro\n" +
-                "WITH (avro_schema_url = 'dummy_schema')\n" +
-                "AS SELECT * FROM (VALUES('a')) t (a)";
+        @Language("SQL") String ctasSql =
+                """
+                CREATE TABLE create_avro
+                WITH (avro_schema_url = 'dummy_schema')
+                AS SELECT * FROM (VALUES('a')) t (a)
+                """;
 
         assertQueryFails(ctasSql, "CREATE TABLE AS not supported when Avro schema url is set");
     }
@@ -8416,9 +8510,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testBucketedTablesFailWithAvroSchemaUrl()
     {
-        @Language("SQL") String createSql = "CREATE TABLE create_avro (dummy VARCHAR)\n" +
-                "WITH (avro_schema_url = 'dummy_schema',\n" +
-                "      bucket_count = 2, bucketed_by=ARRAY['dummy'])";
+        @Language("SQL") String createSql =
+                """
+                CREATE TABLE create_avro (dummy VARCHAR)
+                WITH (avro_schema_url = 'dummy_schema',
+                      bucket_count = 2, bucketed_by=ARRAY['dummy'])
+                """;
 
         assertQueryFails(createSql, "Bucketing columns not supported when Avro schema url is set");
     }
@@ -8426,9 +8523,13 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testPrunePartitionFailure()
     {
-        assertUpdate("CREATE TABLE test_prune_failure\n" +
-                "WITH (partitioned_by = ARRAY['p']) AS\n" +
-                "SELECT 123 x, 'abc' p", 1);
+        assertUpdate(
+                """
+                CREATE TABLE test_prune_failure
+                WITH (partitioned_by = ARRAY['p']) AS
+                SELECT 123 x, 'abc' p
+                """,
+                1);
 
         assertQueryReturnsEmptyResult("" +
                 "SELECT * FROM test_prune_failure\n" +

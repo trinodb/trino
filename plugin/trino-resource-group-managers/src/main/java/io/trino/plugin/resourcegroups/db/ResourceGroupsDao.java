@@ -23,91 +23,112 @@ import java.util.List;
 
 public interface ResourceGroupsDao
 {
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups_global_properties (\n" +
-            "  name VARCHAR(128) NOT NULL PRIMARY KEY,\n" +
-            "  value VARCHAR(512) NULL,\n" +
-            "  CHECK (name in ('cpu_quota_period', 'physical_data_scan_quota_period'))\n" +
-            ")")
+    @SqlUpdate(
+            """
+            CREATE TABLE IF NOT EXISTS resource_groups_global_properties (
+              name VARCHAR(128) NOT NULL PRIMARY KEY,
+              value VARCHAR(512) NULL,
+              CHECK (name in ('cpu_quota_period', 'physical_data_scan_quota_period'))
+            )
+            """)
     void createResourceGroupsGlobalPropertiesTable();
 
     @SqlQuery("SELECT name, value FROM resource_groups_global_properties WHERE name IN ('cpu_quota_period', 'physical_data_scan_quota_period')")
     @UseRowReducer(ResourceGroupGlobalPropertiesReducer.class)
     ResourceGroupGlobalProperties getResourceGroupGlobalProperties();
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
-            "  resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +
-            "  name VARCHAR(250) NOT NULL,\n" +
-            "  soft_memory_limit VARCHAR(128),\n" +
-            "  max_queued INT NOT NULL,\n" +
-            "  soft_concurrency_limit INT NULL,\n" +
-            "  hard_concurrency_limit INT NOT NULL,\n" +
-            "  scheduling_policy VARCHAR(128) NULL,\n" +
-            "  scheduling_weight INT NULL,\n" +
-            "  jmx_export BOOLEAN NULL,\n" +
-            "  soft_cpu_limit VARCHAR(128) NULL,\n" +
-            "  hard_cpu_limit VARCHAR(128) NULL,\n" +
-            "  hard_physical_data_scan_limit VARCHAR(128) NULL,\n" +
-            "  parent BIGINT NULL,\n" +
-            "  environment VARCHAR(128) NULL,\n" +
-            "  PRIMARY KEY (resource_group_id),\n" +
-            "  FOREIGN KEY (parent) REFERENCES resource_groups (resource_group_id)\n" +
-            ")")
+    @SqlUpdate(
+            """
+            CREATE TABLE IF NOT EXISTS resource_groups (
+              resource_group_id BIGINT NOT NULL AUTO_INCREMENT,
+              name VARCHAR(250) NOT NULL,
+              soft_memory_limit VARCHAR(128),
+              max_queued INT NOT NULL,
+              soft_concurrency_limit INT NULL,
+              hard_concurrency_limit INT NOT NULL,
+              scheduling_policy VARCHAR(128) NULL,
+              scheduling_weight INT NULL,
+              jmx_export BOOLEAN NULL,
+              soft_cpu_limit VARCHAR(128) NULL,
+              hard_cpu_limit VARCHAR(128) NULL,
+              hard_physical_data_scan_limit VARCHAR(128) NULL,
+              parent BIGINT NULL,
+              environment VARCHAR(128) NULL,
+              PRIMARY KEY (resource_group_id),
+              FOREIGN KEY (parent) REFERENCES resource_groups (resource_group_id)
+            )
+            """)
     void createResourceGroupsTable();
 
-    @SqlQuery("SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit, " +
-            "  hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit, " +
-            "  hard_cpu_limit, hard_physical_data_scan_limit, parent\n" +
-            "FROM resource_groups\n" +
-            "WHERE environment = :environment OR environment IS NULL\n")
+    @SqlQuery(
+            """
+            SELECT resource_group_id, name, soft_memory_limit, max_queued, soft_concurrency_limit,
+              hard_concurrency_limit, scheduling_policy, scheduling_weight, jmx_export, soft_cpu_limit,
+              hard_cpu_limit, hard_physical_data_scan_limit, parent
+            FROM resource_groups
+            WHERE environment = :environment OR environment IS NULL
+            """)
     @UseRowMapper(ResourceGroupSpecBuilder.Mapper.class)
     List<ResourceGroupSpecBuilder> getResourceGroups(@Bind("environment") String environment);
 
-    @SqlQuery("SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.original_user_regex, S.authenticated_user_regex, S.query_text_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.user_group_regex\n" +
-            "FROM selectors S\n" +
-            "JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)\n" +
-            "WHERE (R.environment = :environment OR R.environment IS NULL)\n" +
-            "ORDER by priority DESC")
+    @SqlQuery(
+            """
+            SELECT S.resource_group_id, S.priority, S.user_regex, S.source_regex, S.original_user_regex, S.authenticated_user_regex, S.query_text_regex, S.query_type, S.client_tags, S.selector_resource_estimate, S.user_group_regex
+            FROM selectors S
+            JOIN resource_groups R ON (S.resource_group_id = R.resource_group_id)
+            WHERE (R.environment = :environment OR R.environment IS NULL)
+            ORDER by priority DESC
+            """)
     @UseRowMapper(SelectorRecord.Mapper.class)
     List<SelectorRecord> getSelectors(@Bind("environment") String environment);
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS selectors (\n" +
-            "  resource_group_id BIGINT NOT NULL,\n" +
-            "  priority BIGINT NOT NULL,\n" +
-            "  user_regex VARCHAR(512),\n" +
-            "  user_group_regex VARCHAR(512),\n" +
-            "  original_user_regex VARCHAR(512),\n" +
-            "  authenticated_user_regex VARCHAR(512),\n" +
-            "  source_regex VARCHAR(512),\n" +
-            "  query_text_regex VARCHAR(1024),\n" +
-            "  query_type VARCHAR(512),\n" +
-            "  client_tags VARCHAR(512),\n" +
-            "  selector_resource_estimate VARCHAR(1024),\n" +
-            "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
-            ")")
+    @SqlUpdate(
+            """
+            CREATE TABLE IF NOT EXISTS selectors (
+              resource_group_id BIGINT NOT NULL,
+              priority BIGINT NOT NULL,
+              user_regex VARCHAR(512),
+              user_group_regex VARCHAR(512),
+              original_user_regex VARCHAR(512),
+              authenticated_user_regex VARCHAR(512),
+              source_regex VARCHAR(512),
+              query_text_regex VARCHAR(1024),
+              query_type VARCHAR(512),
+              client_tags VARCHAR(512),
+              selector_resource_estimate VARCHAR(1024),
+              FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)
+            )
+            """)
     void createSelectorsTable();
 
-    @SqlUpdate("CREATE TABLE IF NOT EXISTS exact_match_source_selectors(\n" +
-            "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
-            "  environment VARCHAR(128),\n" +
-            "  source VARCHAR(512) NOT NULL,\n" +
-            "  query_type VARCHAR(512),\n" +
-            "  update_time TIMESTAMP NOT NULL,\n" +
-            "  resource_group_id VARCHAR(256) NOT NULL,\n" +
-            "  PRIMARY KEY (id)\n" +
-            ")")
+    @SqlUpdate(
+            """
+            CREATE TABLE IF NOT EXISTS exact_match_source_selectors(
+              id BIGINT NOT NULL AUTO_INCREMENT,
+              environment VARCHAR(128),
+              source VARCHAR(512) NOT NULL,
+              query_type VARCHAR(512),
+              update_time TIMESTAMP NOT NULL,
+              resource_group_id VARCHAR(256) NOT NULL,
+              PRIMARY KEY (id)
+            )
+            """)
     void createExactMatchSelectorsTable();
 
     /**
      * Returns the most specific exact-match selector for a given environment, source and query type.
      * NULL values in the environment and query type fields signify wildcards.
      */
-    @SqlQuery("SELECT resource_group_id\n" +
-            "FROM exact_match_source_selectors\n" +
-            "WHERE source = :source\n" +
-            "  AND (environment = :environment OR environment IS NULL)\n" +
-            "  AND (query_type = :query_type OR query_type IS NULL)\n" +
-            "ORDER BY environment IS NULL, query_type IS NULL\n" +
-            "LIMIT 1")
+    @SqlQuery(
+            """
+            SELECT resource_group_id
+            FROM exact_match_source_selectors
+            WHERE source = :source
+              AND (environment = :environment OR environment IS NULL)
+              AND (query_type = :query_type OR query_type IS NULL)
+            ORDER BY environment IS NULL, query_type IS NULL
+            LIMIT 1
+            """)
     String getExactMatchResourceGroup(
             @Bind("environment") String environment,
             @Bind("source") String source,

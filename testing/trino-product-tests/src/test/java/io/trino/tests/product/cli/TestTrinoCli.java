@@ -256,9 +256,11 @@ class TestTrinoCli
             throws Exception
     {
         ExecResult result = env.executeCliWithStdin(
-                "USE tpch.tiny;\n" +
-                        "SELECT count(*) FROM nation;\n" +
-                        "SHOW SESSION LIKE 'join_distribution_type';");
+                """
+                USE tpch.tiny;
+                SELECT count(*) FROM nation;
+                SHOW SESSION LIKE 'join_distribution_type';
+                """);
 
         assertThat(result.getExitCode()).isZero();
         assertThat(result.getStdout()).contains("25");

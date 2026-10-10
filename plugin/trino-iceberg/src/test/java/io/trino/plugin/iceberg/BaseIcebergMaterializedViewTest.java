@@ -215,13 +215,16 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
 
-        assertUpdate("CREATE MATERIALIZED VIEW test_mv_show_create " +
-                "WITH (\n" +
-                "   partitioning = ARRAY['_date'],\n" +
-                "   format = 'ORC',\n" +
-                "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
-                "   orc_bloom_filter_fpp = 0.1) AS " +
-                "SELECT _bigint, _date FROM base_table1");
+        assertUpdate(
+                """
+                CREATE MATERIALIZED VIEW test_mv_show_create
+                WITH (
+                   partitioning = ARRAY['_date'],
+                   format = 'ORC',
+                   orc_bloom_filter_columns = ARRAY['_date'],
+                   orc_bloom_filter_fpp = 0.1) AS
+                SELECT _bigint, _date FROM base_table1
+                """);
         assertQuery("SELECT COUNT(*) FROM test_mv_show_create", "VALUES 6");
 
         assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW test_mv_show_create"))

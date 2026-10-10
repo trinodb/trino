@@ -293,20 +293,23 @@ public class TestClickHouseConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE clickhouse.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   clerk varchar,\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'LOG'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE clickhouse.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar,
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar,
+                           clerk varchar,
+                           shippriority integer,
+                           comment varchar
+                        )
+                        WITH (
+                           engine = 'LOG'
+                        )\
+                        """);
     }
 
     @Override
@@ -398,38 +401,47 @@ public class TestClickHouseConnectorTest
         // one required property
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'LOG'\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x varchar
+                        )
+                        WITH (
+                           engine = 'LOG'
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'StripeLog')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'STRIPELOG'\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x varchar
+                        )
+                        WITH (
+                           engine = 'STRIPELOG'
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'TinyLog')");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'TINYLOG'\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x varchar
+                        )
+                        WITH (
+                           engine = 'TINYLOG'
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Log engine DOES NOT any property
@@ -457,64 +469,76 @@ public class TestClickHouseConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'MERGETREE',\n" +
-                        "   order_by = ARRAY['id'],\n" +
-                        "   primary_key = ARRAY['id']\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x varchar
+                        )
+                        WITH (
+                           engine = 'MERGETREE',
+                           order_by = ARRAY['id'],
+                           primary_key = ARRAY['id']
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x', 'y'], primary_key = ARRAY['id', 'x'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x varchar NOT NULL,\n" +
-                        "   y varchar NOT NULL\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'MERGETREE',\n" +
-                        "   order_by = ARRAY['id','x','y'],\n" +
-                        "   primary_key = ARRAY['id','x']\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x varchar NOT NULL,
+                           y varchar NOT NULL
+                        )
+                        WITH (
+                           engine = 'MERGETREE',
+                           order_by = ARRAY['id','x','y'],
+                           primary_key = ARRAY['id','x']
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x BOOLEAN NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   x boolean NOT NULL,\n" +
-                        "   y varchar NOT NULL\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'MERGETREE',\n" +
-                        "   order_by = ARRAY['id','x'],\n" +
-                        "   primary_key = ARRAY['id','x'],\n" +
-                        "   sample_by = 'x'\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           x boolean NOT NULL,
+                           y varchar NOT NULL
+                        )
+                        WITH (
+                           engine = 'MERGETREE',
+                           order_by = ARRAY['id','x'],
+                           primary_key = ARRAY['id','x'],
+                           sample_by = 'x'
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Partition column
         assertUpdate("CREATE TABLE " + tableName + "(id int NOT NULL, part int NOT NULL) WITH " +
                 "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['part'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                        "CREATE TABLE clickhouse.tpch.%s (\n" +
-                        "   id integer NOT NULL,\n" +
-                        "   part integer NOT NULL\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   engine = 'MERGETREE',\n" +
-                        "   order_by = ARRAY['id'],\n" +
-                        "   partition_by = ARRAY['part'],\n" +
-                        "   primary_key = ARRAY['id']\n" +
-                        ")", tableName));
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE clickhouse.tpch.%s (
+                           id integer NOT NULL,
+                           part integer NOT NULL
+                        )
+                        WITH (
+                           engine = 'MERGETREE',
+                           order_by = ARRAY['id'],
+                           partition_by = ARRAY['part'],
+                           primary_key = ARRAY['id']
+                        )\
+                        """,
+                        tableName));
         assertUpdate("DROP TABLE " + tableName);
 
         // Primary key must be a prefix of the sorting key,

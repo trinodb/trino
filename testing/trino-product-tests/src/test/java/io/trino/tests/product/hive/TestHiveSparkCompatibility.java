@@ -258,27 +258,29 @@ class TestHiveSparkCompatibility
 
             assertThat(env.executeTrino("SHOW CREATE TABLE " + trinoTableName))
                     .containsOnly(row(format(
-                            "CREATE TABLE %s (\n" +
-                                    "   a_boolean boolean,\n" +
-                                    "   a_tinyint tinyint,\n" +
-                                    "   a_smallint smallint,\n" +
-                                    "   an_integer integer,\n" +
-                                    "   a_bigint bigint,\n" +
-                                    "   a_real real,\n" +
-                                    "   a_double double,\n" +
-                                    "   a_short_decimal decimal(11, 4),\n" +
-                                    "   a_long_decimal decimal(26, 7),\n" +
-                                    "   a_string varchar,\n" +
-                                    "   a_date date,\n" +
-                                    "   a_timestamp_seconds timestamp(9),\n" +
-                                    "   a_timestamp_millis timestamp(9),\n" +
-                                    "   a_timestamp_micros timestamp(9),\n" +
-                                    "   a_timestamp_nanos timestamp(9),\n" +
-                                    "   a_dummy varchar\n" +
-                                    ")\n" +
-                                    "WITH (\n" +
-                                    "   format = '%s'\n" +
-                                    ")",
+                            """
+                            CREATE TABLE %s (
+                               a_boolean boolean,
+                               a_tinyint tinyint,
+                               a_smallint smallint,
+                               an_integer integer,
+                               a_bigint bigint,
+                               a_real real,
+                               a_double double,
+                               a_short_decimal decimal(11, 4),
+                               a_long_decimal decimal(26, 7),
+                               a_string varchar,
+                               a_date date,
+                               a_timestamp_seconds timestamp(9),
+                               a_timestamp_millis timestamp(9),
+                               a_timestamp_micros timestamp(9),
+                               a_timestamp_nanos timestamp(9),
+                               a_dummy varchar
+                            )
+                            WITH (
+                               format = '%s'
+                            )\
+                            """,
                             trinoTableName,
                             expectedTrinoTableFormat)));
         }
@@ -878,17 +880,19 @@ class TestHiveSparkCompatibility
 
             assertThat(env.executeTrino("SHOW CREATE TABLE " + trinoTableName))
                     .containsOnly(row(format(
-                            "CREATE TABLE %s (\n" +
-                                    "   a_string varchar,\n" +
-                                    "   a_bigint bigint,\n" +
-                                    "   an_integer integer,\n" +
-                                    "   a_real real,\n" +
-                                    "   a_double double,\n" +
-                                    "   a_boolean boolean\n" +
-                                    ")\n" +
-                                    "WITH (\n" +
-                                    "   format = 'ORC'\n" +
-                                    ")",
+                            """
+                            CREATE TABLE %s (
+                               a_string varchar,
+                               a_bigint bigint,
+                               an_integer integer,
+                               a_real real,
+                               a_double double,
+                               a_boolean boolean
+                            )
+                            WITH (
+                               format = 'ORC'
+                            )\
+                            """,
                             trinoTableName)));
 
             assertThatThrownBy(() -> env.executeTrino("SELECT a_string, a_bigint, an_integer, a_real, a_double, a_boolean, \"$bucket\" FROM " + trinoTableName))

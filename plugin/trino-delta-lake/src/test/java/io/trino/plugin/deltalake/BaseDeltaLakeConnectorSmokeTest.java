@@ -531,19 +531,21 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         assertThat(computeScalar("SHOW CREATE TABLE person"))
                 .isEqualTo(format(
-                        "CREATE TABLE delta.%s.person (\n" +
-                                "   name varchar,\n" +
-                                "   age integer,\n" +
-                                "   married boolean,\n" +
-                                "   phones array(ROW(number varchar, label varchar)),\n" +
-                                "   address ROW(street varchar, city varchar, state varchar, zip varchar),\n" +
-                                "   income double,\n" +
-                                "   gender varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['age']\n" +
-                                ")",
+                        """
+                        CREATE TABLE delta.%s.person (
+                           name varchar,
+                           age integer,
+                           married boolean,
+                           phones array(ROW(number varchar, label varchar)),
+                           address ROW(street varchar, city varchar, state varchar, zip varchar),
+                           income double,
+                           gender varchar
+                        )
+                        WITH (
+                           location = '%s',
+                           partitioned_by = ARRAY['age']
+                        )\
+                        """,
                         SCHEMA,
                         getLocationForTable(bucketName, "person")));
     }
@@ -663,15 +665,17 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 25);
         assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format(
-                        "CREATE TABLE %s.%s.%s (\n" +
-                                "   name varchar,\n" +
-                                "   regionkey bigint,\n" +
-                                "   comment varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['regionkey']\n" +
-                                ")",
+                        """
+                        CREATE TABLE %s.%s.%s (
+                           name varchar,
+                           regionkey bigint,
+                           comment varchar
+                        )
+                        WITH (
+                           location = '%s',
+                           partitioned_by = ARRAY['regionkey']
+                        )\
+                        """,
                         DELTA_CATALOG,
                         SCHEMA,
                         tableName,

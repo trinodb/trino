@@ -43,11 +43,13 @@ public class TestCanonicalize
     {
         // canonicalization + constant folding
         assertPlan(
-                "SELECT *\n" +
-                        "FROM (\n" +
-                        "    SELECT EXTRACT(DAY FROM DATE '2017-01-01')\n" +
-                        ") t\n" +
-                        "CROSS JOIN (VALUES 2)",
+                """
+                SELECT *
+                FROM (
+                    SELECT EXTRACT(DAY FROM DATE '2017-01-01')
+                ) t
+                CROSS JOIN (VALUES 2)
+                """,
                 anyTree(
                         values(ImmutableList.of("expr", "field"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(INTEGER, 2L))))));
     }

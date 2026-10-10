@@ -171,17 +171,20 @@ public class TestSnowflakeConnectorTest
     {
         // Override this test because the type of columns "orderkey", "custkey" and "shippriority" should be decimal rather than integer for snowflake case
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE snowflake.tpch.orders (\n" +
-                        "   orderkey decimal(19, 0),\n" +
-                        "   custkey decimal(19, 0),\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority decimal(10, 0),\n" +
-                        "   comment varchar(79)\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE snowflake.tpch.orders (
+                           orderkey decimal(19, 0),
+                           custkey decimal(19, 0),
+                           orderstatus varchar(1),
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar(15),
+                           clerk varchar(15),
+                           shippriority decimal(10, 0),
+                           comment varchar(79)
+                        )\
+                        """);
     }
 
     @Override

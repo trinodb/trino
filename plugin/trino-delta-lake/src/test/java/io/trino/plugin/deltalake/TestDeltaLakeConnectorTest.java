@@ -452,10 +452,16 @@ public class TestDeltaLakeConnectorTest
     {
         String schemaName = getSession().getSchema().orElseThrow();
         assertThat((String) computeScalar("SHOW CREATE SCHEMA " + schemaName))
-                .isEqualTo(format("CREATE SCHEMA %s.%s\n" +
-                        "WITH (\n" +
-                        "   location = 's3://%s/test_schema'\n" +
-                        ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+                .isEqualTo(format(
+                        """
+                        CREATE SCHEMA %s.%s
+                        WITH (
+                           location = 's3://%s/test_schema'
+                        )\
+                        """,
+                        getSession().getCatalog().orElseThrow(),
+                        schemaName,
+                        bucketName));
     }
 
     @Test

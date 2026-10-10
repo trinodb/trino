@@ -414,9 +414,13 @@ public final class QueryAssertions
             Multiset<?> missingRows = Multisets.difference(expectedSet, actualSet);
             int limit = 100;
             fail(format(
-                    "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
+                    """
+                    %snot equal
+                    Actual rows (up to %s of %s extra rows shown, %s rows in total):
+                        %s
+                    Expected rows (up to %s of %s missing rows shown, %s rows in total):
+                        %s
+                    """,
                     message == null ? "" : (message + "\n"),
                     limit,
                     unexpectedRows.size(),

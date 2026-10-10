@@ -1992,13 +1992,16 @@ public abstract class BaseOpenSearchConnectorTest
 
         // use aggregations
         @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
+        String query =
+                """
+                {
+                    "size": 0,
+                    "aggs" : {
+                        "max_orderkey" : { "max" : { "field" : "orderkey" } },
+                        "sum_orderkey" : { "sum" : { "field" : "orderkey" } }
+                    }
+                }
+                """;
 
         assertThat(query(format("WITH data(r) AS (" +
                 "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
