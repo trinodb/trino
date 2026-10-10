@@ -164,6 +164,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public boolean managesViewSecurity()
+    {
+        return icebergMetadata.managesViewSecurity();
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
     {
         if (isIcebergTableName(tableName.getTableName()) && isMaterializedViewStorage(tableName.getTableName())) {
