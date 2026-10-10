@@ -53,6 +53,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -1348,6 +1349,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, referencingViews);
         }
     }
 
