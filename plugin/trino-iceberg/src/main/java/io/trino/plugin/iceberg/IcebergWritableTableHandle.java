@@ -22,6 +22,7 @@ import org.apache.iceberg.SortOrder;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +37,8 @@ public record IcebergWritableTableHandle(
         List<IcebergColumnHandle> partitionColumns,
         String outputPath,
         IcebergFileFormat fileFormat,
-        Map<String, String> storageProperties)
+        Map<String, String> storageProperties,
+        Optional<String> branch)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     public IcebergWritableTableHandle
@@ -51,6 +53,7 @@ public record IcebergWritableTableHandle(
         requireNonNull(fileFormat, "fileFormat is null");
         storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
+        requireNonNull(branch, "branch is null");
     }
 
     @Override
