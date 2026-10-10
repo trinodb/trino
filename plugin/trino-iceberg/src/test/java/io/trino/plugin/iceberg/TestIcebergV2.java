@@ -463,14 +463,31 @@ public class TestIcebergV2
     {
         testOptimizeNotNullViolation(true);
         testOptimizeNotNullViolation(false);
+        testOptimizeNotNullViolation(false, true);
     }
 
     private void testOptimizeNotNullViolation(boolean partitioned)
             throws Exception
     {
-        String tableProperty = partitioned ? "WITH (partitioning = ARRAY['x'])" : "";
+        testOptimizeNotNullViolation(partitioned, false);
+    }
+
+    private void testOptimizeNotNullViolation(boolean partitioned, boolean orc)
+            throws Exception
+    {
+        String tableProperties = partitioned ? "partitioning = ARRAY['x']" : "";
+        if (orc) {
+            tableProperties += (tableProperties.isEmpty() ? "" : ", ") + "format = 'ORC'";
+        }
+        String tableProperty = tableProperties.isEmpty() ? "" : "WITH (" + tableProperties + ")";
         try (TestTable table = newTrinoTable("test_optimize_not_null", "(x INT NOT NULL)" + tableProperty)) {
             BaseTable icebergTable = loadTable(table.getName());
+            if (orc) {
+                // ORC does not necessarily persist null counts, so the page sink must validate input independently of metrics.
+                icebergTable.updateProperties()
+                        .set("write.metadata.metrics.default", "none")
+                        .commit();
+            }
 
             // Add data file with NULL value on NOT NULL column
             Schema nullableSchema = new Schema(Types.NestedField.optional(1, "x", Types.IntegerType.get()));

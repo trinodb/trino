@@ -49,7 +49,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -309,6 +308,8 @@ public class IcebergPageSink
 
     private void writePage(Page page)
     {
+        verifyNotNullConstraint(page, outputSchema);
+
         int[] writerIndexes = getWriterIndexes(page);
 
         // position count for each writer
@@ -587,8 +588,6 @@ public class IcebergPageSink
 
         closedWriterRollbackActions.add(writer.commit());
 
-        verifyNotNullConstraint(writer.getFileMetrics().metrics(), outputSchema);
-
         validationCpuNanos += writer.getValidationCpuNanos();
         writtenBytes += (writer.getWrittenBytes() - currentWritten);
         memoryUsage -= currentMemory;
@@ -612,15 +611,18 @@ public class IcebergPageSink
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }
 
-    private static void verifyNotNullConstraint(Metrics metrics, Schema schema)
+    private static void verifyNotNullConstraint(Page page, Schema schema)
     {
-        if (metrics.nullValueCounts() == null) {
-            return;
-        }
-
-        for (Types.NestedField field : schema.columns()) {
-            if (field.isRequired() && metrics.nullValueCounts().getOrDefault(field.fieldId(), 0L) > 0) {
-                throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + field.name());
+        List<Types.NestedField> columns = schema.columns();
+        for (int channel = 0; channel < columns.size(); channel++) {
+            Types.NestedField field = columns.get(channel);
+            if (field.isRequired()) {
+                Block block = page.getBlock(channel);
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    if (block.isNull(position)) {
+                        throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + field.name());
+                    }
+                }
             }
         }
     }
