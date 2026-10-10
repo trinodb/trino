@@ -281,7 +281,7 @@ final class TestFakerViews
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
 
         assertQueryFails("CREATE VIEW " + testView + " AS SELECT 123 x", "line 1:1: View already exists: '%s.%s.%s'".formatted(catalogName, schemaName, testView));
-        assertQueryFails("CREATE TABLE " + testView + " (orderkey INT, orderstatus VARCHAR(255), half VARCHAR(255))", "View '%s.%s' already exists".formatted(schemaName, testView));
+        assertQueryFails("CREATE TABLE " + testView + " (orderkey INT, orderstatus VARCHAR(255), half VARCHAR(255))", ".* View '%s.%s.%s' already exists".formatted(catalogName, schemaName, testView));
         assertQueryFails("ALTER VIEW " + testView + " RENAME TO " + testTable, "line 1:1: Target view '%s.%s.%s' does not exist, but a table with that name exists.".formatted(catalogName, schemaName, testTable));
         assertQueryFails("ALTER TABLE " + testTable + " RENAME TO " + testView, "line 1:1: Target table '%s.%s.%s' does not exist, but a view with that name exists.".formatted(catalogName, schemaName, testView));
 
