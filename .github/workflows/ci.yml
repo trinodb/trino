@@ -479,7 +479,8 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift,
-            !:trino-web-ui'
+            !:trino-web-ui,
+            !:trino-ydb'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
