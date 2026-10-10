@@ -63,3 +63,12 @@ security/ranger-access-control
 security/internal-communication
 security/secrets
 ```
+
+
+## Credential providers
+
+```{toctree}
+:maxdepth: 1
+
+security/credential-providers
+```

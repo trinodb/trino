@@ -345,4 +345,10 @@ public final class StandaloneQueryRunner
     {
         server.loadBlobCacheManager(name, properties);
     }
+
+    @Override
+    public void addCredentialProvider(String name, String factoryName, Map<String, String> properties)
+    {
+        server.addCredentialProvider(name, factoryName, properties);
+    }
 }
