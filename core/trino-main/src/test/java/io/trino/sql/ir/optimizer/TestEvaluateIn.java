@@ -15,6 +15,7 @@ package io.trino.sql.ir.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -87,6 +89,36 @@ public class TestEvaluateIn
                 new In(new Constant(BIGINT, 0L), ImmutableList.of(new Constant(BIGINT, null), new Constant(BIGINT, 0L)))))
                 .describedAs("null item, match")
                 .isEqualTo(Optional.of(TRUE));
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Reference(BIGINT, "x"), new Constant(BIGINT, null)))))
+                .describedAs("mixed list, null item")
+                .isEqualTo(Optional.empty());
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, null), ImmutableList.of(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)))))
+                .describedAs("mixed list, null value")
+                .isEqualTo(Optional.of(NULL_BOOLEAN));
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, null), ImmutableList.of(new Cast(new Reference(VARCHAR, "y"), BIGINT), new Constant(BIGINT, 1L)))))
+                .describedAs("mixed list, null value, item can fail")
+                .isEqualTo(Optional.empty());
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Reference(BIGINT, "x"), new Constant(BIGINT, 1L), new Reference(BIGINT, "y")))))
+                .describedAs("mixed list, no match")
+                .isEqualTo(Optional.of(new In(new Constant(BIGINT, 0L), ImmutableList.of(new Reference(BIGINT, "x"), new Reference(BIGINT, "y")))));
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Reference(BIGINT, "x"), new Constant(BIGINT, 0L)))))
+                .describedAs("mixed list, match")
+                .isEqualTo(Optional.of(TRUE));
+
+        assertThat(optimize(
+                new In(new Constant(BIGINT, 0L), ImmutableList.of(new Cast(new Reference(VARCHAR, "y"), BIGINT), new Constant(BIGINT, 1L), new Constant(BIGINT, 0L)))))
+                .describedAs("mixed list, match, another item can fail")
+                .isEqualTo(Optional.of(new In(new Constant(BIGINT, 0L), ImmutableList.of(new Cast(new Reference(VARCHAR, "y"), BIGINT), new Constant(BIGINT, 0L)))));
     }
 
     private Optional<Expression> optimize(Expression expression)
