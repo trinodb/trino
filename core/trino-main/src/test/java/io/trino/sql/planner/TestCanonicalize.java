@@ -26,8 +26,8 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -49,7 +49,7 @@ public class TestCanonicalize
                         ") t\n" +
                         "CROSS JOIN (VALUES 2)",
                 anyTree(
-                        values(ImmutableList.of("expr", "field"), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(INTEGER, 2L))))));
+                        values(ImmutableList.of("expr", "field"), ImmutableList.of(ImmutableList.of(new Constant(TINYINT, 1L), new Constant(INTEGER, 2L))))));
     }
 
     @Test
