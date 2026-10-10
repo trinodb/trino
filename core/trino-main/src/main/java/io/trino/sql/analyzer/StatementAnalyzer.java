@@ -5950,7 +5950,7 @@ class StatementAnalyzer
             if (!isDeterministic(expression, this::getResolvedFunction)) {
                 throw semanticException(INVALID_CHECK_CONSTRAINT, expression, "Check constraint expression should be deterministic");
             }
-            if (containsCurrentTimeFunctions(expression)) {
+            if (containsCurrentTimeFunctions(expression, this::getResolvedFunction)) {
                 throw semanticException(INVALID_CHECK_CONSTRAINT, expression, "Check constraint expression should not contain temporal expression");
             }
 

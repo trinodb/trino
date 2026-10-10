@@ -161,7 +161,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.containsType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.DeterminismEvaluator.containsCurrentTimeFunctions;
+import static io.trino.sql.analyzer.DeterminismEvaluator.isCurrentTimeExpression;
+import static io.trino.sql.analyzer.DeterminismEvaluator.isCurrentTimeFunction;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
@@ -704,8 +705,9 @@ public class LogicalPlanner
                 .collect(toImmutableList());
         // TODO: For time-based functions (current_date, current_timestamp) smarter freshness tracking
         // could avoid treating the MV as stale when the time hasn't meaningfully changed. See https://github.com/trinodb/trino/issues/28731
-        boolean hasNonDeterministicFunctions = analysis.getResolvedFunctions().stream().anyMatch(function -> !function.deterministic())
-                || containsCurrentTimeFunctions(query);
+        // The analysis also covers the views and the subqueries used by the query, unlike the AST of the query
+        boolean hasNonDeterministicFunctions = analysis.getResolvedFunctions().stream().anyMatch(function -> !function.deterministic() || isCurrentTimeFunction(function))
+                || analysis.getTypes().keySet().stream().anyMatch(expression -> isCurrentTimeExpression(expression.getNode()));
         RefreshMaterializedViewReference writerTarget = new RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
