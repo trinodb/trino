@@ -52,9 +52,9 @@ public class TestingTokenAwareMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TException
     {
-        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, delegationToken));
+        return metastoreClientAdapterProvider.createThriftMetastoreClientAdapter(factory.create(address, delegationToken, clientInitializer));
     }
 }
