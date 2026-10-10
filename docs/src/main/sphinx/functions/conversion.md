@@ -46,6 +46,21 @@ SELECT format('%2$s %3$s %1$s', 'a', 'b', 'c');
 
 SELECT format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04');
 -- 'Tuesday, July 4, 2006'
+
+SELECT format('%s', cast(row('hello', 'world') AS row(greeting varchar, planet varchar)));
+-- '{"greeting": "hello", "planet": "world"}'
+
+SELECT format('%s', row('hello', 'world'));
+-- '["hello", "world"]'
+
+SELECT format('%s', ARRAY['hello', 'world']);
+-- '["hello", "world"]'
+
+SELECT format('%s', map(ARRAY['greeting', 'planet'], ARRAY['hello', 'world']));
+-- '{"greeting": "hello", "planet": "world"}'
+
+SELECT format('%s', from_base64('d29ybGQ='));
+-- 'd29ybGQ='
 ```
 :::
 
