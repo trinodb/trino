@@ -45,6 +45,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoveRedundantInItems
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final Expression RANDOM_BOUND = new Constant(TINYINT, 10L);
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     // random with tinyint bound may fail
@@ -141,6 +143,6 @@ public class TestRemoveRedundantInItems
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new RemoveRedundantInItems(PLANNER_CONTEXT).apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
