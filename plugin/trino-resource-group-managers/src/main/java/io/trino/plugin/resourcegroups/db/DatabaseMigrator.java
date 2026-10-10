@@ -13,17 +13,7 @@
  */
 package io.trino.plugin.resourcegroups.db;
 
-import org.testcontainers.containers.JdbcDatabaseContainer;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-
-public class TestDbResourceGroupsPostgresqlFlywayMigration
-        extends BaseTestDbResourceGroupsFlywayMigration
+public interface DatabaseMigrator
 {
-    @Override
-    protected final JdbcDatabaseContainer<?> startContainer()
-    {
-        JdbcDatabaseContainer<?> container = new PostgreSQLContainer("postgres:11");
-        container.start();
-        return container;
-    }
+    void migrate();
 }
