@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cost.EstimateConfidence.LOW;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
 import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
@@ -116,7 +117,8 @@ public class SimpleFilterProjectSemiJoinStatsRule
         // apply remaining predicate
         PlanNodeStatsEstimate filteredStats = filterStatsCalculator.filterStats(semiJoinStats, semiJoinOutputFilter.get().getRemainingPredicate(), session);
         if (filteredStats.isOutputRowCountUnknown()) {
-            return Optional.of(semiJoinStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));
+            return Optional.of(semiJoinStats.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT)
+                    .degradeConfidenceTo(LOW));
         }
         return Optional.of(filteredStats);
     }

@@ -33,6 +33,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cost.EstimateConfidence.FACT;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.planner.plan.Patterns.values;
@@ -55,6 +56,8 @@ public class ValuesStatsRule
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
+        // the rows are literals, so both the row count and the symbol statistics below are exact
+        statsBuilder.setConfidence(FACT);
 
         try {
             for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
