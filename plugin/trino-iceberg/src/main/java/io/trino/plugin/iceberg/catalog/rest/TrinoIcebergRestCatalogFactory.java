@@ -58,6 +58,8 @@ public class TrinoIcebergRestCatalogFactory
     private final SessionType sessionType;
     private final boolean viewEndpointsEnabled;
     private final boolean serverAssignedTableLocationEnabled;
+    private final boolean referencedByEnabled;
+    private final boolean referencedByAllowIncompleteChain;
     private final SecurityProperties securityProperties;
     private final IcebergRestCatalogPropertiesProvider catalogPropertiesProvider;
     private final boolean uniqueTableLocation;
@@ -93,6 +95,8 @@ public class TrinoIcebergRestCatalogFactory
         this.sessionType = restConfig.getSessionType();
         this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
         this.serverAssignedTableLocationEnabled = restConfig.isServerAssignedTableLocationEnabled();
+        this.referencedByEnabled = restConfig.isReferencedByEnabled();
+        this.referencedByAllowIncompleteChain = restConfig.isReferencedByAllowIncompleteChain();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         this.catalogPropertiesProvider = requireNonNull(catalogPropertiesProvider, "catalogPropertiesProvider is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
@@ -173,6 +177,8 @@ public class TrinoIcebergRestCatalogFactory
                 namespaceTableListingCache,
                 namespaceViewListingCache,
                 viewEndpointsEnabled,
-                serverAssignedTableLocationEnabled);
+                serverAssignedTableLocationEnabled,
+                referencedByEnabled,
+                referencedByAllowIncompleteChain);
     }
 }

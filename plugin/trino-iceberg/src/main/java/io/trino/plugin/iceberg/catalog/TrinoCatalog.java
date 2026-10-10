@@ -22,6 +22,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -155,6 +156,15 @@ public interface TrinoCatalog
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
     BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
+
+    /**
+     * Load an Iceberg table that is being read through the given views, outermost first.
+     * Catalogs that do not track the referencing views ignore them.
+     */
+    default BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName, List<ReferencingView> referencingViews)
+    {
+        return loadTable(session, schemaTableName);
+    }
 
     /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.

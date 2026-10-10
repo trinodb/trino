@@ -109,6 +109,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -689,7 +690,8 @@ public class IcebergMetadata
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
-            Optional<ConnectorTableVersion> endVersion)
+            Optional<ConnectorTableVersion> endVersion,
+            List<ReferencingView> referencingViews)
     {
         if (startVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
@@ -720,7 +722,7 @@ public class IcebergMetadata
 
         BaseTable table;
         try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()), referencingViews);
         }
         catch (TableNotFoundException e) {
             return null;
@@ -1376,7 +1378,7 @@ public class IcebergMetadata
                 dropView(session, viewName);
             }
             for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
-                ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), ImmutableList.of());
                 if (tableHandle != null) {
                     // getTableHandle method returns null if the table is dropped concurrently
                     dropTable(session, tableHandle);
@@ -1531,7 +1533,7 @@ public class IcebergMetadata
         String tableLocation = null;
         Transaction transaction = null;
         if (replace) {
-            ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty());
+            ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty(), ImmutableList.of());
             if (tableHandle != null) {
                 checkValidTableHandle(tableHandle);
                 IcebergTableHandle table = (IcebergTableHandle) tableHandle;
@@ -3190,7 +3192,7 @@ public class IcebergMetadata
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
         }
 
-        ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
+        ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty(), ImmutableList.of());
         if (tableHandle == null) {
             // Assume new table (CTAS), collect NDV stats on all columns
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), _ -> {});
@@ -4460,7 +4462,7 @@ public class IcebergMetadata
         String schema = strings.get(0);
         String name = strings.get(1);
         SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-        ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
+        ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty(), ImmutableList.of());
 
         if (tableHandle == null || tableHandle instanceof CorruptedIcebergTableHandle) {
             // Base table is gone or table is corrupted
