@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Map;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -226,6 +227,91 @@ public class TestHivePlugin
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
         connector.shutdown();
+    }
+
+    @Test
+    public void testHttpMetastoreConfigs()
+            throws Exception
+    {
+        File truststore = Files.createTempFile("test-hive-plugin-truststore", ".jks").toFile();
+        truststore.deleteOnExit();
+
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "http://localhost:9083/metastore",
+                "hive.metastore.http.client.additional-headers", "x-actor-username:hive"));
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "https://localhost/metastore",
+                "hive.metastore.http.client.bearer-token", "token",
+                "hive.metastore.http.client.additional-headers", "key:value"));
+        // bearer token is optional for https
+        assertConnectorStarts(ImmutableMap.of("hive.metastore.uri", "https://localhost/metastore"));
+        // hive.metastore.thrift.* properties apply to http(s) URIs as well
+        assertConnectorStarts(ImmutableMap.of(
+                "hive.metastore.uri", "https://localhost/metastore",
+                "hive.metastore.thrift.client.connect-timeout", "5s",
+                "hive.metastore.thrift.client.read-timeout", "1m",
+                "hive.metastore.thrift.client.max-retries", "3",
+                "hive.metastore.thrift.catalog-name", "custom"));
+
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "http://localhost:9083",
+                        "hive.metastore.http.client.bearer-token", "token"),
+                "'hive.metastore.http.client.bearer-token' must not be set for http:// metastore URIs, use https://");
+        assertConnectorFails(
+                ImmutableMap.of("hive.metastore.uri", "http://localhost:9083,https://localhost:9083"),
+                "'hive.metastore.uri' cannot contain both http and https URI schemes");
+        assertConnectorFails(
+                ImmutableMap.of("hive.metastore.uri", "http://localhost:9083,thrift://localhost:9083"),
+                "'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.authentication.type", "KERBEROS"),
+                "Kerberos metastore authentication is not supported for http(s) metastore URIs");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.thrift.impersonation.enabled", "true"),
+                "Metastore impersonation is not supported for http(s) metastore URIs");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.thrift.client.socks-proxy", "localhost:1080"),
+                "SOCKS proxy is not supported for http(s) metastore URIs");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "http://localhost:9083",
+                        "hive.metastore.thrift.client.ssl.enabled", "true",
+                        "hive.metastore.thrift.client.ssl.trust-certificate", truststore.getPath()),
+                "'hive.metastore.thrift.client.ssl.enabled' requires an https:// metastore URI");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.http.client.authentication.type", "BEARER"),
+                "Defunct property 'hive.metastore.http.client.authentication.type'");
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "https://localhost:9083",
+                        "hive.metastore.http.client.read-timeout", "10s"),
+                "Defunct property 'hive.metastore.http.client.read-timeout'");
+        // HTTP transport properties are rejected for thrift:// URIs
+        assertConnectorFails(
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://localhost:9083",
+                        "hive.metastore.http.client.bearer-token", "token"),
+                "Configuration property 'hive.metastore.http.client.bearer-token' was not used");
+    }
+
+    private static void assertConnectorStarts(Map<String, String> config)
+    {
+        getHiveConnectorFactory().create("test", config, new TestingConnectorContext()).shutdown();
+    }
+
+    private static void assertConnectorFails(Map<String, String> config, String expectedMessage)
+    {
+        assertThatThrownBy(() -> getHiveConnectorFactory().create("test", config, new TestingConnectorContext()))
+                .hasMessageContaining(expectedMessage);
     }
 
     private static ConnectorFactory getHiveConnectorFactory()
