@@ -22,6 +22,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.SampledRelation;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -156,6 +157,11 @@ public class ScopeAware<T extends Node>
             if (leftExpression instanceof Identifier && rightExpression instanceof Identifier) {
                 return treeEqual(leftExpression, rightExpression, CanonicalizationAware::canonicalizationAwareComparison);
             }
+        }
+
+        if (left instanceof SampledRelation && right instanceof SampledRelation) {
+            // Sampling is non-deterministic.
+            return left == right;
         }
 
         if (!left.shallowEquals(right)) {
