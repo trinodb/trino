@@ -303,6 +303,12 @@ public class OracleClient
     }
 
     @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return super.getTableProperties(session, tableHandle);
+    }
+
+    @Override
     protected boolean filterRemoteSchema(String schemaName)
     {
         if (INTERNAL_SCHEMAS.contains(schemaName.toLowerCase(ENGLISH))) {
@@ -485,10 +491,40 @@ public class OracleClient
     @Override
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
-        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
         createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
         Optional<String> tableComment = tableMetadata.getComment();
+        if (tableMetadata.getProperties().containsKey("index")) {
+            List<String> indexSpecs = (List<String>) tableMetadata.getProperties().get("index");
+            for (String indexSpec : indexSpecs) {
+                int pos1 = indexSpec.indexOf("(");
+                int pos2 = indexSpec.indexOf(")");
+                if ((pos1 < 0) || (pos2 < 0)) {
+                    throw new TrinoException(JDBC_ERROR, "Index spec invalid format, expected indexname(col1,col2,...) but found " + indexSpec);
+                }
+                String indexColumns = indexSpec.substring(pos1 + 1, pos2);
+                String tableName = remoteTableName.getTableName();
+                if (tableName.length() >= 5) {
+                    tableName = tableName.substring(tableName.length() - 5);
+                }
+
+                // Generate a unique index name using timestamp
+                // Ensure total length is 30 chars max: IDX(3) + _(1) + tableName(5) + _(1) + timestamp(19) = 29 chars max
+                String timestamp = String.valueOf(System.currentTimeMillis());
+                String indexName = "IDX_" + tableName + "_" + timestamp;
+                if (indexName.length() > 30) {
+                    // If still too long, trim the timestamp while preserving uniqueness
+                    int excessLength = indexName.length() - 30;
+                    timestamp = timestamp.substring(excessLength);
+                    indexName = "IDX_" + tableName + "_" + timestamp;
+                }
+                createTableSqlsBuilder.add(
+                        format("CREATE INDEX %s ON %s(%s)",
+                                quoted(indexName),
+                                quoted(remoteTableName),
+                                indexColumns));
+            }
+        }
         if (tableComment.isPresent()) {
             createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
         }
