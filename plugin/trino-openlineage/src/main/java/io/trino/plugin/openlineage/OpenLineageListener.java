@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.openlineage.client.utils.UUIDUtils.generateStaticUUID;
@@ -77,6 +78,7 @@ public class OpenLineageListener
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
     private final FormatInterpolator<OpenLineageJobContext> interpolator;
+    private final Optional<Pattern> datasetExcludePattern;
 
     @Inject
     public OpenLineageListener(OpenLineage openLineage, OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
@@ -89,6 +91,7 @@ public class OpenLineageListener
         this.datasetNamespace = trinoURI.toString();
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
         this.interpolator = new FormatInterpolator<>(listenerConfig.getJobNameFormat(), OpenLineageJobInterpolatedValues.values());
+        this.datasetExcludePattern = listenerConfig.getDatasetExcludePattern().map(Pattern::compile);
     }
 
     @Override
@@ -306,6 +309,7 @@ public class OpenLineageListener
                 .getTables()
                 .stream()
                 .filter(TableInfo::isDirectlyReferenced)
+                .filter(table -> !isExcluded(getDatasetName(table)))
                 .map(table -> {
                     String datasetName = getDatasetName(table);
                     InputDatasetBuilder inputDatasetBuilder = openLineage
@@ -339,8 +343,14 @@ public class OpenLineageListener
         Optional<QueryOutputMetadata> outputs = ioMetadata.getOutput();
         if (outputs.isPresent()) {
             QueryOutputMetadata outputMetadata = outputs.get();
+            String outputDatasetName = getDatasetName(outputMetadata.getCatalogName(), outputMetadata.getSchema(), outputMetadata.getTable());
+            if (isExcluded(outputDatasetName)) {
+                return ImmutableList.of();
+            }
             List<OutputColumnMetadata> outputColumns = outputMetadata.getColumns().orElse(List.of());
 
+            // A column whose sources are all excluded keeps its entry with empty inputFields, so the
+            // facet still lists every output column
             OpenLineage.ColumnLineageDatasetFacetFieldsBuilder columnLineageDatasetFacetFieldsBuilder = openLineage.newColumnLineageDatasetFacetFieldsBuilder();
             outputColumns.forEach(column ->
                     columnLineageDatasetFacetFieldsBuilder.put(column.getColumnName(),
@@ -348,6 +358,7 @@ public class OpenLineageListener
                                     .inputFields(column
                                             .getSourceColumns()
                                             .stream()
+                                            .filter(inputColumn -> !isExcluded(getDatasetName(inputColumn.getCatalog(), inputColumn.getSchema(), inputColumn.getTable())))
                                             .map(inputColumn -> openLineage.newInputFieldBuilder()
                                                     .field(inputColumn.getColumnName())
                                                     .namespace(this.datasetNamespace)
@@ -356,20 +367,22 @@ public class OpenLineageListener
                                             .toList()).build()));
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
-            ioMetadata.getInputs().forEach(input -> {
-                for (QueryInputMetadata.Column column : input.getColumns()) {
-                    inputFields.add(openLineage.newInputFieldBuilder()
-                            .field(column.name())
-                            .namespace(this.datasetNamespace)
-                            .name(getDatasetName(input.getCatalogName(), input.getSchema(), input.getTable()))
-                            .build());
-                }
-            });
+            ioMetadata.getInputs().stream()
+                    .filter(input -> !isExcluded(getDatasetName(input.getCatalogName(), input.getSchema(), input.getTable())))
+                    .forEach(input -> {
+                        for (QueryInputMetadata.Column column : input.getColumns()) {
+                            inputFields.add(openLineage.newInputFieldBuilder()
+                                    .field(column.name())
+                                    .namespace(this.datasetNamespace)
+                                    .name(getDatasetName(input.getCatalogName(), input.getSchema(), input.getTable()))
+                                    .build());
+                        }
+                    });
 
             return ImmutableList.of(
                     openLineage.newOutputDatasetBuilder()
                             .namespace(this.datasetNamespace)
-                            .name(getDatasetName(outputMetadata.getCatalogName(), outputMetadata.getSchema(), outputMetadata.getTable()))
+                            .name(outputDatasetName)
                             .facets(openLineage.newDatasetFacetsBuilder()
                                     .columnLineage(openLineage.newColumnLineageDatasetFacet(columnLineageDatasetFacetFieldsBuilder.build(), inputFields.build()))
                                     .schema(openLineage.newSchemaDatasetFacetBuilder()
@@ -386,6 +399,13 @@ public class OpenLineageListener
                                     .build()).build());
         }
         return ImmutableList.of();
+    }
+
+    private boolean isExcluded(String datasetName)
+    {
+        return datasetExcludePattern
+                .map(pattern -> pattern.matcher(datasetName).matches())
+                .orElse(false);
     }
 
     private String getDatasetName(TableInfo tableInfo)
