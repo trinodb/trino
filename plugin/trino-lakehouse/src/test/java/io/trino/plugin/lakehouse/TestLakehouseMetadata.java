@@ -66,6 +66,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("denyTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class))
                     .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, Map.class, SaveMode.class))
+                    .add(ConnectorMetadata.class.getMethod("getTableHandle", ConnectorSession.class, SchemaTableName.class, Optional.class, Optional.class))
                     .build();
         }
         catch (NoSuchMethodException e) {
