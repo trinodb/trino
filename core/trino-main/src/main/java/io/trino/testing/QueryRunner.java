@@ -131,5 +131,7 @@ public interface QueryRunner
 
     void loadBlobCacheManager(String name, Map<String, String> properties);
 
+    void addCredentialProvider(String name, String factoryName, Map<String, String> properties);
+
     record MaterializedResultWithPlan(QueryId queryId, Optional<Plan> queryPlan, MaterializedResult result) {}
 }
