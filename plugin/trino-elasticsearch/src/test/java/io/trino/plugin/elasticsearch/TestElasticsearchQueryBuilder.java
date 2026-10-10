@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
@@ -31,9 +32,12 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildAggregationQuery;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -131,6 +135,21 @@ public class TestElasticsearchQueryBuilder
                         SCORE, Domain.onlyNull(DOUBLE)),
                 """
                 {"bool":{"filter":[{"term":{"age":10}}],"must_not":[{"exists":{"field":"score"}}]}}""");
+    }
+
+    @Test
+    public void testSumUsesStatsAggregation()
+            throws IOException
+    {
+        JsonNode aggregation = buildAggregationQuery(
+                ImmutableList.of(),
+                ImmutableList.of(new MetricAggregation(MetricAggregation.SUM, BIGINT, Optional.of(AGE), "sum_age")),
+                OptionalInt.empty(),
+                Optional.empty());
+
+        assertThat(aggregation).isEqualTo(JSON_MAPPER.readTree(
+                """
+                {"sum_age":{"stats":{"field":"age"}}}"""));
     }
 
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, String expected)

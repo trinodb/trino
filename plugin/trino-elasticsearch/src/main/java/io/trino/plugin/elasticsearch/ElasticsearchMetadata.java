@@ -22,6 +22,8 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -42,8 +44,11 @@ import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
 import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
 import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -60,8 +65,10 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -94,7 +101,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -112,8 +118,10 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem.DEFAULT_SORT_BY_DOC;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
@@ -138,6 +146,7 @@ public class ElasticsearchMetadata
 {
     private static final Logger log = Logger.get(ElasticsearchMetadata.class);
 
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_efgnrtd_";
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
     private static final ColumnMetadata PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA = ColumnMetadata.builder()
             .setName(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME)
@@ -502,9 +511,18 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.limit().isPresent() && handle.limit().orElseThrow() <= limit) {
+        if (handle.type() == AGGREGATION) {
+            // Limit over aggregation is not supported
             return Optional.empty();
         }
+
+        if (handle.topN().isPresent() && handle.topN().get().limit() <= limit) {
+            return Optional.empty();
+        }
+
+        TopN topN = handle.query().isPresent()
+                ? TopN.fromLimit(limit)
+                : new TopN(limit, ImmutableList.of(DEFAULT_SORT_BY_DOC));
 
         handle = new ElasticsearchTableHandle(
                 handle.type(),
@@ -513,8 +531,10 @@ public class ElasticsearchMetadata
                 handle.constraint(),
                 handle.regexes(),
                 handle.query(),
-                OptionalLong.of(limit),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                handle.termAggregations(),
+                handle.metricAggregations(),
+                Optional.of(topN));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -590,8 +610,10 @@ public class ElasticsearchMetadata
                 newDomain,
                 newRegexes,
                 handle.query(),
-                handle.limit(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                handle.termAggregations(),
+                handle.metricAggregations(),
+                handle.topN());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
@@ -825,4 +847,169 @@ public class ElasticsearchMetadata
     private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
 
     private record TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor) {}
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        if (isPassthroughQuery(handle)) {
+            // topN pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        if (handle.type() == AGGREGATION) {
+            // TopN over aggregation is not supported
+            return Optional.empty();
+        }
+        if (handle.topN().isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<TopN.TopNSortItem> topNSortItems = ImmutableList.builder();
+        for (SortItem sortItem : sortItems) {
+            ElasticsearchColumnHandle ch = (ElasticsearchColumnHandle) assignments.get(sortItem.getName());
+            if (!ch.supportsPredicates()) {
+                return Optional.empty();
+            }
+            topNSortItems.add(TopN.TopNSortItem.sortBy(ch.name(), sortItem.getSortOrder()));
+        }
+        TopN topN = new TopN(topNCount, topNSortItems.build());
+
+        ElasticsearchTableHandle newHandle = new ElasticsearchTableHandle(
+                handle.type(),
+                handle.schema(),
+                handle.index(),
+                handle.constraint(),
+                handle.regexes(),
+                handle.query(),
+                handle.columns(),
+                handle.termAggregations(),
+                handle.metricAggregations(),
+                Optional.of(topN));
+
+        return Optional.of(new TopNApplicationResult<>(newHandle, false, false));
+    }
+
+    @Override
+    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            List<AggregateFunction> aggregates,
+            Map<String, ColumnHandle> assignments,
+            List<List<ColumnHandle>> groupingSets)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (isPassthroughQuery(handle)) {
+            // aggregation pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
+        if (handle.topN().isPresent()) {
+            return Optional.empty();
+        }
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        // We can only handle a single grouping set
+        if (groupingSets.size() != 1) {
+            // Multiple grouping sets (GROUPING SETS, CUBE, ROLLUP) are not supported
+            return Optional.empty();
+        }
+
+        if (!handle.termAggregations().isEmpty()) {
+            /*
+             applyAggregation may be called multiple times if an aggregation is done over the results of another aggregation
+             for example
+              SELECT sum(DISTINCT regionkey) FROM nation
+              SELECT max(x)
+                FROM (
+                  SELECT k, sum(v) AS x
+                    FROM t
+                  GROUP BY k)
+             We skip the second one, but the first group by will be still applied
+             */
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableList.Builder<MetricAggregation> metricAggregations = ImmutableList.builder();
+        ImmutableList.Builder<TermAggregation> termAggregations = ImmutableList.builder();
+        for (int i = 0; i < aggregates.size(); i++) {
+            AggregateFunction aggregationFunction = aggregates.get(i);
+            String colName = SYNTHETIC_COLUMN_NAME_PREFIX + i;
+            Optional<MetricAggregation> metricAggregation =
+                    MetricAggregation.handleAggregation(aggregationFunction, assignments, colName);
+            if (metricAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            DecoderDescriptor descriptor = getAggregateOutputDecoderDescriptor(colName, aggregationFunction.getOutputType());
+            if (descriptor == null) {
+                return Optional.empty();
+            }
+            ElasticsearchColumnHandle newColumn = new ElasticsearchColumnHandle(
+                    List.of(colName),
+                    aggregationFunction.getOutputType(),
+                    getElasticsearchTypeForAggregateOutput(aggregationFunction.getOutputType()),
+                    descriptor,
+                    // new column never support predicates
+                    false);
+            projections.add(new Variable(colName, aggregationFunction.getOutputType()));
+            resultAssignments.add(new Assignment(colName, newColumn, aggregationFunction.getOutputType()));
+            metricAggregations.add(metricAggregation.get());
+        }
+        for (ColumnHandle columnHandle : groupingSets.get(0)) {
+            Optional<TermAggregation> termAggregation = TermAggregation.fromColumnHandle(columnHandle);
+            if (termAggregation.isEmpty()) {
+                return Optional.empty();
+            }
+            termAggregations.add(termAggregation.get());
+        }
+        List<MetricAggregation> aggregationList = metricAggregations.build();
+        List<TermAggregation> termAggregationList = termAggregations.build();
+        ElasticsearchTableHandle tableHandle = new ElasticsearchTableHandle(
+                AGGREGATION,
+                handle.schema(),
+                handle.index(),
+                handle.constraint(),
+                handle.regexes(),
+                handle.query(),
+                handle.columns(),
+                termAggregationList,
+                aggregationList,
+                Optional.empty());
+        return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
+    }
+
+    private DecoderDescriptor getAggregateOutputDecoderDescriptor(String name, Type type)
+    {
+        return switch (type.getBaseName()) {
+            case StandardTypes.REAL -> new RealDecoder.Descriptor(name);
+            case StandardTypes.DOUBLE -> new DoubleDecoder.Descriptor(name);
+            case StandardTypes.TINYINT -> new TinyintDecoder.Descriptor(name);
+            case StandardTypes.SMALLINT -> new SmallintDecoder.Descriptor(name);
+            case StandardTypes.INTEGER -> new IntegerDecoder.Descriptor(name);
+            case StandardTypes.BIGINT -> new BigintDecoder.Descriptor(name);
+            case StandardTypes.VARCHAR -> new VarcharDecoder.Descriptor(name);
+            case StandardTypes.BOOLEAN -> new BooleanDecoder.Descriptor(name);
+            default -> null;
+        };
+    }
+
+    private IndexMetadata.Type getElasticsearchTypeForAggregateOutput(Type type)
+    {
+        return switch (type.getBaseName()) {
+            case StandardTypes.REAL -> new IndexMetadata.PrimitiveType("float");
+            case StandardTypes.DOUBLE -> new IndexMetadata.PrimitiveType("double");
+            case StandardTypes.TINYINT, StandardTypes.SMALLINT, StandardTypes.INTEGER -> new IndexMetadata.PrimitiveType("integer");
+            case StandardTypes.BIGINT -> new IndexMetadata.PrimitiveType("long");
+            case StandardTypes.VARCHAR -> new IndexMetadata.PrimitiveType("text");
+            case StandardTypes.BOOLEAN -> new IndexMetadata.PrimitiveType("boolean");
+            default -> new IndexMetadata.PrimitiveType("object"); // fallback for unsupported types
+        };
+    }
 }
