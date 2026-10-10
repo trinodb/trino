@@ -245,6 +245,28 @@ public class TestIcebergOrcMetricsCollection
     }
 
     @Test
+    public void testMaxInferredColumnDefaults()
+    {
+        assertUpdate("create table limited_metrics (c1 varchar, c2 varchar, c3 varchar)");
+        Table table = IcebergUtil.loadIcebergTable(
+                trinoCatalog,
+                tableOperationsProvider,
+                IcebergTestUtils.SESSION,
+                new SchemaTableName("test_schema", "limited_metrics"));
+        table.updateProperties()
+                .set("write.metadata.metrics.max-inferred-column-defaults", "1")
+                .commit();
+
+        assertUpdate("insert into limited_metrics values ('a', 'b', 'c')", 1);
+        MaterializedRow materializedRow = computeActual("select * from \"limited_metrics$files\"").getMaterializedRows().getFirst();
+        DataFileRecord datafile = toDataFileRecord(materializedRow);
+        assertThat(datafile.getValueCounts()).hasSize(1);
+        assertThat(datafile.getNullValueCounts()).hasSize(1);
+        assertThat(datafile.getUpperBounds().getFields().stream().filter(Objects::nonNull).count()).isEqualTo(1);
+        assertThat(datafile.getLowerBounds().getFields().stream().filter(Objects::nonNull).count()).isEqualTo(1);
+    }
+
+    @Test
     public void testBasic()
     {
         assertUpdate("CREATE TABLE orders WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.orders", 15000);
