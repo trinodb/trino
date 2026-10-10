@@ -2608,6 +2608,13 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
+    public void testDateDiffNonUtc()
+    {
+        assertThat(assertions.expression("date_diff('day', TIMESTAMP '2024-03-10 00:00:00.000000 America/New_York', TIMESTAMP '2024-03-11 00:00:00.000000 America/New_York')")).matches("BIGINT '1'");
+        assertThat(assertions.expression("date_diff('month', TIMESTAMP '2024-01-31 08:00:00.000000 Asia/Tokyo', TIMESTAMP '2024-02-29 08:00:00.000000 Asia/Tokyo')")).matches("BIGINT '1'");
+    }
+
+    @Test
     public void testDateAdd()
     {
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu'");
