@@ -13,8 +13,10 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -165,6 +167,12 @@ public class LanguageFunctionManager
     public void unregisterQuery(Session session)
     {
         queryFunctions.remove(session.getQueryId());
+    }
+
+    @VisibleForTesting
+    Set<QueryId> getActiveQueryIds()
+    {
+        return ImmutableSet.copyOf(queryFunctions.keySet());
     }
 
     @Override
