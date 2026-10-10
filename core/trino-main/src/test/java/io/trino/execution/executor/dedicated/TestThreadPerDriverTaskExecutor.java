@@ -30,6 +30,10 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.weakref.jmx.MBeanExporter;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -382,12 +386,22 @@ public class TestThreadPerDriverTaskExecutor
         assertThat(runs.get()).isEqualTo(2);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     @Timeout(10)
-    public void testCancellationWhileProcessing()
+    public void testCancellationWhileProcessing(boolean virtualThreadsEnabled)
             throws ExecutionException, InterruptedException
     {
-        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(new TaskManagerConfig(), noopTracer(), testingVersionEmbedder());
+        TaskManagerConfig config = new TaskManagerConfig()
+                .setThreadPerDriverSchedulerVirtualThreadsEnabled(virtualThreadsEnabled);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(config, noopTracer(), testingVersionEmbedder());
+        new MBeanExporter(new TestingMBeanServer()).export("test:name=TaskExecutor", executor);
+        if (virtualThreadsEnabled) {
+            assertThat(executor.getTaskExecutor()).isNull();
+        }
+        else {
+            assertThat(executor.getTaskExecutor()).isNotNull();
+        }
         executor.start();
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
@@ -396,6 +410,7 @@ public class TestThreadPerDriverTaskExecutor
             CountDownLatch started = new CountDownLatch(1);
 
             SplitRunner split = new TestingSplitRunner(ImmutableList.of(_ -> {
+                assertThat(Thread.currentThread().isVirtual()).isEqualTo(virtualThreadsEnabled);
                 started.countDown();
                 try {
                     Thread.currentThread().join();
