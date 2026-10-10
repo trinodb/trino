@@ -46,6 +46,11 @@
         </dependency>
 
         <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
         </dependency>
@@ -229,6 +234,7 @@
                             <excludes>
                                 <exclude>**/TestSnowflakeConnectorTest.java</exclude>
                                 <exclude>**/TestSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestSnowflakeWithPrivateKeyConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -251,6 +257,7 @@
                             <includes>
                                 <include>**/TestSnowflakeConnectorTest.java</include>
                                 <include>**/TestSnowflakeTypeMapping.java</include>
+                                <include>**/TestSnowflakeWithPrivateKeyConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
