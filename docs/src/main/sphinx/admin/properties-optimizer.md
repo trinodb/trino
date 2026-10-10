@@ -66,6 +66,29 @@ Enabling this optimization can substantially speed up queries by reducing the
 amount of data that needs to be processed by the join. However, it may slow down
 some queries that have very selective joins.
 
+## `optimizer.parallelize-chained-aggregations`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `parallelize_chained_aggregations`
+
+When an aggregation runs on top of another aggregation and its grouping keys are
+a strict subset of the inner aggregation's grouping keys, redistribute rows with
+a local round-robin exchange between the two aggregations. For example:
+
+```
+SELECT approx_percentile(s, 0.5) FROM (
+    SELECT sum(x) AS s FROM t GROUP BY k1, k2)
+GROUP BY k2;
+```
+
+Both aggregations run in the same stage, and the outer partial aggregation
+inherits the inner aggregation's row distribution, which is hashed on the inner
+grouping keys. Enabling this optimization rebalances rows evenly across all
+local drivers, which can speed up queries where the inner aggregation output is
+skewed and the outer aggregation functions are expensive. It adds a local
+exchange, which may slow down queries where the outer aggregation is cheap.
+
 ## `optimizer.push-table-write-through-union`
 
 - **Type:** {ref}`prop-type-boolean`
