@@ -41,6 +41,7 @@ import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorExpressionEvaluator;
@@ -49,24 +50,30 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.LoadContext;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.Endpoint;
@@ -91,6 +98,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -193,6 +201,29 @@ public class TestTrinoRestCatalog
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache)
     {
+        return createTrinoRestCatalog(
+                useUniqueTableLocations,
+                restSessionCatalog,
+                nestedNamespaceEnabled,
+                caseInsensitiveNameMatching,
+                sessionType,
+                namespaceTableListingCache,
+                namespaceViewListingCache,
+                true,
+                false);
+    }
+
+    private static TrinoRestCatalog createTrinoRestCatalog(
+            boolean useUniqueTableLocations,
+            RESTSessionCatalog restSessionCatalog,
+            boolean nestedNamespaceEnabled,
+            boolean caseInsensitiveNameMatching,
+            SessionType sessionType,
+            Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
+            Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache,
+            boolean referencedByEnabled,
+            boolean referencedByAllowIncompleteChain)
+    {
         String catalogName = "iceberg_rest";
         return new TrinoRestCatalog(
                 new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
@@ -211,7 +242,9 @@ public class TestTrinoRestCatalog
                 namespaceTableListingCache,
                 namespaceViewListingCache,
                 true,
-                false);
+                false,
+                referencedByEnabled,
+                referencedByAllowIncompleteChain);
     }
 
     private static Cache<NamespaceListingKey, List<TableIdentifier>> createNamespaceListingCache()
@@ -391,7 +424,7 @@ public class TestTrinoRestCatalog
             assertUnsupportedOperation(() -> catalog.updateColumnComment(SESSION, tableName, primitiveColumnIdentity(1, "c"), Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
 
             ConnectorMetadata metadata = createIcebergMetadata(catalog);
-            var tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
+            var tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty(), ImmutableList.of());
             var columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("c");
             assertUnsupportedOperation(() -> metadata.setTableComment(SESSION, tableHandle, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.setColumnComment(SESSION, tableHandle, columnHandle, Optional.of("comment")), Endpoint.V1_UPDATE_TABLE);
@@ -419,7 +452,7 @@ public class TestTrinoRestCatalog
         try (RESTSessionCatalog restSessionCatalog = restCatalogWithEndpoints(backend, ImmutableList.of(Endpoint.V1_LOAD_NAMESPACE, Endpoint.V1_LOAD_TABLE))) {
             TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
             ConnectorMetadata metadata = createIcebergMetadata(catalog);
-            var tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("test", "test_table"), Optional.empty(), Optional.empty());
+            var tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("test", "test_table"), Optional.empty(), Optional.empty(), ImmutableList.of());
             var columns = metadata.getColumnHandles(SESSION, tableHandle);
             var columnHandle = columns.get("c");
 
@@ -458,7 +491,7 @@ public class TestTrinoRestCatalog
             assertUnsupportedOperation(() -> metadata.executeTableExecute(SESSION, expireHandle), Endpoint.V1_UPDATE_TABLE);
             var optimizeManifestsHandle = new IcebergTableExecuteHandle(tableName, OPTIMIZE_MANIFESTS, new IcebergOptimizeManifestsHandle(), table.location());
             assertUnsupportedOperation(() -> metadata.executeTableExecute(SESSION, optimizeManifestsHandle), Endpoint.V1_UPDATE_TABLE);
-            var tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
+            var tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty(), ImmutableList.of());
             assertUnsupportedOperation(() -> metadata.truncateTable(SESSION, tableHandle), Endpoint.V1_UPDATE_TABLE);
             assertUnsupportedOperation(() -> metadata.executeDelete(SESSION, tableHandle), Endpoint.V1_UPDATE_TABLE);
         }
@@ -631,6 +664,241 @@ public class TestTrinoRestCatalog
                 .cause()
                 .isInstanceOf(RESTException.class)
                 .hasMessage("catalog failure");
+    }
+
+    @Test
+    public void testLoadTableSendsOnlyViewsOfThisCatalog()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+        catalog.loadTable(SESSION, new SchemaTableName("schema", "table"), List.of(
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "outer_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("other_catalog", "schema", "foreign_view"), true),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "inner_view"), false)));
+
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .containsExactly(List.of(TableIdentifier.of("schema", "outer_view"), TableIdentifier.of("schema", "inner_view")));
+    }
+
+    @Test
+    public void testDirectLoadTableIsServedFromTableCache()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+
+        catalog.loadTable(SESSION, table);
+        catalog.loadTable(SESSION, table);
+
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .as("the second load must not reach the REST catalog")
+                .hasSize(1);
+    }
+
+    @Test
+    public void testLoadTableThroughViewIsNotServedFromTableCache()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        TableIdentifier view = TableIdentifier.of("schema", "view");
+
+        catalog.loadTable(SESSION, table);
+        assertThat(restSessionCatalog.referencedByOfLoads()).hasSize(1);
+
+        catalog.loadTable(SESSION, table, List.of(new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "view"), false)));
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .as("the load through the view must reach the REST catalog although the table is cached")
+                .containsExactly(List.of(), List.of(view));
+    }
+
+    @Test
+    public void testLoadTableThroughViewIsNotCached()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        List<ReferencingView> views = List.of(new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "view"), false));
+        TableIdentifier view = TableIdentifier.of("schema", "view");
+
+        catalog.loadTable(SESSION, table, views);
+        catalog.loadTable(SESSION, table, views);
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .as("both loads through the view must reach the REST catalog")
+                .containsExactly(List.of(view), List.of(view));
+
+        catalog.loadTable(SESSION, table);
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .as("a direct load after the view loads must reach the REST catalog without views")
+                .containsExactly(List.of(view), List.of(view), List.of());
+    }
+
+    @Test
+    public void testLoadTableDoesNotSendViewsWhenDisabled()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), false, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        List<ReferencingView> views = List.of(new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "view"), false));
+
+        catalog.loadTable(SESSION, table, views);
+        assertThat(restSessionCatalog.referencedByOfLoads()).containsExactly(List.of());
+
+        catalog.loadTable(SESSION, table, views);
+        assertThat(restSessionCatalog.referencedByOfLoads()).containsExactly(List.of());
+    }
+
+    @Test
+    public void testLoadTableFailsThroughForeignDefinerView()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), true, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        List<ReferencingView> views = List.of(
+                new ReferencingView(new CatalogSchemaTableName("other", "schema", "foreign_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "view"), true));
+
+        assertThatThrownBy(() -> catalog.loadTable(SESSION, table, views))
+                .hasMessageContaining("DEFINER view 'other.schema.foreign_view'")
+                .hasMessageContaining("iceberg.rest-catalog.referenced-by-allow-incomplete-chain");
+        assertThat(restSessionCatalog.referencedByOfLoads()).isEmpty();
+    }
+
+    @Test
+    public void testLoadTableDropsForeignDefinerViewWhenIncompleteChainAllowed()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), true, true);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        List<ReferencingView> views = List.of(
+                new ReferencingView(new CatalogSchemaTableName("other", "schema", "foreign_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "view"), true));
+
+        catalog.loadTable(SESSION, table, views);
+        assertThat(restSessionCatalog.referencedByOfLoads())
+                .containsExactly(List.of(TableIdentifier.of("schema", "view")));
+    }
+
+    @Test
+    public void testLoadTableDropsForeignInvokerView()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), true, false);
+        SchemaTableName table = new SchemaTableName("schema", "table");
+        List<ReferencingView> views = List.of(new ReferencingView(new CatalogSchemaTableName("other", "schema", "foreign_view"), true));
+
+        catalog.loadTable(SESSION, table, views);
+        assertThat(restSessionCatalog.referencedByOfLoads()).containsExactly(List.of());
+    }
+
+    @Test
+    public void testLoadViewSendsOnlyViewsOfThisCatalog()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+        assertThat(catalog.getView(SESSION, new SchemaTableName("schema", "nested_view"), List.of(
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "outer_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("other_catalog", "schema", "foreign_view"), true),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "middle_view"), false)))).isEmpty();
+
+        assertThat(restSessionCatalog.referencedByOfViewLoads())
+                .containsExactly(List.of(TableIdentifier.of("schema", "outer_view"), TableIdentifier.of("schema", "middle_view")));
+    }
+
+    @Test
+    public void testDirectLoadViewSendsNothing()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false);
+
+        assertThat(catalog.getView(SESSION, new SchemaTableName("schema", "view"))).isEmpty();
+
+        assertThat(restSessionCatalog.referencedByOfViewLoads()).containsExactly(List.of());
+    }
+
+    @Test
+    public void testLoadViewDoesNotSendViewsWhenDisabled()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), false, false);
+        List<ReferencingView> views = List.of(new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "outer_view"), false));
+
+        assertThat(catalog.getView(SESSION, new SchemaTableName("schema", "view"), views)).isEmpty();
+
+        assertThat(restSessionCatalog.referencedByOfViewLoads()).containsExactly(List.of());
+    }
+
+    @Test
+    public void testLoadViewSendsNothingThroughForeignDefinerView()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), true, false);
+        List<ReferencingView> views = List.of(
+                new ReferencingView(new CatalogSchemaTableName("other", "schema", "foreign_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "outer_view"), true));
+
+        // An incomplete chain must not authorize the load, and the view itself may be probed before a table
+        assertThat(catalog.getView(SESSION, new SchemaTableName("schema", "view"), views)).isEmpty();
+
+        assertThat(restSessionCatalog.referencedByOfViewLoads()).containsExactly(List.of());
+    }
+
+    @Test
+    public void testLoadViewDropsForeignDefinerViewWhenIncompleteChainAllowed()
+    {
+        RecordingLoadContextCatalog restSessionCatalog = new RecordingLoadContextCatalog();
+        TrinoRestCatalog catalog = createTrinoRestCatalog(false, restSessionCatalog, false, false, NONE, Optional.empty(), Optional.empty(), true, true);
+        List<ReferencingView> views = List.of(
+                new ReferencingView(new CatalogSchemaTableName("other", "schema", "foreign_view"), false),
+                new ReferencingView(new CatalogSchemaTableName("iceberg_rest", "schema", "outer_view"), true));
+
+        assertThat(catalog.getView(SESSION, new SchemaTableName("schema", "view"), views)).isEmpty();
+
+        assertThat(restSessionCatalog.referencedByOfViewLoads())
+                .containsExactly(List.of(TableIdentifier.of("schema", "outer_view")));
+    }
+
+    private static class RecordingLoadContextCatalog
+            extends RESTSessionCatalog
+    {
+        private final List<LoadContext> loadContexts = new CopyOnWriteArrayList<>();
+        private final List<LoadContext> viewLoadContexts = new CopyOnWriteArrayList<>();
+
+        List<List<TableIdentifier>> referencedByOfViewLoads()
+        {
+            return viewLoadContexts.stream()
+                    .map(LoadContext::referencedBy)
+                    .toList();
+        }
+
+        @Override
+        public View loadView(SessionContext context, TableIdentifier identifier, LoadContext loadContext)
+        {
+            viewLoadContexts.add(loadContext);
+            throw new NoSuchViewException("View does not exist: %s", identifier);
+        }
+
+        List<List<TableIdentifier>> referencedByOfLoads()
+        {
+            return loadContexts.stream()
+                    .map(LoadContext::referencedBy)
+                    .toList();
+        }
+
+        @Override
+        public Table loadTable(SessionContext context, TableIdentifier identifier, LoadContext loadContext)
+        {
+            loadContexts.add(loadContext);
+            TableOperations operations = (TableOperations) Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] {TableOperations.class},
+                    (_, method, _) -> {
+                        throw new UnsupportedOperationException(method.getName());
+                    });
+            return new BaseTable(operations, identifier.toString());
+        }
     }
 
     private static class NamespaceDeletedDuringRecursiveListingCatalog

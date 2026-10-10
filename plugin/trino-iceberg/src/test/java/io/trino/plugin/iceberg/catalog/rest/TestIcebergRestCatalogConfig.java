@@ -52,6 +52,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(false)
                 .setViewEndpointsEnabled(true)
                 .setServerAssignedTableLocationEnabled(false)
+                .setReferencedByEnabled(false)
+                .setReferencedByAllowIncompleteChain(false)
                 .setMetricsReportingEnabled(true)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
@@ -82,6 +84,8 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                 .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .put("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
+                .put("iceberg.rest-catalog.referenced-by-enabled", "true")
+                .put("iceberg.rest-catalog.referenced-by-allow-incomplete-chain", "true")
                 .put("iceberg.rest-catalog.metrics-reporting-enabled", "false")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
@@ -109,6 +113,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(true)
                 .setViewEndpointsEnabled(false)
                 .setServerAssignedTableLocationEnabled(true)
+                .setReferencedByEnabled(true)
+                .setReferencedByAllowIncompleteChain(true)
                 .setMetricsReportingEnabled(false)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES))
@@ -153,6 +159,18 @@ public class TestIcebergRestCatalogConfig
                         .setProxyPassword("secret"),
                 "proxyCredentialsWithHttpProxy",
                 "iceberg.rest-catalog.http-proxy.username and iceberg.rest-catalog.http-proxy.password require iceberg.rest-catalog.http-proxy",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testReferencedByAllowIncompleteChainRequiresReferencedBy()
+    {
+        assertFailsValidation(
+                new IcebergRestCatalogConfig()
+                        .setReferencedByEnabled(false)
+                        .setReferencedByAllowIncompleteChain(true),
+                "referencedByAllowIncompleteChainValid",
+                "iceberg.rest-catalog.referenced-by-allow-incomplete-chain requires iceberg.rest-catalog.referenced-by-enabled",
                 AssertTrue.class);
     }
 }
