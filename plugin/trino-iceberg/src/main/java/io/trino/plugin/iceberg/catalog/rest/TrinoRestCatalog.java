@@ -45,6 +45,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -62,6 +63,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.LoadContext;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
@@ -145,6 +147,8 @@ public class TrinoRestCatalog
     private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache;
     private final boolean viewEndpointsEnabled;
     private final boolean serverAssignedTableLocationEnabled;
+    private final boolean referencedByEnabled;
+    private final boolean referencedByAllowIncompleteChain;
 
     private final Cache<SchemaTableName, BaseTable> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -168,7 +172,9 @@ public class TrinoRestCatalog
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache,
             Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceViewListingCache,
             boolean viewEndpointsEnabled,
-            boolean serverAssignedTableLocationEnabled)
+            boolean serverAssignedTableLocationEnabled,
+            boolean referencedByEnabled,
+            boolean referencedByAllowIncompleteChain)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
@@ -187,6 +193,8 @@ public class TrinoRestCatalog
         this.namespaceViewListingCache = requireNonNull(namespaceViewListingCache, "namespaceViewListingCache is null");
         this.viewEndpointsEnabled = viewEndpointsEnabled;
         this.serverAssignedTableLocationEnabled = serverAssignedTableLocationEnabled;
+        this.referencedByEnabled = referencedByEnabled;
+        this.referencedByAllowIncompleteChain = referencedByAllowIncompleteChain;
     }
 
     @Override
@@ -641,26 +649,23 @@ public class TrinoRestCatalog
     @Override
     public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        return loadTable(session, schemaTableName, ImmutableList.of());
+    }
+
+    @Override
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName, List<ReferencingView> referencingViews)
+    {
+        foreignDefinerView(referencingViews).ifPresent(view -> {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot load table '%s' through DEFINER view '%s' of another catalog; set iceberg.rest-catalog.referenced-by-allow-incomplete-chain to true to load it without that view"
+                    .formatted(schemaTableName, view.name()));
+        });
+        List<TableIdentifier> referencedBy = toReferencedBy(session, referencingViews);
         try {
-            return uncheckedCacheGet(
-                    tableCache,
-                    schemaTableName,
-                    () -> {
-                        SessionContext sessionContext = convert(session);
-                        TableIdentifier remoteIdentifier = toRemoteObject(session, schemaTableName);
-                        BaseTable baseTable;
-                        try {
-                            baseTable = (BaseTable) apiCallStats.measure(
-                                    "loadTable",
-                                    () -> restSessionCatalog.loadTable(sessionContext, remoteIdentifier),
-                                    NoSuchTableException.class);
-                        }
-                        catch (RESTException e) {
-                            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
-                        }
-                        // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
-                        return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName), baseTable.reporter());
-                    });
+            if (referencedBy.isEmpty()) {
+                return uncheckedCacheGet(tableCache, schemaTableName, () -> loadTableFromCatalog(session, schemaTableName, LoadContext.empty()));
+            }
+            // Access granted through a view must not be served to other reads from the cache
+            return loadTableFromCatalog(session, schemaTableName, LoadContext.builder().referencedBy(referencedBy).build());
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof NoSuchTableException) {
@@ -668,6 +673,52 @@ public class TrinoRestCatalog
             }
             throw translateMetadataException(e.getCause(), schemaTableName.toString());
         }
+    }
+
+    private List<TableIdentifier> toReferencedBy(ConnectorSession session, List<ReferencingView> referencingViews)
+    {
+        if (!referencedByEnabled) {
+            return ImmutableList.of();
+        }
+        // Views of other catalogs are not known to the REST catalog
+        return referencingViews.stream()
+                .filter(this::isViewOfThisCatalog)
+                .map(view -> toRemoteView(session, view.name().getSchemaTableName(), false))
+                .collect(toImmutableList());
+    }
+
+    private Optional<ReferencingView> foreignDefinerView(List<ReferencingView> referencingViews)
+    {
+        // The REST catalog would authorize the load from an incomplete chain
+        if (!referencedByEnabled || referencedByAllowIncompleteChain) {
+            return Optional.empty();
+        }
+        return referencingViews.stream()
+                .filter(view -> !isViewOfThisCatalog(view) && !view.runAsInvoker())
+                .findFirst();
+    }
+
+    private boolean isViewOfThisCatalog(ReferencingView view)
+    {
+        return view.name().getCatalogName().equals(catalogName.toString());
+    }
+
+    private BaseTable loadTableFromCatalog(ConnectorSession session, SchemaTableName schemaTableName, LoadContext loadContext)
+    {
+        SessionContext sessionContext = convert(session);
+        TableIdentifier remoteIdentifier = toRemoteObject(session, schemaTableName);
+        BaseTable baseTable;
+        try {
+            baseTable = (BaseTable) apiCallStats.measure(
+                    "loadTable",
+                    () -> restSessionCatalog.loadTable(sessionContext, remoteIdentifier, loadContext),
+                    NoSuchTableException.class);
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
+        }
+        // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
+        return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName), baseTable.reporter());
     }
 
     private TableIdentifier toRemoteObject(ConnectorSession session, SchemaTableName schemaTableName)
@@ -862,7 +913,13 @@ public class TrinoRestCatalog
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return getIcebergView(session, viewName, false).flatMap(view -> {
+        return getView(session, viewName, ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName, List<ReferencingView> referencingViews)
+    {
+        return getIcebergView(session, viewName, false, referencingViews).flatMap(view -> {
             SQLViewRepresentation sqlView = view.sqlFor("trino");
             if (!sqlView.dialect().equalsIgnoreCase("trino")) {
                 throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewName));
@@ -895,6 +952,11 @@ public class TrinoRestCatalog
     @VisibleForTesting
     protected Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached)
     {
+        return getIcebergView(session, viewName, getCached, ImmutableList.of());
+    }
+
+    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName, boolean getCached, List<ReferencingView> referencingViews)
+    {
         if (!viewEndpointsEnabled) {
             return Optional.empty();
         }
@@ -902,7 +964,11 @@ public class TrinoRestCatalog
         try {
             SessionContext sessionContext = convert(session);
             TableIdentifier remoteView = toRemoteView(session, viewName, getCached);
-            return Optional.of(apiCallStats.measure("loadView", () -> restSessionCatalog.loadView(sessionContext, remoteView), NoSuchViewException.class));
+            LoadContext loadContext = LoadContext.builder()
+                    // The engine probes a name as a view before a table, so a view load must not fail; send nothing rather than an incomplete chain
+                    .referencedBy(foreignDefinerView(referencingViews).isPresent() ? ImmutableList.of() : toReferencedBy(session, referencingViews))
+                    .build();
+            return Optional.of(apiCallStats.measure("loadView", () -> restSessionCatalog.loadView(sessionContext, remoteView, loadContext), NoSuchViewException.class));
         }
         catch (NoSuchViewException e) {
             return Optional.empty();

@@ -540,6 +540,15 @@ following properties:
     Defaults to `false`.
 * - `iceberg.rest-catalog.view-endpoints-enabled`
   - Enable view endpoints. Defaults to `true`.
+* - `iceberg.rest-catalog.referenced-by-enabled`
+  - Send the views through which a table or a view is read to the REST catalog
+    when loading it. Requires REST catalog support for the `referenced-by`
+    parameter. Defaults to `false`.
+* - `iceberg.rest-catalog.referenced-by-allow-incomplete-chain`
+  - Allow loading a table through a `DEFINER` view of another catalog, which
+    cannot be sent to the REST catalog, by omitting that view. By default, such
+    a table load fails. Only applies when `iceberg.rest-catalog.referenced-by-enabled`
+    is set. Defaults to `false`.
 * - `iceberg.rest-catalog.metrics-reporting-enabled`
   - Report table scan and commit metrics to the REST catalog server. Defaults
     to `true`.

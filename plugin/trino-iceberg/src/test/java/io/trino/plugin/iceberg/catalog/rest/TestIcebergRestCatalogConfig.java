@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.apache.iceberg.CatalogProperties;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +25,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,6 +50,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(false)
                 .setViewEndpointsEnabled(true)
                 .setServerAssignedTableLocationEnabled(false)
+                .setReferencedByEnabled(false)
+                .setReferencedByAllowIncompleteChain(false)
                 .setMetricsReportingEnabled(true)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
@@ -75,6 +79,8 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                 .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .put("iceberg.rest-catalog.server-assigned-table-location-enabled", "true")
+                .put("iceberg.rest-catalog.referenced-by-enabled", "true")
+                .put("iceberg.rest-catalog.referenced-by-allow-incomplete-chain", "true")
                 .put("iceberg.rest-catalog.metrics-reporting-enabled", "false")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
@@ -99,6 +105,8 @@ public class TestIcebergRestCatalogConfig
                 .setVendedCredentialsEnabled(true)
                 .setViewEndpointsEnabled(false)
                 .setServerAssignedTableLocationEnabled(true)
+                .setReferencedByEnabled(true)
+                .setReferencedByAllowIncompleteChain(true)
                 .setMetricsReportingEnabled(false)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES))
@@ -108,5 +116,17 @@ public class TestIcebergRestCatalogConfig
                 .setHttpHeaders(List.of("Polaris-Realm: default-realm"));
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testReferencedByAllowIncompleteChainRequiresReferencedBy()
+    {
+        assertFailsValidation(
+                new IcebergRestCatalogConfig()
+                        .setReferencedByEnabled(false)
+                        .setReferencedByAllowIncompleteChain(true),
+                "referencedByAllowIncompleteChainValid",
+                "iceberg.rest-catalog.referenced-by-allow-incomplete-chain requires iceberg.rest-catalog.referenced-by-enabled",
+                AssertTrue.class);
     }
 }
