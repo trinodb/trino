@@ -55,6 +55,7 @@ public class LocalExchangeSourceOperator
         public void noMoreOperators()
         {
             closed = true;
+            localExchange.closeUnusedSources();
         }
 
         @Override
