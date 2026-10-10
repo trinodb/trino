@@ -108,6 +108,7 @@ public class SqlTask
     private final Tracer tracer;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private final Consumer<PlanFragment> onPlan;
     private final Executor taskNotificationExecutor;
 
     private final AtomicReference<Instant> lastHeartbeat = new AtomicReference<>(Instant.now());
@@ -131,13 +132,14 @@ public class SqlTask
             Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
+            Consumer<PlanFragment> onPlan,
             Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
             ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, tracer, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, tracer, sqlTaskExecutionFactory, taskNotificationExecutor, onPlan, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -150,11 +152,13 @@ public class SqlTask
             Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
+            Consumer<PlanFragment> onPlan,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
+        this.onPlan = requireNonNull(onPlan, "onPlan is null");
         this.taskInstanceId = RANDOM_THREAD_LOCAL.get().nextLong();
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -585,6 +589,8 @@ public class SqlTask
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
                     .startSpan());
 
+            // A task accepts its plan at most once and never after completing, so onPlan is matched by the single onDone
+            onPlan.accept(fragment);
             execution = sqlTaskExecutionFactory.create(
                     session,
                     taskSpan.get(),
