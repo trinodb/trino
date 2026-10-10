@@ -13,16 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
-
-import java.util.Map;
-
-import static java.util.Objects.requireNonNull;
-
-public record CollectedStatistics(Map<Integer, NdvSketch> ndvSketches)
+public enum SketchAlgorithm
 {
-    public CollectedStatistics
-    {
-        ndvSketches = ImmutableMap.copyOf(requireNonNull(ndvSketches, "ndvSketches is null"));
-    }
+    THETA,
+    HLL,
 }

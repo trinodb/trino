@@ -38,6 +38,8 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.ParquetFooterCacheType.MEMORY;
 import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
+import static io.trino.plugin.iceberg.SketchAlgorithm.HLL;
+import static io.trino.plugin.iceberg.SketchAlgorithm.THETA;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -60,6 +62,7 @@ public class TestIcebergConfig
                 .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
+                .setNdvSketchAlgorithm(THETA)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
                 .setFormatVersion(2)
@@ -112,6 +115,7 @@ public class TestIcebergConfig
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
                 .put("iceberg.extended-statistics.collect-on-write", "false")
+                .put("iceberg.extended-statistics.ndv-sketch-algorithm", "HLL")
                 .put("iceberg.projection-pushdown-enabled", "false")
                 .put("iceberg.hive-catalog-name", "hive")
                 .put("iceberg.format-version", "1")
@@ -160,6 +164,7 @@ public class TestIcebergConfig
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
                 .setTableStatisticsEnabled(false)
                 .setCollectExtendedStatisticsOnWrite(false)
+                .setNdvSketchAlgorithm(HLL)
                 .setProjectionPushdownEnabled(false)
                 .setHiveCatalogName("hive")
                 .setFormatVersion(1)
