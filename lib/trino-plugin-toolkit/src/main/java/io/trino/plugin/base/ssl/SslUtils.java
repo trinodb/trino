@@ -91,7 +91,7 @@ public final class SslUtils
             throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
         }
         // create SSLContext
-        SSLContext result = SSLContext.getInstance("SSL");
+        SSLContext result = SSLContext.getInstance("TLSv1.2");
         result.init(keyManagers, trustManagers, null);
         return result;
     }
