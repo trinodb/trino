@@ -24,6 +24,23 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public interface WorkProcessorSourceOperator
         extends WorkProcessorOperator
 {
+    /**
+     * Whether this operator can emit a {@link MaskedPage} stream via {@link #getMaskedOutputPages}.
+     */
+    default boolean producesMaskedOutput()
+    {
+        return false;
+    }
+
+    /**
+     * Alternative output stream of {@link MaskedPage}s for a downstream masked-input consumer. This
+     * stream and {@link #getOutputPages} share the same source, so at most one may be built.
+     */
+    default WorkProcessor<MaskedPage> getMaskedOutputPages()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default DataSize getPhysicalInputDataSize()
     {
         return DataSize.ofBytes(0);

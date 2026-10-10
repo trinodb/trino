@@ -90,6 +90,7 @@ public class TestOptimizerConfig
                 .setMinInputRowsPerTask(10_000_000L)
                 .setUseExactPartitioning(false)
                 .setUseCostBasedPartitioning(true)
+                .setMaskedPageEnabled(true)
                 .setPushFilterIntoValuesMaxRowCount(100)
                 .setUnsafePushdownAllowed(false));
     }
@@ -148,6 +149,7 @@ public class TestOptimizerConfig
                 .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
                 .put("optimizer.use-cost-based-partitioning", "false")
+                .put("optimizer.masked-page-enabled", "false")
                 .put("optimizer.push-filter-into-values-max-row-count", "5")
                 .put("optimizer.allow-unsafe-pushdown", "true")
                 .buildOrThrow();
@@ -203,6 +205,7 @@ public class TestOptimizerConfig
                 .setMinInputRowsPerTask(1_000_000L)
                 .setUseExactPartitioning(true)
                 .setUseCostBasedPartitioning(false)
+                .setMaskedPageEnabled(false)
                 .setPushFilterIntoValuesMaxRowCount(5)
                 .setUnsafePushdownAllowed(true);
         assertFullMapping(properties, expected);
