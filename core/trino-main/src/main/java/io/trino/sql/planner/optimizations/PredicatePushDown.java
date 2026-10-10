@@ -114,6 +114,28 @@ import static java.util.Objects.requireNonNull;
 public class PredicatePushDown
         implements PlanOptimizer
 {
+    /**
+     * Whether a predicate conjunct may be inlined through the given projection: every projected
+     * symbol it references is either referenced at most once, or assigned a simple constant or
+     * symbol reference. Inlining other conjuncts would duplicate complex computations.
+     */
+    public static boolean isInliningCandidate(Expression expression, ProjectNode node)
+    {
+        // candidate symbols for inlining are
+        //   1. references to simple constants or symbol references
+        //   2. references to complex expressions that appear only once
+        // which come from the node, as opposed to an enclosing scope.
+        Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
+        Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
+                .filter(childOutputSet::contains)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+
+        return dependencies.entrySet().stream()
+                .allMatch(entry -> entry.getValue() == 1
+                        || node.getAssignments().get(entry.getKey()) instanceof Constant
+                        || node.getAssignments().get(entry.getKey()) instanceof Reference);
+    }
+
     private static final Set<ComparisonOperator> DYNAMIC_FILTERING_SUPPORTED_COMPARISONS = ImmutableSet.of(
             EQUAL,
             GREATER_THAN,
@@ -313,23 +335,6 @@ public class PredicatePushDown
             }
 
             return rewrittenNode;
-        }
-
-        private boolean isInliningCandidate(Expression expression, ProjectNode node)
-        {
-            // candidate symbols for inlining are
-            //   1. references to simple constants or symbol references
-            //   2. references to complex expressions that appear only once
-            // which come from the node, as opposed to an enclosing scope.
-            Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
-            Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
-                    .filter(childOutputSet::contains)
-                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
-
-            return dependencies.entrySet().stream()
-                    .allMatch(entry -> entry.getValue() == 1
-                            || node.getAssignments().get(entry.getKey()) instanceof Constant
-                            || node.getAssignments().get(entry.getKey()) instanceof Reference);
         }
 
         @Override
