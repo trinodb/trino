@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -64,8 +65,8 @@ public class BenchmarkExpressionInterpreter
         public void setup()
         {
             expressions = ImmutableList.of(
-                    new In(new Reference(INTEGER, "bound_value"), IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
-                            .collect(Collectors.toList())));
+                    new In(new Reference(INTEGER, "bound_value"), new Array(INTEGER, IntStream.range(0, inValuesCount).mapToObj(i -> new Constant(INTEGER, (long) i))
+                            .collect(Collectors.toList()))));
         }
     }
 

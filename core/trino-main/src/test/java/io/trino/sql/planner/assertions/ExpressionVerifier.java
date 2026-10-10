@@ -164,8 +164,15 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return process(actual.value(), expected.value()) &&
-                process(actual.valueList(), expected.valueList());
+        if (!process(actual.value(), expected.value())) {
+            return false;
+        }
+        var actualElements = actual.valueListElements();
+        var expectedElements = expected.valueListElements();
+        if (actualElements.isPresent() && expectedElements.isPresent()) {
+            return process(actualElements.get(), expectedElements.get());
+        }
+        return process(actual.valueList(), expected.valueList());
     }
 
     @Override

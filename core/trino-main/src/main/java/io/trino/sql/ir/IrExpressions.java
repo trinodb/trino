@@ -445,7 +445,7 @@ public final class IrExpressions
                     mayBeNull(plannerContext, charVarcharCoercion, e.defaultValue(), referencesMayBeNull);
             case Cast e -> mayBeNull(plannerContext, charVarcharCoercion, e, referencesMayBeNull);
             case Coalesce e -> e.operands().stream().allMatch(operand -> mayBeNull(plannerContext, charVarcharCoercion, operand, referencesMayBeNull));
-            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueList().stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull));
+            case In e -> mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull) || e.valueListElements().map(elements -> elements.stream().anyMatch(value -> mayBeNull(plannerContext, charVarcharCoercion, value, referencesMayBeNull))).orElse(true);
             case Let e -> mayBeNull(plannerContext, charVarcharCoercion, e.body(), referencesMayBeNull || mayBeNull(plannerContext, charVarcharCoercion, e.value(), referencesMayBeNull));
             case Logical e -> e.terms().stream().anyMatch(term -> mayBeNull(plannerContext, charVarcharCoercion, term, referencesMayBeNull));
             case Match e -> e.clauses().stream().anyMatch(clause -> mayBeNull(plannerContext, charVarcharCoercion, clause.result(), referencesMayBeNull)) ||
@@ -500,7 +500,7 @@ public final class IrExpressions
                     mayFail(plannerContext, charVarcharCoercion, e.defaultValue());
             case Cast e -> mayFail(plannerContext, charVarcharCoercion, e);
             case Coalesce e -> e.operands().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
-            case In e -> mayFail(plannerContext, charVarcharCoercion, e.value()) || e.valueList().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));
+            case In e -> mayFail(plannerContext, charVarcharCoercion, e.value()) || mayFail(plannerContext, charVarcharCoercion, e.valueList());
             case IsNull e -> mayFail(plannerContext, charVarcharCoercion, e.value());
             case Let e -> mayFail(plannerContext, charVarcharCoercion, e.value()) || mayFail(plannerContext, charVarcharCoercion, e.body());
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, charVarcharCoercion, argument));

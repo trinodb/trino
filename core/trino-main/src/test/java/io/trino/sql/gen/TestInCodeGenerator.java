@@ -21,6 +21,7 @@ import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
@@ -61,7 +62,7 @@ public class TestInCodeGenerator
     {
         PageProjection projection = functionResolution.getPageFunctionCompiler()
                 .compileProjection(
-                        new In(new Reference(BIGINT, "value"), ImmutableList.of()),
+                        new In(new Reference(BIGINT, "value"), new Array(BIGINT, ImmutableList.of())),
                         ImmutableMap.of(new Symbol(BIGINT, "value"), 0),
                         SQL_STANDARD,
                         Optional.empty())
