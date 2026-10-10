@@ -15,22 +15,27 @@ package io.trino.plugin.iceberg;
 
 import io.trino.plugin.iceberg.ColumnIdentity.TypeCategory;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.MetadataColumns;
 
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public enum IcebergMetadataColumn
 {
-    PARTITION(MetadataColumns.PARTITION_COLUMN_ID, "$partition", VARCHAR, PRIMITIVE), // Avoid row type considering partition evolutions
+    PARTITION(MetadataColumns.PARTITION_COLUMN_ID, "$partition", STRUCT),
     FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
     FILE_MODIFIED_TIME(Integer.MAX_VALUE - 1001, "$file_modified_time", TIMESTAMP_TZ_MILLIS, PRIMITIVE), // https://github.com/apache/iceberg/issues/5240
+    SPEC_ID(MetadataColumns.SPEC_ID.fieldId(), "$spec_id", INTEGER, PRIMITIVE),
     ROW_ID(MetadataColumns.ROW_ID.fieldId(), "$row_id", BIGINT, PRIMITIVE),
     LAST_UPDATED_SEQUENCE_NUMBER(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), "$last_updated_sequence_number", BIGINT, PRIMITIVE)
     /**/;
@@ -40,10 +45,16 @@ public enum IcebergMetadataColumn
             .collect(toImmutableSet());
     private final int id;
     private final String columnName;
+    @Nullable
     private final Type type;
     private final TypeCategory typeCategory;
 
-    IcebergMetadataColumn(int id, String columnName, Type type, TypeCategory typeCategory)
+    IcebergMetadataColumn(int id, String columnName, TypeCategory typeCategory)
+    {
+        this(id, columnName, null, typeCategory);
+    }
+
+    IcebergMetadataColumn(int id, String columnName, @Nullable Type type, TypeCategory typeCategory)
     {
         this.id = id;
         this.columnName = columnName;
@@ -63,6 +74,7 @@ public enum IcebergMetadataColumn
 
     public Type getType()
     {
+        checkState(type != null, "Type of %s column depends on the table", columnName);
         return type;
     }
 

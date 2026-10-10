@@ -75,9 +75,8 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
-import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getSpecIdDomain;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -155,9 +154,10 @@ public final class TableStatisticsReader
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
-        Domain partitionDomain = getPartitionDomain(effectivePredicate);
+        PartitionFieldPredicate partitionFieldPredicate = PartitionFieldPredicate.fromPredicate(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !isMetadataColumnId(column.getId())));
+        Domain specIdDomain = getSpecIdDomain(effectivePredicate);
+        Expression filter = toIcebergExpression(effectivePredicate.filter((column, _) -> !column.isMetadataColumn()));
 
         NonEvictableLoadingCache<Integer, ManifestEvaluator> manifestPartitionFilterEvaluators = buildNonEvictableCache(
                 CacheBuilder.newBuilder().maximumSize(1000),
@@ -171,6 +171,8 @@ public final class TableStatisticsReader
                 .stream()
                 // remove any manifests that don't have any existing or added files
                 .filter(manifest -> manifest.hasAddedFiles() || manifest.hasExistingFiles())
+                // Remove manifests of specs the $spec_id domain excludes, since a manifest has a single spec
+                .filter(manifestFile -> specIdDomain.includesNullableValue((long) manifestFile.partitionSpecId()))
                 // remove manifests that don't match the scan filter
                 .filter(manifestFile -> {
                     ManifestEvaluator evaluator = manifestPartitionFilterEvaluators.getUnchecked(manifestFile.partitionSpecId());
@@ -193,7 +195,7 @@ public final class TableStatisticsReader
         // Decode small manifest sets inline to avoid bottlenecking small scans on resource contention in the shared planning pool
         if (filteredManifests.size() < INLINE_MANIFEST_DECODE_THRESHOLD) {
             for (ManifestFile manifestFile : filteredManifests) {
-                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+                collectManifestStatistics(icebergStatisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
             }
         }
         else {
@@ -203,7 +205,7 @@ public final class TableStatisticsReader
             List<Callable<Void>> tasks = filteredManifests.stream()
                     .map(manifestFile -> (Callable<Void>) () -> {
                         IcebergStatistics.Builder statisticsBuilder = new IcebergStatistics.Builder(columns, columnTypes, typeManager);
-                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionDomain, pathDomain);
+                        collectManifestStatistics(statisticsBuilder, icebergTable, manifestFile, filter, columnIds, partitionFieldPredicate, pathDomain);
                         synchronized (icebergStatisticsBuilder) {
                             icebergStatisticsBuilder.merge(statisticsBuilder);
                         }
@@ -374,13 +376,13 @@ public final class TableStatisticsReader
             ManifestFile manifestFile,
             Expression filter,
             Set<Integer> columnIds,
-            Domain partitionDomain,
+            PartitionFieldPredicate partitionFieldPredicate,
             Domain pathDomain)
     {
         try (CloseableIterable<DataFile> dataFiles = readManifest(icebergTable, manifestFile, filter, columnIds)) {
             for (DataFile dataFile : dataFiles) {
                 PartitionSpec spec = icebergTable.specs().get(dataFile.specId());
-                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(spec.partitionToPath(dataFile.partition())))) {
+                if (!partitionFieldPredicate.isAll() && !partitionFieldPredicate.matches(spec, dataFile.partition())) {
                     continue;
                 }
                 if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(dataFile.location()))) {
