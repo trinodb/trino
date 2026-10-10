@@ -77,6 +77,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -1646,6 +1647,15 @@ public class TracingMetadata
     }
 
     @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getRedirectionAwareTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, referencingViews);
+        }
+    }
+
+    @Override
     public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
     {
         Span span = startSpan("getRedirectionAwareView", viewName);
@@ -1660,6 +1670,15 @@ public class TracingMetadata
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, referencingViews);
         }
     }
 
