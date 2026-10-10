@@ -62,7 +62,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
     protected TestingHydraIdentityProvider getHydraIdp()
             throws Exception
     {
-        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, false, false);
+        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, false, false, false);
         hydraIdP.start();
 
         return hydraIdP;

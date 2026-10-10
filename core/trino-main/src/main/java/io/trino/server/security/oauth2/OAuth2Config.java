@@ -42,6 +42,7 @@ public class OAuth2Config
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
     private List<String> additionalAudiences = Collections.emptyList();
+    private boolean requireAudience;
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
     private Optional<String> jwtType = Optional.empty();
@@ -119,6 +120,19 @@ public class OAuth2Config
     public OAuth2Config setAdditionalAudiences(List<String> additionalAudiences)
     {
         this.additionalAudiences = ImmutableList.copyOf(additionalAudiences);
+        return this;
+    }
+
+    public boolean isRequireAudience()
+    {
+        return requireAudience;
+    }
+
+    @Config("http-server.authentication.oauth2.require-audience")
+    @ConfigDescription("Reject access tokens without an audience claim")
+    public OAuth2Config setRequireAudience(boolean requireAudience)
+    {
+        this.requireAudience = requireAudience;
         return this;
     }
 

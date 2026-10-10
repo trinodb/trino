@@ -94,6 +94,7 @@ public class NimbusOAuth2Client
     private final Scope scope;
     private final String principalField;
     private final Set<String> accessTokenAudiences;
+    private final boolean requireAudience;
     private final Duration maxClockSkew;
     private final Optional<String> jwtType;
     private final Optional<String> domainHint;
@@ -119,10 +120,13 @@ public class NimbusOAuth2Client
         maxClockSkew = oauthConfig.getMaxClockSkew();
         jwtType = oauthConfig.getJwtType();
         domainHint = oauthConfig.getDomainHint();
+        requireAudience = oauthConfig.isRequireAudience();
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
-        accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        if (!requireAudience) {
+            accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        }
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -136,6 +140,11 @@ public class NimbusOAuth2Client
         this.tokenUrl = config.tokenUrl();
         this.userinfoUrl = config.userinfoUrl();
         this.endSessionUrl = config.endSessionUrl();
+        if (requireAudience && userinfoUrl.isPresent()) {
+            // The userinfo endpoint path validates access tokens by calling the IdP instead of verifying claims locally,
+            // so accessTokenAudiences (and therefore require-audience) is never consulted for those tokens.
+            LOG.warn("http-server.authentication.oauth2.require-audience has no effect because access tokens are validated using the userinfo endpoint");
+        }
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
