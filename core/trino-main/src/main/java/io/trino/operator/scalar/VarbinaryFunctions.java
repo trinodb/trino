@@ -404,11 +404,7 @@ public final class VarbinaryFunctions
             if (indexStart >= slice.length()) {
                 return EMPTY_SLICE;
             }
-            int indexEnd = indexStart + byteLength;
-            if (indexEnd > slice.length()) {
-                indexEnd = slice.length();
-            }
-            return slice.slice(indexStart, indexEnd - indexStart);
+            return slice.slice(indexStart, Math.min(byteLength, slice.length() - indexStart));
         }
 
         // negative start is relative to end of string
@@ -419,13 +415,7 @@ public final class VarbinaryFunctions
             return EMPTY_SLICE;
         }
 
-        int indexStart = startByte;
-        int indexEnd = indexStart + byteLength;
-        if (indexEnd > slice.length()) {
-            indexEnd = slice.length();
-        }
-
-        return slice.slice(indexStart, indexEnd - indexStart);
+        return slice.slice(startByte, Math.min(byteLength, slice.length() - startByte));
     }
 
     private static Slice pad(Slice inputSlice, long targetLength, Slice padSlice, int paddingOffset)
