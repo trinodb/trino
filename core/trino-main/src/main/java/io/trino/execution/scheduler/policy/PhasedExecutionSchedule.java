@@ -313,19 +313,19 @@ public class PhasedExecutionSchedule
         private final ImmutableSet.Builder<PlanFragmentId> nonLazyFragments = ImmutableSet.builder();
         private final Set<PlanFragmentId> processedFragments = new HashSet<>();
 
-        public Visitor(QueryId queryId, Collection<PlanFragment> fragments)
+        Visitor(QueryId queryId, Collection<PlanFragment> fragments)
         {
             this.queryId = queryId;
             this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
         }
 
-        public Set<PlanFragmentId> getNonLazyFragments()
+        Set<PlanFragmentId> getNonLazyFragments()
         {
             return nonLazyFragments.build();
         }
 
-        public void processAllFragments()
+        void processAllFragments()
         {
             fragments.forEach((fragmentId, _) -> {
                 fragmentDependency.addNode(fragmentId);
@@ -347,7 +347,7 @@ public class PhasedExecutionSchedule
             processFragment(outputFragmentId);
         }
 
-        public FragmentSubGraph processFragment(PlanFragmentId planFragmentId)
+        FragmentSubGraph processFragment(PlanFragmentId planFragmentId)
         {
             verify(processedFragments.add(planFragmentId), "fragment %s was already processed", planFragmentId);
             FragmentSubGraph subGraph = processFragment(fragments.get(planFragmentId));
@@ -546,7 +546,7 @@ public class PhasedExecutionSchedule
          */
         private final boolean currentFragmentLazy;
 
-        public FragmentSubGraph(
+        FragmentSubGraph(
                 Set<PlanFragmentId> upstreamFragments,
                 Set<PlanFragmentId> lazyUpstreamFragments,
                 boolean currentFragmentLazy)
@@ -556,17 +556,17 @@ public class PhasedExecutionSchedule
             this.currentFragmentLazy = currentFragmentLazy;
         }
 
-        public Set<PlanFragmentId> getUpstreamFragments()
+        Set<PlanFragmentId> getUpstreamFragments()
         {
             return upstreamFragments;
         }
 
-        public Set<PlanFragmentId> getLazyUpstreamFragments()
+        Set<PlanFragmentId> getLazyUpstreamFragments()
         {
             return lazyUpstreamFragments;
         }
 
-        public boolean isCurrentFragmentLazy()
+        boolean isCurrentFragmentLazy()
         {
             return currentFragmentLazy;
         }

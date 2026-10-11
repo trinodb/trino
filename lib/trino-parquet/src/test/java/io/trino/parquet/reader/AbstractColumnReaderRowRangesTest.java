@@ -706,7 +706,7 @@ public abstract class AbstractColumnReaderRowRangesTest
         private final int dictionaryPagesBeforeFallback;
         private int pagesWritten;
 
-        public TestingPlainIntegerDictionaryValuesWriter(int dictionaryPagesBeforeFallback, Encoding encodingForDataPage, Encoding encodingForDictionaryPage, ByteBufferAllocator allocator)
+        TestingPlainIntegerDictionaryValuesWriter(int dictionaryPagesBeforeFallback, Encoding encodingForDataPage, Encoding encodingForDictionaryPage, ByteBufferAllocator allocator)
         {
             super(Integer.MAX_VALUE, encodingForDataPage, encodingForDictionaryPage, allocator);
             this.dictionaryPagesBeforeFallback = dictionaryPagesBeforeFallback;

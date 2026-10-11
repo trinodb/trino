@@ -756,18 +756,18 @@ public class TrinoUri
         private final Optional<String> catalog;
         private final Optional<String> schema;
 
-        public CatalogAndSchema(Optional<String> catalog, Optional<String> schema)
+        private CatalogAndSchema(Optional<String> catalog, Optional<String> schema)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.schema = requireNonNull(schema, "schema is null");
         }
 
-        public Optional<String> getCatalog()
+        private Optional<String> getCatalog()
         {
             return catalog;
         }
 
-        public Optional<String> getSchema()
+        private Optional<String> getSchema()
         {
             return schema;
         }

@@ -64,7 +64,7 @@ public final class CanonicalizeExpressionRewriter
         private final PlannerContext plannerContext;
         private final CharVarcharCoercion charVarcharCoercion;
 
-        public Visitor(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
+        Visitor(PlannerContext plannerContext, CharVarcharCoercion charVarcharCoercion)
         {
             this.plannerContext = plannerContext;
             this.charVarcharCoercion = charVarcharCoercion;

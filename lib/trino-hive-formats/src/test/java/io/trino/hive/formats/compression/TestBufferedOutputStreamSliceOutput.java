@@ -64,7 +64,7 @@ public class TestBufferedOutputStreamSliceOutput
     private static class MockOutputStream
             extends ByteArrayOutputStream
     {
-        public MockOutputStream(int length)
+        private MockOutputStream(int length)
         {
             super(length);
         }

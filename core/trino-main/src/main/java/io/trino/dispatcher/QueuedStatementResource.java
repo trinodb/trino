@@ -327,7 +327,7 @@ public class QueuedStatementResource
         private final AtomicReference<SubmissionState> submissionGate = new AtomicReference<>(NOT_SUBMITTED);
         private final SettableFuture<Void> creationFuture = SettableFuture.create();
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory, Tracer tracer)
+        Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory, Tracer tracer)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
@@ -341,32 +341,32 @@ public class QueuedStatementResource
                     .startSpan();
         }
 
-        public QueryId getQueryId()
+        QueryId getQueryId()
         {
             return queryId;
         }
 
-        public Slug getSlug()
+        Slug getSlug()
         {
             return slug;
         }
 
-        public long getLastToken()
+        long getLastToken()
         {
             return lastToken.get();
         }
 
-        public boolean tryAbandonSubmissionWithTimeout(long querySubmissionTimeoutNanos)
+        boolean tryAbandonSubmissionWithTimeout(long querySubmissionTimeoutNanos)
         {
             return (System.nanoTime() - initTime) >= querySubmissionTimeoutNanos && submissionGate.compareAndSet(NOT_SUBMITTED, ABANDONED);
         }
 
-        public boolean isSubmissionAbandoned()
+        boolean isSubmissionAbandoned()
         {
             return submissionGate.get() == ABANDONED;
         }
 
-        public boolean isCreated()
+        boolean isCreated()
         {
             return creationFuture.isDone();
         }
@@ -389,7 +389,7 @@ public class QueuedStatementResource
             }
         }
 
-        public QueryResults getQueryResults(long token, ExternalUriInfo externalUriInfo)
+        QueryResults getQueryResults(long token, ExternalUriInfo externalUriInfo)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
@@ -414,12 +414,12 @@ public class QueuedStatementResource
             return createQueryResults(token + 1, externalUriInfo, dispatchInfo);
         }
 
-        public void cancel()
+        void cancel()
         {
             creationFuture.addListener(() -> dispatchManager.cancelQuery(queryId), directExecutor());
         }
 
-        public void destroy()
+        void destroy()
         {
             querySpan.setStatus(StatusCode.ERROR).end();
             sessionContext.getIdentity().destroy();
@@ -494,12 +494,12 @@ public class QueuedStatementResource
 
         private final long querySubmissionTimeoutNanos;
 
-        public QueryManager(Duration querySubmissionTimeout)
+        QueryManager(Duration querySubmissionTimeout)
         {
             this.querySubmissionTimeoutNanos = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null").roundTo(NANOSECONDS);
         }
 
-        public void initialize(DispatchManager dispatchManager)
+        void initialize(DispatchManager dispatchManager)
         {
             scheduledExecutorService.scheduleWithFixedDelay(() -> {
                 try {
@@ -512,7 +512,7 @@ public class QueuedStatementResource
             }, 200, 200, MILLISECONDS);
         }
 
-        public void destroy()
+        void destroy()
         {
             scheduledExecutorService.shutdownNow();
         }
@@ -556,14 +556,14 @@ public class QueuedStatementResource
             }
         }
 
-        public void registerQuery(Query query)
+        void registerQuery(Query query)
         {
             Query existingQuery = queries.putIfAbsent(query.getQueryId(), query);
             checkState(existingQuery == null, "Query already registered");
         }
 
         @Nullable
-        public Query getQuery(QueryId queryId)
+        Query getQuery(QueryId queryId)
         {
             return queries.get(queryId);
         }

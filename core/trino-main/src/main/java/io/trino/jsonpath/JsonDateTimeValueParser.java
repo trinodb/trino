@@ -269,7 +269,7 @@ final class JsonDateTimeValueParser
         // century/millennium prefix when the template specifies only low-order year digits.
         private static final int REFERENCE_YEAR = 1970;
 
-        public int resolveYear()
+        int resolveYear()
         {
             if (year.isPresent()) {
                 return prefixYear(REFERENCE_YEAR, year.orElseThrow(), yearDigits);
@@ -280,7 +280,7 @@ final class JsonDateTimeValueParser
             return REFERENCE_YEAR;
         }
 
-        public int resolveHour()
+        int resolveHour()
         {
             if (secondOfDay.isPresent()) {
                 return floorDiv(secondOfDay.orElseThrow(), 3600);
@@ -298,7 +298,7 @@ final class JsonDateTimeValueParser
             return 0;
         }
 
-        public int resolveMinute()
+        int resolveMinute()
         {
             if (secondOfDay.isPresent()) {
                 return floorDiv(floorMod(secondOfDay.orElseThrow(), 3600), 60);
@@ -306,7 +306,7 @@ final class JsonDateTimeValueParser
             return minute.orElse(0);
         }
 
-        public int resolveSecond()
+        int resolveSecond()
         {
             if (secondOfDay.isPresent()) {
                 return floorMod(secondOfDay.orElseThrow(), 60);
@@ -314,12 +314,12 @@ final class JsonDateTimeValueParser
             return second.orElse(0);
         }
 
-        public long fractionPicos()
+        long fractionPicos()
         {
             return fractionDigits > 0 ? rescale(fractionValue, fractionDigits, 12) : 0L;
         }
 
-        public int resolveOffsetMinutes()
+        int resolveOffsetMinutes()
         {
             if (!timeZoneHour.isPresent()) {
                 return 0;
@@ -372,22 +372,22 @@ final class JsonDateTimeValueParser
             this.value = requireNonNull(value, "value is null");
         }
 
-        public boolean atEnd()
+        boolean atEnd()
         {
             return position == value.length();
         }
 
-        public char current()
+        char current()
         {
             return value.charAt(position);
         }
 
-        public int position()
+        int position()
         {
             return position;
         }
 
-        public void expect(String literal)
+        void expect(String literal)
         {
             if (!value.startsWith(literal, position)) {
                 throw new IllegalArgumentException(format("expected literal '%s' at position %d", literal, position));
@@ -395,17 +395,17 @@ final class JsonDateTimeValueParser
             position += literal.length();
         }
 
-        public boolean regionMatchesIgnoreCase(String text)
+        boolean regionMatchesIgnoreCase(String text)
         {
             return value.regionMatches(true, position, text, 0, text.length());
         }
 
-        public void advance(int length)
+        void advance(int length)
         {
             position += length;
         }
 
-        public String readDigits(int minimumDigits, int maximumDigits)
+        String readDigits(int minimumDigits, int maximumDigits)
         {
             int start = position;
             int count = 0;
@@ -420,7 +420,7 @@ final class JsonDateTimeValueParser
             return previousDigits;
         }
 
-        public String readFixedDigits(int digits)
+        String readFixedDigits(int digits)
         {
             int start = position;
             String result = readDigits(digits, digits);
@@ -430,7 +430,7 @@ final class JsonDateTimeValueParser
             return result;
         }
 
-        public String previousDigits()
+        String previousDigits()
         {
             return previousDigits;
         }

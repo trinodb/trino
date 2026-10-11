@@ -86,7 +86,7 @@ public class TestClosables
         private final Optional<Exception> closeException;
         private boolean closed;
 
-        public TestClosable(Optional<Exception> closeException)
+        private TestClosable(Optional<Exception> closeException)
         {
             this.closeException = requireNonNull(closeException, "closeException is null");
         }
@@ -101,7 +101,7 @@ public class TestClosables
             }
         }
 
-        public boolean isClosed()
+        private boolean isClosed()
         {
             return closed;
         }

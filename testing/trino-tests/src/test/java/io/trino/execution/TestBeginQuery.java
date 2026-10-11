@@ -240,7 +240,7 @@ public class TestBeginQuery
             end.incrementAndGet();
         }
 
-        public void resetCounters()
+        private void resetCounters()
         {
             begin.set(0);
             end.set(0);

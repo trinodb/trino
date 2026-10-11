@@ -181,7 +181,7 @@ public class TestLookupJoinPageBuilder
         private final List<Type> types;
         private final Page page;
 
-        public TestLookupSource(List<Type> types, Page page)
+        TestLookupSource(List<Type> types, Page page)
         {
             this.types = types;
             this.page = page;

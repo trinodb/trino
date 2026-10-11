@@ -756,7 +756,7 @@ public final class Variant
             this.offsetSize = offsetSize;
         }
 
-        public static Metadata fromBytes(byte[] metadataBytes)
+        private static Metadata fromBytes(byte[] metadataBytes)
         {
             requireNonNull(metadataBytes, "metadataBytes is null");
             if (metadataBytes.length == 0) {
@@ -772,12 +772,12 @@ public final class Variant
             return new Metadata(metadataBytes, dictionarySize, offsetSize);
         }
 
-        public byte[] getBytes()
+        private byte[] getBytes()
         {
             return metadataBytes;
         }
 
-        public String get(int id)
+        private String get(int id)
         {
             checkArgument(id >= 0 && id < dictionarySize, "Invalid field id: %s", id);
 

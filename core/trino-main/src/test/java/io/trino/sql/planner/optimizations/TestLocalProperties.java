@@ -763,25 +763,25 @@ public class TestLocalProperties
     {
         private final List<LocalProperty<String>> properties = new ArrayList<>();
 
-        public Builder grouped(String... columns)
+        Builder grouped(String... columns)
         {
             properties.add(new GroupingProperty<>(Arrays.asList(columns)));
             return this;
         }
 
-        public Builder sorted(String column, SortOrder order)
+        Builder sorted(String column, SortOrder order)
         {
             properties.add(new SortingProperty<>(column, order));
             return this;
         }
 
-        public Builder constant(String column)
+        Builder constant(String column)
         {
             properties.add(new ConstantProperty<>(column));
             return this;
         }
 
-        public List<LocalProperty<String>> build()
+        List<LocalProperty<String>> build()
         {
             return new ArrayList<>(properties);
         }

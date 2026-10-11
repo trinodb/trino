@@ -152,7 +152,7 @@ public class TestJsonTransformFusion
 
     private record Evaluator(Type type, PageProcessor processor)
     {
-        public List<Object> evaluate(List<String> inputs)
+        List<Object> evaluate(List<String> inputs)
         {
             BlockBuilder builder = VARCHAR.createBlockBuilder(null, inputs.size());
             for (String input : inputs) {

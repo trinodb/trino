@@ -172,7 +172,7 @@ public class TestDropNotNullConstraintConstraintTask
     private static class MockMetadataWithNotNull
             extends MockMetadata
     {
-        public MockMetadataWithNotNull(String catalogName)
+        MockMetadataWithNotNull(String catalogName)
         {
             super(catalogName);
         }

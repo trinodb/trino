@@ -3026,7 +3026,7 @@ public final class MetadataManager
         @GuardedBy("this")
         private boolean finished;
 
-        public QueryCatalogs(Session session)
+        QueryCatalogs(Session session)
         {
             this.session = requireNonNull(session, "session is null");
         }

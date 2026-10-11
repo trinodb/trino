@@ -227,13 +227,13 @@ public class JsonDeserializer
         private final Type type;
         private final boolean isScalarType;
 
-        public Decoder(Type type)
+        private Decoder(Type type)
         {
             this.type = requireNonNull(type, "type is null");
             this.isScalarType = isScalarType(type);
         }
 
-        public final void decode(JsonParser parser, BlockBuilder builder)
+        private final void decode(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
             JsonToken currentToken = parser.currentToken();
@@ -260,7 +260,7 @@ public class JsonDeserializer
     private static class BooleanDecoder
             extends Decoder
     {
-        public BooleanDecoder()
+        private BooleanDecoder()
         {
             super(BOOLEAN);
         }
@@ -278,7 +278,7 @@ public class JsonDeserializer
     private static class BigintDecoder
             extends Decoder
     {
-        public BigintDecoder()
+        private BigintDecoder()
         {
             super(BIGINT);
         }
@@ -294,7 +294,7 @@ public class JsonDeserializer
     private static class IntegerDecoder
             extends Decoder
     {
-        public IntegerDecoder()
+        private IntegerDecoder()
         {
             super(INTEGER);
         }
@@ -310,7 +310,7 @@ public class JsonDeserializer
     private static class SmallintDecoder
             extends Decoder
     {
-        public SmallintDecoder()
+        private SmallintDecoder()
         {
             super(SMALLINT);
         }
@@ -326,7 +326,7 @@ public class JsonDeserializer
     private static class TinyintDecoder
             extends Decoder
     {
-        public TinyintDecoder()
+        private TinyintDecoder()
         {
             super(TINYINT);
         }
@@ -344,7 +344,7 @@ public class JsonDeserializer
     {
         private final DecimalType decimalType;
 
-        public DecimalDecoder(DecimalType decimalType)
+        private DecimalDecoder(DecimalType decimalType)
         {
             super(decimalType);
             this.decimalType = requireNonNull(decimalType, "decimalType is null");
@@ -380,7 +380,7 @@ public class JsonDeserializer
     private static class RealDecoder
             extends Decoder
     {
-        public RealDecoder()
+        private RealDecoder()
         {
             super(REAL);
         }
@@ -396,7 +396,7 @@ public class JsonDeserializer
     private static class DoubleDecoder
             extends Decoder
     {
-        public DoubleDecoder()
+        private DoubleDecoder()
         {
             super(DOUBLE);
         }
@@ -412,7 +412,7 @@ public class JsonDeserializer
     private static class DateDecoder
             extends Decoder
     {
-        public DateDecoder()
+        private DateDecoder()
         {
             super(DATE);
         }
@@ -431,7 +431,7 @@ public class JsonDeserializer
         private final TimestampType timestampType;
         private final Function<String, DecodedTimestamp> timestampParser;
 
-        public TimestampDecoder(TimestampType timestampType, Function<String, DecodedTimestamp> timestampParser)
+        private TimestampDecoder(TimestampType timestampType, Function<String, DecodedTimestamp> timestampParser)
         {
             super(timestampType);
             this.timestampType = requireNonNull(timestampType, "timestampType is null");
@@ -453,7 +453,7 @@ public class JsonDeserializer
         // This must be created per instance because it is not thread safe
         private final CharsetDecoder charsetDecoder = createCharsetDecoder();
 
-        public VarbinaryDecoder()
+        private VarbinaryDecoder()
         {
             super(VARBINARY);
         }
@@ -487,7 +487,7 @@ public class JsonDeserializer
     {
         private final VarcharType varcharType;
 
-        public VarcharDecoder(VarcharType varcharType)
+        private VarcharDecoder(VarcharType varcharType)
         {
             super(varcharType);
             this.varcharType = requireNonNull(varcharType, "varcharType is null");
@@ -506,7 +506,7 @@ public class JsonDeserializer
     {
         private final CharType charType;
 
-        public CharDecoder(CharType charType)
+        private CharDecoder(CharType charType)
         {
             super(charType);
             this.charType = requireNonNull(charType, "charType is null");
@@ -525,7 +525,7 @@ public class JsonDeserializer
     {
         private final Decoder elementDecoder;
 
-        public ArrayDecoder(ArrayType arrayType, Decoder elementDecoder)
+        private ArrayDecoder(ArrayType arrayType, Decoder elementDecoder)
         {
             super(arrayType);
             this.elementDecoder = requireNonNull(elementDecoder, "elementDecoder is null");
@@ -560,7 +560,7 @@ public class JsonDeserializer
         private BlockBuilder keyBlockBuilder;
         private BlockBuilder valueBlockBuilder;
 
-        public MapDecoder(MapType mapType, Decoder valueDecoder, Function<String, DecodedTimestamp> timestampParser)
+        private MapDecoder(MapType mapType, Decoder valueDecoder, Function<String, DecodedTimestamp> timestampParser)
         {
             super(mapType);
             this.keyType = mapType.getKeyType();
@@ -667,7 +667,7 @@ public class JsonDeserializer
         private final boolean[] fieldWritten;
         private final IntUnaryOperator ordinalToFieldPosition;
 
-        public RowDecoder(RowType rowType, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
+        private RowDecoder(RowType rowType, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             super(rowType);
 
@@ -685,7 +685,7 @@ public class JsonDeserializer
             this.ordinalToFieldPosition = requireNonNull(ordinalToFieldPosition, "ordinalToFieldPosition is null");
         }
 
-        public void decode(JsonParser parser, PageBuilder builder)
+        private void decode(JsonParser parser, PageBuilder builder)
                 throws IOException
         {
             int currentPosition = builder.getPositionCount();

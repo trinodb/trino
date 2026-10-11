@@ -321,7 +321,7 @@ final class TestRefreshViewTask
     {
         private final Set<String> deniedTables;
 
-        public TestingAccessControl(Set<String> deniedTables)
+        TestingAccessControl(Set<String> deniedTables)
         {
             this.deniedTables = ImmutableSet.copyOf(requireNonNull(deniedTables, "deniedTables are null"));
         }

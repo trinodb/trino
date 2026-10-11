@@ -84,8 +84,7 @@ public final class ExplainRewrite
         private final WarningCollector warningCollector;
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
-        public Visitor(
-                Session session,
+        Visitor(Session session,
                 SessionPropertyResolver sessionPropertyResolver,
                 QueryPreparer queryPreparer,
                 QueryExplainer queryExplainer,

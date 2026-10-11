@@ -125,12 +125,12 @@ public final class ExecutorUtil
         @GuardedBy("this")
         private boolean taken;
 
-        public Task(Callable<T> callable)
+        private Task(Callable<T> callable)
         {
             this.callable = requireNonNull(callable, "callable is null");
         }
 
-        public synchronized boolean take()
+        private synchronized boolean take()
         {
             if (taken) {
                 return false;

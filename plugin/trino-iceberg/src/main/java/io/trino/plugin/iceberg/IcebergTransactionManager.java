@@ -78,12 +78,12 @@ public class IcebergTransactionManager
         @GuardedBy("this")
         private IcebergMetadata metadata;
 
-        public synchronized Optional<IcebergMetadata> optionalGet()
+        private synchronized Optional<IcebergMetadata> optionalGet()
         {
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized IcebergMetadata get(ConnectorIdentity identity)
+        private synchronized IcebergMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

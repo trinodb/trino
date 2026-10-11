@@ -9093,7 +9093,7 @@ public class TestAnalyzer
     {
         private final ConnectorMetadata metadata;
 
-        public TestingConnector(ConnectorMetadata metadata)
+        TestingConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
         }

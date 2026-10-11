@@ -171,22 +171,22 @@ final class WeightedFairQueue<E>
             this.logicalCreateTime = logicalCreateTime;
         }
 
-        public E getValue()
+        E getValue()
         {
             return value;
         }
 
-        public void update(Usage usage)
+        void update(Usage usage)
         {
             this.usage = requireNonNull(usage, "usage is null");
         }
 
-        public int getShare()
+        int getShare()
         {
             return usage.getShare();
         }
 
-        public int getUtilization()
+        int getUtilization()
         {
             return usage.getUtilization();
         }

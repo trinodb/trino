@@ -110,18 +110,18 @@ public class AllAtOnceExecutionSchedule
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final ImmutableSet.Builder<PlanFragmentId> schedulerOrder = ImmutableSet.builder();
 
-        public Visitor(Collection<PlanFragment> fragments)
+        Visitor(Collection<PlanFragment> fragments)
         {
             this.fragments = fragments.stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
         }
 
-        public List<PlanFragmentId> getSchedulerOrder()
+        List<PlanFragmentId> getSchedulerOrder()
         {
             return ImmutableList.copyOf(schedulerOrder.build());
         }
 
-        public void processFragment(PlanFragmentId planFragmentId)
+        void processFragment(PlanFragmentId planFragmentId)
         {
             PlanFragment planFragment = fragments.get(planFragmentId);
             checkArgument(planFragment != null, "Fragment not found: %s", planFragmentId);

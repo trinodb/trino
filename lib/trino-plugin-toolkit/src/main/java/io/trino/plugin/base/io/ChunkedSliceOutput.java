@@ -411,7 +411,7 @@ public final class ChunkedSliceOutput
         private int usedBuffers;
         private int currentSize;
 
-        public ChunkSupplier(int minChunkSize, int maxChunkSize)
+        private ChunkSupplier(int minChunkSize, int maxChunkSize)
         {
             checkArgument(minChunkSize >= MINIMUM_CHUNK_SIZE, "minimum chunk size of " + MINIMUM_CHUNK_SIZE + " required");
             checkArgument(maxChunkSize <= MAXIMUM_CHUNK_SIZE, "maximum chunk size of " + MAXIMUM_CHUNK_SIZE + " required");
@@ -421,12 +421,12 @@ public final class ChunkedSliceOutput
             this.maxChunkSize = maxChunkSize;
         }
 
-        public void reset()
+        private void reset()
         {
             usedBuffers = 0;
         }
 
-        public byte[] get()
+        private byte[] get()
         {
             byte[] buffer;
             if (usedBuffers == bufferPool.size()) {

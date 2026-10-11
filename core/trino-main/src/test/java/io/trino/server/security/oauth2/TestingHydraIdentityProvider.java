@@ -247,7 +247,7 @@ public class TestingHydraIdentityProvider
     {
         private final OkHttpClient httpClient;
 
-        public AcceptAllLoginsAndConsentsServlet()
+        AcceptAllLoginsAndConsentsServlet()
         {
             OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
             setupInsecureSsl(httpClientBuilder);

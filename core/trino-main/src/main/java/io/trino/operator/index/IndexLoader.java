@@ -310,12 +310,12 @@ public class IndexLoader
             this.allInputChannels = builder.build();
         }
 
-        public long getCacheSizeInBytes()
+        long getCacheSizeInBytes()
         {
             return indexSnapshotBuilder.getMemoryInBytes();
         }
 
-        public boolean load(List<UpdateRequest> requests)
+        boolean load(List<UpdateRequest> requests)
         {
             // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
             UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, hashStrategyCompiler);

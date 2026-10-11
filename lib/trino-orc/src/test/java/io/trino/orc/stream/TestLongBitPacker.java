@@ -75,7 +75,7 @@ public class TestLongBitPacker
             return rand.nextInt(256);
         }
 
-        public int getReadBytes()
+        private int getReadBytes()
         {
             return readBytes;
         }

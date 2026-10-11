@@ -312,7 +312,7 @@ public final class TestingOrcPredicate
     private static class DecimalOrcPredicate
             extends BasicOrcPredicate<SqlDecimal>
     {
-        public DecimalOrcPredicate(Iterable<?> expectedValues)
+        private DecimalOrcPredicate(Iterable<?> expectedValues)
         {
             super(expectedValues, SqlDecimal.class);
         }

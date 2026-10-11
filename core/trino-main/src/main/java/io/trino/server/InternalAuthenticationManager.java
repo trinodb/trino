@@ -181,13 +181,13 @@ public class InternalAuthenticationManager
 
     private record InternalToken(Instant expiration, String token)
     {
-        public InternalToken
+        InternalToken
         {
             expiration = TOKEN_REUSE_THRESHOLD.apply(requireNonNull(expiration, "expiration is null"));
             requireNonNull(token, "token is null");
         }
 
-        public boolean isExpired()
+        boolean isExpired()
         {
             return Instant.now().isAfter(expiration);
         }

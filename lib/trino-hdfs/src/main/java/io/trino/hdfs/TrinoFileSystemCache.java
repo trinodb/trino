@@ -281,13 +281,13 @@ public class TrinoFileSystemCache
         private final String cacheCredentials;
         private volatile FileSystem fileSystem;
 
-        public FileSystemHolder(Configuration conf, Set<?> privateCredentials)
+        private FileSystemHolder(Configuration conf, Set<?> privateCredentials)
         {
             this.privateCredentials = ImmutableSet.copyOf(requireNonNull(privateCredentials, "privateCredentials is null"));
             this.cacheCredentials = conf.get(CACHE_KEY, "");
         }
 
-        public void createFileSystemOnce(URI uri, Configuration conf)
+        private void createFileSystemOnce(URI uri, Configuration conf)
                 throws IOException
         {
             if (fileSystem == null) {
@@ -299,7 +299,7 @@ public class TrinoFileSystemCache
             }
         }
 
-        public boolean credentialsChanged(URI newUri, Configuration newConf, Set<?> newPrivateCredentials)
+        private boolean credentialsChanged(URI newUri, Configuration newConf, Set<?> newPrivateCredentials)
         {
             // - Private credentials are only set when using Kerberos authentication.
             // When the user is the same, but the private credentials are different,
@@ -313,7 +313,7 @@ public class TrinoFileSystemCache
                     || !cacheCredentials.equals(newConf.get(CACHE_KEY, ""));
         }
 
-        public FileSystem getFileSystem()
+        private FileSystem getFileSystem()
         {
             return fileSystem;
         }
@@ -332,7 +332,7 @@ public class TrinoFileSystemCache
     private static class FileSystemWrapper
             extends FilterFileSystem
     {
-        public FileSystemWrapper(FileSystem fs)
+        private FileSystemWrapper(FileSystem fs)
         {
             super(fs);
         }
@@ -404,7 +404,7 @@ public class TrinoFileSystemCache
         // FSDataOutputStream delegate.
         private final FileSystemWrapper owningFileSystemWrapper;
 
-        public OutputStreamWrapper(FSDataOutputStream delegate, FileSystemWrapper owningFileSystemWrapper)
+        private OutputStreamWrapper(FSDataOutputStream delegate, FileSystemWrapper owningFileSystemWrapper)
         {
             super(delegate, null, delegate.getPos());
             this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
@@ -426,7 +426,7 @@ public class TrinoFileSystemCache
         // FSDataInputStream delegate.
         private final FileSystemWrapper owningFileSystemWrapper;
 
-        public InputStreamWrapper(FSDataInputStream inputStream, FileSystemWrapper owningFileSystemWrapper)
+        private InputStreamWrapper(FSDataInputStream inputStream, FileSystemWrapper owningFileSystemWrapper)
         {
             super(inputStream);
             this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
@@ -449,7 +449,7 @@ public class TrinoFileSystemCache
         // RemoteIterator delegate.
         private final FileSystemWrapper owningFileSystemWrapper;
 
-        public RemoteIteratorWrapper(RemoteIterator<LocatedFileStatus> delegate, FileSystemWrapper owningFileSystemWrapper)
+        private RemoteIteratorWrapper(RemoteIterator<LocatedFileStatus> delegate, FileSystemWrapper owningFileSystemWrapper)
         {
             this.delegate = delegate;
             this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");

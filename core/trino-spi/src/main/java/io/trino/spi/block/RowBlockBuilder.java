@@ -132,7 +132,7 @@ public class RowBlockBuilder
     {
         private boolean entryBuilt;
 
-        public RowEntryBuilderImplementation()
+        private RowEntryBuilderImplementation()
         {
             if (currentEntryOpened) {
                 throw new IllegalStateException("Expected current entry to be closed but was opened");

@@ -70,7 +70,7 @@ class DenseDfaMatcher
         // For each state, whether it's an accepting state
         private final boolean[] accept;
 
-        public static DenseDfa newInstance(List<Pattern> pattern, int start, int end)
+        static DenseDfa newInstance(List<Pattern> pattern, int start, int end)
         {
             DFA dfa = makeNfa(pattern, start, end).toDfa();
 
@@ -100,7 +100,7 @@ class DenseDfaMatcher
         /**
          * Returns a positive match when the final state after all input has been consumed is an accepting state
          */
-        public boolean exactMatch(byte[] input, int offset, int length)
+        boolean exactMatch(byte[] input, int offset, int length)
         {
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {
@@ -119,7 +119,7 @@ class DenseDfaMatcher
          * Returns a positive match as soon as the DFA reaches an accepting state, regardless of whether
          * the whole input has been consumed
          */
-        public boolean prefixMatch(byte[] input, int offset, int length)
+        boolean prefixMatch(byte[] input, int offset, int length)
         {
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {

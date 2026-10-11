@@ -206,7 +206,7 @@ public final class JsonOutputFunctions
         private final Slice emptyArray;
         private final Slice emptyObject;
 
-        public EncodingSpecificConstants(JsonEncoding jsonEncoding, Charset charset, Slice emptyArray, Slice emptyObject)
+        EncodingSpecificConstants(JsonEncoding jsonEncoding, Charset charset, Slice emptyArray, Slice emptyObject)
         {
             this.jsonEncoding = requireNonNull(jsonEncoding, "jsonEncoding is null");
             this.charset = requireNonNull(charset, "charset is null");

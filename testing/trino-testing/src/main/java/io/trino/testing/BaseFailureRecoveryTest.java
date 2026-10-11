@@ -870,22 +870,22 @@ public abstract class BaseFailureRecoveryTest
             this.updatedTableStatistics = requireNonNull(updatedTableStatistics, "updatedTableStatistics is null");
         }
 
-        public MaterializedResult getQueryResult()
+        private MaterializedResult getQueryResult()
         {
             return queryResult;
         }
 
-        public QueryId getQueryId()
+        private QueryId getQueryId()
         {
             return queryId;
         }
 
-        public Optional<MaterializedResult> getUpdatedTableContent()
+        private Optional<MaterializedResult> getUpdatedTableContent()
         {
             return updatedTableContent;
         }
 
-        public Optional<MaterializedResult> getUpdatedTableStatistics()
+        private Optional<MaterializedResult> getUpdatedTableStatistics()
         {
             return updatedTableStatistics;
         }

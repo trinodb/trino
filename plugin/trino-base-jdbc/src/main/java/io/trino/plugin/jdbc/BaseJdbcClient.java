@@ -426,7 +426,7 @@ public abstract class BaseJdbcClient
         // Not set when current table not visible
         private ImmutableList.Builder<ColumnMetadata> currentTableColumns;
 
-        public IterateTableColumns(ConnectorSession session, Connection connection, Set<RemoteTableName> visibleTables, ResultSet resultSet)
+        private IterateTableColumns(ConnectorSession session, Connection connection, Set<RemoteTableName> visibleTables, ResultSet resultSet)
         {
             this.session = requireNonNull(session, "session is null");
             this.connection = requireNonNull(connection, "connection is null");

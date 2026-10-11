@@ -200,18 +200,18 @@ public class WindowInfo
         private final long sizeInBytes;
         private final ImmutableList.Builder<Integer> partitionsSizes = ImmutableList.builder();
 
-        public IndexInfoBuilder(long rowsNumber, long sizeInBytes)
+        IndexInfoBuilder(long rowsNumber, long sizeInBytes)
         {
             this.rowsNumber = rowsNumber;
             this.sizeInBytes = sizeInBytes;
         }
 
-        public void addPartition(WindowPartition partition)
+        void addPartition(WindowPartition partition)
         {
             partitionsSizes.add(partition.getPartitionEnd() - partition.getPartitionStart());
         }
 
-        public Optional<IndexInfo> build()
+        Optional<IndexInfo> build()
         {
             List<Integer> partitions = partitionsSizes.build();
             if (partitions.isEmpty()) {

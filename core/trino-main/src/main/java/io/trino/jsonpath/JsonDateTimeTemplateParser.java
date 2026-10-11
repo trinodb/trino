@@ -199,7 +199,7 @@ final class JsonDateTimeTemplateParser
         private boolean timeZoneMinute;
         private int precision;
 
-        public void add(Field field, int width)
+        void add(Field field, int width)
         {
             switch (field) {
                 case YEAR -> checkUnique("year", year);
@@ -239,12 +239,12 @@ final class JsonDateTimeTemplateParser
             }
         }
 
-        public boolean isEmpty()
+        boolean isEmpty()
         {
             return !(year || roundedYear || month || day || dayOfYear || hour12 || hour24 || minute || second || secondOfDay || fraction || amPm || timeZoneHour || timeZoneMinute);
         }
 
-        public Type type()
+        Type type()
         {
             validate();
             boolean hasDateFields = year || roundedYear || month || day || dayOfYear;

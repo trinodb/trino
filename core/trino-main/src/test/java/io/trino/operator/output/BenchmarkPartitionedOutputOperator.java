@@ -479,7 +479,7 @@ public class BenchmarkPartitionedOutputOperator
         {
             private final Blackhole blackhole;
 
-            public TestingPartitionedOutputBuffer(
+            TestingPartitionedOutputBuffer(
                     long taskInstanceId,
                     OutputBufferStateMachine stateMachine,
                     PipelinedOutputBuffers outputBuffers,

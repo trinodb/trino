@@ -208,7 +208,7 @@ final class ConnectionProperties
     private static class User
             extends AbstractConnectionProperty<String, String>
     {
-        public User()
+        private User()
         {
             super(PropertyName.USER, NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
@@ -217,7 +217,7 @@ final class ConnectionProperties
     private static class Password
             extends AbstractConnectionProperty<String, String>
     {
-        public Password()
+        private Password()
         {
             super(PropertyName.PASSWORD, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -226,7 +226,7 @@ final class ConnectionProperties
     private static class SessionUser
             extends AbstractConnectionProperty<String, String>
     {
-        protected SessionUser()
+        private SessionUser()
         {
             super(PropertyName.SESSION_USER, NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
@@ -235,7 +235,7 @@ final class ConnectionProperties
     private static class Roles
             extends AbstractConnectionProperty<String, Map<String, ClientSelectedRole>>
     {
-        public Roles()
+        private Roles()
         {
             super(PropertyName.ROLES, NOT_REQUIRED, ALLOWED, converter(Roles::parseRoles, Roles::rolesToString));
         }
@@ -245,13 +245,13 @@ final class ConnectionProperties
         //  - `none` in `catalog1`
         //  - `all` in `catalog2`
         //  - `role` in `catalog3`
-        public static Map<String, ClientSelectedRole> parseRoles(String roles)
+        private static Map<String, ClientSelectedRole> parseRoles(String roles)
         {
             return new MapPropertyParser(PropertyName.ROLES.toString()).parse(roles).entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> mapToClientSelectedRole(entry.getValue())));
         }
 
-        public static String rolesToString(Map<String, ClientSelectedRole> roles)
+        private static String rolesToString(Map<String, ClientSelectedRole> roles)
         {
             return roles.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + roleToString(entry.getValue()))
@@ -290,12 +290,12 @@ final class ConnectionProperties
     {
         private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
 
-        public ResourceEstimates()
+        private ResourceEstimates()
         {
             super(PropertyName.RESOURCE_ESTIMATES, NOT_REQUIRED, ALLOWED, converter(ResourceEstimates::parseResourceEstimates, ResourceEstimates::toString));
         }
 
-        public static Map<String, String> parseResourceEstimates(String resourceEstimateString)
+        private static Map<String, String> parseResourceEstimates(String resourceEstimateString)
         {
             Map<String, String> resourceEstimates = new MapPropertyParser(PropertyName.RESOURCE_ESTIMATES.toString()).parse(resourceEstimateString);
             for (String resourceName : resourceEstimates.keySet()) {
@@ -306,7 +306,7 @@ final class ConnectionProperties
             return resourceEstimates;
         }
 
-        public static String toString(Map<String, String> values)
+        private static String toString(Map<String, String> values)
         {
             return values.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
@@ -321,7 +321,7 @@ final class ConnectionProperties
                 properties -> HTTP_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.SOCKS_PROXY, PropertyName.HTTP_PROXY));
 
-        public SocksProxy()
+        private SocksProxy()
         {
             super(PropertyName.SOCKS_PROXY, NOT_REQUIRED, NO_HTTP_PROXY, converter(HostAndPort::fromString, HostAndPort::toString));
         }
@@ -334,7 +334,7 @@ final class ConnectionProperties
                 properties -> SOCKS_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.HTTP_PROXY, PropertyName.SOCKS_PROXY));
 
-        public HttpProxy()
+        private HttpProxy()
         {
             super(PropertyName.HTTP_PROXY, NOT_REQUIRED, NO_SOCKS_PROXY, converter(HostAndPort::fromString, HostAndPort::toString));
         }
@@ -343,7 +343,7 @@ final class ConnectionProperties
     private static class ApplicationNamePrefix
             extends AbstractConnectionProperty<String, String>
     {
-        public ApplicationNamePrefix()
+        private ApplicationNamePrefix()
         {
             super(PropertyName.APPLICATION_NAME_PREFIX, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -352,7 +352,7 @@ final class ConnectionProperties
     private static class ClientInfo
             extends AbstractConnectionProperty<String, String>
     {
-        public ClientInfo()
+        private ClientInfo()
         {
             super(PropertyName.CLIENT_INFO, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -361,7 +361,7 @@ final class ConnectionProperties
     private static class ClientTags
             extends AbstractConnectionProperty<String, Set<String>>
     {
-        public ClientTags()
+        private ClientTags()
         {
             super(PropertyName.CLIENT_TAGS, NOT_REQUIRED, ALLOWED, converter(ClientTags::parseClientTags, ClientTags::toString));
         }
@@ -381,7 +381,7 @@ final class ConnectionProperties
     private static class TraceToken
             extends AbstractConnectionProperty<String, String>
     {
-        public TraceToken()
+        private TraceToken()
         {
             super(PropertyName.TRACE_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -390,7 +390,7 @@ final class ConnectionProperties
     private static class DisableCompression
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public DisableCompression()
+        private DisableCompression()
         {
             super(PropertyName.DISABLE_COMPRESSION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -399,12 +399,12 @@ final class ConnectionProperties
     private static class Encoding
             extends AbstractConnectionProperty<String, String>
     {
-        public Encoding()
+        private Encoding()
         {
             super(PropertyName.ENCODING, NOT_REQUIRED, Encoding::areEncodingsValid, STRING_CONVERTER);
         }
 
-        public static Optional<String> areEncodingsValid(Properties properties)
+        private static Optional<String> areEncodingsValid(Properties properties)
         {
             List<String> supportedEncodings = Splitter.on(",").trimResults().omitEmptyStrings()
                     .splitToList(ENCODING.getRequiredValue(properties));
@@ -427,7 +427,7 @@ final class ConnectionProperties
     {
         private static final Predicate<Properties> IS_NOT_ENABLED = properties -> !ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValueOrDefault(properties, false);
 
-        public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
+        private AssumeLiteralNamesInMetadataCallsForNonConformingClients()
         {
             super(PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
@@ -446,7 +446,7 @@ final class ConnectionProperties
     {
         private static final Predicate<Properties> IS_NOT_ENABLED = properties -> !ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValueOrDefault(properties, false);
 
-        public AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
+        private AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
         {
             super(PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
@@ -463,7 +463,7 @@ final class ConnectionProperties
     private static class Ssl
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public Ssl()
+        private Ssl()
         {
             super(PropertyName.SSL, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -488,7 +488,7 @@ final class ConnectionProperties
                     format("Connection property %s requires %s to be set to %s", propertyName, PropertyName.SSL_VERIFICATION, FULL));
         }
 
-        public SslVerification()
+        private SslVerification()
         {
             super(PropertyName.SSL_VERIFICATION,
                     Optional.of(FULL),
@@ -505,7 +505,7 @@ final class ConnectionProperties
                 properties -> !SSL_USE_SYSTEM_KEY_STORE.getValue(properties).orElse(false),
                 format("Connection property %s cannot be set if %s is enabled", PropertyName.SSL_KEY_STORE_PATH, PropertyName.SSL_USE_SYSTEM_KEY_STORE));
 
-        public SslKeyStorePath()
+        private SslKeyStorePath()
         {
             super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, VALIDATE_SYSTEM_KEY_STORE_NOT_ENABLED.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PATH)), STRING_CONVERTER);
         }
@@ -518,7 +518,7 @@ final class ConnectionProperties
                 properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent(),
                 format("Connection property %s requires %s to be set", PropertyName.SSL_KEY_STORE_PASSWORD, PropertyName.SSL_KEY_STORE_PATH));
 
-        public SslKeyStorePassword()
+        private SslKeyStorePassword()
         {
             super(PropertyName.SSL_KEY_STORE_PASSWORD, NOT_REQUIRED, VALID_KEY_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PASSWORD)), STRING_CONVERTER);
         }
@@ -531,7 +531,7 @@ final class ConnectionProperties
                 properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_KEY_STORE.getValue(properties).orElse(false),
                 format("Connection property %s requires %s to be set or %s to be enabled", PropertyName.SSL_KEY_STORE_TYPE, PropertyName.SSL_KEY_STORE_PATH, PropertyName.SSL_USE_SYSTEM_KEY_STORE));
 
-        public SslKeyStoreType()
+        private SslKeyStoreType()
         {
             super(PropertyName.SSL_KEY_STORE_TYPE, NOT_REQUIRED, VALID_KEY_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_TYPE)), STRING_CONVERTER);
         }
@@ -540,7 +540,7 @@ final class ConnectionProperties
     private static class SslUseSystemKeyStore
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public SslUseSystemKeyStore()
+        private SslUseSystemKeyStore()
         {
             super(PropertyName.SSL_USE_SYSTEM_KEY_STORE, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_USE_SYSTEM_KEY_STORE), BOOLEAN_CONVERTER);
         }
@@ -553,7 +553,7 @@ final class ConnectionProperties
                 properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValueOrDefault(properties, false),
                 format("Connection property %s cannot be set if %s is enabled", PropertyName.SSL_TRUST_STORE_PATH, PropertyName.SSL_USE_SYSTEM_TRUST_STORE));
 
-        public SslTrustStorePath()
+        private SslTrustStorePath()
         {
             super(PropertyName.SSL_TRUST_STORE_PATH, NOT_REQUIRED, VALIDATE_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_PATH)), STRING_CONVERTER);
         }
@@ -566,7 +566,7 @@ final class ConnectionProperties
                 properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent(),
                 format("Connection property %s requires %s to be set", PropertyName.SSL_TRUST_STORE_PASSWORD, PropertyName.SSL_TRUST_STORE_PATH));
 
-        public SslTrustStorePassword()
+        private SslTrustStorePassword()
         {
             super(PropertyName.SSL_TRUST_STORE_PASSWORD, NOT_REQUIRED, VALIDATE_TRUST_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_PASSWORD)), STRING_CONVERTER);
         }
@@ -579,7 +579,7 @@ final class ConnectionProperties
                 properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValueOrDefault(properties, false),
                 format("Connection property %s requires %s to be set or %s to be enabled", PropertyName.SSL_TRUST_STORE_TYPE, PropertyName.SSL_TRUST_STORE_PATH, PropertyName.SSL_USE_SYSTEM_TRUST_STORE));
 
-        public SslTrustStoreType()
+        private SslTrustStoreType()
         {
             super(PropertyName.SSL_TRUST_STORE_TYPE, NOT_REQUIRED, VALIDATE_TRUST_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_TYPE)), STRING_CONVERTER);
         }
@@ -588,7 +588,7 @@ final class ConnectionProperties
     private static class SslUseSystemTrustStore
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public SslUseSystemTrustStore()
+        private SslUseSystemTrustStore()
         {
             super(PropertyName.SSL_USE_SYSTEM_TRUST_STORE, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_USE_SYSTEM_TRUST_STORE), BOOLEAN_CONVERTER);
         }
@@ -597,7 +597,7 @@ final class ConnectionProperties
     private static class KerberosRemoteServiceName
             extends AbstractConnectionProperty<String, String>
     {
-        public KerberosRemoteServiceName()
+        private KerberosRemoteServiceName()
         {
             super(PropertyName.KERBEROS_REMOTE_SERVICE_NAME, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -606,7 +606,7 @@ final class ConnectionProperties
     private static class ValidateConnection
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public ValidateConnection()
+        private ValidateConnection()
         {
             super(PropertyName.VALIDATE_CONNECTION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -636,7 +636,7 @@ final class ConnectionProperties
     private static class KerberosServicePrincipalPattern
             extends AbstractConnectionProperty<String, String>
     {
-        public KerberosServicePrincipalPattern()
+        private KerberosServicePrincipalPattern()
         {
             super(PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN, Optional.of("${SERVICE}@${HOST}"), ConnectionProperties::isKerberosEnabled, ALLOWED, STRING_CONVERTER);
         }
@@ -645,7 +645,7 @@ final class ConnectionProperties
     private static class KerberosPrincipal
             extends AbstractConnectionProperty<String, String>
     {
-        public KerberosPrincipal()
+        private KerberosPrincipal()
         {
             super(PropertyName.KERBEROS_PRINCIPAL, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_PRINCIPAL), STRING_CONVERTER);
         }
@@ -654,7 +654,7 @@ final class ConnectionProperties
     private static class KerberosUseCanonicalHostname
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public KerberosUseCanonicalHostname()
+        private KerberosUseCanonicalHostname()
         {
             super(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME, Optional.of(true), ConnectionProperties::isKerberosEnabled, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -663,7 +663,7 @@ final class ConnectionProperties
     private static class KerberosConfigPath
             extends AbstractConnectionProperty<String, File>
     {
-        public KerberosConfigPath()
+        private KerberosConfigPath()
         {
             super(PropertyName.KERBEROS_CONFIG_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_CONFIG_PATH), FILE_CONVERTER);
         }
@@ -672,7 +672,7 @@ final class ConnectionProperties
     private static class KerberosKeytabPath
             extends AbstractConnectionProperty<String, File>
     {
-        public KerberosKeytabPath()
+        private KerberosKeytabPath()
         {
             super(PropertyName.KERBEROS_KEYTAB_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_KEYTAB_PATH), FILE_CONVERTER);
         }
@@ -681,7 +681,7 @@ final class ConnectionProperties
     private static class KerberosCredentialCachePath
             extends AbstractConnectionProperty<String, File>
     {
-        public KerberosCredentialCachePath()
+        private KerberosCredentialCachePath()
         {
             super(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH), FILE_CONVERTER);
         }
@@ -690,7 +690,7 @@ final class ConnectionProperties
     private static class KerberosDelegation
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public KerberosDelegation()
+        private KerberosDelegation()
         {
             super(PropertyName.KERBEROS_DELEGATION, Optional.of(false), ConnectionProperties::isKerberosEnabled, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -699,7 +699,7 @@ final class ConnectionProperties
     private static class KerberosConstrainedDelegation
             extends AbstractConnectionProperty<GSSCredential, GSSCredential>
     {
-        public KerberosConstrainedDelegation()
+        private KerberosConstrainedDelegation()
         {
             super(PropertyName.KERBEROS_CONSTRAINED_DELEGATION, Optional.empty(), NOT_REQUIRED, validateKerberosWithDelegation(PropertyName.KERBEROS_CONSTRAINED_DELEGATION), converter(GSSCredential.class::cast, identity()));
         }
@@ -708,7 +708,7 @@ final class ConnectionProperties
     private static class AccessToken
             extends AbstractConnectionProperty<String, String>
     {
-        public AccessToken()
+        private AccessToken()
         {
             super(PropertyName.ACCESS_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -717,7 +717,7 @@ final class ConnectionProperties
     private static class ExternalAuthentication
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public ExternalAuthentication()
+        private ExternalAuthentication()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -746,7 +746,7 @@ final class ConnectionProperties
                 properties -> OAUTH2_CLIENT_SECRET.getValue(properties).isPresent(),
                 format("Connection property %s requires %s to be set", PropertyName.OAUTH2_CLIENT_ID, PropertyName.OAUTH2_CLIENT_SECRET));
 
-        public Oauth2ClientId()
+        private Oauth2ClientId()
         {
             super(PropertyName.OAUTH2_CLIENT_ID,
                     NOT_REQUIRED,
@@ -766,7 +766,7 @@ final class ConnectionProperties
                 properties -> OAUTH2_CLIENT_ID.getValue(properties).isPresent(),
                 format("Connection property %s requires %s to be set", PropertyName.OAUTH2_CLIENT_SECRET, PropertyName.OAUTH2_CLIENT_ID));
 
-        public Oauth2ClientSecret()
+        private Oauth2ClientSecret()
         {
             super(PropertyName.OAUTH2_CLIENT_SECRET, NOT_REQUIRED, VALIDATE_CLIENT_ID_SET, STRING_CONVERTER);
         }
@@ -783,7 +783,7 @@ final class ConnectionProperties
                 properties -> OAUTH2_CLIENT_ID.getValue(properties).isPresent(),
                 format("Connection property %s requires %s to be set", PropertyName.OAUTH2_SCOPE, PropertyName.OAUTH2_CLIENT_ID));
 
-        public Oauth2Scope()
+        private Oauth2Scope()
         {
             super(PropertyName.OAUTH2_SCOPE, NOT_REQUIRED, VALIDATE_NO_EXTERNAL_AUTHENTICATION.and(VALIDATE_CLIENT_ID_SET), STRING_CONVERTER);
         }
@@ -804,7 +804,7 @@ final class ConnectionProperties
                 properties -> OAUTH2_TOKEN_ENDPOINT.getValue(properties).map(Oauth2TokenEndpoint::isHttpsUrl).orElse(true),
                 format("Connection property %s must be a valid https:// URL", PropertyName.OAUTH2_TOKEN_ENDPOINT));
 
-        public Oauth2TokenEndpoint()
+        private Oauth2TokenEndpoint()
         {
             super(PropertyName.OAUTH2_TOKEN_ENDPOINT, NOT_REQUIRED, VALIDATE_NO_EXTERNAL_AUTHENTICATION.and(VALIDATE_CLIENT_ID_SET).and(VALIDATE_HTTPS_URL), STRING_CONVERTER);
         }
@@ -821,7 +821,7 @@ final class ConnectionProperties
     {
         private static final Splitter ENUM_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-        public ExternalAuthenticationRedirectHandlers()
+        private ExternalAuthenticationRedirectHandlers()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
                     Optional.of(singletonList(ExternalRedirectStrategy.OPEN)),
@@ -830,14 +830,14 @@ final class ConnectionProperties
                     converter(ExternalAuthenticationRedirectHandlers::parse, ExternalAuthenticationRedirectHandlers::toString));
         }
 
-        public static List<ExternalRedirectStrategy> parse(String value)
+        private static List<ExternalRedirectStrategy> parse(String value)
         {
             return stream(ENUM_SPLITTER.split(value))
                     .map(ExternalRedirectStrategy::valueOf)
                     .collect(toImmutableList());
         }
 
-        public static String toString(List<ExternalRedirectStrategy> values)
+        private static String toString(List<ExternalRedirectStrategy> values)
         {
             return values.stream()
                     .map(ExternalRedirectStrategy::toString)
@@ -852,7 +852,7 @@ final class ConnectionProperties
                 properties -> EXTERNAL_AUTHENTICATION.getValueOrDefault(properties, false),
                 format("Connection property %s requires %s to be enabled", PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, PropertyName.EXTERNAL_AUTHENTICATION));
 
-        public ExternalAuthenticationTimeout()
+        private ExternalAuthenticationTimeout()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, VALIDATE_EXTERNAL_AUTHENTICATION_ENABLED, converter(Duration::valueOf, Duration::toString));
         }
@@ -861,7 +861,7 @@ final class ConnectionProperties
     private static class ExternalAuthenticationTokenCache
             extends AbstractConnectionProperty<String, KnownTokenCache>
     {
-        public ExternalAuthenticationTokenCache()
+        private ExternalAuthenticationTokenCache()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE, Optional.of(KnownTokenCache.NONE), NOT_REQUIRED, ALLOWED, converter(KnownTokenCache::valueOf, KnownTokenCache::name));
         }
@@ -870,19 +870,19 @@ final class ConnectionProperties
     private static class ExtraCredentials
             extends AbstractConnectionProperty<String, Map<String, String>>
     {
-        public ExtraCredentials()
+        private ExtraCredentials()
         {
             super(PropertyName.EXTRA_CREDENTIALS, NOT_REQUIRED, ALLOWED, converter(ExtraCredentials::parseExtraCredentials, ExtraCredentials::toString));
         }
 
         // Extra credentials consists of a list of credential name value pairs.
         // E.g., `jdbc:trino://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
-        public static Map<String, String> parseExtraCredentials(String extraCredentialString)
+        private static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
             return new MapPropertyParser(PropertyName.EXTRA_CREDENTIALS.toString()).parse(extraCredentialString);
         }
 
-        public static String toString(Map<String, String> values)
+        private static String toString(Map<String, String> values)
         {
             return values.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
@@ -897,7 +897,7 @@ final class ConnectionProperties
                 ExtraHeaders::isNotReservedHeader,
                 format("Connection property %s cannot override any of the Trino protocol headers", PropertyName.EXTRA_HEADERS));
 
-        public ExtraHeaders()
+        private ExtraHeaders()
         {
             super(PropertyName.EXTRA_HEADERS, NOT_REQUIRED, VALIDATE_EXTRA_HEADER, converter(ExtraHeaders::parseExtraHeaders, ExtraHeaders::toString));
         }
@@ -906,12 +906,12 @@ final class ConnectionProperties
         // E.g., `jdbc:trino://example.net:8080/?extraHeaders=X-Trino-Route:foo;X-Trino-Custom:bar` will send
         // HTTP headers `X-Trino-Route=foo` and `X-Trino-Custom=bar`.
         // These headers must not conflict with Trino protocol headers.
-        public static Map<String, String> parseExtraHeaders(String extraHeadersString)
+        private static Map<String, String> parseExtraHeaders(String extraHeadersString)
         {
             return new MapPropertyParser(PropertyName.EXTRA_HEADERS.toString()).parse(extraHeadersString);
         }
 
-        public static String toString(Map<String, String> values)
+        private static String toString(Map<String, String> values)
         {
             return values.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
@@ -931,14 +931,14 @@ final class ConnectionProperties
     {
         private static final Splitter NAME_PARTS_SPLITTER = Splitter.on('.');
 
-        public SessionProperties()
+        private SessionProperties()
         {
             super(PropertyName.SESSION_PROPERTIES, NOT_REQUIRED, ALLOWED, converter(SessionProperties::parseSessionProperties, SessionProperties::toString));
         }
 
         // Session properties consists of a list of session property name value pairs.
         // E.g., `jdbc:trino://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
-        public static Map<String, String> parseSessionProperties(String sessionPropertiesString)
+        private static Map<String, String> parseSessionProperties(String sessionPropertiesString)
         {
             Map<String, String> sessionProperties = new MapPropertyParser(PropertyName.SESSION_PROPERTIES.toString()).parse(sessionPropertiesString);
             for (String sessionPropertyName : sessionProperties.keySet()) {
@@ -947,7 +947,7 @@ final class ConnectionProperties
             return sessionProperties;
         }
 
-        public static String toString(Map<String, String> values)
+        private static String toString(Map<String, String> values)
         {
             return values.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
@@ -958,7 +958,7 @@ final class ConnectionProperties
     private static class Source
             extends AbstractConnectionProperty<String, String>
     {
-        public Source()
+        private Source()
         {
             super(PropertyName.SOURCE, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -967,7 +967,7 @@ final class ConnectionProperties
     private static class Schema
             extends AbstractConnectionProperty<String, String>
     {
-        public Schema()
+        private Schema()
         {
             super(PropertyName.SCHEMA, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -976,7 +976,7 @@ final class ConnectionProperties
     private static class Catalog
             extends AbstractConnectionProperty<String, String>
     {
-        public Catalog()
+        private Catalog()
         {
             super(PropertyName.CATALOG, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -985,7 +985,7 @@ final class ConnectionProperties
     private static class UserLocale
             extends AbstractConnectionProperty<String, Locale>
     {
-        public UserLocale()
+        private UserLocale()
         {
             super(PropertyName.LOCALE, NOT_REQUIRED, ALLOWED, converter(Locale::new, Locale::toString));
         }
@@ -994,7 +994,7 @@ final class ConnectionProperties
     private static class Timeout
             extends AbstractConnectionProperty<String, Duration>
     {
-        protected Timeout()
+        private Timeout()
         {
             super(PropertyName.TIMEOUT, NOT_REQUIRED, ALLOWED, converter(Duration::valueOf, Duration::toString));
         }
@@ -1003,7 +1003,7 @@ final class ConnectionProperties
     private static class SqlPath
             extends AbstractConnectionProperty<String, List<String>>
     {
-        protected SqlPath()
+        private SqlPath()
         {
             super(PropertyName.SQL_PATH, NOT_REQUIRED, SqlPath::isValidSqlPath, converter(Splitter.on(",")::splitToList, Joiner.on(",")::join));
         }
@@ -1027,7 +1027,7 @@ final class ConnectionProperties
     private static class HttpLoggingLevel
             extends AbstractConnectionProperty<String, LoggingLevel>
     {
-        protected HttpLoggingLevel()
+        private HttpLoggingLevel()
         {
             super(PropertyName.HTTP_LOGGING_LEVEL, NOT_REQUIRED, ALLOWED, converter(LoggingLevel::valueOf, LoggingLevel::toString));
         }
@@ -1036,12 +1036,12 @@ final class ConnectionProperties
     private static class Resolver
             extends AbstractConnectionProperty<String, Class<? extends DnsResolver>>
     {
-        public Resolver()
+        private Resolver()
         {
             super(PropertyName.DNS_RESOLVER, NOT_REQUIRED, ALLOWED, converter(Resolver::findByName, Class::getName));
         }
 
-        public static Class<? extends DnsResolver> findByName(String name)
+        private static Class<? extends DnsResolver> findByName(String name)
         {
             try {
                 return Class.forName(name).asSubclass(DnsResolver.class);
@@ -1055,7 +1055,7 @@ final class ConnectionProperties
     private static class ResolverContext
             extends AbstractConnectionProperty<String, String>
     {
-        public ResolverContext()
+        private ResolverContext()
         {
             super(PropertyName.DNS_RESOLVER_CONTEXT, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
@@ -1064,7 +1064,7 @@ final class ConnectionProperties
     private static class HostnameInCertificate
             extends AbstractConnectionProperty<String, String>
     {
-        public HostnameInCertificate()
+        private HostnameInCertificate()
         {
             super(PropertyName.HOSTNAME_IN_CERTIFICATE, NOT_REQUIRED, SslVerification.validateFull(PropertyName.HOSTNAME_IN_CERTIFICATE), STRING_CONVERTER);
         }
@@ -1073,7 +1073,7 @@ final class ConnectionProperties
     private static class TimeZone
             extends AbstractConnectionProperty<String, ZoneId>
     {
-        public TimeZone()
+        private TimeZone()
         {
             super(PropertyName.TIMEZONE, NOT_REQUIRED, ALLOWED, converter(ZoneId::of, ZoneId::getId));
         }
@@ -1082,7 +1082,7 @@ final class ConnectionProperties
     private static class ExplicitPrepare
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public ExplicitPrepare()
+        private ExplicitPrepare()
         {
             super(PropertyName.EXPLICIT_PREPARE, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -1091,7 +1091,7 @@ final class ConnectionProperties
     private static class AssumeNullCatalogMeansCurrentCatalog
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public AssumeNullCatalogMeansCurrentCatalog()
+        private AssumeNullCatalogMeansCurrentCatalog()
         {
             super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -1100,7 +1100,7 @@ final class ConnectionProperties
     private static class LocalRedirectDisallowed
             extends AbstractConnectionProperty<String, Boolean>
     {
-        public LocalRedirectDisallowed()
+        private LocalRedirectDisallowed()
         {
             super(PropertyName.DISALLOW_LOCAL_REDIRECT, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
@@ -1122,7 +1122,7 @@ final class ConnectionProperties
         /**
          * Parses map in a form: key1:value1;key2:value2
          */
-        public Map<String, String> parse(String map)
+        private Map<String, String> parse(String map)
         {
             return MAP_ENTRIES_SPLITTER.splitToList(map).stream()
                     .map(this::parseEntry)

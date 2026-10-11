@@ -247,7 +247,7 @@ public class TestPagePartitionerPool
             return false;
         }
 
-        public int totalEnqueuedPageCount()
+        int totalEnqueuedPageCount()
         {
             return partitionBufferPages.values().stream().mapToInt(Integer::intValue).sum();
         }

@@ -108,18 +108,18 @@ public class InterpretedAggregationMaskBuilder
         private Block block;
         private boolean mayHaveNull;
 
-        public ChannelNullCheck(int channel)
+        ChannelNullCheck(int channel)
         {
             this.channel = channel;
         }
 
-        public void reset(Page arguments)
+        void reset(Page arguments)
         {
             block = arguments.getBlock(channel);
             mayHaveNull = block.mayHaveNull();
         }
 
-        public boolean mayHaveNull()
+        boolean mayHaveNull()
         {
             return mayHaveNull;
         }

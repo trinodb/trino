@@ -682,7 +682,7 @@ public class DynamicFilterService
             this.domainSizeLimitInBytes = domainSizeLimitInBytes;
         }
 
-        public void collect(TaskId taskId, Domain domain)
+        void collect(TaskId taskId, Domain domain)
         {
             if (collected) {
                 return;
@@ -832,7 +832,7 @@ public class DynamicFilterService
             verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
         }
 
-        public void setExpectedTaskCount(int count)
+        void setExpectedTaskCount(int count)
         {
             if (collected || expectedTaskCount != null) {
                 return;
@@ -866,12 +866,12 @@ public class DynamicFilterService
             collectedDomainsFuture.set(result);
         }
 
-        public ListenableFuture<Domain> getCollectedDomainFuture()
+        ListenableFuture<Domain> getCollectedDomainFuture()
         {
             return collectedDomainsFuture;
         }
 
-        public Optional<Duration> getCollectionDuration()
+        Optional<Duration> getCollectionDuration()
         {
             return Optional.ofNullable(collectionDuration.get());
         }
@@ -939,7 +939,7 @@ public class DynamicFilterService
             }
         }
 
-        public Session getSession()
+        Session getSession()
         {
             return session;
         }

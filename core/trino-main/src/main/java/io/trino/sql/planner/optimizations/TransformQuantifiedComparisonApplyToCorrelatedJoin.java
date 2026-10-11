@@ -90,7 +90,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
         private final Metadata metadata;
         private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
+        Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Metadata metadata, Session session)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -178,7 +178,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             return projectExpressions(join, Assignments.of(quantifiedComparisonSymbol, valueComparedToSubquery));
         }
 
-        public Expression rewriteUsingBounds(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
+        Expression rewriteUsingBounds(ApplyNode.QuantifiedComparison quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
         {
             Constant emptySetResult;
             Function<List<Expression>, Expression> quantifier;

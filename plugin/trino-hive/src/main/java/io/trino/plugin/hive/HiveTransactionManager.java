@@ -76,12 +76,12 @@ public class HiveTransactionManager
         @GuardedBy("this")
         private TransactionalMetadata metadata;
 
-        public synchronized Optional<TransactionalMetadata> optionalGet()
+        synchronized Optional<TransactionalMetadata> optionalGet()
         {
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized TransactionalMetadata get(ConnectorIdentity identity, boolean autoCommit)
+        synchronized TransactionalMetadata get(ConnectorIdentity identity, boolean autoCommit)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {

@@ -113,7 +113,7 @@ public class CachingResolver
         private final Type leftType;
         private final Type rightType;
 
-        public NodeAndTypes(IrPathNodeRef<IrPathNode> node, Type leftType, Type rightType)
+        NodeAndTypes(IrPathNodeRef<IrPathNode> node, Type leftType, Type rightType)
         {
             this.node = node;
             this.leftType = leftType;

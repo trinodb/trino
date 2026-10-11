@@ -107,13 +107,13 @@ public class FinalizerService
         private final Runnable cleanup;
         private final AtomicBoolean executed = new AtomicBoolean();
 
-        public FinalizerReference(Object referent, ReferenceQueue<Object> queue, Runnable cleanup)
+        FinalizerReference(Object referent, ReferenceQueue<Object> queue, Runnable cleanup)
         {
             super(requireNonNull(referent, "referent is null"), requireNonNull(queue, "queue is null"));
             this.cleanup = requireNonNull(cleanup, "cleanup is null");
         }
 
-        public void cleanup()
+        void cleanup()
         {
             if (executed.compareAndSet(false, true)) {
                 cleanup.run();

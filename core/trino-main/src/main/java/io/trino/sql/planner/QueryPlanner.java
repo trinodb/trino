@@ -2526,7 +2526,7 @@ class QueryPlanner
         private final List<List<Symbol>> groupingSets;
         private final Optional<Symbol> groupIdSymbol;
 
-        public GroupingSetsPlan(PlanBuilder subPlan, List<Set<FieldId>> columnOnlyGroupingSets, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol)
+        GroupingSetsPlan(PlanBuilder subPlan, List<Set<FieldId>> columnOnlyGroupingSets, List<List<Symbol>> groupingSets, Optional<Symbol> groupIdSymbol)
         {
             this.columnOnlyGroupingSets = columnOnlyGroupingSets;
             this.groupingSets = groupingSets;
@@ -2534,22 +2534,22 @@ class QueryPlanner
             this.subPlan = subPlan;
         }
 
-        public PlanBuilder getSubPlan()
+        PlanBuilder getSubPlan()
         {
             return subPlan;
         }
 
-        public List<Set<FieldId>> getColumnOnlyGroupingSets()
+        List<Set<FieldId>> getColumnOnlyGroupingSets()
         {
             return columnOnlyGroupingSets;
         }
 
-        public List<List<Symbol>> getGroupingSets()
+        List<List<Symbol>> getGroupingSets()
         {
             return groupingSets;
         }
 
-        public Optional<Symbol> getGroupIdSymbol()
+        Optional<Symbol> getGroupIdSymbol()
         {
             return groupIdSymbol;
         }
@@ -2595,24 +2595,24 @@ class QueryPlanner
         private final io.trino.sql.tree.Expression astExpression;
         private final Aggregation aggregation;
 
-        public AggregationAssignment(Symbol symbol, io.trino.sql.tree.Expression astExpression, Aggregation aggregation)
+        AggregationAssignment(Symbol symbol, io.trino.sql.tree.Expression astExpression, Aggregation aggregation)
         {
             this.astExpression = astExpression;
             this.symbol = symbol;
             this.aggregation = aggregation;
         }
 
-        public Symbol getSymbol()
+        Symbol getSymbol()
         {
             return symbol;
         }
 
-        public io.trino.sql.tree.Expression getAstExpression()
+        io.trino.sql.tree.Expression getAstExpression()
         {
             return astExpression;
         }
 
-        public Aggregation getRewritten()
+        Aggregation getRewritten()
         {
             return aggregation;
         }
@@ -2624,24 +2624,24 @@ class QueryPlanner
         private final Optional<Symbol> frameBoundSymbol;
         private final Optional<Symbol> sortKeyCoercedForFrameBoundComparison;
 
-        public FrameBoundPlanAndSymbols(PlanBuilder subPlan, Optional<Symbol> frameBoundSymbol, Optional<Symbol> sortKeyCoercedForFrameBoundComparison)
+        FrameBoundPlanAndSymbols(PlanBuilder subPlan, Optional<Symbol> frameBoundSymbol, Optional<Symbol> sortKeyCoercedForFrameBoundComparison)
         {
             this.subPlan = subPlan;
             this.frameBoundSymbol = frameBoundSymbol;
             this.sortKeyCoercedForFrameBoundComparison = sortKeyCoercedForFrameBoundComparison;
         }
 
-        public PlanBuilder getSubPlan()
+        PlanBuilder getSubPlan()
         {
             return subPlan;
         }
 
-        public Optional<Symbol> getFrameBoundSymbol()
+        Optional<Symbol> getFrameBoundSymbol()
         {
             return frameBoundSymbol;
         }
 
-        public Optional<Symbol> getSortKeyCoercedForFrameBoundComparison()
+        Optional<Symbol> getSortKeyCoercedForFrameBoundComparison()
         {
             return sortKeyCoercedForFrameBoundComparison;
         }
@@ -2652,18 +2652,18 @@ class QueryPlanner
         private final PlanBuilder subPlan;
         private final Optional<Symbol> frameOffsetSymbol;
 
-        public FrameOffsetPlanAndSymbol(PlanBuilder subPlan, Optional<Symbol> frameOffsetSymbol)
+        FrameOffsetPlanAndSymbol(PlanBuilder subPlan, Optional<Symbol> frameOffsetSymbol)
         {
             this.subPlan = subPlan;
             this.frameOffsetSymbol = frameOffsetSymbol;
         }
 
-        public PlanBuilder getSubPlan()
+        PlanBuilder getSubPlan()
         {
             return subPlan;
         }
 
-        public Optional<Symbol> getFrameOffsetSymbol()
+        Optional<Symbol> getFrameOffsetSymbol()
         {
             return frameOffsetSymbol;
         }

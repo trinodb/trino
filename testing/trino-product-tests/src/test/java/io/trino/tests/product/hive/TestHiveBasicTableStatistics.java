@@ -537,7 +537,7 @@ class TestHiveBasicTableStatistics
         private final OptionalLong rawDataSize;
         private final OptionalLong totalSize;
 
-        public BasicStatistics(OptionalLong numFiles, OptionalLong numRows, OptionalLong rawDataSize, OptionalLong totalSize)
+        BasicStatistics(OptionalLong numFiles, OptionalLong numRows, OptionalLong rawDataSize, OptionalLong totalSize)
         {
             this.numFiles = requireNonNull(numFiles, "numFiles is null");
             this.numRows = requireNonNull(numRows, "numRows is null");
@@ -545,22 +545,22 @@ class TestHiveBasicTableStatistics
             this.totalSize = requireNonNull(totalSize, "totalSize is null");
         }
 
-        public OptionalLong getNumFiles()
+        OptionalLong getNumFiles()
         {
             return numFiles;
         }
 
-        public OptionalLong getNumRows()
+        OptionalLong getNumRows()
         {
             return numRows;
         }
 
-        public OptionalLong getRawDataSize()
+        OptionalLong getRawDataSize()
         {
             return rawDataSize;
         }
 
-        public OptionalLong getTotalSize()
+        OptionalLong getTotalSize()
         {
             return totalSize;
         }

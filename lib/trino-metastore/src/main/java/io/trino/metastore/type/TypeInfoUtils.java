@@ -86,9 +86,9 @@ public final class TypeInfoUtils
 
     private static class TypeInfoParser
     {
-        public record Token(int position, String text, boolean type)
+        private record Token(int position, String text, boolean type)
         {
-            public Token
+            private Token
             {
                 requireNonNull(text, "text is null");
             }
@@ -137,7 +137,7 @@ public final class TypeInfoUtils
             return tokens;
         }
 
-        public TypeInfoParser(String typeInfoString)
+        private TypeInfoParser(String typeInfoString)
         {
             this.typeInfoString = typeInfoString;
             typeInfoTokens = tokenize(typeInfoString);
@@ -147,7 +147,7 @@ public final class TypeInfoUtils
         private final List<Token> typeInfoTokens;
         private int index;
 
-        public List<TypeInfo> parseTypeInfos()
+        private List<TypeInfo> parseTypeInfos()
         {
             List<TypeInfo> typeInfos = new ArrayList<>();
             index = 0;
@@ -332,7 +332,7 @@ public final class TypeInfoUtils
             throw new RuntimeException("Internal error parsing position %s of '%s'".formatted(token.position(), typeInfoString));
         }
 
-        public PrimitiveParts parsePrimitiveParts()
+        private PrimitiveParts parsePrimitiveParts()
         {
             Token token = expect("type");
             return new PrimitiveParts(token.text(), parseParams());

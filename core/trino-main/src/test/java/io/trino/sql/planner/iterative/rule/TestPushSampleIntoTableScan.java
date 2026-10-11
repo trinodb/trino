@@ -61,7 +61,7 @@ public class TestPushSampleIntoTableScan
     {
         private final boolean samplePushdown;
 
-        public TestMetadata(boolean samplePushdown)
+        TestMetadata(boolean samplePushdown)
         {
             this.samplePushdown = samplePushdown;
         }

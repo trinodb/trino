@@ -815,34 +815,34 @@ public class IcebergPageSink
         private final String path;
         private final Optional<PartitionData> partitionData;
 
-        public WriteContext(IcebergFileWriter writer, String path, Optional<PartitionData> partitionData)
+        private WriteContext(IcebergFileWriter writer, String path, Optional<PartitionData> partitionData)
         {
             this.writer = requireNonNull(writer, "writer is null");
             this.path = requireNonNull(path, "path is null");
             this.partitionData = requireNonNull(partitionData, "partitionData is null");
         }
 
-        public IcebergFileWriter getWriter()
+        private IcebergFileWriter getWriter()
         {
             return writer;
         }
 
-        public String getPath()
+        private String getPath()
         {
             return path;
         }
 
-        public Optional<PartitionData> getPartitionData()
+        private Optional<PartitionData> getPartitionData()
         {
             return partitionData;
         }
 
-        public long getWrittenBytes()
+        private long getWrittenBytes()
         {
             return writer.getWrittenBytes();
         }
 
-        public void rollback()
+        private void rollback()
         {
             writer.rollback();
         }
@@ -853,7 +853,7 @@ public class IcebergPageSink
         private final PageIndexer pageIndexer;
         private final List<PartitionColumn> columns;
 
-        public PagePartitioner(PageIndexerFactory pageIndexerFactory, List<PartitionColumn> columns)
+        private PagePartitioner(PageIndexerFactory pageIndexerFactory, List<PartitionColumn> columns)
         {
             this.pageIndexer = pageIndexerFactory.createPageIndexer(columns.stream()
                     .map(PartitionColumn::resultType)
@@ -861,7 +861,7 @@ public class IcebergPageSink
             this.columns = ImmutableList.copyOf(columns);
         }
 
-        public int[] partitionPage(Page page)
+        private int[] partitionPage(Page page)
         {
             Block[] blocks = new Block[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
@@ -884,12 +884,12 @@ public class IcebergPageSink
             return block;
         }
 
-        public int getMaxIndex()
+        private int getMaxIndex()
         {
             return pageIndexer.getMaxIndex();
         }
 
-        public List<PartitionColumn> getColumns()
+        private List<PartitionColumn> getColumns()
         {
             return columns;
         }

@@ -604,57 +604,57 @@ public class PipelinedStageExecution
             state.addStateChangeListener(state -> log.debug("Pipelined stage execution %s is %s", stageId, state));
         }
 
-        public StageId getStageId()
+        StageId getStageId()
         {
             return stageId;
         }
 
-        public State getState()
+        State getState()
         {
             return state.get();
         }
 
-        public boolean transitionToScheduling()
+        boolean transitionToScheduling()
         {
             return state.compareAndSet(PLANNED, SCHEDULING);
         }
 
-        public boolean transitionToSchedulingSplits()
+        boolean transitionToSchedulingSplits()
         {
             return state.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING);
         }
 
-        public boolean transitionToScheduled()
+        boolean transitionToScheduled()
         {
             return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == SCHEDULING_SPLITS);
         }
 
-        public boolean transitionToRunning()
+        boolean transitionToRunning()
         {
             return state.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FLUSHING && !currentState.isDone());
         }
 
-        public boolean transitionToFlushing()
+        boolean transitionToFlushing()
         {
             return state.setIf(FLUSHING, currentState -> currentState != FLUSHING && !currentState.isDone());
         }
 
-        public boolean transitionToFinished()
+        boolean transitionToFinished()
         {
             return state.setIf(FINISHED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToCanceled()
+        boolean transitionToCanceled()
         {
             return state.setIf(CANCELED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToAborted()
+        boolean transitionToAborted()
         {
             return state.setIf(ABORTED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToFailed(Throwable throwable)
+        boolean transitionToFailed(Throwable throwable)
         {
             requireNonNull(throwable, "throwable is null");
 
@@ -669,7 +669,7 @@ public class PipelinedStageExecution
             return failed;
         }
 
-        public Optional<ExecutionFailureInfo> getFailureCause()
+        Optional<ExecutionFailureInfo> getFailureCause()
         {
             return Optional.ofNullable(failureCause.get());
         }
@@ -679,7 +679,7 @@ public class PipelinedStageExecution
          * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
          * possible notifications are observed out of order due to the asynchronous execution.
          */
-        public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
+        void addStateChangeListener(StateChangeListener<State> stateChangeListener)
         {
             state.addStateChangeListener(stateChangeListener);
         }

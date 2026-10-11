@@ -353,17 +353,17 @@ public class OrderingCompiler
             checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
         }
 
-        public List<Type> getSortTypes()
+        List<Type> getSortTypes()
         {
             return sortTypes;
         }
 
-        public List<Integer> getSortChannels()
+        List<Integer> getSortChannels()
         {
             return sortChannels;
         }
 
-        public List<SortOrder> getSortOrders()
+        List<SortOrder> getSortOrders()
         {
             return sortOrders;
         }

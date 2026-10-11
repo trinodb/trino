@@ -61,12 +61,12 @@ public class TestSharedResource
         private final AtomicLong creationCounter = new AtomicLong();
         private final AtomicLong destructionCounter = new AtomicLong();
 
-        public long getCreationCount()
+        private long getCreationCount()
         {
             return creationCounter.get();
         }
 
-        public long getDestructionCount()
+        private long getDestructionCount()
         {
             return destructionCounter.get();
         }

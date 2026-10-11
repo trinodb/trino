@@ -806,7 +806,7 @@ public class SqlTaskManager
         private final Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate;
         private final TaskExecutor taskExecutor;
 
-        public StuckSplitTasksInterrupter(
+        StuckSplitTasksInterrupter(
                 Duration stuckSplitsWarningThreshold,
                 Duration interruptStuckSplitTasksTimeout,
                 Duration stuckSplitDetectionInterval,
@@ -822,7 +822,7 @@ public class SqlTaskManager
             this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         }
 
-        public Duration getStuckSplitsDetectionInterval()
+        Duration getStuckSplitsDetectionInterval()
         {
             return stuckSplitsDetectionInterval;
         }

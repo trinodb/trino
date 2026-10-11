@@ -129,12 +129,12 @@ public class DynamicFiltersCollector
             this.domain = requireNonNull(domain, "domain is null");
         }
 
-        public long getVersion()
+        long getVersion()
         {
             return version;
         }
 
-        public Domain getDomain()
+        Domain getDomain()
         {
             return domain;
         }

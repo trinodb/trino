@@ -139,7 +139,7 @@ public final class TestByteValueDecoders
     {
         private final ValuesReader delegate;
 
-        public ByteApacheParquetValueDecoder(ValuesReader delegate)
+        ByteApacheParquetValueDecoder(ValuesReader delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

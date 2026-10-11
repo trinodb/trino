@@ -404,7 +404,7 @@ public class TestTypeCoercion
         private final boolean canCoerceFirstToSecond;
         private final boolean canCoerceSecondToFirst;
 
-        public CompatibilityAssertion(Optional<Type> commonSuperType, boolean canCoerceFirstToSecond, boolean canCoerceSecondToFirst)
+        CompatibilityAssertion(Optional<Type> commonSuperType, boolean canCoerceFirstToSecond, boolean canCoerceSecondToFirst)
         {
             this.commonSuperType = requireNonNull(commonSuperType, "commonSuperType is null");
 
@@ -416,14 +416,14 @@ public class TestTypeCoercion
             this.canCoerceSecondToFirst = canCoerceSecondToFirst;
         }
 
-        public void isIncompatible()
+        void isIncompatible()
         {
             Assertions.assertThat(commonSuperType.isEmpty())
                     .describedAs("Expected to be incompatible")
                     .isTrue();
         }
 
-        public CompatibilityAssertion hasCommonSuperType(Type expected)
+        CompatibilityAssertion hasCommonSuperType(Type expected)
         {
             Assertions.assertThat(commonSuperType.isPresent())
                     .describedAs("Expected commonSuperType to be present")
@@ -434,7 +434,7 @@ public class TestTypeCoercion
             return this;
         }
 
-        public CompatibilityAssertion canCoerceToEachOther()
+        CompatibilityAssertion canCoerceToEachOther()
         {
             Assertions.assertThat(canCoerceFirstToSecond)
                     .describedAs("Expected first be coercible to second")
@@ -445,7 +445,7 @@ public class TestTypeCoercion
             return this;
         }
 
-        public CompatibilityAssertion canCoerceFirstToSecondOnly()
+        CompatibilityAssertion canCoerceFirstToSecondOnly()
         {
             Assertions.assertThat(canCoerceFirstToSecond)
                     .describedAs("Expected first be coercible to second")
@@ -456,7 +456,7 @@ public class TestTypeCoercion
             return this;
         }
 
-        public CompatibilityAssertion canCoerceSecondToFirstOnly()
+        CompatibilityAssertion canCoerceSecondToFirstOnly()
         {
             Assertions.assertThat(canCoerceFirstToSecond)
                     .describedAs("Expected first NOT be coercible to second")
@@ -467,7 +467,7 @@ public class TestTypeCoercion
             return this;
         }
 
-        public CompatibilityAssertion cannotCoerceToEachOther()
+        CompatibilityAssertion cannotCoerceToEachOther()
         {
             Assertions.assertThat(canCoerceFirstToSecond)
                     .describedAs("Expected first NOT be coercible to second")

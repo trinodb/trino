@@ -354,7 +354,7 @@ public class RcFileWriter
 
         private boolean columnClosed;
 
-        public ColumnEncoder(ColumnEncoding columnEncoding, Optional<Codec> codec)
+        ColumnEncoder(ColumnEncoding columnEncoding, Optional<Codec> codec)
                 throws IOException
         {
             this.columnEncoding = columnEncoding;
@@ -369,7 +369,7 @@ public class RcFileWriter
             columnEncoding.encodeColumn(block, output, encodeOutput);
         }
 
-        public void closeColumn()
+        void closeColumn()
                 throws IOException
         {
             checkArgument(!columnClosed, "Column is not open");
@@ -380,36 +380,36 @@ public class RcFileWriter
             columnClosed = true;
         }
 
-        public int getBufferedSize()
+        int getBufferedSize()
         {
             return lengthOutput.size() + output.size();
         }
 
-        public Slice getLengthData()
+        Slice getLengthData()
         {
             checkArgument(columnClosed, "Column is open");
             return lengthOutput.slice();
         }
 
-        public int getUncompressedSize()
+        int getUncompressedSize()
         {
             checkArgument(columnClosed, "Column is open");
             return output.size();
         }
 
-        public int getCompressedSize()
+        int getCompressedSize()
         {
             checkArgument(columnClosed, "Column is open");
             return output.getCompressedSize();
         }
 
-        public List<Slice> getCompressedData()
+        List<Slice> getCompressedData()
         {
             checkArgument(columnClosed, "Column is open");
             return output.getCompressedSlices();
         }
 
-        public void reset()
+        void reset()
                 throws IOException
         {
             checkArgument(columnClosed, "Column is open");
@@ -421,13 +421,13 @@ public class RcFileWriter
             columnClosed = false;
         }
 
-        public void destroy()
+        void destroy()
                 throws IOException
         {
             output.destroy();
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + lengthOutput.getRetainedSize() + output.getRetainedSize();
         }
@@ -441,7 +441,7 @@ public class RcFileWriter
             private int previousLength;
             private int runLength;
 
-            public ColumnEncodeOutput(SliceOutput lengthOutput, SliceOutput valueOutput)
+            ColumnEncodeOutput(SliceOutput lengthOutput, SliceOutput valueOutput)
             {
                 this.lengthOutput = lengthOutput;
                 this.valueOutput = valueOutput;

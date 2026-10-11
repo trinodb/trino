@@ -344,7 +344,7 @@ public class TestSpoolingExchangeOutputBuffer
             return blocked;
         }
 
-        public void setBlocked(CompletableFuture<Void> blocked)
+        void setBlocked(CompletableFuture<Void> blocked)
         {
             this.blocked = requireNonNull(blocked, "blocked is null");
         }
@@ -355,7 +355,7 @@ public class TestSpoolingExchangeOutputBuffer
             this.dataBuffer.put(partitionId, data);
         }
 
-        public ListMultimap<Integer, Slice> getDataBuffer()
+        ListMultimap<Integer, Slice> getDataBuffer()
         {
             return dataBuffer;
         }
@@ -376,7 +376,7 @@ public class TestSpoolingExchangeOutputBuffer
             return finish;
         }
 
-        public void setFinish(CompletableFuture<Void> finish)
+        void setFinish(CompletableFuture<Void> finish)
         {
             this.finish = requireNonNull(finish, "finish is null");
         }
@@ -389,7 +389,7 @@ public class TestSpoolingExchangeOutputBuffer
             return abort;
         }
 
-        public void setAbort(CompletableFuture<Void> abort)
+        void setAbort(CompletableFuture<Void> abort)
         {
             this.abort = requireNonNull(abort, "abort is null");
         }

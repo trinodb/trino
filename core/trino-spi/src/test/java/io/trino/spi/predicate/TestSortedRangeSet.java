@@ -972,12 +972,12 @@ class TestSortedRangeSet
     {
         private final SortedRangeSet sortedRangeSet;
 
-        public SortedRangeSetAssert(SortedRangeSet sortedRangeSet)
+        private SortedRangeSetAssert(SortedRangeSet sortedRangeSet)
         {
             this.sortedRangeSet = requireNonNull(sortedRangeSet, "sortedRangeSet is null");
         }
 
-        public SortedRangeSetAssert containsValue(Object value)
+        private SortedRangeSetAssert containsValue(Object value)
         {
             if (!sortedRangeSet.containsValue(value)) {
                 throw new AssertionError(format("Expected %s to contain %s", sortedRangeSet, value));
@@ -985,7 +985,7 @@ class TestSortedRangeSet
             return this;
         }
 
-        public SortedRangeSetAssert doesNotContainValue(Object value)
+        private SortedRangeSetAssert doesNotContainValue(Object value)
         {
             if (sortedRangeSet.containsValue(value)) {
                 throw new AssertionError(format("Expected %s not to contain %s", sortedRangeSet, value));

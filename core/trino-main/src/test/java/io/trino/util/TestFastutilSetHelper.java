@@ -173,12 +173,12 @@ public class TestFastutilSetHelper
             this.inputs = builder.build();
         }
 
-        public Type getType()
+        Type getType()
         {
             return type;
         }
 
-        public List<Block> getInputs()
+        List<Block> getInputs()
         {
             return inputs;
         }

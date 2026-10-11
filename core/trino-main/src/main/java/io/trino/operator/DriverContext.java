@@ -490,7 +490,7 @@ public class DriverContext
             }
         }
 
-        public long getBlockedTime()
+        long getBlockedTime()
         {
             return nanosBetween(start, System.nanoTime());
         }

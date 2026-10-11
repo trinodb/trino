@@ -307,7 +307,7 @@ public final class VariantFieldRemapper
             return enabledFieldCount == variant.metadata().dictionarySize();
         }
 
-        public void enableField(int variantFieldId)
+        private void enableField(int variantFieldId)
         {
             if (variantFieldIdToProvisionalFieldId == null) {
                 variantFieldIdToProvisionalFieldId = new int[variant.metadata().dictionarySize()];
@@ -351,7 +351,7 @@ public final class VariantFieldRemapper
             }
         }
 
-        public VariantFieldRemapper build()
+        VariantFieldRemapper build()
         {
             if (variantFieldIdToProvisionalFieldId == null) {
                 return new VariantFieldRemapper(variant.data());

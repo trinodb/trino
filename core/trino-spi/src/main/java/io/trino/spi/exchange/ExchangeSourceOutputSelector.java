@@ -345,7 +345,7 @@ public class ExchangeSourceOutputSelector
         private Slice values = Slices.allocate(0);
         private int maxTaskPartitionId = -1;
 
-        public void include(int taskPartitionId, int attemptId)
+        private void include(int taskPartitionId, int attemptId)
         {
             updateMaxTaskPartitionIdAndEnsureCapacity(taskPartitionId);
             if (attemptId < 0 || attemptId > Byte.MAX_VALUE) {
@@ -358,7 +358,7 @@ public class ExchangeSourceOutputSelector
             values.setByte(taskPartitionId, (byte) attemptId);
         }
 
-        public void exclude(int taskPartitionId)
+        private void exclude(int taskPartitionId)
         {
             updateMaxTaskPartitionIdAndEnsureCapacity(taskPartitionId);
             byte currentValue = values.getByte(taskPartitionId);
@@ -382,12 +382,12 @@ public class ExchangeSourceOutputSelector
             values = Slices.wrappedBuffer(newValues);
         }
 
-        public Slice build()
+        private Slice build()
         {
             return createResult(maxTaskPartitionId + 1);
         }
 
-        public Slice buildFinal(int totalPartitionCount)
+        private Slice buildFinal(int totalPartitionCount)
         {
             Slice result = createResult(totalPartitionCount);
             for (int partitionId = 0; partitionId < totalPartitionCount; partitionId++) {

@@ -143,7 +143,7 @@ public class HashSemiJoinOperator
         @Nullable
         private ChannelSet channelSet;
 
-        public SemiJoinPages(SetSupplier channelSetFuture, int probeJoinChannel, AggregatedMemoryContext aggregatedMemoryContext)
+        SemiJoinPages(SetSupplier channelSetFuture, int probeJoinChannel, AggregatedMemoryContext aggregatedMemoryContext)
         {
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 

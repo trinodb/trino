@@ -251,7 +251,7 @@ public class RuleAssert
             return !result.isEmpty();
         }
 
-        public PlanNode getTransformedPlan()
+        PlanNode getTransformedPlan()
         {
             return result.transformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
         }

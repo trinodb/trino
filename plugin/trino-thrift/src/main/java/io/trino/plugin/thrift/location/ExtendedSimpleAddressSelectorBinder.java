@@ -48,7 +48,7 @@ public class ExtendedSimpleAddressSelectorBinder
     private static class ExtendedSimpleAddressSelectorProvider
             extends AbstractAnnotatedProvider<AddressSelector<? extends Address>>
     {
-        public ExtendedSimpleAddressSelectorProvider(Annotation annotation)
+        private ExtendedSimpleAddressSelectorProvider(Annotation annotation)
         {
             super(annotation);
         }

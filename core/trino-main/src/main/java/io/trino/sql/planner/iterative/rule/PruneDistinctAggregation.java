@@ -71,13 +71,13 @@ public class PruneDistinctAggregation
         private final Lookup lookup;
         private boolean rewritten;
 
-        public DistinctAggregationRewriter(Lookup lookup)
+        DistinctAggregationRewriter(Lookup lookup)
         {
             this.lookup = lookup;
             this.rewritten = false;
         }
 
-        public boolean isRewritten()
+        boolean isRewritten()
         {
             return rewritten;
         }

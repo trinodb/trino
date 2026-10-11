@@ -399,7 +399,7 @@ class Query
     {
         return new AbstractFuture<Void>()
         {
-            public AbstractFuture<Void> propagateFuture(ListenableFuture<? extends Void> future)
+            AbstractFuture<Void> propagateFuture(ListenableFuture<? extends Void> future)
             {
                 setFuture(future);
                 return this;

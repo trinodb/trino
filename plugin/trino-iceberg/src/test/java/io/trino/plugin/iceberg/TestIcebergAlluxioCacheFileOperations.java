@@ -170,7 +170,7 @@ public class TestIcebergAlluxioCacheFileOperations
 
     private record CacheOperation(String operationName, FileType fileType)
     {
-        public static CacheOperation create(SpanData span)
+        private static CacheOperation create(SpanData span)
         {
             String path = getFileLocation(span);
             return new CacheOperation(span.getName(), FileType.fromFilePath(path));

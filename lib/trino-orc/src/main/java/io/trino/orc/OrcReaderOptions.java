@@ -215,55 +215,55 @@ public class OrcReaderOptions
             this.readLegacyShortZoneId = orcReaderOptions.readLegacyShortZoneId;
         }
 
-        public Builder withBloomFiltersEnabled(boolean bloomFiltersEnabled)
+        private Builder withBloomFiltersEnabled(boolean bloomFiltersEnabled)
         {
             this.bloomFiltersEnabled = bloomFiltersEnabled;
             return this;
         }
 
-        public Builder withMaxMergeDistance(DataSize maxMergeDistance)
+        private Builder withMaxMergeDistance(DataSize maxMergeDistance)
         {
             this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
             return this;
         }
 
-        public Builder withMaxBufferSize(DataSize maxBufferSize)
+        private Builder withMaxBufferSize(DataSize maxBufferSize)
         {
             this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
             return this;
         }
 
-        public Builder withTinyStripeThreshold(DataSize tinyStripeThreshold)
+        private Builder withTinyStripeThreshold(DataSize tinyStripeThreshold)
         {
             this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
             return this;
         }
 
-        public Builder withStreamBufferSize(DataSize streamBufferSize)
+        private Builder withStreamBufferSize(DataSize streamBufferSize)
         {
             this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
             return this;
         }
 
-        public Builder withMaxBlockSize(DataSize maxBlockSize)
+        private Builder withMaxBlockSize(DataSize maxBlockSize)
         {
             this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
             return this;
         }
 
-        public Builder withLazyReadSmallRanges(boolean lazyReadSmallRanges)
+        private Builder withLazyReadSmallRanges(boolean lazyReadSmallRanges)
         {
             this.lazyReadSmallRanges = lazyReadSmallRanges;
             return this;
         }
 
-        public Builder withNestedLazy(boolean nestedLazy)
+        private Builder withNestedLazy(boolean nestedLazy)
         {
             this.nestedLazy = nestedLazy;
             return this;
         }
 
-        public Builder withReadLegacyShortZoneId(boolean shortZoneIdEnabled)
+        private Builder withReadLegacyShortZoneId(boolean shortZoneIdEnabled)
         {
             this.readLegacyShortZoneId = shortZoneIdEnabled;
             return this;

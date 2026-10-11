@@ -333,24 +333,24 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
         private final Set<Symbol> leftSymbols;
         private final Set<Symbol> rightSymbols;
 
-        public JoinNodeContext(JoinNode joinNode)
+        JoinNodeContext(JoinNode joinNode)
         {
             requireNonNull(joinNode, "joinNode is null");
             this.leftSymbols = ImmutableSet.copyOf(joinNode.getLeft().getOutputSymbols());
             this.rightSymbols = ImmutableSet.copyOf(joinNode.getRight().getOutputSymbols());
         }
 
-        public Set<Symbol> getLeftSymbols()
+        Set<Symbol> getLeftSymbols()
         {
             return leftSymbols;
         }
 
-        public Set<Symbol> getRightSymbols()
+        Set<Symbol> getRightSymbols()
         {
             return rightSymbols;
         }
 
-        public boolean isComparisonAligned(Comparison comparison)
+        boolean isComparisonAligned(Comparison comparison)
         {
             return leftSymbols.containsAll(extractUnique(comparison.left()));
         }

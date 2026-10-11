@@ -763,7 +763,7 @@ public class OrcWriteValidation
         private final SortedMap<OrcColumnId, ColumnStatistics> columnStatistics;
         private final long hash;
 
-        public RowGroupStatistics(OrcWriteValidationMode validationMode, Map<OrcColumnId, ColumnStatistics> columnStatistics)
+        private RowGroupStatistics(OrcWriteValidationMode validationMode, Map<OrcColumnId, ColumnStatistics> columnStatistics)
         {
             this.validationMode = validationMode;
 
@@ -796,18 +796,18 @@ public class OrcWriteValidation
             return statisticsHasher.hash();
         }
 
-        public OrcWriteValidationMode getValidationMode()
+        private OrcWriteValidationMode getValidationMode()
         {
             return validationMode;
         }
 
-        public Map<OrcColumnId, ColumnStatistics> getColumnStatistics()
+        private Map<OrcColumnId, ColumnStatistics> getColumnStatistics()
         {
             verify(validationMode != HASHED, "columnStatistics are not available in HASHED mode");
             return columnStatistics;
         }
 
-        public long getHash()
+        private long getHash()
         {
             return hash;
         }

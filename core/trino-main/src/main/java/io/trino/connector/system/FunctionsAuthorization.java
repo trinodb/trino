@@ -150,7 +150,7 @@ public class FunctionsAuthorization
 
     private record CatalogFunctionAuthorization(String catalog, FunctionAuthorization functionAuthorization)
     {
-        public CatalogFunctionAuthorization
+        CatalogFunctionAuthorization
         {
             requireNonNull(catalog, "catalog is null");
             requireNonNull(functionAuthorization, "functionAuthorization is null");

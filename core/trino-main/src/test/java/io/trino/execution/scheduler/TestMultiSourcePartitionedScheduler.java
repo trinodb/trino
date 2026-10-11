@@ -653,12 +653,12 @@ public class TestMultiSourcePartitionedScheduler
         private CompletableFuture<?> notEmptyFuture = new CompletableFuture<>();
         private boolean closed;
 
-        public QueuedSplitSource(Supplier<ConnectorSplit> splitFactory)
+        QueuedSplitSource(Supplier<ConnectorSplit> splitFactory)
         {
             this.splitFactory = requireNonNull(splitFactory, "splitFactory is null");
         }
 
-        public QueuedSplitSource()
+        QueuedSplitSource()
         {
             this.splitFactory = TestingSplit::createRemoteSplit;
         }

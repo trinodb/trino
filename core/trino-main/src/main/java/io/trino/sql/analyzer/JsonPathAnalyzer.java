@@ -158,7 +158,7 @@ public class JsonPathAnalyzer
         private final Map<String, Type> parameterTypes;
         private final Node pathNode;
 
-        public Visitor(Map<String, Type> parameterTypes, Node pathNode)
+        Visitor(Map<String, Type> parameterTypes, Node pathNode)
         {
             this.parameterTypes = ImmutableMap.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
             this.pathNode = requireNonNull(pathNode, "pathNode is null");

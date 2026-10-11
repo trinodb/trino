@@ -34,11 +34,11 @@ public class BooleanPlainValueDecoders
     private abstract static class AbstractBooleanPlainValueDecoder
             implements ValueDecoder<BitBuffer>
     {
-        protected SimpleSliceInputStream input;
+        SimpleSliceInputStream input;
         // Number of unread bits in the current byte
-        protected int alreadyReadBits;
+        int alreadyReadBits;
         // Partly read byte
-        protected byte partiallyReadByte;
+        byte partiallyReadByte;
 
         @Override
         public void init(SimpleSliceInputStream input)

@@ -480,7 +480,7 @@ public class TestMaterializedViews
     {
         private final ConnectorMetadata metadata;
 
-        public TestMaterializedViewConnector(ConnectorMetadata metadata)
+        TestMaterializedViewConnector(ConnectorMetadata metadata)
         {
             this.metadata = metadata;
         }

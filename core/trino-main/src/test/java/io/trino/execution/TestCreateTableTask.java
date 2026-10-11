@@ -634,12 +634,12 @@ class TestCreateTableTask
             return ConnectorMetadata.super.getTableMetadata(session, tableHandle);
         }
 
-        public int getCreateTableCallCount()
+        int getCreateTableCallCount()
         {
             return tables.size();
         }
 
-        public List<ConnectorTableMetadata> getReceivedTableMetadata()
+        List<ConnectorTableMetadata> getReceivedTableMetadata()
         {
             return tables;
         }

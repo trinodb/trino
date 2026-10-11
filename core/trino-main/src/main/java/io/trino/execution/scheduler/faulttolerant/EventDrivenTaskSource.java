@@ -280,7 +280,7 @@ class EventDrivenTaskSource
             this.metricsRecorder = requireNonNull(metricsRecorder, "metricsRecorder is null");
         }
 
-        public synchronized Optional<ListenableFuture<SplitBatchReference>> getNext()
+        synchronized Optional<ListenableFuture<SplitBatchReference>> getNext()
         {
             if (future.isEmpty() && !finished) {
                 long start = System.nanoTime();
@@ -332,26 +332,26 @@ class EventDrivenTaskSource
                     .toString();
         }
 
-        public class SplitBatchReference
+        class SplitBatchReference
         {
             private final SplitBatch splitBatch;
 
-            public SplitBatchReference(SplitBatch splitBatch)
+            SplitBatchReference(SplitBatch splitBatch)
             {
                 this.splitBatch = requireNonNull(splitBatch, "splitBatch is null");
             }
 
-            public PlanNodeId getPlanNodeId()
+            PlanNodeId getPlanNodeId()
             {
                 return planNodeId;
             }
 
-            public Optional<PlanFragmentId> getSourceFragmentId()
+            Optional<PlanFragmentId> getSourceFragmentId()
             {
                 return sourceFragmentId;
             }
 
-            public SplitBatch getSplitBatchAndAdvance()
+            SplitBatch getSplitBatchAndAdvance()
             {
                 advance(splitBatch.isLastBatch());
                 return splitBatch;
@@ -388,7 +388,7 @@ class EventDrivenTaskSource
             throw new UnsupportedOperationException();
         }
 
-        public ListenableFuture<T> addListener()
+        ListenableFuture<T> addListener()
         {
             SettableFuture<T> listener = SettableFuture.create();
             synchronized (listeners) {

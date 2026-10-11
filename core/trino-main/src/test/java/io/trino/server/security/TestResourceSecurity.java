@@ -1182,13 +1182,13 @@ public class TestResourceSecurity
         private final TestingHttpServer jwkServer;
         private final String accessToken;
 
-        public TokenServer(Optional<String> principalField)
+        TokenServer(Optional<String> principalField)
                 throws Exception
         {
             this(principalField, false);
         }
 
-        public TokenServer(Optional<String> principalField, boolean supportsRefresh)
+        TokenServer(Optional<String> principalField, boolean supportsRefresh)
                 throws Exception
         {
             this.principalField = requireNonNull(principalField, "principalField is null");
@@ -1205,7 +1205,7 @@ public class TestResourceSecurity
             jwkServer.stop();
         }
 
-        public OAuth2Client getOAuth2Client()
+        OAuth2Client getOAuth2Client()
         {
             return new OAuth2Client()
             {
@@ -1251,37 +1251,37 @@ public class TestResourceSecurity
             };
         }
 
-        public String getIssuer()
+        String getIssuer()
         {
             return issuer;
         }
 
-        public String getJwksUrl()
+        String getJwksUrl()
         {
             return jwkServer.getBaseUrl().toString();
         }
 
-        public String getClientId()
+        String getClientId()
         {
             return clientId;
         }
 
-        public String getClientSecret()
+        String getClientSecret()
         {
             return "clientSecret";
         }
 
-        public String getAccessToken()
+        String getAccessToken()
         {
             return accessToken;
         }
 
-        public String getRefreshToken()
+        String getRefreshToken()
         {
             return REFRESH_TOKEN;
         }
 
-        public String issueAccessToken()
+        String issueAccessToken()
         {
             JwtBuilder accessToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
@@ -1298,7 +1298,7 @@ public class TestResourceSecurity
             return accessToken.compact();
         }
 
-        public String issueTokenWithoutSubject()
+        String issueTokenWithoutSubject()
         {
             return newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
@@ -1582,8 +1582,8 @@ public class TestResourceSecurity
     private static class TestSystemAccessControl
             extends AllowAllSystemAccessControl
     {
-        public static final TestSystemAccessControl WITH_IMPERSONATION = new TestSystemAccessControl(false);
-        public static final TestSystemAccessControl NO_IMPERSONATION = new TestSystemAccessControl(true);
+        static final TestSystemAccessControl WITH_IMPERSONATION = new TestSystemAccessControl(false);
+        static final TestSystemAccessControl NO_IMPERSONATION = new TestSystemAccessControl(true);
 
         private final boolean allowImpersonation;
 

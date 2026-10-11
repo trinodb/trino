@@ -154,7 +154,7 @@ public class CompressingDecryptingPageDeserializer
             }
         }
 
-        public int startPage(Slice page)
+        int startPage(Slice page)
         {
             int positionCount = getSerializedPagePositionCount(page);
             ReadBuffer buffer = new ReadBuffer(page);
@@ -441,7 +441,7 @@ public class CompressingDecryptingPageDeserializer
             return (compressedBlockMarker & SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK) == SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
         }
 
-        public void finishPage()
+        void finishPage()
         {
             buffers[buffers.length - 1] = null;
             for (ReadBuffer buffer : buffers) {
@@ -545,39 +545,39 @@ public class CompressingDecryptingPageDeserializer
         private int position;
         private int limit;
 
-        public ReadBuffer(Slice slice)
+        ReadBuffer(Slice slice)
         {
             requireNonNull(slice, "slice is null");
             this.slice = slice;
             limit = slice.length();
         }
 
-        public int available()
+        int available()
         {
             return limit - position;
         }
 
-        public Slice getSlice()
+        Slice getSlice()
         {
             return slice;
         }
 
-        public int getPosition()
+        int getPosition()
         {
             return position;
         }
 
-        public void setPosition(int position)
+        void setPosition(int position)
         {
             this.position = position;
         }
 
-        public void setLimit(int limit)
+        void setLimit(int limit)
         {
             this.limit = limit;
         }
 
-        public int rollOver()
+        int rollOver()
         {
             int bytesToCopy = available();
             if (bytesToCopy != 0) {
@@ -587,56 +587,56 @@ public class CompressingDecryptingPageDeserializer
             return bytesToCopy;
         }
 
-        public boolean readBoolean()
+        boolean readBoolean()
         {
             boolean value = slice.getByte(position) == 1;
             position += Byte.BYTES;
             return value;
         }
 
-        public byte readByte()
+        byte readByte()
         {
             byte value = slice.getByte(position);
             position += Byte.BYTES;
             return value;
         }
 
-        public short readShort()
+        short readShort()
         {
             short value = slice.getShort(position);
             position += Short.BYTES;
             return value;
         }
 
-        public int readInt()
+        int readInt()
         {
             int value = slice.getInt(position);
             position += Integer.BYTES;
             return value;
         }
 
-        public long readLong()
+        long readLong()
         {
             long value = slice.getLong(position);
             position += Long.BYTES;
             return value;
         }
 
-        public float readFloat()
+        float readFloat()
         {
             float value = slice.getFloat(position);
             position += Float.BYTES;
             return value;
         }
 
-        public double readDouble()
+        double readDouble()
         {
             double value = slice.getDouble(position);
             position += Double.BYTES;
             return value;
         }
 
-        public int read(byte[] destination, int destinationIndex, int length)
+        int read(byte[] destination, int destinationIndex, int length)
         {
             int bytesToRead = min(length, slice.length() - position);
             slice.getBytes(position, destination, destinationIndex, bytesToRead);
@@ -644,49 +644,49 @@ public class CompressingDecryptingPageDeserializer
             return bytesToRead;
         }
 
-        public void readBytes(byte[] destination, int destinationIndex, int length)
+        void readBytes(byte[] destination, int destinationIndex, int length)
         {
             slice.getBytes(position, destination, destinationIndex, length);
             position += length;
         }
 
-        public void readShorts(short[] destination, int destinationIndex, int length)
+        void readShorts(short[] destination, int destinationIndex, int length)
         {
             slice.getShorts(position, destination, destinationIndex, length);
             position += length * Short.BYTES;
         }
 
-        public void readInts(int[] destination, int destinationIndex, int length)
+        void readInts(int[] destination, int destinationIndex, int length)
         {
             slice.getInts(position, destination, destinationIndex, length);
             position += length * Integer.BYTES;
         }
 
-        public void readLongs(long[] destination, int destinationIndex, int length)
+        void readLongs(long[] destination, int destinationIndex, int length)
         {
             slice.getLongs(position, destination, destinationIndex, length);
             position += length * Long.BYTES;
         }
 
-        public void readFloats(float[] destination, int destinationIndex, int length)
+        void readFloats(float[] destination, int destinationIndex, int length)
         {
             slice.getFloats(position, destination, destinationIndex, length);
             position += length * Float.BYTES;
         }
 
-        public void readDoubles(double[] destination, int destinationIndex, int length)
+        void readDoubles(double[] destination, int destinationIndex, int length)
         {
             slice.getDoubles(position, destination, destinationIndex, length);
             position += length * Double.BYTES;
         }
 
-        public void readBytes(Slice destination, int destinationIndex, int length)
+        void readBytes(Slice destination, int destinationIndex, int length)
         {
             slice.getBytes(position, destination, destinationIndex, length);
             position += length;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + slice.getRetainedSize();
         }

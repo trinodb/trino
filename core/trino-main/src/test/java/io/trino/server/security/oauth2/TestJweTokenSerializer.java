@@ -258,7 +258,7 @@ public class TestJweTokenSerializer
             return currentTime;
         }
 
-        public void advanceBy(Duration currentTimeDelta)
+        void advanceBy(Duration currentTimeDelta)
         {
             this.currentTime = currentTime.plus(currentTimeDelta.toMillis(), MILLIS);
         }

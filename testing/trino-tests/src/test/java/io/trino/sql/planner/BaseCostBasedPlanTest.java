@@ -280,12 +280,12 @@ public abstract class BaseCostBasedPlanTest
         private final Session session;
         private final StringBuilder result = new StringBuilder();
 
-        public JoinOrderPrinter(Session session)
+        private JoinOrderPrinter(Session session)
         {
             this.session = requireNonNull(session, "session is null");
         }
 
-        public String result()
+        private String result()
         {
             return result.toString();
         }

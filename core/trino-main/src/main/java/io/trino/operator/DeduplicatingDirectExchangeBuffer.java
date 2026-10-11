@@ -490,7 +490,7 @@ public class DeduplicatingDirectExchangeBuffer
             this.pageBufferCapacityInBytes = pageBufferCapacity.toBytes();
         }
 
-        public synchronized void addPages(TaskId taskId, List<Slice> pages)
+        synchronized void addPages(TaskId taskId, List<Slice> pages)
         {
             if (closed) {
                 return;
@@ -617,7 +617,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
         }
 
-        public synchronized void removePagesForPreviousAttempts(int currentAttemptId)
+        synchronized void removePagesForPreviousAttempts(int currentAttemptId)
         {
             checkState(!inputFinished, "input is finished");
 
@@ -643,7 +643,7 @@ public class DeduplicatingDirectExchangeBuffer
             bufferedPageCount -= removedPagesCount;
         }
 
-        public synchronized OutputSource createOutputSource(Set<TaskId> selectedTasks)
+        synchronized OutputSource createOutputSource(Set<TaskId> selectedTasks)
         {
             checkState(!inputFinished, "input is already marked as finished and page source has already been created");
             inputFinished = true;
@@ -701,7 +701,7 @@ public class DeduplicatingDirectExchangeBuffer
             return new ExchangeOutputSource(selectedTasks, queryId, exchangeSourceFuture);
         }
 
-        public synchronized long getRetainedSizeInBytes()
+        synchronized long getRetainedSizeInBytes()
         {
             long result = pageBufferRetainedSizeInBytes;
             if (exchangeSink != null) {
@@ -713,17 +713,17 @@ public class DeduplicatingDirectExchangeBuffer
             return result;
         }
 
-        public synchronized int getBufferedPageCount()
+        synchronized int getBufferedPageCount()
         {
             return bufferedPageCount;
         }
 
-        public synchronized long getSpilledBytes()
+        synchronized long getSpilledBytes()
         {
             return spilledBytes;
         }
 
-        public synchronized int getSpilledPageCount()
+        synchronized int getSpilledPageCount()
         {
             return spilledPageCount;
         }

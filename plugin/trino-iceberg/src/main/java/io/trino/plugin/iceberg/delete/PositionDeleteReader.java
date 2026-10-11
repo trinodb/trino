@@ -184,20 +184,20 @@ public final class PositionDeleteReader
         private int result;
         private Slice value;
 
-        public CachingVarcharComparator(Slice reference)
+        CachingVarcharComparator(Slice reference)
         {
             this.reference = requireNonNull(reference, "reference is null");
         }
 
         @SuppressWarnings({"ObjectEquality", "ReferenceEquality"})
-        public int compare(Block block, int position)
+        int compare(Block block, int position)
         {
             checkArgument(!block.isNull(position), "position is null");
             Slice next = VARCHAR.getSlice(block, position);
             return compare(next);
         }
 
-        public int compare(Slice next)
+        int compare(Slice next)
         {
             // The expected case is a dictionary block with many entries for the
             // same path. Only perform a comparison if the object has changed.

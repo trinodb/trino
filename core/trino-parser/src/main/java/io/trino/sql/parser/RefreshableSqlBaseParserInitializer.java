@@ -47,7 +47,7 @@ public final class RefreshableSqlBaseParserInitializer
 
     private static final class SqlBaseParserAndLexerATNCaches
     {
-        public final AntlrATNCacheFields lexer = new AntlrATNCacheFields(SqlBaseLexer._ATN);
-        public final AntlrATNCacheFields parser = new AntlrATNCacheFields(SqlBaseParser._ATN);
+        final AntlrATNCacheFields lexer = new AntlrATNCacheFields(SqlBaseLexer._ATN);
+        final AntlrATNCacheFields parser = new AntlrATNCacheFields(SqlBaseParser._ATN);
     }
 }

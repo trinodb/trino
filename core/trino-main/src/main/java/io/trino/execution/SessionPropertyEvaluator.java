@@ -130,7 +130,7 @@ public class SessionPropertyEvaluator
 
     private record Match(PropertyMetadata<?> metadata, double ratio)
     {
-        public Match
+        Match
         {
             requireNonNull(metadata, "metadata is null");
             verify(ratio >= 0.0 && ratio <= 1.0, "ratio must be in the [0, 1.0] range");

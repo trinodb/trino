@@ -336,18 +336,18 @@ public final class DynamicTableBuilder
         private final String pinotColumnName;
         private final Type trinoType;
 
-        public PinotColumnNameAndTrinoType(String pinotColumnName, Type trinoType)
+        private PinotColumnNameAndTrinoType(String pinotColumnName, Type trinoType)
         {
             this.pinotColumnName = requireNonNull(pinotColumnName, "pinotColumnName is null");
             this.trinoType = requireNonNull(trinoType, "trinoType is null");
         }
 
-        public String getPinotColumnName()
+        private String getPinotColumnName()
         {
             return pinotColumnName;
         }
 
-        public Type getTrinoType()
+        private Type getTrinoType()
         {
             return trinoType;
         }

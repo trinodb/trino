@@ -791,17 +791,17 @@ public class DeltaLakeMergeSink
             this.partitionValues = unmodifiableList(new ArrayList<>(requireNonNull(partitionValues, "partitionValues is null")));
         }
 
-        public List<String> partitionValues()
+        private List<String> partitionValues()
         {
             return partitionValues;
         }
 
-        public RoaringBitmapArray rowsDeletedByDelete()
+        private RoaringBitmapArray rowsDeletedByDelete()
         {
             return rowsDeletedByDelete;
         }
 
-        public RoaringBitmapArray rowsDeletedByUpdate()
+        private RoaringBitmapArray rowsDeletedByUpdate()
         {
             return rowsDeletedByUpdate;
         }
@@ -813,7 +813,7 @@ public class DeltaLakeMergeSink
             Optional<Page> updateInsertionsPage,
             Optional<Page> updateDeletionsPage)
     {
-        public DeltaLakeMergePage
+        private DeltaLakeMergePage
         {
             requireNonNull(deletionsPage, "deletionsPage is null");
             requireNonNull(insertionsPage, "insertionsPage is null");

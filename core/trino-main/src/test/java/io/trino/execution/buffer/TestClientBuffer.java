@@ -492,7 +492,7 @@ public class TestClientBuffer
             return buffer.size();
         }
 
-        public synchronized void addPage(Page page)
+        synchronized void addPage(Page page)
         {
             requireNonNull(page, "page is null");
             checkState(!noMorePages);

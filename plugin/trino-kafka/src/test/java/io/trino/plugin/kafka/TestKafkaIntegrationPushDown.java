@@ -207,18 +207,18 @@ public class TestKafkaIntegrationPushDown
         private final String startTime;
         private final String endTime;
 
-        public RecordMessage(String startTime, String endTime)
+        private RecordMessage(String startTime, String endTime)
         {
             this.startTime = requireNonNull(startTime, "startTime result is none");
             this.endTime = requireNonNull(endTime, "endTime result is none");
         }
 
-        public String getStartTime()
+        private String getStartTime()
         {
             return startTime;
         }
 
-        public String getEndTime()
+        private String getEndTime()
         {
             return endTime;
         }

@@ -116,28 +116,28 @@ public final class NodeAssignmentStats
             this.unacknowledgedSplitCount = unacknowledgedSplitCount;
         }
 
-        public long getAssignedSplitsWeight()
+        long getAssignedSplitsWeight()
         {
             return assignedSplitsWeight;
         }
 
-        public long getQueuedSplitsWeight()
+        long getQueuedSplitsWeight()
         {
             return addExact(queuedSplitsWeight, assignedSplitsWeight);
         }
 
-        public int getUnacknowledgedSplitCount()
+        int getUnacknowledgedSplitCount()
         {
             return unacknowledgedSplitCount + assignedSplits;
         }
 
-        public void addAssignedSplit(SplitWeight splitWeight)
+        void addAssignedSplit(SplitWeight splitWeight)
         {
             assignedSplits++;
             assignedSplitsWeight = addExact(assignedSplitsWeight, splitWeight.getRawValue());
         }
 
-        public void removeAssignedSplit(SplitWeight splitWeight)
+        void removeAssignedSplit(SplitWeight splitWeight)
         {
             assignedSplits--;
             assignedSplitsWeight -= splitWeight.getRawValue();

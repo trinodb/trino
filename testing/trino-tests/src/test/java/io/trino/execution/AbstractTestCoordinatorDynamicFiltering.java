@@ -476,7 +476,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     private class TestingPlugin
             implements Plugin
     {
-        public TestingPlugin() {}
+        private TestingPlugin() {}
 
         @Override
         public Iterable<ConnectorFactory> getConnectorFactories()

@@ -363,7 +363,7 @@ public class TextRenderer
         private final String nextLinesPrefix;
         private final boolean hasChildren;
 
-        public static Indent newInstance(int level, boolean hasChildren)
+        static Indent newInstance(int level, boolean hasChildren)
         {
             String indent = indentString(level);
             return new Indent(indent, indent, hasChildren);
@@ -376,7 +376,7 @@ public class TextRenderer
             this.hasChildren = hasChildren;
         }
 
-        public Indent forChild(boolean last, boolean hasChildren)
+        Indent forChild(boolean last, boolean hasChildren)
         {
             String first;
             String next;
@@ -393,12 +393,12 @@ public class TextRenderer
             return new Indent(nextLinesPrefix + first, nextLinesPrefix + next, hasChildren);
         }
 
-        public String nodeIndent()
+        String nodeIndent()
         {
             return firstLinePrefix;
         }
 
-        public String detailIndent()
+        String detailIndent()
         {
             String indent = "";
 

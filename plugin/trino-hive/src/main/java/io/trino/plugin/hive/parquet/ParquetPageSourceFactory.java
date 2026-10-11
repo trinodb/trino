@@ -608,7 +608,7 @@ public class ParquetPageSourceFactory
         /**
          * Get Prefixes of this Dereference chain in increasing order of lengths
          */
-        public List<DereferenceChain> getOrderedPrefixes()
+        List<DereferenceChain> getOrderedPrefixes()
         {
             ImmutableList.Builder<DereferenceChain> prefixes = ImmutableList.builder();
 

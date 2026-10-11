@@ -51,7 +51,7 @@ public final class DeterminismEvaluator
     {
         private final Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier;
 
-        public Visitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
+        Visitor(Function<FunctionCall, ResolvedFunction> resolvedFunctionSupplier)
         {
             this.resolvedFunctionSupplier = resolvedFunctionSupplier;
         }

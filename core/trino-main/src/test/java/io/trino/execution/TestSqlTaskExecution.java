@@ -252,13 +252,13 @@ public class TestSqlTaskExecution
         private int surplusPositions;
         private boolean bufferComplete;
 
-        public OutputBufferConsumer(OutputBuffer outputBuffer, OutputBufferId outputBufferId)
+        OutputBufferConsumer(OutputBuffer outputBuffer, OutputBufferId outputBufferId)
         {
             this.outputBuffer = outputBuffer;
             this.outputBufferId = outputBufferId;
         }
 
-        public void consume(int positions, Duration timeout)
+        void consume(int positions, Duration timeout)
                 throws ExecutionException, InterruptedException, TimeoutException
         {
             long nanoUntil = System.nanoTime() + timeout.toMillis() * 1_000_000;
@@ -276,7 +276,7 @@ public class TestSqlTaskExecution
             }
         }
 
-        public void assertBufferComplete(Duration timeout)
+        void assertBufferComplete(Duration timeout)
                 throws InterruptedException, ExecutionException, TimeoutException
         {
             assertThat(surplusPositions).isEqualTo(0);
@@ -291,7 +291,7 @@ public class TestSqlTaskExecution
             }
         }
 
-        public void abort()
+        void abort()
         {
             outputBuffer.destroy(outputBufferId);
             assertThat(outputBuffer.getInfo().state()).isEqualTo(BufferState.FINISHED);

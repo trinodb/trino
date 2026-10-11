@@ -1240,12 +1240,12 @@ public final class StateCompiler
             return "set" + getName();
         }
 
-        public String getName()
+        String getName()
         {
             return name;
         }
 
-        public Class<?> getType()
+        Class<?> getType()
         {
             return type;
         }
@@ -1261,7 +1261,7 @@ public final class StateCompiler
             return (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class);
         }
 
-        public BytecodeExpression initialValueExpression()
+        BytecodeExpression initialValueExpression()
         {
             return switch (initialValue) {
                 case null -> defaultValue(type);

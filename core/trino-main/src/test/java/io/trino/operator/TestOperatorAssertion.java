@@ -68,7 +68,7 @@ public class TestOperatorAssertion
 
         private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
-        public BlockedOperator(Duration unblockAfter)
+        BlockedOperator(Duration unblockAfter)
         {
             this.unblockAfter = requireNonNull(unblockAfter, "unblockAfter is null");
             this.operatorContext = TestingOperatorContext.create(executor);

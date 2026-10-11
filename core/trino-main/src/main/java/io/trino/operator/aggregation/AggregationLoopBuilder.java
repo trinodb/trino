@@ -312,7 +312,7 @@ final class AggregationLoopBuilder
             return new AggregationParameters(mask, groupIds, states.build(), parameters.build(), lambdas.build());
         }
 
-        public List<Parameter> allParameters()
+        List<Parameter> allParameters()
         {
             return ImmutableList.<Parameter>builder()
                     .add(mask)

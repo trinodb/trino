@@ -1146,31 +1146,31 @@ public class TestCachingJdbcClient
         private IdentityCacheMapping identityCacheMapping;
         private BaseJdbcConfig config;
 
-        public CachingJdbcClientBuilder ticker(Ticker ticker)
+        private CachingJdbcClientBuilder ticker(Ticker ticker)
         {
             this.ticker = ticker;
             return this;
         }
 
-        public CachingJdbcClientBuilder delegate(JdbcClient delegate)
+        private CachingJdbcClientBuilder delegate(JdbcClient delegate)
         {
             this.delegate = delegate;
             return this;
         }
 
-        public CachingJdbcClientBuilder sessionPropertiesProviders(Set<SessionPropertiesProvider> sessionPropertiesProviders)
+        private CachingJdbcClientBuilder sessionPropertiesProviders(Set<SessionPropertiesProvider> sessionPropertiesProviders)
         {
             this.sessionPropertiesProviders = sessionPropertiesProviders;
             return this;
         }
 
-        public CachingJdbcClientBuilder identityCacheMapping(IdentityCacheMapping identityCacheMapping)
+        private CachingJdbcClientBuilder identityCacheMapping(IdentityCacheMapping identityCacheMapping)
         {
             this.identityCacheMapping = identityCacheMapping;
             return this;
         }
 
-        public CachingJdbcClientBuilder config(BaseJdbcConfig config)
+        private CachingJdbcClientBuilder config(BaseJdbcConfig config)
         {
             this.config = config;
             return this;
@@ -1271,30 +1271,30 @@ public class TestCachingJdbcClient
             delegate = new JdbcCacheStatsAssertions(jdbcClient);
         }
 
-        public SingleJdbcCacheStatsAssertions loads(long value)
+        private SingleJdbcCacheStatsAssertions loads(long value)
         {
             delegate.loads(chosenCache, value);
             return this;
         }
 
-        public SingleJdbcCacheStatsAssertions hits(long value)
+        private SingleJdbcCacheStatsAssertions hits(long value)
         {
             delegate.hits(chosenCache, value);
             return this;
         }
 
-        public SingleJdbcCacheStatsAssertions misses(long value)
+        private SingleJdbcCacheStatsAssertions misses(long value)
         {
             delegate.misses(chosenCache, value);
             return this;
         }
 
-        public void afterRunning(Runnable runnable)
+        private void afterRunning(Runnable runnable)
         {
             delegate.afterRunning(runnable);
         }
 
-        public <T> T calling(Callable<T> callable)
+        private <T> T calling(Callable<T> callable)
                 throws Exception
         {
             return delegate.calling(callable);
@@ -1309,30 +1309,30 @@ public class TestCachingJdbcClient
         private final Map<CachingJdbcCache, Long> hits = new HashMap<>();
         private final Map<CachingJdbcCache, Long> misses = new HashMap<>();
 
-        public JdbcCacheStatsAssertions(CachingJdbcClient jdbcClient)
+        private JdbcCacheStatsAssertions(CachingJdbcClient jdbcClient)
         {
             this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         }
 
-        public JdbcCacheStatsAssertions loads(CachingJdbcCache cache, long value)
+        private JdbcCacheStatsAssertions loads(CachingJdbcCache cache, long value)
         {
             loads.put(cache, value);
             return this;
         }
 
-        public JdbcCacheStatsAssertions hits(CachingJdbcCache cache, long value)
+        private JdbcCacheStatsAssertions hits(CachingJdbcCache cache, long value)
         {
             hits.put(cache, value);
             return this;
         }
 
-        public JdbcCacheStatsAssertions misses(CachingJdbcCache cache, long value)
+        private JdbcCacheStatsAssertions misses(CachingJdbcCache cache, long value)
         {
             misses.put(cache, value);
             return this;
         }
 
-        public void afterRunning(Runnable runnable)
+        private void afterRunning(Runnable runnable)
         {
             try {
                 calling(() -> {
@@ -1345,7 +1345,7 @@ public class TestCachingJdbcClient
             }
         }
 
-        public <T> T calling(Callable<T> callable)
+        private <T> T calling(Callable<T> callable)
                 throws Exception
         {
             Map<CachingJdbcCache, CacheStats> beforeStats = Stream.of(CachingJdbcCache.values())

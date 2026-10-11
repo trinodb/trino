@@ -974,7 +974,7 @@ public class QueryMonitor
         private final PlanFragmentId fragmentId;
         private final PlanNodeId nodeId;
 
-        public FragmentNode(PlanFragmentId fragmentId, PlanNodeId nodeId)
+        FragmentNode(PlanFragmentId fragmentId, PlanNodeId nodeId)
         {
             this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");

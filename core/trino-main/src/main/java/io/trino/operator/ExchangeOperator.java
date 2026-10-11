@@ -286,24 +286,24 @@ public class ExchangeOperator
         private final IntSet noMoreSplitsOperators = new IntOpenHashSet();
         private boolean noMoreOperators;
 
-        public synchronized void operatorAdded(int operatorInstanceId)
+        synchronized void operatorAdded(int operatorInstanceId)
         {
             checkState(!noMoreOperators, "noMoreOperators is set");
             allOperators.add(operatorInstanceId);
         }
 
-        public synchronized void noMoreOperators()
+        synchronized void noMoreOperators()
         {
             noMoreOperators = true;
         }
 
-        public synchronized void noMoreSplits(int operatorInstanceId)
+        synchronized void noMoreSplits(int operatorInstanceId)
         {
             checkState(allOperators.contains(operatorInstanceId), "operatorInstanceId not found: %s", operatorInstanceId);
             noMoreSplitsOperators.add(operatorInstanceId);
         }
 
-        public synchronized boolean isNoMoreSplits()
+        synchronized boolean isNoMoreSplits()
         {
             return noMoreOperators && noMoreSplitsOperators.containsAll(allOperators);
         }

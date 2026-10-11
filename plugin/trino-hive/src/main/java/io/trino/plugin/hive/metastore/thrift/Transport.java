@@ -106,7 +106,7 @@ public final class Transport
     {
         private final HostAndPort address;
 
-        public TTransportWrapper(TTransport transport, HostAndPort address)
+        TTransportWrapper(TTransport transport, HostAndPort address)
         {
             super(transport);
             this.address = requireNonNull(address, "address is null");

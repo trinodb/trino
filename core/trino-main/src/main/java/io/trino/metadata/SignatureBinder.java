@@ -760,7 +760,7 @@ public class SignatureBinder
 
         private SolverReturnStatus current = SolverReturnStatus.UNCHANGED_SATISFIED;
 
-        public void add(SolverReturnStatus newStatus)
+        void add(SolverReturnStatus newStatus)
         {
             switch (newStatus) {
                 case UNCHANGED_SATISFIED -> {}
@@ -778,7 +778,7 @@ public class SignatureBinder
             }
         }
 
-        public SolverReturnStatus getCurrent()
+        SolverReturnStatus getCurrent()
         {
             return current;
         }
@@ -793,7 +793,7 @@ public class SignatureBinder
         private final boolean orderableRequired;
         private final boolean rowTypeRequired;
 
-        public TypeParameterSolver(String typeParameter, Type actualType, boolean comparableRequired, boolean orderableRequired, boolean rowTypeRequired)
+        TypeParameterSolver(String typeParameter, Type actualType, boolean comparableRequired, boolean orderableRequired, boolean rowTypeRequired)
         {
             this.typeParameter = typeParameter;
             this.actualType = actualType;
@@ -846,7 +846,7 @@ public class SignatureBinder
         private final TypeTemplate formalTemplate;
         private final Type actualType;
 
-        public TypeWithLiteralParametersSolver(TypeTemplate formalTemplate, Type actualType)
+        TypeWithLiteralParametersSolver(TypeTemplate formalTemplate, Type actualType)
         {
             this.formalTemplate = formalTemplate;
             this.actualType = actualType;
@@ -925,7 +925,7 @@ public class SignatureBinder
         private final TypeTemplate formalLambdaReturnTemplate;
         private final TypeDescriptorProvider typeDescriptorProvider;
 
-        public FunctionSolver(
+        FunctionSolver(
                 List<TypeTemplate> formalLambdaArgumentTemplates,
                 TypeTemplate formalLambdaReturnTemplate,
                 TypeDescriptorProvider typeDescriptorProvider)
@@ -1038,7 +1038,7 @@ public class SignatureBinder
         private final Type actualType;
         private final RelationshipType relationshipType;
 
-        public TypeRelationshipConstraintSolver(TypeTemplate formalTemplate, Set<String> typeVariables, Set<String> longVariables, Type actualType, RelationshipType relationshipType)
+        TypeRelationshipConstraintSolver(TypeTemplate formalTemplate, Set<String> typeVariables, Set<String> longVariables, Type actualType, RelationshipType relationshipType)
         {
             this.formalTemplate = requireNonNull(formalTemplate, "formalTemplate is null");
             this.typeVariables = ImmutableSet.copyOf(typeVariables);

@@ -2307,7 +2307,7 @@ public class Analysis
         private final QualifiedObjectName table;
         private final String identity;
 
-        public RowFilterScopeEntry(QualifiedObjectName table, String identity)
+        RowFilterScopeEntry(QualifiedObjectName table, String identity)
         {
             this.table = requireNonNull(table, "table is null");
             this.identity = requireNonNull(identity, "identity is null");
@@ -2340,7 +2340,7 @@ public class Analysis
         private final String column;
         private final String identity;
 
-        public ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
+        ColumnMaskScopeEntry(QualifiedObjectName table, String column, String identity)
         {
             this.table = requireNonNull(table, "table is null");
             this.column = requireNonNull(column, "column is null");
@@ -2380,7 +2380,7 @@ public class Analysis
         private final Optional<String> viewText;
         private final List<TableReferenceInfo> referenceChain;
 
-        public TableEntry(
+        TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
                 Optional<String> branch,
@@ -2400,42 +2400,42 @@ public class Analysis
             this.referenceChain = ImmutableList.copyOf(requireNonNull(referenceChain, "referenceChain is null"));
         }
 
-        public Optional<TableHandle> getHandle()
+        Optional<TableHandle> getHandle()
         {
             return handle;
         }
 
-        public QualifiedObjectName getName()
+        QualifiedObjectName getName()
         {
             return name;
         }
 
-        public Optional<String> getBranch()
+        Optional<String> getBranch()
         {
             return branch;
         }
 
-        public String getAuthorization()
+        String getAuthorization()
         {
             return authorization;
         }
 
-        public Scope getAccessControlScope()
+        Scope getAccessControlScope()
         {
             return accessControlScope;
         }
 
-        public boolean isDirectlyReferenced()
+        boolean isDirectlyReferenced()
         {
             return directlyReferenced;
         }
 
-        public Optional<String> getViewText()
+        Optional<String> getViewText()
         {
             return viewText;
         }
 
-        public List<TableReferenceInfo> getReferenceChain()
+        List<TableReferenceInfo> getReferenceChain()
         {
             return referenceChain;
         }
@@ -2505,18 +2505,18 @@ public class Analysis
         private final ResolvedFunction function;
         private final String authorization;
 
-        public RoutineEntry(ResolvedFunction function, String authorization)
+        RoutineEntry(ResolvedFunction function, String authorization)
         {
             this.function = requireNonNull(function, "function is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
         }
 
-        public ResolvedFunction getFunction()
+        ResolvedFunction getFunction()
         {
             return function;
         }
 
-        public String getAuthorization()
+        String getAuthorization()
         {
             return authorization;
         }
@@ -2529,7 +2529,7 @@ public class Analysis
         private final Optional<Table> table;
         private final Optional<List<OutputColumn>> columns;
 
-        public UpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
+        UpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
         {
             this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
             this.name = requireNonNull(name, "name is null");
@@ -2542,17 +2542,17 @@ public class Analysis
             return catalogVersion;
         }
 
-        public QualifiedObjectName getName()
+        QualifiedObjectName getName()
         {
             return name;
         }
 
-        public Optional<Table> getTable()
+        Optional<Table> getTable()
         {
             return table;
         }
 
-        public Optional<List<OutputColumn>> getColumns()
+        Optional<List<OutputColumn>> getColumns()
         {
             return columns;
         }

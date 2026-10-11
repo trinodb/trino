@@ -1273,13 +1273,13 @@ public class TestSignatureBinder
             this.function = function;
         }
 
-        public BindSignatureAssertion withCoercion()
+        BindSignatureAssertion withCoercion()
         {
             allowCoercion = true;
             return this;
         }
 
-        public BindSignatureAssertion boundTo(Object... arguments)
+        BindSignatureAssertion boundTo(Object... arguments)
         {
             ImmutableList.Builder<TypeDescriptorProvider> builder = ImmutableList.builder();
             for (Object argument : arguments) {
@@ -1297,26 +1297,26 @@ public class TestSignatureBinder
             return this;
         }
 
-        public BindSignatureAssertion boundTo(List<Type> arguments, Type returnType)
+        BindSignatureAssertion boundTo(List<Type> arguments, Type returnType)
         {
             this.argumentTypes = fromTypes(arguments);
             this.returnType = returnType;
             return this;
         }
 
-        public BindSignatureAssertion succeeds()
+        BindSignatureAssertion succeeds()
         {
             Assertions.assertThat(bindVariables()).isPresent();
             return this;
         }
 
-        public BindSignatureAssertion fails()
+        BindSignatureAssertion fails()
         {
             Assertions.assertThat(bindVariables()).isEmpty();
             return this;
         }
 
-        public BindSignatureAssertion produces(VariableBindings expected)
+        BindSignatureAssertion produces(VariableBindings expected)
         {
             Optional<VariableBindings> actual = bindVariables();
             Assertions.assertThat(actual).isPresent();

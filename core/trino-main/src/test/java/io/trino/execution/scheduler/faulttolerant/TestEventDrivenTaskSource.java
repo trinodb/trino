@@ -433,7 +433,7 @@ public class TestEventDrivenTaskSource
         @GuardedBy("this")
         private boolean closed;
 
-        public TestingSplitSource(ScheduledExecutorService executor, List<ConnectorSplit> splits)
+        TestingSplitSource(ScheduledExecutorService executor, List<ConnectorSplit> splits)
         {
             this.executor = requireNonNull(executor, "executor is null");
             remainingSplits = new LinkedList<>(splits);
@@ -511,7 +511,7 @@ public class TestEventDrivenTaskSource
             return Metrics.EMPTY;
         }
 
-        public synchronized boolean isClosed()
+        synchronized boolean isClosed()
         {
             return closed;
         }
@@ -579,7 +579,7 @@ public class TestEventDrivenTaskSource
             remainingHandles.clear();
         }
 
-        public synchronized boolean isClosed()
+        synchronized boolean isClosed()
         {
             return closed;
         }
@@ -593,7 +593,7 @@ public class TestEventDrivenTaskSource
         @GuardedBy("this")
         private boolean closed;
 
-        public TestingExchange(ExchangeSourceHandleSource exchangeSourceHandleSource)
+        TestingExchange(ExchangeSourceHandleSource exchangeSourceHandleSource)
         {
             this.exchangeSourceHandleSource = requireNonNull(exchangeSourceHandleSource, "exchangeSourceHandleSource is null");
         }

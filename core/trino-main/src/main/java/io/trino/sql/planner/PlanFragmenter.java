@@ -255,7 +255,7 @@ public class PlanFragmenter
         private final Map<ExchangeSourceId, SubPlan> unchangedSubPlans;
         private final PlanFragmentId rootFragmentID;
 
-        public Fragmenter(
+        Fragmenter(
                 Session session,
                 Metadata metadata,
                 FunctionManager functionManager,
@@ -276,7 +276,7 @@ public class PlanFragmenter
             this.rootFragmentID = idAllocator.getNextId();
         }
 
-        public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
+        SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
         {
             return buildFragment(root, properties, rootFragmentID);
         }
@@ -604,22 +604,22 @@ public class PlanFragmenter
         private OptionalInt partitionCount = OptionalInt.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
-        public FragmentProperties(PartitioningScheme partitioningScheme)
+        FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
         }
 
-        public List<SubPlan> getChildren()
+        List<SubPlan> getChildren()
         {
             return children;
         }
 
-        public boolean hasDistribution()
+        boolean hasDistribution()
         {
             return partitioningHandle.isPresent();
         }
 
-        public FragmentProperties setSingleNodeDistribution()
+        FragmentProperties setSingleNodeDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isSingleNode()) {
                 // already single node distribution
@@ -636,7 +636,7 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setDistribution(
+        FragmentProperties setDistribution(
                 PartitioningHandle distribution,
                 OptionalInt partitionCount,
                 Metadata metadata,
@@ -712,7 +712,7 @@ public class PlanFragmenter
             return currentWithScaledWritersEnabled.equals(suggested);
         }
 
-        public FragmentProperties setCoordinatorOnlyDistribution()
+        FragmentProperties setCoordinatorOnlyDistribution()
         {
             if (partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly()) {
                 // already single node distribution
@@ -730,7 +730,7 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session)
+        FragmentProperties addSourceDistribution(PlanNodeId source, PartitioningHandle distribution, Metadata metadata, Session session)
         {
             requireNonNull(source, "source is null");
             requireNonNull(distribution, "distribution is null");
@@ -762,36 +762,36 @@ public class PlanFragmenter
             throw new IllegalStateException(format("Cannot overwrite distribution with %s (currently set to %s)", distribution, currentPartitioning));
         }
 
-        public FragmentProperties addChildren(List<SubPlan> children)
+        FragmentProperties addChildren(List<SubPlan> children)
         {
             this.children.addAll(children);
 
             return this;
         }
 
-        public void setContainsEmptyValues()
+        void setContainsEmptyValues()
         {
             this.containsEmptyValues = true;
         }
 
-        public PartitioningScheme getPartitioningScheme()
+        PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
         }
 
-        public PartitioningHandle getPartitioningHandle()
+        PartitioningHandle getPartitioningHandle()
         {
             checkState(partitioningHandle.isPresent() || containsEmptyValues, "PartitioningHandle is not set for a fragment that does not contain empty values");
 
             return partitioningHandle.orElse(SINGLE_DISTRIBUTION);
         }
 
-        public OptionalInt getPartitionCount()
+        OptionalInt getPartitionCount()
         {
             return partitionCount;
         }
 
-        public Set<PlanNodeId> getPartitionedSources()
+        Set<PlanNodeId> getPartitionedSources()
         {
             return partitionedSources;
         }
@@ -804,7 +804,7 @@ public class PlanFragmenter
         private final Metadata metadata;
         private final Session session;
 
-        public PartitioningHandleReassigner(PartitioningHandle fragmentPartitioningHandle, Metadata metadata, Session session)
+        PartitioningHandleReassigner(PartitioningHandle fragmentPartitioningHandle, Metadata metadata, Session session)
         {
             this.fragmentPartitioningHandle = fragmentPartitioningHandle;
             this.metadata = metadata;
@@ -851,7 +851,7 @@ public class PlanFragmenter
         private final List<PlanNode> remoteSourceNodes;
         private final Set<ExchangeSourceId> unchangedRemoteExchanges;
 
-        public ExchangeNodeToRemoteSourceRewriter(List<PlanNode> remoteSourceNodes, Set<ExchangeSourceId> unchangedRemoteExchanges)
+        ExchangeNodeToRemoteSourceRewriter(List<PlanNode> remoteSourceNodes, Set<ExchangeSourceId> unchangedRemoteExchanges)
         {
             this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
             this.unchangedRemoteExchanges = requireNonNull(unchangedRemoteExchanges, "unchangedRemoteExchanges is null");

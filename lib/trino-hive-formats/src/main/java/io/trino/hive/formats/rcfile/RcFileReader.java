@@ -560,13 +560,13 @@ public class RcFileReader
         private int runLength;
         private int lastValueLength = -1;
 
-        public Column(ColumnEncoding encoding, ValueDecompressor decompressor)
+        Column(ColumnEncoding encoding, ValueDecompressor decompressor)
         {
             this.encoding = encoding;
             this.decompressor = decompressor;
         }
 
-        public void setBuffers(Slice lengthsBuffer, Slice dataBuffer, int uncompressedDataSize)
+        void setBuffers(Slice lengthsBuffer, Slice dataBuffer, int uncompressedDataSize)
         {
             this.lengthsInput = lengthsBuffer.getInput();
             this.dataBuffer = dataBuffer;
@@ -580,7 +580,7 @@ public class RcFileReader
             lastValueLength = 0;
         }
 
-        public Block readBlock(int position, int size)
+        Block readBlock(int position, int size)
                 throws IOException
         {
             checkArgument(size > 0 && size <= ColumnData.MAX_SIZE, "Invalid size");

@@ -2768,7 +2768,7 @@ public class SemiTransactionalHiveMetastore
         private final PartitionStatistics statisticsUpdate;
         private final boolean cleanExtraOutputFilesOnCommit;
 
-        public TableAndMore(
+        TableAndMore(
                 Table table,
                 Optional<PrincipalPrivileges> principalPrivileges,
                 Optional<Location> currentLocation,
@@ -2793,48 +2793,48 @@ public class SemiTransactionalHiveMetastore
             checkArgument(fileNames.isEmpty() || currentLocation.isPresent(), "fileNames can be supplied only when currentLocation is supplied");
         }
 
-        public boolean isIgnoreExisting()
+        boolean isIgnoreExisting()
         {
             return ignoreExisting;
         }
 
-        public Table getTable()
+        Table getTable()
         {
             return table;
         }
 
-        public PrincipalPrivileges getPrincipalPrivileges()
+        PrincipalPrivileges getPrincipalPrivileges()
         {
             checkState(principalPrivileges.isPresent());
             return principalPrivileges.get();
         }
 
-        public Optional<Location> getCurrentLocation()
+        Optional<Location> getCurrentLocation()
         {
             return currentLocation;
         }
 
-        public Optional<List<String>> getFileNames()
+        Optional<List<String>> getFileNames()
         {
             return fileNames;
         }
 
-        public PartitionStatistics getStatistics()
+        PartitionStatistics getStatistics()
         {
             return statistics;
         }
 
-        public PartitionStatistics getStatisticsBeforeUpdate()
+        PartitionStatistics getStatisticsBeforeUpdate()
         {
             return statisticsBeforeUpdate;
         }
 
-        public PartitionStatistics getStatisticsUpdate()
+        PartitionStatistics getStatisticsUpdate()
         {
             return statisticsUpdate;
         }
 
-        public boolean isCleanExtraOutputFilesOnCommit()
+        boolean isCleanExtraOutputFilesOnCommit()
         {
             return cleanExtraOutputFilesOnCommit;
         }
@@ -2861,7 +2861,7 @@ public class SemiTransactionalHiveMetastore
     {
         private final List<PartitionUpdateAndMergeResults> partitionMergeResults;
 
-        public TableAndMergeResults(
+        TableAndMergeResults(
                 Table table,
                 Optional<PrincipalPrivileges> principalPrivileges,
                 Optional<Location> currentLocation,
@@ -2911,18 +2911,18 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(statisticsUpdateMode, "statisticsUpdateMode is null");
         }
 
-        public List<String> getFileNames()
+        List<String> getFileNames()
         {
             checkState(fileNames.isPresent());
             return fileNames.get();
         }
 
-        public boolean hasFileNames()
+        boolean hasFileNames()
         {
             return fileNames.isPresent();
         }
 
-        public Partition getAugmentedPartitionForInTransactionRead()
+        Partition getAugmentedPartitionForInTransactionRead()
         {
             // This method augments the location field of the partition to the staging location.
             // This way, if the partition is accessed in an ongoing transaction, staged data
@@ -2987,7 +2987,7 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(action, "action is null");
         }
 
-        public void run()
+        void run()
         {
             action.run();
         }
@@ -3002,7 +3002,7 @@ public class SemiTransactionalHiveMetastore
         private final PartitionStatistics statistics;
         private final String queryId;
 
-        public CreateTableOperation(Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, PartitionStatistics statistics)
+        CreateTableOperation(Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, PartitionStatistics statistics)
         {
             requireNonNull(newTable, "newTable is null");
             this.newTable = newTable;
@@ -3012,12 +3012,12 @@ public class SemiTransactionalHiveMetastore
             this.queryId = getQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
         }
 
-        public String getDescription()
+        String getDescription()
         {
             return format("add table %s.%s", newTable.getDatabaseName(), newTable.getTableName());
         }
 
-        public void run(HiveMetastore metastore, AcidTransaction transaction)
+        void run(HiveMetastore metastore, AcidTransaction transaction)
         {
             boolean created = false;
             try {
@@ -3089,7 +3089,7 @@ public class SemiTransactionalHiveMetastore
             return true;
         }
 
-        public void undo(HiveMetastore metastore)
+        void undo(HiveMetastore metastore)
         {
             if (!tableCreated) {
                 return;
@@ -3105,7 +3105,7 @@ public class SemiTransactionalHiveMetastore
         private final PrincipalPrivileges principalPrivileges;
         private boolean undo;
 
-        public AlterTableOperation(Table newTable, Table oldTable, PrincipalPrivileges principalPrivileges)
+        AlterTableOperation(Table newTable, Table oldTable, PrincipalPrivileges principalPrivileges)
         {
             this.newTable = requireNonNull(newTable, "newTable is null");
             this.oldTable = requireNonNull(oldTable, "oldTable is null");
@@ -3114,7 +3114,7 @@ public class SemiTransactionalHiveMetastore
             checkArgument(newTable.getTableName().equals(oldTable.getTableName()));
         }
 
-        public String getDescription()
+        String getDescription()
         {
             return format(
                     "alter table %s.%s",
@@ -3122,7 +3122,7 @@ public class SemiTransactionalHiveMetastore
                     newTable.getTableName());
         }
 
-        public void run(HiveMetastore metastore, AcidTransaction transaction)
+        void run(HiveMetastore metastore, AcidTransaction transaction)
         {
             undo = true;
             if (transaction.isTransactional()) {
@@ -3133,7 +3133,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        public void undo(HiveMetastore metastore, AcidTransaction transaction)
+        void undo(HiveMetastore metastore, AcidTransaction transaction)
         {
             if (!undo) {
                 return;
@@ -3154,7 +3154,7 @@ public class SemiTransactionalHiveMetastore
         private final PartitionWithStatistics oldPartition;
         private boolean undo;
 
-        public AlterPartitionOperation(PartitionWithStatistics newPartition, PartitionWithStatistics oldPartition)
+        AlterPartitionOperation(PartitionWithStatistics newPartition, PartitionWithStatistics oldPartition)
         {
             this.newPartition = requireNonNull(newPartition, "newPartition is null");
             this.oldPartition = requireNonNull(oldPartition, "oldPartition is null");
@@ -3163,7 +3163,7 @@ public class SemiTransactionalHiveMetastore
             checkArgument(newPartition.getPartition().getValues().equals(oldPartition.getPartition().getValues()));
         }
 
-        public String getDescription()
+        String getDescription()
         {
             return format(
                     "alter partition %s.%s %s",
@@ -3172,13 +3172,13 @@ public class SemiTransactionalHiveMetastore
                     newPartition.getPartition().getValues());
         }
 
-        public void run(HiveMetastore metastore)
+        void run(HiveMetastore metastore)
         {
             undo = true;
             metastore.alterPartition(newPartition.getPartition().getDatabaseName(), newPartition.getPartition().getTableName(), newPartition);
         }
 
-        public void undo(HiveMetastore metastore)
+        void undo(HiveMetastore metastore)
         {
             if (!undo) {
                 return;
@@ -3352,7 +3352,7 @@ public class SemiTransactionalHiveMetastore
         private final List<PartitionWithStatistics> partitions;
         private List<List<String>> createdPartitionValues = new ArrayList<>();
 
-        public PartitionAdder(String schemaName, String tableName, HiveMetastore metastore, int batchSize)
+        PartitionAdder(String schemaName, String tableName, HiveMetastore metastore, int batchSize)
         {
             this.schemaName = schemaName;
             this.tableName = tableName;
@@ -3361,23 +3361,23 @@ public class SemiTransactionalHiveMetastore
             this.partitions = new ArrayList<>(batchSize);
         }
 
-        public String getSchemaName()
+        String getSchemaName()
         {
             return schemaName;
         }
 
-        public String getTableName()
+        String getTableName()
         {
             return tableName;
         }
 
-        public void addPartition(PartitionWithStatistics partition)
+        void addPartition(PartitionWithStatistics partition)
         {
             checkArgument(getQueryId(partition.getPartition()).isPresent());
             partitions.add(partition);
         }
 
-        public void execute(AcidTransaction transaction)
+        void execute(AcidTransaction transaction)
         {
             List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, batchSize);
             for (List<PartitionWithStatistics> batch : batchedPartitions) {
@@ -3428,7 +3428,7 @@ public class SemiTransactionalHiveMetastore
             partitions.clear();
         }
 
-        public List<List<String>> rollback()
+        List<List<String>> rollback()
         {
             // drop created partitions
             List<List<String>> partitionsFailedToRollback = new ArrayList<>();

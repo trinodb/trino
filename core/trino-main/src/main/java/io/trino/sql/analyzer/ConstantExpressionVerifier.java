@@ -40,7 +40,7 @@ public final class ConstantExpressionVerifier
         private final Set<NodeRef<Expression>> columnReferences;
         private final Expression expression;
 
-        public ConstantExpressionVerifierVisitor(Set<NodeRef<Expression>> columnReferences, Expression expression)
+        ConstantExpressionVerifierVisitor(Set<NodeRef<Expression>> columnReferences, Expression expression)
         {
             this.columnReferences = columnReferences;
             this.expression = expression;

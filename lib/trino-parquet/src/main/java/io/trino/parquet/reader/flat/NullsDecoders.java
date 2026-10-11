@@ -43,17 +43,17 @@ public class NullsDecoders
     private abstract static class AbstractNullsDecoder
             implements FlatDefinitionLevelDecoder
     {
-        protected SimpleSliceInputStream input;
+        SimpleSliceInputStream input;
         // Encoding type if decoding stopped in the middle of the group
-        protected boolean isRle;
+        boolean isRle;
         // Values left to decode in the current group
-        protected int valuesLeftInGroup;
+        int valuesLeftInGroup;
         // With RLE encoding - the current value
-        protected boolean rleValue;
+        boolean rleValue;
         // With bit-packing - the byte that has been partially read
-        protected byte bitPackedValue;
+        byte bitPackedValue;
         // Number of bits already read in the current byte while reading bit-packed values
-        protected int bitPackedValueOffset;
+        int bitPackedValueOffset;
 
         @Override
         public void init(Slice input)
@@ -94,7 +94,7 @@ public class NullsDecoders
             return nonNullCount;
         }
 
-        protected abstract int readNextMaterialized(long[] values, int offset, int length);
+        abstract int readNextMaterialized(long[] values, int offset, int length);
 
         /**
          * Skip 'length' values and return the number of non-nulls encountered
@@ -152,7 +152,7 @@ public class NullsDecoders
             return nonNullCount;
         }
 
-        protected void readGroupHeader()
+        void readGroupHeader()
         {
             int header = readUleb128Int(input);
             isRle = (header & 1) == 0;

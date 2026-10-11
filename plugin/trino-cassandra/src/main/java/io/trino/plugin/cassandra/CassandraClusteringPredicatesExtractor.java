@@ -175,7 +175,7 @@ public class CassandraClusteringPredicatesExtractor
             requireNonNull(domainQuery);
         }
 
-        public boolean hasBeenFullyPushed(ColumnHandle column)
+        private boolean hasBeenFullyPushed(ColumnHandle column)
         {
             return fullyPushedColumnPredicates.contains(column);
         }

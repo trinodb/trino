@@ -119,12 +119,12 @@ class ErrorHandler
 
     private static class ParsingState
     {
-        public final ATNState state;
-        public final int tokenIndex;
-        public final boolean suppressed;
-        public final Parser parser;
+        final ATNState state;
+        final int tokenIndex;
+        final boolean suppressed;
+        final Parser parser;
 
-        public ParsingState(ATNState state, int tokenIndex, boolean suppressed, Parser parser)
+        ParsingState(ATNState state, int tokenIndex, boolean suppressed, Parser parser)
         {
             this.state = state;
             this.tokenIndex = tokenIndex;
@@ -191,7 +191,7 @@ class ErrorHandler
 
         private final Map<ParsingState, Set<Integer>> memo = new HashMap<>();
 
-        public Analyzer(
+        Analyzer(
                 Parser parser,
                 Map<Integer, String> specialRules,
                 Map<Integer, String> specialTokens,
@@ -208,7 +208,7 @@ class ErrorHandler
             this.tokenPredicates = tokenPredicates;
         }
 
-        public Result process(ATNState currentState, int tokenIndex, RuleContext context)
+        Result process(ATNState currentState, int tokenIndex, RuleContext context)
         {
             RuleStartState startState = atn.ruleToStartState[currentState.ruleIndex];
 
@@ -449,18 +449,18 @@ class ErrorHandler
         private final int errorTokenIndex;
         private final Set<String> expected;
 
-        public Result(int errorTokenIndex, Set<String> expected)
+        Result(int errorTokenIndex, Set<String> expected)
         {
             this.errorTokenIndex = errorTokenIndex;
             this.expected = expected;
         }
 
-        public int getErrorTokenIndex()
+        int getErrorTokenIndex()
         {
             return errorTokenIndex;
         }
 
-        public Set<String> getExpected()
+        Set<String> getExpected()
         {
             return expected;
         }

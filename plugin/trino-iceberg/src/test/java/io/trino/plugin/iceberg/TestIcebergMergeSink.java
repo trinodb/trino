@@ -217,7 +217,7 @@ final class TestIcebergMergeSink
             this.memoryUsage = memoryUsage;
         }
 
-        public void setMemoryUsage(long memoryUsage)
+        private void setMemoryUsage(long memoryUsage)
         {
             this.memoryUsage = memoryUsage;
         }

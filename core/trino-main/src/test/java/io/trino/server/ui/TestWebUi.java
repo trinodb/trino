@@ -1350,17 +1350,17 @@ public class TestWebUi
         private final Optional<String> idToken;
         private final boolean supportsEndsessionEndpoint;
 
-        public OAuth2ClientStub()
+        OAuth2ClientStub()
         {
             this(true, Duration.ofSeconds(5));
         }
 
-        public OAuth2ClientStub(boolean issueIdToken, Duration accessTokenValidity)
+        OAuth2ClientStub(boolean issueIdToken, Duration accessTokenValidity)
         {
             this(ImmutableMap.of(), accessTokenValidity, issueIdToken, true);
         }
 
-        public OAuth2ClientStub(Map<String, String> additionalClaims, Duration accessTokenValidity, boolean issueIdToken, boolean supportsEndsessionEnpoint)
+        OAuth2ClientStub(Map<String, String> additionalClaims, Duration accessTokenValidity, boolean issueIdToken, boolean supportsEndsessionEnpoint)
         {
             claims = Jwts.claims()
                     .add(createClaims())
@@ -1429,12 +1429,12 @@ public class TestWebUi
             return Optional.empty();
         }
 
-        public String getAccessToken()
+        String getAccessToken()
         {
             return accessToken;
         }
 
-        public Optional<String> getIdToken()
+        Optional<String> getIdToken()
         {
             return idToken;
         }
@@ -1459,7 +1459,7 @@ public class TestWebUi
                     .build();
         }
 
-        public static String randomNonce()
+        static String randomNonce()
         {
             byte[] bytes = new byte[32];
             secureRandom.nextBytes(bytes);
@@ -1486,7 +1486,7 @@ public class TestWebUi
             }
         }
 
-        public synchronized Identity getAuthenticatedIdentity()
+        synchronized Identity getAuthenticatedIdentity()
         {
             return authenticatedIdentity;
         }

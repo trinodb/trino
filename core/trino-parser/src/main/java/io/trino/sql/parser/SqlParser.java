@@ -234,7 +234,7 @@ public class SqlParser
         private final List<String> ruleNames;
         private final SqlBaseParser parser;
 
-        public PostProcessor(List<String> ruleNames, SqlBaseParser parser)
+        PostProcessor(List<String> ruleNames, SqlBaseParser parser)
         {
             this.ruleNames = ruleNames;
             this.parser = parser;

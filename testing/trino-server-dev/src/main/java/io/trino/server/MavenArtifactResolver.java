@@ -365,7 +365,7 @@ final class MavenArtifactResolver
     {
         private final List<RemoteRepository> modelRepositories;
 
-        public RepositoryModelResolver(List<RemoteRepository> modelRepositories)
+        private RepositoryModelResolver(List<RemoteRepository> modelRepositories)
         {
             this.modelRepositories = requireNonNull(modelRepositories, "modelRepositories is null");
         }

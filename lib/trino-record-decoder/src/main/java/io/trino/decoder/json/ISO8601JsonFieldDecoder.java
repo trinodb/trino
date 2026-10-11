@@ -84,7 +84,7 @@ public class ISO8601JsonFieldDecoder
         private final JsonNode value;
         private final DecoderColumnHandle columnHandle;
 
-        public ISO8601JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        private ISO8601JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
         {
             this.value = value;
             this.columnHandle = columnHandle;

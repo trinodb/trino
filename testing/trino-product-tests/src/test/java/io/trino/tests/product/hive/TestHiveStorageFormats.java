@@ -789,7 +789,7 @@ class TestHiveStorageFormats
         // expected values to be read back at various precisions
         private final Map<HiveTimestampPrecision, String> readValues;
 
-        public TimestampAndPrecision(HiveTimestampPrecision precision, String writeValue, Map<HiveTimestampPrecision, String> readValues)
+        TimestampAndPrecision(HiveTimestampPrecision precision, String writeValue, Map<HiveTimestampPrecision, String> readValues)
         {
             this.id = counter++;
             this.precision = precision;
@@ -797,27 +797,27 @@ class TestHiveStorageFormats
             this.readValues = readValues;
         }
 
-        public int getId()
+        int getId()
         {
             return id;
         }
 
-        public HiveTimestampPrecision getPrecision()
+        HiveTimestampPrecision getPrecision()
         {
             return precision;
         }
 
-        public String getWriteValue()
+        String getWriteValue()
         {
             return writeValue;
         }
 
-        public String getReadValue(HiveTimestampPrecision precision)
+        String getReadValue(HiveTimestampPrecision precision)
         {
             return requireNonNull(readValues.get(precision), () -> "no read value for " + precision);
         }
 
-        public String getReadType(HiveTimestampPrecision precision)
+        String getReadType(HiveTimestampPrecision precision)
         {
             return format("timestamp(%s)", precision.getPrecision());
         }

@@ -67,7 +67,7 @@ public final class ParameterExtractor
     {
         private final List<Parameter> parameters = new ArrayList<>();
 
-        public List<Parameter> getParameters()
+        List<Parameter> getParameters()
         {
             return parameters;
         }

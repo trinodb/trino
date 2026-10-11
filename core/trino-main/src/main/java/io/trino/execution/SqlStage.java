@@ -426,7 +426,7 @@ public final class SqlStage
     {
         private final Function<PartitioningHandle, OptionalInt> bucketCountProvider;
 
-        public LocalExchangePartitionRewriter(Function<PartitioningHandle, OptionalInt> bucketCountProvider)
+        LocalExchangePartitionRewriter(Function<PartitioningHandle, OptionalInt> bucketCountProvider)
         {
             this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
         }

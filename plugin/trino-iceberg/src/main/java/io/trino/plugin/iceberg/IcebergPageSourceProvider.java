@@ -1049,7 +1049,7 @@ public class IcebergPageSourceProvider
         // Stores a mapping between subfield names and ids for every top-level/nested column id
         private final Map<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns;
 
-        public IdBasedFieldMapperFactory(List<IcebergColumnHandle> columns)
+        IdBasedFieldMapperFactory(List<IcebergColumnHandle> columns)
         {
             requireNonNull(columns, "columns is null");
 
@@ -1101,7 +1101,7 @@ public class IcebergPageSourceProvider
         private final Map<Integer, OrcColumn> idToColumnMappingForFile;
         private final Map<String, Integer> nameToIdMappingForTableColumns;
 
-        public IdBasedFieldMapper(Map<Integer, OrcColumn> idToColumnMappingForFile, Map<String, Integer> nameToIdMappingForTableColumns)
+        IdBasedFieldMapper(Map<Integer, OrcColumn> idToColumnMappingForFile, Map<String, Integer> nameToIdMappingForTableColumns)
         {
             this.idToColumnMappingForFile = requireNonNull(idToColumnMappingForFile, "idToColumnMappingForFile is null");
             this.nameToIdMappingForTableColumns = requireNonNull(nameToIdMappingForTableColumns, "nameToIdMappingForTableColumns is null");
@@ -1696,7 +1696,7 @@ public class IcebergPageSourceProvider
             this.projectedLayoutForFieldId = ImmutableMap.copyOf(requireNonNull(projectedLayoutForFieldId, "projectedLayoutForFieldId is null"));
         }
 
-        public static ProjectedLayout createProjectedLayout(OrcColumn root, List<List<Integer>> fieldIdDereferences)
+        static ProjectedLayout createProjectedLayout(OrcColumn root, List<List<Integer>> fieldIdDereferences)
         {
             if (fieldIdDereferences.stream().anyMatch(List::isEmpty)) {
                 return fullyProjectedLayout();
@@ -1986,7 +1986,7 @@ public class IcebergPageSourceProvider
         private final ColumnIdentity baseColumnIdentity;
         private final List<Integer> path;
 
-        public DereferenceChain(ColumnIdentity baseColumnIdentity, List<Integer> path)
+        DereferenceChain(ColumnIdentity baseColumnIdentity, List<Integer> path)
         {
             this.baseColumnIdentity = requireNonNull(baseColumnIdentity, "baseColumnIdentity is null");
             this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
@@ -1995,7 +1995,7 @@ public class IcebergPageSourceProvider
         /**
          * Get prefixes of this Dereference chain in increasing order of lengths.
          */
-        public Iterable<DereferenceChain> orderedPrefixes()
+        Iterable<DereferenceChain> orderedPrefixes()
         {
             return () -> new AbstractIterator<>()
             {

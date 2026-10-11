@@ -77,18 +77,18 @@ public class FieldSetFilteringRecordSet
         private final int field;
         private final MethodHandle equalsMethodHandle;
 
-        public Field(int field, MethodHandle equalsMethodHandle)
+        Field(int field, MethodHandle equalsMethodHandle)
         {
             this.field = field;
             this.equalsMethodHandle = requireNonNull(equalsMethodHandle, "equalsMethodHandle is null");
         }
 
-        public int getField()
+        int getField()
         {
             return field;
         }
 
-        public MethodHandle getEqualsMethodHandle()
+        MethodHandle getEqualsMethodHandle()
         {
             return equalsMethodHandle;
         }

@@ -65,7 +65,7 @@ public class ReadRowsHelper
         private Iterator<ReadRowsResponse> serverResponses;
         private int retries;
 
-        public ReadRowsIterator(
+        private ReadRowsIterator(
                 ReadRowsHelper helper,
                 Iterator<ReadRowsResponse> serverResponses)
         {

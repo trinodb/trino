@@ -117,7 +117,7 @@ public class QueryDataJacksonModule
     private static class ColumnsCapturingDeserializer
             extends DelegatingDeserializer
     {
-        public ColumnsCapturingDeserializer(JsonDeserializer<?> delegate)
+        private ColumnsCapturingDeserializer(JsonDeserializer<?> delegate)
         {
             super(delegate);
         }
@@ -143,7 +143,7 @@ public class QueryDataJacksonModule
     {
         private final boolean supportsVariantBinary;
 
-        public SinglePassDeserializer(boolean supportsVariantBinary)
+        private SinglePassDeserializer(boolean supportsVariantBinary)
         {
             this.supportsVariantBinary = supportsVariantBinary;
         }

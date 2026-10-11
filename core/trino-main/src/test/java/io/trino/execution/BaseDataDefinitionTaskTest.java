@@ -797,25 +797,25 @@ public abstract class BaseDataDefinitionTaskTest
             private final ConnectorTableMetadata metadata;
             private final Set<String> branches;
 
-            public MockConnectorTableMetadata(ConnectorTableMetadata metadata)
+            MockConnectorTableMetadata(ConnectorTableMetadata metadata)
             {
                 this.metadata = requireNonNull(metadata, "metadata is null");
                 branches = new HashSet<>();
                 branches.add("main");
             }
 
-            public Set<String> branches()
+            Set<String> branches()
             {
                 return branches;
             }
 
-            public MockConnectorTableMetadata addBranch(String branch)
+            MockConnectorTableMetadata addBranch(String branch)
             {
                 branches.add(branch);
                 return this;
             }
 
-            public MockConnectorTableMetadata removeBranch(String branch)
+            MockConnectorTableMetadata removeBranch(String branch)
             {
                 branches.remove(branch);
                 return this;

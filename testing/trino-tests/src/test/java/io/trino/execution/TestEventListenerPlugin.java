@@ -46,7 +46,7 @@ public class TestEventListenerPlugin
     {
         private final EventsCollector eventsCollector;
 
-        public TestingEventListenerFactory(EventsCollector eventsCollector)
+        private TestingEventListenerFactory(EventsCollector eventsCollector)
         {
             this.eventsCollector = eventsCollector;
         }

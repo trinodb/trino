@@ -32,7 +32,7 @@ public final class Plans
     {
         private final Lookup lookup;
 
-        public ResolvingVisitor(Lookup lookup)
+        ResolvingVisitor(Lookup lookup)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
         }

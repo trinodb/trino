@@ -42,7 +42,7 @@ class IncompleteStreamMemoryFileSystem
     {
         private final TrinoInputFile delegate;
 
-        public IncompleteStreamInputFile(TrinoInputFile delegate)
+        private IncompleteStreamInputFile(TrinoInputFile delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

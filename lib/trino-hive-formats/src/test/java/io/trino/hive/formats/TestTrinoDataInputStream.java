@@ -693,7 +693,7 @@ public class TestTrinoDataInputStream
     private abstract static class SkipDataInputTester
             extends DataInputTester
     {
-        public SkipDataInputTester(int size)
+        SkipDataInputTester(int size)
         {
             super(size);
         }
@@ -709,7 +709,7 @@ public class TestTrinoDataInputStream
     private abstract static class StringDataInputTester
             extends DataInputTester
     {
-        public StringDataInputTester(int size)
+        StringDataInputTester(int size)
         {
             super(size);
         }
@@ -730,7 +730,7 @@ public class TestTrinoDataInputStream
             assertThat(actual).isEqualTo(expected);
         }
 
-        protected abstract String readActual(TrinoDataInputStream input)
+        abstract String readActual(TrinoDataInputStream input)
                 throws IOException;
     }
 

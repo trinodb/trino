@@ -425,7 +425,7 @@ public final class OkHttpUtil
     {
         private final SSLSocketFactory delegate;
 
-        public SingleLabelDomainSNISSLSocketFactory(SSLSocketFactory delegate)
+        private SingleLabelDomainSNISSLSocketFactory(SSLSocketFactory delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

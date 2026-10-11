@@ -513,13 +513,13 @@ public class TestOrcPageSourceMemoryTracking
         private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("TestOrcPageSourceMemoryTracking-executor-%s"));
         private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("TestOrcPageSourceMemoryTracking-scheduledExecutor-%s"));
 
-        public TestPreparer(String tempFilePath)
+        TestPreparer(String tempFilePath)
                 throws Exception
         {
             this(tempFilePath, testColumns, NUM_ROWS, STRIPE_ROWS);
         }
 
-        public TestPreparer(String tempFilePath, List<TestColumn> testColumns, int numRows, int stripeRows)
+        TestPreparer(String tempFilePath, List<TestColumn> testColumns, int numRows, int stripeRows)
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
@@ -559,17 +559,17 @@ public class TestOrcPageSourceMemoryTracking
             fileSplit = createTestFile(tempFilePath, serde, testColumns, numRows, stripeRows);
         }
 
-        public long getFileSize()
+        long getFileSize()
         {
             return fileSplit.getLength();
         }
 
-        public ConnectorPageSource newPageSource(MemoryContext memoryContext)
+        ConnectorPageSource newPageSource(MemoryContext memoryContext)
         {
             return newPageSource(new FileFormatDataSourceStats(), UNCACHED_SESSION, memoryContext);
         }
 
-        public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session, MemoryContext memoryContext)
+        ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session, MemoryContext memoryContext)
         {
             OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, stats, UTC);
 
@@ -606,7 +606,7 @@ public class TestOrcPageSourceMemoryTracking
             return connectorPageSource;
         }
 
-        public SourceOperator newTableScanOperator(DriverContext driverContext)
+        SourceOperator newTableScanOperator(DriverContext driverContext)
         {
             SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
                     0,
@@ -623,7 +623,7 @@ public class TestOrcPageSourceMemoryTracking
             return operator;
         }
 
-        public SourceOperator newScanFilterAndProjectOperator(DriverContext driverContext)
+        SourceOperator newScanFilterAndProjectOperator(DriverContext driverContext)
         {
             Map<Symbol, Integer> layout = range(0, types.size()).boxed()
                     .collect(toImmutableMap(i -> new Symbol(types.get(i), "field_" + i), i -> i));

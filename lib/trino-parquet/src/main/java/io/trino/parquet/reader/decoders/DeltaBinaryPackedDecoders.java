@@ -183,9 +183,9 @@ public final class DeltaBinaryPackedDecoders
             bitWidths = new byte[miniBlocksInBlock];
         }
 
-        protected abstract ValuesType createMiniBlockBuffer(int size);
+        abstract ValuesType createMiniBlockBuffer(int size);
 
-        protected abstract void setValue(ValuesType values, int offset, long value);
+        abstract void setValue(ValuesType values, int offset, long value);
 
         /**
          * This method needs to do two things:
@@ -197,7 +197,7 @@ public final class DeltaBinaryPackedDecoders
          *
          * @return Last value read
          */
-        protected abstract long unpack(ValuesType output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth);
+        abstract long unpack(ValuesType output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth);
 
         private void readHeader()
         {
@@ -212,7 +212,7 @@ public final class DeltaBinaryPackedDecoders
         }
 
         @SuppressWarnings("SuspiciousSystemArraycopy")
-        public void readInternal(ValuesType values, int offset, int length)
+        void readInternal(ValuesType values, int offset, int length)
         {
             // This condition will be true only for the first time and then continue to
             // return false hopefully making branch prediction efficient
@@ -261,7 +261,7 @@ public final class DeltaBinaryPackedDecoders
             }
         }
 
-        public int getValueCount()
+        int getValueCount()
         {
             return valueCount;
         }

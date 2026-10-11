@@ -200,7 +200,7 @@ public final class FastutilSetHelper
         private final LongHashCode longHashCode;
         private final LongEquals longEquals;
 
-        public LongStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
+        LongStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
         {
             requireNonNull(hashCodeHandle, "hashCodeHandle is null");
             requireNonNull(equalsHandle, "equalsHandle is null");
@@ -211,12 +211,14 @@ public final class FastutilSetHelper
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface LongHashCode
         {
             long hashCode(long value);
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface LongEquals
         {
             Boolean equals(long a, long b);
@@ -244,7 +246,7 @@ public final class FastutilSetHelper
         private final DoubleHashCode doubleHashCode;
         private final DoubleEquals doubleEquals;
 
-        public DoubleStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
+        DoubleStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
         {
             requireNonNull(hashCodeHandle, "hashCodeHandle is null");
             requireNonNull(equalsHandle, "equalsHandle is null");
@@ -255,12 +257,14 @@ public final class FastutilSetHelper
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface DoubleHashCode
         {
             long hashCode(double value);
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface DoubleEquals
         {
             Boolean equals(double a, double b);
@@ -288,7 +292,7 @@ public final class FastutilSetHelper
         private final ObjectHashCode objectHashCode;
         private final ObjectEquals objectEquals;
 
-        public ObjectStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
+        ObjectStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle, Type type)
         {
             requireNonNull(hashCodeHandle, "hashCodeHandle is null");
             requireNonNull(equalsHandle, "equalsHandle is null");
@@ -305,12 +309,14 @@ public final class FastutilSetHelper
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface ObjectHashCode
         {
             long hashCode(Object value);
         }
 
         // Needs to be public for compileSingleAccessMethod
+        @SuppressWarnings("EffectivelyPrivate")
         public interface ObjectEquals
         {
             Boolean equals(Object a, Object b);
@@ -366,7 +372,7 @@ public final class FastutilSetHelper
             private final Type type;
             private final Class<T> singleMethodInterface;
 
-            public MethodKey(Type type, Class<T> singleMethodInterface)
+            MethodKey(Type type, Class<T> singleMethodInterface)
             {
                 this.type = requireNonNull(type, "type is null");
                 this.singleMethodInterface = requireNonNull(singleMethodInterface, "singleMethodInterface is null");
@@ -400,14 +406,14 @@ public final class FastutilSetHelper
             @GuardedBy("this")
             private T operator;
 
-            public GeneratedMethod(Type type, Class<T> singleMethodInterface, MethodHandle methodHandle)
+            GeneratedMethod(Type type, Class<T> singleMethodInterface, MethodHandle methodHandle)
             {
                 this.type = requireNonNull(type, "type is null");
                 this.singleMethodInterface = requireNonNull(singleMethodInterface, "singleMethodInterface is null");
                 this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             }
 
-            public synchronized T get()
+            synchronized T get()
             {
                 if (operator != null) {
                     return operator;

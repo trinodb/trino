@@ -222,7 +222,7 @@ public final class SplitsMapping
         private final SplitsMapping originalMapping;
         private final Map<PlanNodeId, Map<Integer, ImmutableList.Builder<Split>>> updates = new HashMap<>();
 
-        public UpdatingBuilder(SplitsMapping originalMapping)
+        UpdatingBuilder(SplitsMapping originalMapping)
         {
             this.originalMapping = requireNonNull(originalMapping, "sourceMapping is null");
         }

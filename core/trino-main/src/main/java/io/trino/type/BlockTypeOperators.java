@@ -175,7 +175,7 @@ public final class BlockTypeOperators
         private final Class<T> operatorInterface;
         private final Optional<Object> additionalKey;
 
-        public GeneratedBlockOperatorKey(Type type, Class<T> operatorInterface, Optional<Object> additionalKey)
+        GeneratedBlockOperatorKey(Type type, Class<T> operatorInterface, Optional<Object> additionalKey)
         {
             this.type = requireNonNull(type, "type is null");
             this.operatorInterface = requireNonNull(operatorInterface, "operatorInterface is null");
@@ -212,14 +212,14 @@ public final class BlockTypeOperators
         @GuardedBy("this")
         private T operator;
 
-        public GeneratedBlockOperator(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
+        GeneratedBlockOperator(Type type, Class<T> operatorInterface, MethodHandle methodHandle)
         {
             this.type = requireNonNull(type, "type is null");
             this.operatorInterface = requireNonNull(operatorInterface, "operatorInterface is null");
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         }
 
-        public synchronized T get()
+        synchronized T get()
         {
             if (operator != null) {
                 return operator;

@@ -270,19 +270,19 @@ public class TestBufferingSplitSource
     {
         private final SplitBatch splitBatch;
 
-        public NextBatchResult(SplitBatch splitBatch)
+        NextBatchResult(SplitBatch splitBatch)
         {
             this.splitBatch = requireNonNull(splitBatch, "splitBatch is null");
         }
 
-        public NextBatchResult assertSize(int expectedSize)
+        NextBatchResult assertSize(int expectedSize)
         {
             assertThat(expectedSize).isEqualTo(splitBatch.getSplits().size());
             return this;
         }
 
         @SuppressWarnings("UnusedReturnValue")
-        public NextBatchResult assertNoMoreSplits(boolean expectedNoMoreSplits)
+        NextBatchResult assertNoMoreSplits(boolean expectedNoMoreSplits)
         {
             assertThat(expectedNoMoreSplits).isEqualTo(splitBatch.isLastBatch());
             return this;

@@ -147,7 +147,7 @@ public class LocalFileSystemExchangeStorage
         @GuardedBy("this")
         private boolean closed;
 
-        public LocalExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder)
+        private LocalExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder)
         {
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             requireNonNull(metricsBuilder, "metricsBuilder is null");
@@ -228,7 +228,7 @@ public class LocalFileSystemExchangeStorage
 
         private final OutputStream outputStream;
 
-        public LocalExchangeStorageWriter(URI file)
+        private LocalExchangeStorageWriter(URI file)
         {
             try {
                 this.outputStream = new FileOutputStream(Path.of(file.getPath()).toFile());

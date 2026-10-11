@@ -246,7 +246,7 @@ public final class RowReferencePageManager
         private boolean compacted;
         private int activePositions;
 
-        public PageAccounting(int pageId, Page page)
+        PageAccounting(int pageId, Page page)
         {
             this.pageId = pageId;
             this.page = page;
@@ -257,7 +257,7 @@ public final class RowReferencePageManager
         /**
          * Record the position as referenced and return a corresponding stable row ID
          */
-        public long referencePosition(int position)
+        long referencePosition(int position)
         {
             long rowId = rowIds[position];
             if (rowId == RowIdBuffer.UNKNOWN_ID) {
@@ -271,7 +271,7 @@ public final class RowReferencePageManager
         /**
          * Locks the current page so that it can't be compacted (thus allowing for stable position-based access).
          */
-        public void lockPage()
+        void lockPage()
         {
             lockedPage = true;
         }
@@ -279,17 +279,17 @@ public final class RowReferencePageManager
         /**
          * Unlocks the current page so that it becomes eligible for compaction.
          */
-        public void unlockPage()
+        void unlockPage()
         {
             lockedPage = false;
         }
 
-        public int getPageId()
+        int getPageId()
         {
             return pageId;
         }
 
-        public Page getPage()
+        Page getPage()
         {
             return page;
         }
@@ -297,7 +297,7 @@ public final class RowReferencePageManager
         /**
          * Dereferences the row ID from this page.
          */
-        public void dereference(long rowId)
+        void dereference(long rowId)
         {
             int position = rowIdBuffer.getPosition(rowId);
             checkArgument(rowId == rowIds[position], "rowId does not match this page");
@@ -306,13 +306,13 @@ public final class RowReferencePageManager
             rowIdBuffer.deallocate(rowId);
         }
 
-        public boolean isPruneEligible()
+        boolean isPruneEligible()
         {
             // Pruning is only allowed if the page is unlocked
             return !lockedPage && activePositions == 0;
         }
 
-        public boolean isCompactionEligible()
+        boolean isCompactionEligible()
         {
             // Compaction is only allowed if the page is unlocked
             if (lockedPage) {
@@ -331,7 +331,7 @@ public final class RowReferencePageManager
             return slackBytes > Math.max(sizeInBytes / COMPACTION_MAX_SLACK_DIVISOR, COMPACTION_MIN_SLACK_BYTES);
         }
 
-        public void compact()
+        void compact()
         {
             checkState(!lockedPage, "Should not attempt compaction when page is locked");
 
@@ -363,7 +363,7 @@ public final class RowReferencePageManager
             compacted = true;
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return PAGE_ACCOUNTING_INSTANCE_SIZE + page.getRetainedSizeInBytes() + SizeOf.sizeOf(rowIds);
         }
@@ -374,7 +374,7 @@ public final class RowReferencePageManager
      */
     private static class RowIdBuffer
     {
-        public static final long UNKNOWN_ID = -1;
+        static final long UNKNOWN_ID = -1;
         private static final long INSTANCE_SIZE = instanceSize(RowIdBuffer.class);
 
         /*
@@ -394,7 +394,7 @@ public final class RowReferencePageManager
          *
          * @return ID referencing the provided page position
          */
-        public long allocateRowId(int pageId, int position)
+        long allocateRowId(int pageId, int position)
         {
             long newRowId;
             if (!emptySlots.isEmpty()) {
@@ -412,32 +412,32 @@ public final class RowReferencePageManager
             return newRowId;
         }
 
-        public void deallocate(long rowId)
+        void deallocate(long rowId)
         {
             emptySlots.enqueue(rowId);
         }
 
-        public int getPageId(long rowId)
+        int getPageId(long rowId)
         {
             return buffer.get(rowId * 2);
         }
 
-        public void setPageId(long rowId, int pageId)
+        void setPageId(long rowId, int pageId)
         {
             buffer.set(rowId * 2, pageId);
         }
 
-        public int getPosition(long rowId)
+        int getPosition(long rowId)
         {
             return buffer.get(rowId * 2 + 1);
         }
 
-        public void setPosition(long rowId, int position)
+        void setPosition(long rowId, int position)
         {
             buffer.set(rowId * 2 + 1, position);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + buffer.sizeOf() + emptySlots.sizeOf();
         }
@@ -448,7 +448,7 @@ public final class RowReferencePageManager
     {
         private static final long INSTANCE_SIZE = instanceSize(IntHashSet.class);
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + SizeOf.sizeOf(key);
         }

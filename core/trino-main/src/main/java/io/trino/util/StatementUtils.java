@@ -344,17 +344,17 @@ public final class StatementUtils
             }
         }
 
-        public Class<T> getStatementType()
+        Class<T> getStatementType()
         {
             return statementType;
         }
 
-        public QueryType getQueryType()
+        QueryType getQueryType()
         {
             return queryType;
         }
 
-        public Class<? extends DataDefinitionTask<T>> getTaskType()
+        Class<? extends DataDefinitionTask<T>> getTaskType()
         {
             return taskType.orElseThrow(() -> new IllegalStateException(queryType + " does not have a task type"));
         }

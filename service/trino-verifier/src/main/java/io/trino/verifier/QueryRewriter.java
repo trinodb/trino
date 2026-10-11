@@ -287,12 +287,12 @@ public class QueryRewriter
             this.approximateType = approximateType;
         }
 
-        public String getName()
+        private String getName()
         {
             return name;
         }
 
-        public boolean isApproximateType()
+        private boolean isApproximateType()
         {
             return approximateType;
         }

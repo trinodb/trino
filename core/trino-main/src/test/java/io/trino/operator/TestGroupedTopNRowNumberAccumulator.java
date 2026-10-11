@@ -244,13 +244,13 @@ public class TestGroupedTopNRowNumberAccumulator
         private long rowId;
         private boolean rowIdExtracted;
 
-        public void setRowId(long rowId)
+        void setRowId(long rowId)
         {
             this.rowId = rowId;
             rowIdExtracted = false;
         }
 
-        public boolean isRowIdExtracted()
+        boolean isRowIdExtracted()
         {
             return rowIdExtracted;
         }

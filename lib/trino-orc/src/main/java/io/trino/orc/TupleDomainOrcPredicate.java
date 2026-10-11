@@ -358,18 +358,18 @@ public class TupleDomainOrcPredicate
         private final OrcColumnId columnId;
         private final Domain domain;
 
-        public ColumnDomain(OrcColumnId columnId, Domain domain)
+        private ColumnDomain(OrcColumnId columnId, Domain domain)
         {
             this.columnId = requireNonNull(columnId, "columnId is null");
             this.domain = requireNonNull(domain, "domain is null");
         }
 
-        public OrcColumnId getColumnId()
+        private OrcColumnId getColumnId()
         {
             return columnId;
         }
 
-        public Domain getDomain()
+        private Domain getDomain()
         {
             return domain;
         }

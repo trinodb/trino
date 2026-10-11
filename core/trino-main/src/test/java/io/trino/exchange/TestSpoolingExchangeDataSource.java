@@ -72,7 +72,7 @@ public class TestSpoolingExchangeDataSource
         private final long memoryUsage;
         private final Runnable onRead;
 
-        public TestingExchangeSource(Slice data, long memoryUsage, Runnable onRead)
+        TestingExchangeSource(Slice data, long memoryUsage, Runnable onRead)
         {
             this.data = requireNonNull(data, "data is null");
             this.memoryUsage = memoryUsage;

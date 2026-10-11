@@ -672,7 +672,7 @@ public class TestTimeSharingTaskExecutor
         private final AtomicBoolean started = new AtomicBoolean();
         private final SettableFuture<Void> completed = SettableFuture.create();
 
-        public TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
+        TestingJob(TestingTicker ticker, Phaser globalPhaser, Phaser beginQuantaPhaser, Phaser endQuantaPhaser, int requiredPhases, int quantaTimeMillis)
         {
             this.ticker = ticker;
             this.globalPhaser = globalPhaser;
@@ -748,7 +748,7 @@ public class TestTimeSharingTaskExecutor
             return completed.isDone();
         }
 
-        public boolean isStarted()
+        boolean isStarted()
         {
             return started.get();
         }
@@ -756,7 +756,7 @@ public class TestTimeSharingTaskExecutor
         @Override
         public void close() {}
 
-        public Future<Void> getCompletedFuture()
+        Future<Void> getCompletedFuture()
         {
             return completed;
         }
@@ -807,7 +807,7 @@ public class TestTimeSharingTaskExecutor
             closed = true;
         }
 
-        public void unblock()
+        void unblock()
         {
             blocked.set(null);
         }

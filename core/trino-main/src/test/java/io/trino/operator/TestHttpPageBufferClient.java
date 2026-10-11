@@ -570,12 +570,12 @@ public class TestHttpPageBufferClient
         private final AtomicInteger failedBuffers = new AtomicInteger();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-        public TestingClientCallback(CyclicBarrier done)
+        TestingClientCallback(CyclicBarrier done)
         {
             this.done = done;
         }
 
-        public List<Page> getPages()
+        List<Page> getPages()
         {
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
             return pages.stream()
@@ -593,12 +593,12 @@ public class TestHttpPageBufferClient
             return finishedBuffers.get();
         }
 
-        public int getFailedBuffers()
+        int getFailedBuffers()
         {
             return failedBuffers.get();
         }
 
-        public Throwable getFailure()
+        Throwable getFailure()
         {
             return failure.get();
         }
@@ -632,7 +632,7 @@ public class TestHttpPageBufferClient
             // requestComplete() will be called after this
         }
 
-        public void resetStats()
+        void resetStats()
         {
             pages.clear();
             completedRequests.set(0);

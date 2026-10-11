@@ -92,7 +92,7 @@ public final class SortExpressionExtractor
     {
         private final Set<Symbol> buildSymbols;
 
-        public SortExpressionVisitor(Set<Symbol> buildSymbols)
+        SortExpressionVisitor(Set<Symbol> buildSymbols)
         {
             this.buildSymbols = buildSymbols;
         }

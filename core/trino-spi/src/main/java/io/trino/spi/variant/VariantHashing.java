@@ -65,7 +65,7 @@ final class VariantHashing
             this.hash = seed + PRIME64_5;
         }
 
-        public void hashVariant(Metadata metadata, Slice slice, int offset)
+        void hashVariant(Metadata metadata, Slice slice, int offset)
         {
             byte header = slice.getByte(offset);
             ValueClass valueClass = ValueClass.classify(header);

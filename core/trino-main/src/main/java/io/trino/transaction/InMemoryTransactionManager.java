@@ -347,7 +347,7 @@ public class InMemoryTransactionManager
         @GuardedBy("this")
         private final AtomicReference<CatalogHandle> writtenCatalog = new AtomicReference<>();
 
-        public TransactionMetadata(
+        TransactionMetadata(
                 TransactionId transactionId,
                 IsolationLevel isolationLevel,
                 boolean readOnly,
@@ -363,23 +363,23 @@ public class InMemoryTransactionManager
             this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
-        public void setActive()
+        void setActive()
         {
             idleStartTime.set(null);
         }
 
-        public void setInactive()
+        void setInactive()
         {
             idleStartTime.set(System.nanoTime());
         }
 
-        public boolean isExpired(Duration idleTimeout)
+        boolean isExpired(Duration idleTimeout)
         {
             Long idleStartTime = this.idleStartTime.get();
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
-        public void checkOpenTransaction()
+        void checkOpenTransaction()
         {
             Boolean completedStatus = this.completedSuccessfully.get();
             if (completedStatus != null) {
@@ -449,7 +449,7 @@ public class InMemoryTransactionManager
             return catalogMetadata;
         }
 
-        public synchronized void checkConnectorWrite(CatalogHandle catalogHandle)
+        synchronized void checkConnectorWrite(CatalogHandle catalogHandle)
         {
             checkOpenTransaction();
             CatalogMetadata catalogMetadata = activeCatalogs.get(catalogHandle);
@@ -466,7 +466,7 @@ public class InMemoryTransactionManager
             }
         }
 
-        public synchronized ListenableFuture<Void> asyncCommit()
+        synchronized ListenableFuture<Void> asyncCommit()
         {
             if (!completedSuccessfully.compareAndSet(null, true)) {
                 if (completedSuccessfully.get()) {
@@ -517,7 +517,7 @@ public class InMemoryTransactionManager
             return nonCancellationPropagating(readOnlyCommitFuture);
         }
 
-        public synchronized ListenableFuture<Void> asyncAbort()
+        synchronized ListenableFuture<Void> asyncAbort()
         {
             if (!completedSuccessfully.compareAndSet(null, false)) {
                 if (completedSuccessfully.get()) {
@@ -540,7 +540,7 @@ public class InMemoryTransactionManager
             return nonCancellationPropagating(future);
         }
 
-        public TransactionInfo getTransactionInfo()
+        TransactionInfo getTransactionInfo()
         {
             Duration idleTime = Optional.ofNullable(idleStartTime.get())
                     .map(Duration::nanosSince)

@@ -283,7 +283,7 @@ public class NimbusOAuth2Client
     {
         private final IDTokenValidator idTokenValidator;
 
-        public OAuth2WithOidcExtensionsCodeFlow()
+        OAuth2WithOidcExtensionsCodeFlow()
         {
             idTokenValidator = new IDTokenValidator(issuer, clientId, jwsKeySelector, null);
             idTokenValidator.setMaxClockSkew((int) maxClockSkew.roundTo(SECONDS));

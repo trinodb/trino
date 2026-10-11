@@ -632,7 +632,7 @@ public class BigintGroupByHash
         private final Block dictionary;
         private final int[] processed;
 
-        public DictionaryLookBack(Block dictionary)
+        DictionaryLookBack(Block dictionary)
         {
             this.dictionary = dictionary;
             this.processed = new int[dictionary.getPositionCount()];
@@ -645,27 +645,27 @@ public class BigintGroupByHash
             this.processed = Arrays.copyOf(other.processed, other.processed.length);
         }
 
-        public Block getDictionary()
+        Block getDictionary()
         {
             return dictionary;
         }
 
-        public int getGroupId(int position)
+        int getGroupId(int position)
         {
             return processed[position];
         }
 
-        public boolean isProcessed(int position)
+        boolean isProcessed(int position)
         {
             return processed[position] != -1;
         }
 
-        public void setProcessed(int position, int groupId)
+        void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
         }
 
-        public DictionaryLookBack copy()
+        DictionaryLookBack copy()
         {
             return new DictionaryLookBack(this);
         }

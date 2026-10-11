@@ -875,24 +875,24 @@ public class TestArbitraryDistributionSplitAssigner
         private final List<Split> splits;
         private final boolean noMoreSplits;
 
-        public SplitBatch(PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+        SplitBatch(PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
         {
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
             this.noMoreSplits = noMoreSplits;
         }
 
-        public PlanNodeId getPlanNodeId()
+        PlanNodeId getPlanNodeId()
         {
             return planNodeId;
         }
 
-        public List<Split> getSplits()
+        List<Split> getSplits()
         {
             return splits;
         }
 
-        public boolean isNoMoreSplits()
+        boolean isNoMoreSplits()
         {
             return noMoreSplits;
         }
@@ -908,12 +908,12 @@ public class TestArbitraryDistributionSplitAssigner
             this.partitionId = partitionId;
         }
 
-        public int getPartitionId()
+        int getPartitionId()
         {
             return partitionId;
         }
 
-        public ListMultimap<PlanNodeId, Split> getSplits()
+        ListMultimap<PlanNodeId, Split> getSplits()
         {
             return splits;
         }

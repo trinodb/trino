@@ -913,12 +913,14 @@ public class Long2LongOpenBigHashMap
          */
         LongBigArrayBigList wrapped;
 
+        // Subclasses implement the public Iterator method with this. See https://github.com/google/error-prone/issues/5182
+        @SuppressWarnings("EffectivelyPrivate")
         public boolean hasNext()
         {
             return c != 0;
         }
 
-        public long nextEntry()
+        long nextEntry()
         {
             if (!hasNext()) {
                 throw new NoSuchElementException();
@@ -987,6 +989,8 @@ public class Long2LongOpenBigHashMap
             }
         }
 
+        // Subclasses implement the public Iterator method with this. See https://github.com/google/error-prone/issues/5182
+        @SuppressWarnings("EffectivelyPrivate")
         public void remove()
         {
             if (last == -1) {
@@ -1011,7 +1015,7 @@ public class Long2LongOpenBigHashMap
             }
         }
 
-        public long skip(final long n)
+        long skip(final long n)
         {
             long i = n;
             while (i-- != 0 && hasNext()) {
@@ -1231,7 +1235,7 @@ public class Long2LongOpenBigHashMap
             extends MapIterator
             implements LongIterator
     {
-        public KeyIterator()
+        KeyIterator()
         {
             super();
         }
@@ -1318,7 +1322,7 @@ public class Long2LongOpenBigHashMap
             extends MapIterator
             implements LongIterator
     {
-        public ValueIterator()
+        ValueIterator()
         {
             super();
         }

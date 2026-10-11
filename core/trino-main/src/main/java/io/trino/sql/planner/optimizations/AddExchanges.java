@@ -182,7 +182,7 @@ public class AddExchanges
         private final Session session;
         private final boolean redistributeWrites;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
+        Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session, TableStatsProvider tableStatsProvider)
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = symbolAllocator;

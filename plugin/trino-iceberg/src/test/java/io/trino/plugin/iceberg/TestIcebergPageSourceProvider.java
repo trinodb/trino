@@ -335,7 +335,7 @@ class TestIcebergPageSourceProvider
         private final List<Integer> tailReadLengths = new ArrayList<>();
         private long readBytes;
 
-        public RecordingParquetDataSource(Slice input)
+        private RecordingParquetDataSource(Slice input)
         {
             this.input = input;
         }

@@ -759,18 +759,18 @@ public class SqlQueryExecution
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos)
+        PlanRoot(SubPlan root, boolean summarizeTaskInfos)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
         }
 
-        public SubPlan getRoot()
+        SubPlan getRoot()
         {
             return root;
         }
 
-        public boolean isSummarizeTaskInfos()
+        boolean isSummarizeTaskInfos()
         {
             return summarizeTaskInfos;
         }

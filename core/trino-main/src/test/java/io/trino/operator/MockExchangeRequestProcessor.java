@@ -146,7 +146,7 @@ public class MockExchangeRequestProcessor
         private final URI location;
         private final long sequenceId;
 
-        public RequestLocation(URI uri)
+        RequestLocation(URI uri)
         {
             String string = uri.toString();
             int index = string.lastIndexOf('/');
@@ -154,12 +154,12 @@ public class MockExchangeRequestProcessor
             sequenceId = Long.parseLong(string.substring(index + 1));
         }
 
-        public URI getLocation()
+        URI getLocation()
         {
             return location;
         }
 
-        public long getSequenceId()
+        long getSequenceId()
         {
             return sequenceId;
         }
@@ -180,29 +180,29 @@ public class MockExchangeRequestProcessor
             this.serializer = serializer;
         }
 
-        public void setCompleted()
+        void setCompleted()
         {
             completed.set(true);
         }
 
-        public synchronized void addPage(Slice page)
+        synchronized void addPage(Slice page)
         {
             checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(page);
         }
 
-        public synchronized void addPage(Page page)
+        synchronized void addPage(Page page)
         {
             checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(serializer.serialize(page));
         }
 
-        public void setFailed(RuntimeException t)
+        void setFailed(RuntimeException t)
         {
             failure.set(t);
         }
 
-        public BufferResult getPages(long sequenceId, DataSize maxSize)
+        BufferResult getPages(long sequenceId, DataSize maxSize)
         {
             // if location is complete return GONE
             if (completed.get() && serializedPages.isEmpty()) {

@@ -151,7 +151,7 @@ public final class MatchingDynamicFilters
 
     private record Candidates(Set<DynamicFilterId> candidates)
     {
-        public Candidates
+        Candidates
         {
             requireNonNull(candidates, "candidates is null");
         }

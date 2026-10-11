@@ -133,7 +133,7 @@ public class ArrayBlockBuilder
     {
         private boolean entryBuilt;
 
-        public ArrayEntryBuilderImplementation()
+        private ArrayEntryBuilderImplementation()
         {
             if (currentEntryOpened) {
                 throw new IllegalStateException("Expected current entry to be closed but was opened");

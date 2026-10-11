@@ -1768,7 +1768,7 @@ public class TestDeltaLakeFileOperations
 
     private record FileOperation(FileType fileType, String fileId, String operationType)
     {
-        public static FileOperation create(String path, String operationType)
+        private static FileOperation create(String path, String operationType)
         {
             String fileName = path.replaceFirst(".*/", "");
             if (path.matches(".*/_delta_log/_last_checkpoint")) {
@@ -1808,7 +1808,7 @@ public class TestDeltaLakeFileOperations
             throw new IllegalArgumentException("File not recognized: " + path);
         }
 
-        public FileOperation
+        private FileOperation
         {
             requireNonNull(fileType, "fileType is null");
             requireNonNull(fileId, "fileId is null");

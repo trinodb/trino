@@ -785,7 +785,7 @@ public class S3FileSystemExchangeStorage
         private final List<ListenableFuture<CompletedPart>> multiPartUploadFutures = new ArrayList<>();
         private volatile boolean closed;
 
-        public S3ExchangeStorageWriter(
+        private S3ExchangeStorageWriter(
                 S3FileSystemExchangeStorageStats stats,
                 S3AsyncClient s3AsyncClient,
                 String bucketName,

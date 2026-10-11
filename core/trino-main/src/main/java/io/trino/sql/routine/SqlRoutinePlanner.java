@@ -125,7 +125,7 @@ public final class SqlRoutinePlanner
 
         private final AtomicInteger labelCounter = new AtomicInteger();
 
-        public StatementVisitor(
+        StatementVisitor(
                 Session session,
                 List<IrVariable> allVariables,
                 Analysis analysis)
@@ -352,7 +352,7 @@ public final class SqlRoutinePlanner
             }, optimized);
         }
 
-        public static io.trino.sql.ir.Expression coerceIfNecessary(TypeManager typeManager, Session session, Analysis analysis, Expression original, io.trino.sql.ir.Expression rewritten)
+        static io.trino.sql.ir.Expression coerceIfNecessary(TypeManager typeManager, Session session, Analysis analysis, Expression original, io.trino.sql.ir.Expression rewritten)
         {
             Type coercion = analysis.getCoercion(original);
             if (coercion == null) {
@@ -385,13 +385,13 @@ public final class SqlRoutinePlanner
 
     private record Context(Map<String, IrVariable> variables, Map<String, IrLabel> labels)
     {
-        public Context
+        Context
         {
             variables = new LinkedHashMap<>(variables);
             labels = new LinkedHashMap<>(labels);
         }
 
-        public Context newScope()
+        Context newScope()
         {
             return new Context(variables, labels);
         }

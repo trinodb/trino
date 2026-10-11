@@ -88,12 +88,12 @@ public class TestCostComparator
         private PlanCostEstimate smaller;
         private PlanCostEstimate larger;
 
-        public CostComparisonAssertion(double cpuWeight, double memoryWeight, double networkWeight)
+        CostComparisonAssertion(double cpuWeight, double memoryWeight, double networkWeight)
         {
             costComparator = new CostComparator(cpuWeight, memoryWeight, networkWeight);
         }
 
-        public void assertCompare()
+        void assertCompare()
         {
             checkState(smaller != null, "smaller not set");
             checkState(larger != null, "larger not set");
@@ -105,14 +105,14 @@ public class TestCostComparator
                     .isTrue();
         }
 
-        public CostComparisonAssertion smaller(double cpu, double memory, double network)
+        CostComparisonAssertion smaller(double cpu, double memory, double network)
         {
             checkState(smaller == null, "already set");
             smaller = new PlanCostEstimate(cpu, memory, 0, network);
             return this;
         }
 
-        public CostComparisonAssertion larger(double cpu, double memory, double network)
+        CostComparisonAssertion larger(double cpu, double memory, double network)
         {
             checkState(larger == null, "already set");
             larger = new PlanCostEstimate(cpu, memory, 0, network);

@@ -303,17 +303,17 @@ public class JoinGraph
     {
         private final Map<Symbol, PlanNode> symbolSources = new HashMap<>();
 
-        public void setSymbolSource(Symbol symbol, PlanNode node)
+        void setSymbolSource(Symbol symbol, PlanNode node)
         {
             symbolSources.put(symbol, node);
         }
 
-        public boolean containsSymbol(Symbol symbol)
+        boolean containsSymbol(Symbol symbol)
         {
             return symbolSources.containsKey(symbol);
         }
 
-        public PlanNode getSymbolSource(Symbol symbol)
+        PlanNode getSymbolSource(Symbol symbol)
         {
             checkState(containsSymbol(symbol));
             return symbolSources.get(symbol);

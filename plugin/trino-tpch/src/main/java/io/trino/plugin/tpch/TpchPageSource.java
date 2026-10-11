@@ -145,7 +145,7 @@ class TpchPageSource
         private final boolean[] loaded;
         private long sizeInBytes;
 
-        public TpchSourcePage(Page page)
+        private TpchSourcePage(Page page)
         {
             this.page = requireNonNull(page, "page is null");
             this.loaded = new boolean[page.getChannelCount()];

@@ -239,7 +239,7 @@ public class PrometheusSplitManager
          * @param maxQueryRangeDurationRequested Likely from config properties
          * @param maybePredicateRange Optional of pushed down predicate values for high and low timestamp values
          */
-        public EffectiveLimits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
+        private EffectiveLimits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
         {
             if (maybePredicateRange.isPresent()) {
                 if (maybePredicateRange.get().getPredicateUpperTimeBound().isPresent()) {
@@ -267,12 +267,12 @@ public class PrometheusSplitManager
             }
         }
 
-        public Instant getUpperBound()
+        private Instant getUpperBound()
         {
             return upperBound;
         }
 
-        public java.time.Duration getMaxQueryRangeDuration()
+        private java.time.Duration getMaxQueryRangeDuration()
         {
             return maxQueryRangeDuration;
         }

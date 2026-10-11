@@ -255,7 +255,7 @@ public class BenchmarkNodeScheduler
 
         private final List<HostAddress> hosts;
 
-        public TestSplitRemote(int dataHost)
+        TestSplitRemote(int dataHost)
         {
             hosts = ImmutableList.of(addressForHost(dataHost));
         }

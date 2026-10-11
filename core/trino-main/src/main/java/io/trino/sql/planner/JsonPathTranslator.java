@@ -137,7 +137,7 @@ class JsonPathTranslator
         private final Set<PathNodeRef<PathNode>> jsonParameters;
         private final List<String> parametersOrder;
 
-        public Rewriter(Session session, PlannerContext plannerContext, JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
+        Rewriter(Session session, PlannerContext plannerContext, JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
         {
             requireNonNull(session, "session is null");
             requireNonNull(plannerContext, "plannerContext is null");

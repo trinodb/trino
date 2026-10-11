@@ -78,7 +78,7 @@ public class TestPasswordAuthenticatorManager
         private final String name;
         private final String password;
 
-        public TestingPasswordAuthenticatorFactory(String name, String password)
+        TestingPasswordAuthenticatorFactory(String name, String password)
         {
             this.name = requireNonNull(name, "name is null");
             this.password = requireNonNull(password, "password is null");

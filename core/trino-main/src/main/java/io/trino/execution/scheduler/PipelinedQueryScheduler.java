@@ -547,7 +547,7 @@ public class PipelinedQueryScheduler
 
         private final AtomicBoolean scheduled = new AtomicBoolean();
 
-        public static CoordinatorStagesScheduler create(
+        static CoordinatorStagesScheduler create(
                 QueryStateMachine queryStateMachine,
                 NodeScheduler nodeScheduler,
                 StageManager stageManager,
@@ -716,7 +716,7 @@ public class PipelinedQueryScheduler
             }));
         }
 
-        public synchronized void schedule()
+        synchronized void schedule()
         {
             if (!scheduled.compareAndSet(false, true)) {
                 return;
@@ -766,22 +766,22 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public Map<PlanFragmentId, PipelinedOutputBufferManager> getOutputBuffersForStagesConsumedByCoordinator()
+        Map<PlanFragmentId, PipelinedOutputBufferManager> getOutputBuffersForStagesConsumedByCoordinator()
         {
             return outputBuffersForStagesConsumedByCoordinator;
         }
 
-        public Map<PlanFragmentId, Optional<BucketToPartition>> getBucketToPartitionForStagesConsumedByCoordinator()
+        Map<PlanFragmentId, Optional<BucketToPartition>> getBucketToPartitionForStagesConsumedByCoordinator()
         {
             return bucketToPartitionForStagesConsumedByCoordinator;
         }
 
-        public TaskLifecycleListener getTaskLifecycleListener()
+        TaskLifecycleListener getTaskLifecycleListener()
         {
             return taskLifecycleListener;
         }
 
-        public void cancelStage(StageId stageId)
+        void cancelStage(StageId stageId)
         {
             for (StageExecution stageExecution : stageExecutions) {
                 if (stageExecution.getStageId().equals(stageId)) {
@@ -790,12 +790,12 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public void cancel()
+        void cancel()
         {
             stageExecutions.forEach(StageExecution::cancel);
         }
 
-        public void abort()
+        void abort()
         {
             stageExecutions.forEach(StageExecution::abort);
         }
@@ -855,7 +855,7 @@ public class PipelinedQueryScheduler
 
         private final AtomicBoolean started = new AtomicBoolean();
 
-        public static DistributedStagesScheduler create(
+        static DistributedStagesScheduler create(
                 QueryStateMachine queryStateMachine,
                 SplitSchedulerStats schedulerStats,
                 NodeScheduler nodeScheduler,
@@ -1287,7 +1287,7 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public void schedule()
+        void schedule()
         {
             checkState(started.compareAndSet(false, true), "already started");
 
@@ -1367,7 +1367,7 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public void cancelStage(StageId stageId)
+        void cancelStage(StageId stageId)
         {
             StageExecution stageExecution = stageExecutions.get(stageId);
             if (stageExecution != null) {
@@ -1375,25 +1375,25 @@ public class PipelinedQueryScheduler
             }
         }
 
-        public void cancel()
+        void cancel()
         {
             stateMachine.transitionToCanceled();
             stageExecutions.values().forEach(StageExecution::cancel);
         }
 
-        public void abort()
+        void abort()
         {
             stateMachine.transitionToAborted();
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
-        public void fail(Throwable failureCause, Optional<StageId> failedStageId)
+        void fail(Throwable failureCause, Optional<StageId> failedStageId)
         {
             stateMachine.transitionToFailed(failureCause, failedStageId);
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
-        public void reportTaskFailure(TaskId taskId, Throwable failureCause)
+        void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
             StageExecution stageExecution = stageExecutions.get(taskId.stageId());
             if (stageExecution == null) {
@@ -1410,12 +1410,12 @@ public class PipelinedQueryScheduler
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
-        public void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
+        void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
         {
             stateMachine.addStateChangeListener(stateChangeListener);
         }
 
-        public Optional<StageFailureInfo> getFailureCause()
+        Optional<StageFailureInfo> getFailureCause()
         {
             return stateMachine.getFailureCause();
         }
@@ -1430,7 +1430,7 @@ public class PipelinedQueryScheduler
         ABORTED(true, true),
         FAILED(true, true);
 
-        public static final Set<DistributedStagesSchedulerState> TERMINAL_STATES = Stream.of(DistributedStagesSchedulerState.values()).filter(DistributedStagesSchedulerState::isDone).collect(toImmutableSet());
+        static final Set<DistributedStagesSchedulerState> TERMINAL_STATES = Stream.of(DistributedStagesSchedulerState.values()).filter(DistributedStagesSchedulerState::isDone).collect(toImmutableSet());
 
         private final boolean doneState;
         private final boolean failureState;
@@ -1445,7 +1445,7 @@ public class PipelinedQueryScheduler
         /**
          * Is this a terminal state.
          */
-        public boolean isDone()
+        boolean isDone()
         {
             return doneState;
         }
@@ -1453,7 +1453,7 @@ public class PipelinedQueryScheduler
         /**
          * Is this a non-success terminal state.
          */
-        public boolean isFailure()
+        boolean isFailure()
         {
             return failureState;
         }
@@ -1465,39 +1465,39 @@ public class PipelinedQueryScheduler
         private final StateMachine<DistributedStagesSchedulerState> state;
         private final AtomicReference<StageFailureInfo> failureCause = new AtomicReference<>();
 
-        public DistributedStagesSchedulerStateMachine(QueryId queryId, Executor executor)
+        DistributedStagesSchedulerStateMachine(QueryId queryId, Executor executor)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             requireNonNull(executor, "executor is null");
             state = new StateMachine<>("Distributed stages scheduler", executor, DistributedStagesSchedulerState.PLANNED, DistributedStagesSchedulerState.TERMINAL_STATES);
         }
 
-        public DistributedStagesSchedulerState getState()
+        DistributedStagesSchedulerState getState()
         {
             return state.get();
         }
 
-        public boolean transitionToRunning()
+        boolean transitionToRunning()
         {
             return state.setIf(DistributedStagesSchedulerState.RUNNING, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToFinished()
+        boolean transitionToFinished()
         {
             return state.setIf(DistributedStagesSchedulerState.FINISHED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToCanceled()
+        boolean transitionToCanceled()
         {
             return state.setIf(DistributedStagesSchedulerState.CANCELED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToAborted()
+        boolean transitionToAborted()
         {
             return state.setIf(DistributedStagesSchedulerState.ABORTED, currentState -> !currentState.isDone());
         }
 
-        public boolean transitionToFailed(Throwable throwable, Optional<StageId> failedStageId)
+        boolean transitionToFailed(Throwable throwable, Optional<StageId> failedStageId)
         {
             requireNonNull(throwable, "throwable is null");
 
@@ -1512,7 +1512,7 @@ public class PipelinedQueryScheduler
             return failed;
         }
 
-        public Optional<StageFailureInfo> getFailureCause()
+        Optional<StageFailureInfo> getFailureCause()
         {
             return Optional.ofNullable(failureCause.get());
         }
@@ -1522,7 +1522,7 @@ public class PipelinedQueryScheduler
          * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
          * possible notifications are observed out of order due to the asynchronous execution.
          */
-        public void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
+        void addStateChangeListener(StateChangeListener<DistributedStagesSchedulerState> stateChangeListener)
         {
             state.addStateChangeListener(stateChangeListener);
         }
@@ -1557,7 +1557,7 @@ public class PipelinedQueryScheduler
             noMoreSourceTasks.add(fragmentId);
         }
 
-        public synchronized void notifyNoMoreSourceTasks()
+        synchronized void notifyNoMoreSourceTasks()
         {
             checkState(!done, "unexpected state");
             done = true;
@@ -1576,12 +1576,12 @@ public class PipelinedQueryScheduler
             this.failedStageId = requireNonNull(failedStageId, "failedStageId is null");
         }
 
-        public ExecutionFailureInfo getFailureInfo()
+        ExecutionFailureInfo getFailureInfo()
         {
             return failureInfo;
         }
 
-        public Optional<StageId> getFailedStageId()
+        Optional<StageId> getFailedStageId()
         {
             return failedStageId;
         }
@@ -1600,7 +1600,7 @@ public class PipelinedQueryScheduler
     private record PartitioningKey(PartitioningHandle handle, int partitionCount)
             implements BucketToPartitionKey
     {
-        public PartitioningKey(PartitioningHandle handle, int partitionCount)
+        PartitioningKey(PartitioningHandle handle, int partitionCount)
         {
             this.handle = requireNonNull(handle, "handle cannot be null");
             this.partitionCount = partitionCount;

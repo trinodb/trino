@@ -124,7 +124,7 @@ public class TestJdkCompatibilityChecks
             this.throwable = requireNonNull(throwable, "throwable is null");
         }
 
-        public Throwable getThrowable()
+        private Throwable getThrowable()
         {
             return throwable;
         }

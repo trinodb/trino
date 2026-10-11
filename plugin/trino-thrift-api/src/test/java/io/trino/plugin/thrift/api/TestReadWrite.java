@@ -258,12 +258,12 @@ public class TestReadWrite
     {
         private final Type type;
 
-        public ColumnDefinition(Type type)
+        private ColumnDefinition(Type type)
         {
             this.type = requireNonNull(type, "type is null");
         }
 
-        public Type getType()
+        private Type getType()
         {
             return type;
         }
@@ -276,7 +276,7 @@ public class TestReadWrite
     private static final class IntegerColumn
             extends ColumnDefinition
     {
-        public IntegerColumn()
+        private IntegerColumn()
         {
             super(INTEGER);
         }
@@ -297,7 +297,7 @@ public class TestReadWrite
     private static final class BigintColumn
             extends ColumnDefinition
     {
-        public BigintColumn()
+        private BigintColumn()
         {
             super(BIGINT);
         }
@@ -318,7 +318,7 @@ public class TestReadWrite
     private static final class DoubleColumn
             extends ColumnDefinition
     {
-        public DoubleColumn()
+        private DoubleColumn()
         {
             super(DOUBLE);
         }
@@ -341,7 +341,7 @@ public class TestReadWrite
     {
         private final VarcharType varcharType;
 
-        public VarcharColumn(VarcharType varcharType)
+        private VarcharColumn(VarcharType varcharType)
         {
             super(varcharType);
             this.varcharType = requireNonNull(varcharType, "varcharType is null");
@@ -363,7 +363,7 @@ public class TestReadWrite
     private static final class BooleanColumn
             extends ColumnDefinition
     {
-        public BooleanColumn()
+        private BooleanColumn()
         {
             super(BOOLEAN);
         }
@@ -384,7 +384,7 @@ public class TestReadWrite
     private static final class DateColumn
             extends ColumnDefinition
     {
-        public DateColumn()
+        private DateColumn()
         {
             super(DATE);
         }
@@ -405,7 +405,7 @@ public class TestReadWrite
     private static final class TimestampColumn
             extends ColumnDefinition
     {
-        public TimestampColumn()
+        private TimestampColumn()
         {
             super(TIMESTAMP_MILLIS);
         }
@@ -426,7 +426,7 @@ public class TestReadWrite
     private static final class JsonColumn
             extends ColumnDefinition
     {
-        public JsonColumn()
+        private JsonColumn()
         {
             super(JSON);
         }
@@ -453,7 +453,7 @@ public class TestReadWrite
     private static final class HyperLogLogColumn
             extends ColumnDefinition
     {
-        public HyperLogLogColumn()
+        private HyperLogLogColumn()
         {
             super(HYPER_LOG_LOG);
         }
@@ -476,7 +476,7 @@ public class TestReadWrite
     {
         private final ArrayType arrayType;
 
-        public BigintArrayColumn()
+        private BigintArrayColumn()
         {
             this(new ArrayType(BIGINT));
         }

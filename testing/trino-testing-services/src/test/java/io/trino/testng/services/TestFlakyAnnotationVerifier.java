@@ -74,12 +74,14 @@ public class TestFlakyAnnotationVerifier
     {
         @Flaky(issue = "Blah", match = "Blah")
         @ReportBadTestAnnotations.Suppress
+        @SuppressWarnings("EffectivelyPrivate")
         public void test() {}
     }
 
     private static class TestParentJustTest
     {
         @Test
+        @SuppressWarnings("EffectivelyPrivate")
         public void test() {}
     }
 
@@ -112,6 +114,7 @@ public class TestFlakyAnnotationVerifier
     {
         @Test
         @Flaky(issue = "Blah", match = "Blah")
+        @SuppressWarnings("EffectivelyPrivate")
         public void test() {}
     }
 
@@ -156,6 +159,7 @@ public class TestFlakyAnnotationVerifier
     {
         @Test
         @Flaky(match = "unbalanaced (", issue = "x")
+        @SuppressWarnings("EffectivelyPrivate")
         public void test() {}
     }
 }

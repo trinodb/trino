@@ -282,7 +282,7 @@ public class TestPhasedExecutionSchedule
         private boolean anyTaskBlocked;
         private State state = State.SCHEDULING;
 
-        public TestingStageExecution(PlanFragment fragment)
+        TestingStageExecution(PlanFragment fragment)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
         }
@@ -299,12 +299,12 @@ public class TestPhasedExecutionSchedule
             return anyTaskBlocked;
         }
 
-        public void setAnyTaskBlocked(boolean anyTaskBlocked)
+        void setAnyTaskBlocked(boolean anyTaskBlocked)
         {
             this.anyTaskBlocked = anyTaskBlocked;
         }
 
-        public void setState(State state)
+        void setState(State state)
         {
             this.state = state;
             if (stateChangeListener != null) {

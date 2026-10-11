@@ -112,7 +112,7 @@ public class UnwrapYearInComparison
         private final Session session;
         private final SymbolAllocator symbolAllocator;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
+        Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.optimizer = plannerContext.getExpressionOptimizer();
             this.metadata = plannerContext.getMetadata();

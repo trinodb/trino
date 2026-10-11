@@ -165,7 +165,7 @@ public class TestTransactionScopeCachingDirectoryLister
         private final AtomicInteger listCount = new AtomicInteger();
         private volatile boolean throwException;
 
-        public CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
+        CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
         {
             this.fileStatuses = requireNonNull(fileStatuses, "fileStatuses is null");
         }
@@ -178,12 +178,12 @@ public class TestTransactionScopeCachingDirectoryLister
             return throwingRemoteIterator(requireNonNull(fileStatuses.get(location)), throwException);
         }
 
-        public void setThrowException(boolean throwException)
+        void setThrowException(boolean throwException)
         {
             this.throwException = throwException;
         }
 
-        public int getListCount()
+        int getListCount()
         {
             return listCount.get();
         }

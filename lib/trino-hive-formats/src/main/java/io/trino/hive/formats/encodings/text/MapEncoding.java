@@ -163,7 +163,7 @@ public class MapEncoding
     private class KeyOnlyEntryDecoder
             implements EntryDecoder
     {
-        public Block getKeyBlock()
+        private Block getKeyBlock()
         {
             Block keyBlock = keyBlockBuilder.build();
             keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, keyBlock.getPositionCount());
@@ -192,7 +192,7 @@ public class MapEncoding
         private final BlockBuilder valueBuilder;
         private int entryPosition;
 
-        public DistinctEntryDecoder(boolean[] distinctKeys, Block keyBlock, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+        private DistinctEntryDecoder(boolean[] distinctKeys, Block keyBlock, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
         {
             this.distinctKeys = distinctKeys;
             this.keyBlock = keyBlock;

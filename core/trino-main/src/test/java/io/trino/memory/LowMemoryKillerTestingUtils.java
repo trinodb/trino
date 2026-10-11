@@ -138,18 +138,18 @@ public final class LowMemoryKillerTestingUtils
         private long totalReservedBytes;
         private final Map<QueryId, Long> reservationByQuery = new HashMap<>();
 
-        public void add(QueryId queryId, long bytes)
+        void add(QueryId queryId, long bytes)
         {
             totalReservedBytes += bytes;
             reservationByQuery.put(queryId, bytes);
         }
 
-        public long getTotalReservedBytes()
+        long getTotalReservedBytes()
         {
             return totalReservedBytes;
         }
 
-        public Map<QueryId, Long> getReservationByQuery()
+        Map<QueryId, Long> getReservationByQuery()
         {
             return reservationByQuery;
         }

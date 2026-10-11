@@ -99,7 +99,7 @@ public final class DomainCoercer
             this.comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
         }
 
-        public Domain applySaturatedCasts()
+        Domain applySaturatedCasts()
         {
             if (domain.isNone()) {
                 return Domain.none(coercedValueType);

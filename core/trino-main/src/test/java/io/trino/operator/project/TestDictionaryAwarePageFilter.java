@@ -235,18 +235,18 @@ public class TestDictionaryAwarePageFilter
         private final boolean filterRange;
         private Class<? extends Block> expectedType;
 
-        public TestDictionaryFilter(boolean filterRange)
+        TestDictionaryFilter(boolean filterRange)
         {
             this.filterRange = filterRange;
         }
 
-        public TestDictionaryFilter(boolean filterRange, Class<? extends Block> expectedType)
+        TestDictionaryFilter(boolean filterRange, Class<? extends Block> expectedType)
         {
             this.filterRange = filterRange;
             this.expectedType = expectedType;
         }
 
-        public void setExpectedType(Class<? extends Block> expectedType)
+        void setExpectedType(Class<? extends Block> expectedType)
         {
             this.expectedType = expectedType;
         }
@@ -317,7 +317,7 @@ public class TestDictionaryAwarePageFilter
     private static class NegativeValueException
             extends RuntimeException
     {
-        public NegativeValueException(long value)
+        NegativeValueException(long value)
         {
             super("value is negative: " + value);
         }

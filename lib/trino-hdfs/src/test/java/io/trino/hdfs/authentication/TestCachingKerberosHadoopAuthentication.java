@@ -119,7 +119,7 @@ public class TestCachingKerberosHadoopAuthentication
             return userGroupInformation(refreshedTicket);
         }
 
-        public int getInvocations()
+        private int getInvocations()
         {
             return invocations.get();
         }

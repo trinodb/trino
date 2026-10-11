@@ -328,7 +328,7 @@ public class Scope
 
     private record Match(String candidate, double similarity)
     {
-        public Match
+        Match
         {
             requireNonNull(candidate, "candidate is null");
         }

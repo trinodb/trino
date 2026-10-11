@@ -73,7 +73,7 @@ public final class GatherAndMergeWindows
         private final List<Capture<ProjectNode>> projectCaptures;
         private final Pattern<WindowNode> pattern;
 
-        protected ManipulateAdjacentWindowsOverProjects(int numProjects)
+        ManipulateAdjacentWindowsOverProjects(int numProjects)
         {
             PropertyPattern<PlanNode, ?, ?> childPattern = source().matching(window().capturedAs(childCapture));
             ImmutableList.Builder<Capture<ProjectNode>> projectCapturesBuilder = ImmutableList.builder();
@@ -109,7 +109,7 @@ public final class GatherAndMergeWindows
                     .orElse(Result.empty());
         }
 
-        protected abstract Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context);
+        abstract Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context);
 
         /**
          * Looks for the pattern (ProjectNode*)WindowNode, and rewrites it to WindowNode(ProjectNode*),
@@ -118,7 +118,7 @@ public final class GatherAndMergeWindows
          *
          * @param projects the nodes above the target, bottom first.
          */
-        protected static Optional<WindowNode> pullWindowNodeAboveProjects(
+        static Optional<WindowNode> pullWindowNodeAboveProjects(
                 WindowNode target,
                 List<ProjectNode> projects)
         {

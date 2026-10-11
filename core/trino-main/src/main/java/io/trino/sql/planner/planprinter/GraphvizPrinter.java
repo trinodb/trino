@@ -210,7 +210,7 @@ public final class GraphvizPrinter
         private final StringBuilder output;
         private final PlanNodeIdGenerator idGenerator;
 
-        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator)
+        NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator)
         {
             this.output = output;
             this.idGenerator = idGenerator;
@@ -670,7 +670,7 @@ public final class GraphvizPrinter
         private final Map<PlanFragmentId, PlanFragment> fragmentsById;
         private final PlanNodeIdGenerator idGenerator;
 
-        public EdgePrinter(StringBuilder output, Map<PlanFragmentId, PlanFragment> fragmentsById, PlanNodeIdGenerator idGenerator)
+        EdgePrinter(StringBuilder output, Map<PlanFragmentId, PlanFragment> fragmentsById, PlanNodeIdGenerator idGenerator)
         {
             this.output = output;
             this.fragmentsById = ImmutableMap.copyOf(fragmentsById);
@@ -718,12 +718,12 @@ public final class GraphvizPrinter
         private final Map<PlanNode, Integer> planNodeIds;
         private int idCount;
 
-        public PlanNodeIdGenerator()
+        PlanNodeIdGenerator()
         {
             planNodeIds = new HashMap<>();
         }
 
-        public String getNodeId(PlanNode from)
+        String getNodeId(PlanNode from)
         {
             int nodeId;
 

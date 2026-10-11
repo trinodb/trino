@@ -81,12 +81,12 @@ public abstract class CompressedQueryDataEncoder
     private static final class ExposedByteArrayOutputStream
             extends ByteArrayOutputStream
     {
-        public ExposedByteArrayOutputStream(int size)
+        ExposedByteArrayOutputStream(int size)
         {
             super(size);
         }
 
-        public byte[] buffer()
+        byte[] buffer()
         {
             return buf;
         }

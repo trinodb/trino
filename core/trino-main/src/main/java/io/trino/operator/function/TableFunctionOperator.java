@@ -364,7 +364,7 @@ public class TableFunctionOperator
         final Optional<PagesIndexOrdering> remainingPartitionAndSortOrdering; // empty when remaining partitioning and sort channels are empty
         final int[] prePartitionedChannelsArray;
 
-        public HashStrategies(
+        HashStrategies(
                 PagesIndex pagesIndex,
                 List<Integer> partitionChannels,
                 List<Integer> prePartitionedChannels,
@@ -421,7 +421,7 @@ public class TableFunctionOperator
         private int inputPosition;
         private boolean processEmptyInput;
 
-        public PartitionAndSort(PagesIndex pagesIndex, HashStrategies hashStrategies, boolean processEmptyInput)
+        PartitionAndSort(PagesIndex pagesIndex, HashStrategies hashStrategies, boolean processEmptyInput)
         {
             this.pagesIndex = pagesIndex;
             this.hashStrategies = hashStrategies;

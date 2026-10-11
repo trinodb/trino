@@ -212,7 +212,7 @@ public final class TypeCalculation
     {
         private final Map<String, Long> inputs;
 
-        public CalculateTypeVisitor(Map<String, Long> inputs)
+        CalculateTypeVisitor(Map<String, Long> inputs)
         {
             this.inputs = requireNonNull(inputs);
         }

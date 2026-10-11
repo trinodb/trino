@@ -139,9 +139,9 @@ public class DeltaLengthByteArrayDecoders
             inputLengthsOffset += n;
         }
 
-        protected abstract int truncatedLength(Slice slice, int offset, int length);
+        abstract int truncatedLength(Slice slice, int offset, int length);
 
-        protected int getInputLength(int length)
+        int getInputLength(int length)
         {
             int totalInputLength = 0;
             for (int i = 0; i < length; i++) {
@@ -150,7 +150,7 @@ public class DeltaLengthByteArrayDecoders
             return totalInputLength;
         }
 
-        protected InputLengths getInputAndMaxLength(int length)
+        InputLengths getInputAndMaxLength(int length)
         {
             int totalInputLength = 0;
             int maxLength = 0;
@@ -162,7 +162,7 @@ public class DeltaLengthByteArrayDecoders
             return new InputLengths(totalInputLength, maxLength);
         }
 
-        protected void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
+        void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             values.addChunk(input.readSlice(totalInputLength));
             int[] outputOffsets = values.getOffsets();
@@ -178,7 +178,7 @@ public class DeltaLengthByteArrayDecoders
             inputLengthsOffset += length;
         }
 
-        protected void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
+        void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             // Use offset arrays to temporarily store output lengths
             int[] outputOffsets = values.getOffsets();
@@ -239,7 +239,7 @@ public class DeltaLengthByteArrayDecoders
             return Slices.wrappedBuffer(output);
         }
 
-        protected record InputLengths(int totalInputLength, int maxInputLength) {}
+        record InputLengths(int totalInputLength, int maxInputLength) {}
     }
 
     private static int[] readInputLengths(SimpleSliceInputStream input)

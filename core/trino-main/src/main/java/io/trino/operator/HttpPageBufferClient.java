@@ -870,7 +870,7 @@ public final class HttpPageBufferClient
     private static class ChecksumVerificationException
             extends RuntimeException
     {
-        public ChecksumVerificationException(String message)
+        ChecksumVerificationException(String message)
         {
             super(requireNonNull(message, "message is null"));
         }

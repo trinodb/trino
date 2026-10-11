@@ -925,7 +925,7 @@ public class TestRedshiftConnectorTest
         private final String name;
         private final SqlExecutor executor;
 
-        public TestView(SqlExecutor executor, String namePrefix, String viewDefinition)
+        private TestView(SqlExecutor executor, String namePrefix, String viewDefinition)
         {
             this.executor = executor;
             this.name = namePrefix + "_" + randomNameSuffix();
@@ -938,7 +938,7 @@ public class TestRedshiftConnectorTest
             executor.execute("DROP VIEW " + name);
         }
 
-        public String getName()
+        private String getName()
         {
             return name;
         }
@@ -959,7 +959,7 @@ public class TestRedshiftConnectorTest
             tracingEvents = ConcurrentHashMap.newKeySet();
         }
 
-        public void startTracingDatabaseEvent(RemoteLogTracingEvent event)
+        private void startTracingDatabaseEvent(RemoteLogTracingEvent event)
         {
             if (tracingEvents.isEmpty()) {
                 executor = new ScheduledThreadPoolExecutor(1, daemonThreadsNamed("redshift-database-event-monitor"));
@@ -968,7 +968,7 @@ public class TestRedshiftConnectorTest
             tracingEvents.add(event);
         }
 
-        public void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
+        private void stopTracingDatabaseEvent(RemoteLogTracingEvent event)
         {
             tracingEvents.remove(event);
             if (tracingEvents.isEmpty()) {

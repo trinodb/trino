@@ -149,7 +149,7 @@ public class BenchmarkPageProcessor
 
     private static final class Tpch1FilterAndProject
     {
-        public static int process(Page page, int start, int end, PageBuilder pageBuilder)
+        static int process(Page page, int start, int end, PageBuilder pageBuilder)
         {
             Block discountBlock = page.getBlock(DISCOUNT);
             int position = start;

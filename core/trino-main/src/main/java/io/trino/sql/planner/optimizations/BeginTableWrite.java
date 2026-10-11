@@ -95,7 +95,7 @@ public class BeginTableWrite
     {
         private final Session session;
 
-        public Rewriter(Session session)
+        Rewriter(Session session)
         {
             this.session = session;
         }
@@ -185,7 +185,7 @@ public class BeginTableWrite
                     node.getStatisticsAggregationDescriptor());
         }
 
-        public WriterTarget getWriterTarget(PlanNode node)
+        WriterTarget getWriterTarget(PlanNode node)
         {
             if (node instanceof TableWriterNode tableWriterNode) {
                 return tableWriterNode.getTarget();

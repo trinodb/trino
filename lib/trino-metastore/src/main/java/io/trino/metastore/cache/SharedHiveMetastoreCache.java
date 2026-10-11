@@ -383,17 +383,17 @@ public class SharedHiveMetastoreCache
             missCount += stats.missCount();
         }
 
-        public long getRequestCount()
+        private long getRequestCount()
         {
             return requestCount;
         }
 
-        public double getHitRate()
+        private double getHitRate()
         {
             return (requestCount == 0) ? 1.0 : (double) hitCount / requestCount;
         }
 
-        public double getMissRate()
+        private double getMissRate()
         {
             return (requestCount == 0) ? 0.0 : (double) missCount / requestCount;
         }

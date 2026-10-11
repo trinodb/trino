@@ -440,7 +440,7 @@ public class HivePageSink
     {
         private final PageIndexer pageIndexer;
 
-        public HiveWriterPagePartitioner(
+        HiveWriterPagePartitioner(
                 List<HiveColumnHandle> inputColumns,
                 boolean bucketed,
                 PageIndexerFactory pageIndexerFactory)
@@ -460,7 +460,7 @@ public class HivePageSink
             this.pageIndexer = pageIndexerFactory.createPageIndexer(partitionColumnTypes);
         }
 
-        public int[] partitionPage(Page partitionColumns, Block bucketBlock)
+        int[] partitionPage(Page partitionColumns, Block bucketBlock)
         {
             if (bucketBlock != null) {
                 Block[] blocks = new Block[partitionColumns.getChannelCount() + 1];
@@ -473,7 +473,7 @@ public class HivePageSink
             return pageIndexer.indexPage(partitionColumns);
         }
 
-        public int getMaxIndex()
+        int getMaxIndex()
         {
             return pageIndexer.getMaxIndex();
         }

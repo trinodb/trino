@@ -281,22 +281,22 @@ public class CachingDirectoryLister
 
         private final Optional<List<TrinoFileStatus>> files;
 
-        public ValueHolder()
+        ValueHolder()
         {
             files = Optional.empty();
         }
 
-        public ValueHolder(List<TrinoFileStatus> files)
+        ValueHolder(List<TrinoFileStatus> files)
         {
             this.files = Optional.of(ImmutableList.copyOf(requireNonNull(files, "files is null")));
         }
 
-        public Optional<List<TrinoFileStatus>> getFiles()
+        Optional<List<TrinoFileStatus>> getFiles()
         {
             return files;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOf(files, value -> estimatedSizeOf(value, TrinoFileStatus::getRetainedSizeInBytes));
         }
@@ -312,7 +312,7 @@ public class CachingDirectoryLister
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE +
                     estimatedSizeOf(location.toString()) +

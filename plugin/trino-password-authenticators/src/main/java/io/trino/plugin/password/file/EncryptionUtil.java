@@ -112,22 +112,22 @@ public final class EncryptionUtil
             this.hash = requireNonNull(hash, "hash is null");
         }
 
-        public int iterations()
+        private int iterations()
         {
             return iterations;
         }
 
-        public byte[] salt()
+        private byte[] salt()
         {
             return salt;
         }
 
-        public byte[] hash()
+        private byte[] hash()
         {
             return hash;
         }
 
-        public static PBKDF2Password fromString(String password)
+        private static PBKDF2Password fromString(String password)
         {
             try {
                 List<String> parts = Splitter.on(":").splitToList(password);

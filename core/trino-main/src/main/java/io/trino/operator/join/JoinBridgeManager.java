@@ -137,7 +137,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         private final ListenableFuture<Void> whenBuildAndProbeFinishes;
         private final ListenableFuture<Void> whenAllFinishes;
 
-        public JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
+        JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
         {
             // When all probe and lookup-outer operators finish, destroy the join bridge (freeing the memory)
             // * Each LookupOuterOperatorFactory count as 1
@@ -155,7 +155,7 @@ public class JoinBridgeManager<T extends JoinBridge>
             whenAllFinishes.addListener(joinBridge::destroy, directExecutor());
         }
 
-        public ListenableFuture<Void> whenBuildAndProbeFinishes()
+        ListenableFuture<Void> whenBuildAndProbeFinishes()
         {
             return whenBuildAndProbeFinishes;
         }

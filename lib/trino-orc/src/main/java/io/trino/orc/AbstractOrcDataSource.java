@@ -227,12 +227,12 @@ public abstract class AbstractOrcDataSource
         private final DiskRange diskRange;
         private Slice bufferSlice;
 
-        public LazyBufferLoader(DiskRange diskRange)
+        private LazyBufferLoader(DiskRange diskRange)
         {
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
         }
 
-        public Slice loadNestedDiskRangeBuffer(DiskRange nestedDiskRange)
+        private Slice loadNestedDiskRangeBuffer(DiskRange nestedDiskRange)
         {
             load();
 
@@ -263,7 +263,7 @@ public abstract class AbstractOrcDataSource
         private final LazyBufferLoader lazyBufferLoader;
         private Slice data;
 
-        public MergedOrcDataReader(OrcDataSourceId orcDataSourceId, DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
+        private MergedOrcDataReader(OrcDataSourceId orcDataSourceId, DiskRange diskRange, LazyBufferLoader lazyBufferLoader)
         {
             this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
             this.diskRange = requireNonNull(diskRange, "diskRange is null");
@@ -325,7 +325,7 @@ public abstract class AbstractOrcDataSource
     {
         private final DiskRange diskRange;
 
-        public DiskOrcDataReader(DiskRange diskRange)
+        private DiskOrcDataReader(DiskRange diskRange)
         {
             super(id, diskRange.length(), toIntExact(options.getStreamBufferSize().toBytes()));
             this.diskRange = diskRange;

@@ -186,7 +186,7 @@ public class SequenceFileWriter
 
         private final Closer closer = Closer.create();
 
-        public SingleValueWriter(DataOutputStream output, Optional<Codec> codec, long syncFirst, long syncSecond, ValueType valueType)
+        SingleValueWriter(DataOutputStream output, Optional<Codec> codec, long syncFirst, long syncSecond, ValueType valueType)
                 throws IOException
         {
             try {
@@ -293,7 +293,7 @@ public class SequenceFileWriter
 
         private final Closer closer = Closer.create();
 
-        public BlockCompressionValueWriter(DataOutputStream output, Codec trinoCodec, long syncFirst, long syncSecond, ValueType valueType)
+        BlockCompressionValueWriter(DataOutputStream output, Codec trinoCodec, long syncFirst, long syncSecond, ValueType valueType)
                 throws IOException
         {
             try {

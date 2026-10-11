@@ -108,14 +108,14 @@ public class RowBlockBuildingDecoder
         private final BlockBuildingDecoder delegate;
         private final int outputChannel;
 
-        public BuildIntoBlockAction(BlockBuildingDecoder delegate, int outputChannel)
+        private BuildIntoBlockAction(BlockBuildingDecoder delegate, int outputChannel)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             checkArgument(outputChannel >= 0, "outputChannel must be positive");
             this.outputChannel = outputChannel;
         }
 
-        public void decode(Decoder decoder, IntFunction<BlockBuilder> channelSelector)
+        private void decode(Decoder decoder, IntFunction<BlockBuilder> channelSelector)
                 throws IOException
         {
             delegate.decodeIntoBlock(decoder, channelSelector.apply(outputChannel));

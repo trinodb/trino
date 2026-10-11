@@ -423,7 +423,7 @@ class TestMemoryPools
         private long producedPagesCount;
         private final LocalMemoryContext revocableMemoryContext;
 
-        public RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
+        RevocableMemoryOperator(OperatorContext operatorContext, DataSize reservedPerPage, long numberOfPages)
         {
             this.operatorContext = operatorContext;
             this.reservedPerPage = reservedPerPage;

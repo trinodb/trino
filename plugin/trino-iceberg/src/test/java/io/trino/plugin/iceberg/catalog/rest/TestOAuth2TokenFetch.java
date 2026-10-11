@@ -104,7 +104,7 @@ final class TestOAuth2TokenFetch
         private final AtomicInteger tokenFetchCount = new AtomicInteger();
         private final int tokenExpiresInSeconds;
 
-        public ExpiringTokenRestCatalogAdapter(Catalog delegate, Duration tokenExpiresIn)
+        private ExpiringTokenRestCatalogAdapter(Catalog delegate, Duration tokenExpiresIn)
         {
             super(delegate);
             this.tokenExpiresInSeconds = toIntExact(tokenExpiresIn.toSeconds());
@@ -131,7 +131,7 @@ final class TestOAuth2TokenFetch
             return response;
         }
 
-        public int tokenFetchCount()
+        private int tokenFetchCount()
         {
             return tokenFetchCount.get();
         }

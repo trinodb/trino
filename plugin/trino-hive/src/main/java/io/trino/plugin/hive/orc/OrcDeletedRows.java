@@ -115,7 +115,7 @@ public class OrcDeletedRows
         private final SourcePage sourcePage;
         private boolean deleteMaskApplied;
 
-        public OrcAcidMaskedSourcePage(SourcePage sourcePage, OptionalLong startRowId)
+        OrcAcidMaskedSourcePage(SourcePage sourcePage, OptionalLong startRowId)
         {
             this.sourcePage = requireNonNull(sourcePage, "sourcePage is null");
             this.startRowId = requireNonNull(startRowId, "startRowId is null");
@@ -306,7 +306,7 @@ public class OrcDeletedRows
         private SourcePage currentPage;
         private int currentPagePosition;
 
-        public Optional<Set<RowId>> loadOrYield()
+        Optional<Set<RowId>> loadOrYield()
         {
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
@@ -378,7 +378,7 @@ public class OrcDeletedRows
             return Optional.of(builtDeletedRows);
         }
 
-        public void close()
+        void close()
                 throws IOException
         {
             if (currentPageSource != null) {
@@ -413,6 +413,6 @@ public class OrcDeletedRows
 
     private record RowId(long originalTransaction, int bucket, int statementId, long rowId)
     {
-        public static final int INSTANCE_SIZE = instanceSize(RowId.class);
+        static final int INSTANCE_SIZE = instanceSize(RowId.class);
     }
 }

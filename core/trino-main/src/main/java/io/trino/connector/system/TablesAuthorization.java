@@ -139,7 +139,7 @@ public class TablesAuthorization
 
     private record CatalogTableAuthorization(String catalog, TableAuthorization tableAuthorization)
     {
-        public CatalogTableAuthorization
+        CatalogTableAuthorization
         {
             requireNonNull(catalog, "catalog is null");
             requireNonNull(tableAuthorization, "tableAuthorization is null");

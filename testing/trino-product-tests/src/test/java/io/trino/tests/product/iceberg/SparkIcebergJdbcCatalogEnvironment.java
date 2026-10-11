@@ -318,7 +318,7 @@ public class SparkIcebergJdbcCatalogEnvironment
             extends GenericContainer<SparkIcebergJdbcCatalogContainer>
     {
         private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/spark4-iceberg";
-        public static final int SPARK_THRIFT_PORT = 10213;
+        static final int SPARK_THRIFT_PORT = 10213;
 
         private static final String SPARK_DEFAULTS_CONF =
                 """
@@ -347,12 +347,12 @@ public class SparkIcebergJdbcCatalogEnvironment
                 appender.console.layout.pattern = %d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n%ex
                 """;
 
-        public SparkIcebergJdbcCatalogContainer()
+        SparkIcebergJdbcCatalogContainer()
         {
             this(DEFAULT_IMAGE + ":" + TestingProperties.getDockerImagesVersion());
         }
 
-        public SparkIcebergJdbcCatalogContainer(String imageName)
+        SparkIcebergJdbcCatalogContainer(String imageName)
         {
             super(DockerImageName.parse(imageName));
             withExposedPorts(SPARK_THRIFT_PORT);
@@ -383,7 +383,7 @@ public class SparkIcebergJdbcCatalogEnvironment
         /**
          * Returns the JDBC URL for connecting to Spark Thrift Server from the host.
          */
-        public String getJdbcUrl()
+        String getJdbcUrl()
         {
             return "jdbc:hive2://" + getHost() + ":" + getMappedPort(SPARK_THRIFT_PORT);
         }

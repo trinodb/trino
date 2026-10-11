@@ -709,7 +709,7 @@ class StatementClientV1
         private final Runnable heartbeat;
         private boolean iterated;
 
-        public HeartbeatingResultRows(ResultRows delegate, Runnable heartbeat)
+        private HeartbeatingResultRows(ResultRows delegate, Runnable heartbeat)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.heartbeat = requireNonNull(heartbeat, "heartbeat is null");

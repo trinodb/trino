@@ -165,12 +165,12 @@ final class TestFileSystemExchangeSink
             delegate.close();
         }
 
-        public void completeCommit()
+        private void completeCommit()
         {
             commitFuture.set(null);
         }
 
-        public void failCommit(Throwable failure)
+        private void failCommit(Throwable failure)
         {
             commitFuture.setException(failure);
         }

@@ -348,14 +348,14 @@ public class TopNPeerGroupLookup
         private final LongBigArray buffer;
         private final long unmappedGroupId;
 
-        public Buffer(long positions, long unmappedGroupId)
+        Buffer(long positions, long unmappedGroupId)
         {
             buffer = new LongBigArray(unmappedGroupId);
             buffer.ensureCapacity(positions * POSITIONS_PER_ENTRY);
             this.unmappedGroupId = unmappedGroupId;
         }
 
-        public void set(long index, long groupId, long rowId, long precomputedHash, long value)
+        void set(long index, long groupId, long rowId, long precomputedHash, long value)
         {
             buffer.set(index * POSITIONS_PER_ENTRY, groupId);
             buffer.set(index * POSITIONS_PER_ENTRY + ROW_ID_OFFSET, rowId);
@@ -363,44 +363,44 @@ public class TopNPeerGroupLookup
             buffer.set(index * POSITIONS_PER_ENTRY + VALUE_OFFSET, value);
         }
 
-        public void clear(long index)
+        void clear(long index)
         {
             // Since all fields of an index are set/unset together as a unit, we only need to choose one field to serve
             // as a marker for empty slots. Group IDs have been arbitrarily selected for that purpose.
             buffer.set(index * POSITIONS_PER_ENTRY, unmappedGroupId);
         }
 
-        public boolean isEmptySlot(long index)
+        boolean isEmptySlot(long index)
         {
             return getGroupId(index) == unmappedGroupId;
         }
 
-        public long getGroupId(long index)
+        long getGroupId(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY);
         }
 
-        public long getRowId(long index)
+        long getRowId(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + ROW_ID_OFFSET);
         }
 
-        public long getPrecomputedHash(long index)
+        long getPrecomputedHash(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + PRECOMPUTED_HASH_OFFSET);
         }
 
-        public long getValue(long index)
+        long getValue(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + VALUE_OFFSET);
         }
 
-        public void setValue(long index, long value)
+        void setValue(long index, long value)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + VALUE_OFFSET, value);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + buffer.sizeOf();
         }

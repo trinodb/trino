@@ -186,19 +186,19 @@ public final class CachingIdentifierMapping
         private final Map<String, String> mapping;
         private final Set<String> duplicates;
 
-        public Mapping(Map<String, String> mapping, Set<String> duplicates)
+        private Mapping(Map<String, String> mapping, Set<String> duplicates)
         {
             this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));
             this.duplicates = ImmutableSet.copyOf(requireNonNull(duplicates, "duplicates is null"));
         }
 
-        public boolean hasRemoteObject(String remoteName)
+        private boolean hasRemoteObject(String remoteName)
         {
             return mapping.containsKey(remoteName) || duplicates.contains(remoteName);
         }
 
         @Nullable
-        public String get(String remoteName)
+        private String get(String remoteName)
         {
             checkArgument(!duplicates.contains(remoteName), "Ambiguous name: %s", remoteName);
             return mapping.get(remoteName);

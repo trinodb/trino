@@ -287,7 +287,7 @@ public class TestMemo
     {
         private final List<PlanNode> sources;
 
-        public GenericNode(PlanNodeId id, List<PlanNode> sources)
+        GenericNode(PlanNodeId id, List<PlanNode> sources)
         {
             super(id);
             this.sources = ImmutableList.copyOf(sources);

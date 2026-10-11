@@ -109,7 +109,7 @@ public class BufferingSplitSource
         @GuardedBy("this")
         private ListenableFuture<SplitBatch> nextBatchFuture;
 
-        public static ListenableFuture<SplitBatch> fetchNextBatchAsync(
+        static ListenableFuture<SplitBatch> fetchNextBatchAsync(
                 SplitSource splitSource,
                 Executor executor,
                 int min,

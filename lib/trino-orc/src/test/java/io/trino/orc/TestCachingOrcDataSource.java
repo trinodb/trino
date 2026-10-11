@@ -235,7 +235,7 @@ public class TestCachingOrcDataSource
     private static class FakeOrcDataSource
             implements OrcDataSource
     {
-        public static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
+        private static final FakeOrcDataSource INSTANCE = new FakeOrcDataSource();
 
         @Override
         public OrcDataSourceId getId()

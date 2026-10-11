@@ -254,20 +254,20 @@ public final class SqlFormatter
         {
             private final StringBuilder builder;
 
-            public SqlBuilder(StringBuilder builder)
+            private SqlBuilder(StringBuilder builder)
             {
                 this.builder = requireNonNull(builder, "builder is null");
             }
 
             @CanIgnoreReturnValue
-            public SqlBuilder append(CharSequence value)
+            private SqlBuilder append(CharSequence value)
             {
                 builder.append(value);
                 return this;
             }
 
             @CanIgnoreReturnValue
-            public SqlBuilder append(char c)
+            private SqlBuilder append(char c)
             {
                 builder.append(c);
                 return this;
@@ -276,7 +276,7 @@ public final class SqlFormatter
 
         private final SqlBuilder builder;
 
-        public Formatter(StringBuilder builder)
+        private Formatter(StringBuilder builder)
         {
             this.builder = new SqlBuilder(builder);
         }

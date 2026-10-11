@@ -500,7 +500,7 @@ public class TaskResource
             this.taskManagement = taskManagement;
         }
 
-        public boolean isTaskManagement()
+        boolean isTaskManagement()
         {
             return taskManagement;
         }

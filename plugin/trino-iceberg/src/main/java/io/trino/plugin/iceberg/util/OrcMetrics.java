@@ -363,12 +363,12 @@ public final class OrcMetrics
             }
         }
 
-        public ByteBuffer getMin()
+        private ByteBuffer getMin()
         {
             return min;
         }
 
-        public ByteBuffer getMax()
+        private ByteBuffer getMax()
         {
             return max;
         }

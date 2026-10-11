@@ -151,7 +151,7 @@ public class TestProgressMonitor
             builder.add(queryStats);
         }
 
-        public synchronized List<QueryStats> finish()
+        private synchronized List<QueryStats> finish()
         {
             finished = true;
             return builder.build();

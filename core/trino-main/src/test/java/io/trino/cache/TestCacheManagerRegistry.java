@@ -276,13 +276,13 @@ class TestCacheManagerRegistry
         private final Set<CacheCapability> capabilities;
         private final List<CacheKey> recordedKeys = new ArrayList<>();
 
-        public TestingBlobCacheManagerFactory(String name, CacheCapability... capabilities)
+        TestingBlobCacheManagerFactory(String name, CacheCapability... capabilities)
         {
             this.name = name;
             this.capabilities = ImmutableSet.copyOf(capabilities);
         }
 
-        public List<CacheKey> recordedKeys()
+        List<CacheKey> recordedKeys()
         {
             return recordedKeys;
         }

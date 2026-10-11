@@ -169,7 +169,7 @@ public class UnaliasSymbolReferences
         private final Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider;
         private final Map<DynamicFilterId, DynamicFilterId> dynamicFilterIdMap = new HashMap<>();
 
-        public Visitor(Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
+        Visitor(Function<Map<Symbol, Symbol>, SymbolMapper> mapperProvider)
         {
             this.mapperProvider = requireNonNull(mapperProvider, "mapperProvider is null");
         }
@@ -179,7 +179,7 @@ public class UnaliasSymbolReferences
             return mapperProvider.apply(mappings);
         }
 
-        public Map<DynamicFilterId, DynamicFilterId> getDynamicFilterIdMap()
+        Map<DynamicFilterId, DynamicFilterId> getDynamicFilterIdMap()
         {
             return ImmutableMap.copyOf(dynamicFilterIdMap);
         }
@@ -1352,17 +1352,17 @@ public class UnaliasSymbolReferences
         // In case of nested correlation, correlationMappings has required mappings for correlation symbols from all levels of nesting.
         private final Map<Symbol, Symbol> correlationMapping;
 
-        public UnaliasContext(Map<Symbol, Symbol> correlationMapping)
+        UnaliasContext(Map<Symbol, Symbol> correlationMapping)
         {
             this.correlationMapping = requireNonNull(correlationMapping, "correlationMapping is null");
         }
 
-        public static UnaliasContext empty()
+        static UnaliasContext empty()
         {
             return new UnaliasContext(ImmutableMap.of());
         }
 
-        public Map<Symbol, Symbol> getCorrelationMapping()
+        Map<Symbol, Symbol> getCorrelationMapping()
         {
             return correlationMapping;
         }
@@ -1373,18 +1373,18 @@ public class UnaliasSymbolReferences
         private final PlanNode root;
         private final Map<Symbol, Symbol> mappings;
 
-        public PlanAndMappings(PlanNode root, Map<Symbol, Symbol> mappings)
+        PlanAndMappings(PlanNode root, Map<Symbol, Symbol> mappings)
         {
             this.root = requireNonNull(root, "root is null");
             this.mappings = ImmutableMap.copyOf(requireNonNull(mappings, "mappings is null"));
         }
 
-        public PlanNode getRoot()
+        PlanNode getRoot()
         {
             return root;
         }
 
-        public Map<Symbol, Symbol> getMappings()
+        Map<Symbol, Symbol> getMappings()
         {
             return mappings;
         }

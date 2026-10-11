@@ -344,7 +344,7 @@ class TestNodeStateManager
             shuttingDown = true;
         }
 
-        public boolean isShuttingDown()
+        boolean isShuttingDown()
         {
             return shuttingDown;
         }
@@ -356,7 +356,7 @@ class TestNodeStateManager
         private final Ticker clock;
         private List<Job> jobs = new ArrayList<>();
 
-        public FakeScheduledExecutorService(Ticker clock)
+        FakeScheduledExecutorService(Ticker clock)
         {
             this.clock = clock;
         }

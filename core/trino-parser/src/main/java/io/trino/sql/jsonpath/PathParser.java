@@ -128,7 +128,7 @@ public final class PathParser
         private final List<String> ruleNames;
         private final JsonPathParser parser;
 
-        public PostProcessor(List<String> ruleNames, JsonPathParser parser)
+        PostProcessor(List<String> ruleNames, JsonPathParser parser)
         {
             this.ruleNames = ruleNames;
             this.parser = parser;

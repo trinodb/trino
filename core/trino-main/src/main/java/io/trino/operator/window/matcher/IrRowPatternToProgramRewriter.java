@@ -53,7 +53,7 @@ public final class IrRowPatternToProgramRewriter
         private final List<Instruction> instructions;
         private final Map<IrLabel, Integer> labelMapping;
 
-        public Rewriter(List<Instruction> instructions, Map<IrLabel, Integer> labelMapping)
+        Rewriter(List<Instruction> instructions, Map<IrLabel, Integer> labelMapping)
         {
             this.instructions = requireNonNull(instructions, "instructions is null");
             this.labelMapping = requireNonNull(labelMapping, "labelMapping is null");

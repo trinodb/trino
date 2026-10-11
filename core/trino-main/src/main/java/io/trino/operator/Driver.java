@@ -787,12 +787,12 @@ public class Driver
         @GuardedBy("this")
         private List<StackTraceElement> interrupterStack;
 
-        public boolean isHeldByCurrentThread()
+        boolean isHeldByCurrentThread()
         {
             return lock.isHeldByCurrentThread();
         }
 
-        public boolean tryLock(boolean currentThreadInterruptionAllowed)
+        boolean tryLock(boolean currentThreadInterruptionAllowed)
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
             boolean acquired = lock.tryLock();
@@ -802,7 +802,7 @@ public class Driver
             return acquired;
         }
 
-        public boolean tryLock(long timeout, TimeUnit unit, boolean currentThreadInterruptionAllowed)
+        boolean tryLock(long timeout, TimeUnit unit, boolean currentThreadInterruptionAllowed)
                 throws InterruptedException
         {
             checkState(!lock.isHeldByCurrentThread(), "Lock is not reentrant");
@@ -825,7 +825,7 @@ public class Driver
             // state to prevent further processing in the Driver.
         }
 
-        public void unlock()
+        void unlock()
         {
             checkState(lock.isHeldByCurrentThread(), "Current thread does not hold lock");
             synchronized (this) {
@@ -840,12 +840,12 @@ public class Driver
             }
         }
 
-        public synchronized List<StackTraceElement> getInterrupterStack()
+        synchronized List<StackTraceElement> getInterrupterStack()
         {
             return interrupterStack;
         }
 
-        public synchronized void interruptCurrentOwner()
+        synchronized void interruptCurrentOwner()
         {
             if (!currentOwnerInterruptionAllowed) {
                 return;

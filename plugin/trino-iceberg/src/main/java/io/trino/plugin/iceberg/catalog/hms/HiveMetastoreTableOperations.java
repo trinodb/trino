@@ -175,7 +175,7 @@ public class HiveMetastoreTableOperations
 
         private final Table table;
 
-        public ThriftMetastoreLock(Table table)
+        ThriftMetastoreLock(Table table)
         {
             this.table = requireNonNull(table, "table is null");
         }

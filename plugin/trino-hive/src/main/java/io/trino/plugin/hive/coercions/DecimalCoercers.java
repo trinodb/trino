@@ -77,7 +77,7 @@ public final class DecimalCoercers
     {
         private final long rescale;
 
-        public ShortDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
+        private ShortDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
         {
             super(fromType, toType);
             rescale = longTenToNth(Math.abs(toType.getScale() - fromType.getScale()));
@@ -101,7 +101,7 @@ public final class DecimalCoercers
     private static class ShortDecimalToLongDecimalCoercer
             extends TypeCoercer<DecimalType, DecimalType>
     {
-        public ShortDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
+        private ShortDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
         {
             super(fromType, toType);
         }
@@ -122,7 +122,7 @@ public final class DecimalCoercers
     private static class LongDecimalToShortDecimalCoercer
             extends TypeCoercer<DecimalType, DecimalType>
     {
-        public LongDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
+        private LongDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
         {
             super(fromType, toType);
         }
@@ -143,7 +143,7 @@ public final class DecimalCoercers
     private static class LongDecimalToLongDecimalCoercer
             extends TypeCoercer<DecimalType, DecimalType>
     {
-        public LongDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
+        private LongDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
         {
             super(fromType, toType);
         }
@@ -174,7 +174,7 @@ public final class DecimalCoercers
     {
         private final long rescale;
 
-        public ShortDecimalToDoubleCoercer(DecimalType fromType)
+        private ShortDecimalToDoubleCoercer(DecimalType fromType)
         {
             super(fromType, DOUBLE);
             rescale = longTenToNth(fromType.getScale());
@@ -192,7 +192,7 @@ public final class DecimalCoercers
     private static class LongDecimalToDoubleCoercer
             extends TypeCoercer<DecimalType, DoubleType>
     {
-        public LongDecimalToDoubleCoercer(DecimalType fromType)
+        private LongDecimalToDoubleCoercer(DecimalType fromType)
         {
             super(fromType, DOUBLE);
         }
@@ -219,7 +219,7 @@ public final class DecimalCoercers
     {
         private final long rescale;
 
-        public ShortDecimalToRealCoercer(DecimalType fromType)
+        private ShortDecimalToRealCoercer(DecimalType fromType)
         {
             super(fromType, REAL);
             rescale = longTenToNth(fromType.getScale());
@@ -237,7 +237,7 @@ public final class DecimalCoercers
     private static class LongDecimalToRealCoercer
             extends TypeCoercer<DecimalType, RealType>
     {
-        public LongDecimalToRealCoercer(DecimalType fromType)
+        private LongDecimalToRealCoercer(DecimalType fromType)
         {
             super(fromType, REAL);
         }
@@ -264,7 +264,7 @@ public final class DecimalCoercers
     {
         private final int lengthLimit;
 
-        protected ShortDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        private ShortDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
         {
             super(fromType, toType);
             this.lengthLimit = toType.getLength().orElse(Integer.MAX_VALUE);
@@ -287,7 +287,7 @@ public final class DecimalCoercers
     {
         private final int lengthLimit;
 
-        protected LongDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        private LongDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
         {
             super(fromType, toType);
             this.lengthLimit = toType.getLength().orElse(Integer.MAX_VALUE);
@@ -316,10 +316,10 @@ public final class DecimalCoercers
     private abstract static class AbstractDecimalToIntegerNumberCoercer<T extends Type>
             extends TypeCoercer<DecimalType, T>
     {
-        protected final long minValue;
-        protected final long maxValue;
+        private final long minValue;
+        private final long maxValue;
 
-        public AbstractDecimalToIntegerNumberCoercer(DecimalType fromType, T toType)
+        private AbstractDecimalToIntegerNumberCoercer(DecimalType fromType, T toType)
         {
             super(fromType, toType);
 
@@ -366,13 +366,13 @@ public final class DecimalCoercers
             }
         }
 
-        protected abstract String getStringValue(Block block, int position);
+        abstract String getStringValue(Block block, int position);
     }
 
     private static class LongDecimalToIntegerCoercer<T extends Type>
             extends AbstractDecimalToIntegerNumberCoercer<T>
     {
-        public LongDecimalToIntegerCoercer(DecimalType fromType, T toType)
+        LongDecimalToIntegerCoercer(DecimalType fromType, T toType)
         {
             super(fromType, toType);
         }
@@ -387,7 +387,7 @@ public final class DecimalCoercers
     private static class ShortDecimalToIntegerCoercer<T extends Type>
             extends AbstractDecimalToIntegerNumberCoercer<T>
     {
-        public ShortDecimalToIntegerCoercer(DecimalType fromType, T toType)
+        ShortDecimalToIntegerCoercer(DecimalType fromType, T toType)
         {
             super(fromType, toType);
         }
@@ -410,7 +410,7 @@ public final class DecimalCoercers
     private static class DoubleToShortDecimalCoercer
             extends TypeCoercer<DoubleType, DecimalType>
     {
-        public DoubleToShortDecimalCoercer(DecimalType toType)
+        DoubleToShortDecimalCoercer(DecimalType toType)
         {
             super(DOUBLE, toType);
         }
@@ -427,7 +427,7 @@ public final class DecimalCoercers
     private static class DoubleToLongDecimalCoercer
             extends TypeCoercer<DoubleType, DecimalType>
     {
-        public DoubleToLongDecimalCoercer(DecimalType toType)
+        DoubleToLongDecimalCoercer(DecimalType toType)
         {
             super(DOUBLE, toType);
         }
@@ -452,7 +452,7 @@ public final class DecimalCoercers
     private static class RealToShortDecimalCoercer
             extends TypeCoercer<RealType, DecimalType>
     {
-        public RealToShortDecimalCoercer(DecimalType toType)
+        RealToShortDecimalCoercer(DecimalType toType)
         {
             super(REAL, toType);
         }
@@ -469,7 +469,7 @@ public final class DecimalCoercers
     private static class RealToLongDecimalCoercer
             extends TypeCoercer<RealType, DecimalType>
     {
-        public RealToLongDecimalCoercer(DecimalType toType)
+        RealToLongDecimalCoercer(DecimalType toType)
         {
             super(REAL, toType);
         }
@@ -494,7 +494,7 @@ public final class DecimalCoercers
     private static class IntegerNumberToShortDecimalCoercer<F extends Type>
             extends TypeCoercer<F, DecimalType>
     {
-        public IntegerNumberToShortDecimalCoercer(F fromType, DecimalType toType)
+        IntegerNumberToShortDecimalCoercer(F fromType, DecimalType toType)
         {
             super(fromType, toType);
         }
@@ -515,7 +515,7 @@ public final class DecimalCoercers
     private static class IntegerNumberToLongDecimalCoercer<F extends Type>
             extends TypeCoercer<F, DecimalType>
     {
-        public IntegerNumberToLongDecimalCoercer(F fromType, DecimalType toType)
+        IntegerNumberToLongDecimalCoercer(F fromType, DecimalType toType)
         {
             super(fromType, toType);
         }

@@ -396,19 +396,19 @@ public class TestGlobalFunctionCatalog
         private List<Signature.Builder> functionSignatures = ImmutableList.of();
         private List<TypeDescriptor> parameterTypes = ImmutableList.of();
 
-        public ResolveFunctionAssertion among(Signature.Builder... functionSignatures)
+        ResolveFunctionAssertion among(Signature.Builder... functionSignatures)
         {
             this.functionSignatures = ImmutableList.copyOf(functionSignatures);
             return this;
         }
 
-        public ResolveFunctionAssertion forParameters(Type... parameters)
+        ResolveFunctionAssertion forParameters(Type... parameters)
         {
             this.parameterTypes = parseTypeDescriptors(parameters);
             return this;
         }
 
-        public ResolveFunctionAssertion returns(Signature.Builder functionSignature)
+        ResolveFunctionAssertion returns(Signature.Builder functionSignature)
         {
             Signature expectedSignature = functionSignature.build();
             Signature actualSignature = resolveSignature().toSignature();
@@ -416,7 +416,7 @@ public class TestGlobalFunctionCatalog
             return this;
         }
 
-        public ResolveFunctionAssertion failsWithMessage(String message)
+        ResolveFunctionAssertion failsWithMessage(String message)
         {
             assertThatThrownBy(this::resolveSignature)
                     .isInstanceOf(RuntimeException.class)

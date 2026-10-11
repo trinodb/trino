@@ -117,7 +117,7 @@ public class EffectivePredicateExtractor
         private final boolean useTableProperties;
         private final DomainTranslator domainTranslator;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
+        Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator, boolean useTableProperties)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.metadata = plannerContext.getMetadata();

@@ -303,7 +303,7 @@ public class QueryContext
         private final BiFunction<String, Long, ListenableFuture<Void>> reserveMemoryFunction;
         private final BiPredicate<String, Long> tryReserveMemoryFunction;
 
-        public QueryMemoryReservationHandler(
+        QueryMemoryReservationHandler(
                 BiFunction<String, Long, ListenableFuture<Void>> reserveMemoryFunction,
                 BiPredicate<String, Long> tryReserveMemoryFunction)
         {

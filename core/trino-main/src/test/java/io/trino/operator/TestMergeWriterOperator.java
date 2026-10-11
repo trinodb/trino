@@ -192,7 +192,7 @@ public class TestMergeWriterOperator
     {
         private MemoryReportingMergeSink sink;
 
-        public MemoryReportingMergeSink sink()
+        MemoryReportingMergeSink sink()
         {
             return requireNonNull(sink, "merge sink not created yet");
         }
@@ -239,12 +239,12 @@ public class TestMergeWriterOperator
         private final MemoryContext memoryContext;
         private long reportedMemory;
 
-        public MemoryReportingMergeSink(MemoryContext memoryContext)
+        MemoryReportingMergeSink(MemoryContext memoryContext)
         {
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         }
 
-        public long reportedMemory()
+        long reportedMemory()
         {
             return reportedMemory;
         }

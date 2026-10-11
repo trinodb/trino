@@ -344,7 +344,7 @@ public class ThreadEquivalence
         final boolean foundClassifierAggregations;
         final List<List<Integer>> classifierAggregations;
 
-        public AggregationIndexes(boolean foundNoClassifierAggregations, List<List<Integer>> noClassifierAggregations, boolean foundClassifierAggregations, List<List<Integer>> classifierAggregations)
+        AggregationIndexes(boolean foundNoClassifierAggregations, List<List<Integer>> noClassifierAggregations, boolean foundClassifierAggregations, List<List<Integer>> classifierAggregations)
         {
             this.foundNoClassifierAggregations = foundNoClassifierAggregations;
             this.noClassifierAggregations = noClassifierAggregations;

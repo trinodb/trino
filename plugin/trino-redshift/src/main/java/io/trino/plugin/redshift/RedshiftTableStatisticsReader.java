@@ -131,7 +131,7 @@ public class RedshiftTableStatisticsReader
     {
         private final Handle handle;
 
-        public StatisticsDao(Handle handle)
+        private StatisticsDao(Handle handle)
         {
             this.handle = requireNonNull(handle, "handle is null");
         }

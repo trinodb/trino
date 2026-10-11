@@ -874,7 +874,7 @@ public class TestPinotConnectorSmokeTest
             return updatedAt;
         }
 
-        public static Object of(
+        private static Object of(
                 String vendor,
                 String city,
                 List<String> neighbors,

@@ -355,18 +355,18 @@ public class ThriftIndexPageSource
         private final TrinoThriftService client;
         private final TrinoThriftSplit split;
 
-        public RunningSplitContext(TrinoThriftService client, TrinoThriftSplit split)
+        private RunningSplitContext(TrinoThriftService client, TrinoThriftSplit split)
         {
             this.client = client;
             this.split = split;
         }
 
-        public TrinoThriftService getClient()
+        private TrinoThriftService getClient()
         {
             return client;
         }
 
-        public TrinoThriftSplit getSplit()
+        private TrinoThriftSplit getSplit()
         {
             return split;
         }

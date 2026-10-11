@@ -167,7 +167,7 @@ public class HadoopFileSystemExchangeStorage
         @GuardedBy("this")
         private boolean closed;
 
-        public HadoopExchangeStorageReader(FileSystem fileSystem, List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder, int blockSize)
+        private HadoopExchangeStorageReader(FileSystem fileSystem, List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder, int blockSize)
         {
             this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
@@ -250,7 +250,7 @@ public class HadoopFileSystemExchangeStorage
         private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
         private final OutputStream outputStream;
 
-        public HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)
+        private HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)
         {
             try {
                 this.outputStream = fileSystem.create(new Path(file), true);

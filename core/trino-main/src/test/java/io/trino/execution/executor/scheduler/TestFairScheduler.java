@@ -347,7 +347,7 @@ public class TestFairScheduler
             return super.set(value);
         }
 
-        public void awaitListenerAdded()
+        void awaitListenerAdded()
                 throws InterruptedException
         {
             listenerAdded.await();

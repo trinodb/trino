@@ -521,7 +521,7 @@ class ColumnInfo
         private final int jdbcType;
         private final Class<?> jdbcJavaClass;
 
-        public TypeInfo(int jdbcType, Class<?> jdbcJavaClass)
+        private TypeInfo(int jdbcType, Class<?> jdbcJavaClass)
         {
             this.jdbcType = jdbcType;
             this.jdbcJavaClass = requireNonNull(jdbcJavaClass, "jdbcJavaClass is null");

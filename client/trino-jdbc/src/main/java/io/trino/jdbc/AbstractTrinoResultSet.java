@@ -2290,7 +2290,7 @@ abstract class AbstractTrinoResultSet
         private final long picosOfSecond;
         private final Optional<String> timezone;
 
-        public ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone)
+        private ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone)
         {
             this.year = year;
             this.month = month;

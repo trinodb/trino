@@ -383,7 +383,7 @@ class TestHiveCompatibility
         private final String trinoInsertValue;
         private final Object hiveJdbcExpectedValue;
 
-        public HiveCompatibilityColumnData(String columnName, String trinoColumnType, String trinoInsertValue, Object hiveJdbcExpectedValue)
+        HiveCompatibilityColumnData(String columnName, String trinoColumnType, String trinoInsertValue, Object hiveJdbcExpectedValue)
         {
             this.columnName = columnName;
             this.trinoColumnType = trinoColumnType;

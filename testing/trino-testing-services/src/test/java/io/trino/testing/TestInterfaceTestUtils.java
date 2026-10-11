@@ -103,6 +103,7 @@ class TestInterfaceTestUtils
 
     private abstract static class AbstractClass
     {
+        @SuppressWarnings("EffectivelyPrivate")
         public void foo(String unused) {}
     }
 
@@ -118,6 +119,7 @@ class TestInterfaceTestUtils
 
     private abstract static class AbstractClassWithProtectedMethod
     {
+        @SuppressWarnings("EffectivelyPrivate")
         protected void foo(String unused) {}
     }
 

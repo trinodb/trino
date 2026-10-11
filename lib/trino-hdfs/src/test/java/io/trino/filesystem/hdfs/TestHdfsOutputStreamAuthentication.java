@@ -70,7 +70,7 @@ public class TestHdfsOutputStreamAuthentication
             return action.run();
         }
 
-        public int getInvocations()
+        private int getInvocations()
         {
             return invocations.get();
         }

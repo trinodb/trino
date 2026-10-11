@@ -51,19 +51,19 @@ public final class TopologicalOrderSubPlanVisitor
         private final Map<PlanFragmentId, SubPlan> sourceSubPlans;
         private final ImmutableList.Builder<SubPlan> children = ImmutableList.builder();
 
-        public Visitor(SubPlan subPlan)
+        Visitor(SubPlan subPlan)
         {
             this.subPlan = subPlan;
             this.sourceSubPlans = subPlan.getChildren().stream()
                     .collect(toMap(plan -> plan.getFragment().getId(), plan -> plan));
         }
 
-        public Map<PlanFragmentId, SubPlan> getSourceSubPlans()
+        Map<PlanFragmentId, SubPlan> getSourceSubPlans()
         {
             return sourceSubPlans;
         }
 
-        public List<SubPlan> getChildren()
+        List<SubPlan> getChildren()
         {
             return children.build();
         }

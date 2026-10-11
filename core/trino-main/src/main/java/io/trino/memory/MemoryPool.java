@@ -307,7 +307,7 @@ public class MemoryPool
     private static class NonCancellableMemoryFuture<V>
             extends AbstractFuture<V>
     {
-        public static <V> NonCancellableMemoryFuture<V> create()
+        static <V> NonCancellableMemoryFuture<V> create()
         {
             return new NonCancellableMemoryFuture<>();
         }

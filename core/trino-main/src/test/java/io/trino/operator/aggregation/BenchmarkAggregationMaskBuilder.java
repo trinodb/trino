@@ -309,7 +309,7 @@ public class BenchmarkAggregationMaskBuilder
 
         private final AggregationMask mask = AggregationMask.createSelectAll(0);
 
-        public CurrentAggregationMaskBuilder(int first, int second, int third)
+        CurrentAggregationMaskBuilder(int first, int second, int third)
         {
             this.first = first;
             this.second = second;
@@ -342,7 +342,7 @@ public class BenchmarkAggregationMaskBuilder
         private final int second;
         private final int third;
 
-        public HandCodedAggregationMaskBuilder(int first, int second, int third)
+        HandCodedAggregationMaskBuilder(int first, int second, int third)
         {
             this.first = first;
             this.second = second;

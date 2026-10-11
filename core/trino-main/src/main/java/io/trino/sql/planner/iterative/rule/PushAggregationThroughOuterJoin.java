@@ -323,18 +323,18 @@ public class PushAggregationThroughOuterJoin
         private final AggregationNode aggregationNode;
         private final Map<Symbol, Symbol> symbolMapping;
 
-        public MappedAggregationInfo(AggregationNode aggregationNode, Map<Symbol, Symbol> symbolMapping)
+        MappedAggregationInfo(AggregationNode aggregationNode, Map<Symbol, Symbol> symbolMapping)
         {
             this.aggregationNode = aggregationNode;
             this.symbolMapping = symbolMapping;
         }
 
-        public Map<Symbol, Symbol> getSymbolMapping()
+        Map<Symbol, Symbol> getSymbolMapping()
         {
             return symbolMapping;
         }
 
-        public AggregationNode getAggregation()
+        AggregationNode getAggregation()
         {
             return aggregationNode;
         }

@@ -260,7 +260,7 @@ public class TestRcFileReaderManual
         private final int length;
         private final List<Integer> rowGroupSegmentOffsets;
 
-        public Segment(List<Integer> values, int offset, int length, List<Integer> rowGroupSegmentOffsets)
+        private Segment(List<Integer> values, int offset, int length, List<Integer> rowGroupSegmentOffsets)
         {
             this.values = ImmutableList.copyOf(values);
             this.offset = offset;
@@ -268,22 +268,22 @@ public class TestRcFileReaderManual
             this.rowGroupSegmentOffsets = ImmutableList.copyOf(rowGroupSegmentOffsets);
         }
 
-        public List<Integer> getValues()
+        private List<Integer> getValues()
         {
             return values;
         }
 
-        public int getOffset()
+        private int getOffset()
         {
             return offset;
         }
 
-        public int getLength()
+        private int getLength()
         {
             return length;
         }
 
-        public List<Integer> getRowGroupSegmentOffsets()
+        private List<Integer> getRowGroupSegmentOffsets()
         {
             return rowGroupSegmentOffsets;
         }

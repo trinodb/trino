@@ -364,12 +364,12 @@ public final class DateTimeFunctions
      */
     private record DateTimeFieldProvider(byte[] unitBytes, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
     {
-        public DateTimeFieldProvider(String unit, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
+        DateTimeFieldProvider(String unit, Function<ISOChronology, DateTimeField> dateTimeFieldProvider)
         {
             this(unit.getBytes(US_ASCII), dateTimeFieldProvider);
         }
 
-        public boolean match(Slice unit)
+        boolean match(Slice unit)
         {
             int length = unit.length();
             if (length != unitBytes.length) {
@@ -384,7 +384,7 @@ public final class DateTimeFunctions
             return true;
         }
 
-        public DateTimeField apply(ISOChronology chronology)
+        DateTimeField apply(ISOChronology chronology)
         {
             return dateTimeFieldProvider.apply(chronology);
         }

@@ -261,7 +261,7 @@ public class KdbTree
     {
         private int nextId;
 
-        public int next()
+        private int next()
         {
             return nextId++;
         }
@@ -313,12 +313,12 @@ public class KdbTree
             this.right = requireNonNull(right, "right is null");
         }
 
-        public T getLeft()
+        private T getLeft()
         {
             return left;
         }
 
-        public T getRight()
+        private T getRight()
         {
             return right;
         }

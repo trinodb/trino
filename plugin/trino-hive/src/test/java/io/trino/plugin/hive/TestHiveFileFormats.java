@@ -1238,75 +1238,75 @@ public final class TestHiveFileFormats
             this.formatName = requireNonNull(formatName, "formatName is null");
         }
 
-        public FileFormatAssertion withStorageFormat(HiveStorageFormat storageFormat)
+        private FileFormatAssertion withStorageFormat(HiveStorageFormat storageFormat)
         {
             this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
             return this;
         }
 
-        public FileFormatAssertion withCompressionCodec(HiveCompressionCodec compressionCodec)
+        private FileFormatAssertion withCompressionCodec(HiveCompressionCodec compressionCodec)
         {
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
             return this;
         }
 
-        public FileFormatAssertion withSkipGenericWriterTest()
+        private FileFormatAssertion withSkipGenericWriterTest()
         {
             this.skipGenericWrite = true;
             return this;
         }
 
-        public FileFormatAssertion withFileWriterFactory(Function<TrinoFileSystemFactory, HiveFileWriterFactory> fileWriterFactoryBuilder)
+        private FileFormatAssertion withFileWriterFactory(Function<TrinoFileSystemFactory, HiveFileWriterFactory> fileWriterFactoryBuilder)
         {
             this.fileWriterFactory = fileWriterFactoryBuilder.apply(fileSystemFactory);
             return this;
         }
 
-        public FileFormatAssertion withColumns(List<TestColumn> inputColumns)
+        private FileFormatAssertion withColumns(List<TestColumn> inputColumns)
         {
             withWriteColumns(inputColumns);
             withReadColumns(inputColumns);
             return this;
         }
 
-        public FileFormatAssertion withWriteColumns(List<TestColumn> writeColumns)
+        private FileFormatAssertion withWriteColumns(List<TestColumn> writeColumns)
         {
             this.writeColumns = requireNonNull(writeColumns, "writeColumns is null");
             return this;
         }
 
-        public FileFormatAssertion withReadColumns(List<TestColumn> readColumns)
+        private FileFormatAssertion withReadColumns(List<TestColumn> readColumns)
         {
             this.readColumns = requireNonNull(readColumns, "readColumns is null");
             return this;
         }
 
-        public FileFormatAssertion withRowsCount(int rowsCount)
+        private FileFormatAssertion withRowsCount(int rowsCount)
         {
             this.rowsCount = rowsCount;
             return this;
         }
 
-        public FileFormatAssertion withSession(ConnectorSession session)
+        private FileFormatAssertion withSession(ConnectorSession session)
         {
             this.session = requireNonNull(session, "session is null");
             return this;
         }
 
-        public FileFormatAssertion withFileSizePadding(long fileSizePadding)
+        private FileFormatAssertion withFileSizePadding(long fileSizePadding)
         {
             this.fileSizePadding = fileSizePadding;
             return this;
         }
 
-        public FileFormatAssertion isReadableByPageSource(Function<TrinoFileSystemFactory, HivePageSourceFactory> pageSourceFactoryBuilder)
+        private FileFormatAssertion isReadableByPageSource(Function<TrinoFileSystemFactory, HivePageSourceFactory> pageSourceFactoryBuilder)
                 throws Exception
         {
             assertRead(pageSourceFactoryBuilder.apply(fileSystemFactory));
             return this;
         }
 
-        public void isFailingForPageSource(Function<TrinoFileSystemFactory, HivePageSourceFactory> pageSourceFactoryBuilder, HiveErrorCode expectedErrorCode, String expectedMessage)
+        private void isFailingForPageSource(Function<TrinoFileSystemFactory, HivePageSourceFactory> pageSourceFactoryBuilder, HiveErrorCode expectedErrorCode, String expectedMessage)
         {
             HivePageSourceFactory pageSourceFactory = pageSourceFactoryBuilder.apply(fileSystemFactory);
             assertTrinoExceptionThrownBy(() -> assertRead(pageSourceFactory))

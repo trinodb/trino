@@ -80,7 +80,7 @@ public final class UserSubstitutingPattern
     private record FixedPatternProvider(Pattern pattern)
             implements PatternProvider
     {
-        public FixedPatternProvider(String rawPattern)
+        private FixedPatternProvider(String rawPattern)
         {
             this(Pattern.compile(rawPattern));
         }
@@ -100,7 +100,7 @@ public final class UserSubstitutingPattern
                 .maximumSize(1_000)
                 .build();
 
-        public UserSubstitutingPatternProvider(String rawPattern)
+        private UserSubstitutingPatternProvider(String rawPattern)
         {
             this.rawPattern = requireNonNull(rawPattern, "rawPattern is null");
             // fail fast on invalid patterns: the substituted pattern is structurally the same for every user name,

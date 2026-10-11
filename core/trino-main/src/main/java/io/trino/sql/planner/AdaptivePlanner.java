@@ -479,7 +479,7 @@ public class AdaptivePlanner
             return null;
         }
 
-        public Map<ExchangeSourceId, SubPlan> getExchangeSourceIdToSubPlan()
+        Map<ExchangeSourceId, SubPlan> getExchangeSourceIdToSubPlan()
         {
             return ImmutableMap.copyOf(exchangeSourceIdToSubPlan);
         }

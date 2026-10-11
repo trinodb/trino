@@ -113,7 +113,7 @@ public class MaxByNStateFactory
             extends GroupedMinMaxByNState
             implements MaxByNState
     {
-        public GroupedMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
+        GroupedMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
             super(heapFactory);
         }
@@ -123,12 +123,12 @@ public class MaxByNStateFactory
             extends SingleMinMaxByNState
             implements MaxByNState
     {
-        public SingleMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
+        SingleMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
             super(heapFactory);
         }
 
-        public SingleMaxByNState(SingleMaxByNState state)
+        SingleMaxByNState(SingleMaxByNState state)
         {
             super(state);
         }

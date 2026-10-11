@@ -170,7 +170,7 @@ public class CompressingEncryptingPageSerializer
             }
         }
 
-        public void startPage(int positionCount, int sizeInBytes)
+        void startPage(int positionCount, int sizeInBytes)
         {
             WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2f) + SERIALIZED_PAGE_HEADER_SIZE);
             buffer.writeInt(positionCount);
@@ -348,7 +348,7 @@ public class CompressingEncryptingPageSerializer
             uncompressedSize += length * Double.BYTES;
         }
 
-        public SerializedPage closePage()
+        SerializedPage closePage()
         {
             compress();
             encrypt();
@@ -646,120 +646,120 @@ public class CompressingEncryptingPageSerializer
         private Slice slice;
         private int position;
 
-        public WriteBuffer(int initialCapacity)
+        WriteBuffer(int initialCapacity)
         {
             this.slice = Slices.allocate(initialCapacity);
         }
 
-        public void writeByte(int value)
+        void writeByte(int value)
         {
             slice.setByte(position, value);
             position += Byte.BYTES;
         }
 
-        public void writeShort(int value)
+        void writeShort(int value)
         {
             slice.setShort(position, value);
             position += Short.BYTES;
         }
 
-        public void writeInt(int value)
+        void writeInt(int value)
         {
             slice.setInt(position, value);
             position += Integer.BYTES;
         }
 
-        public void writeLong(long value)
+        void writeLong(long value)
         {
             slice.setLong(position, value);
             position += Long.BYTES;
         }
 
-        public void writeFloat(float value)
+        void writeFloat(float value)
         {
             slice.setFloat(position, value);
             position += Float.BYTES;
         }
 
-        public void writeDouble(double value)
+        void writeDouble(double value)
         {
             slice.setDouble(position, value);
             position += Double.BYTES;
         }
 
-        public void writeBytes(Slice source, int sourceIndex, int length)
+        void writeBytes(Slice source, int sourceIndex, int length)
         {
             slice.setBytes(position, source, sourceIndex, length);
             position += length;
         }
 
-        public void writeBytes(byte[] source, int sourceIndex, int length)
+        void writeBytes(byte[] source, int sourceIndex, int length)
         {
             slice.setBytes(position, source, sourceIndex, length);
             position += length;
         }
 
-        public void writeShorts(short[] source, int sourceIndex, int length)
+        void writeShorts(short[] source, int sourceIndex, int length)
         {
             slice.setShorts(position, source, sourceIndex, length);
             position += length * Short.BYTES;
         }
 
-        public void writeInts(int[] source, int sourceIndex, int length)
+        void writeInts(int[] source, int sourceIndex, int length)
         {
             slice.setInts(position, source, sourceIndex, length);
             position += length * Integer.BYTES;
         }
 
-        public void writeLongs(long[] source, int sourceIndex, int length)
+        void writeLongs(long[] source, int sourceIndex, int length)
         {
             slice.setLongs(position, source, sourceIndex, length);
             position += length * Long.BYTES;
         }
 
-        public void writeFloats(float[] source, int sourceIndex, int length)
+        void writeFloats(float[] source, int sourceIndex, int length)
         {
             slice.setFloats(position, source, sourceIndex, length);
             position += length * Float.BYTES;
         }
 
-        public void writeDoubles(double[] source, int sourceIndex, int length)
+        void writeDoubles(double[] source, int sourceIndex, int length)
         {
             slice.setDoubles(position, source, sourceIndex, length);
             position += length * Double.BYTES;
         }
 
-        public void skip(int length)
+        void skip(int length)
         {
             position += length;
         }
 
-        public int remainingCapacity()
+        int remainingCapacity()
         {
             return slice.length() - position;
         }
 
-        public int getPosition()
+        int getPosition()
         {
             return position;
         }
 
-        public Slice getSlice()
+        Slice getSlice()
         {
             return slice;
         }
 
-        public void reset()
+        void reset()
         {
             position = 0;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + slice.getRetainedSize();
         }
 
-        public void ensureCapacityFor(int bytes)
+        void ensureCapacityFor(int bytes)
         {
             slice = Slices.ensureSize(slice, position + bytes);
         }

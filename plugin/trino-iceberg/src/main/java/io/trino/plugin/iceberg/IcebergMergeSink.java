@@ -323,31 +323,31 @@ public class IcebergMergeSink
         private final DeletionVector.Builder rowsToDelete = DeletionVector.builder();
         private long rowsToDeleteRetainedBytes;
 
-        public FileDeletion(int partitionSpecId, String partitionDataJson)
+        private FileDeletion(int partitionSpecId, String partitionDataJson)
         {
             this.partitionSpecId = partitionSpecId;
             this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         }
 
         // Returns the change in retained bytes of the deletion vector since the previous call
-        public long updateRetainedSize()
+        private long updateRetainedSize()
         {
             long previousRetainedBytes = rowsToDeleteRetainedBytes;
             rowsToDeleteRetainedBytes = rowsToDelete.retainedSizeInBytes();
             return rowsToDeleteRetainedBytes - previousRetainedBytes;
         }
 
-        public int partitionSpecId()
+        private int partitionSpecId()
         {
             return partitionSpecId;
         }
 
-        public String partitionDataJson()
+        private String partitionDataJson()
         {
             return partitionDataJson;
         }
 
-        public DeletionVector.Builder rowsToDelete()
+        private DeletionVector.Builder rowsToDelete()
         {
             return rowsToDelete;
         }

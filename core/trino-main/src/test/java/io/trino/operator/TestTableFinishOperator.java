@@ -183,17 +183,17 @@ public class TestTableFinishOperator
             return Optional.empty();
         }
 
-        public Collection<Slice> getFragments()
+        Collection<Slice> getFragments()
         {
             return fragments;
         }
 
-        public Collection<ComputedStatistics> getComputedStatistics()
+        Collection<ComputedStatistics> getComputedStatistics()
         {
             return computedStatistics;
         }
 
-        public TableExecuteContext getTableExecuteContext()
+        TableExecuteContext getTableExecuteContext()
         {
             return tableExecuteContext;
         }
