@@ -219,6 +219,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
+    {
+        Span span = startSpan("resolveSystemTableSourceTableHandles", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.resolveSystemTableSourceTableHandles(session, tableName);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyPartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorPartitioningHandle> partitioningHandle, List<ColumnHandle> columns)
     {
         Span span = startSpan("applyPartitioning", tableHandle);

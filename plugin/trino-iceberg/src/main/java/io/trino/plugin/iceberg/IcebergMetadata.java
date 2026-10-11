@@ -328,6 +328,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabl
 import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
+import static io.trino.plugin.iceberg.IcebergTableName.isSystemView;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
@@ -902,6 +903,25 @@ public class IcebergMetadata
     {
         return getRawSystemTable(session, tableName)
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+    }
+
+    @Override
+    public List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (!isIcebergTableName(tableName.getTableName()) || isSystemView(tableName.getTableName())) {
+            return ImmutableList.of();
+        }
+        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
+        if (baseTable.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
+        SchemaTableName sourceName = getMaterializedView(session, baseName)
+                .map(definition -> getMaterializedViewStorageTableName(baseName, definition))
+                .orElse(baseName);
+        // System table rows can depend on any file in the current base table, not only the partitions written.
+        return ImmutableList.of(tableHandleForCurrentSnapshot(session, sourceName, baseTable.orElseThrow()));
     }
 
     private Optional<BaseTable> getRawBaseTable(ConnectorSession session, SchemaTableName tableName)
@@ -3555,6 +3575,7 @@ public class IcebergMetadata
     {
         // Conflict detection must cover rows read, including target self-reads, rather than partitions written.
         return sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
                 .map(IcebergTableHandle.class::cast)
                 .filter(source -> source.getSchemaTableName().equals(table.getSchemaTableName()))
                 // Versioned reads use immutable snapshots and have no current partition specification.
