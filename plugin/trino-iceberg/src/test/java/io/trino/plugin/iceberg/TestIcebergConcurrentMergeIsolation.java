@@ -276,6 +276,46 @@ final class TestIcebergConcurrentMergeIsolation
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"files", "partitions"})
+    void testConcurrentMergeReadingTargetMetadataTable(String metadataTableType)
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_merge_target_metadata", "(k bigint, part integer, v integer) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (0, 0, 0)", 1);
+            String lateMerge = mergeFromMetadata(table.getName(), table.getName(), metadataTableType, true, 100);
+            String firstMerge = mergeFromMetadata(table.getName(), table.getName(), metadataTableType, false, 200);
+
+            runConcurrentMerges(table.getName(), lateMerge, firstMerge, true);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0), (BIGINT '1', 1, 200)");
+
+            assertUpdate(mergeFromMetadata(table.getName(), table.getName(), metadataTableType, false, 100), 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0), (BIGINT '1', 1, 200), (BIGINT '2', 2, 100)");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"files", "partitions"})
+    void testConcurrentMergeReadingUnrelatedMetadataTable(String metadataTableType)
+            throws Exception
+    {
+        try (TestTable target = newTrinoTable("test_merge_unrelated_metadata_target", "(k bigint, part integer, v integer) WITH (partitioning = ARRAY['part'])");
+                TestTable source = newTrinoTable("test_merge_unrelated_metadata_source", "(k bigint, part integer, v integer) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + target.getName() + " VALUES (0, 0, 0)", 1);
+            assertUpdate("INSERT INTO " + source.getName() + " VALUES (0, 0, 0)", 1);
+            String lateMerge = mergeFromMetadata(target.getName(), source.getName(), metadataTableType, true, 100);
+            String firstMerge = mergeFromMetadata(target.getName(), source.getName(), metadataTableType, false, 200);
+
+            runConcurrentMerges(target.getName(), lateMerge, firstMerge, false);
+            assertThat(query("SELECT * FROM " + target.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0), (BIGINT '1', 1, 100), (BIGINT '1', 1, 200)");
+            assertThat(query("SELECT * FROM " + source.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0)");
+        }
+    }
+
     private void runConcurrentMerges(String tableName, String lateMergeSql, String firstMergeSql, boolean expectConflict)
             throws Exception
     {
@@ -349,6 +389,20 @@ final class TestIcebergConcurrentMergeIsolation
                WHEN MATCHED THEN UPDATE SET v = s.v%s
                WHEN NOT MATCHED THEN INSERT (k, part, v) VALUES (s.k, s.part, s.v)
                """.formatted(tableName, key, partition, value, predicate, updatePartition ? ", part = s.part" : "");
+    }
+
+    private static String mergeFromMetadata(String targetTable, String sourceTable, String metadataTableType, boolean block, int value)
+    {
+        String key = "CAST(max(partition.part) + 1 AS bigint)";
+        if (block) {
+            key = "merge_source_barrier(" + key + ")";
+        }
+        return """
+               MERGE INTO %1$s t
+               USING (SELECT %4$s AS k, max(partition.part) + 1 AS part, %5$s AS v FROM "%2$s$%3$s") s
+               ON false
+               WHEN NOT MATCHED THEN INSERT (k, part, v) VALUES (s.k, s.part, s.v)
+               """.formatted(targetTable, sourceTable, metadataTableType, key, value);
     }
 
     public static final class BlockingMergeSource

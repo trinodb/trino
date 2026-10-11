@@ -430,6 +430,43 @@ public class TestLakehouseConnectorTest
     }
 
     @Test
+    public void testMergeWithHiveSourceInSameCatalog()
+    {
+        assertMergeWithSourceType("HIVE");
+    }
+
+    @Test
+    public void testMergeWithDeltaSourceInSameCatalog()
+    {
+        assertMergeWithSourceType("DELTA");
+    }
+
+    private void assertMergeWithSourceType(String sourceType)
+    {
+        String updatedValue = "updated from " + sourceType;
+        String insertedValue = "inserted from " + sourceType;
+        try (TestTable target = newTrinoTable(
+                "merge_cross_format_target",
+                "WITH (type = 'ICEBERG') AS SELECT 1 AS id, 'original' AS value");
+                TestTable source = newTrinoTable(
+                        "merge_cross_format_source",
+                        "WITH (type = '%s') AS SELECT 1 AS id, '%s' AS value UNION ALL SELECT 2, '%s'"
+                                .formatted(sourceType, updatedValue, insertedValue))) {
+            assertUpdate(
+                    """
+                    MERGE INTO %s t
+                    USING %s s ON t.id = s.id
+                    WHEN MATCHED THEN UPDATE SET value = s.value
+                    WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value)
+                    """.formatted(target.getName(), source.getName()),
+                    2);
+            assertQuery(
+                    "SELECT id, value FROM %s ORDER BY id".formatted(target.getName()),
+                    "VALUES (1, '%s'), (2, '%s')".formatted(updatedValue, insertedValue));
+        }
+    }
+
+    @Test
     public void testCatalogMetadataMetrics()
     {
         QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(

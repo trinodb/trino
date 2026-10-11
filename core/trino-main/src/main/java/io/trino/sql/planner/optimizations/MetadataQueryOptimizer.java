@@ -20,6 +20,7 @@ import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.metadata.TableProperties;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.DiscretePredicates;
@@ -83,11 +84,11 @@ public class MetadataQueryOptimizer
         if (!SystemSessionProperties.isOptimizeMetadataQueries(context.session())) {
             return plan;
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(context.session(), plannerContext, context.idAllocator()), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(context.session(), plannerContext, context.idAllocator()), plan);
     }
 
     private static class Optimizer
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<CatalogSchemaTableName>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Session session;
@@ -101,35 +102,45 @@ public class MetadataQueryOptimizer
         }
 
         @Override
-        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Void> context)
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<CatalogSchemaTableName> context)
         {
-            // Retain table scans so BeginTableWrite can pass read dependencies to row-change conflict validation.
-            return node;
+            // Scan handles can differ by predicate or snapshot, so compare catalog-qualified table names.
+            CatalogSchemaTableName targetTableName = plannerContext.getMetadata()
+                    .getTableName(session, node.getTarget().getHandle());
+            return context.defaultRewrite(node, targetTableName);
         }
 
         @Override
-        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<CatalogSchemaTableName> context)
         {
             return findTableScan(node.getSource())
+                    .filter(tableScan -> !isTargetTable(tableScan, context.get()))
                     .flatMap(this::optimize)
                     .map(values -> SimplePlanRewriter.rewriteWith(new Replacer(values), node))
-                    .orElseGet(() -> context.defaultRewrite(node));
+                    .orElseGet(() -> context.defaultRewrite(node, context.get()));
         }
 
         @Override
-        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<CatalogSchemaTableName> context)
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
                 if (!ALLOWED_FUNCTIONS.contains(aggregation.getResolvedFunction().signature().getName()) && !aggregation.isDistinct()) {
-                    return context.defaultRewrite(node);
+                    return context.defaultRewrite(node, context.get());
                 }
             }
 
             return findTableScan(node.getSource())
+                    .filter(tableScan -> !isTargetTable(tableScan, context.get()))
                     .flatMap(this::optimize)
                     .map(values -> SimplePlanRewriter.rewriteWith(new Replacer(values), node))
-                    .orElseGet(() -> context.defaultRewrite(node));
+                    .orElseGet(() -> context.defaultRewrite(node, context.get()));
+        }
+
+        private boolean isTargetTable(TableScanNode tableScan, CatalogSchemaTableName targetTableName)
+        {
+            return targetTableName != null && targetTableName.equals(
+                    plannerContext.getMetadata().getTableName(session, tableScan.getTable()));
         }
 
         private Optional<ValuesNode> optimize(TableScanNode tableScan)

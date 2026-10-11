@@ -268,6 +268,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.resolveSystemTableSourceTableHandles(session, tableName);
+        }
+    }
+
+    @Override
     public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
