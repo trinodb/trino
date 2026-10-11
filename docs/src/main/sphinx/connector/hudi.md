@@ -107,6 +107,19 @@ Additionally, following configuration properties can be set depending on the use
 
 :::
 
+(hudi-pending-clustering)=
+### Tables with pending clustering
+
+Hudi stores the plan of a pending clustering operation in Avro format. Avro only
+deserializes classes that are explicitly allowed, so reading a copy-on-write
+table with a pending clustering operation fails unless the classes of the Hudi
+clustering plan are allowed. Add the following line to the [JVM
+configuration](jvm-config) on the coordinator and all workers:
+
+```text
+-Dorg.apache.avro.SERIALIZABLE_CLASSES=org.apache.hudi.avro.model.HoodieClusteringPlan,org.apache.hudi.avro.model.HoodieClusteringGroup,org.apache.hudi.avro.model.HoodieSliceInfo,org.apache.hudi.avro.model.HoodieClusteringStrategy
+```
+
 (hudi-file-system-configuration)=
 ## File system access configuration
 
