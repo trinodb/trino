@@ -40,6 +40,7 @@ import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
@@ -97,6 +98,13 @@ public class MetadataQueryOptimizer
             this.session = session;
             this.plannerContext = plannerContext;
             this.idAllocator = idAllocator;
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Void> context)
+        {
+            // Retain table scans so BeginTableWrite can pass read dependencies to row-change conflict validation.
+            return node;
         }
 
         @Override
