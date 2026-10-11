@@ -1755,11 +1755,11 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, TableHandle tableHandle)
     {
-        Span span = startSpan("getTableCredentials", catalogHandle, tableHandle);
+        Span span = startSpan("getTableCredentials", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.getTableCredentials(session, catalogHandle, tableHandle);
+            return delegate.getTableCredentials(session, tableHandle);
         }
     }
 

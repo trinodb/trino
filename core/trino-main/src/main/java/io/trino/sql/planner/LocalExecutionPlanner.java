@@ -2375,7 +2375,7 @@ public class LocalExecutionPlanner
             // Declare the input and output schemas for the index and acquire the actual Index
             List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, forMap(node.getAssignments()));
             List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), forMap(node.getAssignments()));
-            ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
+            ConnectorIndex index = indexManager.getIndex(session, node.getTableHandle(), node.getIndexHandle(), lookupSchema, outputSchema);
 
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, probeKeyNormalizer);
             return new PhysicalOperation(operatorFactory, makeLayout(node));

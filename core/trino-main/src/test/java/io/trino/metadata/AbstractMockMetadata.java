@@ -38,7 +38,6 @@ import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableCredentials;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorWritableTableHandle;
 import io.trino.spi.connector.Constraint;
@@ -1185,7 +1184,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, CatalogHandle catalogHandle, ConnectorTableHandle tableHandle)
+    public Optional<ConnectorTableCredentials> getTableCredentials(Session session, TableHandle tableHandle)
     {
         return Optional.empty();
     }

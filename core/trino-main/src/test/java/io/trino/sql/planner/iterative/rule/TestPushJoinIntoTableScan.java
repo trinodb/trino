@@ -74,6 +74,7 @@ import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
+import static io.trino.testing.TestingHandles.TEST_RESOLVING_IDENTITY;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -612,7 +613,8 @@ public class TestPushJoinIntoTableScan
         return new TableHandle(
                 catalogHandle,
                 tableHandle,
-                new ConnectorTransactionHandle() {});
+                new ConnectorTransactionHandle() {},
+                TEST_RESOLVING_IDENTITY);
     }
 
     private MockConnectorFactory createMockConnectorFactory(MockConnectorFactory.ApplyJoin applyJoin)

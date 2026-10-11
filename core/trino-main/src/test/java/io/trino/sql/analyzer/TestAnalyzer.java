@@ -8642,6 +8642,39 @@ public class TestAnalyzer
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), FAIL));
 
+        // definer view owned by a user other than the one running the tests
+        ViewDefinition definerViewData = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("view_owner")),
+                ImmutableList.of());
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "definer_view"), definerViewData, ImmutableMap.of(), false));
+
+        // invoker view: runs as whoever queries it
+        ViewDefinition invokerViewData = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of("comment"),
+                Optional.empty(),
+                ImmutableList.of());
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "invoker_view"), invokerViewData, ImmutableMap.of(), false));
+
+        // definer view whose body reads a fresh materialized view, so the storage table is reached as the view owner
+        ViewDefinition definerViewOverMaterializedView = new ViewDefinition(
+                "select a from fresh_materialized_view_when_stale_inline",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("view_owner")),
+                ImmutableList.of());
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "definer_view_over_mv"), definerViewOverMaterializedView, ImmutableMap.of(), false));
+
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
                 "select a from t1",
@@ -9031,6 +9064,28 @@ public class TestAnalyzer
                 emptyMap(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector());
+    }
+
+    @Test
+    public void testTablesCarryTheResolvingConnectorIdentity()
+    {
+        assertThat(analyze("SELECT * FROM definer_view").getTables())
+                .extracting(table -> table.resolvingIdentity().user())
+                .containsExactly("view_owner");
+
+        for (String relation : ImmutableList.of("t1", "invoker_view", "v1")) {
+            assertThat(analyze("SELECT * FROM " + relation).getTables())
+                    .isNotEmpty()
+                    .allSatisfy(table -> assertThat(table.resolvingIdentity().user()).isEqualTo(CLIENT_SESSION.getUser()));
+        }
+
+        assertThat(analyze("SELECT * FROM definer_view_over_mv").getTables())
+                .extracting(table -> table.resolvingIdentity().user())
+                .contains("view_owner");
+
+        assertThat(analyze("SELECT a FROM definer_view UNION ALL SELECT a FROM t1").getTables())
+                .extracting(table -> table.resolvingIdentity().user())
+                .containsExactlyInAnyOrder("view_owner", CLIENT_SESSION.getUser());
     }
 
     private Analysis analyze(@Language("SQL") String query)
