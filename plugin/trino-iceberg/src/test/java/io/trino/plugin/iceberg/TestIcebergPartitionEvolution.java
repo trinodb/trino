@@ -306,4 +306,18 @@ public class TestIcebergPartitionEvolution
         assertThat(monthPartitionedFiles).hasSize(2);
         assertUpdate("DROP TABLE " + tableName);
     }
+
+    @Test
+    public void testReAddPartitionFieldInV1Table()
+    {
+        String tableName = "test_readd_partition_field_v1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, partitioning = ARRAY['x']) AS SELECT 1 x, 10 y", 1);
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY[]");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['x']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 30)", 1);
+
+        // In v1 the removed field keeps its id, so the original x and the re-added x both appear; the earlier one is suffixed with its field id
+        assertQuery("SELECT partition.x_1000, partition.x FROM \"" + tableName + "$partitions\"", "VALUES (1, NULL), (NULL, 3)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
 }
