@@ -1612,7 +1612,10 @@ The output of the query has the following columns:
 * - `partition`
   - `ROW(...)`
   - A row that contains the mapping of the partition column names to the
-    partition column values.
+    partition column values. When partition fields of different partition
+    specs share a name, the most recent field keeps the name, and earlier ones
+    are suffixed with their partition field ID, for example `x_1000`. The
+    suffix is repeated if that name is also taken, for example `x_1000_1000`.
 * - `record_count`
   - `BIGINT`
   - The number of records in the partition.
