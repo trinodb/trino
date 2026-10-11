@@ -138,6 +138,8 @@ import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
+import static org.apache.iceberg.expressions.Expressions.bucket;
+import static org.apache.iceberg.expressions.Expressions.ref;
 import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWriteBuilder;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -827,6 +829,22 @@ public class TestIcebergV2
                     .matches("VALUES BIGINT '10'");
             assertThat(query("SELECT id, root.nested FROM " + tableName))
                     .matches("VALUES (BIGINT '1', BIGINT '10')");
+        }
+    }
+
+    @Test
+    public void testPartitionFieldNameSuffixCollidingWithExplicitName()
+    {
+        try (TestTable table = newTrinoTable("test_partition_field_name_suffix_", "(x integer, y integer)")) {
+            // Fields 1000 and 1001 are both named p, and field 1002 is explicitly named p_1000
+            BaseTable icebergTable = loadTable(table.getName());
+            icebergTable.updateSpec().addField("p", bucket("x", 4)).commit();
+            icebergTable.updateSpec().removeField("p").commit();
+            icebergTable.updateSpec().addField("p", ref("x")).commit();
+            icebergTable.updateSpec().addField("p_1000", ref("y")).commit();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 20)", 1);
+
+            assertQuery("SELECT partition.p_1000_1000, partition.p, partition.p_1000 FROM \"" + table.getName() + "$partitions\"", "VALUES (NULL, 2, 20)");
         }
     }
 
