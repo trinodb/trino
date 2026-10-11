@@ -3826,6 +3826,10 @@ public class TestMathFunctions
     @Test
     public void testWidthBucketOverflowAscending()
     {
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "5E0", "0E0", "4E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value 5.0 is out of range");
+
         assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "0", "4", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");
@@ -3838,6 +3842,19 @@ public class TestMathFunctions
     @Test
     public void testWidthBucketOverflowDescending()
     {
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "-1E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value -1.0 is out of range");
+
+        assertTrinoExceptionThrownBy(assertions.function("width_bucket", "-infinity()", "4E0", "0E0", Long.toString(Long.MAX_VALUE))::evaluate)
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Bucket for value -Infinity is out of range");
+
+        assertThat(assertions.function("width_bucket", "-1E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE - 1)))
+                .isEqualTo(Long.MAX_VALUE);
+        assertThat(assertions.function("width_bucket", "0E0", "4E0", "0E0", Long.toString(Long.MAX_VALUE)))
+                .isEqualTo(Long.MAX_VALUE);
+
         assertTrinoExceptionThrownBy(assertions.function("width_bucket", "infinity()", "4", "0", Long.toString(Long.MAX_VALUE))::evaluate)
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage("Bucket for value Infinity is out of range");

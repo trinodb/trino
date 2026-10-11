@@ -1572,7 +1572,12 @@ public final class MathFunctions
         }
 
         if (bound1 > bound2) {
-            result = (bucketCount - result) + 1;
+            try {
+                result = Math.addExact(bucketCount - result, 1);
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
+            }
         }
 
         return result;
