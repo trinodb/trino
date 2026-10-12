@@ -511,6 +511,20 @@ public class TimeSharingTaskExecutor
         }
     }
 
+    private void startNewEntrants()
+    {
+        PendingUpdates pendingUpdates = new PendingUpdates();
+        try {
+            synchronized (this) {
+                addNewEntrants(pendingUpdates);
+                recordLeafSplitsSize(pendingUpdates);
+            }
+        }
+        finally {
+            pendingUpdates.flush();
+        }
+    }
+
     private synchronized void startIntermediateSplit(PrioritizedSplitRunner split, PendingUpdates pendingUpdates)
     {
         startSplit(split, pendingUpdates);
@@ -681,6 +695,10 @@ public class TimeSharingTaskExecutor
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
                                 }, executor);
+                            }
+                            // a higher target concurrency lets this task start another queued leaf split now
+                            if (split.getTaskHandle().pollTargetConcurrencyIncreased()) {
+                                startNewEntrants();
                             }
                         }
                     }
