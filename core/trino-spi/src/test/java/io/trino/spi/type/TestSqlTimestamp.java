@@ -194,4 +194,13 @@ final class TestSqlTimestamp
         assertThat(timestamp.toString()).isEqualTo("1969-12-31 23:59:59.555555555555");
         assertThat(timestamp.toLocalDateTime()).isEqualTo(LocalDateTime.of(1969, 12, 31, 23, 59, 59, 555_555_556));
     }
+
+    @Test
+    public void testOverflowBound()
+    {
+        assertThat(newInstance(4, 9223372036854775800L, 0).getEpochMicros()).isEqualTo(9223372036854775800L);
+        assertThat(newInstance(4, -9223372036854775800L, 0).getEpochMicros()).isEqualTo(-9223372036854775800L);
+        assertThat(newInstance(6, Long.MAX_VALUE, 0).getEpochMicros()).isEqualTo(Long.MAX_VALUE);
+        assertThat(newInstance(6, Long.MIN_VALUE, 0).getEpochMicros()).isEqualTo(Long.MIN_VALUE);
+    }
 }

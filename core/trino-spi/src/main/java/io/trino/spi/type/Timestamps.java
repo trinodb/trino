@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.multiplyExact;
 import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
@@ -71,7 +72,7 @@ public class Timestamps
 
     public static long round(long value, int magnitude)
     {
-        return roundDiv(value, POWERS_OF_TEN[magnitude]) * POWERS_OF_TEN[magnitude];
+        return multiplyExact(roundDiv(value, POWERS_OF_TEN[magnitude]), POWERS_OF_TEN[magnitude]);
     }
 
     /**
@@ -118,11 +119,12 @@ public class Timestamps
             return value;
         }
 
-        if (value >= 0) {
-            return (value + (factor / 2)) / factor;
+        // round half up, without computing value + factor / 2, which can overflow
+        long quotient = floorDiv(value, factor);
+        if (value - quotient * factor >= factor - factor / 2) {
+            return quotient + 1;
         }
-
-        return (value + 1 - (factor / 2)) / factor;
+        return quotient;
     }
 
     public static long epochMicrosToMillisWithRounding(long epochMicros)

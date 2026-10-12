@@ -102,6 +102,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -112,6 +113,8 @@ import static io.trino.spi.variant.Header.PrimitiveType.BINARY;
 import static io.trino.type.BooleanOperators.castToVarchar;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.scaleFactor;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.Float.floatToRawIntBits;
@@ -563,13 +566,17 @@ public final class VariantUtil
                     if (precision == 6) {
                         yield micros;
                     }
-                    yield round(micros, 6 - precision);
+                    try {
+                        yield round(micros, 6 - precision);
+                    }
+                    catch (ArithmeticException e) {
+                        throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+                    }
                 }
                 case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> {
                     long nanos = variant.getTimestampNanos();
                     // round is always required since the max precision is 6 (microseconds)
-                    long roundedNanos = round(nanos, 9 - precision);
-                    yield roundedNanos / 1_000;
+                    yield rescale(roundDiv(nanos, scaleFactor(precision, 9)), precision, 6);
                 }
                 case STRING -> VarcharToTimestampCast.castToShortTimestamp(precision, variant.getString().toStringUtf8());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to TIMESTAMP(%d): %s".formatted(precision, variant.primitiveType()));
@@ -592,12 +599,16 @@ public final class VariantUtil
                 case TIMESTAMP_UTC_MICROS, TIMESTAMP_NTZ_MICROS -> new LongTimestamp(variant.getTimestampMicros(), 0);
                 case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> {
                     long nanos = variant.getTimestampNanos();
-                    if (precision < 9) {
-                        nanos = round(nanos, 9 - precision);
-                    }
                     long micros = floorDiv(nanos, 1_000L);
-                    int picosOfMicro = floorMod(nanos, 1_000) * 1_000;
-                    yield new LongTimestamp(micros, picosOfMicro);
+                    int nanosOfMicro = floorMod(nanos, 1_000);
+                    if (precision < 9) {
+                        nanosOfMicro = (int) round(nanosOfMicro, 9 - precision);
+                        if (nanosOfMicro == 1_000) {
+                            micros++;
+                            nanosOfMicro = 0;
+                        }
+                    }
+                    yield new LongTimestamp(micros, nanosOfMicro * 1_000);
                 }
                 case STRING -> VarcharToTimestampCast.castToLongTimestamp(precision, variant.getString().toStringUtf8());
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to TIMESTAMP(%d): %s".formatted(precision, variant.primitiveType()));
@@ -618,8 +629,8 @@ public final class VariantUtil
                 case NULL -> null;
                 case DATE -> packDateTimeWithZone(TimeUnit.DAYS.toMillis(variant.getDate()), UTC_KEY);
                 // round is always required as the max precision is 3 (milliseconds), and both micros and nanos have higher precision
-                case TIMESTAMP_UTC_MICROS, TIMESTAMP_NTZ_MICROS -> packDateTimeWithZone(round(variant.getTimestampMicros(), 6 - precision) / 1_000, UTC_KEY);
-                case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> packDateTimeWithZone(round(variant.getTimestampNanos(), 9 - precision) / 1_000_000, UTC_KEY);
+                case TIMESTAMP_UTC_MICROS, TIMESTAMP_NTZ_MICROS -> packDateTimeWithZone(rescale(roundDiv(variant.getTimestampMicros(), scaleFactor(precision, 6)), precision, 3), UTC_KEY);
+                case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> packDateTimeWithZone(rescale(roundDiv(variant.getTimestampNanos(), scaleFactor(precision, 9)), precision, 3), UTC_KEY);
                 case STRING -> asShortTimestampWithTimeZone(variant.getString(), precision);
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to TIMESTAMP(%d) WITH TIME ZONE: %s".formatted(precision, variant.primitiveType()));
             };
@@ -645,21 +656,29 @@ public final class VariantUtil
                 case DATE -> fromEpochMillisAndFraction(TimeUnit.DAYS.toMillis(variant.getDate()), 0, UTC_KEY);
                 case TIMESTAMP_UTC_MICROS, TIMESTAMP_NTZ_MICROS -> {
                     long micros = variant.getTimestampMicros();
-                    if (precision < 6) {
-                        micros = round(micros, 6 - precision);
-                    }
                     long millis = floorDiv(micros, 1_000L);
-                    int picosOfMillis = floorMod(micros, 1_000) * 1_000_000;
-                    yield fromEpochMillisAndFraction(millis, picosOfMillis, UTC_KEY);
+                    int microsOfMilli = floorMod(micros, 1_000);
+                    if (precision < 6) {
+                        microsOfMilli = (int) round(microsOfMilli, 6 - precision);
+                        if (microsOfMilli == 1_000) {
+                            millis++;
+                            microsOfMilli = 0;
+                        }
+                    }
+                    yield fromEpochMillisAndFraction(millis, microsOfMilli * 1_000_000, UTC_KEY);
                 }
                 case TIMESTAMP_UTC_NANOS, TIMESTAMP_NTZ_NANOS -> {
                     long nanos = variant.getTimestampNanos();
-                    if (precision < 9) {
-                        nanos = round(nanos, 9 - precision);
-                    }
                     long millis = floorDiv(nanos, 1_000_000L);
-                    int picosOfMillis = floorMod(nanos, 1_000_000) * 1_000;
-                    yield fromEpochMillisAndFraction(millis, picosOfMillis, UTC_KEY);
+                    int nanosOfMilli = floorMod(nanos, 1_000_000);
+                    if (precision < 9) {
+                        nanosOfMilli = (int) round(nanosOfMilli, 9 - precision);
+                        if (nanosOfMilli == 1_000_000) {
+                            millis++;
+                            nanosOfMilli = 0;
+                        }
+                    }
+                    yield fromEpochMillisAndFraction(millis, nanosOfMilli * 1_000, UTC_KEY);
                 }
                 case STRING -> asLongTimestampWithTimeZone(variant.getString(), precision);
                 default -> throw new VariantCastException("Unsupported VARIANT primitive type for cast to TIMESTAMP(%d) WITH TIME ZONE: %s".formatted(precision, variant.primitiveType()));
