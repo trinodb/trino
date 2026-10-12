@@ -13,18 +13,21 @@
  */
 package io.trino.operator.scalar.timestamp;
 
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
 
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.type.DateTimes.roundToNearest;
+import static java.lang.Math.incrementExact;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampCast
@@ -44,7 +47,12 @@ public final class TimestampToTimestampCast
             return epochMicros;
         }
 
-        return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
+        try {
+            return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+        }
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -61,15 +69,20 @@ public final class TimestampToTimestampCast
             @SqlType("timestamp(sourcePrecision)") LongTimestamp value)
     {
         long epochMicros = value.getEpochMicros();
-        if (targetPrecision < MAX_SHORT_PRECISION) {
-            return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
-        }
+        try {
+            if (targetPrecision < MAX_SHORT_PRECISION) {
+                return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
+            }
 
-        if (roundToNearest(value.getPicosOfMicro(), PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
-        }
+            if (roundToNearest(value.getPicosOfMicro(), PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
+                epochMicros = incrementExact(epochMicros);
+            }
 
-        return epochMicros;
+            return epochMicros;
+        }
+        catch (ArithmeticException e) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+        }
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -81,7 +94,12 @@ public final class TimestampToTimestampCast
         long epochMicros = value.getEpochMicros();
         int picosOfMicro = (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision));
         if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
-            epochMicros++;
+            try {
+                epochMicros = incrementExact(epochMicros);
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Timestamp out of range", e);
+            }
             picosOfMicro = 0;
         }
         return new LongTimestamp(epochMicros, picosOfMicro);
