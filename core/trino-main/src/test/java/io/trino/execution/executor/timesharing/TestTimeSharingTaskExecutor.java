@@ -515,6 +515,50 @@ public class TestTimeSharingTaskExecutor
     }
 
     @Test
+    @Timeout(30)
+    public void testQueuedSplitStartsWhenTargetConcurrencyIncreasesBeforeSplitFinishes()
+    {
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        // 1 guaranteed driver per task, so only the initial split concurrency of 1 starts a split
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 2, 1, 2, splitQueue, ticker);
+
+        taskExecutor.start();
+        try {
+            TaskHandle testTaskHandle = taskExecutor.addTask(
+                    new TaskId(new StageId(new QueryId("test"), 0), 0, 0),
+                    // make sure buffer is underutilized
+                    () -> 0,
+                    1,
+                    new Duration(1, MILLISECONDS),
+                    OptionalInt.of(2));
+
+            Phaser firstSplitPhaser = new Phaser();
+            firstSplitPhaser.register();
+            // each quanta advances the ticker past the adjustment interval
+            TestingJob firstSplit = new TestingJob(ticker, new Phaser(), new Phaser(), firstSplitPhaser, 2, 10);
+            Phaser secondSplitPhaser = new Phaser();
+            secondSplitPhaser.register();
+            TestingJob secondSplit = new TestingJob(ticker, new Phaser(), new Phaser(), secondSplitPhaser, 1, 10);
+
+            taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(firstSplit, secondSplit));
+            waitUntilSplitsStart(ImmutableList.of(firstSplit));
+            assertThat(secondSplit.isStarted()).isFalse();
+
+            // finishing the first quanta raises the target concurrency to 2 while the first split keeps running
+            firstSplitPhaser.arrive();
+            waitUntilSplitsStart(ImmutableList.of(secondSplit));
+            assertThat(firstSplit.getCompletedFuture().isDone()).isFalse();
+
+            firstSplitPhaser.arriveAndDeregister();
+            secondSplitPhaser.arriveAndDeregister();
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
     public void testLeafSplitsSize()
     {
         MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
