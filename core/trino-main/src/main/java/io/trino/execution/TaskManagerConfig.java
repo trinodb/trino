@@ -67,6 +67,7 @@ public class TaskManagerConfig
     private int initialSplitsPerNode = maxWorkerThreads;
     private int minDriversPerTask = 3;
     private int maxDriversPerTask = Integer.MAX_VALUE;
+    private boolean idleLeafSplitAdmissionEnabled = true;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
@@ -354,6 +355,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setMinDriversPerTask(int minDriversPerTask)
     {
         this.minDriversPerTask = minDriversPerTask;
+        return this;
+    }
+
+    public boolean isIdleLeafSplitAdmissionEnabled()
+    {
+        return idleLeafSplitAdmissionEnabled;
+    }
+
+    @Config("task.idle-leaf-split-admission.enabled")
+    @ConfigDescription("Start leaf splits above the minimum drivers while worker threads are idle")
+    public TaskManagerConfig setIdleLeafSplitAdmissionEnabled(boolean idleLeafSplitAdmissionEnabled)
+    {
+        this.idleLeafSplitAdmissionEnabled = idleLeafSplitAdmissionEnabled;
         return this;
     }
 
