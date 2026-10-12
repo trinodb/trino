@@ -52,5 +52,15 @@ public interface SplitRunner
         OUTPUT,
         // An operator waits for memory or for revocation.
         MEMORY,
+        /**/;
+
+        /// A split blocked for this reason waits on work in flight, not on a consumer or another operator.
+        public boolean isInFlight()
+        {
+            return switch (this) {
+                case SOURCE, MEMORY -> true;
+                case OUTPUT, OPERATOR -> false;
+            };
+        }
     }
 }

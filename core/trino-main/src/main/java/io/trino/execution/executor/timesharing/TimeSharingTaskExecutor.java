@@ -31,8 +31,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.execution.SplitRunner.BlockedReason;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.LeafSplitAdmissionBudget;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
@@ -136,6 +138,11 @@ public class TimeSharingTaskExecutor
      */
     private final Map<PrioritizedSplitRunner, Future<Void>> blockedSplits = new ConcurrentHashMap<>();
 
+    /**
+     * Leaf splits blocked on their source or on memory.
+     */
+    private final Set<PrioritizedSplitRunner> inFlightLeafSplits = ConcurrentHashMap.newKeySet();
+
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
 
@@ -160,6 +167,8 @@ public class TimeSharingTaskExecutor
 
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
+
+    private final AtomicLong leafSplitsAdmittedAboveFloor = new AtomicLong();
 
     private final DistributionStat leafSplitsSize = new DistributionStat();
     @GuardedBy("this")
@@ -338,6 +347,7 @@ public class TimeSharingTaskExecutor
                 allSplits.removeAll(splits);
                 intermediateSplits.removeAll(splits);
                 blockedSplits.keySet().removeAll(splits);
+                splits.forEach(inFlightLeafSplits::remove);
                 waitingSplits.removeAll(splits);
                 recordLeafSplitsSize(pendingUpdates);
             }
@@ -384,6 +394,7 @@ public class TimeSharingTaskExecutor
                     PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
                             handle,
                             splitId,
+                            !intermediate,
                             taskSplit,
                             splitSpan,
                             tracer,
@@ -509,6 +520,67 @@ public class TimeSharingTaskExecutor
             pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
             startSplit(split, pendingUpdates);
         }
+        admitAboveFloor(pendingUpdates);
+    }
+
+    // Starts leaf splits above the minimum drivers while runner threads lack runnable splits and memory allows.
+    @GuardedBy("this")
+    private void admitAboveFloor(PendingUpdates pendingUpdates)
+    {
+        // the floor loop stops below the floor only when no task has a split to start
+        if (allSplits.size() - intermediateSplits.size() < minimumNumberOfDrivers) {
+            return;
+        }
+        LeafSplitAdmissionBudget budget = new LeafSplitAdmissionBudget();
+        while (!isWorkFull(pendingUpdates)) {
+            PrioritizedSplitRunner split = pollAboveFloor(budget);
+            if (split == null) {
+                return;
+            }
+            leafSplitsAdmittedAboveFloor.incrementAndGet();
+            pendingUpdates.recordSplitQueuedNanos(nanoTime() - split.getCreatedNanos());
+            startSplit(split, pendingUpdates);
+        }
+    }
+
+    // Runner threads have a runnable split each, or enough leaf splits wait on their source or on memory.
+    @GuardedBy("this")
+    private boolean isWorkFull(PendingUpdates pendingUpdates)
+    {
+        if (inFlightLeafSplits.size() >= runnerThreads) {
+            return true;
+        }
+        return waitingSplits.size() + pendingUpdates.getSplitsToOfferCount() + runningSplits.size() >= runnerThreads;
+    }
+
+    @GuardedBy("this")
+    private PrioritizedSplitRunner pollAboveFloor(LeafSplitAdmissionBudget budget)
+    {
+        for (Iterator<TimeSharingTaskHandle> iterator = tasks.iterator(); iterator.hasNext(); ) {
+            TimeSharingTaskHandle task = iterator.next();
+            if (task.getRunningLeafSplits() >= min(task.getTargetConcurrency(), task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask))) {
+                continue;
+            }
+            if (task.isParked() || !task.hasQueuedLeafSplits()) {
+                continue;
+            }
+            long estimate = budget.admissibleEstimate(task.getTaskId(), task.getLeafMemoryEstimate(), task.getRunningLeafSplits(), ticker.read());
+            if (estimate == 0) {
+                continue;
+            }
+            PrioritizedSplitRunner split = task.pollNextSplit();
+            if (split != null) {
+                budget.reserve(task.getTaskId(), estimate);
+                // move task to end of list
+                iterator.remove();
+
+                // CAUTION: we are modifying the list in the loop which would normally
+                // cause a ConcurrentModificationException but we exit immediately
+                tasks.add(task);
+                return split;
+            }
+        }
+        return null;
     }
 
     private void startNewEntrants()
@@ -595,6 +667,14 @@ public class TimeSharingTaskExecutor
                 splitsToOffer = new ArrayList<>();
             }
             splitsToOffer.add(split);
+        }
+
+        int getSplitsToOfferCount()
+        {
+            if (splitsToOffer == null) {
+                return 0;
+            }
+            return splitsToOffer.size();
         }
 
         void recordSplitQueuedNanos(long queuedNanos)
@@ -684,20 +764,43 @@ public class TimeSharingTaskExecutor
                             splitFinished(split);
                         }
                         else {
+                            TimeSharingTaskHandle taskHandle = split.getTaskHandle();
+                            // a higher target concurrency lets this task start another queued leaf split now
+                            boolean admitNewSplits = taskHandle.pollTargetConcurrencyIncreased();
                             if (blocked.isDone()) {
                                 waitingSplits.offer(split);
                             }
                             else {
+                                if (split.isLeaf()) {
+                                    BlockedReason reason = split.getBlockedReason();
+                                    if (reason.isInFlight()) {
+                                        inFlightLeafSplits.add(split);
+                                        // removing the task clears its splits, so a split added after that would stay counted
+                                        if (taskHandle.isDestroyed()) {
+                                            inFlightLeafSplits.remove(split);
+                                        }
+                                    }
+                                    else {
+                                        taskHandle.leafSplitParked(split);
+                                    }
+                                    // a leaf split waiting on its source leaves its runner thread free for another split
+                                    if (reason == BlockedReason.SOURCE) {
+                                        admitNewSplits = true;
+                                    }
+                                }
                                 blockedSplits.put(split, blocked);
                                 blocked.addListener(() -> {
                                     blockedSplits.remove(split);
+                                    if (split.isLeaf()) {
+                                        inFlightLeafSplits.remove(split);
+                                        taskHandle.leafSplitUnparked(split);
+                                    }
                                     // reset the level priority to prevent previously-blocked splits from starving existing splits
                                     split.resetLevelPriority();
                                     waitingSplits.offer(split);
                                 }, executor);
                             }
-                            // a higher target concurrency lets this task start another queued leaf split now
-                            if (split.getTaskHandle().pollTargetConcurrencyIncreased()) {
+                            if (admitNewSplits) {
                                 startNewEntrants();
                             }
                         }
@@ -798,6 +901,18 @@ public class TimeSharingTaskExecutor
     public int getBlockedSplits()
     {
         return blockedSplits.size();
+    }
+
+    @Managed
+    public int getInFlightLeafSplits()
+    {
+        return inFlightLeafSplits.size();
+    }
+
+    @Managed
+    public long getLeafSplitsAdmittedAboveFloor()
+    {
+        return leafSplitsAdmittedAboveFloor.get();
     }
 
     @Managed

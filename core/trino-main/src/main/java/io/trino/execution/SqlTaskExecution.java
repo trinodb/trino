@@ -31,9 +31,14 @@ import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
+import io.trino.memory.QueryContext;
+import io.trino.memory.QueryContextVisitor;
+import io.trino.memory.TraversingQueryContextVisitor;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
@@ -65,6 +70,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -174,6 +180,10 @@ public class SqlTaskExecution
             }
             else {
                 taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker);
+                List<PipelineContext> leafPipelineContexts = this.driverRunnerFactoriesWithSplitLifeCycle.values().stream()
+                        .map(factory -> factory.pipelineContext)
+                        .collect(toImmutableList());
+                taskHandle.setTaskMemory(createTaskMemory(taskContext, leafPipelineContexts));
             }
 
             taskStateMachine.addStateChangeListener(state -> {
@@ -235,6 +245,74 @@ public class SqlTaskExecution
             }
         });
         return taskHandle;
+    }
+
+    private static final QueryContextVisitor<Void, Long> LEAF_DRIVER_BYTES = new TraversingQueryContextVisitor<>()
+    {
+        @Override
+        protected Long mergeResults(List<Long> childrenResults)
+        {
+            return childrenResults.stream().mapToLong(Long::longValue).max().orElse(0);
+        }
+
+        @Override
+        public Long visitDriverContext(DriverContext driverContext, Void visitContext)
+        {
+            return driverContext.getMemoryUsage();
+        }
+
+        @Override
+        public Long visitOperatorContext(OperatorContext operatorContext, Void visitContext)
+        {
+            return 0L;
+        }
+    };
+
+    private static TaskMemory createTaskMemory(TaskContext taskContext, List<PipelineContext> leafPipelineContexts)
+    {
+        QueryContext queryContext = taskContext.getQueryContext();
+        return new TaskMemory()
+        {
+            @Override
+            public long getLeafPipelineBytes()
+            {
+                long bytes = 0;
+                for (PipelineContext pipelineContext : leafPipelineContexts) {
+                    bytes += pipelineContext.getPipelineMemoryContext().getUserMemory();
+                }
+                return bytes;
+            }
+
+            @Override
+            public long getLeafDriverMaxBytes()
+            {
+                long maxBytes = 0;
+                for (PipelineContext pipelineContext : leafPipelineContexts) {
+                    for (long driverBytes : pipelineContext.acceptChildren(LEAF_DRIVER_BYTES, null)) {
+                        maxBytes = Math.max(maxBytes, driverBytes);
+                    }
+                }
+                return maxBytes;
+            }
+
+            @Override
+            public long getQueryFreeBytes()
+            {
+                return queryContext.getMaxUserMemory() - queryContext.getUserMemoryReservation();
+            }
+
+            @Override
+            public long getQueryMaxBytes()
+            {
+                return queryContext.getMaxUserMemory();
+            }
+
+            @Override
+            public long getPoolFreeBytes()
+            {
+                return queryContext.getMemoryPool().getFreeBytes();
+            }
+        };
     }
 
     public TaskId getTaskId()
