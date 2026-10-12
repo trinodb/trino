@@ -29,6 +29,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 
+import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -44,8 +45,11 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.TestData.randomAsciiData;
 import static io.trino.parquet.reader.TestData.randomBinaryData;
+import static io.trino.parquet.reader.TestData.unscaledRandomShortDecimalSupplier;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
+import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -78,7 +82,8 @@ public final class TestByteArrayValueDecoders
                         ENCODINGS,
                         generateUnboundedBinaryInputs()),
                 testArgs(createBoundedVarcharTestType(), ENCODINGS, generateBoundedVarcharInputs()),
-                testArgs(createCharTestType(), ENCODINGS, generateCharInputs()));
+                testArgs(createCharTestType(), ENCODINGS, generateCharInputs()),
+                testArgs(createShortDecimalTestType(), ENCODINGS, generateShortDecimalInputs()));
     }
 
     private static TestType<BinaryBuffer> createVarbinaryTestType()
@@ -131,6 +136,18 @@ public final class TestByteArrayValueDecoders
                 BINARY_ASSERT);
     }
 
+    private static TestType<long[]> createShortDecimalTestType()
+    {
+        PrimitiveField field = createField(BINARY, OptionalInt.empty(), createDecimalType(18, 2));
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return new TestType<>(
+                field,
+                valueDecoders::getShortDecimalDecoder,
+                ShortDecimalApacheParquetValueDecoder::new,
+                LONG_ADAPTER,
+                (actual, expected) -> assertThat(actual).isEqualTo(expected));
+    }
+
     private static InputDataProvider[] generateUnboundedBinaryInputs()
     {
         return ImmutableList.of(5, 10, 11, 13, 100, 1000).stream()
@@ -161,6 +178,36 @@ public final class TestByteArrayValueDecoders
                         createRandomAsciiWithPaddingBinaryInputProvider(length)))
                 .flatMap(List::stream)
                 .toArray(InputDataProvider[]::new);
+    }
+
+    private static InputDataProvider[] generateShortDecimalInputs()
+    {
+        return ImmutableList.of(8, 32, 64).stream()
+                .map(TestByteArrayValueDecoders::createShortDecimalInputProvider)
+                .toArray(InputDataProvider[]::new);
+    }
+
+    private static InputDataProvider createShortDecimalInputProvider(int bitWidth)
+    {
+        return new InputDataProvider()
+        {
+            @Override
+            public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
+            {
+                long[] values = unscaledRandomShortDecimalSupplier(bitWidth, 18).apply(dataSize);
+                byte[][] bytes = new byte[dataSize][];
+                for (int i = 0; i < dataSize; i++) {
+                    bytes[i] = BigInteger.valueOf(values[i]).toByteArray();
+                }
+                return writeBytes(valuesWriter, bytes);
+            }
+
+            @Override
+            public String toString()
+            {
+                return "short decimal(" + bitWidth + " bits)";
+            }
+        };
     }
 
     private static InputDataProvider createRandomBinaryInputProvider(int length)
@@ -382,6 +429,37 @@ public final class TestByteArrayValueDecoders
                 byte[] value = delegate.readBytes().getBytes();
                 Slice slice = Chars.trimTrailingSpaces(truncateToLength(Slices.wrappedBuffer(value), maxLength));
                 values.add(slice, i + offsetsIndex);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static final class ShortDecimalApacheParquetValueDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValuesReader delegate;
+
+        public ShortDecimalApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = new BigInteger(delegate.readBytes().getBytes()).longValueExact();
             }
         }
 
