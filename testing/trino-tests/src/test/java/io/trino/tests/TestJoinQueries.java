@@ -86,7 +86,7 @@ public class TestJoinQueries
             String sql = "SELECT * FROM supplier s INNER JOIN lineitem l ON s.suppkey = l.suppkey";
             MaterializedResult actual = queryRunner.execute(sql);
             MaterializedResult expected = getQueryRunner().execute(sql);
-            assertEqualsIgnoreOrder(actual, expected, "For query: \n " + sql);
+            assertEqualsIgnoreOrder(actual, expected, "Rows for query [%s]".formatted(sql));
         }
     }
 }
