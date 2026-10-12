@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
@@ -50,6 +51,7 @@ public class TimeSharingTaskHandle
     private long scheduledNanos;
     @GuardedBy("this")
     private final SplitConcurrencyController concurrencyController;
+    private final AtomicBoolean targetConcurrencyIncreased = new AtomicBoolean();
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
@@ -76,13 +78,26 @@ public class TimeSharingTaskHandle
 
     public synchronized Priority addScheduledNanos(long durationNanos)
     {
+        int previousTargetConcurrency = concurrencyController.getTargetConcurrency();
         concurrencyController.update(durationNanos, utilizationSupplier.getAsDouble(), runningLeafSplits.size());
+        if (concurrencyController.getTargetConcurrency() > previousTargetConcurrency) {
+            targetConcurrencyIncreased.set(true);
+        }
         scheduledNanos += durationNanos;
 
         Priority newPriority = splitQueue.updatePriority(priority.get(), durationNanos, scheduledNanos);
 
         priority.set(newPriority);
         return newPriority;
+    }
+
+    // Returns true once per target concurrency increase so the executor can start queued leaf splits.
+    public boolean pollTargetConcurrencyIncreased()
+    {
+        if (!targetConcurrencyIncreased.get()) {
+            return false;
+        }
+        return targetConcurrencyIncreased.getAndSet(false);
     }
 
     public synchronized Priority resetLevelPriority()
