@@ -31,7 +31,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long length(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static long length(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
         return StringFunctions.charLength(x, slice);
     }
@@ -41,7 +41,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("char(x)")
-    public static Slice reverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice reverse(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
         return StringFunctions.charReverse(x, slice);
     }
@@ -51,7 +51,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice substring(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
         return StringFunctions.charSubstring(x, utf8, start);
     }
@@ -61,7 +61,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice substring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice substring(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
         return StringFunctions.charSubstr(x, utf8, start, length);
     }
@@ -91,7 +91,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    public static Slice leftPad(@LiteralParameter("x") int x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return StringFunctions.leftPad(x, text, targetLength, padString);
     }
@@ -101,7 +101,7 @@ public final class CharMethods
     @InstanceMethod
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice toUtf8(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
         return StringFunctions.toUtf8(x, slice);
     }

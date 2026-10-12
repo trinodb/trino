@@ -154,9 +154,9 @@ public final class CharOperators
     @LiteralParameters("x")
     @ScalarOperator(value = CAST, neverFails = true)
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice castToBinary(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice castToBinary(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return padSpaces(slice, toIntExact(x));
+        return padSpaces(slice, x);
     }
 
     private static long toShortExact(long value)

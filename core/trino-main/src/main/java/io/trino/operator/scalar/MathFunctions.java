@@ -303,9 +303,9 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long ceilingShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long num)
+        public static long ceilingShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") long num)
         {
-            long rescaleFactor = Decimals.longTenToNth((int) numScale);
+            long rescaleFactor = Decimals.longTenToNth(numScale);
             long increment = (num % rescaleFactor > 0) ? 1 : 0;
             return num / rescaleFactor + increment;
         }
@@ -313,7 +313,7 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static Int128 ceilingLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static Int128 ceilingLong(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (num.isZero()) {
                 return num;
@@ -321,22 +321,22 @@ public final class MathFunctions
 
             Int128 other;
             if (num.isNegative()) {
-                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale];
+                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[numScale];
             }
             else {
-                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale];
+                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[numScale];
             }
 
             long[] tmp = new long[2];
             add(num.getHigh(), num.getLow(), other.getHigh(), other.getLow(), tmp, 0);
-            rescale(tmp[0], tmp[1], -(int) numScale, tmp, 0);
+            rescale(tmp[0], tmp[1], -numScale, tmp, 0);
             return Int128.valueOf(tmp);
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long ceilingLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static long ceilingLongShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             return ceilingLong(numScale, num).toLongExact();
         }
@@ -470,9 +470,9 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long floorShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long num)
+        public static long floorShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") long num)
         {
-            long rescaleFactor = Decimals.longTenToNth((int) numScale);
+            long rescaleFactor = Decimals.longTenToNth(numScale);
             long increment = (num % rescaleFactor) < 0 ? -1 : 0;
             return num / rescaleFactor + increment;
         }
@@ -480,7 +480,7 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static Int128 floorLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static Int128 floorLong(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (num.isZero()) {
                 return num;
@@ -488,22 +488,22 @@ public final class MathFunctions
 
             Int128 other;
             if (num.isNegative()) {
-                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale];
+                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[numScale];
             }
             else {
-                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale];
+                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[numScale];
             }
 
             long[] result = new long[2];
             subtract(num.getHigh(), num.getLow(), other.getHigh(), other.getLow(), result, 0);
-            rescale(result[0], result[1], -(int) numScale, result, 0);
+            rescale(result[0], result[1], -numScale, result, 0);
             return Int128.valueOf(result);
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long floorLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static long floorLongShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             return floorLong(numScale, num).toLongExact();
         }
@@ -993,7 +993,7 @@ public final class MathFunctions
         @SqlType("decimal(rp, rs)")
         @Constraint(variable = "rp", expression = "min(38, p - s + min(1, s))")
         @Constraint(variable = "rs", expression = "0")
-        public static long roundShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long num)
+        public static long roundShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") long num)
         {
             if (num == 0) {
                 return 0;
@@ -1005,7 +1005,7 @@ public final class MathFunctions
                 return -roundShort(numScale, -num);
             }
 
-            long rescaleFactor = Decimals.longTenToNth((int) numScale);
+            long rescaleFactor = Decimals.longTenToNth(numScale);
             long remainder = num % rescaleFactor;
             long remainderBoundary = rescaleFactor / 2;
             int roundUp = remainder >= remainderBoundary ? 1 : 0;
@@ -1016,21 +1016,21 @@ public final class MathFunctions
         @SqlType("decimal(rp, rs)")
         @Constraint(variable = "rp", expression = "min(38, p - s + min(1, s))")
         @Constraint(variable = "rs", expression = "0")
-        public static Int128 roundLongLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static Int128 roundLongLong(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (numScale == 0) {
                 return num;
             }
-            return rescale(num, -(int) numScale);
+            return rescale(num, -numScale);
         }
 
         @LiteralParameters({"p", "s", "rp", "rs"})
         @SqlType("decimal(rp, rs)")
         @Constraint(variable = "rp", expression = "min(38, p - s + min(1, s))")
         @Constraint(variable = "rs", expression = "0")
-        public static long roundLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static long roundLongShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            Int128 decimal = rescale(num, -(int) numScale);
+            Int128 decimal = rescale(num, -numScale);
             return decimal.toLongExact();
         }
     }
@@ -1070,19 +1070,19 @@ public final class MathFunctions
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
         public static Int128 roundNLong(
-                @LiteralParameter("s") long numScale,
-                @LiteralParameter("rp") long resultPrecision,
+                @LiteralParameter("s") int numScale,
+                @LiteralParameter("rp") int resultPrecision,
                 @SqlType("decimal(p, s)") Int128 num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             if (decimals >= numScale) {
                 return num;
             }
-            int rescaleFactor = ((int) numScale) - (int) decimals;
+            int rescaleFactor = numScale - (int) decimals;
             try {
                 Int128 result = rescale(rescale(num, -rescaleFactor), rescaleFactor);
 
-                if (overflows(result, (int) resultPrecision)) {
+                if (overflows(result, resultPrecision)) {
                     throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "decimal overflow: " + num);
                 }
 
@@ -1097,8 +1097,8 @@ public final class MathFunctions
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
         public static Int128 roundNShortLong(
-                @LiteralParameter("s") long numScale,
-                @LiteralParameter("rp") long resultPrecision,
+                @LiteralParameter("s") int numScale,
+                @LiteralParameter("rp") int resultPrecision,
                 @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
@@ -1115,7 +1115,7 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static long truncateShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") long num)
+        public static long truncateShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") long num)
         {
             if (num == 0) {
                 return 0;
@@ -1124,27 +1124,27 @@ public final class MathFunctions
                 return num;
             }
 
-            long rescaleFactor = Decimals.longTenToNth((int) numScale);
+            long rescaleFactor = Decimals.longTenToNth(numScale);
             return num / rescaleFactor;
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static Int128 truncateLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static Int128 truncateLong(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (numScale == 0) {
                 return num;
             }
-            return rescaleTruncate(num, -(int) numScale);
+            return rescaleTruncate(num, -numScale);
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static long truncateLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
+        public static long truncateLongShort(@LiteralParameter("s") int numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            Int128 decimal = rescaleTruncate(num, -(int) numScale);
+            Int128 decimal = rescaleTruncate(num, -numScale);
             return decimal.toLongExact();
         }
     }

@@ -44,16 +44,16 @@ public final class ToIso8601
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long epochMicros)
+    public static Slice toIso8601(@LiteralParameter("p") int precision, @SqlType("timestamp(p)") long epochMicros)
     {
-        return utf8Slice(formatTimestamp((int) precision, epochMicros, 0, UTC, ISO8601_FORMATTER));
+        return utf8Slice(formatTimestamp(precision, epochMicros, 0, UTC, ISO8601_FORMATTER));
     }
 
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static Slice toIso8601(@LiteralParameter("p") int precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return utf8Slice(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, ISO8601_FORMATTER));
+        return utf8Slice(formatTimestamp(precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, ISO8601_FORMATTER));
     }
 }
