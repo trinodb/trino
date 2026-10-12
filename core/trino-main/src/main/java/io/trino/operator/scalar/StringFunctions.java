@@ -110,7 +110,7 @@ public final class StringFunctions
     @ScalarFunction(value = "length", neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
-    public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static long charLength(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
         return x;
     }
@@ -212,9 +212,9 @@ public final class StringFunctions
     @ScalarFunction(value = "reverse", neverFails = true)
     @LiteralParameters("x")
     @SqlType("char(x)")
-    public static Slice charReverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice charReverse(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return trimTrailingSpaces(SliceUtf8.reverse(padSpaces(slice, (int) x)));
+        return trimTrailingSpaces(SliceUtf8.reverse(padSpaces(slice, x)));
     }
 
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
@@ -328,9 +328,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstring(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
+    public static Slice charSubstring(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start)
     {
-        return substring(padSpaces(utf8, toIntExact(x)), start);
+        return substring(padSpaces(utf8, x), start);
     }
 
     @Description("Substring of given length starting at an index")
@@ -386,9 +386,9 @@ public final class StringFunctions
     @ScalarFunction(value = "substring", alias = "substr", neverFails = true)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice charSubstr(@LiteralParameter("x") long x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
+    public static Slice charSubstr(@LiteralParameter("x") int x, @SqlType("char(x)") Slice utf8, @SqlType(StandardTypes.BIGINT) long start, @SqlType(StandardTypes.BIGINT) long length)
     {
-        return substring(padSpaces(utf8, toIntExact(x)), start, length);
+        return substring(padSpaces(utf8, x), start, length);
     }
 
     @ScalarFunction(value = OVERLAY_FUNCTION_NAME, hidden = true)
@@ -643,9 +643,9 @@ public final class StringFunctions
     @ScalarOperator(OperatorType.CAST)
     @SqlType(CodePointsType.NAME)
     @LiteralParameters("x")
-    public static int[] castCharToCodePoints(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static int[] castCharToCodePoints(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return castToCodePoints(padSpaces(slice, toIntExact(x)));
+        return castToCodePoints(padSpaces(slice, x));
     }
 
     private static int[] castToCodePoints(Slice slice)
@@ -784,9 +784,9 @@ public final class StringFunctions
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    public static Slice leftPad(@LiteralParameter("x") int x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
-        text = padSpaces(text, toIntExact(x));
+        text = padSpaces(text, x);
         return leftPad(text, targetLength, padString);
     }
 
@@ -966,9 +966,9 @@ public final class StringFunctions
     @ScalarFunction(neverFails = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.VARBINARY)
-    public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    public static Slice toUtf8(@LiteralParameter("x") int x, @SqlType("char(x)") Slice slice)
     {
-        return Chars.padSpaces(slice, toIntExact(x));
+        return Chars.padSpaces(slice, x);
     }
 
     @Description("Concatenates given character strings")
@@ -977,14 +977,14 @@ public final class StringFunctions
     @LiteralParameters({"x", "y", "u"})
     @Constraint(variable = "u", expression = "x + y")
     @SqlType("char(u)")
-    public static Slice concat(@LiteralParameter("x") long x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
+    public static Slice concat(@LiteralParameter("x") int x, @SqlType("char(x)") Slice left, @SqlType("char(y)") Slice right)
     {
         int rightLength = right.length();
         if (rightLength == 0) {
             return left;
         }
 
-        Slice paddedLeft = padSpaces(left, toIntExact(x));
+        Slice paddedLeft = padSpaces(left, x);
         int leftLength = paddedLeft.length();
 
         Slice result = Slices.allocate(leftLength + rightLength);

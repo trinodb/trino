@@ -36,15 +36,15 @@ public final class TimestampToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long epochMicros)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("timestamp(p)") long epochMicros)
     {
-        return utf8Slice(DateTimes.formatTimestamp((int) precision, epochMicros, 0, UTC, TIMESTAMP_FORMATTER));
+        return utf8Slice(DateTimes.formatTimestamp(precision, epochMicros, 0, UTC, TIMESTAMP_FORMATTER));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static Slice cast(@LiteralParameter("p") int precision, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return utf8Slice(DateTimes.formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
+        return utf8Slice(DateTimes.formatTimestamp(precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
     }
 }

@@ -213,10 +213,10 @@ public final class DateTimeFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("timestamp(9) with time zone")
-        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") Int128 unixTimeNanos)
+        public static LongTimestampWithTimeZone fromLong(@LiteralParameter("s") int scale, ConnectorSession session, @SqlType("decimal(p, s)") Int128 unixTimeNanos)
         {
             // TODO (https://github.com/trinodb/trino/issues/5781)
-            Int128 decimal = rescale(unixTimeNanos, -(int) scale);
+            Int128 decimal = rescale(unixTimeNanos, -scale);
             BigInteger unixTimeNanosInt = decimal.toBigInteger();
             long epochSeconds = unixTimeNanosInt.divide(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
             long nanosOfSecond = unixTimeNanosInt.remainder(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
@@ -236,7 +236,7 @@ public final class DateTimeFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("timestamp(9) with time zone")
-        public static LongTimestampWithTimeZone fromShort(@LiteralParameter("s") long scale, ConnectorSession session, @SqlType("decimal(p, s)") long unixTimeNanos)
+        public static LongTimestampWithTimeZone fromShort(@LiteralParameter("s") int scale, ConnectorSession session, @SqlType("decimal(p, s)") long unixTimeNanos)
         {
             // TODO (https://github.com/trinodb/trino/issues/5781)
             long roundedUnixTimeNanos = MathFunctions.Round.roundShort(scale, unixTimeNanos);

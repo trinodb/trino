@@ -186,15 +186,14 @@ public final class TimeOperators
     @ScalarOperator(CAST)
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@LiteralParameter("x") long x, @LiteralParameter("p") long precision, @SqlType("time(p)") long value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @LiteralParameter("p") int precision, @SqlType("time(p)") long value)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid precision: " + precision);
         }
-        int precisionInt = (int) precision;
         int size = (8 + // hour:minute:second
-                (precisionInt > 0 ? 1 : 0) + // period
-                precisionInt); // fraction
+                (precision > 0 ? 1 : 0) + // period
+                precision); // fraction
 
         int hours = (int) (value / PICOSECONDS_PER_HOUR);
         int minutes = (int) ((value / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR);
@@ -207,11 +206,11 @@ public final class TimeOperators
         bytes[5] = ':';
         appendTwoDecimalDigits(6, bytes, seconds);
 
-        if (precisionInt > 0) {
-            long scaledFraction = (value % PICOSECONDS_PER_SECOND) / scaleFactor(precisionInt, MAX_PRECISION);
+        if (precision > 0) {
+            long scaledFraction = (value % PICOSECONDS_PER_SECOND) / scaleFactor(precision, MAX_PRECISION);
             bytes[8] = '.';
 
-            for (int index = 8 + precisionInt; index > 8; index--) {
+            for (int index = 8 + precision; index > 8; index--) {
                 long temp = scaledFraction / 10;
                 int digit = (int) (scaledFraction - (temp * 10));
                 scaledFraction = temp;
