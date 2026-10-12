@@ -853,6 +853,15 @@ public class SqlTaskExecution
         }
 
         @Override
+        public synchronized BlockedReason getBlockedReason()
+        {
+            if (driver == null) {
+                return BlockedReason.SOURCE;
+            }
+            return driver.getBlockedReason();
+        }
+
+        @Override
         public String getInfo()
         {
             return (partitionedSplit == null) ? "" : partitionedSplit.split().toString();

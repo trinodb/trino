@@ -30,8 +30,27 @@ public interface SplitRunner
 
     ListenableFuture<Void> processFor(Duration duration);
 
+    // Reports what the last processFor call blocked on.
+    default BlockedReason getBlockedReason()
+    {
+        return BlockedReason.OPERATOR;
+    }
+
     String getInfo();
 
     @Override
     void close();
+
+    // Declared in increasing precedence when several operators block at once.
+    enum BlockedReason
+    {
+        // The pipeline source operator waits for input.
+        SOURCE,
+        // An operator between the source and the sink waits, such as a join probe waiting for its build.
+        OPERATOR,
+        // The pipeline sink waits for its consumer.
+        OUTPUT,
+        // An operator waits for memory or for revocation.
+        MEMORY,
+    }
 }
