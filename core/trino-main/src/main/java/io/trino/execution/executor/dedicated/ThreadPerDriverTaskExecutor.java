@@ -26,8 +26,10 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
+import io.trino.execution.SplitRunner.BlockedReason;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.LeafSplitAdmissionBudget;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
@@ -35,7 +37,6 @@ import io.trino.execution.executor.TaskMemory;
 import io.trino.execution.executor.dedicated.TaskEntry.QueuedSplit;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.spi.VersionEmbedder;
-import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
@@ -53,6 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
@@ -60,6 +62,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -78,6 +81,7 @@ public class ThreadPerDriverTaskExecutor
     private final int targetGlobalLeafDrivers;
     private final int minDriversPerTask;
     private final int maxDriversPerTask;
+    private final boolean idleLeafSplitAdmissionEnabled;
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
     private final Map<TaskId, TaskEntry> tasks = new ConcurrentHashMap<>();
@@ -93,9 +97,19 @@ public class ThreadPerDriverTaskExecutor
     private final AtomicBoolean schedulingLeafSplits = new AtomicBoolean();
     private final AtomicBoolean rescheduleLeafSplits = new AtomicBoolean();
 
+    // Splits handed to the scheduler, including leaf splits claimed but not yet started.
+    private final AtomicInteger runningSplits = new AtomicInteger();
+    private final AtomicInteger blockedSplits = new AtomicInteger();
+    // Leaf splits blocked on their source or on memory.
+    private final AtomicInteger inFlightLeafSplits = new AtomicInteger();
+
+    private final AtomicLong leafSplitsAdmittedAboveMinDrivers = new AtomicLong();
+
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
     private final Consumer<TaskEntry> leafSplitDoneCallback = this::leafSplitDone;
     private final Consumer<TaskEntry> leafSplitsQueuedCallback = this::leafSplitsQueued;
+    private final Runnable intermediateSplitDone = runningSplits::decrementAndGet;
+    private final SplitBlockedListener splitBlockedListener = this::splitBlocked;
     private final FailureLogger schedulingFailureLogger = new FailureLogger("Error scheduling leaf splits");
     private final Runnable scheduleMoreLeafSplitsQuietly = maintenance(this::scheduleMoreLeafSplits, schedulingFailureLogger);
 
@@ -107,11 +121,18 @@ public class ThreadPerDriverTaskExecutor
                 new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
-                config.getMinDrivers());
+                config.getMinDrivers(),
+                config.isIdleLeafSplitAdmissionEnabled());
     }
 
     @VisibleForTesting
     public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers)
+    {
+        this(tracer, versionEmbedder, scheduler, minDriversPerTask, maxDriversPerTask, targetGlobalLeafDrivers, true);
+    }
+
+    @VisibleForTesting
+    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers, boolean idleLeafSplitAdmissionEnabled)
     {
         this.scheduler = scheduler;
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -119,6 +140,7 @@ public class ThreadPerDriverTaskExecutor
         this.minDriversPerTask = minDriversPerTask;
         this.maxDriversPerTask = maxDriversPerTask;
         this.targetGlobalLeafDrivers = targetGlobalLeafDrivers;
+        this.idleLeafSplitAdmissionEnabled = idleLeafSplitAdmissionEnabled;
     }
 
     @PostConstruct
@@ -179,8 +201,10 @@ public class ThreadPerDriverTaskExecutor
                 initialSplitConcurrency,
                 splitConcurrencyAdjustFrequency,
                 utilizationSupplier,
+                splitBlockedListener,
                 scheduleMoreLeafSplitsQuietly,
-                leafSplitsQueuedCallback);
+                leafSplitsQueuedCallback,
+                taskMemory);
         tasks.put(taskId, task);
         return task;
     }
@@ -203,7 +227,17 @@ public class ThreadPerDriverTaskExecutor
         List<ListenableFuture<Void>> futures = new ArrayList<>(splits.size());
         for (SplitRunner split : splits) {
             if (intermediate) {
-                futures.add(entry.runSplit(split));
+                runningSplits.incrementAndGet();
+                ListenableFuture<Void> done;
+                try {
+                    done = entry.runSplit(split);
+                }
+                catch (Throwable t) {
+                    runningSplits.decrementAndGet();
+                    throw t;
+                }
+                done.addListener(intermediateSplitDone, directExecutor());
+                futures.add(done);
             }
             else {
                 futures.add(entry.enqueueLeafSplit(split));
@@ -221,14 +255,15 @@ public class ThreadPerDriverTaskExecutor
 
     private void leafSplitDone(TaskEntry task)
     {
-        ClaimedLeafSplit replacement;
+        runningSplits.decrementAndGet();
+        List<ClaimedLeafSplit> claimed;
         synchronized (this) {
             runningLeafDrivers--;
-            replacement = claimReplacementLeafSplit(task);
+            claimed = claimReplacementLeafSplits(task);
         }
 
-        if (replacement != null) {
-            startClaimedSplits(ImmutableList.of(replacement));
+        if (!claimed.isEmpty()) {
+            startClaimedSplits(claimed);
             return;
         }
 
@@ -240,31 +275,47 @@ public class ThreadPerDriverTaskExecutor
     }
 
     // The finished task refills up to its guaranteed minimum. Slots above it rotate across tasks.
+    // Idle scheduler slots then take splits above the target global leaf drivers.
     @GuardedBy("this")
-    @Nullable
-    private ClaimedLeafSplit claimReplacementLeafSplit(TaskEntry finishedTask)
+    private List<ClaimedLeafSplit> claimReplacementLeafSplits(TaskEntry finishedTask)
     {
         if (closed) {
-            return null;
+            return ImmutableList.of();
         }
 
-        List<ClaimedLeafSplit> claimed = new ArrayList<>(1);
-        if (finishedTask.runningLeafSplits() < minDriversPerTask && claimLeafSplit(finishedTask, claimed)) {
-            return claimed.getFirst();
+        List<ClaimedLeafSplit> claimed = new ArrayList<>();
+        if (finishedTask.runningLeafSplits() < minDriversPerTask) {
+            claimLeafSplit(finishedTask, claimed);
         }
-        if (runningLeafDrivers < targetGlobalLeafDrivers && claimNextLeafSplit(claimed)) {
-            return claimed.getFirst();
+        while (runningLeafDrivers < targetGlobalLeafDrivers) {
+            if (!claimNextLeafSplit(claimed)) {
+                break;
+            }
         }
-        return null;
+        if (runningLeafDrivers >= targetGlobalLeafDrivers) {
+            claimAboveMinDrivers(claimed);
+        }
+        return claimed;
     }
 
     // Claims a split from the first task in rotation below its target concurrency and moves that task to the back.
+    // Parked tasks take a slot only when no other task can, since their new drivers would wait too.
     @GuardedBy("this")
     private boolean claimNextLeafSplit(List<ClaimedLeafSplit> claimed)
     {
+        TaskEntry parkedTask = null;
         for (Iterator<TaskEntry> iterator = leafSplitRotation.iterator(); iterator.hasNext(); ) {
             TaskEntry task = iterator.next();
-            if (task.runningLeafSplits() >= min(task.targetConcurrency(), maxDriversPerTask)) {
+            if (!isBelowTarget(task)) {
+                continue;
+            }
+            if (task.isParked()) {
+                if (!task.hasPendingLeafSplits()) {
+                    iterator.remove();
+                }
+                else if (parkedTask == null) {
+                    parkedTask = task;
+                }
                 continue;
             }
             if (claimLeafSplit(task, claimed)) {
@@ -273,7 +324,42 @@ public class ThreadPerDriverTaskExecutor
             }
             iterator.remove();
         }
+        if (parkedTask != null && claimLeafSplit(parkedTask, claimed)) {
+            leafSplitRotation.addLast(parkedTask);
+            return true;
+        }
         return false;
+    }
+
+    private Runnable splitBlocked(TaskEntry task, boolean leaf, BlockedReason reason)
+    {
+        if (!leaf) {
+            blockedSplits.incrementAndGet();
+            return blockedSplits::decrementAndGet;
+        }
+
+        boolean inFlight = reason.isInFlight();
+        if (inFlight) {
+            inFlightLeafSplits.incrementAndGet();
+        }
+        else {
+            task.leafSplitParked();
+        }
+        blockedSplits.incrementAndGet();
+        // a leaf split waiting on its source frees its scheduler slot for another split
+        if (idleLeafSplitAdmissionEnabled && reason == BlockedReason.SOURCE && !isWorkFull(runnableSplits())) {
+            scheduleMoreLeafSplitsQuietly.run();
+        }
+
+        return () -> {
+            blockedSplits.decrementAndGet();
+            if (inFlight) {
+                inFlightLeafSplits.decrementAndGet();
+            }
+            else {
+                task.leafSplitUnparked();
+            }
+        };
     }
 
     @VisibleForTesting
@@ -326,6 +412,7 @@ public class ThreadPerDriverTaskExecutor
 
     private void releaseClaims(List<ClaimedLeafSplit> claimed)
     {
+        runningSplits.addAndGet(-claimed.size());
         synchronized (this) {
             runningLeafDrivers -= claimed.size();
         }
@@ -364,7 +451,77 @@ public class ThreadPerDriverTaskExecutor
             }
         }
 
+        // the loop above stops below the target only when no task can take another split
+        if (runningLeafDrivers >= targetGlobalLeafDrivers) {
+            claimAboveMinDrivers(claimed);
+        }
+
         return claimed;
+    }
+
+    // Claims leaf splits above the target global leaf drivers while scheduler slots lack runnable splits and memory allows.
+    @GuardedBy("this")
+    private void claimAboveMinDrivers(List<ClaimedLeafSplit> claimed)
+    {
+        if (!idleLeafSplitAdmissionEnabled) {
+            return;
+        }
+        int runnableSplits = runnableSplits();
+        if (isWorkFull(runnableSplits)) {
+            return;
+        }
+        LeafSplitAdmissionBudget budget = new LeafSplitAdmissionBudget();
+        while (!isWorkFull(runnableSplits) && claimNextAboveMinDrivers(budget, claimed)) {
+            leafSplitsAdmittedAboveMinDrivers.incrementAndGet();
+            runnableSplits++;
+        }
+    }
+
+    // Claims a split from the first task in rotation that is below its target concurrency and fits the budget, and moves that task to the back.
+    @GuardedBy("this")
+    private boolean claimNextAboveMinDrivers(LeafSplitAdmissionBudget budget, List<ClaimedLeafSplit> claimed)
+    {
+        for (Iterator<TaskEntry> iterator = leafSplitRotation.iterator(); iterator.hasNext(); ) {
+            TaskEntry task = iterator.next();
+            if (!isBelowTarget(task) || task.isParked()) {
+                continue;
+            }
+            if (!task.hasPendingLeafSplits()) {
+                iterator.remove();
+                continue;
+            }
+            long estimate = budget.admissibleEstimate(task.taskId(), task.getLeafMemoryEstimate(), task.runningLeafSplits(), System.nanoTime());
+            if (estimate == 0) {
+                continue;
+            }
+            if (claimLeafSplit(task, claimed)) {
+                budget.reserve(task.taskId(), estimate);
+                leafSplitRotation.addLast(task);
+                return true;
+            }
+            iterator.remove();
+        }
+        return false;
+    }
+
+    private boolean isBelowTarget(TaskEntry task)
+    {
+        return task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask);
+    }
+
+    private int runnableSplits()
+    {
+        return max(0, runningSplits.get() - blockedSplits.get());
+    }
+
+    // Scheduler slots have a runnable split each, or enough leaf splits wait on their source or on memory.
+    private boolean isWorkFull(int runnableSplits)
+    {
+        int totalSlots = scheduler.getConcurrencyControlTotalSlots();
+        if (inFlightLeafSplits.get() >= totalSlots) {
+            return true;
+        }
+        return runnableSplits >= totalSlots;
     }
 
     @GuardedBy("this")
@@ -376,6 +533,7 @@ public class ThreadPerDriverTaskExecutor
         }
 
         runningLeafDrivers++;
+        runningSplits.incrementAndGet();
         claimed.add(new ClaimedLeafSplit(task, split));
 
         return true;
@@ -506,6 +664,24 @@ public class ThreadPerDriverTaskExecutor
         return tasks.values().stream()
                 .mapToInt(TaskEntry::pendingLeafSplitCount)
                 .sum();
+    }
+
+    @Managed
+    public int getBlockedSplits()
+    {
+        return blockedSplits.get();
+    }
+
+    @Managed
+    public int getInFlightLeafSplits()
+    {
+        return inFlightLeafSplits.get();
+    }
+
+    @Managed
+    public long getLeafSplitsAdmittedAboveMinDrivers()
+    {
+        return leafSplitsAdmittedAboveMinDrivers.get();
     }
 
     @Managed(description = "Task executor")
