@@ -260,6 +260,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testShowStatsAfterUpdateAndExpireSnapshots()
+    {
+        testFailsDueToReadOnlyCatalog(super::testShowStatsAfterUpdateAndExpireSnapshots);
+    }
+
+    @Test
+    @Override
     public void testRegisterTableWithTableLocation()
     {
         testFailsDueToReadOnlyCatalog(super::testRegisterTableWithTableLocation);
