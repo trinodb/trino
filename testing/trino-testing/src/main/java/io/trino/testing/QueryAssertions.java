@@ -13,9 +13,7 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -408,17 +406,7 @@ public final class QueryAssertions
 
     public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
     {
-        for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
-            if (!all.getMaterializedRows().contains(row)) {
-                fail(format(
-                        "expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
-                        row,
-                        all.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
-                        expectedSubset.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
-            }
-        }
+        Assert.assertContainsAll(all.getMaterializedRows(), expectedSubset.getMaterializedRows(), "Rows");
     }
 
     protected static void assertQuerySucceeds(QueryRunner queryRunner, Session session, @Language("SQL") String sql)

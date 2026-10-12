@@ -19,7 +19,9 @@ import org.junit.jupiter.api.Timeout;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static io.trino.testing.assertions.Assert.assertContainsAll;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -88,6 +90,55 @@ public class TestAssert
     public void testEqualsIgnoreOrderLarge()
     {
         assertEqualsIgnoreOrder(range(0, 1_000_000), range(0, 1_000_000).reversed());
+    }
+
+    @Test
+    public void testContainsAll()
+    {
+        assertContainsAll(List.of(), List.of());
+        assertContainsAll(List.of(1, 2, 3), List.of());
+        assertContainsAll(List.of(1, 2, 3), List.of(3, 1));
+        assertContainsAll(List.of(1), List.of(1, 1));
+        assertContainsAll(Arrays.asList(1, null), Arrays.asList(null, 1));
+    }
+
+    @Test
+    public void testContainsAllMismatch()
+    {
+        assertThatThrownBy(() -> assertContainsAll(List.of(1, 2), List.of(3, 1, 4, 3), "Numbers"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage(
+                        """
+                        Numbers do not contain all expected: 3 missing (actual count: 2, expected count: 4)
+                        Missing:
+                          3 (2 times)
+                          4
+                        Actual:
+                          1
+                          2""");
+    }
+
+    @Test
+    public void testContainsAllMismatchSingleUseIterable()
+    {
+        Iterable<Integer> actual = Stream.of(1, 2)::iterator;
+        assertThatThrownBy(() -> assertContainsAll(actual, List.of(3)))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage(
+                        """
+                        Elements do not contain all expected: 1 missing (actual count: 2, expected count: 1)
+                        Missing:
+                          3
+                        Actual:
+                          1
+                          2""");
+    }
+
+    @Test
+    @Timeout(10)
+    public void testContainsAllLarge()
+    {
+        assertContainsAll(range(0, 1_000_000), range(0, 1_000_000).reversed());
     }
 
     private static List<Integer> range(int startInclusive, int endExclusive)

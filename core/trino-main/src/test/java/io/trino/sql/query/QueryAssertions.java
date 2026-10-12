@@ -92,6 +92,7 @@ import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static io.trino.testing.assertions.Assert.assertContainsAll;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -740,10 +741,7 @@ public class QueryAssertions
                     hasTypes(expected.getTypes());
                 }
 
-                assertThat(actual.getMaterializedRows())
-                        .as("Rows for query [%s]", description)
-                        .withRepresentation(ROWS_REPRESENTATION)
-                        .containsAll(expected.getMaterializedRows());
+                assertContainsAll(actual.getMaterializedRows(), expected.getMaterializedRows(), "Rows for query [%s]".formatted(description));
             });
         }
 
