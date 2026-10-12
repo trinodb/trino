@@ -53,6 +53,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterrup
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.execution.executor.TestingTaskMemory.NO_TASK_MEMORY;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -89,7 +90,7 @@ public class TestThreadPerDriverTaskExecutor
         // the completion callback whose progress this test verifies.
         ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
-            TaskHandle task = executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle task = executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture firstBlocked = new TestFuture();
             ListenableFuture<Void> firstDone = executor.enqueueSplits(
                             task,
@@ -110,7 +111,7 @@ public class TestThreadPerDriverTaskExecutor
                             }))))
                     .getFirst();
 
-            TaskHandle stalledTask = executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle stalledTask = executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             SplitRunner stalledSplit = new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
 
             stallNextThread.set(true);
@@ -120,7 +121,7 @@ public class TestThreadPerDriverTaskExecutor
             // Registering, removing and completing a leaf split must not wait for the stalled
             // thread creation.
             TaskId otherTaskId = new TaskId(new StageId("query", 1), 3, 1);
-            TaskHandle other = executor.addTask(otherTaskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle other = executor.addTask(otherTaskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             executor.removeTask(other);
             firstBlocked.set(null);
             firstDone.get(10, TimeUnit.SECONDS);
@@ -164,7 +165,7 @@ public class TestThreadPerDriverTaskExecutor
         // explicit enqueueSplits calls below
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
-            TaskEntry task = (TaskEntry) executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
 
             // Queue the split without scheduling it, then fail its first start attempt.
             ListenableFuture<Void> done = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
@@ -204,8 +205,8 @@ public class TestThreadPerDriverTaskExecutor
         FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, 2);
         try {
-            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-            TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
+            TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             SettableFuture<Void> blocked = SettableFuture.create();
             CountDownLatch started = new CountDownLatch(1);
             ListenableFuture<Void> firstDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
@@ -251,7 +252,7 @@ public class TestThreadPerDriverTaskExecutor
 
         FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, Integer.MAX_VALUE, 1);
-        TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+        TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
         ListenableFuture<Void> done = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> Futures.immediateVoidFuture())));
 
         executor.start();
@@ -273,7 +274,7 @@ public class TestThreadPerDriverTaskExecutor
         FairScheduler scheduler = FairScheduler.newInstance(1);
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 1, 1);
         try {
-            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             ListenableFuture<Void> failingDone = task.enqueueLeafSplit(new CloseFailingSplitRunner());
             CountDownLatch replacementStarted = new CountDownLatch(1);
             ListenableFuture<Void> replacementDone = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
@@ -300,7 +301,7 @@ public class TestThreadPerDriverTaskExecutor
         FairScheduler scheduler = FairScheduler.newInstance(1);
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, 1, 1);
         try {
-            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture firstBlocked = new TestFuture();
             ListenableFuture<Void> firstDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(
                     _ -> firstBlocked,
@@ -309,7 +310,7 @@ public class TestThreadPerDriverTaskExecutor
             executor.scheduleMoreLeafSplits();
             firstBlocked.awaitListenerAdded();
 
-            TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             CountDownLatch secondStarted = new CountDownLatch(1);
             ListenableFuture<Void> secondDone = secondTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
                 secondStarted.countDown();
@@ -334,7 +335,7 @@ public class TestThreadPerDriverTaskExecutor
         FairScheduler scheduler = FairScheduler.newInstance(2);
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, 10, 1);
         try {
-            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture firstBlocked = new TestFuture();
             TestFuture secondBlocked = new TestFuture();
             CountDownLatch thirdStarted = new CountDownLatch(1);
@@ -348,7 +349,7 @@ public class TestThreadPerDriverTaskExecutor
             executor.scheduleMoreLeafSplits();
             firstBlocked.awaitListenerAdded();
 
-            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture otherBlocked = new TestFuture();
             CountDownLatch otherStarted = new CountDownLatch(1);
             ListenableFuture<Void> otherDone = otherTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(
@@ -384,8 +385,8 @@ public class TestThreadPerDriverTaskExecutor
         FairScheduler scheduler = FairScheduler.newInstance(2);
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 10, 1);
         try {
-            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
-            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture firstBlocked = new TestFuture();
             ListenableFuture<Void> firstDone = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> firstBlocked, _ -> immediateVoidFuture())));
             TestFuture secondBlocked = new TestFuture();
@@ -485,7 +486,7 @@ public class TestThreadPerDriverTaskExecutor
         executor.start();
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
-            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
 
             CountDownLatch started = new CountDownLatch(1);
 
@@ -524,7 +525,7 @@ public class TestThreadPerDriverTaskExecutor
 
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
-            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
 
             TestFuture blocked = new TestFuture();
 
@@ -555,7 +556,7 @@ public class TestThreadPerDriverTaskExecutor
 
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
-            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
 
             ListenableFuture<Void> splitDone = executor.enqueueSplits(task, intermediate, ImmutableList.of(new PipelineSpanFailingSplitRunner())).get(0);
 
@@ -580,7 +581,7 @@ public class TestThreadPerDriverTaskExecutor
 
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
-            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskHandle task = executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
 
             Phaser phaser = new Phaser(2);
             SplitRunner split = new TestingSplitRunner(ImmutableList.of(
@@ -623,7 +624,7 @@ public class TestThreadPerDriverTaskExecutor
         // no periodic passes run, so only the target concurrency rise can start the queued split
         CountDownLatch busySplitReleased = new CountDownLatch(1);
         try {
-            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 0, 1, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestingSplitRunner busySplit = new TestingSplitRunner(ImmutableList.of(
                     _ -> {
                         sleepUninterruptibly(5, MILLISECONDS);
@@ -658,7 +659,7 @@ public class TestThreadPerDriverTaskExecutor
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 4, 4);
         executor.start();
         try {
-            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 1, 4, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 1, 4, new Duration(1, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             List<TestFuture> blocked = ImmutableList.of(new TestFuture(), new TestFuture(), new TestFuture(), new TestFuture());
             executor.enqueueSplits(task, false, blocked.stream()
                     .map(future -> new TestingSplitRunner(ImmutableList.of(_ -> future, _ -> immediateVoidFuture())))
@@ -685,7 +686,7 @@ public class TestThreadPerDriverTaskExecutor
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 4, 4);
         executor.start();
         try {
-            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 0, 1, new Duration(100, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 0), 0, 0), () -> 0, 1, new Duration(100, MILLISECONDS), OptionalInt.empty(), NO_TASK_MEMORY);
             TestFuture blocked = new TestFuture();
             AtomicBoolean queuedSplitStarted = new AtomicBoolean();
             executor.enqueueSplits(task, false, ImmutableList.of(

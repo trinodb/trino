@@ -31,6 +31,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.execution.executor.dedicated.TaskEntry.QueuedSplit;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.spi.VersionEmbedder;
@@ -166,7 +167,8 @@ public class ThreadPerDriverTaskExecutor
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            TaskMemory taskMemory)
     {
         checkArgument(!closed, "Executor is already closed");
         TaskEntry task = new TaskEntry(
