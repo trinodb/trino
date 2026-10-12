@@ -43,6 +43,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -1351,7 +1352,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(false)
                 .build();
 
-        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(rows.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test
@@ -1389,7 +1390,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .row(LocalDateTime.parse("2015-01-01T00:00:00.001"))
                 .build();
 
-        assertThat(rows.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+        assertEqualsIgnoreOrder(rows.getMaterializedRows(), expected.getMaterializedRows());
     }
 
     @Test

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
 import static java.lang.String.format;
@@ -56,7 +57,7 @@ class TestDeltaLakeSystemTableCompatibility
             QueryResult trinoResult = env.executeTrino("SELECT * FROM delta.default.\"" + tableName + "$properties\" WHERE key != 'location'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
-            assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());
+            assertEqualsIgnoreOrder(trinoResult.rows(), deltaResult.rows());
         }
         finally {
             env.executeSparkUpdate("DROP TABLE IF EXISTS default." + tableName);
@@ -86,7 +87,7 @@ class TestDeltaLakeSystemTableCompatibility
             QueryResult trinoResult = env.executeTrino("SELECT * FROM delta.default.\"" + tableName + "$properties\" WHERE key LIKE 'delta%'");
             assertThat(deltaResult).contains(expectedRows);
             assertThat(trinoResult).contains(expectedRows);
-            assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());
+            assertEqualsIgnoreOrder(trinoResult.rows(), deltaResult.rows());
         }
         finally {
             env.executeSparkUpdate("DROP TABLE IF EXISTS default." + tableName);

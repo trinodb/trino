@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -1146,26 +1147,26 @@ public abstract class AbstractTestTrinoFileSystem
         try (Closer closer = Closer.create()) {
             Set<Location> locations = createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
 
-            assertThat(listPath("")).containsExactlyInAnyOrderElementsOf(locations);
+            assertEqualsIgnoreOrder(listPath(""), locations);
 
-            assertThat(listPath("level0")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/").toString()))
                     .toList());
-            assertThat(listPath("level0/")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0/"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/").toString()))
                     .toList());
 
-            assertThat(listPath("level0/level1/")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0/level1/"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/level1/").toString()))
                     .toList());
-            assertThat(listPath("level0/level1")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0/level1"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/level1/").toString()))
                     .toList());
 
-            assertThat(listPath("level0/level1/level2/")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0/level1/level2/"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/level1/level2/").toString()))
                     .toList());
-            assertThat(listPath("level0/level1/level2")).containsExactlyInAnyOrderElementsOf(locations.stream()
+            assertEqualsIgnoreOrder(listPath("level0/level1/level2"), locations.stream()
                     .filter(location -> location.toString().startsWith(createLocation("level0/level1/level2/").toString()))
                     .toList());
 
@@ -1282,34 +1283,22 @@ public abstract class AbstractTestTrinoFileSystem
                     createLocation("level0/level1/level2-file1"),
                     createLocation("level0/level1/level2-file2"));
 
-            assertThat(listPathStartingFrom("", ""))
-                    .containsExactlyInAnyOrderElementsOf(rootAll);
-            assertThat(listPathStartingFrom("", "level0/level1-file1"))
-                    .containsExactlyInAnyOrderElementsOf(rootStartingFromLevel1File1);
+            assertEqualsIgnoreOrder(listPathStartingFrom("", ""), rootAll);
+            assertEqualsIgnoreOrder(listPathStartingFrom("", "level0/level1-file1"), rootStartingFromLevel1File1);
             assertThat(listPathStartingFrom("", "zzz")).isEmpty();
 
-            assertThat(listPathStartingFrom("level0", ""))
-                    .containsExactlyInAnyOrderElementsOf(level0All);
-            assertThat(listPathStartingFrom("level0/", ""))
-                    .containsExactlyInAnyOrderElementsOf(level0All);
-            assertThat(listPathStartingFrom("level0", "level1"))
-                    .containsExactlyInAnyOrderElementsOf(level0All);
-            assertThat(listPathStartingFrom("level0", "level1-file0z"))
-                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z);
-            assertThat(listPathStartingFrom("level0", "level1/level2-file1"))
-                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1Level2File1);
-            assertThat(listPathStartingFrom("level0/", "level1-file0z"))
-                    .containsExactlyInAnyOrderElementsOf(level0StartingFromLevel1File0z);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0", ""), level0All);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/", ""), level0All);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0", "level1"), level0All);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0", "level1-file0z"), level0StartingFromLevel1File0z);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0", "level1/level2-file1"), level0StartingFromLevel1Level2File1);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/", "level1-file0z"), level0StartingFromLevel1File0z);
             assertThat(listPathStartingFrom("level0", "zzz")).isEmpty();
 
-            assertThat(listPathStartingFrom("level0/level1/", ""))
-                    .containsExactlyInAnyOrderElementsOf(level1All);
-            assertThat(listPathStartingFrom("level0/level1", ""))
-                    .containsExactlyInAnyOrderElementsOf(level1All);
-            assertThat(listPathStartingFrom("level0/level1", "level2"))
-                    .containsExactlyInAnyOrderElementsOf(level1StartingFromLevel2);
-            assertThat(listPathStartingFrom("level0/level1", "level2-file1"))
-                    .containsExactlyInAnyOrderElementsOf(level1StartingFromLevel2File1);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/level1/", ""), level1All);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/level1", ""), level1All);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/level1", "level2"), level1StartingFromLevel2);
+            assertEqualsIgnoreOrder(listPathStartingFrom("level0/level1", "level2-file1"), level1StartingFromLevel2File1);
             assertThat(listPathStartingFrom("level0/level1", "zzz")).isEmpty();
 
             assertThat(listPathStartingFrom("level0/level1/level2/", "")).isEmpty();
@@ -1327,12 +1316,10 @@ public abstract class AbstractTestTrinoFileSystem
                     "level0/level1",
                     "level0/level1/level2",
                     "level0/level1/level2/level3")) {
-                assertThat(listPathStartingFrom(directory, ""))
-                        .containsExactlyInAnyOrderElementsOf(listPath(directory));
+                assertEqualsIgnoreOrder(listPathStartingFrom(directory, ""), listPath(directory));
 
                 if (!directory.isEmpty()) {
-                    assertThat(listPathStartingFrom(directory + "/", ""))
-                            .containsExactlyInAnyOrderElementsOf(listPath(directory + "/"));
+                    assertEqualsIgnoreOrder(listPathStartingFrom(directory + "/", ""), listPath(directory + "/"));
                 }
             }
 

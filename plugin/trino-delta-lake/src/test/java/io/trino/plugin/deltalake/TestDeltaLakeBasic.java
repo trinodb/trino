@@ -114,6 +114,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -880,7 +881,7 @@ public class TestDeltaLakeBasic
                     }
                     page = reader.nextPage();
                 }
-                assertThat(actual).containsExactlyInAnyOrderElementsOf(expectedPartitionValuesParsed);
+                assertEqualsIgnoreOrder(actual, expectedPartitionValuesParsed);
             }
         }
     }

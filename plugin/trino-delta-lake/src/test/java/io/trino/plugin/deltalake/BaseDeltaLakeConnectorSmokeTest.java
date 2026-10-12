@@ -485,8 +485,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             for (int i = 0; i < 3; i++) {
                 computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '1kB')");
                 Set<String> filesAfterOptimize = getActiveFiles(tableName);
-                assertThat(filesAfterOptimize)
-                        .containsExactlyInAnyOrderElementsOf(initialFiles);
+                assertEqualsIgnoreOrder(filesAfterOptimize, initialFiles);
             }
             assertQuery(
                     "SELECT * FROM " + tableName,
@@ -514,9 +513,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 Set<String> initialFiles = getActiveFiles(tableName);
                 computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
                 Set<String> filesAfterOptimize = getActiveFiles(tableName);
-                assertThat(filesAfterOptimize)
-                        .hasSizeBetween(1, workerCount)
-                        .containsExactlyInAnyOrderElementsOf(initialFiles);
+                assertThat(filesAfterOptimize).hasSizeBetween(1, workerCount);
+                assertEqualsIgnoreOrder(filesAfterOptimize, initialFiles);
             }
             assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one'), (2, 'two')");
         }

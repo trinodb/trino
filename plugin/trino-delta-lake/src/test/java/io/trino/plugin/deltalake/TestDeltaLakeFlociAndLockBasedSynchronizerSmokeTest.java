@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -129,7 +130,7 @@ public class TestDeltaLakeFlociAndLockBasedSynchronizerSmokeTest
                     .build();
             assertEventually(
                     new Duration(5, TimeUnit.SECONDS),
-                    () -> assertThat(getTableFiles(tableName)).containsExactlyInAnyOrderElementsOf(expectedFiles));
+                    () -> assertEqualsIgnoreOrder(getTableFiles(tableName), expectedFiles));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
