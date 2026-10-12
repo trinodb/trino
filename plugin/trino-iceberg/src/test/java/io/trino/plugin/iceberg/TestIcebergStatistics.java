@@ -1262,6 +1262,361 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testShowStatsAfterUpdateAndExpireSnapshots()
+    {
+        String tableName = "test_stats_update_expire_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("UPDATE " + tableName + " SET comment = 'updated' WHERE nationkey = 1", 1);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowStatsAfterDeleteAndExpireSnapshots()
+    {
+        String tableName = "test_stats_delete_expire_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 1", 1);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowStatsAfterMergeAndExpireSnapshots()
+    {
+        String tableName = "test_stats_merge_expire_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("MERGE INTO " + tableName + " t USING (SELECT 1 AS nationkey, 'new comment' AS comment) s " +
+                "ON t.nationkey = s.nationkey " +
+                "WHEN MATCHED THEN UPDATE SET comment = s.comment", 1);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testStatsLostPreventSubsequentInsertCollection()
+    {
+        String tableName = "test_stats_lost_insert_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate("UPDATE " + tableName + " SET comment = 'changed' WHERE nationkey = 2", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        // When stats are retained, subsequent INSERT will successfully keep NDV information
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25.0'), " +
+                        "('name', DOUBLE '25.0'), " +
+                        "('regionkey', DOUBLE '5.0'), " +
+                        "('comment', DOUBLE '25.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testStatsRetainedAfterUpdateWithDeletionVectors()
+    {
+        String tableName = "test_stats_update_dv_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col integer, val varchar) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertUpdate("UPDATE " + tableName + " SET val = 'updated_a' WHERE col = 1", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('col', DOUBLE '3.0'), " +
+                        "('val', DOUBLE '3.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testStatsRetainedAfterMergeWithDeletionVectors()
+    {
+        String tableName = "test_stats_merge_dv_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col integer, val varchar) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertUpdate("MERGE INTO " + tableName + " t USING (VALUES (1, 'merged_a')) s(col, val) " +
+                "ON t.col = s.col " +
+                "WHEN MATCHED THEN UPDATE SET val = s.val", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('col', DOUBLE '3.0'), " +
+                        "('val', DOUBLE '3.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSequentialRowWritesRetainStatistics()
+    {
+        String tableName = "test_seq_row_writes_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col integer, val varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'v1'), (2, 'v2'), (3, 'v3')", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        // Step 1: UPDATE and expire
+        assertUpdate("UPDATE " + tableName + " SET val = 'v1_mod' WHERE col = 1", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        // Step 2: DELETE and expire
+        assertUpdate("DELETE FROM " + tableName + " WHERE col = 2", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        // Step 3: MERGE and expire
+        assertUpdate("MERGE INTO " + tableName + " t USING (VALUES (3, 'v3_mod')) s(col, val) " +
+                "ON t.col = s.col " +
+                "WHEN MATCHED THEN UPDATE SET val = s.val", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('col', DOUBLE '3.0'), " +
+                        "('val', DOUBLE '3.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRowWritesWithoutPreexistingStatistics()
+    {
+        String tableName = "test_row_writes_no_stats_" + randomNameSuffix();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " (key integer, val varchar)");
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        // UPDATE without preexisting stats must not write a statistics file
+        assertUpdate(writeSession, "UPDATE " + tableName + " SET val = 'updated' WHERE key = 1", 1);
+        assertThat(loadIcebergTable(tableName).statisticsFiles()).isEmpty();
+
+        // DELETE without preexisting stats must not write a statistics file
+        assertUpdate(writeSession, "DELETE FROM " + tableName + " WHERE key = 2", 1);
+        assertThat(loadIcebergTable(tableName).statisticsFiles()).isEmpty();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRowWritesWithDisabledCollectExtendedStatistics()
+    {
+        String tableName = "test_disabled_stats_" + randomNameSuffix();
+        Session writeWithoutStatsSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, val varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+        assertUpdate("ANALYZE " + tableName);
+
+        int statsCountBeforeUpdate = loadIcebergTable(tableName).statisticsFiles().size();
+        assertThat(statsCountBeforeUpdate).isEqualTo(1);
+
+        // When collect_extended_statistics_on_write is false, statistics rewrite is skipped
+        assertUpdate(writeWithoutStatsSession, "UPDATE " + tableName + " SET val = 'updated' WHERE key = 1", 1);
+        int statsCountAfterUpdate = loadIcebergTable(tableName).statisticsFiles().size();
+        assertThat(statsCountAfterUpdate).isEqualTo(statsCountBeforeUpdate);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testStatsRetentionAcrossSchemaChanges()
+    {
+        String tableName = "test_stats_schema_change_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col1 integer, col2 varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'val1'), (2, 'val2')", 2);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN col3 bigint");
+        assertUpdate("UPDATE " + tableName + " SET col3 = 100 WHERE col1 = 1", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('col1', DOUBLE '2.0'), " +
+                        "('col2', DOUBLE '2.0'), " +
+                        "('col3', null), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionedTableStatsRetentionAcrossRowWrites()
+    {
+        String tableName = "test_partitioned_stats_row_" + randomNameSuffix();
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session minimalSnapshotRetentionSession = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+        String expireSnapshotQuery = "ALTER TABLE " + tableName + " EXECUTE expire_snapshots(retention_threshold => '0d')";
+
+        assertUpdate("CREATE TABLE " + tableName + " (part_col varchar, key_col integer, val_col varchar) WITH (partitioning = ARRAY['part_col'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('p1', 1, 'v1'), ('p1', 2, 'v2'), ('p2', 3, 'v3')", 3);
+        assertUpdate("ANALYZE " + tableName);
+
+        assertUpdate("UPDATE " + tableName + " SET val_col = 'v1_updated' WHERE key_col = 1", 1);
+        assertUpdate(minimalSnapshotRetentionSession, expireSnapshotQuery);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .result()
+                .projected("column_name", "distinct_values_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('part_col', DOUBLE '2.0'), " +
+                        "('key_col', DOUBLE '3.0'), " +
+                        "('val_col', DOUBLE '3.0'), " +
+                        "(null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testNaN()
     {
         String tableName = "test_nan";

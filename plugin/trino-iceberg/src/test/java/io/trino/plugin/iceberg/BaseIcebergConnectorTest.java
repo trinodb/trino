@@ -7730,7 +7730,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(
                 sessionWithShortRetentionUnlocked,
                 "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
-                "VALUES ('processed_manifests_count', 3), ('active_files_count', 16), ('scanned_files_count', 18), ('deleted_files_count', 2), ('deleted_bytes', " + totalOrphanBytes + ")");
+                "VALUES ('processed_manifests_count', 3), ('active_files_count', 17), ('scanned_files_count', 19), ('deleted_files_count', 2), ('deleted_bytes', " + totalOrphanBytes + ")");
         assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
