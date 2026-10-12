@@ -224,6 +224,45 @@ class TestScalarFunctionAdapter
     }
 
     @Test
+    public void testAdaptKeepsVoidReturnUnderNullableReturn()
+    {
+        InvocationConvention convention = simpleConvention(NULLABLE_RETURN);
+        MethodHandle adaptedMethodHandle = ScalarFunctionAdapter.adapt(
+                MethodHandles.empty(methodType(void.class)),
+                BIGINT,
+                ImmutableList.of(),
+                convention,
+                convention);
+
+        assertThat(adaptedMethodHandle.type()).isEqualTo(methodType(void.class));
+    }
+
+    @Test
+    public void testAdaptKeepsReturnTypeUnderBlockBuilderAndFlatReturn()
+    {
+        MethodHandle blockBuilderHandle = MethodHandles.empty(methodType(long.class, BlockBuilder.class));
+        InvocationConvention blockBuilderConvention = simpleConvention(BLOCK_BUILDER);
+        assertThat(ScalarFunctionAdapter.adapt(blockBuilderHandle, BIGINT, ImmutableList.of(), blockBuilderConvention, blockBuilderConvention).type())
+                .isEqualTo(blockBuilderHandle.type());
+
+        MethodHandle flatHandle = MethodHandles.empty(methodType(long.class, byte[].class, int.class, byte[].class, int.class));
+        InvocationConvention flatConvention = simpleConvention(FLAT_RETURN);
+        assertThat(ScalarFunctionAdapter.adapt(flatHandle, BIGINT, ImmutableList.of(), flatConvention, flatConvention).type())
+                .isEqualTo(flatHandle.type());
+    }
+
+    @Test
+    public void testAdaptRejectsWideningArgument()
+    {
+        MethodHandle methodHandle = MethodHandles.empty(methodType(long.class, double.class));
+        for (InvocationArgumentConvention argumentConvention : List.of(NEVER_NULL, BOXED_NULLABLE)) {
+            InvocationConvention convention = simpleConvention(FAIL_ON_NULL, argumentConvention);
+            assertThatThrownBy(() -> ScalarFunctionAdapter.adapt(methodHandle, BIGINT, ImmutableList.of(BIGINT), convention, convention))
+                    .isInstanceOf(WrongMethodTypeException.class);
+        }
+    }
+
+    @Test
     public void testAdaptPreservesPrimitiveFailOnNullReturn()
             throws Throwable
     {
