@@ -61,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -914,6 +915,26 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertThat(query("SHOW STATS FOR " + table.getName())).result()
                     .projected("column_name", "distinct_values_count")
                     .matches("VALUES (VARCHAR 'id', 3e0), (null, null)");
+        }
+    }
+
+    @Test
+    public void testShowStatsAfterUpdateAndExpireSnapshots()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_stats_expire", "(id int, val varchar)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+            assertUpdate("UPDATE " + table.getName() + " SET val = 'updated' WHERE id = 1", 1);
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE expire_snapshots(retention_threshold => '0d')");
+
+            assertThat(query("SHOW STATS FOR " + table.getName())).result()
+                    .projected("column_name", "distinct_values_count")
+                    .skippingTypesCheck()
+                    .containsAll("VALUES ('id', DOUBLE '3.0'), ('val', DOUBLE '3.0'), (null, null)");
         }
     }
 

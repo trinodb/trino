@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
@@ -716,6 +717,42 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
                         .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
+    }
+
+    @Test
+    public void testExpireSnapshotsWithStatistics()
+    {
+        assertUpdate("CREATE TABLE test_expire_snapshots_stats (id VARCHAR, age INT)");
+        assertUpdate("INSERT INTO test_expire_snapshots_stats VALUES ('a', 1)", 1);
+        assertUpdate("UPDATE test_expire_snapshots_stats SET age = 2 WHERE id = 'a'", 1);
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                .build();
+
+        // the snapshot holding the statistics file is retained, so nothing is committed
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '7d')",
+                ImmutableMultiset.of(new FileOperation(METADATA_JSON, "InputFile.newStream")));
+        // the statistics file of the expired snapshot is registered on the current snapshot without being read or rewritten
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '0d')",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperation(METADATA_JSON, "OutputFile.create"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .build());
+        // the statistics file already sits on the current snapshot, so nothing is committed
+        assertFileSystemAccesses(
+                session,
+                "ALTER TABLE test_expire_snapshots_stats EXECUTE expire_snapshots(retention_threshold => '0d')",
+                ImmutableMultiset.of(new FileOperation(METADATA_JSON, "InputFile.newStream")));
+
+        assertUpdate("DROP TABLE test_expire_snapshots_stats");
     }
 
     @Test
