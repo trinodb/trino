@@ -13,11 +13,26 @@
  */
 package io.trino.filesystem;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.SequenceInputStream;
+import java.nio.ByteBuffer;
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.enumeration;
 
 public interface DataStreamProvider
 {
-    InputStream takeInputStream();
+    // buffers must be backed by an accessible array
+    List<ByteBuffer> takeByteBuffers();
+
+    default InputStream takeInputStream()
+    {
+        return new SequenceInputStream(enumeration(takeByteBuffers().stream()
+                .map(buffer -> new ByteArrayInputStream(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining()))
+                .collect(toImmutableList())));
+    }
 
     int allocated();
 

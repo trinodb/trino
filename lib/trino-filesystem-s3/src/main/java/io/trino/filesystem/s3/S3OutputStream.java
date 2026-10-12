@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.DataStreamProvider;
 import io.trino.filesystem.FileMayHaveAlreadyExistedException;
@@ -39,10 +40,9 @@ import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
@@ -479,9 +479,9 @@ final class S3OutputStream
             implements DataStreamProvider
     {
         @Override
-        public InputStream takeInputStream()
+        public List<ByteBuffer> takeByteBuffers()
         {
-            return new ByteArrayInputStream(data);
+            return ImmutableList.of(ByteBuffer.wrap(data));
         }
 
         @Override
