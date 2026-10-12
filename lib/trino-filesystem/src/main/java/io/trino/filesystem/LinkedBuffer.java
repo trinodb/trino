@@ -16,16 +16,13 @@ package io.trino.filesystem;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.SequenceInputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
-import static java.util.Collections.enumeration;
 
 public final class LinkedBuffer
         implements DataStreamProvider
@@ -82,16 +79,16 @@ public final class LinkedBuffer
     }
 
     @Override
-    public InputStream takeInputStream()
+    public List<ByteBuffer> takeByteBuffers()
     {
-        ImmutableList.Builder<InputStream> streams = ImmutableList.builderWithExpectedSize(parts.size() + ((currentOffset == 0) ? 0 : 1));
+        ImmutableList.Builder<ByteBuffer> buffers = ImmutableList.builderWithExpectedSize(parts.size() + ((currentOffset == 0) ? 0 : 1));
         for (byte[] part : parts) {
-            streams.add(new ByteArrayInputStream(part));
+            buffers.add(ByteBuffer.wrap(part));
         }
         if (currentOffset > 0) {
-            streams.add(new ByteArrayInputStream(currentBuffer, 0, currentOffset));
+            buffers.add(ByteBuffer.wrap(currentBuffer, 0, currentOffset));
         }
-        return new SequenceInputStream(enumeration(streams.build()));
+        return buffers.build();
     }
 
     public LinkedBuffer startNextPart()
