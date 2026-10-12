@@ -40,7 +40,6 @@ import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +49,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
@@ -111,8 +112,13 @@ public final class DateTimeUtils
             return OptionalInt.empty();
         }
 
-        LocalDate date = LocalDate.of(year.orElseThrow(), month.orElseThrow(), day.orElseThrow());
-        return OptionalInt.of(toIntExact(date.toEpochDay()));
+        int parsedYear = year.orElseThrow();
+        int parsedMonth = month.orElseThrow();
+        int parsedDay = day.orElseThrow();
+        if (parsedMonth < 1 || parsedMonth > 12 || parsedDay < 1 || parsedDay > FastDate.daysInMonth(parsedYear, parsedMonth)) {
+            throw new DateTimeException("Invalid date '" + value.toStringUtf8() + "'");
+        }
+        return OptionalInt.of(FastDate.daysFromYmd(parsedYear, parsedMonth, parsedDay));
     }
 
     /**
@@ -135,9 +141,27 @@ public final class DateTimeUtils
         return OptionalInt.of(result);
     }
 
-    public static String printDate(int days)
+    public static Slice printDate(int days)
     {
-        return DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days));
+        long ymd = FastDate.ymdFromEpochDay(days);
+        int year = (int) (ymd >> 32);
+        if (year < 0 || year > 9999) {
+            return utf8Slice(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(days)));
+        }
+        int month = (int) ((ymd >> 8) & 0xFF);
+        int day = (int) (ymd & 0xFF);
+        byte[] buffer = new byte[10];
+        buffer[0] = (byte) ('0' + year / 1000);
+        buffer[1] = (byte) ('0' + (year / 100) % 10);
+        buffer[2] = (byte) ('0' + (year / 10) % 10);
+        buffer[3] = (byte) ('0' + year % 10);
+        buffer[4] = '-';
+        buffer[5] = (byte) ('0' + month / 10);
+        buffer[6] = (byte) ('0' + month % 10);
+        buffer[7] = '-';
+        buffer[8] = (byte) ('0' + day / 10);
+        buffer[9] = (byte) ('0' + day % 10);
+        return wrappedBuffer(buffer);
     }
 
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
