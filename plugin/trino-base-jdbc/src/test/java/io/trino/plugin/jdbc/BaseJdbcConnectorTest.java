@@ -2287,7 +2287,7 @@ public abstract class BaseJdbcConnectorTest
         assertEqualsIgnoreOrder(
                 dynamicFilteringResult.result(),
                 dynamicFilteringWithCompactionThresholdResult.result(),
-                "For query: \n " + query);
+                "Rows for query [%s]".formatted(query));
 
         MaterializedResultWithPlan noDynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(false),
@@ -2296,7 +2296,7 @@ public abstract class BaseJdbcConnectorTest
         assertEqualsIgnoreOrder(
                 dynamicFilteringWithCompactionThresholdResult.result(),
                 noDynamicFilteringResult.result(),
-                "For query: \n " + query);
+                "Rows for query [%s]".formatted(query));
 
         assertThat(unfilteredInputPositions)
                 .as("unfiltered input positions")
@@ -2406,7 +2406,7 @@ public abstract class BaseJdbcConnectorTest
         assertEqualsIgnoreOrder(
                 dynamicFilteringResultWithQueryId.result(),
                 noDynamicFilteringResultWithQueryId.result(),
-                "For query: \n " + sql);
+                "Rows for query [%s]".formatted(sql));
 
         long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.queryId());
         long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.queryId());

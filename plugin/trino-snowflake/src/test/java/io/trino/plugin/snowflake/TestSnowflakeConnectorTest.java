@@ -198,9 +198,8 @@ public class TestSnowflakeConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query")
-                .hasMessageContaining("Actual rows")
-                .hasMessageContaining("Expected rows");
+                .hasMessageContaining("Rows for query")
+                .hasMessageContaining("do not match");
     }
 
     @Override
@@ -361,9 +360,8 @@ public class TestSnowflakeConnectorTest
     public void testCharTrailingSpace()
     {
         assertThatThrownBy(super::testCharTrailingSpace)
-                .hasMessageContaining("For query")
-                .hasMessageContaining("Actual rows")
-                .hasMessageContaining("Expected rows");
+                .hasMessageContaining("Rows for query")
+                .hasMessageContaining("do not match");
     }
 
     @Test

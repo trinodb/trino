@@ -346,9 +346,8 @@ public class TestClickHouseConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query")
-                .hasMessageContaining("Actual rows")
-                .hasMessageContaining("Expected rows");
+                .hasMessageContaining("Rows for query")
+                .hasMessageContaining("do not match");
 
         // TODO run the test with clickhouse.map-string-as-varchar
         abort("");

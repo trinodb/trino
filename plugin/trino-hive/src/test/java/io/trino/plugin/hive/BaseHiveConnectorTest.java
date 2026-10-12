@@ -5264,8 +5264,8 @@ public abstract class BaseHiveConnectorTest
         assertThatThrownBy(super::testDropAndAddColumnWithSameName)
                 .hasMessageContaining(
                         """
-                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 3, 2]\
+                        Unexpected:
+                          [1, 3, 2]\
                         """);
     }
 
@@ -5276,7 +5276,7 @@ public abstract class BaseHiveConnectorTest
         // On the default PARQUET format a Hive column rename is metadata-only and data is read by name, so the
         // renamed column reads NULL. ORC reads by index and preserves the data on rename; see testRenameColumnHiveSpecific.
         assertThatThrownBy(super::testRenameColumn)
-                .hasMessageContaining("not equal")
+                .hasMessageContaining("do not match")
                 .hasMessageContaining("[null]");
     }
 
@@ -5286,7 +5286,7 @@ public abstract class BaseHiveConnectorTest
     {
         // See testRenameColumn: on the default PARQUET format a rename orphans the data (read by name), so it reads NULL.
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                .hasMessageContaining("not equal")
+                .hasMessageContaining("do not match")
                 .hasMessageContaining("[null]");
     }
 

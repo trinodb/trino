@@ -682,10 +682,10 @@ public class TestRedshiftConnectorTest
                     .isInstanceOf(AssertionError.class)
                     .hasMessageContaining(
                             """
-                            Unexpected rows:
-                              (555555555555555555561728450.9938271604)
-                            Missing rows:
-                              (555555555555555555561728450.9938271605)
+                            Unexpected:
+                              [555555555555555555561728450.9938271604]
+                            Missing:
+                              [555555555555555555561728450.9938271605]
                             """);
         }
     }
