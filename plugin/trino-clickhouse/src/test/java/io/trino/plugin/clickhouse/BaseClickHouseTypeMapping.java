@@ -1241,6 +1241,25 @@ public abstract class BaseClickHouseTypeMapping
     }
 
     @Test
+    public void testDynamic()
+    {
+        Session convertToVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("Dynamic", "42", VARCHAR, "VARCHAR '42'")
+                .addRoundTrip("Dynamic", "'hello'", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Dynamic", "''", VARCHAR, "VARCHAR ''")
+                .addRoundTrip("Dynamic", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Dynamic", "CAST('hello' AS Nullable(String))", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Dynamic", "CAST(NULL AS Nullable(String))", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Variant(String, Int64)", "'hello'", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Variant(String, Int64)", "42", VARCHAR, "VARCHAR '42'")
+                .addRoundTrip("Variant(String, Int64)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .execute(getQueryRunner(), convertToVarchar, clickhouseCreateAndInsert("tpch.test_dynamic"));
+    }
+
+    @Test
     public void testUnsupportedPoint()
     {
         Session convertToVarchar = Session.builder(getSession())
