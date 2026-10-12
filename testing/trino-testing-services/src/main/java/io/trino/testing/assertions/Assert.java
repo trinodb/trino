@@ -19,6 +19,8 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.units.Duration;
 
+import java.util.Set;
+
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -55,6 +57,41 @@ public final class Assert
                 expectedMultiset.size()));
         appendElements(message, "Unexpected", unexpected);
         appendElements(message, "Missing", missing);
+        throw new AssertionError(message.toString());
+    }
+
+    /**
+     * Asserts that every element of {@code expected} occurs in {@code actual}, ignoring multiplicities.
+     * Unlike AssertJ's {@code containsAll}, which is quadratic, this is linear in the element count.
+     */
+    public static void assertContainsAll(Iterable<?> actual, Iterable<?> expected)
+    {
+        assertContainsAll(actual, expected, "Elements");
+    }
+
+    public static void assertContainsAll(Iterable<?> actual, Iterable<?> expected, String subject)
+    {
+        Multiset<?> actualMultiset = LinkedHashMultiset.create(actual);
+        Set<?> actualElements = actualMultiset.elementSet();
+        Multiset<Object> missing = LinkedHashMultiset.create();
+        int expectedCount = 0;
+        for (Object element : expected) {
+            expectedCount++;
+            if (!actualElements.contains(element)) {
+                missing.add(element);
+            }
+        }
+        if (missing.isEmpty()) {
+            return;
+        }
+
+        StringBuilder message = new StringBuilder("%s do not contain all expected: %s missing (actual count: %s, expected count: %s)".formatted(
+                subject,
+                missing.size(),
+                actualMultiset.size(),
+                expectedCount));
+        appendElements(message, "Missing", missing);
+        appendElements(message, "Actual", actualMultiset);
         throw new AssertionError(message.toString());
     }
 
