@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.delete;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -100,6 +101,30 @@ class TestDeletionVector
         assertThat(deserialized.isRowDeleted(100)).isTrue();
         assertThat(deserialized.isRowDeleted(1000)).isTrue();
         assertThat(deserialized.isRowDeleted(2)).isFalse();
+    }
+
+    @Test
+    void testDeserializeSliceWithNonZeroOffset()
+    {
+        DeletionVector original = DeletionVector.builder()
+                .add(1)
+                .add(100)
+                .add(1000)
+                .build()
+                .orElseThrow();
+
+        Slice serialized = original.serialize();
+        Slice buffer = Slices.allocate(serialized.length() + 10);
+        buffer.setBytes(7, serialized);
+        DeletionVector deserialized = DeletionVector.builder()
+                .deserialize(buffer.slice(7, serialized.length()))
+                .build()
+                .orElseThrow();
+
+        assertThat(deserialized.cardinality()).isEqualTo(3);
+        assertThat(deserialized.isRowDeleted(1)).isTrue();
+        assertThat(deserialized.isRowDeleted(100)).isTrue();
+        assertThat(deserialized.isRowDeleted(1000)).isTrue();
     }
 
     @Test
