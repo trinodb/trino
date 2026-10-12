@@ -44,8 +44,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        long epochMillis = scaleEpochMicrosToMillis(round(timestamp, 3));
-        epochMillis = round(epochMillis, (int) (3 - targetPrecision));
+        long epochMillis = scaleEpochMicrosToMillis(round(timestamp, (int) (6 - targetPrecision)));
         return toShort(session, epochMillis);
     }
 
