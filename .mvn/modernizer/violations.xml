@@ -308,4 +308,80 @@
         <version>1.1</version>
         <comment>Use @TempDir instead</comment>
     </violation>
+
+    <violation>
+        <name>org/assertj/core/api/AbstractCollectionAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/AbstractIterableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/AbstractListAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/AbstractObjectArrayAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractObjectArrayAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/AtomicReferenceArrayAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AtomicReferenceArrayAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/ClassBasedNavigableIterableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/ClassBasedNavigableListAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/CollectionAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/FactoryBasedNavigableIterableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/FactoryBasedNavigableListAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/IndexedObjectEnumerableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/ObjectEnumerableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/IterableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/ListAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractIterableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/ObjectArrayAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/AbstractObjectArrayAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/api/ObjectEnumerableAssert.containsExactlyInAnyOrderElementsOf:(Ljava/lang/Iterable;)Lorg/assertj/core/api/ObjectEnumerableAssert;</name>
+        <version>1.1</version>
+        <comment>Quadratic in the element count; use io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder</comment>
+    </violation>
 </modernizer>
