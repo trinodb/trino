@@ -20,8 +20,10 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.LeafSplitMemoryEstimate;
 import io.trino.execution.executor.SplitConcurrencyController;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.TaskMemory;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
 import io.trino.execution.executor.scheduler.Schedulable;
@@ -54,8 +56,12 @@ class TaskEntry
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
     private final DoubleSupplier utilization;
+    private final SplitBlockedListener splitBlockedListener;
     private final Runnable targetConcurrencyIncreased;
     private final AtomicInteger nextSplitId = new AtomicInteger();
+    private final LeafSplitMemoryEstimate leafMemoryEstimate = new LeafSplitMemoryEstimate();
+    // Leaf splits blocked on their output or on another operator.
+    private final AtomicInteger parkedLeafSplits = new AtomicInteger();
 
     @GuardedBy("this")
     private final SplitConcurrencyController concurrency;
@@ -79,6 +85,7 @@ class TaskEntry
             int initialConcurrency,
             Duration concurrencyAdjustmentInterval,
             DoubleSupplier utilization,
+            SplitBlockedListener splitBlockedListener,
             Runnable targetConcurrencyIncreased)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -86,6 +93,7 @@ class TaskEntry
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
+        this.splitBlockedListener = requireNonNull(splitBlockedListener, "splitBlockedListener is null");
         this.targetConcurrencyIncreased = requireNonNull(targetConcurrencyIncreased, "targetConcurrencyIncreased is null");
 
         this.group = scheduler.createGroup(taskId.toString());
@@ -194,7 +202,7 @@ class TaskEntry
             scheduledNanos.addAndGet(nanos);
             splitProcessed(nanos);
         };
-        submit(split.split(), quantumProcessed)
+        submit(split.split(), true, quantumProcessed)
                 .addListener(() -> {
                     finishLeafSplit(split, scheduledNanos.get(), doneCallback);
                 }, directExecutor());
@@ -278,7 +286,7 @@ class TaskEntry
         }
 
         try {
-            ListenableFuture<Void> done = submit(split, this::splitProcessed);
+            ListenableFuture<Void> done = submit(split, false, this::splitProcessed);
             done.addListener(() -> splitDone(split), directExecutor());
             return done;
         }
@@ -296,13 +304,13 @@ class TaskEntry
     /// Hand a split that is already accounted for in `running` to the scheduler. Must be called
     /// without holding a lock: the scheduler creates the thread that runs the split, which on a
     /// loaded worker is slow enough to stall every other operation on the lock.
-    private ListenableFuture<Void> submit(SplitRunner split, LongConsumer quantumProcessed)
+    private ListenableFuture<Void> submit(SplitRunner split, boolean leaf, LongConsumer quantumProcessed)
     {
         int splitId = nextSplitId();
         return scheduler.submit(
                 group,
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, quantumProcessed)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, reason -> splitBlockedListener.splitBlocked(this, leaf, reason), quantumProcessed)));
     }
 
     private void splitDone(SplitRunner split)
@@ -350,6 +358,33 @@ class TaskEntry
     public synchronized int targetConcurrency()
     {
         return concurrency.getTargetConcurrency();
+    }
+
+    @Override
+    public void setTaskMemory(TaskMemory taskMemory)
+    {
+        leafMemoryEstimate.setTaskMemory(taskMemory);
+    }
+
+    public LeafSplitMemoryEstimate getLeafMemoryEstimate()
+    {
+        return leafMemoryEstimate;
+    }
+
+    public void leafSplitParked()
+    {
+        parkedLeafSplits.incrementAndGet();
+    }
+
+    public void leafSplitUnparked()
+    {
+        parkedLeafSplits.decrementAndGet();
+    }
+
+    // A task with a leaf split waiting on its output or on another operator gains nothing from more leaf splits.
+    public boolean isParked()
+    {
+        return parkedLeafSplits.get() > 0;
     }
 
     record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
