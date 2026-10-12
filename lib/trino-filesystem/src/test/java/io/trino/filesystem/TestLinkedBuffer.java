@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.filesystem;
 
-import io.trino.filesystem.s3.S3OutputStream.LinkedBuffer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
