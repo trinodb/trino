@@ -70,6 +70,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadResponse;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -356,6 +357,21 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
+    public ListenableFuture<List<URI>> listDirectories(URI dir)
+    {
+        ImmutableList.Builder<URI> directories = ImmutableList.builder();
+        return stats.getListDirectories().record(Futures.transform(
+                toListenableFuture(listDirectoryObjects(dir)
+                        .subscribe(listObjectsV2Response -> {
+                            for (CommonPrefix commonPrefix : listObjectsV2Response.commonPrefixes()) {
+                                directories.add(buildChildUri(dir, commonPrefix.prefix()));
+                            }
+                        })),
+                _ -> directories.build(),
+                directExecutor()));
+    }
+
+    @Override
     public int getWriteBufferSize()
     {
         return multiUploadPartSize;
@@ -380,6 +396,21 @@ public class S3FileSystemExchangeStorage
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(bucketName)
                 .prefix(keyFromUri(dir) + PATH_SEPARATOR)
+                .build();
+
+        return s3Clients.getUnchecked(bucketName).listObjectsV2Paginator(request);
+    }
+
+    private ListObjectsV2Publisher listDirectoryObjects(URI dir)
+    {
+        checkArgument(isDirectory(dir), "listDirectoryObjects called on file uri %s", dir);
+
+        String bucketName = getBucketName(dir);
+        String key = keyFromUri(dir);
+        ListObjectsV2Request request = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(key.isEmpty() ? null : key + PATH_SEPARATOR)
+                .delimiter(PATH_SEPARATOR)
                 .build();
 
         return s3Clients.getUnchecked(bucketName).listObjectsV2Paginator(request);
