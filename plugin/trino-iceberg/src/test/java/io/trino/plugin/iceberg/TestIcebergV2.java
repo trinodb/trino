@@ -119,6 +119,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -488,9 +489,7 @@ public class TestIcebergV2
 
             assertThat(query("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE")).failure()
                     .hasMessage("NULL value not allowed for NOT NULL column: x");
-            assertEventually(() -> assertThat(listFiles(dataDirectory))
-                    .as("Failed optimize procedure shouldn't leave new data files")
-                    .containsExactlyInAnyOrderElementsOf(dataFiles));
+            assertEventually(() -> assertEqualsIgnoreOrder(listFiles(dataDirectory), dataFiles, "Data files after failed optimize"));
 
             assertThat(query("TABLE " + table.getName()))
                     .matches("VALUES CAST(NULL AS integer), NULL");

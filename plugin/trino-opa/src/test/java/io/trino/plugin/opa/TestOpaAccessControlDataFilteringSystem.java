@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -305,7 +306,7 @@ final class TestOpaAccessControlDataFilteringSystem
 
     private void assertResultsForUser(String asUser, @Language("SQL") String query, Set<String> expectedResults)
     {
-        assertThat(runner.querySetOfStrings(asUser, query)).containsExactlyInAnyOrderElementsOf(expectedResults);
+        assertEqualsIgnoreOrder(runner.querySetOfStrings(asUser, query), expectedResults);
     }
 
     private void assertResultsForUser(String asUser, @Language("SQL") String query, Map<String, Set<String>> expectedResults)

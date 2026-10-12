@@ -102,6 +102,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -956,9 +957,11 @@ public class TestCheckpointEntryIterator
 
         assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);
         assertThat(Iterators.size(addEntryIterator)).isEqualTo(1);
-        assertThat(ImmutableList.copyOf(removeEntryIterator))
-                .extracting(DeltaLakeTransactionLogEntry::getRemove)
-                .containsExactlyInAnyOrderElementsOf(removeEntries);
+        assertEqualsIgnoreOrder(
+                ImmutableList.copyOf(removeEntryIterator).stream()
+                        .map(DeltaLakeTransactionLogEntry::getRemove)
+                        .toList(),
+                removeEntries);
         assertThat(Iterators.size(txnEntryIterator)).isEqualTo(0);
 
         assertThat(metadataAndProtocolEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(3L);

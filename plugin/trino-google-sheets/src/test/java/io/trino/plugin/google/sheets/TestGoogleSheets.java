@@ -23,6 +23,7 @@ import java.util.List;
 
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -46,12 +47,9 @@ public class TestGoogleSheets
     public void testListTable()
     {
         List<String> expectedTableNames = List.of("metadata_table", "number_text", "table_with_duplicate_and_missing_column_names");
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
-                .containsExactlyInAnyOrderElementsOf(expectedTableNames);
-        assertThat(computeActual("SELECT table_name FROM gsheets.information_schema.tables WHERE table_schema <> 'information_schema'").getOnlyColumnAsSet())
-                .containsExactlyInAnyOrderElementsOf(expectedTableNames);
-        assertThat(computeActual("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000").getOnlyColumnAsSet())
-                .containsExactlyInAnyOrderElementsOf(expectedTableNames);
+        assertEqualsIgnoreOrder(computeActual("SHOW TABLES").getOnlyColumnAsSet(), expectedTableNames);
+        assertEqualsIgnoreOrder(computeActual("SELECT table_name FROM gsheets.information_schema.tables WHERE table_schema <> 'information_schema'").getOnlyColumnAsSet(), expectedTableNames);
+        assertEqualsIgnoreOrder(computeActual("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000").getOnlyColumnAsSet(), expectedTableNames);
 
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
         assertThat(getQueryRunner().execute("SELECT table_name FROM gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount())

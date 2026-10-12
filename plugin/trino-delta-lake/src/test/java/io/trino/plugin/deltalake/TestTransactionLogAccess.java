@@ -84,6 +84,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -509,7 +510,7 @@ public class TestTransactionLogAccess
                     "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                     "age=21/part-00001-290f0f26-19cf-4772-821e-36d55d9b7872.c000.snappy.parquet");
 
-            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
+            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
         }
 
         copyTransactionLogEntry(7, 9, resourceDir, transactionLogDir);
@@ -524,7 +525,7 @@ public class TestTransactionLogAccess
                     "age=42/part-00003-0f53cae3-3e34-4876-b651-e1db9584dbc3.c000.snappy.parquet",
                     "age=25/part-00000-b7fbbe31-c7f9-44ed-8757-5c47d10c3e81.c000.snappy.parquet");
 
-            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
+            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
         }
     }
 
@@ -553,7 +554,7 @@ public class TestTransactionLogAccess
                     "age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet",
                     "age=42/part-00003-0f53cae3-3e34-4876-b651-e1db9584dbc3.c000.snappy.parquet");
 
-            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
+            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
         }
 
         copyTransactionLogEntry(8, 12, resourceDir, transactionLogDir);
@@ -572,7 +573,7 @@ public class TestTransactionLogAccess
                     "age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet",
                     "age=30/part-00000-37ccfcd3-b44b-4d04-a1e6-d2837da75f7a.c000.snappy.parquet");
 
-            assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(dataFiles);
+            assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), dataFiles);
         }
     }
 
@@ -617,7 +618,7 @@ public class TestTransactionLogAccess
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir.toURI().toString());
                     try (Stream<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), Optional.empty(), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(originalDataFiles);
+                        assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()
@@ -656,7 +657,7 @@ public class TestTransactionLogAccess
                             updatedTableSnapshot,
                             TupleDomain.all(),
                             alwaysTrue())) {
-                        assertThat(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet())).containsExactlyInAnyOrderElementsOf(union(originalDataFiles, newDataFiles));
+                        assertEqualsIgnoreOrder(activeDataFiles.map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
                     }
                 },
                 ImmutableMultiset.<FileOperation>builder()

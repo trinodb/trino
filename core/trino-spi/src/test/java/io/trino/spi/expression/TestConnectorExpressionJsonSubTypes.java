@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static org.assertj.core.api.Assertions.assertThat;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 
 public class TestConnectorExpressionJsonSubTypes
 {
@@ -44,6 +44,6 @@ public class TestConnectorExpressionJsonSubTypes
 
         // Every concrete ConnectorExpression subtype must be registered for JSON deserialization,
         // otherwise deserializing an expression containing it fails at runtime with an unknown subtype error.
-        assertThat(concreteSubtypes).containsExactlyInAnyOrderElementsOf(registeredSubtypes);
+        assertEqualsIgnoreOrder(concreteSubtypes, registeredSubtypes);
     }
 }

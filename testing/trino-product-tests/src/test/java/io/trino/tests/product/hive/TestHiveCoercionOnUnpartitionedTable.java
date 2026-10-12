@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.tests.product.hive.HiveTimestampPrecision.NANOSECONDS;
 import static java.lang.String.format;
@@ -1274,9 +1275,7 @@ class TestHiveCoercionOnUnpartitionedTable
                 List<Object> expectedColumn = expectedRows.stream()
                         .map(row -> row.getValue(columnIndex))
                         .collect(toList());
-                assertThat(actualColumn)
-                        .as("%s field is not equal", column)
-                        .containsExactlyInAnyOrderElementsOf(expectedColumn);
+                assertEqualsIgnoreOrder(actualColumn, expectedColumn, "%s values".formatted(column));
                 continue;
             }
 
@@ -1285,9 +1284,7 @@ class TestHiveCoercionOnUnpartitionedTable
                 List<Object> expectedColumn = expectedRows.stream()
                         .map(row -> row.getValue(columnIndex))
                         .collect(toList());
-                assertThat(listToListResult)
-                        .as("list_to_list field is not equal")
-                        .containsExactlyInAnyOrderElementsOf(expectedColumn);
+                assertEqualsIgnoreOrder(listToListResult, expectedColumn, "list_to_list values");
                 continue;
             }
 

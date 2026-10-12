@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.util.List;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
 import static io.trino.testing.containers.environment.Row.row;
 import static java.lang.String.format;
@@ -186,8 +187,8 @@ class TestDeltaLakeCloneTableCompatibility
             executeTrinoVacuumWithZeroRetention(env, clonedTable);
             List<String> clonedTableV4ActiveDataFiles = getActiveDataFiles(env, clonedTable);
             // size of active data files should remain same
-            assertThat(clonedTableV4ActiveDataFiles).hasSize(2)
-                    .containsExactlyInAnyOrderElementsOf(clonedTableV2ActiveDataFiles); // DISTINCT "$path" doesn't guarantee order
+            assertThat(clonedTableV4ActiveDataFiles).hasSize(2);
+            assertEqualsIgnoreOrder(clonedTableV4ActiveDataFiles, clonedTableV2ActiveDataFiles); // DISTINCT "$path" doesn't guarantee order
             List<String> clonedTableV4AllDataFiles = getFilesFromTableDirectory(env, bucketName, directoryName + clonedTable);
             // size of all data files should be 2 post vacuum
             assertThat(clonedTableV4ActiveDataFiles).hasSize(2)

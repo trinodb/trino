@@ -51,6 +51,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,7 +136,7 @@ public class TestRowNumberOperator
 
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expectedResult.getMaterializedRows());
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
     @Test

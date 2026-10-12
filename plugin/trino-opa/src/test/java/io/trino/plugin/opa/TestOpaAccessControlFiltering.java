@@ -42,6 +42,7 @@ import static io.trino.plugin.opa.TestConstants.simpleOpaConfig;
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForIllegalResponses;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestOpaAccessControlFiltering
@@ -197,7 +198,7 @@ final class TestOpaAccessControlFiltering
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
 
         Set<SchemaTableName> result = authorizer.filterTables(TEST_SECURITY_CONTEXT, "my_catalog", tables);
-        assertThat(result).containsExactlyInAnyOrderElementsOf(tables.stream().filter(table -> table.getTableName().equals("table_one")).collect(toImmutableSet()));
+        assertEqualsIgnoreOrder(result, tables.stream().filter(table -> table.getTableName().equals("table_one")).collect(toImmutableSet()));
 
         Set<String> expectedRequests = tables.stream()
                 .map(table ->

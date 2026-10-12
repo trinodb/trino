@@ -89,6 +89,7 @@ import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static java.math.RoundingMode.HALF_UP;
@@ -1024,7 +1025,7 @@ public class TestCheckpointWriter
 
             entries = readCheckpoint(targetPath, metadata, protocol, true);
             assertThat(entries.addFileEntries()).containsExactlyElementsOf(expected.addFileEntries());
-            assertThat(entries.removeFileEntries()).containsExactlyInAnyOrderElementsOf(expected.removeFileEntries());
+            assertEqualsIgnoreOrder(entries.removeFileEntries(), expected.removeFileEntries());
         }
     }
 
