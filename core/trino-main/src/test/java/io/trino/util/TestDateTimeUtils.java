@@ -25,6 +25,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDateTimeUtils
 {
     @Test
+    public void testParseDateSlice()
+    {
+        assertThat(parseIfIso8601DateFormat(utf8Slice("prefix2000-02-29suffix").slice(6, 10)))
+                .hasValue(11016);
+        assertThat(parseIfIso8601DateFormat(utf8Slice("0000-02-29")))
+                .hasValue(-719469);
+        for (String value : new String[] {"1900-02-29", "2000-00-01", "2000-01-00", "2000-04-31"}) {
+            assertThatThrownBy(() -> parseIfIso8601DateFormat(utf8Slice("prefix" + value).slice(6, 10)))
+                    .isInstanceOf(DateTimeException.class)
+                    .hasMessage("Invalid date '%s'", value);
+        }
+    }
+
+    @Test
     @SuppressWarnings("OptionalGetWithoutIsPresent")
     public void testParseIfIso8601DateFormat()
     {
@@ -78,12 +92,12 @@ public class TestDateTimeUtils
         // format ok, but illegal value
         assertThatThrownBy(() -> parseIfIso8601DateFormat(utf8Slice("2022-02-29")))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid date 'February 29' as '2022' is not a leap year");
+                .hasMessage("Invalid date '2022-02-29'");
         assertThatThrownBy(() -> parseIfIso8601DateFormat(utf8Slice("1970-32-01")))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid value for MonthOfYear (valid values 1 - 12): 32");
+                .hasMessage("Invalid date '1970-32-01'");
         assertThatThrownBy(() -> parseIfIso8601DateFormat(utf8Slice("1970-02-41")))
                 .isInstanceOf(DateTimeException.class)
-                .hasMessage("Invalid value for DayOfMonth (valid values 1 - 28/31): 41");
+                .hasMessage("Invalid date '1970-02-41'");
     }
 }
