@@ -1184,6 +1184,19 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testDynamicColumnsAreNotExposed()
+    {
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_dynamic_unsupported",
+                "(id Int32, dynamic_col Dynamic, variant_col Variant(String, Int64), value String) ENGINE=Memory",
+                ImmutableList.of("1, 'text', 'text', 'x'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES (1, VARCHAR 'x')");
+        }
+    }
+
+    @Test
     public void testInsertIntoDistributedTable()
     {
         // Insert stages the rows in a temporary table before moving them into the target table. That temporary table
