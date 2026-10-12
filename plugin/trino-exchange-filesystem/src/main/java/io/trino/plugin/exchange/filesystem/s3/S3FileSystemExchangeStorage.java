@@ -347,13 +347,7 @@ public class S3FileSystemExchangeStorage
                 toListenableFuture(listObjectsRecursively(dir)
                         .subscribe(listObjectsV2Response -> {
                             for (S3Object s3Object : listObjectsV2Response.contents()) {
-                                URI uri;
-                                try {
-                                    uri = new URI(dir.getScheme(), dir.getHost(), PATH_SEPARATOR + s3Object.key(), dir.getFragment());
-                                }
-                                catch (URISyntaxException e) {
-                                    throw new IllegalArgumentException(e);
-                                }
+                                URI uri = buildChildUri(dir, s3Object.key());
                                 fileStatuses.add(new FileStatus(uri.toString(), s3Object.size()));
                             }
                         })),
@@ -424,6 +418,16 @@ public class S3FileSystemExchangeStorage
         }
 
         throw new IllegalArgumentException("Unable to determine S3 bucket from URI.");
+    }
+
+    private static URI buildChildUri(URI dir, String key)
+    {
+        try {
+            return new URI(dir.getScheme(), getBucketName(dir), PATH_SEPARATOR + key, null, dir.getFragment());
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     private static String keyFromUri(URI uri)
