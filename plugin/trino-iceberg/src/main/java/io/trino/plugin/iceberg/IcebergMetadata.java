@@ -2456,6 +2456,22 @@ public class IcebergMetadata
                 IcebergConfig.EXPIRE_SNAPSHOTS_MIN_RETENTION,
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
+        if (!isS3Tables(table.location()) && table.currentSnapshot() != null) {
+            long currentSnapshotId = table.currentSnapshot().snapshotId();
+            Optional<StatisticsFile> latestStatisticsFile = TableStatisticsReader.getLatestStatisticsFile(table, currentSnapshotId);
+            if (latestStatisticsFile.isPresent() && latestStatisticsFile.get().snapshotId() != currentSnapshotId) {
+                try {
+                    tableStatisticsWriter.rewriteStatisticsFile(session, table, currentSnapshotId).ifPresent(newStatsFile ->
+                            table.updateStatistics()
+                                    .setStatistics(newStatsFile)
+                                    .commit());
+                }
+                catch (RuntimeException e) {
+                    log.warn(e, "Failed to rewrite statistics file for snapshot %s", currentSnapshotId);
+                }
+            }
+        }
+
         // ForwardingFileIo handles bulk operations so no separate function implementation is needed
         try {
             table.expireSnapshots()
