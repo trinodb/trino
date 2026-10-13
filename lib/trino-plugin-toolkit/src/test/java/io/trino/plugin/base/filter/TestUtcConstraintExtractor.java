@@ -77,13 +77,11 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_BIGINT, Domain.singleValue(BIGINT, 1L))));
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapCastInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractTimestampTzMillisDateComparison()
     {
@@ -187,13 +185,11 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, domain(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)))));
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapCastInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractTimestampTzMicrosDateComparison()
     {
@@ -352,13 +348,11 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(orExpression);
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractDateTruncTimestampTzMillisComparison()
     {
@@ -527,13 +521,11 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, periodStart, true, nextPeriodStart, false)), false))));
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractDateTruncTimestampTzMicrosComparison()
     {
@@ -702,13 +694,11 @@ public class TestUtcConstraintExtractor
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, periodStart, true, nextPeriodStart, false)), false))));
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapYearInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapYearInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractYearTimestampTzMicrosComparison()
     {
@@ -774,13 +764,11 @@ public class TestUtcConstraintExtractor
                         columnHandle, Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), false))));
     }
 
-    /**
-     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapYearInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@code UnwrapYearInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
-     * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * we can unwrap.
-     */
+    /// Test equivalent of `io.trino.sql.planner.ComparisonPreimages` for [TimestampWithTimeZoneType].
+    /// `ComparisonPreimages` handles [DateType] and [TimestampType], but cannot handle
+    /// [TimestampWithTimeZoneType]. Such unwrap would not be monotonic. If we know
+    /// that [TimestampWithTimeZoneType] is always in UTC zone (point in time, with no time zone information),
+    /// we can unwrap.
     @Test
     public void testExtractYearTimestampTzMillisComparison()
     {

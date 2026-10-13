@@ -199,7 +199,7 @@ class TestTupleDomain
                         .put(B, Domain.notNull(DOUBLE))
                         .put(C, Domain.all(BIGINT))
                         .put(D, Domain.singleValue(BIGINT, 1L))
-                        .put(E, Domain.all(DOUBLE))
+                        .put(E, Domain.singleValue(DOUBLE, Double.NaN).complement())
                         .buildOrThrow());
 
         assertThat(columnWiseUnion(tupleDomain1, tupleDomain2)).isEqualTo(expectedTupleDomain);
@@ -907,16 +907,16 @@ class TestTupleDomain
     }
 
     @Test
-    public void testStrictUnionDoubleNaNImplicitlyAdded()
+    public void testStrictUnionDoublePreservesNaNExclusion()
     {
-        // Two non-overlapping double ranges that union to cover the entire value set,
-        // implicitly including NaN
+        // Covering all ordered values does not add NaN to the union.
         TupleDomain<ColumnHandle> domain1 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 0.0)), false)));
         TupleDomain<ColumnHandle> domain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(A, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 0.0)), false)));
 
-        assertThat(strictUnion(List.of(domain1, domain2))).isEmpty();
+        assertThat(strictUnion(List.of(domain1, domain2))).contains(TupleDomain.withColumnDomains(
+                ImmutableMap.of(A, Domain.create(ValueSet.of(DOUBLE, Double.NaN).complement(), false))));
     }
 
     @Test

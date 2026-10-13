@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.DomainProjection;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -56,6 +57,7 @@ public final class PolymorphicScalarFunctionBuilder
     private String description;
     private boolean hidden;
     private Boolean deterministic;
+    private Optional<DomainProjection> domainProjection = Optional.empty();
     private Predicate<BoundSignature> neverFails = _ -> false;
 
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
@@ -135,6 +137,12 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
+    public PolymorphicScalarFunctionBuilder domainProjection(DomainProjection projection)
+    {
+        this.domainProjection = Optional.of(requireNonNull(projection, "projection is null"));
+        return this;
+    }
+
     public SqlScalarFunction build()
     {
         checkState(signature != null, "signature is null");
@@ -152,6 +160,7 @@ public final class PolymorphicScalarFunctionBuilder
             functionMetadata.nondeterministic();
         }
         functionMetadata.neverFails(neverFails);
+        domainProjection.ifPresent(functionMetadata::domainProjection);
         if (nullableResult) {
             functionMetadata.nullable();
         }
