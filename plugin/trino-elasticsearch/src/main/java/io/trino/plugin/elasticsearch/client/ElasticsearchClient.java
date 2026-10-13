@@ -603,7 +603,7 @@ public class ElasticsearchClient
 
         LOG.debug("Begin search: %s:%s, query: %s", index, shard, searchBody);
 
-        String endpoint = format("/%s/_search?preference=_shards:%s&scroll=%sms", index, shard, scrollTimeout.toMillis());
+        String endpoint = format("/%s/_search?preference=_shards:%s&scroll=%sms&allow_partial_search_results=false", index, shard, scrollTimeout.toMillis());
 
         long start = System.nanoTime();
         try {
@@ -624,6 +624,22 @@ public class ElasticsearchClient
         finally {
             searchStats.add(Duration.nanosSince(start));
         }
+    }
+
+    private static JsonNode parseCompleteSearchResponse(byte[] responseBody, String operation)
+            throws IOException
+    {
+        JsonNode response = JSON_MAPPER.readTree(responseBody);
+        if (response == null || !response.path("timed_out").isBoolean() || !response.path("_shards").path("failed").isIntegralNumber()) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, format("Elasticsearch %s response is missing search completion information", operation));
+        }
+        if (response.path("timed_out").asBoolean()) {
+            throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, format("Elasticsearch %s search timed out", operation));
+        }
+        if (response.path("_shards").path("failed").asInt() > 0) {
+            throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, format("Elasticsearch %s search failed on one or more shards: %s", operation, response.path("_shards").path("failures")));
+        }
+        return response;
     }
 
     public SearchResult nextPage(String scrollId)
@@ -713,53 +729,62 @@ public class ElasticsearchClient
         }
     }
 
-    private SearchResult parseSearchResponse(Response response)
+    private static SearchResult parseSearchResponse(Response response)
     {
         try {
-            String responseBody = EntityUtils.toString(response.getEntity());
-            JsonNode root = JSON_MAPPER.readTree(responseBody);
-
-            Optional<String> scrollId = Optional.ofNullable(root.get("_scroll_id"))
-                    .map(JsonNode::asText);
-
-            JsonNode hitsNode = root.get("hits").get("hits");
-            ImmutableList.Builder<SearchDocument> hits = ImmutableList.builder();
-
-            for (JsonNode hitNode : hitsNode) {
-                String id = hitNode.get("_id").asText();
-                float score = hitNode.has("_score") && !hitNode.get("_score").isNull()
-                        ? hitNode.get("_score").floatValue()
-                        : Float.NaN;
-
-                JsonNode sourceNode = hitNode.get("_source");
-                String sourceAsString = sourceNode != null ? sourceNode.toString() : "{}";
-                long sourceLength = sourceAsString.getBytes(UTF_8).length;
-                @SuppressWarnings("unchecked")
-                Map<String, Object> sourceAsMap = sourceNode != null
-                        ? JSON_MAPPER.convertValue(sourceNode, Map.class)
-                        : ImmutableMap.of();
-
-                Map<String, List<Object>> fields = ImmutableMap.of();
-                if (hitNode.has("fields")) {
-                    Map<String, List<Object>> fieldsMap = new LinkedHashMap<>();
-                    for (Entry<String, JsonNode> fieldEntry : hitNode.get("fields").properties()) {
-                        List<Object> values = new ArrayList<>();
-                        for (JsonNode valueNode : fieldEntry.getValue()) {
-                            values.add(nodeToValue(valueNode));
-                        }
-                        fieldsMap.put(fieldEntry.getKey(), values);
-                    }
-                    fields = ImmutableMap.copyOf(fieldsMap);
-                }
-
-                hits.add(new SearchDocument(id, score, sourceAsMap, sourceAsString, sourceLength, fields));
-            }
-
-            return new SearchResult(scrollId, hits.build());
+            return parseSearchResponse(EntityUtils.toByteArray(response.getEntity()));
         }
         catch (IOException e) {
             throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
+    }
+
+    @VisibleForTesting
+    static SearchResult parseSearchResponse(byte[] responseBody)
+            throws IOException
+    {
+        JsonNode root = parseCompleteSearchResponse(responseBody, "scan");
+
+        Optional<String> scrollId = Optional.ofNullable(root.get("_scroll_id"))
+                .map(JsonNode::asText);
+
+        JsonNode hitsNode = root.path("hits").path("hits");
+        if (!hitsNode.isArray()) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, "Elasticsearch scan response is missing search hits");
+        }
+        ImmutableList.Builder<SearchDocument> hits = ImmutableList.builder();
+
+        for (JsonNode hitNode : hitsNode) {
+            String id = hitNode.get("_id").asText();
+            float score = hitNode.has("_score") && !hitNode.get("_score").isNull()
+                    ? hitNode.get("_score").floatValue()
+                    : Float.NaN;
+
+            JsonNode sourceNode = hitNode.get("_source");
+            String sourceAsString = sourceNode != null ? sourceNode.toString() : "{}";
+            long sourceLength = sourceAsString.getBytes(UTF_8).length;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> sourceAsMap = sourceNode != null
+                    ? JSON_MAPPER.convertValue(sourceNode, Map.class)
+                    : ImmutableMap.of();
+
+            Map<String, List<Object>> fields = ImmutableMap.of();
+            if (hitNode.has("fields")) {
+                Map<String, List<Object>> fieldsMap = new LinkedHashMap<>();
+                for (Entry<String, JsonNode> fieldEntry : hitNode.get("fields").properties()) {
+                    List<Object> values = new ArrayList<>();
+                    for (JsonNode valueNode : fieldEntry.getValue()) {
+                        values.add(nodeToValue(valueNode));
+                    }
+                    fieldsMap.put(fieldEntry.getKey(), values);
+                }
+                fields = ImmutableMap.copyOf(fieldsMap);
+            }
+
+            hits.add(new SearchDocument(id, score, sourceAsMap, sourceAsString, sourceLength, fields));
+        }
+
+        return new SearchResult(scrollId, hits.build());
     }
 
     private static Object nodeToValue(JsonNode node)
