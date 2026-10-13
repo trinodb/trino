@@ -14,6 +14,7 @@
 package io.trino.plugin.httpquery;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -24,6 +25,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @DefunctConfig("http-event-listener.log-split")
@@ -37,6 +39,7 @@ public class HttpEventListenerConfig
     private String ingestUri;
     private HttpEventListenerHttpMethod httpMethod = HttpEventListenerHttpMethod.POST;
     private Map<String, String> httpHeaders = ImmutableMap.of();
+    private Set<String> excludedFields = ImmutableSet.of();
 
     @ConfigDescription("Will log io.trino.spi.eventlistener.QueryCreatedEvent")
     @Config("http-event-listener.log-created")
@@ -114,6 +117,19 @@ public class HttpEventListenerConfig
             throw new IllegalArgumentException(String.format("Cannot parse http headers from property http-event-listener.connect-http-headers; value provided was %s, " +
                     "expected format is \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\"", String.join(", ", httpHeaders)), e);
         }
+        return this;
+    }
+
+    public Set<String> getExcludedFields()
+    {
+        return excludedFields;
+    }
+
+    @ConfigDescription("Comma-separated list of field names to be excluded from the HTTP event. E.g.: 'payload,user'")
+    @Config("http-event-listener.excluded-fields")
+    public HttpEventListenerConfig setExcludedFields(Set<String> excludedFields)
+    {
+        this.excludedFields = ImmutableSet.copyOf(excludedFields);
         return this;
     }
 
