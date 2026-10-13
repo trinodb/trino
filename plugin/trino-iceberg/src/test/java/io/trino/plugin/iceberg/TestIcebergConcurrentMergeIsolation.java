@@ -13,14 +13,22 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -40,11 +48,15 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getConnectorService;
 import static io.trino.spi.type.StandardTypes.BIGINT;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -116,6 +128,47 @@ final class TestIcebergConcurrentMergeIsolation
             assertUpdate(merge(table.getName(), "1", "10", "100", predicate, false), 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (BIGINT '1', 20, 100)");
+        }
+    }
+
+    @Test
+    void testConcurrentMergeMatchingKeyIntoTableWithoutSnapshot()
+            throws Exception
+    {
+        String tableName = "test_merge_no_snapshot" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName(getSession().getSchema().orElseThrow(), tableName);
+        TrinoCatalogFactory catalogFactory = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class);
+        TrinoCatalog catalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "k", Types.LongType.get()),
+                Types.NestedField.optional(2, "part", Types.IntegerType.get()),
+                Types.NestedField.optional(3, "v", Types.IntegerType.get()));
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        PartitionSpec.builderFor(schema).identity("part").build(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(FORMAT_VERSION, "2"))
+                .commitTransaction();
+        try {
+            assertThat(catalog.loadTable(SESSION, schemaTableName).currentSnapshot()).isNull();
+            assertThat(query("SELECT * FROM " + tableName + " WHERE part IN (10, 20)")).returnsEmptyResult();
+            String predicate = "t.k = s.k AND t.part IN (10, 20)";
+            String lateMerge = merge(tableName, "merge_source_barrier(1)", "10", "100", predicate, false);
+            String firstMerge = merge(tableName, "1", "20", "200", predicate, false);
+
+            runConcurrentMerges(tableName, lateMerge, firstMerge, true);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', 20, 200)");
+
+            assertUpdate(merge(tableName, "1", "10", "100", predicate, false), 1);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("VALUES (BIGINT '1', 20, 100)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 

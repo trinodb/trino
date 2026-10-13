@@ -1017,9 +1017,12 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
 
         if (table.getSnapshotId().isEmpty()) {
-            // A table with missing snapshot id produces no splits, so we optimize here by returning
-            // TupleDomain.none() as the predicate
-            return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
+            // Preserve read dependencies for MERGE conflict detection, even when the scan produces no splits.
+            return new ConnectorTableProperties(
+                    table.getEnforcedPredicate().transformKeys(ColumnHandle.class::cast),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of());
         }
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
