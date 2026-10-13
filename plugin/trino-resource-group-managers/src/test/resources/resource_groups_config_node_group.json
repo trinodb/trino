@@ -1,0 +1,40 @@
+{
+  "rootGroups": [
+    {
+      "name": "etl",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100,
+      "nodeGroup": "batch",
+      "subGroups": [
+        {
+          "name": "inherits",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "overrides",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4,
+          "nodeGroup": "batch_large"
+        }
+      ]
+    },
+    {
+      "name": "adhoc",
+      "hardConcurrencyLimit": 10,
+      "maxQueued": 100,
+      "subGroups": [
+        {
+          "name": "unrestricted",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "etl"
+    }
+  ]
+}

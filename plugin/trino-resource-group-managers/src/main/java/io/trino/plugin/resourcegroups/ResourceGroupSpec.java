@@ -37,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 public class ResourceGroupSpec
 {
     private static final Pattern PERCENT_PATTERN = Pattern.compile("(\\d{1,3}(:?\\.\\d+)?)%");
+    // must match the node.groups server property, so a name no node could declare is rejected at load time
+    private static final Pattern NODE_GROUP_PATTERN = Pattern.compile("[A-Za-z0-9][_A-Za-z0-9-]*");
 
     private final ResourceGroupNameTemplate name;
     private final Optional<DataSize> softMemoryLimit;
@@ -51,6 +53,7 @@ public class ResourceGroupSpec
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
     private final Optional<DataSize> hardPhysicalDataScanLimit;
+    private final Optional<String> nodeGroup;
 
     @JsonCreator
     public ResourceGroupSpec(
@@ -66,7 +69,8 @@ public class ResourceGroupSpec
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
             @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
-            @JsonProperty("hardPhysicalDataScanLimit") Optional<DataSize> hardPhysicalDataScanLimit)
+            @JsonProperty("hardPhysicalDataScanLimit") Optional<DataSize> hardPhysicalDataScanLimit,
+            @JsonProperty("nodeGroup") Optional<String> nodeGroup)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
@@ -76,6 +80,8 @@ public class ResourceGroupSpec
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
         this.hardPhysicalDataScanLimit = requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");
+        this.nodeGroup = requireNonNull(nodeGroup, "nodeGroup is null");
+        nodeGroup.ifPresent(group -> checkArgument(NODE_GROUP_PATTERN.matcher(group).matches(), "Invalid node group name: %s", group));
 
         checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
         this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
@@ -110,6 +116,11 @@ public class ResourceGroupSpec
         for (ResourceGroupSpec subGroup : this.subGroups) {
             checkArgument(names.add(subGroup.getName()), "Duplicated sub group: %s", subGroup.getName());
         }
+    }
+
+    public Optional<String> getNodeGroup()
+    {
+        return nodeGroup;
     }
 
     public Optional<DataSize> getSoftMemoryLimit()
@@ -198,7 +209,8 @@ public class ResourceGroupSpec
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
                 hardCpuLimit.equals(that.hardCpuLimit) &&
-                hardPhysicalDataScanLimit.equals(that.hardPhysicalDataScanLimit));
+                hardPhysicalDataScanLimit.equals(that.hardPhysicalDataScanLimit) &&
+                nodeGroup.equals(that.nodeGroup));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -217,7 +229,8 @@ public class ResourceGroupSpec
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
                 hardCpuLimit.equals(other.hardCpuLimit) &&
-                hardPhysicalDataScanLimit.equals(other.hardPhysicalDataScanLimit));
+                hardPhysicalDataScanLimit.equals(other.hardPhysicalDataScanLimit) &&
+                nodeGroup.equals(other.nodeGroup));
     }
 
     @Override
@@ -235,7 +248,8 @@ public class ResourceGroupSpec
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                hardPhysicalDataScanLimit);
+                hardPhysicalDataScanLimit,
+                nodeGroup);
     }
 
     @Override
@@ -253,6 +267,7 @@ public class ResourceGroupSpec
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
                 .add("hardPhysicalDataScanLimit", hardPhysicalDataScanLimit)
+                .add("nodeGroup", nodeGroup)
                 .toString();
     }
 }

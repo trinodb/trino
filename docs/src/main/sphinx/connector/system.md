@@ -100,7 +100,14 @@ The table comments table contains the list of table comment.
 ### `runtime.nodes`
 
 The nodes table contains the list of visible nodes in the Trino
-cluster along with their status.
+cluster along with their status. The `node_groups` column contains the node
+group names each node declares through the `node.groups` property, and is empty
+when the node belongs to no group. See [](node-properties). For example, to list
+the nodes serving the `etl` group:
+
+```sql
+SELECT node_id, state FROM system.runtime.nodes WHERE contains(node_groups, 'etl');
+```
 
 (optimizer-rule-stats)=
 ### `runtime.optimizer_rule_stats`

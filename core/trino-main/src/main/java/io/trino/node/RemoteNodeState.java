@@ -156,7 +156,8 @@ public class RemoteNodeState
                                     serverInfo.nodeId(),
                                     serverUri,
                                     serverInfo.nodeVersion(),
-                                    serverInfo.coordinator()));
+                                    serverInfo.coordinator(),
+                                    serverInfo.nodeGroups()));
                         }
 
                         RemoteNodeState.this.nodeState.set(nodeState);

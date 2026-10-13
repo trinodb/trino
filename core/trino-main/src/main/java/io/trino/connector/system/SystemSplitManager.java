@@ -15,6 +15,7 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FullConnectorSession;
 import io.trino.node.InternalNode;
 import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -35,6 +36,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.node.NodeState.ACTIVE;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
@@ -88,12 +90,28 @@ public class SystemSplitManager
             nodes.addAll(nodeManager.getCoordinators());
         }
         else if (tableDistributionMode == ALL_NODES) {
-            nodes.addAll(nodeManager.getNodes(ACTIVE));
+            nodes.addAll(activeNodesForQuery(session));
         }
         Set<InternalNode> nodeSet = nodes.build();
         for (InternalNode node : nodeSet) {
             splits.add(new SystemSplit(node.getHostAndPort(), tableConstraint, Optional.empty()));
         }
         return new FixedSplitSource(splits.build());
+    }
+
+    /**
+     * System splits are not remotely accessible, so they are addressed only at nodes the query may use.
+     */
+    private Set<InternalNode> activeNodesForQuery(ConnectorSession session)
+    {
+        Optional<String> nodeGroup = ((FullConnectorSession) session).getSession().getNodeGroup();
+        if (nodeGroup.isEmpty()) {
+            return nodeManager.getNodes(ACTIVE);
+        }
+        // coordinators are never excluded by a node group, matching the node selector
+        Set<InternalNode> coordinators = nodeManager.getCoordinators();
+        return nodeManager.getNodes(ACTIVE).stream()
+                .filter(node -> node.getNodeGroups().contains(nodeGroup.get()) || coordinators.contains(node))
+                .collect(toImmutableSet());
     }
 }

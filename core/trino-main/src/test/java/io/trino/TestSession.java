@@ -14,12 +14,18 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableList;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
+import io.trino.spi.session.ResourceEstimates;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
@@ -116,5 +122,29 @@ public class TestSession
         assertThat(viewSession.getClientInfo()).isEqualTo(clientInfo);
         assertThat(viewSession.getTraceToken()).isEqualTo(traceToken);
         assertThat(viewSession.getStart()).isEqualTo(start);
+    }
+
+    @Test
+    public void testWithNodeGroupKeepsEverythingElse()
+    {
+        // Session.builder(session) carries neither, so this must not go through the builder
+        Span querySpan = Span.wrap(SpanContext.create(
+                "00000000000000000000000000000001",
+                "0000000000000001",
+                TraceFlags.getSampled(),
+                TraceState.getDefault()));
+        ResourceEstimates resourceEstimates = new ResourceEstimates(Optional.of(Duration.ofHours(1)), Optional.empty(), Optional.of(1024L));
+        Session session = testSessionBuilder()
+                .setQuerySpan(querySpan)
+                .setResourceEstimates(resourceEstimates)
+                .build();
+
+        Session restricted = session.withNodeGroup(Optional.of("etl"));
+
+        assertThat(restricted.getNodeGroup()).isEqualTo(Optional.of("etl"));
+        assertThat(restricted.getQuerySpan()).isEqualTo(querySpan);
+        assertThat(restricted.getResourceEstimates()).isEqualTo(resourceEstimates);
+        assertThat(restricted.getQueryId()).isEqualTo(session.getQueryId());
+        assertThat(restricted.getIdentity()).isEqualTo(session.getIdentity());
     }
 }
