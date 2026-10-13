@@ -180,8 +180,8 @@ final class TestElasticsearchProjectionPushdownPlans
         ElasticsearchColumnHandle column0Handle = (ElasticsearchColumnHandle) columns.get("col0");
         ElasticsearchColumnHandle column1Handle = (ElasticsearchColumnHandle) columns.get("col1");
 
-        ElasticsearchColumnHandle columnX = projectColumn(ImmutableList.of(column0Handle.path().getFirst(), "x"), BIGINT, new IndexMetadata.PrimitiveType("long"), new BigintDecoder.Descriptor("col0.x"), true);
-        ElasticsearchColumnHandle columnY = projectColumn(ImmutableList.of(column0Handle.path().getFirst(), "y"), BIGINT, new IndexMetadata.PrimitiveType("long"), new BigintDecoder.Descriptor("col0.y"), true);
+        ElasticsearchColumnHandle columnX = projectColumn(ImmutableList.of(column0Handle.path().getFirst(), "x"), BIGINT, new IndexMetadata.PrimitiveType("long"), new BigintDecoder.Descriptor("col0.x"), true, true);
+        ElasticsearchColumnHandle columnY = projectColumn(ImmutableList.of(column0Handle.path().getFirst(), "y"), BIGINT, new IndexMetadata.PrimitiveType("long"), new BigintDecoder.Descriptor("col0.y"), true, true);
 
         // Simple Projection pushdown
         assertPlan(
@@ -256,14 +256,15 @@ final class TestElasticsearchProjectionPushdownPlans
         deleteIndex(tableName);
     }
 
-    private static ElasticsearchColumnHandle projectColumn(List<String> path, Type projectedColumnType, IndexMetadata.Type elasticsearchType, DecoderDescriptor decoderDescriptor, boolean supportsPredicates)
+    private static ElasticsearchColumnHandle projectColumn(List<String> path, Type projectedColumnType, IndexMetadata.Type elasticsearchType, DecoderDescriptor decoderDescriptor, boolean supportsPredicates, boolean supportsTopNAndAggregations)
     {
         return new ElasticsearchColumnHandle(
                 path,
                 projectedColumnType,
                 elasticsearchType,
                 decoderDescriptor,
-                supportsPredicates);
+                supportsPredicates,
+                supportsTopNAndAggregations);
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)

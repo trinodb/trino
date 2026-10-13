@@ -29,7 +29,8 @@ public record ElasticsearchColumnHandle(
         Type type,
         IndexMetadata.Type elasticsearchType,
         DecoderDescriptor decoderDescriptor,
-        boolean supportsPredicates)
+        boolean supportsPredicates,
+        boolean supportsTopNAndAggregations)
         implements ColumnHandle
 {
     public ElasticsearchColumnHandle

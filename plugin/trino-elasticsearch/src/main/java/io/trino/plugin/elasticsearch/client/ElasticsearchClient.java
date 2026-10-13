@@ -102,6 +102,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.joining;
 
 public class ElasticsearchClient
 {
@@ -442,46 +443,182 @@ public class ElasticsearchClient
 
     public IndexMetadata getIndexMetadata(String index)
     {
-        String path = format("/%s/_mappings", index);
-
-        return doRequest(path, body -> {
+        JsonNode indices = doRequest(format("/%s?flat_settings=true&filter_path=*.mappings,*.settings", index), body -> {
             try {
-                JsonNode mappings = JSON_MAPPER.readTree(body)
-                        .elements().next()
-                        .get("mappings");
-
-                if (!mappings.elements().hasNext()) {
-                    return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
-                }
-                if (!mappings.has("properties")) {
-                    // Older versions of ElasticSearch supported multiple "type" mappings
-                    // for a given index. Newer versions support only one and don't
-                    // expose it in the document. Here we skip it if it's present.
-                    mappings = mappings.elements().next();
-
-                    if (!mappings.has("properties")) {
-                        return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
-                    }
-                }
-
-                JsonNode metaNode = nullSafeNode(mappings, "_meta");
-
-                JsonNode metaProperties = nullSafeNode(metaNode, "trino");
-
-                // stay backwards compatible with _meta.presto namespace for meta properties for some releases
-                if (metaProperties.isNull()) {
-                    metaProperties = nullSafeNode(metaNode, "presto");
-                }
-
-                return new IndexMetadata(parseType(mappings.get("properties"), metaProperties));
+                return JSON_MAPPER.readTree(body);
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
+        Map<String, Set<String>> ignoredMalformedFields = ImmutableMap.of();
+        if (indices.properties().stream().anyMatch(entry -> requiresFieldMappingDefaults(entry.getValue()))) {
+            ignoredMalformedFields = fetchIgnoredMalformedFields(index);
+        }
+        ImmutableList.Builder<IndexMetadata.ObjectType> schemas = ImmutableList.builder();
+        for (Entry<String, JsonNode> indexEntry : indices.properties().stream().sorted(Entry.comparingByKey()).toList()) {
+            Optional<Set<String>> ignoredFields = Optional.of(ImmutableSet.of());
+            if (requiresFieldMappingDefaults(indexEntry.getValue())) {
+                ignoredFields = Optional.ofNullable(ignoredMalformedFields.get(indexEntry.getKey()));
+            }
+            schemas.add(parseIndexMetadata(
+                    nullSafeNode(indexEntry.getValue(), "mappings"),
+                    ignoredFields));
+        }
+        List<IndexMetadata.ObjectType> indexSchemas = schemas.build();
+        if (indexSchemas.isEmpty()) {
+            return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+        }
+        return new IndexMetadata(mergeMappingSafety(indexSchemas.getFirst(), indexSchemas.subList(1, indexSchemas.size())));
     }
 
-    private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
+    private static boolean requiresFieldMappingDefaults(JsonNode indexMetadata)
+    {
+        JsonNode settings = indexMetadata.path("settings");
+        return !settings.isObject()
+                || (settings.has("index.mapping.ignore_malformed")
+                && !settings.path("index.mapping.ignore_malformed").asText().equals("false"));
+    }
+
+    private Map<String, Set<String>> fetchIgnoredMalformedFields(String index)
+    {
+        try {
+            return doRequest(format("/%s/_mapping/field/*?include_defaults=true&filter_path=*.mappings.*.full_name,*.mappings.*.mapping.*.ignore_malformed", index), body -> {
+                try {
+                    ImmutableMap.Builder<String, Set<String>> result = ImmutableMap.builder();
+                    for (Entry<String, JsonNode> indexEntry : JSON_MAPPER.readTree(body).properties()) {
+                        ImmutableSet.Builder<String> fields = ImmutableSet.builder();
+                        for (JsonNode field : indexEntry.getValue().path("mappings")) {
+                            for (JsonNode mapping : field.path("mapping")) {
+                                if (mapping.path("ignore_malformed").asBoolean(false)) {
+                                    fields.add(field.path("full_name").asText());
+                                }
+                            }
+                        }
+                        result.put(indexEntry.getKey(), fields.build());
+                    }
+                    return result.buildOrThrow();
+                }
+                catch (IOException e) {
+                    throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                }
+            });
+        }
+        catch (TrinoException e) {
+            if (e.getCause() instanceof ResponseException responseException && responseException.getResponse().getStatusLine().getStatusCode() == 404) {
+                // Closed indices retain mappings but cannot supply field defaults.
+                return ImmutableMap.of();
+            }
+            throw e;
+        }
+    }
+
+    private IndexMetadata.ObjectType parseIndexMetadata(JsonNode mappings, Optional<Set<String>> ignoredMalformedFields)
+    {
+        if (!mappings.elements().hasNext()) {
+            return new IndexMetadata.ObjectType(ImmutableList.of());
+        }
+        if (!mappings.has("properties")) {
+            // Older versions of ElasticSearch supported multiple "type" mappings
+            // for a given index. Newer versions support only one and don't
+            // expose it in the document. Here we skip it if it's present.
+            mappings = mappings.elements().next();
+            if (!mappings.has("properties")) {
+                return new IndexMetadata.ObjectType(ImmutableList.of());
+            }
+        }
+
+        JsonNode metaNode = nullSafeNode(mappings, "_meta");
+        JsonNode metaProperties = nullSafeNode(metaNode, "trino");
+
+        // stay backwards compatible with _meta.presto namespace for some releases
+        if (metaProperties.isNull()) {
+            metaProperties = nullSafeNode(metaNode, "presto");
+        }
+
+        JsonNode properties = mappings.get("properties");
+        boolean unsupportedAncestor = !mappings.path("enabled").asBoolean(true)
+                || !mappings.path("_source").path("enabled").asBoolean(true)
+                || ignoredMalformedFields.isEmpty();
+        ImmutableSet.Builder<String> unsupportedFields = ImmutableSet.builder();
+        unsupportedFields.addAll(ignoredMalformedFields.orElse(ImmutableSet.of()));
+        unsupportedFields.addAll(mappings.path("runtime").fieldNames());
+        collectCopyToTargets(properties, unsupportedFields);
+        MappingSafety mappingSafety = new MappingSafety(
+                unsupportedFields.build(),
+                sourceFilterPatterns(mappings.path("_source").path("includes")),
+                sourceFilterPatterns(mappings.path("_source").path("excludes")));
+        return parseType(properties, metaProperties, unsupportedAncestor, "", mappingSafety);
+    }
+
+    private static IndexMetadata.ObjectType mergeMappingSafety(IndexMetadata.ObjectType schema, List<IndexMetadata.ObjectType> otherSchemas)
+    {
+        List<ImmutableMap<String, IndexMetadata.Field>> otherFieldsByName = otherSchemas.stream()
+                .map(otherSchema -> otherSchema.fields().stream()
+                        .collect(toImmutableMap(IndexMetadata.Field::name, Function.identity(), (first, _) -> first)))
+                .toList();
+        ImmutableList.Builder<IndexMetadata.Field> fields = ImmutableList.builder();
+        for (IndexMetadata.Field field : schema.fields()) {
+            boolean supportsPredicates = field.supportsPredicates();
+            boolean supportsTopNAndAggregations = field.supportsTopNAndAggregations();
+            List<IndexMetadata.Field> matchingFields = new ArrayList<>();
+            for (Map<String, IndexMetadata.Field> otherFields : otherFieldsByName) {
+                IndexMetadata.Field matchingField = otherFields.get(field.name());
+                if (matchingField == null) {
+                    supportsPredicates = false;
+                    supportsTopNAndAggregations = false;
+                    continue;
+                }
+                matchingFields.add(matchingField);
+                boolean compatibleRepresentation = field.asRawJson() == matchingField.asRawJson()
+                        && field.isArray() == matchingField.isArray();
+                supportsPredicates &= compatibleRepresentation && matchingField.supportsPredicates();
+                supportsTopNAndAggregations &= compatibleRepresentation && matchingField.supportsTopNAndAggregations();
+            }
+
+            IndexMetadata.Type type = field.type();
+            if (field.type() instanceof IndexMetadata.ObjectType objectType) {
+                List<IndexMetadata.ObjectType> matchingObjectTypes = matchingFields.stream()
+                        .map(IndexMetadata.Field::type)
+                        .filter(IndexMetadata.ObjectType.class::isInstance)
+                        .map(IndexMetadata.ObjectType.class::cast)
+                        .toList();
+                if (matchingObjectTypes.size() != otherSchemas.size()) {
+                    supportsPredicates = false;
+                    supportsTopNAndAggregations = false;
+                }
+                else {
+                    type = mergeMappingSafety(objectType, matchingObjectTypes);
+                }
+                if (!supportsPredicates) {
+                    type = disablePredicatePushdown((IndexMetadata.ObjectType) type);
+                }
+            }
+            else {
+                boolean compatibleType = matchingFields.size() == otherSchemas.size()
+                        && matchingFields.stream().allMatch(matchingField -> matchingField.type().equals(field.type()));
+                supportsPredicates &= compatibleType;
+                supportsTopNAndAggregations &= compatibleType;
+            }
+            fields.add(new IndexMetadata.Field(field.asRawJson(), field.isArray(), field.name(), type, supportsPredicates, supportsTopNAndAggregations));
+        }
+        return new IndexMetadata.ObjectType(fields.build());
+    }
+
+    private static IndexMetadata.ObjectType disablePredicatePushdown(IndexMetadata.ObjectType type)
+    {
+        return new IndexMetadata.ObjectType(type.fields().stream()
+                .map(field -> new IndexMetadata.Field(
+                        field.asRawJson(),
+                        field.isArray(),
+                        field.name(),
+                        field.type() instanceof IndexMetadata.ObjectType objectType ? disablePredicatePushdown(objectType) : field.type(),
+                        false,
+                        field.supportsTopNAndAggregations()))
+                .toList());
+    }
+
+    private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties, boolean unsupportedAncestor, String parentPath, MappingSafety mappingSafety)
     {
         ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
         for (Entry<String, JsonNode> field : properties.properties()) {
@@ -493,9 +630,14 @@ public class ElasticsearchClient
             if (value.has("type")) {
                 type = value.get("type").asText();
             }
+            String path = parentPath.isEmpty() ? name : parentPath + "." + name;
             JsonNode metaNode = nullSafeNode(metaProperties, name);
             boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
             boolean asRawJson = !metaNode.isNull() && metaNode.has("asRawJson") && metaNode.get("asRawJson").asBoolean();
+            boolean supportsPredicates = !unsupportedAncestor && !asRawJson && !isArray
+                    && mappingSafety.supportsPushdown(path, type.equals("object") || type.equals("nested"))
+                    && mappingSupportsPredicates(type, value);
+            boolean supportsTopNAndAggregations = supportsPredicates && value.path("doc_values").asBoolean(true);
 
             // While it is possible to handle isArray and asRawJson in the same column by creating a ARRAY(VARCHAR) type, we chose not to take
             // this route, as it will likely lead to confusion in dealing with array syntax in Trino and potentially nested array and other
@@ -512,22 +654,86 @@ public class ElasticsearchClient
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats)));
+                    result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.DateTimeType(formats), supportsPredicates, supportsTopNAndAggregations));
                 }
-                case "scaled_float" -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.ScaledFloatType(value.get("scaling_factor").asDouble())));
+                case "scaled_float" -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.ScaledFloatType(value.get("scaling_factor").asDouble()), supportsPredicates, supportsTopNAndAggregations));
                 case "nested", "object" -> {
                     if (value.has("properties")) {
-                        result.add(new IndexMetadata.Field(asRawJson, isArray, name, parseType(value.get("properties"), metaNode)));
+                        boolean unsupportedChild = unsupportedAncestor || type.equals("nested") || !value.path("enabled").asBoolean(true) || mappingSafety.unsupportedFields().contains(path);
+                        result.add(new IndexMetadata.Field(asRawJson, isArray, name, parseType(value.get("properties"), metaNode, unsupportedChild, path, mappingSafety), supportsPredicates, supportsTopNAndAggregations));
                     }
                     else {
                         LOG.debug("Ignoring empty object field: %s", name);
                     }
                 }
-                default -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type)));
+                default -> result.add(new IndexMetadata.Field(asRawJson, isArray, name, new IndexMetadata.PrimitiveType(type), supportsPredicates, supportsTopNAndAggregations));
             }
         }
 
         return new IndexMetadata.ObjectType(result.build());
+    }
+
+    private static boolean mappingSupportsPredicates(String type, JsonNode mapping)
+    {
+        if (mapping.has("script")) {
+            return false;
+        }
+        if (!mapping.path("index").asBoolean(true) && !mapping.path("doc_values").asBoolean(true)) {
+            return false;
+        }
+        if (mapping.has("null_value") || mapping.path("ignore_malformed").asBoolean(false)) {
+            return false;
+        }
+        if (!type.equals("keyword")) {
+            return true;
+        }
+        return !mapping.has("ignore_above") && !mapping.has("normalizer");
+    }
+
+    private static List<Pattern> sourceFilterPatterns(JsonNode patterns)
+    {
+        if (patterns.isTextual()) {
+            return ImmutableList.of(sourceFilterPattern(patterns.asText()));
+        }
+        ImmutableList.Builder<Pattern> result = ImmutableList.builder();
+        for (JsonNode pattern : patterns) {
+            result.add(sourceFilterPattern(pattern.asText()));
+        }
+        return result.build();
+    }
+
+    private static Pattern sourceFilterPattern(String pattern)
+    {
+        String regex = Arrays.stream(pattern.split("\\*", -1))
+                .map(Pattern::quote)
+                .collect(joining(".*"));
+        // Matching an object in Elasticsearch's source filter also matches all of its descendants.
+        return Pattern.compile(regex + "(?:\\..*)?", Pattern.DOTALL);
+    }
+
+    private record MappingSafety(Set<String> unsupportedFields, List<Pattern> sourceIncludes, List<Pattern> sourceExcludes)
+    {
+        public boolean supportsPushdown(String path, boolean objectField)
+        {
+            return !unsupportedFields.contains(path)
+                    && (objectField || ((sourceIncludes.isEmpty() || sourceIncludes.stream().anyMatch(pattern -> pattern.matcher(path).matches()))
+                    && sourceExcludes.stream().noneMatch(pattern -> pattern.matcher(path).matches())));
+        }
+    }
+
+    private static void collectCopyToTargets(JsonNode properties, ImmutableSet.Builder<String> targets)
+    {
+        for (JsonNode mapping : properties) {
+            JsonNode copyTo = mapping.path("copy_to");
+            if (copyTo.isTextual()) {
+                targets.add(copyTo.asText());
+            }
+            else {
+                copyTo.forEach(target -> targets.add(target.asText()));
+            }
+            collectCopyToTargets(mapping.path("properties"), targets);
+            collectCopyToTargets(mapping.path("fields"), targets);
+        }
     }
 
     private JsonNode nullSafeNode(JsonNode jsonNode, String name)

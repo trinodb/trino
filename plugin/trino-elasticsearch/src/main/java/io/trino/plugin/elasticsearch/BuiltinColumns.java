@@ -33,9 +33,9 @@ import static java.util.function.Function.identity;
 
 enum BuiltinColumns
 {
-    ID("_id", VARCHAR, new IndexMetadata.PrimitiveType("text"), new IdColumnDecoder.Descriptor(), true),
-    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("text"), new SourceColumnDecoder.Descriptor(), false),
-    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("real"), new ScoreColumnDecoder.Descriptor(), false);
+    ID("_id", VARCHAR, new IndexMetadata.PrimitiveType("text"), new IdColumnDecoder.Descriptor(), true, false),
+    SOURCE("_source", VARCHAR, new IndexMetadata.PrimitiveType("text"), new SourceColumnDecoder.Descriptor(), false, false),
+    SCORE("_score", REAL, new IndexMetadata.PrimitiveType("real"), new ScoreColumnDecoder.Descriptor(), false, false);
 
     private static final Map<String, BuiltinColumns> COLUMNS_BY_NAME = stream(values())
             .collect(toImmutableMap(BuiltinColumns::getName, identity()));
@@ -45,14 +45,16 @@ enum BuiltinColumns
     private final IndexMetadata.Type elasticsearchType;
     private final DecoderDescriptor decoderDescriptor;
     private final boolean supportsPredicates;
+    private final boolean supportsTopNAndAggregations;
 
-    BuiltinColumns(String name, Type type, IndexMetadata.Type elasticsearchType, DecoderDescriptor decoderDescriptor, boolean supportsPredicates)
+    BuiltinColumns(String name, Type type, IndexMetadata.Type elasticsearchType, DecoderDescriptor decoderDescriptor, boolean supportsPredicates, boolean supportsTopNAndAggregations)
     {
         this.name = name;
         this.type = type;
         this.elasticsearchType = elasticsearchType;
         this.decoderDescriptor = decoderDescriptor;
         this.supportsPredicates = supportsPredicates;
+        this.supportsTopNAndAggregations = supportsTopNAndAggregations;
     }
 
     public static Optional<BuiltinColumns> of(String name)
@@ -91,6 +93,7 @@ enum BuiltinColumns
                 type,
                 elasticsearchType,
                 decoderDescriptor,
-                supportsPredicates);
+                supportsPredicates,
+                supportsTopNAndAggregations);
     }
 }
