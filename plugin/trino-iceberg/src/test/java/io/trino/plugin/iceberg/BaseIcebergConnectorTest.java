@@ -4425,6 +4425,24 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testMaxInferredColumnDefaults()
+    {
+        String columns = IntStream.rangeClosed(1, 102)
+                .mapToObj(i -> "c" + i + " varchar")
+                .collect(joining(", "));
+        String values = IntStream.rangeClosed(1, 102)
+                .mapToObj(i -> "'v" + i + "'")
+                .collect(joining(", "));
+        try (TestTable table = newTrinoTable("test_max_inferred_column_defaults", "(" + columns + ") WITH (sorted_by = ARRAY['c102'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + values + ")", 1);
+            if (format == ORC) {
+                assertThat(query("SELECT cardinality(value_counts), upper_bounds.\"100\", upper_bounds.\"101\", upper_bounds.\"102\" FROM \"" + table.getName() + "$files\""))
+                        .matches("VALUES (BIGINT '101', VARCHAR 'v100', CAST(NULL AS varchar), VARCHAR 'v102')");
+            }
+        }
+    }
+
+    @Test
     public void testBasicTableStatistics()
     {
         String tableName = "test_basic_table_statistics";
