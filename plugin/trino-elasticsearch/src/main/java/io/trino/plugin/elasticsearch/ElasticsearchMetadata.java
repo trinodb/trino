@@ -537,7 +537,7 @@ public class ElasticsearchMetadata
         for (Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-            if (column.supportsPredicates()) {
+            if (column.supportsPredicates() && !hasFloatingPointZeroBound(entry.getValue())) {
                 supported.put(column, entry.getValue());
             }
             else {
@@ -596,6 +596,23 @@ public class ElasticsearchMetadata
                 ImmutableSet.of());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
+    }
+
+    private static boolean hasFloatingPointZeroBound(Domain domain)
+    {
+        if ((!domain.getType().equals(DOUBLE) && !domain.getType().equals(REAL)) || domain.getValues().isAll() || domain.getValues().isNone()) {
+            return false;
+        }
+        return domain.getValues().getRanges().getOrderedRanges().stream()
+                .anyMatch(range -> (!range.isLowUnbounded() && isFloatingPointZero(domain.getType(), range.getLowBoundedValue()))
+                        || (!range.isHighUnbounded() && isFloatingPointZero(domain.getType(), range.getHighBoundedValue())));
+    }
+
+    private static boolean isFloatingPointZero(Type type, Object value)
+    {
+        return type.equals(DOUBLE)
+                ? (double) value == 0.0
+                : Float.intBitsToFloat(((Long) value).intValue()) == 0.0f;
     }
 
     protected static boolean isSupportedLikeCall(Call call)

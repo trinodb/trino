@@ -3830,6 +3830,47 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
+    @Test
+    public void testFloatingPointPredicatesPreserveSignedZero()
+            throws IOException
+    {
+        String tableName = "floating_point_signed_zero_" + randomNameSuffix();
+        createIndex(tableName,
+                """
+                {"properties": {"id": {"type": "long"}, "d": {"type": "double"}, "r": {"type": "float"}}}
+                """);
+        try {
+            index(tableName, Map.of("id", 1, "d", -0.0, "r", -0.0));
+            index(tableName, Map.of("id", 2, "d", 0.0, "r", 0.0));
+            Session withoutPushdown = Session.builder(getSession())
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
+            for (String column : List.of("d", "r")) {
+                for (String predicate : List.of("= 0.0", ">= 0.0", "<= 0.0", ">= -0.0", "<= -0.0")) {
+                    String predicateQuery = "SELECT id FROM " + tableName + " WHERE " + column + " " + predicate;
+                    assertThat(query(predicateQuery))
+                            .matches("VALUES BIGINT '1', BIGINT '2'")
+                            .isNotFullyPushedDown(FilterNode.class);
+                    assertThat(query(withoutPushdown, predicateQuery)).matches("VALUES BIGINT '1', BIGINT '2'");
+                }
+                for (String predicate : List.of("> 0.0", "< 0.0", "> -0.0", "< -0.0")) {
+                    String predicateQuery = "SELECT id FROM " + tableName + " WHERE " + column + " " + predicate;
+                    assertThat(query(predicateQuery))
+                            .matches("SELECT CAST(NULL AS BIGINT) WHERE false")
+                            .isNotFullyPushedDown(FilterNode.class);
+                    assertThat(query(withoutPushdown, predicateQuery)).matches("SELECT CAST(NULL AS BIGINT) WHERE false");
+                }
+
+                assertThat(query("SELECT id FROM " + tableName + " WHERE " + column + " < 1.0"))
+                        .matches("VALUES BIGINT '1', BIGINT '2'")
+                        .isFullyPushedDown();
+            }
+        }
+        finally {
+            deleteIndex(tableName);
+        }
+    }
+
     protected String indexEndpoint(String index, String docId)
     {
         return format("/%s/_doc/%s", index, docId);

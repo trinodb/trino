@@ -14,10 +14,25 @@
 package io.trino.plugin.elasticsearch;
 
 import io.airlift.slice.Slices;
+import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
+import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestElasticsearchMetadata
@@ -43,5 +58,58 @@ public class TestElasticsearchMetadata
     private static String likeToRegexp(String pattern, Optional<String> escapeChar)
     {
         return ElasticsearchMetadata.likeToRegexp(Slices.utf8Slice(pattern), escapeChar.map(Slices::utf8Slice));
+    }
+
+    @Test
+    public void testApplyFilterWithFloatingPointZeroBounds()
+            throws IOException
+    {
+        ElasticsearchClient client = createClient();
+        try {
+            ElasticsearchMetadata metadata = new ElasticsearchMetadata(TESTING_TYPE_MANAGER, client, config());
+            ElasticsearchColumnHandle column = doubleColumn("value");
+            for (Range range : List.of(Range.equal(DOUBLE, 0.0), Range.lessThan(DOUBLE, -0.0), Range.greaterThanOrEqual(DOUBLE, 0.0))) {
+                Domain domain = Domain.create(ValueSet.ofRanges(range), false);
+                assertThat(metadata.applyFilter(SESSION, scanHandle(), new Constraint(TupleDomain.withColumnDomains(Map.of(column, domain)))))
+                        .isEmpty();
+            }
+            for (Domain domain : List.of(Domain.create(ValueSet.ofRanges(Range.lessThan(DOUBLE, 1.0)), false), Domain.onlyNull(DOUBLE), Domain.notNull(DOUBLE))) {
+                var result = metadata.applyFilter(SESSION, scanHandle(), new Constraint(TupleDomain.withColumnDomains(Map.of(column, domain)))).orElseThrow();
+                assertThat(((ElasticsearchTableHandle) result.getHandle()).constraint())
+                        .isEqualTo(TupleDomain.withColumnDomains(Map.of(column, domain)));
+                assertThat(result.getRemainingFilter().isAll()).isTrue();
+            }
+        }
+        finally {
+            client.close();
+        }
+    }
+
+    private static ElasticsearchTableHandle scanHandle()
+    {
+        return new ElasticsearchTableHandle(SCAN, "default", "nation", Optional.empty());
+    }
+
+    private static ElasticsearchColumnHandle doubleColumn(String name)
+    {
+        return new ElasticsearchColumnHandle(
+                List.of(name),
+                DOUBLE,
+                new IndexMetadata.PrimitiveType("double"),
+                new DoubleDecoder.Descriptor(name),
+                true,
+                true);
+    }
+
+    private static ElasticsearchClient createClient()
+    {
+        return new ElasticsearchClient(config(), Optional.empty(), Optional.empty());
+    }
+
+    private static ElasticsearchConfig config()
+    {
+        return new ElasticsearchConfig()
+                .setHosts(List.of("localhost"))
+                .setDefaultSchema("default");
     }
 }
