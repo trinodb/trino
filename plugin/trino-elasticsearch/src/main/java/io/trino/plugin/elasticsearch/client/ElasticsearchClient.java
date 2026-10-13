@@ -602,7 +602,7 @@ public class ElasticsearchClient
 
         LOG.debug("Begin search: %s:%s, query: %s", index, shard, searchBody);
 
-        String endpoint = format("/%s/_search?preference=_shards:%s&scroll=%sms&allow_partial_search_results=false", index, shard, scrollTimeout.toMillis());
+        String endpoint = format("/%s/_search?preference=_shards:%s&scroll=%sms&pre_filter_shard_size=1&allow_partial_search_results=false", index, shard, scrollTimeout.toMillis());
 
         long start = System.nanoTime();
         try {
@@ -685,7 +685,7 @@ public class ElasticsearchClient
             try {
                 response = client.performRequest(
                         "POST",
-                        format("/%s/_search?preference=_shards:%s&allow_partial_search_results=false", index, shard),
+                        format("/%s/_search?preference=_shards:%s&pre_filter_shard_size=1&allow_partial_search_results=false", index, shard),
                         ImmutableMap.of(),
                         new StringEntity(countBody.toString(), UTF_8),
                         new BasicHeader("Content-Type", "application/json"));

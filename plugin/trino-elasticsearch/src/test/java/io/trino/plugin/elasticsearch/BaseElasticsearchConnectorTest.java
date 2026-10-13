@@ -13,10 +13,16 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.IndexMetadata;
+import io.trino.plugin.elasticsearch.client.Shard;
+import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -31,14 +37,22 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Stream;
 
+import static com.google.common.io.Resources.getResource;
+import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.PASSWORD;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -1960,6 +1974,219 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testFilteredAndRoutedMultiIndexAliasPreservesScanSemantics()
+            throws IOException
+    {
+        String suffix = randomNameSuffix();
+        String firstIndex = "filtered_routed_alias_a_" + suffix;
+        String secondIndex = "filtered_routed_alias_b_" + suffix;
+        String alias = "filtered_routed_alias_" + suffix;
+        String selectedRouting = "selected-route";
+        String indexBody =
+                """
+                {
+                    "settings": {"number_of_shards": 2},
+                    "mappings": {
+                        "properties": {
+                            "tenant": {"type": "keyword"},
+                            "payload": {"type": "keyword"}
+                        }
+                    }
+                }
+                """;
+        createIndexWithBody(firstIndex, indexBody);
+        createIndexWithBody(secondIndex, indexBody);
+        try {
+            int firstSelectedShard = shardForRouting(firstIndex, selectedRouting);
+            int secondSelectedShard = shardForRouting(secondIndex, selectedRouting);
+            String otherRouting = null;
+            for (int value = 0; value < 100; value++) {
+                String candidate = "other-route-" + value;
+                if (shardForRouting(firstIndex, candidate) != firstSelectedShard
+                        && shardForRouting(secondIndex, candidate) != secondSelectedShard) {
+                    otherRouting = candidate;
+                    break;
+                }
+            }
+            if (otherRouting == null) {
+                throw new AssertionError("Could not find a routing value assigned to a different shard");
+            }
+
+            index(firstIndex, selectedRouting, ImmutableMap.of("tenant", "visible", "payload", "first-visible"));
+            index(firstIndex, selectedRouting, ImmutableMap.of("tenant", "hidden", "payload", "first-filtered"));
+            index(firstIndex, otherRouting, ImmutableMap.of("tenant", "visible", "payload", "first-routed-away"));
+            index(secondIndex, selectedRouting, ImmutableMap.of("tenant", "visible", "payload", "second-visible"));
+            index(secondIndex, selectedRouting, ImmutableMap.of("tenant", "hidden", "payload", "second-filtered"));
+            index(secondIndex, otherRouting, ImmutableMap.of("tenant", "visible", "payload", "second-routed-away"));
+
+            String aliasBody =
+                    """
+                    {
+                        "filter": {"term": {"tenant": "visible"}},
+                        "search_routing": "selected-route"
+                    }
+                    """;
+            for (String index : List.of(firstIndex, secondIndex)) {
+                Request request = new Request("PUT", format("/%s/_alias/%s", index, alias));
+                request.setJsonEntity(aliasBody);
+                client.performRequest(request);
+            }
+            refreshIndex(alias);
+
+            Session withoutPushdown = Session.builder(getSession())
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
+
+            String rows = "SELECT payload FROM " + alias + " ORDER BY payload";
+            assertThat(query(rows))
+                    .matches("VALUES VARCHAR 'first-visible', VARCHAR 'second-visible'");
+            assertThat(query(withoutPushdown, rows))
+                    .matches("VALUES VARCHAR 'first-visible', VARCHAR 'second-visible'");
+
+            String topN = "SELECT payload FROM " + alias + " ORDER BY payload DESC LIMIT 1";
+            assertThat(query(topN))
+                    .matches("VALUES VARCHAR 'second-visible'");
+            assertThat(query(withoutPushdown, topN))
+                    .matches("VALUES VARCHAR 'second-visible'");
+
+            String count = "SELECT count(*) FROM " + alias;
+            assertThat(query(count))
+                    .matches("VALUES BIGINT '2'");
+            assertThat(query(withoutPushdown, count))
+                    .matches("VALUES BIGINT '2'");
+        }
+        finally {
+            deleteIndex(firstIndex);
+            deleteIndex(secondIndex);
+        }
+    }
+
+    @Test
+    public void testAliasScansAndCountsDoNotFanOutAcrossIndices()
+            throws Exception
+    {
+        String suffix = randomNameSuffix();
+        String alias = "bounded_fanout_alias_" + suffix;
+        List<String> indices = List.of(
+                "bounded_fanout_index_a_" + suffix,
+                "bounded_fanout_index_b_" + suffix,
+                "bounded_fanout_index_c_" + suffix,
+                "bounded_fanout_index_d_" + suffix);
+        try {
+            for (int indexNumber = 0; indexNumber < indices.size(); indexNumber++) {
+                String index = indices.get(indexNumber);
+                createIndexWithBody(index,
+                        """
+                        {
+                            "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+                            "mappings": {
+                                "properties": {
+                                    "tenant": {"type": "keyword"},
+                                    "value": {"type": "long"}
+                                }
+                            }
+                        }
+                        """);
+                index(index, Map.of("tenant", "visible-" + indexNumber, "value", indexNumber));
+                index(index, Map.of("tenant", "hidden-" + indexNumber, "value", 100 + indexNumber));
+                Request request = new Request("PUT", format("/%s/_alias/%s", index, alias));
+                request.setJsonEntity(format("{\"filter\":{\"term\":{\"tenant\":\"visible-%s\"}}}", indexNumber));
+                client.performRequest(request);
+            }
+            Request additionalAlias = new Request("PUT", format("/%s/_alias/%s_hidden", indices.getFirst(), alias));
+            additionalAlias.setJsonEntity("{\"filter\":{\"term\":{\"tenant\":\"hidden-0\"}}}");
+            client.performRequest(additionalAlias);
+            refreshIndex(alias);
+
+            Session withoutPushdown = Session.builder(getSession())
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
+            for (String target : List.of(alias, alias + "*", alias + "," + indices.getFirst())) {
+                // Wildcards combine alias filters; an explicit concrete index bypasses its alias filter.
+                boolean includesHiddenRow = !target.equals(alias);
+                long expectedSum = includesHiddenRow ? 106 : 6;
+                long expectedCount = includesHiddenRow ? 5 : 4;
+                String table = format("\"%s:value:*\"", target);
+
+                long queriesBefore = shardQueryCount(indices);
+                assertThat(computeActual("SELECT sum(value), sum(_score) FROM " + table).getMaterializedRows().getFirst().getFields())
+                        .isEqualTo(List.of(expectedSum, (float) expectedCount));
+                // Each split reads one data page and then fetches an empty final scroll page.
+                assertThat(shardQueryCount(indices) - queriesBefore).isEqualTo(2L * indices.size());
+
+                queriesBefore = shardQueryCount(indices);
+                assertThat(computeActual(withoutPushdown, "SELECT count(*) FROM " + table).getOnlyValue()).isEqualTo(expectedCount);
+                assertThat(shardQueryCount(indices) - queriesBefore).isEqualTo(indices.size());
+            }
+            assertAliasOnlyPermissions(alias, indices.getFirst());
+        }
+        finally {
+            for (String index : indices) {
+                deleteIndex(index);
+            }
+        }
+    }
+
+    private void assertAliasOnlyPermissions(String alias, String concreteIndex)
+            throws Exception
+    {
+        String identity = "alias_reader_" + randomNameSuffix();
+        Request role = new Request("PUT", "/_security/role/" + identity);
+        role.setJsonEntity(format(
+                """
+                {"cluster":["monitor"],"indices":[{"names":["%s"],"privileges":["read","view_index_metadata"]}]}
+                """,
+                alias));
+        client.performRequest(role);
+        Request user = new Request("PUT", "/_security/user/" + identity);
+        user.setJsonEntity(format("{\"password\":\"%s\",\"roles\":[\"%s\"]}", PASSWORD, identity));
+        client.performRequest(user);
+        ElasticsearchClient restrictedClient = new ElasticsearchClient(
+                new ElasticsearchConfig()
+                        .setHosts(List.of(server.getAddress().getHost()))
+                        .setPort(server.getAddress().getPort())
+                        .setIgnorePublishAddress(true)
+                        .setTlsEnabled(true)
+                        .setTrustStorePath(new File(getResource("truststore.jks").toURI()))
+                        .setTruststorePassword("123456")
+                        .setVerifyHostnames(false),
+                Optional.empty(),
+                Optional.of(new PasswordConfig().setUser(identity).setPassword(PASSWORD)));
+        try {
+            restrictedClient.initialize();
+            ElasticsearchTableHandle table = new ElasticsearchTableHandle(SCAN, "tpch", alias, Optional.of("value:*"));
+            ElasticsearchColumnHandle value = new ElasticsearchColumnHandle(List.of("value"), BIGINT, new IndexMetadata.PrimitiveType("long"), new BigintDecoder.Descriptor("value"), true);
+            List<Shard> shards = restrictedClient.getSearchShards(alias);
+            assertThat(shards).hasSize(4);
+            for (Shard shard : shards) {
+                ElasticsearchSplit split = new ElasticsearchSplit(shard.index(), shard.id(), shard.address());
+                try (ScanQueryPageSource scan = new ScanQueryPageSource(restrictedClient, getQueryRunner().getPlannerContext().getTypeManager(), table, split, List.of(value))) {
+                    SourcePage page = scan.getNextSourcePage();
+                    assertThat(page.getPositionCount()).isEqualTo(1);
+                    assertThat(BIGINT.getLong(page.getBlock(0), 0)).isBetween(0L, 3L);
+                    assertThat(scan.isFinished()).isTrue();
+                }
+                try (CountQueryPageSource count = new CountQueryPageSource(restrictedClient, table, split)) {
+                    assertThat(count.getNextSourcePage().getPositionCount()).isEqualTo(1);
+                    assertThat(count.isFinished()).isTrue();
+                }
+            }
+            JsonNode query = new JsonMapper().readTree("{\"match_all\":{}}");
+            assertTrinoExceptionThrownBy(() -> restrictedClient.beginSearch(concreteIndex, 0, query, Optional.empty(), List.of(), Optional.empty(), OptionalLong.empty()))
+                    .hasErrorCode(ELASTICSEARCH_QUERY_FAILURE)
+                    .hasMessageContaining("action [indices:data/read/search] is unauthorized");
+            assertTrinoExceptionThrownBy(() -> restrictedClient.count(concreteIndex, 0, query))
+                    .hasErrorCode(ELASTICSEARCH_QUERY_FAILURE)
+                    .hasMessageContaining("action [indices:data/read/search] is unauthorized");
+        }
+        finally {
+            restrictedClient.close();
+            client.performRequest(new Request("DELETE", "/_security/user/" + identity));
+            client.performRequest(new Request("DELETE", "/_security/role/" + identity));
+        }
+    }
+
+    @Test
     public void testSelectInformationSchemaForMultiIndexAlias()
             throws IOException
     {
@@ -2643,6 +2870,33 @@ public abstract class BaseElasticsearchConnectorTest
         client.performRequest(request);
     }
 
+    private void index(String index, String routing, Map<String, Object> document)
+            throws IOException
+    {
+        String json = new JsonMapper().writeValueAsString(document);
+        String endpoint = format("%s?routing=%s&refresh", indexEndpoint(index, String.valueOf(System.nanoTime())), routing);
+
+        Request request = new Request("PUT", endpoint);
+        request.setJsonEntity(json);
+        client.performRequest(request);
+    }
+
+    private int shardForRouting(String index, String routing)
+            throws IOException
+    {
+        Request request = new Request("GET", format("/%s/_search_shards?routing=%s", index, routing));
+        JsonNode response = new JsonMapper().readTree(client.performRequest(request).getEntity().getContent());
+        return response.path("shards").get(0).get(0).path("shard").asInt();
+    }
+
+    private long shardQueryCount(List<String> indices)
+            throws IOException
+    {
+        Request request = new Request("GET", format("/%s/_stats/search", String.join(",", indices)));
+        JsonNode response = new JsonMapper().readTree(client.performRequest(request).getEntity().getContent());
+        return response.path("_all").path("total").path("search").path("query_total").asLong();
+    }
+
     private void addAlias(String index, String alias)
             throws IOException
     {
@@ -2661,6 +2915,14 @@ public abstract class BaseElasticsearchConnectorTest
             throws IOException
     {
         client.performRequest(new Request("PUT", "/" + indexName));
+    }
+
+    private void createIndexWithBody(String indexName, @Language("JSON") String body)
+            throws IOException
+    {
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(body);
+        client.performRequest(request);
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
