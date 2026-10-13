@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
@@ -42,6 +43,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.addIndexFilter;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
@@ -108,11 +110,19 @@ public class ScanQueryPageSource
             sort = Optional.empty();
         }
 
+        JsonNode query = buildSearchQuery(
+                table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast),
+                table.query(),
+                table.regexes());
+        if (!table.index().equals(split.index())) {
+            query = addIndexFilter(query, split.index());
+        }
+
         long start = System.nanoTime();
         SearchResult searchResult = client.beginSearch(
-                split.index(),
+                table.index(),
                 split.shard(),
-                buildSearchQuery(table.constraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.query(), table.regexes()),
+                query,
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,

@@ -96,6 +96,16 @@ public final class ElasticsearchQueryBuilder
         return JSON.objectNode().set("bool", boolNode);
     }
 
+    public static JsonNode addIndexFilter(JsonNode query, String concreteIndex)
+    {
+        ObjectNode boolNode = boolQuery();
+        boolNode.set("must", JSON.arrayNode().add(query));
+        boolNode.set("filter", JSON.arrayNode().add(JSON.objectNode().set(
+                "term",
+                JSON.objectNode().put("_index", concreteIndex))));
+        return JSON.objectNode().set("bool", boolNode);
+    }
+
     private static void addPredicateToClauses(ArrayNode filterClauses, ArrayNode mustNotClauses, String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
