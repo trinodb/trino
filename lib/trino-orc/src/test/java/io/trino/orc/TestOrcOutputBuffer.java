@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcOutputBuffer
@@ -42,6 +43,18 @@ public class TestOrcOutputBuffer
         sliceOutput.writeBytes(wrappedBuffer(largeByteArray), 100, size - 100);
         assertThat(sliceOutput.writeDataTo(output)).isEqualTo(size - 100);
         assertThat(output.slice()).isEqualTo(wrappedBuffer(largeByteArray, 100, size - 100));
+    }
+
+    @Test
+    public void testCompressorReturnedToPool()
+    {
+        OrcCompressorPool pool = new OrcCompressorPool(4);
+        OrcOutputBuffer output = new OrcOutputBuffer(ZLIB, 1024, pool);
+        output.writeBytes(new byte[1024]);
+        output.flush();
+        output.writeBytes(new byte[1024]);
+        output.flush();
+        assertThat(pool.getPooledCount(ZLIB)).isEqualTo(1);
     }
 
     @Test
