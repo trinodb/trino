@@ -152,6 +152,7 @@ public class ElasticsearchMetadata
                     VARCHAR,
                     new IndexMetadata.PrimitiveType("text"),
                     new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
+                    false,
                     false));
 
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
@@ -277,7 +278,8 @@ public class ElasticsearchMetadata
                     converted.type(),
                     field.type(),
                     converted.decoderDescriptor(),
-                    supportsPredicates(field.type(), converted.type)));
+                    field.supportsPredicates() && supportsPredicates(field.type(), converted.type),
+                    field.supportsTopNAndAggregations()));
         }
 
         return result.buildOrThrow();
@@ -364,7 +366,7 @@ public class ElasticsearchMetadata
     public static IndexMetadata.Field elementField(IndexMetadata.Field field)
     {
         checkArgument(field.isArray(), "Cannot get element field from a non-array field");
-        return new IndexMetadata.Field(field.asRawJson(), false, field.name(), field.type());
+        return new IndexMetadata.Field(field.asRawJson(), false, field.name(), field.type(), field.supportsPredicates(), field.supportsTopNAndAggregations());
     }
 
     @Override
@@ -564,7 +566,7 @@ public class ElasticsearchMetadata
                         escape = Optional.of((Slice) ((Constant) arguments.get(2)).getValue());
                     }
 
-                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
+                    if (column.supportsPredicates() && !newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.schema()
                                 .fields().stream()
@@ -778,18 +780,27 @@ public class ElasticsearchMetadata
         DecoderDescriptor decoderDescriptor = baseColumn.decoderDescriptor();
         IndexMetadata.Type elasticsearchType = baseColumn.elasticsearchType();
         Type type = baseColumn.type();
+        boolean supportsPredicates = true;
+        boolean supportsTopNAndAggregations = baseColumn.supportsTopNAndAggregations();
 
         for (int index : indices) {
             verify(type instanceof RowType, "type should be Row type");
             RowType rowType = (RowType) type;
             RowType.Field field = rowType.getFields().get(index);
-            path.add(field.getName()
-                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field name declared: " + rowType)));
+            String fieldName = field.getName()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field name declared: " + rowType));
+            path.add(fieldName);
             type = field.getType();
 
             verify(decoderDescriptor instanceof RowDecoder.Descriptor, "decoderDescriptor should be RowDecoder.Descriptor type");
             decoderDescriptor = ((RowDecoder.Descriptor) decoderDescriptor).getFields().get(index).getDescriptor();
-            elasticsearchType = ((IndexMetadata.ObjectType) elasticsearchType).fields().get(index).type();
+            IndexMetadata.Field mappingField = ((IndexMetadata.ObjectType) elasticsearchType).fields().stream()
+                    .filter(candidate -> candidate.name().equals(fieldName))
+                    .findFirst()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW field does not exist in Elasticsearch mapping: " + fieldName));
+            supportsPredicates &= mappingField.supportsPredicates();
+            supportsTopNAndAggregations &= mappingField.supportsTopNAndAggregations();
+            elasticsearchType = mappingField.type();
         }
 
         return new ElasticsearchColumnHandle(
@@ -797,7 +808,8 @@ public class ElasticsearchMetadata
                 projectedColumnType,
                 elasticsearchType,
                 decoderDescriptor,
-                supportsPredicates(elasticsearchType, projectedColumnType));
+                supportsPredicates && supportsPredicates(elasticsearchType, projectedColumnType),
+                supportsTopNAndAggregations);
     }
 
     @Override

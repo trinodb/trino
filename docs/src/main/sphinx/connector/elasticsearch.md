@@ -512,6 +512,31 @@ following data types:
 
 No other data types are supported for predicate push down.
 
+Predicate push down requires indexed values that match the values read by
+Trino. Predicates are processed in Trino for fields with a `null_value`
+replacement or `ignore_malformed: true`, keyword fields with `ignore_above` or a
+`normalizer`, scripted fields, fields rendered as raw JSON, and fields inside
+`nested` or disabled objects. Predicate push down is also disabled for
+`copy_to` target fields, runtime fields, and fields omitted by `_source`
+includes or excludes patterns. Other fields in these indexes remain eligible.
+Disabling `_source` or the root object disables predicate push down for all
+mapped fields. Aliases and wildcard tables require compatible field mappings
+in every index.
+Disabling `doc_values` alone does not disable predicate push down.
+
+The connector uses the effective `ignore_malformed` value for each field,
+including defaults from `index.mapping.ignore_malformed`. Explicit field
+settings override the index default. The index default does not affect field
+types that do not support `ignore_malformed`.
+
+These checks use the current mapping. Changing `ignore_malformed` to `false`
+does not repair malformed documents previously accepted by Elasticsearch.
+Elasticsearch also coerces numeric strings, so it indexes `"1.5"` in a `long`
+field as `1` while `_source` keeps `"1.5"`. Push down can bypass the source
+decoding errors Trino reports for these documents.
+Use `SET SESSION allow_pushdown_into_connectors = false` when querying an index
+that contains them.
+
 [built-in date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
 [custom date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats
 [date]: https://www.elastic.co/guide/en/elasticsearch/reference/current/date.html

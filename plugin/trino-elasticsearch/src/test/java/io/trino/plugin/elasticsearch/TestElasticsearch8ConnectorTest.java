@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
@@ -24,5 +26,12 @@ public class TestElasticsearch8ConnectorTest
             throws IOException
     {
         super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE));
+    }
+
+    @Test
+    public void testIndexIgnoreMalformedBooleanSemantics()
+            throws IOException
+    {
+        assertIndexIgnoreMalformedBooleanSemantics(true);
     }
 }
