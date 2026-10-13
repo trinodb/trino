@@ -1483,6 +1483,7 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIMESTAMP(11) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 Pacific/Apia'");
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.4995' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:56 Pacific/Apia'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999' AS TIMESTAMP(9) WITH TIME ZONE)")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000 Pacific/Apia'");
 
         // 5-digit year in the future
         assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '12001-05-01 12:34:56 Pacific/Apia'");

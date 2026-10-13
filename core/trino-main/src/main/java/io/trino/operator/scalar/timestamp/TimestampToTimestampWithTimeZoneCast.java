@@ -101,6 +101,10 @@ public final class TimestampToTimestampWithTimeZoneCast
         }
         else {
             picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
+            if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+                epochMicros++;
+                picosOfMicro = 0;
+            }
         }
 
         return toLong(session, epochMicros, picosOfMicro);
