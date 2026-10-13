@@ -537,6 +537,11 @@ decoding errors Trino reports for these documents.
 Use `SET SESSION allow_pushdown_into_connectors = false` when querying an index
 that contains them.
 
+Floating-point predicates with a zero range bound are processed in Trino because
+Elasticsearch distinguishes positive and negative zero, while Trino treats them
+as equal. Predicates with nonzero bounds and null checks remain eligible for
+push down.
+
 [built-in date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
 [custom date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats
 [date]: https://www.elastic.co/guide/en/elasticsearch/reference/current/date.html
