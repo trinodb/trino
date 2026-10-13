@@ -33,6 +33,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
+import io.trino.plugin.elasticsearch.expression.TopN.TopNSortItem;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -773,7 +774,7 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResult beginSearch(String index, int shard, JsonNode query, Optional<List<String>> fields, List<String> documentFields, List<TopNSortItem> sortItems, OptionalLong limit)
     {
         ObjectNode searchBody = JSON.objectNode();
         searchBody.set("query", query);
@@ -787,7 +788,11 @@ public class ElasticsearchClient
         }
         searchBody.put("size", size);
 
-        sort.ifPresent(s -> searchBody.set("sort", JSON.arrayNode().add(s)));
+        if (!sortItems.isEmpty()) {
+            ArrayNode sort = JSON.arrayNode();
+            sortItems.forEach(item -> sort.add(item.toSortQuery()));
+            searchBody.set("sort", sort);
+        }
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
@@ -829,6 +834,50 @@ public class ElasticsearchClient
         finally {
             searchStats.add(Duration.nanosSince(start));
         }
+    }
+
+    public AggregationSearchResult beginAggregationSearch(String index, JsonNode query, JsonNode aggregations)
+    {
+        ObjectNode searchBody = JSON.objectNode();
+        searchBody.set("query", query);
+        searchBody.set("aggregations", aggregations);
+        searchBody.put("size", 0);
+        searchBody.put("track_total_hits", true);
+
+        LOG.debug("Begin aggregation search: %s, query: %s", index, searchBody);
+
+        long start = System.nanoTime();
+        try {
+            Response response = client.performRequest(
+                    "POST",
+                    format("/%s/_search?allow_partial_search_results=false", index),
+                    ImmutableMap.of(),
+                    new StringEntity(searchBody.toString(), UTF_8),
+                    new BasicHeader("Content-Type", "application/json"));
+            try {
+                return parseAggregationResponse(EntityUtils.toByteArray(response.getEntity()));
+            }
+            catch (IOException e) {
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            }
+        }
+        catch (ResponseException e) {
+            throw propagate(e);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        finally {
+            searchStats.add(Duration.nanosSince(start));
+        }
+    }
+
+    @VisibleForTesting
+    static AggregationSearchResult parseAggregationResponse(byte[] responseBody)
+            throws IOException
+    {
+        JsonNode response = parseCompleteSearchResponse(responseBody, "aggregation");
+        return new AggregationSearchResult(response, extractExactHitCount(response), responseBody.length);
     }
 
     private static JsonNode parseCompleteSearchResponse(byte[] responseBody, String operation)
@@ -919,7 +968,11 @@ public class ElasticsearchClient
     static long parseCountResponse(byte[] responseBody)
             throws IOException
     {
-        JsonNode response = parseCompleteSearchResponse(responseBody, "count");
+        return extractExactHitCount(parseCompleteSearchResponse(responseBody, "count"));
+    }
+
+    private static long extractExactHitCount(JsonNode response)
+    {
         JsonNode total = response.path("hits").path("total");
         JsonNode value = total.path("value");
         if (!"eq".equals(total.path("relation").asText()) || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {

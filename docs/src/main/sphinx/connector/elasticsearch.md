@@ -56,6 +56,10 @@ The following table details all general configuration properties:
   - [Duration](prop-type-duration) for Elasticsearch to keep the search context
     alive for scroll requests.
   - `1m`
+* - `elasticsearch.aggregation-page-size`
+  - Maximum number of buckets returned with each Elasticsearch aggregation
+    request.
+  - `10000`
 * - `elasticsearch.request-timeout`
   - Timeout [duration](prop-type-duration) for all Elasticsearch requests.
   - `10s`
@@ -541,6 +545,27 @@ Floating-point predicates with a zero range bound are processed in Trino because
 Elasticsearch distinguishes positive and negative zero, while Trino treats them
 as equal. Predicates with nonzero bounds and null checks remain eligible for
 push down.
+
+### TopN push down
+
+The connector supports [TopN push down](topn-pushdown) to improve query
+performance by pushing `ORDER BY ... LIMIT` clauses to Elasticsearch for
+processing. TopN push down requires a column that supports predicate push down
+and has doc values enabled. `REAL` and `DOUBLE` columns and the built-in columns
+are processed in Trino.
+
+### Aggregation push down
+
+The connector supports [aggregation push down](aggregation-pushdown) for
+queries with a single grouping set and the following functions:
+
+- {func}`count`
+- {func}`avg` on numeric types
+- {func}`min` and {func}`max` on numeric types except `BIGINT`
+- {func}`sum` on `REAL` and `DOUBLE`
+
+Grouping columns and aggregate arguments have the same requirements as TopN
+push down, except that `REAL` and `DOUBLE` columns can be aggregate arguments.
 
 [built-in date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#built-in-date-formats
 [custom date formats]: https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-date-format.html#custom-date-formats
