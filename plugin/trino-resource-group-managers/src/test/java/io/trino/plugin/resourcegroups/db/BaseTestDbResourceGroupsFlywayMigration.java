@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public abstract class BaseTestDbResourceGroupsFlywayMigration
 {
     protected final JdbcDatabaseContainer<?> container = startContainer();
-    protected final Jdbi jdbi = Jdbi.create(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+    protected final Jdbi jdbi = Jdbi.create(ClassLoaderAwareConnectionFactory.create(container.getJdbcUrl(), container.getUsername(), container.getPassword()));
 
     protected abstract JdbcDatabaseContainer<?> startContainer();
 
