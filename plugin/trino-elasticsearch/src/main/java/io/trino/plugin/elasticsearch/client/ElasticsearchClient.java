@@ -109,7 +109,6 @@ public class ElasticsearchClient
 
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
-    private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
     private static final JsonNodeFactory JSON = JsonNodeFactory.instance;
 
@@ -675,6 +674,8 @@ public class ElasticsearchClient
     {
         ObjectNode countBody = JSON.objectNode();
         countBody.set("query", query);
+        countBody.put("size", 0);
+        countBody.put("track_total_hits", true);
 
         LOG.debug("Count: %s:%s, query: %s", index, shard, countBody);
 
@@ -683,8 +684,8 @@ public class ElasticsearchClient
             Response response;
             try {
                 response = client.performRequest(
-                        "GET",
-                        format("/%s/_count?preference=_shards:%s", index, shard),
+                        "POST",
+                        format("/%s/_search?preference=_shards:%s&allow_partial_search_results=false", index, shard),
                         ImmutableMap.of(),
                         new StringEntity(countBody.toString(), UTF_8),
                         new BasicHeader("Content-Type", "application/json"));
@@ -697,8 +698,7 @@ public class ElasticsearchClient
             }
 
             try {
-                return COUNT_RESPONSE_CODEC.fromJson(response.getEntity().getContent())
-                        .getCount();
+                return parseCountResponse(EntityUtils.toByteArray(response.getEntity()));
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
@@ -707,6 +707,19 @@ public class ElasticsearchClient
         finally {
             countStats.add(Duration.nanosSince(start));
         }
+    }
+
+    @VisibleForTesting
+    static long parseCountResponse(byte[] responseBody)
+            throws IOException
+    {
+        JsonNode response = parseCompleteSearchResponse(responseBody, "count");
+        JsonNode total = response.path("hits").path("total");
+        JsonNode value = total.path("value");
+        if (!"eq".equals(total.path("relation").asText()) || !value.isIntegralNumber() || !value.canConvertToLong() || value.longValue() < 0) {
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, "Elasticsearch count response is missing an exact nonnegative hit count");
+        }
+        return value.longValue();
     }
 
     public void clearScroll(String scrollId)
