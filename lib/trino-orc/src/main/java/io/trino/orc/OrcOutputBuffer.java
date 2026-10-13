@@ -15,17 +15,12 @@ package io.trino.orc;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.v3.Compressor;
-import io.airlift.compress.v3.deflate.DeflateCompressor;
-import io.airlift.compress.v3.lz4.Lz4Compressor;
-import io.airlift.compress.v3.snappy.SnappyCompressor;
-import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
-import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,6 +35,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.orc.metadata.CompressionKind.NONE;
 import static java.lang.Math.clamp;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -54,12 +50,14 @@ public class OrcOutputBuffer
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 1024 * 1024;
 
+    private static final OrcCompressorPool COMPRESSOR_POOL = new OrcCompressorPool(4 * Runtime.getRuntime().availableProcessors());
+
     private final int maxBufferSize;
 
     private final ChunkedSliceOutput compressedOutputStream;
 
-    @Nullable
-    private final Compressor compressor;
+    private final CompressionKind compression;
+    private final OrcCompressorPool compressorPool;
     private byte[] compressionBuffer = new byte[0];
 
     private Slice slice;
@@ -76,7 +74,14 @@ public class OrcOutputBuffer
 
     public OrcOutputBuffer(CompressionKind compression, int maxBufferSize)
     {
-        requireNonNull(compression, "compression is null");
+        this(compression, maxBufferSize, COMPRESSOR_POOL);
+    }
+
+    @VisibleForTesting
+    OrcOutputBuffer(CompressionKind compression, int maxBufferSize, OrcCompressorPool compressorPool)
+    {
+        this.compression = requireNonNull(compression, "compression is null");
+        this.compressorPool = requireNonNull(compressorPool, "compressorPool is null");
         checkArgument(maxBufferSize > 0, "maximum buffer size should be greater than 0");
 
         this.maxBufferSize = maxBufferSize;
@@ -85,19 +90,6 @@ public class OrcOutputBuffer
         this.slice = wrappedBuffer(buffer);
 
         compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
-        this.compressor = getCompressor(compression);
-    }
-
-    @Nullable
-    private static Compressor getCompressor(CompressionKind compression)
-    {
-        return switch (compression) {
-            case NONE -> null;
-            case SNAPPY -> SnappyCompressor.create();
-            case ZLIB -> DeflateCompressor.create();
-            case LZ4 -> Lz4Compressor.create();
-            case ZSTD -> ZstdCompressor.create();
-        };
     }
 
     public long getOutputDataSize()
@@ -122,7 +114,7 @@ public class OrcOutputBuffer
 
     public long getCheckpoint()
     {
-        if (compressor == null) {
+        if (compression == NONE) {
             return size();
         }
         return InputStreamCheckpoint.createInputStreamCheckpoint(compressedOutputStream.size(), bufferPosition);
@@ -484,19 +476,26 @@ public class OrcOutputBuffer
 
     private void writeChunkToOutputStream(byte[] chunk, int offset, int length)
     {
-        if (compressor == null) {
+        if (compression == NONE) {
             compressedOutputStream.write(chunk, offset, length);
             return;
         }
 
         checkArgument(length <= buffer.length, "Write chunk length must be less than compression buffer size");
 
-        int minCompressionBufferSize = compressor.maxCompressedLength(length);
-        if (compressionBuffer.length < minCompressionBufferSize) {
-            compressionBuffer = new byte[minCompressionBufferSize];
+        int compressedSize;
+        Compressor compressor = compressorPool.borrow(compression);
+        try {
+            int minCompressionBufferSize = compressor.maxCompressedLength(length);
+            if (compressionBuffer.length < minCompressionBufferSize) {
+                compressionBuffer = new byte[minCompressionBufferSize];
+            }
+            compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
+        }
+        finally {
+            compressorPool.release(compression, compressor);
         }
 
-        int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
         if (compressedSize < length) {
             int chunkHeader = (compressedSize << 1);
             compressedOutputStream.write(chunkHeader & 0x00_00FF);
@@ -515,7 +514,7 @@ public class OrcOutputBuffer
 
     private void writeDirectlyToOutputStream(byte[] bytes, int bytesOffset, int length)
     {
-        if (compressor == null) {
+        if (compression == NONE) {
             compressedOutputStream.writeBytes(bytes, bytesOffset, length);
             return;
         }
