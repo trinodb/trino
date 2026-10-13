@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -248,6 +249,7 @@ public class TestTrinoRestCatalog
                     Optional.empty(),
                     false,
                     _ -> false,
+                    HiveCompressionCodec.ZSTD,
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
