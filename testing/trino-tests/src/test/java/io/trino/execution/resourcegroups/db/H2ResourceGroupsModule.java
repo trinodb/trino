@@ -23,6 +23,9 @@ import io.trino.plugin.resourcegroups.db.DbResourceGroupConfig;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
 import io.trino.plugin.resourcegroups.db.H2DaoProvider;
 import io.trino.plugin.resourcegroups.db.ResourceGroupsDao;
+import org.h2.jdbcx.JdbcDataSource;
+
+import javax.sql.DataSource;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -43,5 +46,14 @@ public class H2ResourceGroupsModule
     {
         // H2 tests set up schema manually; skip Flyway migrations for this non-production database.
         return () -> {};
+    }
+
+    @Provides
+    @Singleton
+    public static DataSource createDataSource(DbResourceGroupConfig config)
+    {
+        JdbcDataSource ds = new JdbcDataSource();
+        ds.setURL(config.getConfigDbUrl());
+        return ds;
     }
 }

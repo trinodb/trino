@@ -52,6 +52,6 @@ public class DbResourceGroupsModule
     @Singleton
     public static Jdbi createJdbi(DbResourceGroupConfig config)
     {
-        return Jdbi.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword());
+        return Jdbi.create(ClassLoaderAwareConnectionFactory.create(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword()));
     }
 }
