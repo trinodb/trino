@@ -78,6 +78,7 @@ import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
@@ -98,7 +99,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     private static final TestingMetadata.TestingColumnHandle ORDERKEY_HANDLE = new TestingMetadata.TestingColumnHandle("orderkey", 0, BIGINT);
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
     private static final TestingMetadata.TestingColumnHandle ADDRESS_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("address", 2, createVarcharType(40));
-    private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
+    private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, INTEGER);
 
     private volatile Set<ColumnHandle> expectedDynamicFilterColumnsCovered;
     private volatile Consumer<TupleDomain<ColumnHandle>> expectedCoordinatorDynamicFilterAssertion;
@@ -233,17 +234,17 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk = store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
+                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(INTEGER, 2451189L), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
+                        SS_SOLD_SK_HANDLE, Domain.create(ValueSet.of(INTEGER, 2451189L), true))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        SS_SOLD_SK_HANDLE, Domain.onlyNull(BIGINT))));
+                        SS_SOLD_SK_HANDLE, Domain.onlyNull(INTEGER))));
     }
 
     @Test
