@@ -412,7 +412,7 @@ public class TestEventListenerBasic
             assertFailedQuery(
                     mySession,
                     sql,
-                    "Query killed. Message: because",
+                    "Query killed by user 'user'. Message: because",
                     event -> {
                         QueryStatistics statistics = event.getStatistics();
                         assertThat(statistics.getResourceWaitingTime()).isPresent();
