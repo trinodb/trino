@@ -90,19 +90,18 @@ public class PlanNodeStatsEstimate
     {
         checkArgument(type != null, "type is null");
 
-        double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
-        double numberOfNonNullRows = outputRowCount * (1.0 - nullsFraction);
-
         double outputSize = 0;
 
         // account for "is null" boolean array
         outputSize += outputRowCount;
 
         if (type instanceof FixedWidthType fixedType) {
-            outputSize += numberOfNonNullRows * fixedType.getFixedSize();
+            outputSize += outputRowCount * fixedType.getFixedSize();
         }
         else {
             double averageRowSize = firstNonNaN(symbolStatistics.getAverageRowSize(), DEFAULT_DATA_SIZE_PER_COLUMN);
+            double nullsFraction = firstNonNaN(symbolStatistics.getNullsFraction(), 0d);
+            double numberOfNonNullRows = outputRowCount * (1.0 - nullsFraction);
             outputSize += numberOfNonNullRows * averageRowSize;
 
             // account for offsets array
