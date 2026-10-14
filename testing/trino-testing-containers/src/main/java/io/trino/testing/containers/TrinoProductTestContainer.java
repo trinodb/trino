@@ -300,19 +300,6 @@ public final class TrinoProductTestContainer
         {
             TrinoContainer container = withResourceLimits(new TrinoContainer(DockerImageName.parse(imageName).asCompatibleSubstituteFor("trinodb/trino")));
 
-            // Legacy product tests always ran Trino with Asia/Kathmandu timezone.
-            // Keep that behavior for JUnit parity.
-            String timezoneInitScript =
-                    """
-                    #!/bin/bash
-                    if ! grep -qx -- '-Duser.timezone=Asia/Kathmandu' /etc/trino/jvm.config; then
-                        echo '-Duser.timezone=Asia/Kathmandu' >> /etc/trino/jvm.config
-                    fi
-                    """;
-            container.withCopyToContainer(
-                    Transferable.of(timezoneInitScript, 0755),
-                    "/docker/trino-init.d/00-set-timezone.sh");
-
             // Add catalog configurations
             for (Map.Entry<String, Map<String, String>> catalog : catalogs.entrySet()) {
                 String catalogName = catalog.getKey();

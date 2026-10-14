@@ -102,6 +102,7 @@ import static io.trino.operator.join.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
@@ -496,7 +497,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertThat(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows(), expected.getMaterializedRows());
 
             Metrics probeMetrics = joinOperator.getOperatorContext()
                     .getOperatorStats()

@@ -1,4 +1,4 @@
--- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|BIGINT|BIGINT
+-- delimiter: |; types: CHAR|CHAR|CHAR|CHAR|INTEGER|BIGINT
 Abbott                        |Harriet             |Ms.       |N|195008|15|
 Acosta                        |Victor              |Mr.       |N|156807|15|
 Adams                         |Jerry               |Sir       |N|216653|15|

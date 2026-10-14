@@ -15,11 +15,8 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.deltalake.metastore.FileSystemCredentials;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,21 +32,5 @@ public class TestDeltaLakeTableCredentials
                 ImmutableMap.of("access-key", "key", "secret-key", "secret"));
 
         assertThat(CODEC.fromJson(CODEC.toJson(credentials))).isEqualTo(credentials);
-    }
-
-    private static class TestingFileSystemCredentials
-            implements FileSystemCredentials
-    {
-        @Override
-        public Map<String, String> asExtraCredentials()
-        {
-            return ImmutableMap.of("access-key", "key");
-        }
-
-        @Override
-        public boolean isValid()
-        {
-            return true;
-        }
     }
 }

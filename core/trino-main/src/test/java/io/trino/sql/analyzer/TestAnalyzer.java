@@ -1153,9 +1153,12 @@ public class TestAnalyzer
         // TODO: validate output
         analyze("SELECT a x FROM t1 ORDER BY a + 1");
 
-        assertFails("SELECT x.c as x\n" +
-                "FROM (VALUES 1) x(c)\n" +
-                "ORDER BY x.c")
+        assertFails(
+                """
+                SELECT x.c as x
+                FROM (VALUES 1) x(c)
+                ORDER BY x.c
+                """)
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasLocation(3, 10);
     }
@@ -1189,15 +1192,21 @@ public class TestAnalyzer
 
         analyze("SELECT a FROM t1 GROUP BY a ORDER BY MAX((SELECT x FROM (VALUES 4) t(x)))");
 
-        analyze("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                "FROM (VALUES (1, 2)) t(a, b)\n" +
-                "GROUP BY b\n" +
-                "ORDER BY (SELECT x.someField)");
+        analyze(
+                """
+                SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x
+                FROM (VALUES (1, 2)) t(a, b)
+                GROUP BY b
+                ORDER BY (SELECT x.someField)
+                """);
 
-        assertFails("SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x\n" +
-                "FROM (VALUES (1, 2)) t(a, b)\n" +
-                "GROUP BY b\n" +
-                "ORDER BY MAX((SELECT x.someField))")
+        assertFails(
+                """
+                SELECT CAST(ROW(1) AS ROW(someField BIGINT)) AS x
+                FROM (VALUES (1, 2)) t(a, b)
+                GROUP BY b
+                ORDER BY MAX((SELECT x.someField))
+                """)
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 4:22: Invalid reference to output projection attribute from ORDER BY aggregation");
     }
@@ -1215,26 +1224,35 @@ public class TestAnalyzer
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
                 new NodeSchedulerConfig()))).build();
-        analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)");
-        assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l, m)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)")
+        analyze(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
+                t (a, b, c, d, e, f, g, h, i, j, k, l)
+                GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k)
+                """);
+        assertFails(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, l, SUM(m)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))
+                t (a, b, c, d, e, f, g, h, i, j, k, l, m)
+                GROUP BY CUBE (a, b, c, d, e, f), CUBE (g, h, i, j, k, l)
+                """)
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
-                .hasMessageMatching("line 3:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
-        assertFails(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)" +
-                "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, " +
-                "17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))\n" +
-                "t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
-                "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
-                "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)")
+                .hasMessageMatching("line 4:10: GROUP BY has 4096 grouping sets but can contain at most 2048");
+        assertFails(session,
+                """
+                SELECT a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, SUM(af)
+                FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32))
+                t (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)
+                GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,
+                q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)
+                """)
                 .hasErrorCode(TOO_MANY_GROUPING_SETS)
-                .hasMessageMatching(format("line 3:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
+                .hasMessageMatching(format("line 7:10: GROUP BY has more than %s grouping sets but can contain at most 2048", Integer.MAX_VALUE));
     }
 
     @Test

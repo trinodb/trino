@@ -54,6 +54,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.variant.VariantEncoder.encodeObject;
 import static io.trino.spi.variant.VariantEncoder.encodedObjectSize;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -651,6 +652,24 @@ class TestVariantOperators
                 .isEqualTo(epochNanos);
 
         assertCastFromVariant(Variant.NULL_VALUE, "TIMESTAMP(9) WITH TIME ZONE", null);
+    }
+
+    @Test
+    void testCastWithTimestampAtOverflowBound()
+    {
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(6)", SqlTimestamp.newInstance(6, 9223372036854776L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(3)", SqlTimestamp.newInstance(3, 9223372036855000L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(7)", SqlTimestamp.newInstance(7, 9223372036854775L, 800_000));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MIN_VALUE), "TIMESTAMP(6)", SqlTimestamp.newInstance(6, -9223372036854776L, 0));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(3) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(3, 9223372036855L, 0, UTC_KEY));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(7) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(7, 9223372036854L, 775_800_000, UTC_KEY));
+        assertCastFromVariant(Variant.ofTimestampNanosNtz(Long.MAX_VALUE), "TIMESTAMP(8)", SqlTimestamp.newInstance(8, 9223372036854775L, 810_000));
+        assertCastFromVariant(Variant.ofTimestampNanosUtc(Long.MAX_VALUE), "TIMESTAMP(8) WITH TIME ZONE", SqlTimestampWithTimeZone.newInstance(8, 9223372036854L, 775_810_000, UTC_KEY));
+
+        assertCastFromVariant(Variant.ofTimestampMicrosNtz(Long.MAX_VALUE), "TIMESTAMP(4)", SqlTimestamp.newInstance(4, 9223372036854775800L, 0));
+        assertCastFromVariantThrows(Variant.ofTimestampMicrosNtz(Long.MAX_VALUE), "TIMESTAMP(5)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("Timestamp out of range");
     }
 
     @Test
@@ -1433,6 +1452,68 @@ class TestVariantOperators
                 .evaluate())
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("VARIANT value is int32, not an object");
+    }
+
+    // The elements of an array and the output of UNNEST are regions of a larger block.
+    // Operators that keep values in flat memory must size each value at its position in the region.
+    @Test
+    void testFlatValuesFromBlockRegions()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT count(DISTINCT v)
+                FROM (VALUES
+                        transform(sequence(1, 600), x -> CAST(CAST(x AS JSON) AS VARIANT)),
+                        transform(sequence(601, 1200), x -> CAST(CAST(x AS JSON) AS VARIANT)),
+                        transform(sequence(1201, 1800), x -> CAST(CAST(x AS JSON) AS VARIANT))) t(a)
+                CROSS JOIN UNNEST(a) u(v)
+                """))
+                .matches("VALUES BIGINT '1800'");
+
+        String arrays =
+                """
+                (VALUES
+                    (1, CAST(ARRAY[1, 2] AS ARRAY(VARIANT))),
+                    (2, CAST(ARRAY['three', 'four'] AS ARRAY(VARIANT))),
+                    (3, CAST(ARRAY[1, 2] AS ARRAY(VARIANT)))) t(k, a)
+                """;
+        assertThat(assertions.query("SELECT DISTINCT a FROM " + arrays))
+                .matches("VALUES CAST(ARRAY[1, 2] AS ARRAY(VARIANT)), CAST(ARRAY['three', 'four'] AS ARRAY(VARIANT))");
+        assertThat(assertions.query("SELECT a, count(*) FROM " + arrays + " GROUP BY a"))
+                .matches("VALUES (CAST(ARRAY[1, 2] AS ARRAY(VARIANT)), BIGINT '2'), (CAST(ARRAY['three', 'four'] AS ARRAY(VARIANT)), BIGINT '1')");
+        assertThat(assertions.query("SELECT array_agg(a ORDER BY k) FROM " + arrays))
+                .matches("VALUES ARRAY[CAST(ARRAY[1, 2] AS ARRAY(VARIANT)), CAST(ARRAY['three', 'four'] AS ARRAY(VARIANT)), CAST(ARRAY[1, 2] AS ARRAY(VARIANT))]");
+        assertThat(assertions.query("SELECT histogram(a) FROM " + arrays))
+                .matches("VALUES MAP(ARRAY[CAST(ARRAY[1, 2] AS ARRAY(VARIANT)), CAST(ARRAY['three', 'four'] AS ARRAY(VARIANT))], ARRAY[BIGINT '2', BIGINT '1'])");
+
+        assertThat(assertions.query(
+                """
+                SELECT k, a IN (SELECT b FROM (VALUES
+                        CAST(ARRAY[1, 2] AS ARRAY(VARIANT)),
+                        CAST(ARRAY[2] AS ARRAY(VARIANT)),
+                        CAST(ARRAY[3] AS ARRAY(VARIANT))) u(b))
+                FROM (VALUES
+                    (1, CAST(ARRAY[1] AS ARRAY(VARIANT))),
+                    (2, CAST(ARRAY[2] AS ARRAY(VARIANT))),
+                    (3, CAST(ARRAY[3] AS ARRAY(VARIANT))),
+                    (4, CAST(ARRAY[1, 2] AS ARRAY(VARIANT)))) t(k, a)
+                """))
+                .matches("VALUES (1, false), (2, true), (3, true), (4, true)");
+
+        // over VALUES, the planner evaluates array_histogram for each row on its own, so UNNEST keeps the arrays in one block
+        assertThat(assertions.query(
+                """
+                SELECT array_histogram(a)
+                FROM UNNEST(ARRAY[
+                    CAST(ARRAY[1, 2, 1] AS ARRAY(VARIANT)),
+                    CAST(ARRAY['three', 'three'] AS ARRAY(VARIANT))]) t(a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            MAP(ARRAY[CAST(1 AS VARIANT), CAST(2 AS VARIANT)], ARRAY[BIGINT '2', BIGINT '1']),
+                            MAP(ARRAY[CAST('three' AS VARIANT)], ARRAY[BIGINT '2'])
+                        """);
     }
 
     private void assertCastToVariant(String sqlLiteral, Object expected)

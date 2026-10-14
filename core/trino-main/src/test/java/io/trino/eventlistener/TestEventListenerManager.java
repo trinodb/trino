@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,21 +46,5 @@ class TestEventListenerManager
         eventListenerManager.shutdown();
 
         assertThat(wasCalled.get()).isTrue();
-    }
-
-    private static final class BlockingEventListener
-            implements EventListener
-    {
-        @Override
-        public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-        {
-            try {
-                // sleep forever
-                Thread.sleep(100_000);
-            }
-            catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
     }
 }

@@ -134,8 +134,8 @@ public abstract class AbstractTestDynamicRowFiltering
 
         // ensure results are correct
         MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
-        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "Rows for query [%s]".formatted(sql));
+        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.result(), expected, "Rows for query [%s]".formatted(sql));
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
                 rowFilteringResultWithQueryId.queryId(),
@@ -178,7 +178,7 @@ public abstract class AbstractTestDynamicRowFiltering
 
         // ensure results are correct
         MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "Rows for query [%s]".formatted(sql));
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
                 rowFilteringResultWithQueryId.queryId(),

@@ -3711,6 +3711,7 @@ public class LocalExecutionPlanner
                     ImmutableList.of(),
                     ImmutableList.of(),
                     maxLocalExchangeBufferSize,
+                    context.getTaskContext().aggregateUserMemoryContext(),
                     hashCompiler,
                     getWriterScalingMinDataProcessed(session),
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
@@ -3787,6 +3788,7 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionChannelTypes,
                     maxLocalExchangeBufferSize,
+                    context.getTaskContext().aggregateUserMemoryContext(),
                     hashCompiler,
                     getWriterScalingMinDataProcessed(session),
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());

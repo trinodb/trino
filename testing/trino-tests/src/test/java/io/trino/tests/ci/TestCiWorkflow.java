@@ -34,6 +34,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,8 +96,7 @@ public class TestCiWorkflow
                 .map(option -> option.strip().replaceFirst("steps\\.([-a-zA-Z0-9]+)\\.outcome == 'failure'", "$1"))
                 .collect(toImmutableSet());
 
-        assertThat(conditions)
-                .containsExactlyInAnyOrderElementsOf(testStepIds);
+        assertEqualsIgnoreOrder(conditions, testStepIds);
     }
 
     @Test

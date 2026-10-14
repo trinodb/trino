@@ -13,12 +13,7 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multiset;
-import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -29,6 +24,7 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
+import io.trino.testing.assertions.Assert;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
@@ -272,7 +268,7 @@ public final class QueryAssertions
             }
         }
         else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
+            assertEqualsIgnoreOrder(actualRows, expectedRows, "Rows for query [%s]".formatted(actual));
         }
     }
 
@@ -375,7 +371,7 @@ public final class QueryAssertions
             }
         }
         else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query " + queryId + ": \n " + actual);
+            assertEqualsIgnoreOrder(actualRows, expectedRows, "Rows for query %s [%s]".formatted(queryId, actual));
         }
     }
 
@@ -395,38 +391,12 @@ public final class QueryAssertions
 
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)
     {
-        assertEqualsIgnoreOrder(actual, expected, null);
+        Assert.assertEqualsIgnoreOrder(actual, expected);
     }
 
-    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String message)
+    public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String subject)
     {
-        assertThat(actual)
-                .describedAs("actual is null")
-                .isNotNull();
-        assertThat(expected)
-                .describedAs("expected is null")
-                .isNotNull();
-
-        ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
-        ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
-        if (!actualSet.equals(expectedSet)) {
-            Multiset<?> unexpectedRows = Multisets.difference(actualSet, expectedSet);
-            Multiset<?> missingRows = Multisets.difference(expectedSet, actualSet);
-            int limit = 100;
-            fail(format(
-                    "%snot equal\n" +
-                            "Actual rows (up to %s of %s extra rows shown, %s rows in total):\n    %s\n" +
-                            "Expected rows (up to %s of %s missing rows shown, %s rows in total):\n    %s\n",
-                    message == null ? "" : (message + "\n"),
-                    limit,
-                    unexpectedRows.size(),
-                    actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)),
-                    limit,
-                    missingRows.size(),
-                    expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(missingRows, limit))));
-        }
+        Assert.assertEqualsIgnoreOrder(actual, expected, subject);
     }
 
     public static void assertContainsEventually(Supplier<MaterializedResult> all, MaterializedResult expectedSubset, Duration timeout)
@@ -436,17 +406,7 @@ public final class QueryAssertions
 
     public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
     {
-        for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
-            if (!all.getMaterializedRows().contains(row)) {
-                fail(format(
-                        "expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
-                        row,
-                        all.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
-                        expectedSubset.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
-            }
-        }
+        Assert.assertContainsAll(all.getMaterializedRows(), expectedSubset.getMaterializedRows(), "Rows");
     }
 
     protected static void assertQuerySucceeds(QueryRunner queryRunner, Session session, @Language("SQL") String sql)

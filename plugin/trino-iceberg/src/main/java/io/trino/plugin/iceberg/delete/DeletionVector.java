@@ -126,7 +126,7 @@ public final class DeletionVector
     private static int crc32(Slice data, int offset, int length)
     {
         CRC32 crc = new CRC32();
-        crc.update(data.byteArray(), offset, length);
+        crc.update(data.byteArray(), data.byteArrayOffset() + offset, length);
         return (int) crc.getValue();
     }
 

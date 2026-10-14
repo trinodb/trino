@@ -167,18 +167,21 @@ public class TestDruidConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE druid.druid.orders (\n" +
-                        "   __time timestamp(3) NOT NULL,\n" +
-                        "   clerk varchar,\n" +
-                        "   comment varchar,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderdate varchar,\n" +
-                        "   orderkey bigint,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   shippriority bigint,\n" +
-                        "   totalprice double\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE druid.druid.orders (
+                           __time timestamp(3) NOT NULL,
+                           clerk varchar,
+                           comment varchar,
+                           custkey bigint,
+                           orderdate varchar,
+                           orderkey bigint,
+                           orderpriority varchar,
+                           orderstatus varchar,
+                           shippriority bigint,
+                           totalprice double
+                        )\
+                        """);
     }
 
     @Override

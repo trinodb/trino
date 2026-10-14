@@ -903,7 +903,7 @@ public class RangerSystemAccessControl
             return Optional.empty();
         }
         else {
-            transformer = transformer.replace("{col}", columnName).replace("{type}", type.getDisplayName());
+            transformer = transformer.replace("{col}", quoteIdentifier(columnName)).replace("{type}", type.getDisplayName());
 
             return Optional.of(ViewExpression.builder().identity(context.getIdentity().getUser()).catalog(tableName.getCatalogName()).schema(tableName.getSchemaTableName().getSchemaName()).expression(transformer).build());
         }
@@ -1062,24 +1062,13 @@ public class RangerSystemAccessControl
         return result != null && result.getIsAllowed();
     }
 
-    private boolean hasPermission(RangerTrinoResource resource, Optional<Principal> principal, QueryId queryId, RangerTrinoAccessType accessType, String action)
-    {
-        RangerAccessResult result = rangerPlugin.isAccessAllowed(createAccessRequest(resource, toIdentity(principal), queryId, accessType, action));
-
-        return result != null && result.getIsAllowed();
-    }
-
     private static RangerTrinoResource createTableResource(CatalogSchemaTableName catalogSchemaTableName)
     {
         return RangerTrinoResource.forTable(catalogSchemaTableName.getCatalogName(), catalogSchemaTableName.getSchemaTableName().getSchemaName(), catalogSchemaTableName.getSchemaTableName().getTableName());
     }
 
-    private static Identity toIdentity(Optional<Principal> principal)
+    private static String quoteIdentifier(String identifier)
     {
-        if (principal.isPresent()) {
-            return Identity.ofUser(principal.get().getName());
-        }
-
-        return Identity.ofUser("");
+        return '"' + identifier.replace("\"", "\"\"") + '"';
     }
 }

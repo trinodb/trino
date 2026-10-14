@@ -29,4 +29,11 @@ public record CatalogProperties(CatalogName name, CatalogVersion version, Connec
         requireNonNull(connectorName, "connectorName is null");
         properties = Map.copyOf(requireNonNull(properties, "properties is null"));
     }
+
+    @Override
+    public String toString()
+    {
+        // properties may contain credentials, so they are not included
+        return "CatalogProperties{name=%s, version=%s, connectorName=%s}".formatted(name, version, connectorName);
+    }
 }

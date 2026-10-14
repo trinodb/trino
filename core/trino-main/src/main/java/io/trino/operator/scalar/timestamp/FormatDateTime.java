@@ -28,8 +28,8 @@ import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.type.Timestamps.round;
-import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -42,7 +42,7 @@ public final class FormatDateTime
     public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // TODO: currently, date formatting only supports up to millis, so we round to that unit
-        timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
+        timestamp = roundDiv(timestamp, MICROSECONDS_PER_MILLISECOND);
 
         if (datetimeFormatSpecifiesZone(formatString)) {
             // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.

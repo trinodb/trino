@@ -50,10 +50,10 @@ public final class VarcharToTimestampCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
-    public static long castToShort(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
+    public static long castToShort(@LiteralParameter("p") int precision, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return castToShortTimestamp((int) precision, trim(value));
+            return castToShortTimestamp(precision, trim(value));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -62,10 +62,10 @@ public final class VarcharToTimestampCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
-    public static LongTimestamp castToLong(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
+    public static LongTimestamp castToLong(@LiteralParameter("p") int precision, @SqlType("varchar(x)") Slice value)
     {
         try {
-            return castToLongTimestamp((int) precision, trim(value));
+            return castToLongTimestamp(precision, trim(value));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);

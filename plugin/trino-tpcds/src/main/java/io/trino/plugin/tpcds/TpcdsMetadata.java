@@ -33,6 +33,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
+import io.trino.tpcds.Scaling;
 import io.trino.tpcds.Table;
 import io.trino.tpcds.column.Column;
 import io.trino.tpcds.column.ColumnType;
@@ -46,6 +47,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.tpcds.Table.INVENTORY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -117,9 +119,10 @@ public class TpcdsMetadata
 
     private static ConnectorTableMetadata getTableMetadata(String schemaName, Table tpcdsTable)
     {
+        Type identifierType = identifierType(schemaNameToScaleFactor(schemaName));
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), getTrinoType(column.getType())));
+            columns.add(new ColumnMetadata(column.getName(), getTrinoType(column.getType(), identifierType)));
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -221,10 +224,23 @@ public class TpcdsMetadata
         }
     }
 
-    public static Type getTrinoType(ColumnType tpcdsType)
+    // Identifier values are bounded by Scaling.getRowCount, apart from small date and time keys
+    public static Type identifierType(double scaleFactor)
+    {
+        Scaling scaling = new Scaling(scaleFactor);
+        boolean fitsInteger = Table.getBaseTables().stream()
+                .filter(table -> !table.isChild() && table != INVENTORY)
+                .allMatch(table -> scaling.getRowCount(table) <= Integer.MAX_VALUE);
+        if (fitsInteger) {
+            return IntegerType.INTEGER;
+        }
+        return BigintType.BIGINT;
+    }
+
+    public static Type getTrinoType(ColumnType tpcdsType, Type identifierType)
     {
         return switch (tpcdsType.getBase()) {
-            case IDENTIFIER -> BigintType.BIGINT;
+            case IDENTIFIER -> identifierType;
             case INTEGER -> IntegerType.INTEGER;
             case DATE -> DateType.DATE;
             case DECIMAL -> createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());

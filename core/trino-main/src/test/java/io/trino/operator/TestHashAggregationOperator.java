@@ -95,6 +95,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -664,7 +665,7 @@ public class TestHashAggregationOperator
             MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
 
             assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
-            assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
 
         assertThat(driverContext.getMemoryUsage()).isEqualTo(0);

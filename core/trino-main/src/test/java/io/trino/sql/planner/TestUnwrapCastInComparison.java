@@ -56,6 +56,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -710,6 +711,19 @@ public class TestUnwrapCastInComparison
         testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 02:00:00.000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "2020-10-25 03:00:00.000000"))));
         testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 02:00:00.000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-25 03:00:00.000000000"))));
         testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 02:00:00.000000000000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "2020-10-25 03:00:00.000000000000"))));
+
+        // explicit cast without precision change
+        testUnwrap(utcSession, "timestamp(6)", "CAST(a AS timestamp(6) with time zone) > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "2020-10-26 11:02:18.123456"))));
+        testUnwrap(utcSession, "timestamp(9)", "CAST(a AS timestamp(9) with time zone) > TIMESTAMP '2020-10-26 11:02:18.123456789 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-26 11:02:18.123456789"))));
+
+        // explicit cast increasing precision
+        testUnwrap(utcSession, "timestamp(3)", "CAST(a AS timestamp(6) with time zone) > TIMESTAMP '2020-10-26 11:02:18.123000 UTC'", comparison(GREATER_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "2020-10-26 11:02:18.123"))));
+
+        // explicit cast reducing precision rounds, so it is not injective and must not be unwrapped
+        testUnwrap(utcSession, "timestamp(9)", "CAST(a AS timestamp(6) with time zone) > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", comparison(GREATER_THAN, new Cast(new Reference(createTimestampType(9), "a"), createTimestampWithTimeZoneType(6)), new Constant(createTimestampWithTimeZoneType(6), DateTimes.parseTimestampWithTimeZone(6, "2020-10-26 11:02:18.123456 UTC"))));
+        testUnwrap(utcSession, "timestamp(9)", "CAST(a AS timestamp(6) with time zone) = TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", comparison(EQUAL, new Cast(new Reference(createTimestampType(9), "a"), createTimestampWithTimeZoneType(6)), new Constant(createTimestampWithTimeZoneType(6), DateTimes.parseTimestampWithTimeZone(6, "2020-10-26 11:02:18.123456 UTC"))));
+        testUnwrap(utcSession, "timestamp(6)", "CAST(a AS timestamp(3) with time zone) < TIMESTAMP '2020-10-26 11:02:18.123 UTC'", comparison(LESS_THAN, new Cast(new Reference(createTimestampType(6), "a"), createTimestampWithTimeZoneType(3)), new Constant(createTimestampWithTimeZoneType(3), DateTimes.parseTimestampWithTimeZone(3, "2020-10-26 11:02:18.123 UTC"))));
+        testUnwrap(utcSession, "timestamp(12)", "CAST(a AS timestamp(0) with time zone) >= TIMESTAMP '2020-10-26 11:02:18 UTC'", comparison(GREATER_THAN_OR_EQUAL, new Cast(new Reference(createTimestampType(12), "a"), createTimestampWithTimeZoneType(0)), new Constant(createTimestampWithTimeZoneType(0), DateTimes.parseTimestampWithTimeZone(0, "2020-10-26 11:02:18 UTC"))));
     }
 
     @Test

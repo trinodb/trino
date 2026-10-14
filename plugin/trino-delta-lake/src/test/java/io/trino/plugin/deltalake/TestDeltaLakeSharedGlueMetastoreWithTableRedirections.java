@@ -116,10 +116,13 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @Override
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
-        String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
+        String expectedHiveCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s'
+                )\
+                """;
 
         return format(expectedHiveCreateSchema, catalogName, schema, schemaLocation);
     }
@@ -127,10 +130,13 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @Override
     protected String getExpectedDeltaLakeCreateSchema(String catalogName)
     {
-        String expectedDeltaLakeCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "WITH (\n" +
-                "   location = '%s'\n" +
-                ")";
+        String expectedDeltaLakeCreateSchema =
+                """
+                CREATE SCHEMA %s.%s
+                WITH (
+                   location = '%s'
+                )\
+                """;
         return format(expectedDeltaLakeCreateSchema, catalogName, schema, schemaLocation);
     }
 

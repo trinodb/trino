@@ -103,7 +103,7 @@ public final class IntervalDayToSecondAverageAggregation
 
     @SqlNullable
     @OutputFunction("interval day(9) to second(p)")
-    public static void output(@LiteralParameter("p") long precision, @AggregationState LongDecimalWithOverflowAndLongState state, BlockBuilder out)
+    public static void output(@LiteralParameter("p") int precision, @AggregationState LongDecimalWithOverflowAndLongState state, BlockBuilder out)
     {
         if (state.getLong() == 0) {
             out.appendNull();
@@ -118,7 +118,7 @@ public final class IntervalDayToSecondAverageAggregation
         }
         // Round the exact average once to the output precision, with ties toward positive infinity.
         // Rounding to picoseconds first can move a value below the final midpoint onto that midpoint.
-        BigInteger quantum = BigInteger.TEN.pow(MAX_FRACTIONAL_PRECISION - (int) precision);
+        BigInteger quantum = BigInteger.TEN.pow(MAX_FRACTIONAL_PRECISION - precision);
         BigInteger divisor = BigInteger.valueOf(state.getLong()).multiply(quantum);
         BigInteger[] quotientAndRemainder = total.divideAndRemainder(divisor);
         BigInteger units = quotientAndRemainder[0];
@@ -142,7 +142,7 @@ public final class IntervalDayToSecondAverageAggregation
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Interval day to second average overflow", e);
         }
-        IntervalDayTimeType type = createIntervalDayTimeType(DAY, SECOND, IntervalDayTimeType.maxLeadingPrecision(DAY), (int) precision);
+        IntervalDayTimeType type = createIntervalDayTimeType(DAY, SECOND, IntervalDayTimeType.maxLeadingPrecision(DAY), precision);
         if (type.isShort()) {
             type.writeLong(out, micros);
         }

@@ -27,17 +27,20 @@ public class TestIdentifierMappingRules
     {
         // The JSON format is part of the user interface, changing this may affect users.
 
-        String json = "{\n" +
-                "  \"schemas\" : [ {\n" +
-                "    \"remoteSchema\" : \"remote_schema\",\n" +
-                "    \"mapping\" : \"trino_schema\"\n" +
-                "  } ],\n" +
-                "  \"tables\" : [ {\n" +
-                "    \"remoteSchema\" : \"remote_schema\",\n" +
-                "    \"remoteTable\" : \"remote_table\",\n" +
-                "    \"mapping\" : \"trino_table\"\n" +
-                "  } ]\n" +
-                "}";
+        String json =
+                """
+                {
+                  "schemas" : [ {
+                    "remoteSchema" : "remote_schema",
+                    "mapping" : "trino_schema"
+                  } ],
+                  "tables" : [ {
+                    "remoteSchema" : "remote_schema",
+                    "remoteTable" : "remote_table",
+                    "mapping" : "trino_table"
+                  } ]
+                }
+                """;
 
         JsonCodec<IdentifierMappingRules> identifierMappingRulesJsonCodec = jsonCodec(IdentifierMappingRules.class);
         assertThat(identifierMappingRulesJsonCodec.fromJson(json))

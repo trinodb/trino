@@ -13,15 +13,20 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
+import io.trino.plugin.elasticsearch.expression.TopN;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -34,13 +39,15 @@ public record ElasticsearchTableHandle(
         TupleDomain<ColumnHandle> constraint,
         Map<String, String> regexes,
         Optional<String> query,
-        OptionalLong limit,
-        Set<ElasticsearchColumnHandle> columns)
+        Set<ElasticsearchColumnHandle> columns,
+        List<TermAggregation> termAggregations,
+        List<MetricAggregation> metricAggregations,
+        Optional<TopN> topN)
         implements ConnectorTableHandle
 {
     public enum Type
     {
-        SCAN, QUERY
+        SCAN, QUERY, AGGREGATION
     }
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
@@ -51,8 +58,10 @@ public record ElasticsearchTableHandle(
                 TupleDomain.all(),
                 ImmutableMap.of(),
                 query,
-                OptionalLong.empty(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Optional.empty());
     }
 
     public ElasticsearchTableHandle withColumns(Set<ElasticsearchColumnHandle> columns)
@@ -64,8 +73,10 @@ public record ElasticsearchTableHandle(
                 constraint,
                 regexes,
                 query,
-                limit,
-                columns);
+                columns,
+                termAggregations,
+                metricAggregations,
+                topN);
     }
 
     public ElasticsearchTableHandle
@@ -77,7 +88,9 @@ public record ElasticsearchTableHandle(
         regexes = ImmutableMap.copyOf(regexes);
         columns = ImmutableSet.copyOf(columns);
         requireNonNull(query, "query is null");
-        requireNonNull(limit, "limit is null");
+        termAggregations = ImmutableList.copyOf(termAggregations);
+        metricAggregations = ImmutableList.copyOf(metricAggregations);
+        requireNonNull(topN, "topN is null");
     }
 
     @Override
@@ -94,8 +107,8 @@ public record ElasticsearchTableHandle(
                     .collect(Collectors.joining(", ")));
             attributes.append("]");
         }
-        limit.ifPresent(value -> attributes.append("limit=" + value));
         query.ifPresent(value -> attributes.append("query" + value));
+        topN.ifPresent(value -> attributes.append("topN=" + value));
 
         if (attributes.length() > 0) {
             builder.append("(");

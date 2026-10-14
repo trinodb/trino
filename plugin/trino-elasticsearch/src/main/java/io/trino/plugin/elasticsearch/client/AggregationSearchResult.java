@@ -13,22 +13,14 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 
-public class CountResponse
+import static java.util.Objects.requireNonNull;
+
+public record AggregationSearchResult(JsonNode response, long totalHits, long responseSize)
 {
-    private final long count;
-
-    @JsonCreator
-    public CountResponse(@JsonProperty("count") long count)
+    public AggregationSearchResult
     {
-        this.count = count;
-    }
-
-    @JsonProperty
-    public long getCount()
-    {
-        return count;
+        requireNonNull(response, "response is null");
     }
 }

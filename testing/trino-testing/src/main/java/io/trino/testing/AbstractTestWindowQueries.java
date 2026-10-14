@@ -40,36 +40,38 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testDistinctWindowPartitionAndPeerGroups()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT x, y, z, rank() OVER (PARTITION BY x ORDER BY y) rnk\n" +
-                "FROM (\n" +
-                "  VALUES " +
-                "    (1.0, 0.1, 'a'), " +
-                "    (2.0, 0.1, 'a'), " +
-                "    (nan(), 0.1, 'a'), " +
-                "    (NULL, 0.1, 'a'), " +
-                "    (1.0, 0.1, 'b'), " +
-                "    (2.0, 0.1, 'b'), " +
-                "    (nan(), 0.1, 'b'), " +
-                "    (NULL, 0.1, 'b'), " +
-                "    (1.0, nan(), 'a'), " +
-                "    (2.0, nan(), 'a'), " +
-                "    (nan(), nan(), 'a'), " +
-                "    (NULL, nan(), 'a'), " +
-                "    (1.0, nan(), 'b'), " +
-                "    (2.0, nan(), 'b'), " +
-                "    (nan(), nan(), 'b'), " +
-                "    (NULL, nan(), 'b'), " +
-                "    (1.0, NULL, 'a'), " +
-                "    (2.0, NULL, 'a'), " +
-                "    (nan(), NULL, 'a'), " +
-                "    (NULL, NULL, 'a'), " +
-                "    (1.0, NULL, 'b'), " +
-                "    (2.0, NULL, 'b'), " +
-                "    (nan(), NULL, 'b'), " +
-                "    (NULL, NULL, 'b') " +
-                ") a(x, y, z)" +
-                "ORDER BY x, y, z");
+        MaterializedResult actual = computeActual(
+                """
+                SELECT x, y, z, rank() OVER (PARTITION BY x ORDER BY y) rnk
+                FROM (
+                  VALUES
+                    (1.0, 0.1, 'a'),
+                    (2.0, 0.1, 'a'),
+                    (nan(), 0.1, 'a'),
+                    (NULL, 0.1, 'a'),
+                    (1.0, 0.1, 'b'),
+                    (2.0, 0.1, 'b'),
+                    (nan(), 0.1, 'b'),
+                    (NULL, 0.1, 'b'),
+                    (1.0, nan(), 'a'),
+                    (2.0, nan(), 'a'),
+                    (nan(), nan(), 'a'),
+                    (NULL, nan(), 'a'),
+                    (1.0, nan(), 'b'),
+                    (2.0, nan(), 'b'),
+                    (nan(), nan(), 'b'),
+                    (NULL, nan(), 'b'),
+                    (1.0, NULL, 'a'),
+                    (2.0, NULL, 'a'),
+                    (nan(), NULL, 'a'),
+                    (NULL, NULL, 'a'),
+                    (1.0, NULL, 'b'),
+                    (2.0, NULL, 'b'),
+                    (nan(), NULL, 'b'),
+                    (NULL, NULL, 'b')
+                ) a(x, y, z)
+                ORDER BY x, y, z
+                """);
 
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
                 .row(1.0, 0.1, "a", 1L)

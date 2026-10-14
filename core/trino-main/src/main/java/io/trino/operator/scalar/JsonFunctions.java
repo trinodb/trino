@@ -83,9 +83,9 @@ public final class JsonFunctions
     @ScalarOperator(OperatorType.CAST)
     @LiteralParameters("x")
     @SqlType(JsonPathType.NAME)
-    public static JsonPath castCharToJsonPath(@LiteralParameter("x") long charLength, @SqlType("char(x)") Slice pattern)
+    public static JsonPath castCharToJsonPath(@LiteralParameter("x") int charLength, @SqlType("char(x)") Slice pattern)
     {
-        return new JsonPath(padSpaces(pattern, toIntExact(charLength)).toStringUtf8());
+        return new JsonPath(padSpaces(pattern, charLength).toStringUtf8());
     }
 
     @ScalarFunction("is_json_scalar")

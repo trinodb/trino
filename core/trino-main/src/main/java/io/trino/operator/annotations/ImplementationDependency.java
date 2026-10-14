@@ -107,7 +107,7 @@ public interface ImplementationDependency
                 return new TypeImplementationDependency(parseTypeTemplate(typeParameter.value(), typeParameters, literalParameters));
             }
             if (annotation instanceof LiteralParameter literalParameter) {
-                return new LiteralImplementationDependency(literalParameter.value());
+                return new LiteralImplementationDependency(literalParameter.value(), type);
             }
 
             if (annotation instanceof FunctionDependency functionDependency) {

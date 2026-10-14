@@ -26,8 +26,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
-import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -40,56 +38,7 @@ import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
 public final class StructuralTestUtil
 {
-    private static final BlockTypeOperators TYPE_OPERATORS_CACHE = new BlockTypeOperators();
-
     private StructuralTestUtil() {}
-
-    public static boolean arrayBlocksEqual(Type elementType, Block block1, Block block2)
-    {
-        if (block1.getPositionCount() != block2.getPositionCount()) {
-            return false;
-        }
-        BlockPositionEqual elementEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(elementType);
-        for (int i = 0; i < block1.getPositionCount(); i++) {
-            if (block1.isNull(i) != block2.isNull(i)) {
-                return false;
-            }
-            if (!block1.isNull(i) && !elementEqualOperator.equal(block1, i, block2, i)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static boolean sqlMapEqual(Type keyType, Type valueType, SqlMap leftMap, SqlMap rightMap)
-    {
-        if (leftMap.getSize() != rightMap.getSize()) {
-            return false;
-        }
-
-        int leftRawOffset = leftMap.getRawOffset();
-        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
-        Block leftRawValueBlock = leftMap.getRawValueBlock();
-        int rightRawOffset = rightMap.getRawOffset();
-        Block rightRawKeyBlock = rightMap.getRawKeyBlock();
-        Block rightRawValueBlock = rightMap.getRawValueBlock();
-
-        BlockPositionEqual keyEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(keyType);
-        BlockPositionEqual valueEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(valueType);
-        for (int i = 0; i < leftMap.getSize(); i++) {
-            if (leftRawKeyBlock.isNull(leftRawOffset + i) != rightRawKeyBlock.isNull(rightRawOffset + i) ||
-                    leftRawValueBlock.isNull(leftRawOffset + i) != rightRawValueBlock.isNull(rightRawOffset + i)) {
-                return false;
-            }
-            if (!leftRawKeyBlock.isNull(leftRawOffset + i) && !keyEqualOperator.equal(leftRawKeyBlock, leftRawOffset + i, rightRawKeyBlock, rightRawOffset + i)) {
-                return false;
-            }
-            if (!leftRawValueBlock.isNull(leftRawOffset + i) && !valueEqualOperator.equal(leftRawValueBlock, leftRawOffset + i, rightRawValueBlock, rightRawOffset + i)) {
-                return false;
-            }
-        }
-        return true;
-    }
 
     public static Block arrayBlockOf(Type elementType, Object... values)
     {

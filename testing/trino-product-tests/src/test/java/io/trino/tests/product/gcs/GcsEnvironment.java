@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.gcs;
 
+import io.trino.testing.containers.FlociGcp;
 import io.trino.testing.containers.HadoopContainer;
 import io.trino.testing.containers.MultiNodeTrinoCluster;
 import io.trino.testing.containers.SparkIcebergContainer;
@@ -35,16 +36,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.testing.containers.FlociGcp.FLOCI_GCP_PROJECT_ID;
 import static io.trino.testing.containers.environment.QueryRetry.executeWithRetry;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hadoopMetastoreUri;
 import static io.trino.tests.product.hive.HiveCatalogPropertiesBuilder.hiveCatalog;
 import static io.trino.tests.product.iceberg.IcebergCatalogPropertiesBuilder.icebergCatalog;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
@@ -62,16 +61,14 @@ public class GcsEnvironment
     private static final String GCS_CONFIG_DIR =
             "testing/trino-product-tests/src/test/resources/docker/trino-product-tests/conf/environment/multinode-gcs";
 
-    private static final String HADOOP_GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
     private static final String SPARK_GCP_CREDENTIALS_FILE = "/spark/conf/gcp-credentials.json";
     private static final Duration HIVE_METASTORE_STARTUP_TIMEOUT = Duration.ofMinutes(4);
     private static final Duration HIVE_METASTORE_STARTUP_POLL_INTERVAL = Duration.ofSeconds(2);
     private static final int HIVE_METASTORE_STABLE_SUCCESS_POLL_COUNT = 3;
     private static final Duration HADOOP_STARTUP_TIMEOUT = Duration.ofMinutes(6);
-    private static final String GCS_CONNECTOR_VERSION = "hadoop2-2.2.24";
-    private static final String GCS_CONNECTOR_SHA256 = "ff2136d22ac84fab91e3eea0886d5e59f8acbabb19e46ff91dbcd1f2db0925d6";
 
     private Network network;
+    private FlociGcp flociGcp;
     private HadoopContainer hadoop;
     private SparkIcebergContainer spark;
     private MultiNodeTrinoCluster trinoCluster;
@@ -94,19 +91,21 @@ public class GcsEnvironment
             return;
         }
 
-        String gcpCredentialsKey = requireEnv("GCP_CREDENTIALS_KEY");
-        String gcpStorageBucket = requireEnv("GCP_STORAGE_BUCKET");
-        byte[] gcpCredentialsBytes = Base64.getDecoder().decode(gcpCredentialsKey);
-        String gcpCredentialsJson = new String(gcpCredentialsBytes, UTF_8);
+        String gcpStorageBucket = "trino-product-tests-" + UUID.randomUUID();
         String gcsTestDirectory = "env_multinode_gcs_" + UUID.randomUUID();
         warehouseDirectory = "gs://" + gcpStorageBucket + "/" + gcsTestDirectory;
 
         network = Network.newNetwork();
 
+        flociGcp = new FlociGcp().withNetwork(network);
+        flociGcp.start();
+        flociGcp.createBucket(gcpStorageBucket);
+        String gcpCredentialsJson = flociGcp.getContainerServiceAccountJson();
+
         hadoop = new HadoopContainer()
                 .withNetwork(network)
-                .withNetworkAliases(HadoopContainer.HOST_NAME);
-        configureHadoop(hadoop, gcpCredentialsJson, gcpStorageBucket, gcsTestDirectory);
+                .withNetworkAliases(HadoopContainer.HOST_NAME)
+                .withGcsConfig(flociGcp.getContainerEndpoint().toString(), FLOCI_GCP_PROJECT_ID, gcpCredentialsJson, warehouseDirectory);
         hadoop.waitingFor(Wait.forLogMessage(".*success: socks-proxy entered RUNNING state.*", 1)
                 .withStartupTimeout(HADOOP_STARTUP_TIMEOUT));
         hadoop.start();
@@ -116,7 +115,10 @@ public class GcsEnvironment
                 .withNetwork(network)
                 .withNetworkAliases(SparkIcebergContainer.HOST_NAME);
         spark.dependsOn(hadoop);
-        spark.withCopyToContainer(Transferable.of(readConfigFile("spark-defaults.conf")), "/spark/conf/spark-defaults.conf");
+        String sparkDefaults = readConfigFile("spark-defaults.conf")
+                .replace("%GCS_ENDPOINT%", flociGcp.getContainerEndpoint().toString())
+                .replace("%GCP_PROJECT_ID%", FLOCI_GCP_PROJECT_ID);
+        spark.withCopyToContainer(Transferable.of(sparkDefaults), "/spark/conf/spark-defaults.conf");
         spark.withCopyToContainer(Transferable.of(gcpCredentialsJson), SPARK_GCP_CREDENTIALS_FILE);
         spark.start();
 
@@ -127,7 +129,9 @@ public class GcsEnvironment
                 .withConfigProperty("node-scheduler.include-coordinator", "false")
                 .withCatalog("hive", hiveCatalog(metastoreUri)
                         .put("fs.native-gcs.enabled", "true")
+                        .put("gcs.endpoint", flociGcp.getContainerEndpoint().toString())
                         .put("gcs.json-key", "${ENV:GCP_CREDENTIALS}")
+                        .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .put("hive.parquet.time-zone", "UTC")
                         .put("hive.rcfile.time-zone", "UTC")
@@ -136,11 +140,15 @@ public class GcsEnvironment
                         "connector.name", "delta_lake",
                         "hive.metastore.uri", metastoreUri,
                         "fs.native-gcs.enabled", "true",
-                        "gcs.json-key", "${ENV:GCP_CREDENTIALS}"))
+                        "gcs.endpoint", flociGcp.getContainerEndpoint().toString(),
+                        "gcs.json-key", "${ENV:GCP_CREDENTIALS}",
+                        "gcs.project-id", FLOCI_GCP_PROJECT_ID))
                 .withCatalog("iceberg", icebergCatalog(metastoreUri)
                         .put("iceberg.file-format", "PARQUET")
                         .put("fs.native-gcs.enabled", "true")
+                        .put("gcs.endpoint", flociGcp.getContainerEndpoint().toString())
                         .put("gcs.json-key", "${ENV:GCP_CREDENTIALS}")
+                        .put("gcs.project-id", FLOCI_GCP_PROJECT_ID)
                         .build())
                 .withCatalog("tpch", Map.of("connector.name", "tpch"))
                 .withCoordinatorCustomizer(container -> container.withEnv("GCP_CREDENTIALS", gcpCredentialsJson))
@@ -220,56 +228,14 @@ public class GcsEnvironment
             hadoop.close();
             hadoop = null;
         }
+        if (flociGcp != null) {
+            flociGcp.close();
+            flociGcp = null;
+        }
         if (network != null) {
             network.close();
             network = null;
         }
-    }
-
-    private void configureHadoop(HadoopContainer container, String gcpCredentialsJson, String gcpStorageBucket, String gcsTestDirectory)
-    {
-        String coreSiteOverrides = readConfigFile("core-site-overrides-template.xml")
-                .replace("%GCP_CREDENTIALS_FILE_PATH%", HADOOP_GCP_CREDENTIALS_FILE);
-        String hiveSiteOverrides = readConfigFile("hive-site-overrides-template.xml")
-                .replace("%GCP_STORAGE_BUCKET%", gcpStorageBucket)
-                .replace("%GCP_WAREHOUSE_DIR%", gcsTestDirectory);
-        String applyScript =
-                """
-                #!/bin/bash
-                set -euxo pipefail
-                GCS_CONNECTOR_JAR=/opt/hadoop/share/hadoop/common/lib/gcs-connector-%1$s-shaded.jar
-                if [ ! -f "${GCS_CONNECTOR_JAR}" ]; then
-                    curl --retry 5 --retry-delay 10 --retry-all-errors -fLsS -o "${GCS_CONNECTOR_JAR}" \
-                        https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/%1$s/gcs-connector-%1$s-shaded.jar
-                fi
-                echo "%2$s  ${GCS_CONNECTOR_JAR}" | sha256sum --check --status
-                cp -f "${GCS_CONNECTOR_JAR}" /opt/hive/lib/
-                append_site_xml_properties() {
-                    local site_xml=$1
-                    local overrides_xml=$2
-                    local tmp_xml
-                    tmp_xml=$(mktemp)
-                    sed '/<\\/configuration>/d' "${site_xml}" > "${tmp_xml}"
-                    sed '1d;$d' "${overrides_xml}" >> "${tmp_xml}"
-                    echo '</configuration>' >> "${tmp_xml}"
-                    mv "${tmp_xml}" "${site_xml}"
-                }
-                append_site_xml_properties /opt/hadoop/etc/hadoop/core-site.xml "/docker/trino-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml"
-                append_site_xml_properties /opt/hive/conf/hive-site.xml "/docker/trino-product-tests/conf/environment/multinode-gcs/hive-site-overrides.xml"
-                """.formatted(GCS_CONNECTOR_VERSION, GCS_CONNECTOR_SHA256);
-
-        container.withCopyToContainer(
-                Transferable.of(coreSiteOverrides),
-                "/docker/trino-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
-        container.withCopyToContainer(
-                Transferable.of(hiveSiteOverrides),
-                "/docker/trino-product-tests/conf/environment/multinode-gcs/hive-site-overrides.xml");
-        container.withCopyToContainer(
-                Transferable.of(applyScript, 0777),
-                "/etc/hadoop-init.d/zz-apply-gcs-config.sh");
-        container.withCopyToContainer(
-                Transferable.of(gcpCredentialsJson),
-                HADOOP_GCP_CREDENTIALS_FILE);
     }
 
     private static String readConfigFile(String fileName)

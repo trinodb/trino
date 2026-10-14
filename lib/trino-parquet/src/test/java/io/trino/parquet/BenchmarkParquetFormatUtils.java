@@ -64,7 +64,7 @@ public final class BenchmarkParquetFormatUtils
                 .withParallelism(1)
                 .withChunkNumber(1)
                 .withTable(table);
-        TpcdsRecordSet recordSet = new TpcdsRecordSet(Results.constructResults(table, session), columns);
+        TpcdsRecordSet recordSet = new TpcdsRecordSet(Results.constructResults(table, session), columns, 1);
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         long dataSize = 0;

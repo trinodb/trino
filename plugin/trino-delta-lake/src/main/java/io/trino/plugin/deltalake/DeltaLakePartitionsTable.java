@@ -318,11 +318,6 @@ public class DeltaLakePartitionsTable
 
             public void acceptAddFileEntry(AddFileEntry addFileEntry)
             {
-                // skipping because entry is deleted in the presence of deletion vector
-                if (addFileEntry.getDeletionVector().isPresent()) {
-                    return;
-                }
-
                 fileCount++;
                 size += addFileEntry.getSize();
 

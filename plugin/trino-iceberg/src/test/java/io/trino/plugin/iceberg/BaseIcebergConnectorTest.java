@@ -401,11 +401,14 @@ public abstract class BaseIcebergConnectorTest
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
-                .matches("CREATE SCHEMA iceberg.tpch\n" +
-                        "AUTHORIZATION USER user\n" +
-                        "WITH \\(\n" +
-                        "\\s+location = '.*/tpch'\n" +
-                        "\\)");
+                .matches(
+                        """
+                        CREATE SCHEMA iceberg.tpch
+                        AUTHORIZATION USER user
+                        WITH \\(
+                        \\s+location = '.*/tpch'
+                        \\)\
+                        """);
     }
 
     @Override
@@ -1388,17 +1391,19 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT count(*) from orders");
 
         assertThat(computeScalar("SHOW CREATE TABLE test_create_partitioned_table_as")).isEqualTo(format(
-                "CREATE TABLE %s.%s.%s (\n" +
-                        "   \"order key\" bigint,\n" +
-                        "   ship_priority integer,\n" +
-                        "   order_status varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = 2,\n" +
-                        "   location = '%s',\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
-                        ")",
+                """
+                CREATE TABLE %s.%s.%s (
+                   "order key" bigint,
+                   ship_priority integer,
+                   order_status varchar
+                )
+                WITH (
+                   format = '%s',
+                   format_version = 2,
+                   location = '%s',
+                   partitioning = ARRAY['order_status','ship_priority','bucket("order key", 9)']
+                )\
+                """,
                 getSession().getCatalog().orElseThrow(),
                 getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
@@ -6194,8 +6199,7 @@ public abstract class BaseIcebergConnectorTest
                     .hasSizeBetween(1, workerCount)
                     .doesNotContainAnyElementsOf(initialFiles);
             // No files should be removed (this is expire_snapshots's job, when it exists)
-            assertThat(getAllDataFilesFromTableDirectory(tableName))
-                    .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), concat(initialFiles, updatedFiles));
 
             // optimize with low retention threshold, nothing should change
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
@@ -6203,8 +6207,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
             assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
-            assertThat(getAllDataFilesFromTableDirectory(tableName))
-                    .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), concat(initialFiles, updatedFiles));
 
             // optimize with delimited procedure name
             assertQueryFails("ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
@@ -6261,8 +6264,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasSizeBetween(1, workerCount)
                 .doesNotContainAnyElementsOf(initialFiles);
         // No files should be removed (this is expire_snapshots's job, when it exists)
-        assertThat(getAllDataFilesFromMvStorageTableDirectory(mvName))
-                .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+        assertEqualsIgnoreOrder(getAllDataFilesFromMvStorageTableDirectory(mvName), concat(initialFiles, updatedFiles));
 
         assertUpdate("DROP MATERIALIZED VIEW " + mvName);
         assertUpdate("DROP TABLE " + tableName);
@@ -6308,7 +6310,7 @@ public abstract class BaseIcebergConnectorTest
             List<String> updatedFiles = getActiveFiles(tableName);
             // as we force repartitioning there should be only 3 partitions
             assertThat(updatedFiles).hasSize(3);
-            assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(ImmutableSet.copyOf(concat(initialFiles, updatedFiles)));
+            assertEqualsIgnoreOrder(getAllDataFilesFromTableDirectory(tableName), ImmutableSet.copyOf(concat(initialFiles, updatedFiles)));
 
             assertUpdate("DROP TABLE " + tableName);
         }
@@ -6653,8 +6655,7 @@ public abstract class BaseIcebergConnectorTest
                 "VALUES ('rewritten_data_files_count', 0), ('removed_delete_files_count', 0), ('added_data_files_count', 0)");
         assertThat(query("SELECT a FROM " + tableName))
                 .matches("VALUES 1, 2");
-        assertThat(getActiveFiles(tableName))
-                .containsExactlyInAnyOrderElementsOf(initialFiles);
+        assertEqualsIgnoreOrder(getActiveFiles(tableName), initialFiles);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE a = 1", 1);
         // Calling optimize after adding a DELETE should result in compaction
@@ -6679,8 +6680,7 @@ public abstract class BaseIcebergConnectorTest
         // OPTIMIZE shouldn't have to rewrite files
         computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
-        assertThat(getActiveFiles(tableName))
-                .containsExactlyInAnyOrderElementsOf(initialFiles);
+        assertEqualsIgnoreOrder(getActiveFiles(tableName), initialFiles);
 
         // Change in partitioning should result in OPTIMIZE rewriting all files
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['nationkey']");
@@ -6694,9 +6694,9 @@ public abstract class BaseIcebergConnectorTest
         // OPTIMIZE shouldn't have to rewrite files anymore
         computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT COUNT(*) FROM " + tableName)).matches("VALUES BIGINT '100'");
-        assertThat(getActiveFiles(tableName))
-                .hasSize(25)
-                .containsExactlyInAnyOrderElementsOf(filesAfterPartioningChange);
+        List<String> activeFiles = getActiveFiles(tableName);
+        assertThat(activeFiles).hasSize(25);
+        assertEqualsIgnoreOrder(activeFiles, filesAfterPartioningChange);
     }
 
     private List<String> getActiveFiles(String tableName)

@@ -285,10 +285,13 @@ public class TestSqlFormatter
                         FAIL,
                         ImmutableList.of(),
                         Optional.of("攻殻機動隊"))))
-                .isEqualTo("CREATE TABLE test (\n" +
-                        "   col VARCHAR\n" +
-                        ")\n" +
-                        "COMMENT '攻殻機動隊'");
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR
+                        )
+                        COMMENT '攻殻機動隊'\
+                        """);
 
         // Create a table with column comment
         assertThat(formatSql(
@@ -304,9 +307,12 @@ public class TestSqlFormatter
                         FAIL,
                         ImmutableList.of(),
                         Optional.empty())))
-                .isEqualTo("CREATE TABLE test (\n" +
-                        "   col VARCHAR COMMENT '攻殻機動隊'\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE test (
+                           col VARCHAR COMMENT '攻殻機動隊'
+                        )\
+                        """);
 
         // Create a table with column properties
         assertThat(formatSql(
@@ -364,10 +370,13 @@ public class TestSqlFormatter
                         true,
                         Optional.of(ImmutableList.of(new Identifier("col", false))),
                         Optional.of("攻殻機動隊"))))
-                .isEqualTo("CREATE TABLE test( col )\n" +
-                        "COMMENT '攻殻機動隊' AS SELECT *\n" +
-                        "FROM\n" +
-                        "  t\n");
+                .isEqualTo(
+                        """
+                        CREATE TABLE test( col )
+                        COMMENT '攻殻機動隊' AS SELECT *
+                        FROM
+                          t
+                        """);
     }
 
     @Test
@@ -383,10 +392,13 @@ public class TestSqlFormatter
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
-                .isEqualTo("CREATE VIEW test AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  t\n");
+                .isEqualTo(
+                        """
+                        CREATE VIEW test AS
+                        SELECT *
+                        FROM
+                          t
+                        """);
         assertThat(formatSql(
                 new CreateView(
                         new NodeLocation(1, 1),
@@ -397,10 +409,13 @@ public class TestSqlFormatter
                         Optional.of("攻殻機動隊"),
                         Optional.empty(),
                         ImmutableList.of())))
-                .isEqualTo("CREATE VIEW test COMMENT '攻殻機動隊' AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  t\n");
+                .isEqualTo(
+                        """
+                        CREATE VIEW test COMMENT '攻殻機動隊' AS
+                        SELECT *
+                        FROM
+                          t
+                        """);
 
         // CREATE VIEW IF NOT EXISTS
         assertThat(formatSql(
@@ -413,10 +428,13 @@ public class TestSqlFormatter
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of())))
-                .isEqualTo("CREATE VIEW IF NOT EXISTS test AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  t\n");
+                .isEqualTo(
+                        """
+                        CREATE VIEW IF NOT EXISTS test AS
+                        SELECT *
+                        FROM
+                          t
+                        """);
 
         // CREATE VIEW WITH PROPERTIES
         assertThat(formatSql(
@@ -480,10 +498,13 @@ public class TestSqlFormatter
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty())))
-                .isEqualTo("CREATE MATERIALIZED VIEW test_mv AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  test_base\n");
+                .isEqualTo(
+                        """
+                        CREATE MATERIALIZED VIEW test_mv AS
+                        SELECT *
+                        FROM
+                          test_base
+                        """);
         assertThat(formatSql(
                 new CreateMaterializedView(
                         new NodeLocation(1, 1),
@@ -495,11 +516,14 @@ public class TestSqlFormatter
                         Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("攻殻機動隊"))))
-                .isEqualTo("CREATE MATERIALIZED VIEW test_mv\n" +
-                        "COMMENT '攻殻機動隊' AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  test_base\n");
+                .isEqualTo(
+                        """
+                        CREATE MATERIALIZED VIEW test_mv
+                        COMMENT '攻殻機動隊' AS
+                        SELECT *
+                        FROM
+                          test_base
+                        """);
         assertThat(formatSql(
                 new CreateMaterializedView(
                         new NodeLocation(1, 1),

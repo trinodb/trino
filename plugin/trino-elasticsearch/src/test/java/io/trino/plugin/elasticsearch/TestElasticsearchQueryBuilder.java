@@ -15,9 +15,13 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
+import io.trino.plugin.base.TypeDeserializer;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
@@ -26,27 +30,35 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildAggregationQuery;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestElasticsearchQueryBuilder
 {
-    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get();
+    private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get()
+            .rebuild()
+            .addModule(new SimpleModule().addDeserializer(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)))
+            .build();
 
-    private static final ElasticsearchColumnHandle NAME = new ElasticsearchColumnHandle(ImmutableList.of("name"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true);
-    private static final ElasticsearchColumnHandle AGE = new ElasticsearchColumnHandle(ImmutableList.of("age"), INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true);
-    private static final ElasticsearchColumnHandle SCORE = new ElasticsearchColumnHandle(ImmutableList.of("score"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true);
-    private static final ElasticsearchColumnHandle LENGTH = new ElasticsearchColumnHandle(ImmutableList.of("length"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true);
+    private static final ElasticsearchColumnHandle NAME = new ElasticsearchColumnHandle(ImmutableList.of("name"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true, true);
+    private static final ElasticsearchColumnHandle AGE = new ElasticsearchColumnHandle(ImmutableList.of("age"), INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true, true);
+    private static final ElasticsearchColumnHandle SCORE = new ElasticsearchColumnHandle(ImmutableList.of("score"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true, true);
+    private static final ElasticsearchColumnHandle LENGTH = new ElasticsearchColumnHandle(ImmutableList.of("length"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true, true);
 
     @Test
     public void testMatchAll()
@@ -131,6 +143,53 @@ public class TestElasticsearchQueryBuilder
                         SCORE, Domain.onlyNull(DOUBLE)),
                 """
                 {"bool":{"filter":[{"term":{"age":10}}],"must_not":[{"exists":{"field":"score"}}]}}""");
+    }
+
+    @Test
+    public void testSumUsesStatsAggregation()
+            throws IOException
+    {
+        JsonNode aggregation = buildAggregationQuery(
+                ImmutableList.of(),
+                ImmutableList.of(new MetricAggregation(MetricAggregation.SUM, BIGINT, Optional.of(AGE), "sum_age")),
+                OptionalInt.empty(),
+                Optional.empty());
+
+        assertThat(aggregation).isEqualTo(JSON_MAPPER.readTree(
+                """
+                {"sum_age":{"stats":{"field":"age"}}}"""));
+    }
+
+    @Test
+    public void testAggregationSerialization()
+            throws IOException
+    {
+        MetricAggregation metricAggregation = new MetricAggregation(MetricAggregation.SUM, BIGINT, Optional.of(AGE), "sum_age");
+        String metricJson = JSON_MAPPER.writeValueAsString(metricAggregation);
+        JsonNode metricNode = JSON_MAPPER.readTree(metricJson);
+        assertThat(metricNode.size()).isEqualTo(4);
+        assertThat(metricNode.has("functionName")).isTrue();
+        assertThat(metricNode.has("outputType")).isTrue();
+        assertThat(metricNode.has("columnHandle")).isTrue();
+        assertThat(metricNode.has("alias")).isTrue();
+        assertThat(JSON_MAPPER.readValue(metricJson, MetricAggregation.class)).isEqualTo(metricAggregation);
+
+        MetricAggregation countAll = new MetricAggregation(MetricAggregation.COUNT, BIGINT, Optional.empty(), "count_all");
+        assertThat(countAll.isCountAll()).isTrue();
+        MetricAggregation countColumn = new MetricAggregation(MetricAggregation.COUNT, BIGINT, Optional.of(AGE), "count_age");
+        assertThat(countColumn.isCountAll()).isFalse();
+        String countAllJson = JSON_MAPPER.writeValueAsString(countAll);
+        JsonNode countAllNode = JSON_MAPPER.readTree(countAllJson);
+        assertThat(countAllNode.has("countAll")).isFalse();
+        assertThat(JSON_MAPPER.readValue(countAllJson, MetricAggregation.class)).isEqualTo(countAll);
+
+        TermAggregation termAggregation = new TermAggregation("name", VARCHAR);
+        String termJson = JSON_MAPPER.writeValueAsString(termAggregation);
+        JsonNode termNode = JSON_MAPPER.readTree(termJson);
+        assertThat(termNode.size()).isEqualTo(2);
+        assertThat(termNode.has("term")).isTrue();
+        assertThat(termNode.has("type")).isTrue();
+        assertThat(JSON_MAPPER.readValue(termJson, TermAggregation.class)).isEqualTo(termAggregation);
     }
 
     private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, String expected)

@@ -24,6 +24,8 @@ import org.joda.time.chrono.ISOChronology;
 
 import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Difference of the given times in the given unit")
@@ -53,7 +55,7 @@ public final class DateDiff
         long epochMillis1 = timestamp1.getEpochMillis();
         long epochMillis2 = timestamp2.getEpochMillis();
 
-        ISOChronology chronology = ISOChronology.getInstanceUTC();
+        ISOChronology chronology = getChronology(getTimeZoneKey(timestamp1.getTimeZoneKey()));
         return getTimestampField(chronology, unit).getDifferenceAsLong(epochMillis2, epochMillis1);
     }
 }

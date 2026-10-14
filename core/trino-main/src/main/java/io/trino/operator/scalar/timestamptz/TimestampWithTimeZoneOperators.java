@@ -30,11 +30,13 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.type.IntervalCasts.negatePicos;
 import static io.trino.type.IntervalDayTimeOperators.dateTimeDifference;
+import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 import static java.lang.Math.addExact;
 
@@ -225,7 +227,7 @@ public final class TimestampWithTimeZoneOperators
         {
             try {
                 long epochMillis = timestamp.getEpochMillis();
-                long result = unpackChronology(timestamp.getTimeZoneKey()).monthOfYear().add(epochMillis, interval);
+                long result = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())).monthOfYear().add(epochMillis, interval);
 
                 return LongTimestampWithTimeZone.fromEpochMillisAndFraction(result, timestamp.getPicosOfMilli(), timestamp.getTimeZoneKey());
             }
