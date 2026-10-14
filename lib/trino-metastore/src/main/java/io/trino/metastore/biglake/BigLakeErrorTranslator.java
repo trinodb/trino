@@ -27,7 +27,9 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
  * Translates BigLake failures into Trino errors.
  *
  * <p>A missing object is left to the caller, because the read operations of {@code HiveMetastore}
- * report one as an empty result rather than a failure.
+ * report one as an empty result rather than a failure. BigLake reports a missing project, table or
+ * database as {@code NOT_FOUND}, but a missing database in a request for its tables and a missing
+ * catalog as {@code FAILED_PRECONDITION}.
  */
 public final class BigLakeErrorTranslator
 {
@@ -39,19 +41,28 @@ public final class BigLakeErrorTranslator
     }
 
     /**
+     * Returns whether BigLake reports that the database or catalog of a request does not exist.
+     * Only the caller knows which of the two the request addressed.
+     */
+    public static boolean isMissingParent(ApiException exception)
+    {
+        return exception.getStatusCode().getCode() == Code.FAILED_PRECONDITION;
+    }
+
+    /**
      * Translates a failed BigLake call into the Trino error for {@code operation}.
      */
     public static TrinoException translate(String operation, ApiException exception)
     {
         return switch (exception.getStatusCode().getCode()) {
             case PERMISSION_DENIED, UNAUTHENTICATED -> new TrinoException(
-                    PERMISSION_DENIED, message(operation, "BigLake denied the request"), exception);
+                    PERMISSION_DENIED, message(operation, "BigLake denied the request", exception), exception);
             case ALREADY_EXISTS -> new TrinoException(
-                    ALREADY_EXISTS, message(operation, "the object already exists"), exception);
+                    ALREADY_EXISTS, message(operation, "the object already exists", exception), exception);
             case INVALID_ARGUMENT, OUT_OF_RANGE -> new TrinoException(
-                    INVALID_ARGUMENTS, message(operation, "BigLake rejected the request"), exception);
+                    INVALID_ARGUMENTS, message(operation, "BigLake rejected the request", exception), exception);
             default -> new TrinoException(
-                    GENERIC_INTERNAL_ERROR, message(operation, "BigLake request failed"), exception);
+                    GENERIC_INTERNAL_ERROR, message(operation, "BigLake request failed", exception), exception);
         };
     }
 
@@ -64,8 +75,13 @@ public final class BigLakeErrorTranslator
                 NOT_SUPPORTED, "This BigLake metastore supports read operations only, not " + operation);
     }
 
-    private static String message(String operation, String detail)
+    /**
+     * Appends the reason BigLake gave, which is the message of the status that the client
+     * library wraps.
+     */
+    private static String message(String operation, String detail, ApiException exception)
     {
-        return operation + ": " + detail;
+        String reason = exception.getCause() == null ? exception.getMessage() : exception.getCause().getMessage();
+        return operation + ": " + detail + (reason == null || reason.isBlank() ? "" : ": " + reason);
     }
 }

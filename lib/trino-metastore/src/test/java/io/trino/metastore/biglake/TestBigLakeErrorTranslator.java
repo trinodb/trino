@@ -37,6 +37,13 @@ class TestBigLakeErrorTranslator
     }
 
     @Test
+    void reportsAMissingDatabaseOrCatalogSeparately()
+    {
+        assertThat(BigLakeErrorTranslator.isMissingParent(failure(StatusCode.Code.FAILED_PRECONDITION))).isTrue();
+        assertThat(BigLakeErrorTranslator.isMissingParent(failure(StatusCode.Code.NOT_FOUND))).isFalse();
+    }
+
+    @Test
     void keepsAuthorizationFailuresDistinct()
     {
         assertCode(StatusCode.Code.PERMISSION_DENIED, PERMISSION_DENIED);
@@ -57,6 +64,15 @@ class TestBigLakeErrorTranslator
     {
         assertThat(BigLakeErrorTranslator.translate("reading table sales.orders", failure(StatusCode.Code.INTERNAL)))
                 .hasMessageContaining("reading table sales.orders");
+    }
+
+    @Test
+    void appendsTheReasonThatBigLakeGave()
+    {
+        assertThat(BigLakeErrorTranslator.translate("reading table sales.orders", failure(StatusCode.Code.INTERNAL)))
+                .hasMessage("reading table sales.orders: BigLake request failed: boom");
+        assertThat(BigLakeErrorTranslator.translate("reading table sales.orders", failure(StatusCode.Code.PERMISSION_DENIED)))
+                .hasMessage("reading table sales.orders: BigLake denied the request: boom");
     }
 
     @Test
