@@ -59,6 +59,7 @@ public class IcebergMetadataFactory
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final Optional<TableCommitLocks> commitLocks;
     private final int materializedViewRefreshMaxSnapshotsToExpire;
     private final Duration materializedViewRefreshSnapshotRetentionPeriod;
     private final ConnectorExpressionEvaluator evaluator;
@@ -73,6 +74,7 @@ public class IcebergMetadataFactory
             TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             DeletionVectorWriter deletionVectorWriter,
+            TableCommitLocks commitLocks,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
@@ -91,6 +93,8 @@ public class IcebergMetadataFactory
         this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.deletionVectorWriter = requireNonNull(deletionVectorWriter, "deletionVectorWriter is null");
+        requireNonNull(commitLocks, "commitLocks is null");
+        this.commitLocks = config.isCommitLockEnabled() ? Optional.of(commitLocks) : Optional.empty();
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
@@ -127,6 +131,7 @@ public class IcebergMetadataFactory
                 tableStatisticsReader,
                 tableStatisticsWriter,
                 deletionVectorWriter,
+                commitLocks,
                 metastoreFactory,
                 addFilesProcedureEnabled,
                 orcReaderOptions,
