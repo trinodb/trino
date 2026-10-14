@@ -64,6 +64,11 @@ testing.
 Trino supports all data types used within the TPC-DS schemas so no mapping is
 required.
 
+Identifier columns, such as surrogate keys and order numbers, use `integer`
+when all generated values fit in 32 bits, and `bigint` otherwise. Of the
+listed schemas, `sf3000` and smaller use `integer`, and `sf10000` and larger
+use `bigint`.
+
 (tpcds-sql-support)=
 ## SQL support
 
