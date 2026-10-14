@@ -47,6 +47,7 @@ import static io.trino.plugin.iceberg.ParquetFooterCacheType.NONE;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
@@ -72,6 +73,8 @@ public class IcebergConfig
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
+    private boolean commitLockEnabled;
+    private Duration commitLockWaitTimeout = new Duration(1, MINUTES);
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
@@ -235,6 +238,33 @@ public class IcebergConfig
     public IcebergConfig setUniqueTableLocation(boolean uniqueTableLocation)
     {
         this.uniqueTableLocation = uniqueTableLocation;
+        return this;
+    }
+
+    public boolean isCommitLockEnabled()
+    {
+        return commitLockEnabled;
+    }
+
+    @Config("iceberg.commit-lock.enabled")
+    @ConfigDescription("Enable serializing concurrent commits to the same table on the coordinator, instead of retrying conflicting commits")
+    public IcebergConfig setCommitLockEnabled(boolean commitLockEnabled)
+    {
+        this.commitLockEnabled = commitLockEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getCommitLockWaitTimeout()
+    {
+        return commitLockWaitTimeout;
+    }
+
+    @Config("iceberg.commit-lock.wait-timeout")
+    @ConfigDescription("Maximum duration to wait for the commit lock before committing without it")
+    public IcebergConfig setCommitLockWaitTimeout(Duration commitLockWaitTimeout)
+    {
+        this.commitLockWaitTimeout = commitLockWaitTimeout;
         return this;
     }
 
