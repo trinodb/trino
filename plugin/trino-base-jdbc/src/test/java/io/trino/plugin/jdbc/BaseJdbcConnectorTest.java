@@ -1575,7 +1575,7 @@ public abstract class BaseJdbcConnectorTest
             startTracingDatabaseEvent(runningTracingEvent);
 
             String query = "SELECT * FROM " + sleepingView.getName();
-            Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed. Message: Killed by test"));
+            Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed by user '.*'\\. Message: Killed by test"));
             QueryId queryId = getQueryId(getQueryRunner(), query);
             assertEventually(() -> assertThat(runningTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(runningTracingEvent);

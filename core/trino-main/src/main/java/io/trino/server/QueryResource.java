@@ -22,6 +22,7 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -41,9 +42,11 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.connector.system.KillQueryProcedure.createCancelQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.trino.execution.QueryStateMachine.pruneQueryInfo;
@@ -119,8 +122,9 @@ public class QueryResource
 
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
-            checkCanKillQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.getSession().toIdentity(), accessControl);
-            dispatchManager.cancelQuery(queryId);
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
+            checkCanKillQueryOwnedBy(identity, queryInfo.getSession().toIdentity(), accessControl);
+            dispatchManager.failQuery(queryId, createCancelQueryException(identity.getUser()));
         }
         catch (AccessDeniedException e) {
             throw new ForbiddenException();
@@ -133,31 +137,32 @@ public class QueryResource
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
-        return failQuery(queryId, createKillQueryException(message), servletRequest, httpHeaders);
+        return failQuery(queryId, user -> createKillQueryException(message, user), servletRequest, httpHeaders);
     }
 
     @PUT
     @Path("{queryId}/preempted")
     public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
-        return failQuery(queryId, createPreemptQueryException(message), servletRequest, httpHeaders);
+        return failQuery(queryId, user -> createPreemptQueryException(message, user), servletRequest, httpHeaders);
     }
 
-    private Response failQuery(QueryId queryId, TrinoException queryException, HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    private Response failQuery(QueryId queryId, Function<String, TrinoException> queryExceptionFactory, HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         requireNonNull(queryId, "queryId is null");
 
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
 
-            checkCanKillQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.getSession().toIdentity(), accessControl);
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
+            checkCanKillQueryOwnedBy(identity, queryInfo.getSession().toIdentity(), accessControl);
 
             // check before killing to provide the proper error code (this is racy)
             if (queryInfo.getState().isDone()) {
                 return Response.status(Status.CONFLICT).build();
             }
 
-            dispatchManager.failQuery(queryId, queryException);
+            dispatchManager.failQuery(queryId, queryExceptionFactory.apply(identity.getUser()));
 
             return Response.status(Status.ACCEPTED).build();
         }

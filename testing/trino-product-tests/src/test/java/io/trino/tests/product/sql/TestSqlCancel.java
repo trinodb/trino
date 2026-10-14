@@ -109,7 +109,7 @@ class TestSqlCancel
                 throw e;
             }
             catch (ExecutionException expected) {
-                assertThat(expected.getCause()).hasMessageEndingWith("Query was canceled");
+                assertThat(expected.getCause()).hasMessageEndingWith("Query was canceled by user 'anyUser'");
             }
         }
         finally {
