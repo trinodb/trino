@@ -377,6 +377,57 @@ final class TestRangerSystemAccessControl
         assertThat(retArray.getFirst().getExpression()).isEqualTo("status = 'active'");
     }
 
+    @Test
+    void testGetEffectiveGroups()
+            throws Exception
+    {
+        // Without groups key: effective groups == identity.getGroups(), extra credentials are ignored
+        RangerConfig configNoKey = new RangerConfig();
+        configNoKey.setServiceName("dev_trino");
+        RangerSystemAccessControl acmNoKey = new RangerSystemAccessControl(configNoKey);
+
+        Identity withExtraCred = new Identity.Builder("svc")
+                .withGroups(ImmutableSet.of("native-group"))
+                .withExtraCredentials(ImmutableMap.of("trino.groups", "extra-group"))
+                .build();
+        assertThat(acmNoKey.getEffectiveGroups(withExtraCred)).containsExactly("native-group");
+
+        // With groups key: extra credential groups are merged with native groups
+        RangerConfig configWithKey = new RangerConfig();
+        configWithKey.setServiceName("dev_trino");
+        configWithKey.setExtraCredentialsGroupsKey("trino.groups");
+        RangerSystemAccessControl acmWithKey = new RangerSystemAccessControl(configWithKey);
+
+        assertThat(acmWithKey.getEffectiveGroups(withExtraCred))
+                .containsExactlyInAnyOrder("native-group", "extra-group");
+
+        // With groups key but no credential: falls back to identity.getGroups()
+        Identity noExtraCred = Identity.from(withExtraCred)
+                .withExtraCredentials(ImmutableMap.of())
+                .build();
+        assertThat(acmWithKey.getEffectiveGroups(noExtraCred)).containsExactly("native-group");
+
+        // Separator is respected (default "|")
+        Identity pipeGroups = new Identity.Builder("svc2")
+                .withExtraCredentials(ImmutableMap.of("trino.groups", "g1|g2|g3"))
+                .build();
+        assertThat(acmWithKey.getEffectiveGroups(pipeGroups))
+                .containsExactlyInAnyOrder("g1", "g2", "g3");
+
+        // Custom separator
+        RangerConfig configComma = new RangerConfig();
+        configComma.setServiceName("dev_trino");
+        configComma.setExtraCredentialsGroupsKey("trino.groups");
+        configComma.setExtraCredentialsGroupsSeparator(",");
+        RangerSystemAccessControl acmComma = new RangerSystemAccessControl(configComma);
+
+        Identity commaGroups = new Identity.Builder("svc3")
+                .withExtraCredentials(ImmutableMap.of("trino.groups", "g1,g2,g3"))
+                .build();
+        assertThat(acmComma.getEffectiveGroups(commaGroups))
+                .containsExactlyInAnyOrder("g1", "g2", "g3");
+    }
+
     private static ColumnSchema createVarcharColumnSchema(String columnName)
     {
         return ColumnSchema.builder()
