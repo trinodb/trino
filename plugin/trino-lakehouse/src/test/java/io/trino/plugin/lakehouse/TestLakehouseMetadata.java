@@ -14,12 +14,15 @@
 package io.trino.plugin.lakehouse;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.RefreshType;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
@@ -32,6 +35,8 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -68,6 +73,8 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("revokeTableBranchPrivileges", ConnectorSession.class, SchemaTableName.class, String.class, Set.class, TrinoPrincipal.class, boolean.class))
                     .add(ConnectorMetadata.class.getMethod("getMaterializedViewFreshness", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("createView", ConnectorSession.class, SchemaTableName.class, ConnectorViewDefinition.class, Map.class, SaveMode.class))
+                    .add(ConnectorMetadata.class.getMethod("beginRefreshMaterializedView", ConnectorSession.class, ConnectorTableHandle.class, List.class, boolean.class, RetryMode.class, RefreshType.class))
+                    .add(ConnectorMetadata.class.getMethod("finishRefreshMaterializedView", ConnectorSession.class, ConnectorTableHandle.class, ConnectorInsertTableHandle.class, Collection.class, Collection.class, List.class, boolean.class, boolean.class, boolean.class))
                     .build();
         }
         catch (NoSuchMethodException e) {

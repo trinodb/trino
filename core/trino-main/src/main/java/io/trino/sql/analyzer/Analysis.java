@@ -32,6 +32,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
+import io.trino.metadata.ViewHandle;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
@@ -268,6 +269,8 @@ public class Analysis
     private final Deque<Table> tablesForView = new ArrayDeque<>();
 
     private final Deque<TableReferenceInfo> referenceChain = new ArrayDeque<>();
+
+    private final Set<ViewHandle> referencedViewHandles = new LinkedHashSet<>();
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
@@ -690,6 +693,24 @@ public class Analysis
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toImmutableList());
+    }
+
+    /**
+     * Returns a handle for every view or materialized view that was referenced while resolving a
+     * table reference in this analysis, recorded via {@link #recordReferencedView}.
+     */
+    public List<ViewHandle> getReferencedViews()
+    {
+        return ImmutableList.copyOf(referencedViewHandles);
+    }
+
+    /**
+     * Records that the given view or materialized view was referenced while resolving a table
+     * reference, so it shows up in {@link #getReferencedViews()}.
+     */
+    public void recordReferencedView(ViewHandle handle)
+    {
+        referencedViewHandles.add(handle);
     }
 
     public void registerTable(
@@ -1749,17 +1770,24 @@ public class Analysis
     public static final class RefreshMaterializedViewAnalysis
     {
         private final Table table;
+        private final ViewHandle materializedViewHandle;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, ViewHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
         {
             this.table = requireNonNull(table, "table is null");
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "materializedViewHandle is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
+        }
+
+        public ViewHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
         }
 
         public Query getQuery()

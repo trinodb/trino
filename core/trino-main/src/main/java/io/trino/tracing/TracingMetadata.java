@@ -50,6 +50,7 @@ import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewHandle;
 import io.trino.metadata.ViewInfo;
 import io.trino.spi.RefreshType;
 import io.trino.spi.catalog.CatalogName;
@@ -786,34 +787,53 @@ public class TracingMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
+    public InsertTableHandle beginRefreshMaterializedView(
+            Session session,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
+            List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
+            RefreshType refreshType)
     {
-        Span span = startSpan("beginRefreshMaterializedView", tableHandle);
+        Span span = startSpan("beginRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, refreshType);
+            return delegate.beginRefreshMaterializedView(session, materializedViewHandle, storageTableHandle, sourceTableHandles, sourceViewHandles, refreshType);
+        }
+    }
+
+    @Override
+    public Optional<ViewHandle> getViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("getViewHandle", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getViewHandle(session, viewName);
         }
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            TableHandle tableHandle,
+            ViewHandle materializedViewHandle,
+            TableHandle storageTableHandle,
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles,
+            List<ViewHandle> sourceViewHandles,
             List<String> sourceTableFunctions,
             boolean hasNonDeterministicFunctions)
     {
-        Span span = startSpan("finishRefreshMaterializedView", tableHandle);
+        Span span = startSpan("finishRefreshMaterializedView", storageTableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.finishRefreshMaterializedView(
                     session,
-                    tableHandle,
+                    materializedViewHandle,
+                    storageTableHandle,
                     insertTableHandle,
                     fragments,
                     computedStatistics,
                     sourceTableHandles,
+                    sourceViewHandles,
                     sourceTableFunctions,
                     hasNonDeterministicFunctions);
         }

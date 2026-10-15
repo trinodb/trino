@@ -29,11 +29,13 @@ import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersi
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -592,6 +594,15 @@ public class TrinoJdbcCatalog
         }
 
         return loadViewDefinition(viewIdentifier);
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        if (schemaVersion == SchemaVersion.V0 || !jdbcCatalog.viewExists(toIdentifier(viewName))) {
+            return Optional.empty();
+        }
+        return Optional.of(new BasicViewHandle(viewName));
     }
 
     private Optional<ConnectorViewDefinition> loadViewDefinition(SchemaTableName viewIdentifier)

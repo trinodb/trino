@@ -24,7 +24,7 @@
         -->
         <mirror>
             <id>block-undeclared-repositories</id>
-            <mirrorOf>*,!central,!google-maven-central,!confluent</mirrorOf>
+            <mirrorOf>*,!central,!google-maven-central,!confluent,!findinpath-iceberg-mv-showcase</mirrorOf>
             <url>https://0.0.0.0/</url>
             <blocked>true</blocked>
         </mirror>

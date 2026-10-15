@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.BasicViewHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
@@ -35,6 +36,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.ConnectorViewHandle;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -497,6 +499,12 @@ public class BlackHoleMetadata
         if (!schemas.contains(schemaName)) {
             throw new SchemaNotFoundException(schemaName);
         }
+    }
+
+    @Override
+    public Optional<ConnectorViewHandle> getViewHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getView(session, viewName).map(_ -> new BasicViewHandle(viewName));
     }
 
     @Override
