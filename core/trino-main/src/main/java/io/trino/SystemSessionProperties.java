@@ -85,6 +85,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_WRITE_PHYSICAL_SIZE = "query_max_write_physical_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
+    public static final String QUERY_MAX_INITIAL_PLAN_NODES = "query_max_initial_plan_nodes";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
@@ -432,6 +433,12 @@ public final class SystemSessionProperties
                         "Temporary: Maximum number of stages a query can have",
                         queryManagerConfig.getMaxStageCount(),
                         true),
+                integerProperty(
+                        QUERY_MAX_INITIAL_PLAN_NODES,
+                        "Maximum number of nodes in the query plan before optimization",
+                        queryManagerConfig.getMaxInitialPlanNodes(),
+                        value -> validateIntegerValue(value, QUERY_MAX_INITIAL_PLAN_NODES, 1, false),
+                        false),
                 booleanProperty(
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
@@ -1342,6 +1349,11 @@ public final class SystemSessionProperties
     public static int getQueryMaxStageCount(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
+    }
+
+    public static int getQueryMaxInitialPlanNodes(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_INITIAL_PLAN_NODES, Integer.class);
     }
 
     public static boolean isUseTableScanNodePartitioning(Session session)

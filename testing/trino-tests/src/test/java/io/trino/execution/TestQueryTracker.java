@@ -33,10 +33,13 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
 
+import static io.trino.SystemSessionProperties.QUERY_MAX_INITIAL_PLAN_NODES;
 import static io.trino.SystemSessionProperties.QUERY_MAX_PLANNING_TIME;
+import static io.trino.spi.StandardErrorCode.QUERY_PLAN_TOO_LARGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -105,7 +108,12 @@ public class TestQueryTracker
     @Timeout(30)
     public void testInterruptCpuBoundPlanning()
     {
-        assertThatThrownBy(() -> getQueryRunner().execute(doublingCteQuery(16)))
+        // Raise the plan size limit so planning runs long enough to hit the planning time limit
+        Session session = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_INITIAL_PLAN_NODES, "10000000")
+                .build();
+
+        assertThatThrownBy(() -> getQueryRunner().execute(session, doublingCteQuery(16)))
                 .isInstanceOfSatisfying(QueryFailedException.class, e -> {
                     assertThat(e).hasMessageContaining("Query exceeded the maximum planning time limit of 2.00s");
                     // Planning thread is named after the query, so it disappears once planning stops
@@ -113,6 +121,32 @@ public class TestQueryTracker
                     assertEventually(new Duration(10, SECONDS), () -> assertThat(Thread.getAllStackTraces().keySet())
                             .noneMatch(thread -> thread.getName().startsWith(planningThreadName)));
                 });
+    }
+
+    @Test
+    @Timeout(30)
+    public void testInitialPlanSizeLimit()
+    {
+        // 2^14 copies of the innermost CTE exceed the default limit; failing on size happens long before the 2s planning time limit
+        assertTrinoExceptionThrownBy(() -> getQueryRunner().execute(doublingCteQuery(14)))
+                .hasErrorCode(QUERY_PLAN_TOO_LARGE)
+                .hasMessage("Number of nodes in the initial query plan exceeds the allowed maximum (100000). " +
+                        "The query likely references the same views or WITH queries many times. " +
+                        "Simplify the query or increase the query_max_initial_plan_nodes session property");
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_INITIAL_PLAN_NODES, "100")
+                .build();
+        assertTrinoExceptionThrownBy(() -> getQueryRunner().execute(session, doublingCteQuery(6)))
+                .hasErrorCode(QUERY_PLAN_TOO_LARGE);
+        assertThat(getQueryRunner().execute(doublingCteQuery(6)).getOnlyValue()).isEqualTo(64L);
+
+        // Nodes added after the last nested relation is planned count as well
+        Session singleNodeSession = Session.builder(getSession())
+                .setSystemProperty(QUERY_MAX_INITIAL_PLAN_NODES, "1")
+                .build();
+        assertTrinoExceptionThrownBy(() -> getQueryRunner().execute(singleNodeSession, "SELECT 1"))
+                .hasErrorCode(QUERY_PLAN_TOO_LARGE);
     }
 
     // Each WITH query references the previous one twice, so the plan doubles per level
