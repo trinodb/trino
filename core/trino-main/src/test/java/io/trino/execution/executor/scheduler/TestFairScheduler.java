@@ -21,6 +21,7 @@ import io.airlift.testing.TestingTicker;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -29,12 +30,18 @@ import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -62,7 +69,6 @@ public class TestFairScheduler
         };
 
         FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
-        scheduler.start();
         ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
             Group group = scheduler.createGroup("G1");
@@ -102,7 +108,6 @@ public class TestFairScheduler
         };
 
         FairScheduler scheduler = new FairScheduler(1, threadFactory, Ticker.systemTicker());
-        scheduler.start();
         Group group = scheduler.createGroup("G");
         ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
@@ -326,6 +331,160 @@ public class TestFairScheduler
             task1.get();
             assertThat(counter.get()).isEqualTo(1);
             assertThat(scheduler.getTasks(group)).isEmpty();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testManyTasksBlockingOnFewSlots()
+            throws ExecutionException, InterruptedException
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(2)) {
+            Group group = scheduler.createGroup("G");
+
+            List<ListenableFuture<Void>> tasks = IntStream.range(0, 20)
+                    .mapToObj(id -> scheduler.submit(group, id, context -> {
+                        for (int i = 0; i < 1000; i++) {
+                            if (!context.block(immediateVoidFuture())) {
+                                return;
+                            }
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            for (ListenableFuture<Void> task : tasks) {
+                task.get();
+            }
+            assertThat(scheduler.getConcurrencyControlAvailableSlots()).isEqualTo(2);
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testResumeDispatchesQueuedTask()
+            throws ExecutionException, InterruptedException
+    {
+        try (FairScheduler scheduler = FairScheduler.newInstance(1)) {
+            Group group = scheduler.createGroup("G");
+            scheduler.pause();
+
+            AtomicBoolean ran = new AtomicBoolean();
+            ListenableFuture<Void> task = scheduler.submit(group, 1, _ -> ran.set(true));
+            assertThatThrownBy(() -> task.get(100, MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+
+            scheduler.resume();
+            task.get();
+            assertThat(ran.get()).isTrue();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testYieldingTaskCompetesForItsSlot()
+            throws InterruptedException, ExecutionException
+    {
+        // A light group's task yields while a heavy group's task waits for the only slot.
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group heavyGroup = scheduler.createGroup("heavy");
+            Group lightGroup = scheduler.createGroup("light");
+
+            AtomicReference<Thread> heavyThread = new AtomicReference<>();
+            CountDownLatch heavyStarted = new CountDownLatch(1);
+            CountDownLatch lightQueued = new CountDownLatch(1);
+            AtomicBoolean heavyResumed = new AtomicBoolean();
+
+            ListenableFuture<Void> heavy = scheduler.submit(heavyGroup, 1, context -> {
+                heavyThread.set(Thread.currentThread());
+                heavyStarted.countDown();
+                awaitUninterruptibly(lightQueued);
+
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 10, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield()).isTrue();
+                heavyResumed.set(true);
+            });
+            heavyStarted.await();
+
+            ListenableFuture<Void> light = scheduler.submit(lightGroup, 2, context -> {
+                awaitWaiting(heavyThread.get());
+
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield()).isTrue();
+                assertThat(heavyResumed.get())
+                        .describedAs("Heavy task resumed while the lighter group yielded")
+                        .isFalse();
+            });
+            while (!scheduler.getTasks(lightGroup).contains(2)) {
+                Thread.onSpinWait();
+            }
+            lightQueued.countDown();
+
+            heavy.get();
+            light.get();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCancelledYieldHandsOverSlot()
+            throws InterruptedException, ExecutionException
+    {
+        // A cancelled task yields while another task waits for the only slot.
+        TestingTicker ticker = new TestingTicker();
+        try (FairScheduler scheduler = FairScheduler.newInstance(1, ticker)) {
+            Group waitingGroup = scheduler.createGroup("waiting");
+            Group cancelledGroup = scheduler.createGroup("cancelled");
+
+            AtomicReference<Thread> waitingThread = new AtomicReference<>();
+            CountDownLatch waitingStarted = new CountDownLatch(1);
+            CountDownLatch cancelledQueued = new CountDownLatch(1);
+            CountDownLatch waitingResumed = new CountDownLatch(1);
+
+            ListenableFuture<Void> waiting = scheduler.submit(waitingGroup, 1, context -> {
+                waitingThread.set(Thread.currentThread());
+                waitingStarted.countDown();
+                awaitUninterruptibly(cancelledQueued);
+
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield()).isTrue();
+                waitingResumed.countDown();
+            });
+            waitingStarted.await();
+
+            CountDownLatch cancelledStarted = new CountDownLatch(1);
+            CountDownLatch groupRemoved = new CountDownLatch(1);
+            ListenableFuture<Void> cancelled = scheduler.submit(cancelledGroup, 2, context -> {
+                cancelledStarted.countDown();
+                awaitUninterruptibly(groupRemoved);
+
+                ticker.increment(FairScheduler.QUANTUM_NANOS * 2, TimeUnit.NANOSECONDS);
+                assertThat(context.maybeYield())
+                        .describedAs("Cancelled while yielding")
+                        .isFalse();
+                assertThat(awaitUninterruptibly(waitingResumed, 5, TimeUnit.SECONDS))
+                        .describedAs("Waiting task resumed before the cancelled task finished")
+                        .isTrue();
+            });
+            while (!scheduler.getTasks(cancelledGroup).contains(2)) {
+                Thread.onSpinWait();
+            }
+            cancelledQueued.countDown();
+
+            cancelledStarted.await();
+            awaitWaiting(waitingThread.get());
+            scheduler.removeGroup(cancelledGroup);
+            groupRemoved.countDown();
+
+            cancelled.get();
+            waiting.get();
+        }
+    }
+
+    private static void awaitWaiting(Thread thread)
+    {
+        while (thread.getState() != Thread.State.WAITING) {
+            Thread.onSpinWait();
         }
     }
 

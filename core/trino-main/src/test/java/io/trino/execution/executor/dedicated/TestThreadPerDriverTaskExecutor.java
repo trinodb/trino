@@ -82,7 +82,6 @@ public class TestThreadPerDriverTaskExecutor
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 1, Integer.MAX_VALUE);
         // Do not start the executor's periodic scheduler: the replacement below must be started by
         // the completion callback whose progress this test verifies.
-        scheduler.start();
         ExecutorService submitter = newSingleThreadExecutor(daemonThreadsNamed("submitter"));
         try {
             TaskHandle task = executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -158,7 +157,6 @@ public class TestThreadPerDriverTaskExecutor
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, Integer.MAX_VALUE, 1);
         // start the scheduler but not the executor's background tasks, so that splits are only
         // scheduled by the explicit enqueueSplits calls below
-        scheduler.start();
         try {
             TaskId taskId = new TaskId(new StageId("query", 1), 1, 1);
             TaskEntry task = (TaskEntry) executor.addTask(taskId, () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
@@ -200,7 +198,6 @@ public class TestThreadPerDriverTaskExecutor
 
         FairScheduler scheduler = new FairScheduler(2, threadFactory, Ticker.systemTicker());
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, Integer.MAX_VALUE, 2);
-        scheduler.start();
         try {
             TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
             TaskEntry secondTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());

@@ -18,15 +18,14 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.Set;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
 
 @ThreadSafe
 final class BlockingSchedulingQueue<G, T>
 {
     private final Lock lock = new ReentrantLock();
-    private final Condition notEmpty = lock.newCondition();
 
     @GuardedBy("lock")
     private final SchedulingQueue<G, T> queue = new SchedulingQueue<>();
@@ -88,8 +87,6 @@ final class BlockingSchedulingQueue<G, T>
             }
 
             queue.enqueue(group, task, deltaWeight);
-            notEmpty.signal();
-
             return true;
         }
         finally {
@@ -113,21 +110,15 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public T dequeue(long expectedWeight)
-            throws InterruptedException
+    /// Dequeues the next task if one is runnable and `reserve` grants it a slot, or returns null.
+    public T dequeue(long expectedWeight, BooleanSupplier reserve)
     {
         lock.lock();
         try {
-            T result;
-            do {
-                result = queue.dequeue(expectedWeight);
-                if (result == null) {
-                    notEmpty.await();
-                }
+            if (queue.peek() == null || !reserve.getAsBoolean()) {
+                return null;
             }
-            while (result == null);
-
-            return result;
+            return queue.dequeue(expectedWeight);
         }
         finally {
             lock.unlock();
