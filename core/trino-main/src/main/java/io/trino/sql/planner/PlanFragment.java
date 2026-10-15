@@ -345,21 +345,4 @@ public class PlanFragment
                 .add("outputPartitioningScheme", outputPartitioningScheme)
                 .toString();
     }
-
-    public PlanFragment withActiveCatalogs(List<CatalogProperties> activeCatalogs)
-    {
-        return new PlanFragment(
-                this.id,
-                this.root,
-                this.symbols,
-                this.partitioning,
-                this.partitionCount,
-                this.partitionedSources,
-                this.outputPartitioningScheme,
-                this.outputSkewedBucketCount,
-                this.statsAndCosts,
-                activeCatalogs,
-                this.languageFunctions,
-                this.jsonRepresentation);
-    }
 }
