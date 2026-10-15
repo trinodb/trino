@@ -160,6 +160,7 @@ import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.util.AstUtils;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -199,6 +200,7 @@ import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
+import static io.trino.sql.planner.PlanningInterruption.checkPlanningNotInterrupted;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
@@ -283,6 +285,13 @@ class RelationPlanner
             case BERNOULLI -> SampleNode.Type.BERNOULLI;
             case SYSTEM -> SampleNode.Type.SYSTEM;
         };
+    }
+
+    @Override
+    public RelationPlan process(Node node, @Nullable Void context)
+    {
+        checkPlanningNotInterrupted();
+        return super.process(node, context);
     }
 
     @Override

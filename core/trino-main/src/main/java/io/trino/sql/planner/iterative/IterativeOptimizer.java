@@ -58,6 +58,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
+import static io.trino.sql.planner.PlanningInterruption.checkPlanningNotInterrupted;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
@@ -378,6 +379,7 @@ public class IterativeOptimizer
 
         public void checkTimeoutNotExhausted()
         {
+            checkPlanningNotInterrupted();
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
                 StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
                 List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);

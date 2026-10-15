@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
@@ -21,6 +22,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -29,10 +31,15 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.IntStream;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_PLANNING_TIME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -92,6 +99,30 @@ public class TestQueryTracker
                 .hasMessageContaining("Query exceeded the maximum planning time limit of 2.00s");
 
         interrupted.await();
+    }
+
+    @Test
+    @Timeout(30)
+    public void testInterruptCpuBoundPlanning()
+    {
+        assertThatThrownBy(() -> getQueryRunner().execute(doublingCteQuery(16)))
+                .isInstanceOfSatisfying(QueryFailedException.class, e -> {
+                    assertThat(e).hasMessageContaining("Query exceeded the maximum planning time limit of 2.00s");
+                    // Planning thread is named after the query, so it disappears once planning stops
+                    String planningThreadName = "Query-" + e.getQueryId();
+                    assertEventually(new Duration(10, SECONDS), () -> assertThat(Thread.getAllStackTraces().keySet())
+                            .noneMatch(thread -> thread.getName().startsWith(planningThreadName)));
+                });
+    }
+
+    // Each WITH query references the previous one twice, so the plan doubles per level
+    private static String doublingCteQuery(int levels)
+    {
+        return "WITH t0 AS (SELECT 1 a)" +
+                IntStream.rangeClosed(1, levels)
+                        .mapToObj(i -> ", t%s AS (SELECT * FROM t%s UNION ALL SELECT * FROM t%s)".formatted(i, i - 1, i - 1))
+                        .collect(joining()) +
+                " SELECT count(*) FROM t" + levels;
     }
 
     private <T> T freeze()
