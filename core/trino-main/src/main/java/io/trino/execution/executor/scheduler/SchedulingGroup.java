@@ -86,13 +86,17 @@ final class SchedulingGroup<T>
         return task;
     }
 
-    public void finish(T task)
+    public void finish(T handle, long deltaWeight)
     {
-        checkArgument(tasks.containsKey(task), "Unknown task: %s", task);
-        tasks.remove(task);
-        blocked.remove(task);
-        runnableQueue.removeIfPresent(task);
-        baselineWeights.removeIfPresent(task);
+        Task task = tasks.remove(handle);
+        checkArgument(task != null, "Unknown task: %s", handle);
+
+        weight -= task.uncommittedWeight();
+        weight += deltaWeight;
+
+        blocked.remove(handle);
+        runnableQueue.removeIfPresent(handle);
+        baselineWeights.removeIfPresent(handle);
 
         updateState();
     }
@@ -102,11 +106,14 @@ final class SchedulingGroup<T>
         checkArgument(tasks.containsKey(handle), "Unknown task: %s", handle);
         checkArgument(!runnableQueue.contains(handle), "Task is already in queue: %s", handle);
 
+        Task task = tasks.get(handle);
+
+        weight -= task.uncommittedWeight();
         weight += deltaWeight;
 
-        Task task = tasks.get(handle);
         task.commitWeight(deltaWeight);
         task.setState(BLOCKED);
+        baselineWeights.addOrReplace(handle, task.weight());
         task.addWeight(-baselineWeight());
         blocked.add(handle);
         baselineWeights.remove(handle);
