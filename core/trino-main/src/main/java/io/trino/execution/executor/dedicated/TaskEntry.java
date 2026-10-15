@@ -55,6 +55,8 @@ class TaskEntry
     private final Tracer tracer;
     private final DoubleSupplier utilization;
     private final Runnable targetConcurrencyIncreased;
+    // Notified when the pending leaf split queue becomes non-empty.
+    private final Consumer<TaskEntry> leafSplitsQueued;
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
     @GuardedBy("this")
@@ -79,7 +81,8 @@ class TaskEntry
             int initialConcurrency,
             Duration concurrencyAdjustmentInterval,
             DoubleSupplier utilization,
-            Runnable targetConcurrencyIncreased)
+            Runnable targetConcurrencyIncreased,
+            Consumer<TaskEntry> leafSplitsQueued)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
@@ -87,6 +90,7 @@ class TaskEntry
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
         this.targetConcurrencyIncreased = requireNonNull(targetConcurrencyIncreased, "targetConcurrencyIncreased is null");
+        this.leafSplitsQueued = requireNonNull(leafSplitsQueued, "leafSplitsQueued is null");
 
         this.group = scheduler.createGroup(taskId.toString());
         this.concurrency = new SplitConcurrencyController(initialConcurrency, concurrencyAdjustmentInterval);
@@ -145,11 +149,21 @@ class TaskEntry
     public ListenableFuture<Void> enqueueLeafSplit(SplitRunner split)
     {
         SettableFuture<Void> done = SettableFuture.create();
+        boolean destroyed;
+        boolean firstPending = false;
         synchronized (this) {
+            destroyed = this.destroyed;
             if (!destroyed) {
+                firstPending = pending.isEmpty();
                 pending.addLast(new QueuedSplit(split, done));
-                return done;
             }
+        }
+
+        if (!destroyed) {
+            if (firstPending) {
+                leafSplitsQueued.accept(this);
+            }
+            return done;
         }
 
         // The task was removed concurrently with enqueueSplits. There is nobody left to claim the
@@ -205,17 +219,22 @@ class TaskEntry
     public void releaseLeafSplit(QueuedSplit split)
     {
         boolean destroyed;
+        boolean firstPending = false;
         synchronized (this) {
             runningLeafSplits.remove(split);
             running.remove(split.split());
             destroyed = this.destroyed;
             if (!destroyed) {
+                firstPending = pending.isEmpty();
                 pending.addFirst(split);
             }
         }
 
         if (destroyed) {
             split.done().set(null);
+        }
+        else if (firstPending) {
+            leafSplitsQueued.accept(this);
         }
     }
 

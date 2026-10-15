@@ -41,9 +41,12 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.SequencedSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -77,6 +80,9 @@ public class ThreadPerDriverTaskExecutor
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
     private final Map<TaskId, TaskEntry> tasks = new ConcurrentHashMap<>();
+    // Tasks with pending leaf splits, in the order they receive leaf splits above their guaranteed minimum. Scans drop tasks found drained.
+    @GuardedBy("this")
+    private final SequencedSet<TaskEntry> leafSplitRotation = new LinkedHashSet<>();
 
     private volatile boolean closed;
 
@@ -88,6 +94,7 @@ public class ThreadPerDriverTaskExecutor
 
     // Do not inline this field to avoid creating lambdas that cannot be cached by JVM.
     private final Consumer<TaskEntry> leafSplitDoneCallback = this::leafSplitDone;
+    private final Consumer<TaskEntry> leafSplitsQueuedCallback = this::leafSplitsQueued;
     private final FailureLogger schedulingFailureLogger = new FailureLogger("Error scheduling leaf splits");
     private final Runnable scheduleMoreLeafSplitsQuietly = maintenance(this::scheduleMoreLeafSplits, schedulingFailureLogger);
 
@@ -170,7 +177,8 @@ public class ThreadPerDriverTaskExecutor
                 initialSplitConcurrency,
                 splitConcurrencyAdjustFrequency,
                 utilizationSupplier,
-                scheduleMoreLeafSplitsQuietly);
+                scheduleMoreLeafSplitsQuietly,
+                leafSplitsQueuedCallback);
         tasks.put(taskId, task);
         return task;
     }
@@ -204,12 +212,17 @@ public class ThreadPerDriverTaskExecutor
         return futures;
     }
 
+    private synchronized void leafSplitsQueued(TaskEntry task)
+    {
+        leafSplitRotation.add(task);
+    }
+
     private void leafSplitDone(TaskEntry task)
     {
         ClaimedLeafSplit replacement;
         synchronized (this) {
             runningLeafDrivers--;
-            replacement = claimLeafSplitForTask(task);
+            replacement = claimReplacementLeafSplit(task);
         }
 
         if (replacement != null) {
@@ -224,25 +237,41 @@ public class ThreadPerDriverTaskExecutor
         }
     }
 
+    // The finished task refills up to its guaranteed minimum. Slots above it rotate across tasks.
     @GuardedBy("this")
     @Nullable
-    private ClaimedLeafSplit claimLeafSplitForTask(TaskEntry task)
+    private ClaimedLeafSplit claimReplacementLeafSplit(TaskEntry finishedTask)
     {
         if (closed) {
             return null;
         }
 
-        int taskRunning = task.runningLeafSplits();
-        if (taskRunning >= minDriversPerTask &&
-                (runningLeafDrivers >= targetGlobalLeafDrivers || taskRunning >= min(task.targetConcurrency(), maxDriversPerTask))) {
-            return null;
-        }
-
         List<ClaimedLeafSplit> claimed = new ArrayList<>(1);
-        if (!claimLeafSplit(task, claimed)) {
-            return null;
+        if (finishedTask.runningLeafSplits() < minDriversPerTask && claimLeafSplit(finishedTask, claimed)) {
+            return claimed.getFirst();
         }
-        return claimed.getFirst();
+        if (runningLeafDrivers < targetGlobalLeafDrivers && claimNextLeafSplit(claimed)) {
+            return claimed.getFirst();
+        }
+        return null;
+    }
+
+    // Claims a split from the first task in rotation below its target concurrency and moves that task to the back.
+    @GuardedBy("this")
+    private boolean claimNextLeafSplit(List<ClaimedLeafSplit> claimed)
+    {
+        for (Iterator<TaskEntry> iterator = leafSplitRotation.iterator(); iterator.hasNext(); ) {
+            TaskEntry task = iterator.next();
+            if (task.runningLeafSplits() >= min(task.targetConcurrency(), maxDriversPerTask)) {
+                continue;
+            }
+            if (claimLeafSplit(task, claimed)) {
+                leafSplitRotation.addLast(task);
+                return true;
+            }
+            iterator.remove();
+        }
+        return false;
     }
 
     @VisibleForTesting
@@ -315,29 +344,21 @@ public class ThreadPerDriverTaskExecutor
         List<ClaimedLeafSplit> claimed = new ArrayList<>();
 
         // claim minimum guaranteed leaf drivers for each task
-        for (TaskEntry task : tasks.values()) {
+        for (Iterator<TaskEntry> iterator = leafSplitRotation.iterator(); iterator.hasNext(); ) {
+            TaskEntry task = iterator.next();
             int target = max(0, minDriversPerTask - task.runningLeafSplits());
             for (int i = 0; i < target; i++) {
                 if (!claimLeafSplit(task, claimed)) {
+                    iterator.remove();
                     break;
                 }
             }
         }
 
-        // Claim additional drivers up to the target global leaf drivers. Iterate in rounds to
-        // retain the previous round-robin behavior without copying the task map into a queue.
-        int target = targetGlobalLeafDrivers - runningLeafDrivers;
-        boolean progress = true;
-        while (target > 0 && progress) {
-            progress = false;
-            for (TaskEntry task : tasks.values()) {
-                if (target == 0) {
-                    break;
-                }
-                if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask) && claimLeafSplit(task, claimed)) {
-                    target--;
-                    progress = true;
-                }
+        // claim additional drivers up to the target global leaf drivers, rotating across tasks
+        while (runningLeafDrivers < targetGlobalLeafDrivers) {
+            if (!claimNextLeafSplit(claimed)) {
+                break;
             }
         }
 
