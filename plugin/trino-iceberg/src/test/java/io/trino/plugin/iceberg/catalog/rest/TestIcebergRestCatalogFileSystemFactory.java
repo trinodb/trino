@@ -28,14 +28,18 @@ import io.trino.plugin.iceberg.IcebergStorageCredentials;
 import io.trino.plugin.iceberg.IcebergTableCredentials;
 import io.trino.spi.NodeVersion;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
+import org.apache.iceberg.rest.RESTCatalogProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,11 +56,302 @@ import static io.trino.filesystem.gcs.GcsFileSystemConstants.EXTRA_CREDENTIALS_G
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningContext.EXTRA_CREDENTIALS_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergRestCatalogFileSystemFactory
 {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testS3RemoteSigningOnlyForwardsSignerProperties(boolean onWorker)
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+
+        Map<String, String> signingProperties = ImmutableMap.of(
+                CatalogProperties.URI, "http://localhost",
+                RESTCatalogProperties.REMOTE_SIGNING_ENDPOINT, "v1/namespaces/test/tables/table/sign",
+                RESTCatalogProperties.REMOTE_SIGNING_CONFIG, "{\"properties\":{\"key\":\"value\"}}",
+                IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY, "{\"token\":\"table-token\"}",
+                "header.X-Signer-Context", "table");
+        Map<String, String> fileIoProperties = ImmutableMap.<String, String>builder()
+                .putAll(signingProperties)
+                .put(S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true")
+                .put(S3FileIOProperties.ACCESS_KEY_ID, "vended-access-key")
+                .put(S3FileIOProperties.SECRET_ACCESS_KEY, "vended-secret-key")
+                .put("unrelated-option", "value")
+                .buildOrThrow();
+        ConnectorIdentity original = ConnectorIdentity.ofUser("test");
+        TrinoFileSystem fileSystem = onWorker
+                ? factory.create(original, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()))
+                : factory.create(original, fileIoProperties);
+        fileSystem.newInputFile(Location.of("s3://bucket/file"));
+
+        ConnectorIdentity identity = capturedIdentity.get();
+        assertThat(identity).isNotNull();
+        assertThat(identity.getExtraCredentials()).containsOnlyKeys(EXTRA_CREDENTIALS_PROPERTY);
+        assertThat(IcebergRestCatalogS3RemoteSigningContext.fromJson(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_PROPERTY)))
+                .isEqualTo(new IcebergRestCatalogS3RemoteSigningContext(
+                        URI.create("http://localhost/v1/namespaces/test/tables/table/sign"),
+                        ImmutableMap.of("X-Signer-Context", ImmutableList.of("table")),
+                        ImmutableMap.of("key", "value"),
+                        ImmutableMap.of("token", "table-token")));
+    }
+
+    @Test
+    void testS3RemoteSigningIgnoresStorageCredentials()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+        Map<String, String> fileIoProperties = ImmutableMap.<String, String>builder()
+                .putAll(remoteSigningProperties())
+                .put(S3FileIOProperties.ACCESS_KEY_ID, "vended-access-key")
+                .put(S3FileIOProperties.SECRET_ACCESS_KEY, "vended-secret-key")
+                .put(S3FileIOProperties.SESSION_TOKEN, "vended-session-token")
+                .buildOrThrow();
+
+        factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties)
+                .newInputFile(Location.of("s3://bucket/file"));
+
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsKey(EXTRA_CREDENTIALS_PROPERTY)
+                .doesNotContainKeys(
+                        EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY,
+                        EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY,
+                        EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "false, false",
+            "false, true",
+            "true, false",
+            "true, true",
+    })
+    void testS3RemoteSigningDisabledDoesNotUseLocalCredentials(boolean vendedCredentialsEnabled, boolean onWorker)
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return null;
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, vendedCredentialsEnabled, false);
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "local-access-key",
+                        EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "local-secret-key",
+                        EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "local-session-token"))
+                .build();
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                CatalogProperties.URI, "http://localhost",
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true",
+                S3FileIOProperties.ACCESS_KEY_ID, "incomplete-vended-access-key");
+        TrinoFileSystem fileSystem = onWorker
+                ? factory.create(identity, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()))
+                : factory.create(identity, fileIoProperties);
+
+        assertThat(capturedIdentity.get()).isNull();
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of("s3://bucket/file")))
+                .hasMessage(vendedCredentialsEnabled
+                        ? "Table requires remote signing; enable iceberg.rest-catalog.remote-signing-enabled and disable iceberg.rest-catalog.vended-credentials-enabled"
+                        : "Table requires remote signing; enable iceberg.rest-catalog.remote-signing-enabled");
+        assertThat(capturedIdentity.get()).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "gs://bucket/file, false",
+            "gs://bucket/file, true",
+            "abfs://container@account.dfs.core.windows.net/file, false",
+            "abfs://container@account.dfs.core.windows.net/file, true",
+            "/warehouse/table/file, false",
+            "/warehouse/table/file, true",
+    })
+    void testS3RemoteSigningDoesNotAffectOtherSchemes(String path, boolean remoteSigningEnabled)
+            throws IOException
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, remoteSigningEnabled);
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of("local-credential", "value"))
+                .build();
+        Map<String, String> fileIoProperties = ImmutableMap.of(S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
+
+        TrinoFileSystem fileSystem = factory.create(identity, fileIoProperties);
+        assertThat(capturedIdentity.get()).isNull();
+        fileSystem.newInputFile(Location.of(path));
+
+        assertThat(capturedIdentity.get().getExtraCredentials()).containsExactlyEntriesOf(ImmutableMap.of("local-credential", "value"));
+
+        capturedIdentity.set(null);
+        fileSystem.deleteFiles(ImmutableList.of(Location.of(path)));
+        assertThat(capturedIdentity.get().getExtraCredentials()).containsExactlyEntriesOf(ImmutableMap.of("local-credential", "value"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testS3RemoteSigningDoesNotAffectOtherVendedCredentials(boolean onWorker)
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, true, false);
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true",
+                GCPProperties.GCS_OAUTH2_TOKEN, "gcs-token",
+                AzureProperties.ADLS_SAS_TOKEN_PREFIX + "account", "azure-token");
+        ConnectorIdentity identity = ConnectorIdentity.ofUser("test");
+        TrinoFileSystem fileSystem = onWorker
+                ? factory.create(identity, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()))
+                : factory.create(identity, fileIoProperties);
+
+        fileSystem.newInputFile(Location.of("gs://bucket/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_GCS_OAUTH_TOKEN_PROPERTY, "gcs-token");
+
+        fileSystem.newInputFile(Location.of("abfs://container@account.dfs.core.windows.net/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials())
+                .containsEntry(EXTRA_CREDENTIALS_AZURE_SAS_TOKEN_PREFIX + "account", "azure-token");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "s3, false, false",
+            "s3, false, true",
+            "s3, true, false",
+            "s3, true, true",
+            "s3a, false, false",
+            "s3n, false, true",
+    })
+    void testS3RemoteSigningDisabledUsesVendedCredentials(String scheme, boolean vendedCredentialsEnabled, boolean onWorker)
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, vendedCredentialsEnabled, false);
+        Map<String, String> fileIoProperties = ImmutableMap.of(
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true",
+                S3FileIOProperties.ACCESS_KEY_ID, "vended-access-key",
+                S3FileIOProperties.SECRET_ACCESS_KEY, "vended-secret-key",
+                S3FileIOProperties.SESSION_TOKEN, "vended-session-token");
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, "local-access-key",
+                        EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, "local-secret-key",
+                        EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, "local-session-token"))
+                .build();
+        TrinoFileSystem fileSystem = onWorker
+                ? factory.create(identity, new IcebergTableCredentials(fileIoProperties, ImmutableList.of()))
+                : factory.create(identity, fileIoProperties);
+
+        fileSystem.newInputFile(Location.of(scheme + "://bucket/file"));
+
+        assertS3ExtraCredentials(capturedIdentity.get(), "vended-access-key", "vended-secret-key", "vended-session-token");
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "false, s3://bucket/table/, s3://bucket/table, s3://bucket/table-other/file",
+            "true, s3://bucket/table/, s3://bucket/table, s3://bucket/table-other/file",
+            "false, s3://bucket/, s3://bucket/, s3://bucket-other/file",
+            "true, s3://bucket/, s3://bucket/, s3://bucket-other/file",
+    })
+    void testS3RemoteSigningDisabledUsesMatchingStorageCredentials(boolean onWorker, String prefix, String root, String unmatchedPath)
+            throws IOException
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        List<Location> deletedFiles = new ArrayList<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem()
+            {
+                @Override
+                public void deleteFiles(Collection<Location> locations)
+                {
+                    deletedFiles.addAll(locations);
+                }
+            };
+        };
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, false);
+        Map<String, String> fileIoProperties = ImmutableMap.of(S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
+        List<IcebergStorageCredentials> credentials = ImmutableList.of(new IcebergStorageCredentials(
+                prefix,
+                ImmutableMap.of(
+                        S3FileIOProperties.ACCESS_KEY_ID, "vended-access-key",
+                        S3FileIOProperties.SECRET_ACCESS_KEY, "vended-secret-key",
+                        S3FileIOProperties.SESSION_TOKEN, "vended-session-token")));
+        TrinoFileSystem fileSystem;
+        if (onWorker) {
+            fileSystem = factory.create(ConnectorIdentity.ofUser("test"), new IcebergTableCredentials(fileIoProperties, credentials));
+        }
+        else {
+            IcebergRestCatalogFileSystem catalogFileSystem = (IcebergRestCatalogFileSystem) factory.create(ConnectorIdentity.ofUser("test"), fileIoProperties);
+            catalogFileSystem.setCredentials(credentials);
+            fileSystem = catalogFileSystem;
+        }
+
+        fileSystem.newInputFile(Location.of("s3://bucket/table/file"));
+        assertS3ExtraCredentials(capturedIdentity.get(), "vended-access-key", "vended-secret-key", "vended-session-token");
+
+        capturedIdentity.set(null);
+        fileSystem.directoryExists(Location.of(root));
+        assertS3ExtraCredentials(capturedIdentity.get(), "vended-access-key", "vended-secret-key", "vended-session-token");
+
+        capturedIdentity.set(null);
+        assertThatThrownBy(() -> fileSystem.newInputFile(Location.of(unmatchedPath)))
+                .hasMessageContaining("Table requires remote signing");
+        assertThat(capturedIdentity.get()).isNull();
+
+        assertThatThrownBy(() -> fileSystem.deleteFiles(ImmutableList.of(Location.of(root), Location.of(unmatchedPath))))
+                .hasMessageContaining("Table requires remote signing");
+        assertThat(deletedFiles).doesNotContain(Location.of(unmatchedPath));
+    }
+
+    @Test
+    void testS3RemoteSigningPropertiesCannotBeProvidedByUser()
+    {
+        AtomicReference<ConnectorIdentity> capturedIdentity = new AtomicReference<>();
+        TrinoFileSystemFactory delegate = identity -> {
+            capturedIdentity.set(identity);
+            return new MockTrinoFileSystem();
+        };
+
+        IcebergRestCatalogFileSystemFactory factory = createFactory(delegate, false, true);
+        ConnectorIdentity identity = ConnectorIdentity.forUser("test")
+                .withExtraCredentials(ImmutableMap.of(
+                        "user-property", "value",
+                        EXTRA_CREDENTIALS_PROPERTY, "{\"endpoint\":\"http://attacker/sign\",\"headers\":{},\"properties\":{},\"authentication\":{}}"))
+                .build();
+
+        factory.create(identity, ImmutableMap.of());
+        assertThat(capturedIdentity.get().getExtraCredentials()).containsOnlyKeys("user-property");
+
+        factory.create(identity, remoteSigningProperties()).newInputFile(Location.of("s3://bucket/file"));
+        assertThat(capturedIdentity.get().getExtraCredentials()).containsOnlyKeys("user-property", EXTRA_CREDENTIALS_PROPERTY);
+        assertThat(IcebergRestCatalogS3RemoteSigningContext.fromJson(capturedIdentity.get().getExtraCredentials().get(EXTRA_CREDENTIALS_PROPERTY)).endpoint())
+                .isEqualTo(URI.create("http://localhost/v1/namespaces/test/tables/table/sign"));
+    }
+
     @Test
     void testS3VendedCredentials()
     {
@@ -579,18 +874,39 @@ final class TestIcebergRestCatalogFileSystemFactory
                         EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken));
     }
 
+    private static Map<String, String> remoteSigningProperties()
+    {
+        return ImmutableMap.of(
+                CatalogProperties.URI, "http://localhost",
+                RESTCatalogProperties.REMOTE_SIGNING_ENDPOINT, "v1/namespaces/test/tables/table/sign",
+                IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY, "{\"token\":\"table-token\"}",
+                S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
+    }
+
     private static IcebergRestCatalogFileSystemFactory createFactory(TrinoFileSystemFactory delegate, boolean vendedCredentialsEnabled)
+    {
+        return createFactory(delegate, vendedCredentialsEnabled, false);
+    }
+
+    private static IcebergRestCatalogFileSystemFactory createFactory(
+            TrinoFileSystemFactory delegate,
+            boolean vendedCredentialsEnabled,
+            boolean remoteSigningEnabled)
     {
         IcebergRestCatalogConfig config = new IcebergRestCatalogConfig()
                 .setBaseUri("http://localhost")
                 .setVendedCredentialsEnabled(vendedCredentialsEnabled);
+        Optional<IcebergRestCatalogS3Config> s3Config = Optional.of(new IcebergRestCatalogS3Config()
+                .setRemoteSigningEnabled(remoteSigningEnabled));
         IcebergRestCatalogPropertiesProvider catalogPropertiesProvider = new IcebergRestCatalogPropertiesProvider(
                 config,
+                s3Config,
                 new NoneSecurityProperties(),
                 new NodeVersion("test"));
         return new IcebergRestCatalogFileSystemFactory(
                 delegate,
                 config,
+                s3Config,
                 catalogPropertiesProvider);
     }
 

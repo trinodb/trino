@@ -528,6 +528,9 @@ following properties:
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
+* - `iceberg.rest-catalog.remote-signing-enabled`
+  - Use the REST backend to sign S3 requests. Requires `fs.s3.enabled=true`.
+    Defaults to `false`.
 * - `iceberg.rest-catalog.nested-namespace-enabled`
   - Support querying objects under nested namespace.
     Defaults to `false`.
@@ -594,6 +597,80 @@ The REST catalog supports [view management](sql-view-management)
 using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
 
 The REST catalog does not support [materialized view management](sql-materialized-view-management).
+
+#### Remote signing
+
+Enable Iceberg REST remote signing for S3-compatible storage with:
+
+```properties
+iceberg.rest-catalog.remote-signing-enabled=true
+fs.s3.enabled=true
+s3.region=us-east-1
+```
+
+For Ceph or other S3-compatible storage, configure `s3.endpoint` and
+`s3.path-style-access`. Trino sends each storage request's method, URI, region,
+and headers to the signer, then uses the returned URI and headers to access
+storage. With SSE-C, those headers include the customer key, which lets the
+signer read the encrypted objects. Object data travels directly between Trino
+and storage. Trino needs no local AWS credentials.
+
+The REST catalog enables remote signing by returning the Iceberg property
+`s3.remote-signing-enabled=true` in catalog or table configuration. This is
+not a Trino catalog property and affects only S3 paths. For those paths, Trino
+uses remote signing when `iceberg.rest-catalog.remote-signing-enabled=true`.
+Otherwise, Trino uses vended S3 credentials supplied by the catalog for the
+requested path, even if `iceberg.rest-catalog.vended-credentials-enabled=false`.
+If neither is available, storage access fails. Local AWS credentials do not
+satisfy this requirement. Earlier versions of native S3 ignored this server
+setting.
+
+Trino uses the table-specific signing endpoint provided by the Iceberg REST
+client, resolved against the REST catalog URI. The catalog must support this
+endpoint. Signer requests use REST catalog authentication, including a
+table-specific bearer token when supplied.
+Legacy `signer.uri`, `signer.endpoint`, and `s3.signer.*` settings are not used.
+
+Signer OAuth authentication uses the catalog's effective token endpoint and scope,
+including settings returned by `/v1/config`. If no scope is set, signer token
+requests use the scope `sign`, as in Iceberg's own signer, while metadata
+requests use `catalog`. A table token does not inherit the
+catalog's client credential for refresh. A client credential explicitly supplied
+for the table is used instead, when present. If the catalog has a client
+credential, Trino requests signing tokens with that credential and does not sign
+with `iceberg.rest-catalog.oauth2.token`, matching how metadata requests
+authenticate.
+
+With token-only catalog authentication, each table Trino loads carries the
+catalog's current token for signing, so a query that starts after the catalog
+refreshes its token signs with the new token. A running query keeps the token
+its tables were loaded with. Trino refreshes that token only when its expiry is
+known, such as from a JWT `exp` claim. If the token can expire before a query
+finishes, configure `iceberg.rest-catalog.oauth2.credential` so workers can
+request new tokens.
+
+Each Trino node drops a signing session after it goes unused for
+`iceberg.rest-catalog.session-timeout`, together with any token the session
+renewed. The next request starts again from the token the table was loaded with
+and fails if that token has expired, unless a client credential can obtain a new
+one. A catalog client credential does not apply to tokens that the catalog
+returns for a table. For example, the coordinator signs the files it writes when
+an `INSERT` commits, so a long `INSERT` can fail at commit. To avoid this, set
+`iceberg.rest-catalog.session-timeout` longer than your longest queries. Unused
+sessions keep refreshing their tokens until the timeout ends.
+
+Catalog and signer authentication supports only `iceberg.rest-catalog.security=NONE`
+and `OAUTH2`, not `SIGV4` or `GOOGLE`. Storage requests still use AWS Signature
+Version 4.
+
+Remote signing requires the default `iceberg.rest-catalog.session=NONE`.
+It cannot be enabled together with `iceberg.rest-catalog.vended-credentials-enabled`.
+User-session authentication is not passed to the signer. Cross-region access
+(`s3.cross-region-access`), `register_table`, and presigned URLs are unsupported.
+A signer error stops the storage operation without falling back to local AWS
+credentials. Trino does not cache signatures: the signer authorizes every storage
+request, including each ranged read. This adds a signer round trip to each
+request.
 
 #### Databricks Unity Catalog
 
