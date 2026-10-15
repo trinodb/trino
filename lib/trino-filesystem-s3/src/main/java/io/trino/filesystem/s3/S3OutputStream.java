@@ -208,6 +208,10 @@ final class S3OutputStream
             }
             throw new IOException(e);
         }
+        catch (RuntimeException e) {
+            abortUploadSuppressed(e);
+            throw e;
+        }
         finally {
             buffer = null;
             memoryContext.close();
