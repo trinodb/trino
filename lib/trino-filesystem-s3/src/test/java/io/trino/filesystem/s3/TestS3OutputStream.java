@@ -45,6 +45,8 @@ import static software.amazon.awssdk.regions.Region.US_EAST_1;
 
 final class TestS3OutputStream
 {
+    private static final int PART_SIZE = 5 * 1024 * 1024;
+
     @Test
     void testCompletionFailureAbortsMultipartUpload()
             throws Exception
@@ -70,7 +72,7 @@ final class TestS3OutputStream
                         .overrideConfiguration(configuration -> configuration.addExecutionInterceptor(interceptor))
                         .build()) {
             S3Context context = new S3Context(
-                    5 * 1024 * 1024,
+                    PART_SIZE,
                     false,
                     S3Context.S3SseContext.of(S3FileSystemConfig.S3SseType.NONE, null, null),
                     Optional.empty(),
@@ -84,7 +86,8 @@ final class TestS3OutputStream
                     context,
                     new S3Location(Location.of("s3://bucket/object")),
                     Optional.empty())) {
-                output.write(new byte[5 * 1024 * 1024 + 1]);
+                // The extra byte forces a second multipart part.
+                output.write(new byte[PART_SIZE + 1]);
 
                 assertThatThrownBy(output::close).isSameAs(failure);
                 assertThat(httpClient.abortRequests).singleElement().satisfies(request -> {

@@ -14,17 +14,27 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.http.auth.spi.signer.AsyncSignRequest;
+import software.amazon.awssdk.http.auth.spi.signer.AsyncSignedRequest;
+import software.amazon.awssdk.http.auth.spi.signer.HttpSigner;
+import software.amazon.awssdk.http.auth.spi.signer.SignRequest;
+import software.amazon.awssdk.http.auth.spi.signer.SignedRequest;
 import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.filesystem.s3.TestS3SecurityMapping.MappingResult.credentials;
@@ -32,6 +42,7 @@ import static io.trino.filesystem.s3.TestS3SecurityMapping.MappingSelector.path;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static software.amazon.awssdk.regions.Region.US_EAST_1;
 
 public class TestS3SecurityMapping
 {
@@ -500,6 +511,58 @@ public class TestS3SecurityMapping
                         Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("iamRole must be provided when roleSessionName is provided");
+    }
+
+    @Test
+    public void testRemoteSignerReplacesMappedCredentials()
+    {
+        S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
+                .setConfigFile(getResourceFile("security-mapping.json"));
+        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
+        List<SignRequest<? extends AwsCredentialsIdentity>> signRequests = new CopyOnWriteArrayList<>();
+        HttpSigner<AwsCredentialsIdentity> signer = new HttpSigner<>()
+        {
+            @Override
+            public SignedRequest sign(SignRequest<? extends AwsCredentialsIdentity> request)
+            {
+                signRequests.add(request);
+                // Fail before the request is sent
+                throw new IllegalStateException("remote signer called");
+            }
+
+            @Override
+            public CompletableFuture<AsyncSignedRequest> signAsync(AsyncSignRequest<? extends AwsCredentialsIdentity> request)
+            {
+                return CompletableFuture.failedFuture(new UnsupportedOperationException());
+            }
+        };
+        S3FileSystemLoader loader = new S3FileSystemLoader(
+                provider,
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setRegion(US_EAST_1.id())
+                        // Unreachable, so that a request signed without the remote signer fails fast
+                        .setEndpoint("http://localhost:1")
+                        .setPathStyleAccess(true),
+                new S3FileSystemStats(),
+                Optional.of(_ -> Optional.of(signer)));
+        try {
+            // The mapping for this location provides static credentials and a KMS key
+            Location location = Location.of("s3://foo/data/test.csv");
+            TrinoFileSystem fileSystem = loader.apply(location).create(ConnectorIdentity.ofUser(DEFAULT_USER));
+            assertThatThrownBy(() -> fileSystem.newOutputFile(location).createOrOverwrite(new byte[] {1}))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("remote signer called");
+
+            assertThat(signRequests).singleElement().satisfies(request -> {
+                assertThat(request.identity().accessKeyId()).isNull();
+                assertThat(request.identity().secretAccessKey()).isNull();
+                assertThat(request.request().firstMatchingHeader("x-amz-server-side-encryption-aws-kms-key-id")).contains("kmsKey_10");
+            });
+        }
+        finally {
+            loader.destroy();
+        }
     }
 
     private File getResourceFile(String name)
