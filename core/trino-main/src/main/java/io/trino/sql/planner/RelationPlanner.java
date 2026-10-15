@@ -160,6 +160,7 @@ import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.util.AstUtils;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -168,6 +169,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -197,6 +199,7 @@ import static io.trino.sql.ir.ComparisonOperator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.cast;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.planner.LogicalPlanner.checkQueryNotDone;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
@@ -236,6 +239,7 @@ class RelationPlanner
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
+    private final BooleanSupplier isQueryDone;
 
     RelationPlanner(
             Analysis analysis,
@@ -245,7 +249,8 @@ class RelationPlanner
             PlannerContext plannerContext,
             Optional<TranslationMap> outerContext,
             Session session,
-            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries,
+            BooleanSupplier isQueryDone)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -263,8 +268,9 @@ class RelationPlanner
         this.plannerContext = plannerContext;
         this.outerContext = outerContext;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone);
         this.recursiveSubqueries = recursiveSubqueries;
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     public static JoinType mapJoinType(Join.Type joinType)
@@ -283,6 +289,13 @@ class RelationPlanner
             case BERNOULLI -> SampleNode.Type.BERNOULLI;
             case SYSTEM -> SampleNode.Type.SYSTEM;
         };
+    }
+
+    @Override
+    public RelationPlan process(Node node, @Nullable Void context)
+    {
+        checkQueryNotDone(isQueryDone);
+        return super.process(node, context);
     }
 
     @Override
@@ -308,7 +321,7 @@ class RelationPlanner
         if (namedQuery != null) {
             RelationPlan subPlan;
             if (analysis.isExpandableQuery(namedQuery)) {
-                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                         .planExpand(namedQuery);
             }
             else {
@@ -1379,7 +1392,7 @@ class RelationPlanner
     {
         PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
 
-        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries)
+        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries, isQueryDone)
                 .process(lateral.getQuery(), null);
 
         PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext, symbolAllocator);
@@ -1884,21 +1897,21 @@ class RelationPlanner
     protected RelationPlan visitPivot(Pivot node, Void context)
     {
         RelationPlan inputPlan = process(node.getInput(), context);
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .planPivot(node, inputPlan);
     }
 
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries, isQueryDone)
                 .plan(node);
     }
 

@@ -22,6 +22,8 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.function.BooleanSupplier;
+
 import static java.util.Objects.requireNonNull;
 
 public interface PlanOptimizer
@@ -35,7 +37,8 @@ public interface PlanOptimizer
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
             TableStatsProvider tableStatsProvider,
-            RuntimeInfoProvider runtimeInfoProvider)
+            RuntimeInfoProvider runtimeInfoProvider,
+            BooleanSupplier isQueryDone)
     {
         public Context(
                 Session session,
@@ -44,7 +47,8 @@ public interface PlanOptimizer
                 WarningCollector warningCollector,
                 PlanOptimizersStatsCollector planOptimizersStatsCollector,
                 TableStatsProvider tableStatsProvider,
-                RuntimeInfoProvider runtimeInfoProvider)
+                RuntimeInfoProvider runtimeInfoProvider,
+                BooleanSupplier isQueryDone)
         {
             this.session = requireNonNull(session, "session is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -53,6 +57,7 @@ public interface PlanOptimizer
             this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
             this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
+            this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
         }
     }
 }

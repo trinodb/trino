@@ -133,6 +133,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -150,6 +151,7 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.operator.scalar.StringFunctions.SPACE_TRIMMED_LENGTH_FUNCTION_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -202,6 +204,7 @@ public class LogicalPlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
+    private final BooleanSupplier isQueryDone;
 
     public LogicalPlanner(
             Session session,
@@ -212,9 +215,10 @@ public class LogicalPlanner
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            CachingTableStatsProvider tableStatsProvider)
+            CachingTableStatsProvider tableStatsProvider,
+            BooleanSupplier isQueryDone)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, isQueryDone);
     }
 
     public LogicalPlanner(
@@ -227,7 +231,8 @@ public class LogicalPlanner
             CostCalculator costCalculator,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            CachingTableStatsProvider tableStatsProvider)
+            CachingTableStatsProvider tableStatsProvider,
+            BooleanSupplier isQueryDone)
     {
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -241,6 +246,7 @@ public class LogicalPlanner
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     public Plan plan(Analysis analysis)
@@ -312,9 +318,10 @@ public class LogicalPlanner
 
     private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
     {
+        checkQueryNotDone(isQueryDone);
         PlanNode result;
         try (var _ = optimizerSpan(optimizer)) {
-            result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, RuntimeInfoProvider.noImplementation()));
+            result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider, RuntimeInfoProvider.noImplementation(), isQueryDone));
         }
         if (result == null) {
             throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
@@ -526,7 +533,7 @@ public class LogicalPlanner
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
-        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
+        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone);
         RelationPlan plan = planner.process(query, null);
 
         List<Symbol> visibleFieldMappings = visibleFields(plan);
@@ -671,6 +678,17 @@ public class LogicalPlanner
                 .addArgument(INTEGER, new Constant(INTEGER, (long) errorCode.toErrorCode().getCode()))
                 .addArgument(new Constant(VARCHAR, rawValue))
                 .build();
+    }
+
+    /**
+     * Planning is CPU-bound and never blocks, so it has to poll whether the query
+     * is done, e.g. failed for exceeding the planning time limit, to stop.
+     */
+    public static void checkQueryNotDone(BooleanSupplier isQueryDone)
+    {
+        if (isQueryDone.getAsBoolean()) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Planning stopped because the query is done");
+        }
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -932,7 +950,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone)
                 .plan(node);
 
         WriterTarget target = ((MergeWriterNode) planNode).getTarget();
@@ -949,7 +967,7 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone)
                 .plan(node);
 
         WriterTarget target = ((MergeWriterNode) planNode).getTarget();
@@ -966,7 +984,7 @@ public class LogicalPlanner
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
     {
-        MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone)
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -1012,7 +1030,7 @@ public class LogicalPlanner
 
     private RelationPlanner getRelationPlanner(Analysis analysis)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone);
     }
 
     public static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
@@ -1068,7 +1086,7 @@ public class LogicalPlanner
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext, symbolAllocator);
         if (where.isPresent()) {
-            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of(), isQueryDone);
             io.trino.sql.tree.Expression whereExpression = where.get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));

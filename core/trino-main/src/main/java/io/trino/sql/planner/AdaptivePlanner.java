@@ -43,6 +43,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -96,6 +97,7 @@ public class AdaptivePlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
+    private final BooleanSupplier isQueryDone;
     private final Set<PlanNodeId> cumulativeChangedPlanNodes = new HashSet<>();
 
     public AdaptivePlanner(
@@ -106,7 +108,8 @@ public class AdaptivePlanner
             PlanSanityChecker planSanityChecker,
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            CachingTableStatsProvider tableStatsProvider)
+            CachingTableStatsProvider tableStatsProvider,
+            BooleanSupplier isQueryDone)
     {
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -116,6 +119,7 @@ public class AdaptivePlanner
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     public SubPlan optimize(SubPlan root, RuntimeInfoProvider runtimeInfoProvider)
@@ -243,7 +247,8 @@ public class AdaptivePlanner
                             warningCollector,
                             planOptimizersStatsCollector,
                             tableStatsProvider,
-                            runtimeInfoProvider));
+                            runtimeInfoProvider,
+                            isQueryDone));
             changedPlanNodes.addAll(result.changedPlanNodes());
         }
         return new AdaptivePlanOptimizer.Result(result.plan(), changedPlanNodes.build());

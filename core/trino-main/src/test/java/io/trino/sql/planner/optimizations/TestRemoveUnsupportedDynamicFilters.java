@@ -519,7 +519,8 @@ public class TestRemoveUnsupportedDynamicFilters
                             WarningCollector.NOOP,
                             createPlanOptimizersStatsCollector(),
                             new CachingTableStatsProvider(metadata, session, () -> false),
-                            RuntimeInfoProvider.noImplementation()));
+                            RuntimeInfoProvider.noImplementation(),
+                            () -> false));
             new DynamicFiltersChecker().validate(
                     rewrittenPlan,
                     session,

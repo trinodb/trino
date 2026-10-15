@@ -61,6 +61,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,6 +93,7 @@ class SubqueryPlanner
     private final PlannerContext plannerContext;
     private final Session session;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
+    private final BooleanSupplier isQueryDone;
 
     SubqueryPlanner(
             Analysis analysis,
@@ -101,7 +103,8 @@ class SubqueryPlanner
             PlannerContext plannerContext,
             Optional<TranslationMap> outerContext,
             Session session,
-            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries,
+            BooleanSupplier isQueryDone)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -119,6 +122,7 @@ class SubqueryPlanner
         this.plannerContext = plannerContext;
         this.session = session;
         this.recursiveSubqueries = recursiveSubqueries;
+        this.isQueryDone = requireNonNull(isQueryDone, "isQueryDone is null");
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<io.trino.sql.tree.Expression> expressions, Analysis.SubqueryAnalysis subqueries)
@@ -442,7 +446,7 @@ class SubqueryPlanner
 
     private RelationPlan planSubquery(io.trino.sql.tree.Expression subquery, TranslationMap outerContext)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(outerContext), session, recursiveSubqueries)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(outerContext), session, recursiveSubqueries, isQueryDone)
                 .process(subquery, null);
     }
 

@@ -499,7 +499,8 @@ public class SqlQueryExecution
                 costCalculator,
                 stateMachine.getWarningCollector(),
                 planOptimizersStatsCollector,
-                tableStatsProvider);
+                tableStatsProvider,
+                stateMachine::isDone);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -584,7 +585,8 @@ public class SqlQueryExecution
                             DISTRIBUTED_PLAN_SANITY_CHECKER,
                             stateMachine.getWarningCollector(),
                             planOptimizersStatsCollector,
-                            tableStatsProvider),
+                            tableStatsProvider,
+                            stateMachine::isDone),
                     stageExecutionStats,
                     plan.getRoot());
         };
