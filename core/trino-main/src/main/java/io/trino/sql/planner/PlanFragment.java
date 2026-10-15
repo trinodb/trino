@@ -60,6 +60,44 @@ public class PlanFragment
     private final Optional<String> jsonRepresentation;
     private final boolean containsTableScanNode;
 
+    @JsonCreator
+    public PlanFragment(
+            @JsonProperty("id") PlanFragmentId id,
+            @JsonProperty("root") PlanNode root,
+            @JsonProperty("symbols") Set<Symbol> symbols,
+            @JsonProperty("partitioning") PartitioningHandle partitioning,
+            @JsonProperty("partitionCount") OptionalInt partitionCount,
+            @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
+            @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
+            @JsonProperty("outputSkewedBucketCount") OptionalInt outputSkewedBucketCount,
+            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
+            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions,
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
+    {
+        this(id,
+                root,
+                symbols,
+                partitioning,
+                partitionCount,
+                partitionedSources,
+                ImmutableSet.copyOf(partitionedSources),
+                findSources(root, partitionedSources),
+                findRemoteSourceNodes(root),
+                outputPartitioningScheme,
+                outputSkewedBucketCount,
+                statsAndCosts,
+                activeCatalogs,
+                languageFunctions,
+                jsonRepresentation);
+
+        // Potentially more expensive check, applied only in public constructor
+        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
+                "Root node outputs (%s) does not include all fragment outputs (%s)",
+                root.getOutputSymbols(),
+                outputPartitioningScheme.getOutputLayout());
+    }
+
     private PlanFragment(
             PlanFragmentId id,
             PlanNode root,
@@ -82,65 +120,22 @@ public class PlanFragment
         this.symbols = requireNonNull(symbols, "symbols is null");
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
-        this.partitionedSources = requireNonNull(partitionedSources, "partitionedSources is null");
-        this.partitionedSourcesSet = requireNonNull(partitionedSourcesSet, "partitionedSourcesSet is null");
-        this.partitionedSourceNodes = requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null");
-        this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
+        this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
+        this.partitionedSourcesSet = ImmutableSet.copyOf(requireNonNull(partitionedSourcesSet, "partitionedSourcesSet is null"));
+        this.partitionedSourceNodes = ImmutableSet.copyOf(requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null"));
+        this.remoteSourceNodes = ImmutableList.copyOf(requireNonNull(remoteSourceNodes, "remoteSourceNodes is null"));
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "outputPartitioningScheme is null");
         this.outputSkewedBucketCount = requireNonNull(outputSkewedBucketCount, "outputSkewedPartitionCount is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
-        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-        this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
+        this.activeCatalogs = ImmutableList.copyOf(requireNonNull(activeCatalogs, "activeCatalogs is null"));
+        this.languageFunctions = ImmutableMap.copyOf(requireNonNull(languageFunctions, "languageFunctions is null"));
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
         this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
-    }
-
-    @JsonCreator
-    public PlanFragment(
-            @JsonProperty("id") PlanFragmentId id,
-            @JsonProperty("root") PlanNode root,
-            @JsonProperty("symbols") Set<Symbol> symbols,
-            @JsonProperty("partitioning") PartitioningHandle partitioning,
-            @JsonProperty("partitionCount") OptionalInt partitionCount,
-            @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
-            @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
-            @JsonProperty("outputSkewedBucketCount") OptionalInt outputSkewedBucketCount,
-            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
-            @JsonProperty("activeCatalogs") List<CatalogProperties> activeCatalogs,
-            @JsonProperty("languageFunctions") Map<FunctionId, LanguageFunctionData> languageFunctions,
-            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
-    {
-        this.id = requireNonNull(id, "id is null");
-        this.root = requireNonNull(root, "root is null");
-        this.symbols = requireNonNull(symbols, "symbols is null");
-        this.partitioning = requireNonNull(partitioning, "partitioning is null");
-        this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
-        this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
-        this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
-        this.outputSkewedBucketCount = requireNonNull(outputSkewedBucketCount, "outputSkewedBucketCount is null");
-        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
-        this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
-        this.languageFunctions = ImmutableMap.copyOf(languageFunctions);
-        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(
                 partitionCount.isEmpty() || partitioning.getConnectorHandle() instanceof SystemPartitioningHandle,
                 "Connector partitioning handle should be of type system partitioning when partitionCount is present");
-
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
-        checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
-                "Root node outputs (%s) does not include all fragment outputs (%s)",
-                root.getOutputSymbols(),
-                outputPartitioningScheme.getOutputLayout());
-
-        this.partitionedSourceNodes = findSources(root, partitionedSources);
-
-        ImmutableList.Builder<RemoteSourceNode> remoteSourceNodes = ImmutableList.builder();
-        findRemoteSourceNodes(root, remoteSourceNodes);
-        this.remoteSourceNodes = remoteSourceNodes.build();
-
-        this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "partitioningScheme is null");
-        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
     @JsonProperty
@@ -286,6 +281,13 @@ public class PlanFragment
         for (PlanNode source : node.getSources()) {
             nodes.addAll(findSources(source, nodeIds));
         }
+    }
+
+    private static List<RemoteSourceNode> findRemoteSourceNodes(PlanNode node)
+    {
+        ImmutableList.Builder<RemoteSourceNode> builder = ImmutableList.builder();
+        findRemoteSourceNodes(node, builder);
+        return builder.build();
     }
 
     private static void findRemoteSourceNodes(PlanNode node, ImmutableList.Builder<RemoteSourceNode> builder)
