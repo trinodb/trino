@@ -264,6 +264,11 @@ public class PlanFragment
         return remoteSourceNodes;
     }
 
+    public boolean containsTableScanNode()
+    {
+        return containsTableScanNode;
+    }
+
     private static Set<PlanNode> findSources(PlanNode node, Iterable<PlanNodeId> nodeIds)
     {
         ImmutableSet.Builder<PlanNode> nodes = ImmutableSet.builder();
@@ -356,10 +361,5 @@ public class PlanFragment
                 activeCatalogs,
                 this.languageFunctions,
                 this.jsonRepresentation);
-    }
-
-    public boolean containsTableScanNode()
-    {
-        return containsTableScanNode;
     }
 }
