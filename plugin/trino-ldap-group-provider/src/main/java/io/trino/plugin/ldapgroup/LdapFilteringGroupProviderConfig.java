@@ -21,9 +21,17 @@ import java.util.Optional;
 
 public class LdapFilteringGroupProviderConfig
 {
+    public enum LdapGroupSearchMode
+    {
+        DIRECT,
+        RECURSIVE,
+        MATCHING_RULE_IN_CHAIN,
+    }
+
     private String ldapGroupBaseDN;
     private String ldapGroupsSearchFilter;
     private String ldapGroupsSearchMemberAttribute = "member";
+    private LdapGroupSearchMode ldapGroupSearchMode = LdapGroupSearchMode.DIRECT;
 
     @NotNull
     public String getLdapGroupBaseDN()
@@ -64,6 +72,20 @@ public class LdapFilteringGroupProviderConfig
     public LdapFilteringGroupProviderConfig setLdapGroupsSearchMemberAttribute(String ldapGroupsSearchMemberAttribute)
     {
         this.ldapGroupsSearchMemberAttribute = ldapGroupsSearchMemberAttribute;
+        return this;
+    }
+
+    @NotNull
+    public LdapGroupSearchMode getLdapGroupSearchMode()
+    {
+        return ldapGroupSearchMode;
+    }
+
+    @Config("ldap.group-search-mode")
+    @ConfigDescription("LDAP group resolution mode")
+    public LdapFilteringGroupProviderConfig setLdapGroupSearchMode(LdapGroupSearchMode ldapGroupSearchMode)
+    {
+        this.ldapGroupSearchMode = ldapGroupSearchMode;
         return this;
     }
 }
