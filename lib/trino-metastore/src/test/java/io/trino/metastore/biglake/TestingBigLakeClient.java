@@ -15,6 +15,7 @@ package io.trino.metastore.biglake;
 
 import com.google.cloud.biglake.hive.v1.HiveDatabase;
 import com.google.cloud.biglake.hive.v1.HiveTable;
+import com.google.cloud.biglake.hive.v1.Partition;
 import com.google.cloud.biglake.hive.v1.TableName;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.databaseName;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.tableName;
 
@@ -39,6 +41,8 @@ public final class TestingBigLakeClient
 {
     private final Map<String, HiveDatabase> databases = new LinkedHashMap<>();
     private final Map<String, List<HiveTable>> tables = new LinkedHashMap<>();
+    private final Map<String, List<Partition>> partitions = new LinkedHashMap<>();
+    private final List<String> partitionFilters = new ArrayList<>();
     private TrinoException failure;
 
     public TestingBigLakeClient add(HiveDatabase database)
@@ -53,6 +57,12 @@ public final class TestingBigLakeClient
         return this;
     }
 
+    public TestingBigLakeClient add(String databaseName, String tableName, Partition partition)
+    {
+        partitions.computeIfAbsent(databaseName + "." + tableName, _ -> new ArrayList<>()).add(partition);
+        return this;
+    }
+
     /**
      * Makes every read fail, the way BigLake reports a denied or broken call.
      */
@@ -60,6 +70,14 @@ public final class TestingBigLakeClient
     {
         this.failure = failure;
         return this;
+    }
+
+    /**
+     * Returns the filter of every partition listing, so a test can assert what was pushed down.
+     */
+    public List<String> partitionFilters()
+    {
+        return ImmutableList.copyOf(partitionFilters);
     }
 
     @Override
@@ -90,6 +108,42 @@ public final class TestingBigLakeClient
         return listTables(databaseName).stream()
                 .filter(table -> tableName.equals(tableName(table)))
                 .findFirst();
+    }
+
+    @Override
+    public Optional<List<Partition>> listPartitions(String databaseName, String tableName, String filter)
+    {
+        throwIfFailing();
+        if (getTable(databaseName, tableName).isEmpty()) {
+            return Optional.empty();
+        }
+        partitionFilters.add(filter);
+
+        List<Partition> known = partitions.getOrDefault(databaseName + "." + tableName, ImmutableList.of());
+        if (filter.isEmpty()) {
+            return Optional.of(ImmutableList.copyOf(known));
+        }
+        return Optional.of(known.stream()
+                .filter(partition -> matches(partition, filter))
+                .collect(toImmutableList()));
+    }
+
+    /**
+     * Matches the value of a single equality, which is all the adapter ever builds for one column.
+     */
+    private static boolean matches(Partition partition, String filter)
+    {
+        for (String condition : filter.split(" and ")) {
+            int quote = condition.indexOf('\'');
+            if (quote < 0) {
+                continue;
+            }
+            String value = condition.substring(quote + 1, condition.lastIndexOf('\''));
+            if (!partition.getValuesList().contains(value)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String databaseOf(HiveTable table)

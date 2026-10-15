@@ -34,7 +34,6 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -49,9 +48,10 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metastore.Partitions.makePartName;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.biglake.BigLakeErrorTranslator.notSupported;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -127,7 +127,7 @@ public class BigLakeHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        throw partitionReadsNotSupported();
+        return onePartition(table, partitionValues);
     }
 
     @Override
@@ -137,18 +137,41 @@ public class BigLakeHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        throw partitionReadsNotSupported();
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+
+        String filter = PartitionFilter.toBigLakeFilter(columnNames, partitionKeysFilter);
+        // An absent result tells Trino to report a missing table
+        return client.get().listPartitions(databaseName, tableName, filter)
+                .map(partitions -> partitions.stream()
+                        // BigLake returns partition values, not names, so this adapter builds the names
+                        .map(partition -> makePartName(columnNames, partition.getValuesList()))
+                        .collect(toImmutableList()));
     }
 
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        throw partitionReadsNotSupported();
+        ImmutableMap.Builder<String, Optional<Partition>> partitions =
+                ImmutableMap.builderWithExpectedSize(partitionNames.size());
+        for (String partitionName : partitionNames) {
+            partitions.put(partitionName, onePartition(table, toPartitionValues(partitionName)));
+        }
+        return partitions.buildKeepingLast();
     }
 
-    private static TrinoException partitionReadsNotSupported()
+    private Optional<Partition> onePartition(Table table, List<String> partitionValues)
     {
-        return new TrinoException(NOT_SUPPORTED, "This BigLake metastore does not read partitions yet");
+        String filter = PartitionFilter.toBigLakeFilter(table.getPartitionColumns(), partitionValues);
+        boolean exact = PartitionFilter.matchesExactly(partitionValues);
+        return client.get()
+                .listPartitions(table.getDatabaseName(), table.getTableName(), filter)
+                // A filter that left a value out lists more than one partition
+                .flatMap(partitions -> partitions.stream()
+                        .filter(partition -> exact || partition.getValuesList().equals(partitionValues))
+                        .findFirst())
+                .map(partition -> PartitionMapper.toTrino(partition, table.getDatabaseName(), table.getTableName()));
     }
 
     // Statistics: the BigLake Hive API exposes none, so the planner works without them

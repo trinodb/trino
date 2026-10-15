@@ -15,12 +15,16 @@ package io.trino.metastore.biglake;
 
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.FixedHeaderProvider;
+import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.biglake.hive.v1.CatalogName;
 import com.google.cloud.biglake.hive.v1.HiveDatabase;
 import com.google.cloud.biglake.hive.v1.HiveMetastoreServiceClient;
 import com.google.cloud.biglake.hive.v1.HiveMetastoreServiceSettings;
 import com.google.cloud.biglake.hive.v1.HiveTable;
+import com.google.cloud.biglake.hive.v1.ListPartitionsRequest;
+import com.google.cloud.biglake.hive.v1.ListPartitionsResponse;
 import com.google.cloud.biglake.hive.v1.NamespaceName;
+import com.google.cloud.biglake.hive.v1.Partition;
 import com.google.cloud.biglake.hive.v1.TableName;
 import com.google.common.collect.ImmutableList;
 
@@ -53,7 +57,7 @@ public class GrpcBigLakeClient
 
     /**
      * Returns the settings of the client library: a user agent, and the same timeout without
-     * retries for every call.
+     * retries for every call, including the stream of partitions.
      */
     static HiveMetastoreServiceSettings.Builder serviceSettings(Duration requestTimeout)
     {
@@ -63,6 +67,7 @@ public class GrpcBigLakeClient
             builder.setSimpleTimeoutNoRetriesDuration(requestTimeout);
             return null;
         });
+        settings.listPartitionsSettings().setSimpleTimeoutNoRetriesDuration(requestTimeout);
         return settings;
     }
 
@@ -118,6 +123,29 @@ public class GrpcBigLakeClient
                 return Optional.empty();
             }
             throw translate("reading table " + databaseName + "." + tableName, e);
+        }
+    }
+
+    @Override
+    public Optional<List<Partition>> listPartitions(String databaseName, String tableName, String filter)
+    {
+        ListPartitionsRequest request = ListPartitionsRequest.newBuilder()
+                .setParent(TableName.format(projectId, catalogId, databaseName, tableName))
+                .setFilter(filter)
+                .build();
+        try {
+            ServerStream<ListPartitionsResponse> stream = client.listPartitionsCallable().call(request);
+            ImmutableList.Builder<Partition> partitions = ImmutableList.builder();
+            for (ListPartitionsResponse response : stream) {
+                partitions.addAll(response.getPartitionsList());
+            }
+            return Optional.of(partitions.build());
+        }
+        catch (ApiException e) {
+            if (isNotFound(e) || isMissingParent(e)) {
+                return Optional.empty();
+            }
+            throw translate("listing partitions of " + databaseName + "." + tableName, e);
         }
     }
 

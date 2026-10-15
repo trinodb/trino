@@ -17,6 +17,8 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.biglake.hive.v1.HiveDatabase;
 import com.google.cloud.biglake.hive.v1.HiveMetastoreServiceClient;
 import com.google.cloud.biglake.hive.v1.HiveMetastoreServiceSettings;
+import com.google.cloud.biglake.hive.v1.HiveTable;
+import com.google.cloud.biglake.hive.v1.Partition;
 import io.grpc.Status;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
@@ -29,11 +31,13 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.metastore.biglake.TestingBigLakeObjects.CATALOG;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.PROJECT;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.database;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.field;
+import static io.trino.metastore.biglake.TestingBigLakeObjects.partition;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.table;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -185,6 +189,51 @@ class TestGrpcBigLakeClient
         assertThat(client.getTable("sales", "missing")).isEmpty();
     }
 
+    // Partitions
+
+    @Test
+    void joinsTheResponsesOfAPartitionStreamInOrder()
+    {
+        HiveTable orders = table("sales", "orders", "", List.of(field("id", "bigint")), List.of(field("region", "string")));
+        service.add(database("sales"), orders).withPartitionsPerResponse(2);
+        for (String region : List.of("a", "b", "c", "d", "e")) {
+            service.add(orders, partition("orders", List.of(region)));
+        }
+
+        Optional<List<Partition>> partitions = client.listPartitions("sales", "orders", "");
+
+        assertThat(partitions).isPresent();
+        assertThat(partitions.get()).extracting(partition -> partition.getValues(0))
+                .containsExactly("a", "b", "c", "d", "e");
+        assertThat(service.requests()).containsExactly("listPartitions " + SALES + "/tables/orders");
+    }
+
+    @Test
+    void sendsTheFilterToTheService()
+    {
+        HiveTable orders = table("sales", "orders", "", List.of(field("id", "bigint")), List.of(field("region", "string")));
+        service.add(database("sales"), orders);
+
+        client.listPartitions("sales", "orders", "region='emea'");
+        client.listPartitions("sales", "orders", "");
+
+        assertThat(service.partitionFilters()).containsExactly("region='emea'", "");
+    }
+
+    @Test
+    void reportsThePartitionsOfAMissingTableAsAnAbsentResult()
+    {
+        service.add(database("sales"));
+
+        assertThat(client.listPartitions("sales", "missing", "")).isEmpty();
+    }
+
+    @Test
+    void reportsThePartitionsOfAMissingDatabaseAsAnAbsentResult()
+    {
+        assertThat(client.listPartitions("missing", "orders", "")).isEmpty();
+    }
+
     // Failures
 
     @Test
@@ -205,17 +254,18 @@ class TestGrpcBigLakeClient
             assertFailure(() -> client.getDatabase("sales"), errorCode, "reading database sales");
             assertFailure(() -> client.listTables("sales"), errorCode, "listing tables of sales");
             assertFailure(() -> client.getTable("sales", "orders"), errorCode, "reading table sales.orders");
+            assertFailure(() -> client.listPartitions("sales", "orders", ""), errorCode, "listing partitions of sales.orders");
         });
     }
 
     @Test
     void namesTheReasonThatTheServiceGave()
     {
-        service.failWith(Status.INTERNAL.withDescription("Error reading table"));
+        service.failWith(Status.INTERNAL.withDescription("Error reading partitions"));
 
-        assertThatThrownBy(() -> client.getTable("sales", "orders"))
-                .hasMessageContaining("reading table sales.orders")
-                .hasMessageContaining("Error reading table");
+        assertThatThrownBy(() -> client.listPartitions("sales", "orders", ""))
+                .hasMessageContaining("listing partitions of sales.orders")
+                .hasMessageContaining("Error reading partitions");
     }
 
     @Test
@@ -227,8 +277,9 @@ class TestGrpcBigLakeClient
         assertThatThrownBy(() -> client.getDatabase("sales")).isInstanceOf(TrinoException.class);
         assertThatThrownBy(() -> client.listTables("sales")).isInstanceOf(TrinoException.class);
         assertThatThrownBy(() -> client.getTable("sales", "orders")).isInstanceOf(TrinoException.class);
+        assertThatThrownBy(() -> client.listPartitions("sales", "orders", "")).isInstanceOf(TrinoException.class);
 
-        assertThat(service.requests()).hasSize(4);
+        assertThat(service.requests()).hasSize(5);
     }
 
     // Settings
@@ -243,7 +294,8 @@ class TestGrpcBigLakeClient
                 settings.listHiveDatabasesSettings().getRetrySettings(),
                 settings.getHiveDatabaseSettings().getRetrySettings(),
                 settings.listHiveTablesSettings().getRetrySettings(),
-                settings.getHiveTableSettings().getRetrySettings());
+                settings.getHiveTableSettings().getRetrySettings(),
+                settings.listPartitionsSettings().getRetrySettings());
         assertThat(retrySettings).allSatisfy(retry -> {
             assertThat(retry.getMaxAttempts()).isEqualTo(1);
             assertThat(retry.getTotalTimeoutDuration()).isEqualTo(Duration.ofSeconds(7));

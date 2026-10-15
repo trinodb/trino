@@ -15,6 +15,7 @@ package io.trino.metastore.biglake;
 
 import com.google.cloud.biglake.hive.v1.HiveDatabase;
 import com.google.cloud.biglake.hive.v1.HiveTable;
+import com.google.cloud.biglake.hive.v1.Partition;
 
 import java.util.List;
 import java.util.Optional;
@@ -41,4 +42,11 @@ public interface BigLakeClient
     List<HiveTable> listTables(String databaseName);
 
     Optional<HiveTable> getTable(String databaseName, String tableName);
+
+    /**
+     * Returns the partitions matching {@code filter}, or nothing when the table does not exist.
+     *
+     * @param filter a BigLake partition filter, or an empty string for every partition
+     */
+    Optional<List<Partition>> listPartitions(String databaseName, String tableName, String filter);
 }

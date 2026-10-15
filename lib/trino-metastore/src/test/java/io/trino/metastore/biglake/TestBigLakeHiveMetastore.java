@@ -15,19 +15,24 @@ package io.trino.metastore.biglake;
 
 import com.google.cloud.biglake.hive.v1.HiveTable;
 import com.google.cloud.biglake.hive.v1.StorageDescriptor;
+import io.airlift.slice.Slices;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveBucketProperty;
 import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
 import io.trino.metastore.SortingColumn;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,12 +45,15 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.metastore.MetastoreErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.field;
+import static io.trino.metastore.biglake.TestingBigLakeObjects.partition;
 import static io.trino.metastore.biglake.TestingBigLakeObjects.table;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -185,22 +193,101 @@ class TestBigLakeHiveMetastore
     // Partitions
 
     @Test
-    void failsPartitionReadsExplicitlyUntilTheyAreAdded()
+    void namesPartitionsTheWayTrinoDoes()
     {
-        bigLake.add(table(SCHEMA, TABLE, "", List.of(field("id", "bigint")), List.of(field("region", "string"))));
-        Table table = metastore.getTable(SCHEMA, TABLE).orElseThrow();
+        partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea/north")));
 
-        assertPartitionReadsNotSupported(() -> metastore.getPartition(table, List.of("emea")));
-        assertPartitionReadsNotSupported(
-                () -> metastore.getPartitionNamesByFilter(SCHEMA, TABLE, List.of("region"), TupleDomain.all()));
-        assertPartitionReadsNotSupported(() -> metastore.getPartitionsByNames(table, List.of("region=emea")));
+        assertThat(partitionNames(TupleDomain.all())).containsExactly("region=emea%2Fnorth");
     }
 
-    private static void assertPartitionReadsNotSupported(ThrowableAssert.ThrowingCallable read)
+    @Test
+    void pushesDownAnEqualityOnAPartitionColumn()
     {
-        assertThatThrownBy(read)
-                .isInstanceOf(TrinoException.class)
-                .satisfies(thrown -> assertErrorCode(thrown, NOT_SUPPORTED));
+        partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")))
+                .add(SCHEMA, TABLE, partition(TABLE, List.of("apac")));
+
+        TupleDomain<String> filter = TupleDomain.withColumnDomains(
+                Map.of("region", Domain.singleValue(VARCHAR, Slices.utf8Slice("emea"))));
+
+        assertThat(partitionNames(filter)).containsExactly("region=emea");
+        assertThat(bigLake.partitionFilters()).containsExactly("region='emea'");
+    }
+
+    @Test
+    void leavesAFilterItCannotPushDownToTrino()
+    {
+        partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")));
+
+        TupleDomain<String> filter = TupleDomain.withColumnDomains(Map.of(
+                "region", Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, Slices.utf8Slice("a"))), false)));
+
+        assertThat(partitionNames(filter)).containsExactly("region=emea");
+        assertThat(bigLake.partitionFilters()).containsExactly("");
+    }
+
+    @Test
+    void leavesAValueThatWouldBreakTheFilterToTrino()
+    {
+        partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")));
+
+        TupleDomain<String> filter = TupleDomain.withColumnDomains(
+                Map.of("region", Domain.singleValue(VARCHAR, Slices.utf8Slice("it's"))));
+
+        assertThat(partitionNames(filter)).containsExactly("region=emea");
+        assertThat(bigLake.partitionFilters()).containsExactly("");
+    }
+
+    @Test
+    void looksUpAPartitionWhoseValueWouldBreakTheFilter()
+    {
+        Table table = partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")))
+                .add(SCHEMA, TABLE, partition(TABLE, List.of("o'brien")));
+
+        assertThat(metastore.getPartition(table, List.of("o'brien")))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("o'brien"));
+        assertThat(metastore.getPartition(table, List.of("o'neil"))).isEmpty();
+
+        String partitionName = makePartName(List.of("region"), List.of("o'brien"));
+        assertThat(metastore.getPartitionsByNames(table, List.of(partitionName)).get(partitionName))
+                .hasValueSatisfying(partition -> assertThat(partition.getValues()).containsExactly("o'brien"));
+
+        // A quote ends the literal and changes the filter, so no filter carries the value
+        assertThat(bigLake.partitionFilters()).allSatisfy(filter -> assertThat(filter).doesNotContain("brien"));
+    }
+
+    @Test
+    void answersAnImpossibleFilterWithoutCallingBigLake()
+    {
+        partitionedOrders();
+
+        assertThat(partitionNames(TupleDomain.none())).isEmpty();
+        assertThat(bigLake.partitionFilters()).isEmpty();
+    }
+
+    @Test
+    void reportsAMissingTableWhenListingPartitionNames()
+    {
+        assertThat(metastore.getPartitionNamesByFilter(SCHEMA, "missing", List.of("region"), TupleDomain.all()))
+                .isEmpty();
+    }
+
+    @Test
+    void returnsAnEntryForEveryRequestedPartitionName()
+    {
+        Table table = partitionedOrders();
+        bigLake.add(SCHEMA, TABLE, partition(TABLE, List.of("emea")));
+
+        Map<String, Optional<Partition>> partitions =
+                metastore.getPartitionsByNames(table, List.of("region=emea", "region=apac"));
+
+        assertThat(partitions).containsOnlyKeys("region=emea", "region=apac");
+        assertThat(partitions.get("region=emea")).isPresent();
+        assertThat(partitions.get("region=apac")).isEmpty();
     }
 
     @Test
@@ -208,12 +295,16 @@ class TestBigLakeHiveMetastore
     {
         // A failure that reads as an empty result is worse than a failure: a query reports an empty
         // schema or a missing table instead of saying that BigLake cannot be reached.
+        Table table = partitionedOrders();
         bigLake.failWith(new TrinoException(GENERIC_INTERNAL_ERROR, "BigLake is unavailable"));
 
         assertBackendFailure(metastore::getAllDatabases);
         assertBackendFailure(() -> metastore.getDatabase(SCHEMA));
         assertBackendFailure(() -> metastore.getTables(SCHEMA));
         assertBackendFailure(() -> metastore.getTable(SCHEMA, TABLE));
+        assertBackendFailure(() -> metastore.getPartition(table, List.of("emea")));
+        assertBackendFailure(() -> metastore.getPartitionNamesByFilter(SCHEMA, TABLE, List.of("region"), TupleDomain.all()));
+        assertBackendFailure(() -> metastore.getPartitionsByNames(table, List.of("region=emea")));
     }
 
     private static void assertBackendFailure(ThrowableAssert.ThrowingCallable read)
@@ -312,6 +403,17 @@ class TestBigLakeHiveMetastore
         assertThat(metastore.getTableColumnStatistics(SCHEMA, TABLE, Set.of("id"))).isEmpty();
         assertThat(metastore.getPartitionColumnStatistics(SCHEMA, TABLE, Set.of("region=emea"), Set.of("id"))).isEmpty();
         assertThat(metastore.useSparkTableStatistics()).isFalse();
+    }
+
+    private Table partitionedOrders()
+    {
+        bigLake.add(table(SCHEMA, TABLE, "", List.of(field("id", "bigint")), List.of(field("region", "string"))));
+        return metastore.getTable(SCHEMA, TABLE).orElseThrow();
+    }
+
+    private List<String> partitionNames(TupleDomain<String> filter)
+    {
+        return metastore.getPartitionNamesByFilter(SCHEMA, TABLE, List.of("region"), filter).orElseThrow();
     }
 
     private static void assertErrorCode(Throwable thrown, ErrorCodeSupplier expected)
