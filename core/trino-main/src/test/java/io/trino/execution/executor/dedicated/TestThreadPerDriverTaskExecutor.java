@@ -325,6 +325,95 @@ public class TestThreadPerDriverTaskExecutor
     }
 
     @Test
+    @Timeout(30)
+    public void testLeafCompletionRotatesSlotsAcrossTasks()
+            throws Exception
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(2);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 0, 10, 1);
+        try {
+            TaskEntry firstTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestFuture firstBlocked = new TestFuture();
+            TestFuture secondBlocked = new TestFuture();
+            CountDownLatch thirdStarted = new CountDownLatch(1);
+            ListenableFuture<Void> firstDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> firstBlocked, _ -> immediateVoidFuture())));
+            ListenableFuture<Void> secondDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> secondBlocked, _ -> immediateVoidFuture())));
+            ListenableFuture<Void> thirdDone = firstTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
+                thirdStarted.countDown();
+                return immediateVoidFuture();
+            })));
+
+            executor.scheduleMoreLeafSplits();
+            firstBlocked.awaitListenerAdded();
+
+            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestFuture otherBlocked = new TestFuture();
+            CountDownLatch otherStarted = new CountDownLatch(1);
+            ListenableFuture<Void> otherDone = otherTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(
+                    _ -> {
+                        otherStarted.countDown();
+                        return otherBlocked;
+                    },
+                    _ -> immediateVoidFuture())));
+
+            firstBlocked.set(null);
+            firstDone.get(10, TimeUnit.SECONDS);
+            secondBlocked.awaitListenerAdded();
+
+            secondBlocked.set(null);
+            secondDone.get(10, TimeUnit.SECONDS);
+            assertThat(otherStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(thirdStarted.getCount()).isEqualTo(1);
+
+            otherBlocked.set(null);
+            otherDone.get(10, TimeUnit.SECONDS);
+            thirdDone.get(10, TimeUnit.SECONDS);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testLeafCompletionRefillsTaskBelowMinimum()
+            throws Exception
+    {
+        FairScheduler scheduler = FairScheduler.newInstance(2);
+        ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler, 1, 10, 1);
+        try {
+            TaskEntry otherTask = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 2, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TaskEntry task = (TaskEntry) executor.addTask(new TaskId(new StageId("query", 1), 1, 1), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            TestFuture firstBlocked = new TestFuture();
+            ListenableFuture<Void> firstDone = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> firstBlocked, _ -> immediateVoidFuture())));
+            TestFuture secondBlocked = new TestFuture();
+            ListenableFuture<Void> secondDone = task.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> secondBlocked, _ -> immediateVoidFuture())));
+
+            executor.scheduleMoreLeafSplits();
+            firstBlocked.awaitListenerAdded();
+
+            CountDownLatch otherStarted = new CountDownLatch(1);
+            ListenableFuture<Void> otherDone = otherTask.enqueueLeafSplit(new TestingSplitRunner(ImmutableList.of(_ -> {
+                otherStarted.countDown();
+                return immediateVoidFuture();
+            })));
+
+            firstBlocked.set(null);
+            firstDone.get(10, TimeUnit.SECONDS);
+            secondBlocked.awaitListenerAdded();
+            assertThat(otherStarted.getCount()).isEqualTo(1);
+
+            secondBlocked.set(null);
+            secondDone.get(10, TimeUnit.SECONDS);
+            assertThat(otherStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            otherDone.get(10, TimeUnit.SECONDS);
+        }
+        finally {
+            executor.stop();
+        }
+    }
+
+    @Test
     public void testDestroyCompletesEveryLeafFutureWhenCloseFails()
             throws Exception
     {
