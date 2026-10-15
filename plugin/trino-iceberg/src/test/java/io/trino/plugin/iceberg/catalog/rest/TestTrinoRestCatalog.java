@@ -17,6 +17,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -85,6 +86,7 @@ import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Sess
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -262,6 +264,27 @@ public class TestTrinoRestCatalog
             assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
                     .doesNotContain(schema)
                     .contains(namespace);
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
+    public void testCreateExistingNamespace()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        String namespace = "test_create_existing_namespace_" + randomNameSuffix();
+        TrinoPrincipal owner = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+
+        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), owner);
+        try {
+            // A concurrent CREATE SCHEMA IF NOT EXISTS can pass the existence check and then lose the race in the catalog;
+            // the engine ignores the conflict only when the connector reports SCHEMA_ALREADY_EXISTS
+            assertThatThrownBy(() -> catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), owner))
+                    .isInstanceOf(SchemaAlreadyExistsException.class)
+                    .satisfies(e -> assertThat(((TrinoException) e).getErrorCode()).isEqualTo(ALREADY_EXISTS.toErrorCode()));
         }
         finally {
             catalog.dropNamespace(SESSION, namespace);
