@@ -56,7 +56,7 @@ public class LdapFilteringGroupProvider
     }
 
     /**
-     * Resolve direct LDAP groups for the provided user.
+     * Resolve direct and nested LDAP groups for the provided user.
      * Filters groups by user membership AND filter expression {@link LdapFilteringGroupProviderConfig#getLdapGroupsSearchFilter()}.
      * If {@link LdapGroupProviderConfig#getLdapGroupsNameAttribute()} is missing from group document, fallback on full name.
      * Swallows LDAP exceptions.
