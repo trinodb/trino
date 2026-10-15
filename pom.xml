@@ -304,7 +304,7 @@
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bc-jdk18on-bom</artifactId>
-                <version>1.86.1</version>
+                <version>1.86.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
