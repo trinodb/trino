@@ -96,11 +96,6 @@ public class SymbolAllocator
         return newSymbol(nameHint, field.getType());
     }
 
-    public Collection<Symbol> getSymbols()
-    {
-        return symbols.values();
-    }
-
     private int nextId()
     {
         return nextId++;
