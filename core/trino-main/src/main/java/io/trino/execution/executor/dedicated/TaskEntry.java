@@ -16,9 +16,11 @@ package io.trino.execution.executor.dedicated;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.SplitConcurrencyController;
 import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.scheduler.FairScheduler;
 import io.trino.execution.executor.scheduler.Group;
@@ -34,8 +36,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
+import java.util.function.LongConsumer;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -50,10 +54,11 @@ class TaskEntry
     private final VersionEmbedder versionEmbedder;
     private final Tracer tracer;
     private final DoubleSupplier utilization;
+    private final Runnable targetConcurrencyIncreased;
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
     @GuardedBy("this")
-    private final ConcurrencyController concurrency;
+    private final SplitConcurrencyController concurrency;
 
     private volatile boolean destroyed;
 
@@ -66,16 +71,25 @@ class TaskEntry
     @GuardedBy("this")
     private final Set<QueuedSplit> runningLeafSplits = new HashSet<>();
 
-    public TaskEntry(TaskId taskId, FairScheduler scheduler, VersionEmbedder versionEmbedder, Tracer tracer, int initialConcurrency, DoubleSupplier utilization)
+    public TaskEntry(
+            TaskId taskId,
+            FairScheduler scheduler,
+            VersionEmbedder versionEmbedder,
+            Tracer tracer,
+            int initialConcurrency,
+            Duration concurrencyAdjustmentInterval,
+            DoubleSupplier utilization,
+            Runnable targetConcurrencyIncreased)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.utilization = requireNonNull(utilization, "utilization is null");
+        this.targetConcurrencyIncreased = requireNonNull(targetConcurrencyIncreased, "targetConcurrencyIncreased is null");
 
         this.group = scheduler.createGroup(taskId.toString());
-        this.concurrency = new ConcurrencyController(initialConcurrency);
+        this.concurrency = new SplitConcurrencyController(initialConcurrency, concurrencyAdjustmentInterval);
     }
 
     public TaskId taskId()
@@ -175,9 +189,14 @@ class TaskEntry
     /// If this throws, the claim was not consumed and must be requeued via [#releaseLeafSplit].
     public void startLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
     {
-        submit(split.split())
+        AtomicLong scheduledNanos = new AtomicLong();
+        LongConsumer quantumProcessed = nanos -> {
+            scheduledNanos.addAndGet(nanos);
+            splitProcessed(nanos);
+        };
+        submit(split.split(), quantumProcessed)
                 .addListener(() -> {
-                    finishLeafSplit(split, doneCallback);
+                    finishLeafSplit(split, scheduledNanos.get(), doneCallback);
                 }, directExecutor());
     }
 
@@ -200,10 +219,14 @@ class TaskEntry
         }
     }
 
-    private void finishLeafSplit(QueuedSplit split, Consumer<TaskEntry> doneCallback)
+    private void finishLeafSplit(QueuedSplit split, long scheduledNanos, Consumer<TaskEntry> doneCallback)
     {
         boolean close;
+        boolean targetIncreased;
         synchronized (this) {
+            int previousTarget = concurrency.getTargetConcurrency();
+            concurrency.splitFinished(scheduledNanos, utilization.getAsDouble(), runningLeafSplits.size());
+            targetIncreased = concurrency.getTargetConcurrency() > previousTarget;
             runningLeafSplits.remove(split);
             close = running.remove(split.split());
         }
@@ -217,6 +240,23 @@ class TaskEntry
         }
         finally {
             doneCallback.accept(this);
+            if (targetIncreased) {
+                targetConcurrencyIncreased.run();
+            }
+        }
+    }
+
+    // Adjusts the target concurrency by the thread time the task's splits consume.
+    private void splitProcessed(long scheduledNanos)
+    {
+        boolean targetIncreased;
+        synchronized (this) {
+            int previousTarget = concurrency.getTargetConcurrency();
+            concurrency.update(scheduledNanos, utilization.getAsDouble(), runningLeafSplits.size());
+            targetIncreased = concurrency.getTargetConcurrency() > previousTarget;
+        }
+        if (targetIncreased) {
+            targetConcurrencyIncreased.run();
         }
     }
 
@@ -238,7 +278,7 @@ class TaskEntry
         }
 
         try {
-            ListenableFuture<Void> done = submit(split);
+            ListenableFuture<Void> done = submit(split, this::splitProcessed);
             done.addListener(() -> splitDone(split), directExecutor());
             return done;
         }
@@ -256,13 +296,13 @@ class TaskEntry
     /// Hand a split that is already accounted for in `running` to the scheduler. Must be called
     /// without holding a lock: the scheduler creates the thread that runs the split, which on a
     /// loaded worker is slow enough to stall every other operation on the lock.
-    private ListenableFuture<Void> submit(SplitRunner split)
+    private ListenableFuture<Void> submit(SplitRunner split, LongConsumer quantumProcessed)
     {
         int splitId = nextSplitId();
         return scheduler.submit(
                 group,
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, quantumProcessed)));
     }
 
     private void splitDone(SplitRunner split)
@@ -292,11 +332,6 @@ class TaskEntry
         return destroyed;
     }
 
-    public synchronized void updateConcurrency()
-    {
-        concurrency.update(utilization.getAsDouble(), runningLeafSplits.size());
-    }
-
     public synchronized int pendingLeafSplitCount()
     {
         return pending.size();
@@ -314,7 +349,7 @@ class TaskEntry
 
     public synchronized int targetConcurrency()
     {
-        return concurrency.targetConcurrency();
+        return concurrency.getTargetConcurrency();
     }
 
     record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}

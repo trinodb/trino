@@ -118,7 +118,6 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void start()
     {
         backgroundTasks.scheduleWithFixedDelay(scheduleMoreLeafSplitsQuietly, 0, 100, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(maintenance(this::adjustConcurrency, "Error adjusting task concurrency"), 0, 10, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(maintenance(this::logDiagnostics, "Error logging diagnostics"), 0, 30, TimeUnit.SECONDS);
     }
 
@@ -169,7 +168,9 @@ public class ThreadPerDriverTaskExecutor
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
-                utilizationSupplier);
+                splitConcurrencyAdjustFrequency,
+                utilizationSupplier,
+                scheduleMoreLeafSplitsQuietly);
         tasks.put(taskId, task);
         return task;
     }
@@ -423,13 +424,6 @@ public class ThreadPerDriverTaskExecutor
             else {
                 LOG.warn(failure, "%s (%s similar failures suppressed)", message, suppressed);
             }
-        }
-    }
-
-    private void adjustConcurrency()
-    {
-        for (TaskEntry task : tasks.values()) {
-            task.updateConcurrency();
         }
     }
 
