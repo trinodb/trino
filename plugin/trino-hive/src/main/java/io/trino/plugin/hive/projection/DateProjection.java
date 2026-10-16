@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.projection;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
@@ -145,9 +144,9 @@ final class DateProjection
     }
 
     @Override
-    public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
+    public Set<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
-        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
         Instant leftBound = adjustBoundToDateFormat(this.leftBound);
         Instant rightBound = adjustBoundToDateFormat(this.rightBound);

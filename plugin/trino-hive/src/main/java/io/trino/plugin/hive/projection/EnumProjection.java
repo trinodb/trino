@@ -20,20 +20,20 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_VALUES;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 final class EnumProjection
         implements Projection
 {
     private final String columnName;
-    private final List<String> values;
+    private final Set<String> values;
 
     public EnumProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
@@ -48,18 +48,18 @@ final class EnumProjection
                 COLUMN_PROJECTION_VALUES,
                 value -> ((List<?>) value).stream()
                         .map(String::valueOf)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableSet()));
     }
 
     @Override
-    public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
+    public Set<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
         if (partitionValueFilter.isEmpty() || partitionValueFilter.get().isAll()) {
             return values;
         }
         return values.stream()
                 .filter(value -> isValueInDomain(partitionValueFilter.get(), value))
-                .collect(toList());
+                .collect(toImmutableSet());
     }
 
     private boolean isValueInDomain(Domain valueDomain, String value)
