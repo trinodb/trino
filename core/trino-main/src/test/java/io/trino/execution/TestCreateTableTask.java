@@ -87,6 +87,7 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -200,6 +201,26 @@ class TestCreateTableTask
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
             assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                     .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateTableWithUnknownType()
+    {
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of("test_table_unknown_type"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(UNKNOWN), true, emptyList(), Optional.empty())),
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {}, WarningCollector.NOOP));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
+            assertThat(metadata.getReceivedTableMetadata().getFirst().getColumns())
+                    .containsExactly(new ColumnMetadata("a", UNKNOWN));
             return null;
         });
     }
