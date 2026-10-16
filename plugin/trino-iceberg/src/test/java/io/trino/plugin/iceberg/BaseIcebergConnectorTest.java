@@ -360,6 +360,13 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
     }
 
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        // TODO Fail with a clear message. The column types written to the metastore are Hive type strings, which cannot contain these field names.
+        return exception.getMessage().matches("Error: .* expected at the position \\d+ of 'struct<%s:string>' but .* is found\\.".formatted(Pattern.quote(fieldName)));
+    }
+
     @Test
     public void testDeleteOnV1Table()
     {

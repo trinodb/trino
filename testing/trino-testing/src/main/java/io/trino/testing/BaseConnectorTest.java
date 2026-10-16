@@ -6417,6 +6417,41 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testRowFieldName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        for (String fieldName : testColumnNameDataProvider()) {
+            testRowFieldName(fieldName);
+        }
+    }
+
+    protected void testRowFieldName(String fieldName)
+    {
+        String nameInSql = toColumnNameInSql(fieldName, true);
+        String tableName = "test_row_field_name_" + randomNameSuffix();
+
+        try {
+            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
+            assertUpdate("CREATE TABLE " + tableName + "(col row(" + nameInSql + " varchar(50)))");
+        }
+        catch (RuntimeException e) {
+            if (isRowFieldNameRejected(e, fieldName)) {
+                // It is OK if given field name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        try {
+            assertUpdate("INSERT INTO " + tableName + " SELECT row('abc')", 1);
+            assertQuery("SELECT col." + nameInSql + " FROM " + tableName, "VALUES 'abc'");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     private static String toColumnNameInSql(String columnName, boolean delimited)
     {
         String nameInSql = columnName;
@@ -6427,6 +6462,11 @@ public abstract class BaseConnectorTest
     }
 
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return false;
+    }
+
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
     {
         return false;
     }
