@@ -27,11 +27,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,10 +59,13 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.ceilDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
@@ -150,6 +155,11 @@ final class DateProjection
 
         Instant leftBound = adjustBoundToDateFormat(this.leftBound);
         Instant rightBound = adjustBoundToDateFormat(this.rightBound);
+        long intervalSeconds = interval * intervalUnit.getDuration().getSeconds();
+        boolean skipSubDayValues = columnType instanceof VarcharType &&
+                intervalSeconds > 0 &&
+                intervalSeconds < DAYS.getDuration().getSeconds() &&
+                !hasTimeFields(dateFormat.parse(formatValue(leftBound)));
 
         Instant currentValue = leftBound;
         while (!currentValue.isAfter(rightBound)) {
@@ -157,8 +167,15 @@ final class DateProjection
             if (isValueInDomain(partitionValueFilter, currentValue, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
             }
+            long intervals = 1;
+            if (skipSubDayValues) {
+                // Date fields, including quarters and weekdays, remain constant within a UTC day.
+                // Keep the next value on the configured interval sequence.
+                Instant nextDay = currentValue.truncatedTo(DAYS).plus(1, DAYS);
+                intervals = ceilDiv(SECONDS.between(currentValue, nextDay), intervalSeconds);
+            }
             currentValue = currentValue.atZone(UTC_TIME_ZONE_ID)
-                    .plus(interval, intervalUnit)
+                    .plus(intervals * interval, intervalUnit)
                     .toInstant();
         }
 
@@ -309,10 +326,28 @@ final class DateProjection
             throws DateTimeParseException
     {
         TemporalAccessor parsed = dateFormat.parse(value);
+        if (!parsed.isSupported(DAY_OF_MONTH) && !hasTimeFields(parsed)) {
+            if (!(columnType instanceof VarcharType)) {
+                throw new InvalidProjectionException(columnName, "Date projection with year or month precision is only supported for varchar columns");
+            }
+            return LocalDate.parse(value, new DateTimeFormatterBuilder()
+                            .append(dateFormat)
+                            .parseDefaulting(MONTH_OF_YEAR, 1)
+                            .parseDefaulting(DAY_OF_MONTH, 1)
+                            .toFormatter(ENGLISH))
+                    .atStartOfDay().toInstant(UTC);
+        }
         if (parsed.query(TemporalQueries.localDate()) != null && parsed.query(TemporalQueries.localTime()) == null) {
             return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
         }
         return LocalDateTime.from(parsed).toInstant(UTC);
+    }
+
+    private static boolean hasTimeFields(TemporalAccessor parsed)
+    {
+        return Arrays.stream(ChronoField.values())
+                .filter(ChronoField::isTimeBased)
+                .anyMatch(parsed::isSupported);
     }
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
