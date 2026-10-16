@@ -19,8 +19,13 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
+import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
+import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.spi.NodeVersion;
@@ -30,8 +35,12 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.MemoryContext;
+import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.LocationProviders;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowLevelOperationMode;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
@@ -41,7 +50,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.ENCRYPTION_MANAGER_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -144,19 +156,42 @@ final class TestIcebergMergeSink
 
     private static IcebergMergeSink createMergeSink(ConnectorPageSink insertPageSink, MemoryContext memoryContext)
     {
+        IcebergFileWriterFactory fileWriterFactory = new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcWriterConfig(), new ParquetWriterConfig());
+        IcebergPageSourceProvider pageSourceProvider = new IcebergPageSourceProvider(
+                new DefaultIcebergFileSystemFactory(new MemoryFileSystemFactory()),
+                FILE_IO_FACTORY,
+                new FileFormatDataSourceStats(),
+                new OrcReaderConfig().toOrcReaderOptions(),
+                new ParquetReaderConfig().toParquetReaderOptions(),
+                TESTING_TYPE_MANAGER,
+                ParquetFooterCache.noop(),
+                new FlatHashStrategyCompiler(new TypeOperators(), new NullSafeHashCompiler(new TypeOperators())).createBlocksHashFactory(),
+                ENCRYPTION_MANAGER_FACTORY,
+                memoryContext,
+                new IcebergConfig().getDomainCompactionThreshold());
         return new IcebergMergeSink(
                 3,
                 LocationProviders.locationsFor("memory:///table", ImmutableMap.of()),
-                new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
+                fileWriterFactory,
                 new MemoryFileSystemFactory().create(SESSION),
+                FILE_IO_FACTORY,
+                newDirectExecutorService(),
                 JsonCodec.jsonCodec(CommitTaskData.class),
                 SESSION,
                 PARQUET,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
+                new Schema(Types.NestedField.optional(1, "data", Types.LongType.get())),
                 ImmutableMap.of(0, PartitionSpec.unpartitioned()),
                 insertPageSink,
                 1,
-                memoryContext);
+                memoryContext,
+                0,
+                RowLevelOperationMode.MERGE_ON_READ,
+                new CopyOnWriteFileRewriter(fileWriterFactory, new DefaultIcebergFileSystemFactory(new MemoryFileSystemFactory()), TESTING_TYPE_MANAGER),
+                pageSourceProvider,
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     private static Page deletionsPage(String filePath, int rowCount)
@@ -185,6 +220,11 @@ final class TestIcebergMergeSink
         BlockBuilder partitionSpecIdBuilder = INTEGER.createFixedSizeBlockBuilder(rowCount);
         BlockBuilder partitionDataBuilder = VARCHAR.createBlockBuilder(null, rowCount);
         BlockBuilder sourceRowIdBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileFormatBuilder = INTEGER.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileSizeBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileRecordCountBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder dataSequenceNumberBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileFirstRowIdBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
         for (Deletion deletion : deletions) {
             BIGINT.writeLong(dataBuilder, deletion.rowPosition());
             TINYINT.writeByte(operationBuilder, (byte) DELETE_OPERATION_NUMBER);
@@ -194,6 +234,11 @@ final class TestIcebergMergeSink
             INTEGER.writeInt(partitionSpecIdBuilder, 0);
             VARCHAR.writeString(partitionDataBuilder, "{}");
             sourceRowIdBuilder.appendNull();
+            INTEGER.writeInt(fileFormatBuilder, PARQUET.ordinal());
+            BIGINT.writeLong(fileSizeBuilder, 1024);
+            BIGINT.writeLong(fileRecordCountBuilder, 100_000);
+            BIGINT.writeLong(dataSequenceNumberBuilder, 1);
+            fileFirstRowIdBuilder.appendNull();
         }
         Block rowIdBlock = RowBlock.fromFieldBlocks(rowCount, new Block[] {
                 filePathBuilder.build(),
@@ -201,6 +246,11 @@ final class TestIcebergMergeSink
                 partitionSpecIdBuilder.build(),
                 partitionDataBuilder.build(),
                 sourceRowIdBuilder.build(),
+                fileFormatBuilder.build(),
+                fileSizeBuilder.build(),
+                fileRecordCountBuilder.build(),
+                dataSequenceNumberBuilder.build(),
+                fileFirstRowIdBuilder.build(),
         });
         return new Page(dataBuilder.build(), operationBuilder.build(), caseNumberBuilder.build(), rowIdBlock);
     }
