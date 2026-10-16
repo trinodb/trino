@@ -8668,6 +8668,23 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
+    @Test
+    public void testRowFieldNameWithSpecialCharacters()
+    {
+        String tableName = "test_row_field_name_" + randomNameSuffix();
+        String expectedMessage = "\\QHive row field names must contain only letters, digits, spaces, '_', '.' or '$': 'field:colon'\\E";
+
+        assertQueryFails("CREATE TABLE " + tableName + " (col row(\"field:colon\" varchar))", expectedMessage);
+        assertQueryFails("CREATE TABLE " + tableName + " (col array(map(varchar, row(\"field:colon\" varchar))))", expectedMessage);
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT CAST(ROW('x') AS row(\"field:colon\" varchar)) col", expectedMessage);
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+
+        assertUpdate("CREATE TABLE " + tableName + " (col row(\"a b.c$d_e\" varchar))");
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN new_col row(\"field:colon\" varchar)", expectedMessage);
+        assertThat(getColumnType(tableName, "col")).isEqualTo("row(\"a b.c$d_e\" varchar)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
