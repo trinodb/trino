@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -39,7 +39,7 @@ public record TableChangesSplit(
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
-        Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+        Optional<FileDecryptionData> fileDecryptionData)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
@@ -52,7 +52,7 @@ public record TableChangesSplit(
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
-        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
+        requireNonNull(fileDecryptionData, "fileDecryptionData is null");
     }
 
     @Override
@@ -69,7 +69,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + splitWeight.getRetainedSizeInBytes()
-                + SizeOf.sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
+                + SizeOf.sizeOf(fileDecryptionData, FileDecryptionData::getRetainedSizeInBytes);
     }
 
     @Override

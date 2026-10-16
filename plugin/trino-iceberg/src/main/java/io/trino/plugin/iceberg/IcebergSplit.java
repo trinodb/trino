@@ -52,7 +52,7 @@ public record IcebergSplit(
         @JsonProperty("affinityKey") Optional<String> affinityKey,
         @JsonProperty("dataSequenceNumber") OptionalLong dataSequenceNumber,
         @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId,
-        @JsonProperty("parquetFileDecryptionData") Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+        @JsonProperty("fileDecryptionData") Optional<FileDecryptionData> fileDecryptionData)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(IcebergSplit.class);
@@ -68,7 +68,7 @@ public record IcebergSplit(
         requireNonNull(affinityKey, "affinityKey is null");
         requireNonNull(dataSequenceNumber, "dataSequenceNumber is null");
         requireNonNull(fileFirstRowId, "fileFirstRowId is null");
-        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
+        requireNonNull(fileDecryptionData, "fileDecryptionData is null");
     }
 
     @Override
@@ -97,7 +97,7 @@ public record IcebergSplit(
                 + (dataSequenceNumber.isPresent() ? SIZE_OF_LONG : 0)
                 + sizeOf(affinityKey, SizeOf::estimatedSizeOf)
                 + (fileFirstRowId.isPresent() ? SIZE_OF_LONG : 0)
-                + sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
+                + sizeOf(fileDecryptionData, FileDecryptionData::getRetainedSizeInBytes);
     }
 
     @Override
@@ -116,11 +116,11 @@ public record IcebergSplit(
         return helper.toString();
     }
 
-    public record ParquetFileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
+    public record FileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
     {
-        private static final int INSTANCE_SIZE = instanceSize(ParquetFileDecryptionData.class);
+        private static final int INSTANCE_SIZE = instanceSize(FileDecryptionData.class);
 
-        public ParquetFileDecryptionData
+        public FileDecryptionData
         {
             requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
             requireNonNull(fileAadPrefix, "fileAadPrefix is null");
@@ -129,7 +129,7 @@ public record IcebergSplit(
         @Override
         public boolean equals(Object o)
         {
-            return o instanceof ParquetFileDecryptionData other
+            return o instanceof FileDecryptionData other
                     && Arrays.equals(fileEncryptionKey, other.fileEncryptionKey)
                     && Arrays.equals(fileAadPrefix, other.fileAadPrefix);
         }

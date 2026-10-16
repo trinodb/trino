@@ -59,7 +59,7 @@ import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.DeletionVector;
@@ -354,7 +354,7 @@ public class IcebergPageSourceProvider
                 split.fileFirstRowId(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson),
                 newAggregatedMemoryContext(memoryContext),
-                split.parquetFileDecryptionData());
+                split.fileDecryptionData());
     }
 
     public ConnectorPageSource createPageSource(
@@ -378,7 +378,7 @@ public class IcebergPageSourceProvider
             OptionalLong fileFirstRowId,
             Optional<NameMapping> nameMapping,
             AggregatedMemoryContext memoryContext,
-            Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+            Optional<FileDecryptionData> fileDecryptionData)
     {
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
@@ -423,7 +423,7 @@ public class IcebergPageSourceProvider
                 .filter(column -> !projectedIds.contains(column.getId()))
                 .forEach(requiredColumns::add);
 
-        Optional<FileDecryptionProperties> parquetFileDecryptionProperties = createParquetFileDecryptionProperties(parquetFileDecryptionData, arePlaintextFilesAllowedForEncryptedTables(session));
+        Optional<FileDecryptionProperties> parquetFileDecryptionProperties = createParquetFileDecryptionProperties(fileDecryptionData, arePlaintextFilesAllowedForEncryptedTables(session));
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
                 inputFile,
@@ -628,7 +628,7 @@ public class IcebergPageSourceProvider
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 memoryContext,
-                createParquetFileDecryptionProperties(delete.parquetFileDecryptionData(), arePlaintextFilesAllowedForEncryptedTables(session)))
+                createParquetFileDecryptionProperties(delete.fileDecryptionData(), arePlaintextFilesAllowedForEncryptedTables(session)))
                 .pageSource();
     }
 
@@ -1347,16 +1347,16 @@ public class IcebergPageSourceProvider
 
     @VisibleForTesting
     static Optional<FileDecryptionProperties> createParquetFileDecryptionProperties(
-            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            Optional<FileDecryptionData> fileDecryptionData,
             boolean plaintextFilesAllowed)
     {
-        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
+        requireNonNull(fileDecryptionData, "fileDecryptionData is null");
 
-        if (parquetFileDecryptionData.isEmpty()) {
+        if (fileDecryptionData.isEmpty()) {
             return Optional.empty();
         }
 
-        ParquetFileDecryptionData decryptionData = parquetFileDecryptionData.get();
+        FileDecryptionData decryptionData = fileDecryptionData.get();
         FileDecryptionProperties.Builder builder = FileDecryptionProperties.builder()
                 .withKeyRetriever(new FixedKeyDecryptionKeyRetriever(decryptionData.fileEncryptionKey()));
         builder.withAadPrefix(decryptionData.fileAadPrefix());
