@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_FORMAT;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL_UNIT;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -29,6 +30,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.time.temporal.ChronoUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -62,5 +64,16 @@ class TestDateProjectionFactory
         assertThatThrownBy(() -> new DateProjection("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("2020-01-01", "2020-01-02", "2020-01-03"))))
                 .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_format'");
+    }
+
+    @Test
+    void testDateWithHoursInterval()
+    {
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(
+                COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd",
+                COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03"),
+                COLUMN_PROJECTION_INTERVAL_UNIT, HOURS));
+        assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("2020-01-01", "2020-01-02", "2020-01-03");
+        assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2020-01-02"))))).containsExactly("2020-01-02");
     }
 }
