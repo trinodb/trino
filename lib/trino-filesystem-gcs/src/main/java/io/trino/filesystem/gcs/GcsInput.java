@@ -15,12 +15,15 @@ package io.trino.filesystem.gcs;
 
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobGetOption;
+import com.google.cloud.storage.StorageException;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.EOFException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -66,16 +69,14 @@ final class GcsInput
             return;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
-        OptionalLong limit = readLimit(position, bufferLength, length);
-        try (ReadChannel readChannel = getReadChannel(blob, location, position, bufferLength, limit, key)) {
+        try (ReadChannel readChannel = openReadChannel(position, bufferLength)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
             if (readSize != bufferLength) {
                 throw new EOFException("End of file reached before reading fully: " + location);
             }
         }
-        catch (RuntimeException e) {
-            throw handleGcsException(e, "reading file", location);
+        catch (IOException | RuntimeException e) {
+            throw handleReadException(e);
         }
     }
 
@@ -89,15 +90,53 @@ final class GcsInput
             return 0;
         }
 
-        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
-        long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
-        OptionalLong limit = readLimit(offset, bufferLength, OptionalLong.of(blob.getSize()));
-        try (ReadChannel readChannel = getReadChannel(blob, location, offset, bufferLength, limit, key)) {
+        try (ReadChannel readChannel = openTailReadChannel(bufferLength)) {
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
-        catch (RuntimeException e) {
-            throw handleGcsException(e, "reading file", location);
+        catch (IOException | RuntimeException e) {
+            throw handleReadException(e);
         }
+    }
+
+    private ReadChannel openReadChannel(long position, int bufferLength)
+            throws IOException
+    {
+        OptionalLong limit = readLimit(position, bufferLength, length);
+        if (length.isPresent() && position < length.orElseThrow()) {
+            return getReadChannel(storage, BlobId.of(location.bucket(), location.path()), location, length.orElseThrow(), position, bufferLength, limit, key);
+        }
+        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        return getReadChannel(blob, location, position, bufferLength, limit, key);
+    }
+
+    private ReadChannel openTailReadChannel(int bufferLength)
+            throws IOException
+    {
+        if (length.isPresent() && length.orElseThrow() > 0) {
+            return openReadChannel(max(0, length.orElseThrow() - bufferLength), bufferLength);
+        }
+        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
+        long offset = max(0, length.orElse(blob.getSize()) - bufferLength);
+        return getReadChannel(blob, location, offset, bufferLength, readLimit(offset, bufferLength, OptionalLong.of(blob.getSize())), key);
+    }
+
+    private IOException handleReadException(Exception exception)
+            throws IOException
+    {
+        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+            if (cause instanceof StorageException storageException) {
+                if (storageException.getCode() == 404) {
+                    FileNotFoundException fileNotFoundException = new FileNotFoundException("File %s not found".formatted(location));
+                    fileNotFoundException.initCause(exception);
+                    return fileNotFoundException;
+                }
+                return handleGcsException(storageException, "reading file", location);
+            }
+        }
+        if (exception instanceof IOException ioException) {
+            return ioException;
+        }
+        return handleGcsException((RuntimeException) exception, "reading file", location);
     }
 
     private void ensureOpen()

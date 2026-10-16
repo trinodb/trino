@@ -31,7 +31,6 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.cloud.storage.Blob.BlobSourceOption.shouldReturnRawInputStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -69,12 +68,17 @@ public class GcsUtils
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
+        return getReadChannel(blob.getStorage(), blob.getBlobId(), location, fileSize, position, readBlockSize, limit, key);
+    }
+
+    public static ReadChannel getReadChannel(Storage storage, BlobId blobId, GcsLocation location, long fileSize, long position, int readBlockSize, OptionalLong limit, Optional<EncryptionKey> key)
+            throws IOException
+    {
         if (position != 0 && position >= fileSize) {
             throw new IOException("Cannot read at %s. File size is %s: %s".formatted(position, fileSize, location));
         }
         // Enable shouldReturnRawInputStream: currently set by default but just to ensure the behavior is predictable
-        ReadChannel readChannel = blob.reader(blobSourceOptions(key));
-
+        ReadChannel readChannel = storage.reader(blobId, storageBlobSourceOptions(key));
         readChannel.setChunkSize(readBlockSize);
         readChannel.seek(position);
         if (limit.isPresent()) {
@@ -83,10 +87,10 @@ public class GcsUtils
         return readChannel;
     }
 
-    private static Blob.BlobSourceOption[] blobSourceOptions(Optional<EncryptionKey> key)
+    private static Storage.BlobSourceOption[] storageBlobSourceOptions(Optional<EncryptionKey> key)
     {
-        return key.map(encryption -> new Blob.BlobSourceOption[] {Blob.BlobSourceOption.decryptionKey(encodedKey(encryption)), shouldReturnRawInputStream(true)})
-                .orElse(new Blob.BlobSourceOption[] {shouldReturnRawInputStream(true)});
+        return key.map(encryption -> new Storage.BlobSourceOption[] {Storage.BlobSourceOption.decryptionKey(encodedKey(encryption)), Storage.BlobSourceOption.shouldReturnRawInputStream(true)})
+                .orElse(new Storage.BlobSourceOption[] {Storage.BlobSourceOption.shouldReturnRawInputStream(true)});
     }
 
     public static Optional<Blob> getBlob(Storage storage, GcsLocation location, Storage.BlobGetOption... blobGetOptions)

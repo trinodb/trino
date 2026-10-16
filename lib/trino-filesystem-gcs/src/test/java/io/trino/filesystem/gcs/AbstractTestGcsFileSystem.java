@@ -38,6 +38,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.io.EOFException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,6 +48,7 @@ import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractTestGcsFileSystem
@@ -220,6 +223,51 @@ public abstract class AbstractTestGcsFileSystem
         requests.set(0);
         assertThat(inputFile.exists()).isTrue();
         assertThat(requests.get()).isEqualTo(1);
+    }
+
+    @Test
+    void testKnownLengthReadsSendOneRequest()
+            throws IOException
+    {
+        Location location = getRootLocation().appendPath("known-length");
+        getFileSystem().newOutputFile(location).createOrOverwrite("0123456789".getBytes(UTF_8));
+        byte[] buffer = new byte[4];
+
+        try (TrinoInput input = getFileSystem().newInputFile(location, 10).newInput()) {
+            requests.set(0);
+            input.readFully(2, buffer, 0, 4);
+            assertThat(new String(buffer, UTF_8)).isEqualTo("2345");
+            assertThat(requests.get()).isEqualTo(1);
+
+            requests.set(0);
+            assertThat(input.readTail(buffer, 0, 4)).isEqualTo(4);
+            assertThat(new String(buffer, UTF_8)).isEqualTo("6789");
+            assertThat(requests.get()).isEqualTo(1);
+
+            assertThatThrownBy(() -> input.readFully(9, buffer, 0, 2))
+                    .isInstanceOf(EOFException.class);
+        }
+
+        try (TrinoInput input = getFileSystem().newInputFile(location).newInput()) {
+            requests.set(0);
+            input.readFully(2, buffer, 0, 4);
+            assertThat(requests.get()).isEqualTo(2);
+        }
+
+        try (TrinoInput input = getFileSystem().newInputFile(location, 10).newInput()) {
+            getFileSystem().deleteFile(location);
+            assertThatThrownBy(() -> input.readFully(0, buffer, 0, 1))
+                    .isInstanceOf(FileNotFoundException.class);
+            assertThatThrownBy(() -> input.readTail(buffer, 0, 1))
+                    .isInstanceOf(FileNotFoundException.class);
+            assertThatThrownBy(() -> input.readFully(10, buffer, 0, 1))
+                    .isInstanceOf(FileNotFoundException.class);
+        }
+
+        try (TrinoInput input = getFileSystem().newInputFile(location, 0).newInput()) {
+            assertThatThrownBy(() -> input.readTail(buffer, 0, 1))
+                    .isInstanceOf(FileNotFoundException.class);
+        }
     }
 
     private static final class RequestCountingTransportOptions
