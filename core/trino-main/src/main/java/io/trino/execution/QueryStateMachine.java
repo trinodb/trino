@@ -205,6 +205,7 @@ public class QueryStateMachine
     private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
     private final Object dynamicFiltersStatsSupplierLock = new Object();
 
+    private AtomicReference<Supplier<Optional<Integer>>> queuePositionSupplier = new AtomicReference<>(Optional::empty);
     private final AtomicBoolean committed = new AtomicBoolean();
     private final AtomicBoolean consumed = new AtomicBoolean();
 
@@ -538,6 +539,15 @@ public class QueryStateMachine
         }
     }
 
+    @Nullable
+    private Integer getQueuePosition()
+    {
+        if (queryState.get() != QUEUED) {
+            return null;
+        }
+        return queuePositionSupplier.get().get().orElse(null);
+    }
+
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
     {
         // Query state must be captured first in order to provide a
@@ -571,7 +581,8 @@ public class QueryStateMachine
                 errorCode == null ? null : errorCode.getType(),
                 errorCode,
                 queryType,
-                getRetryPolicy(session));
+                getRetryPolicy(session),
+                getQueuePosition());
     }
 
     @VisibleForTesting
@@ -732,6 +743,7 @@ public class QueryStateMachine
                 Optional.of(resourceGroup),
                 queryType,
                 getRetryPolicy(session),
+                getQueuePosition(),
                 false,
                 version);
     }
@@ -1106,6 +1118,11 @@ public class QueryStateMachine
         synchronized (dynamicFiltersStatsSupplierLock) {
             this.dynamicFiltersStatsSupplier = requireNonNull(dynamicFiltersStatsSupplier, "dynamicFiltersStatsSupplier is null");
         }
+    }
+
+    public void setQueuePositionSupplier(Supplier<Optional<Integer>> queuePositionSupplier)
+    {
+        this.queuePositionSupplier.set(requireNonNull(queuePositionSupplier, "queuePositionSupplier is null"));
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -1559,6 +1576,7 @@ public class QueryStateMachine
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getRetryPolicy(),
+                queryInfo.getQueuePosition(),
                 true,
                 version);
     }
