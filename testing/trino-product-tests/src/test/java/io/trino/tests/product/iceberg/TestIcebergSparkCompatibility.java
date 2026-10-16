@@ -1583,6 +1583,25 @@ class TestIcebergSparkCompatibility
         env.executeSparkUpdate("DROP TABLE " + sparkTableName);
     }
 
+    @ParameterizedTest
+    @MethodSource("storageFormats")
+    void testSparkReadsTrinoUnknownType(StorageFormat storageFormat, SparkIcebergEnvironment env)
+    {
+        String tableName = toLowerCase("test_spark_reads_trino_unknown_type_%s_%s".formatted(storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        env.executeTrinoUpdate("CREATE TABLE " + trinoTableName + "(x INT, y UNKNOWN, z ROW(a INT, b UNKNOWN)) WITH (format_version = 3, format = '" + storageFormat.name() + "')");
+        env.executeTrinoUpdate("INSERT INTO " + trinoTableName + " VALUES (1, NULL, ROW(10, NULL)), (2, NULL, NULL)");
+
+        assertThat(env.executeSpark("SELECT x, y, z.a, z.b FROM " + sparkTableName))
+                .containsOnly(row(1, null, 10, null), row(2, null, null, null));
+        assertThat(env.executeSpark("SELECT x FROM " + sparkTableName + " WHERE y IS NULL"))
+                .containsOnly(row(1), row(2));
+
+        env.executeSparkUpdate("DROP TABLE " + sparkTableName);
+    }
+
     // Test that Trino can read deletion vectors (DVs) written by Spark in format version 3
     @ParameterizedTest
     @MethodSource("storageFormats")
