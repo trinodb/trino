@@ -138,7 +138,8 @@ public class PagePartitioner
         }
 
         int outputPositionCount = replicatesAnyRow && !hasAnyRowBeenReplicated ? page.getPositionCount() + positionsAppenders.length - 1 : page.getPositionCount();
-        long outputSizeInBytes = flushBeforeFlattening(page);
+        boolean partitionByRow = positionsAppenders.length > 1 && page.getPositionCount() < partitionFunction.partitionCount() * COLUMNAR_STRATEGY_COEFFICIENT;
+        long outputSizeInBytes = flushBeforeFlattening(page, partitionByRow);
         if (positionsAppenders.length == 1) {
             // single output partition, skip partition calculation and append the entire page to the output partition
             checkState(partitionFunction.partitionCount() == 1, "partitionFunction must be single partition");
@@ -148,7 +149,7 @@ public class PagePartitioner
             }
             positionsAppenders[0].appendToOutputPartition(page);
         }
-        else if (page.getPositionCount() < partitionFunction.partitionCount() * COLUMNAR_STRATEGY_COEFFICIENT) {
+        else if (partitionByRow) {
             // Partition will have on average less than COLUMNAR_STRATEGY_COEFFICIENT rows.
             // Doing it column-wise would degrade performance, so we fall back to row-wise approach.
             // Performance degradation is the worst in case of skewed hash distribution when only small subset
@@ -472,12 +473,12 @@ public class PagePartitioner
      * Enqueues output partitions which would flatten a buffered dictionary large enough to fill a page,
      * keeping the dictionary encoding and avoiding the allocation that flattening it requires.
      */
-    private long flushBeforeFlattening(Page page)
+    private long flushBeforeFlattening(Page page, boolean partitionByRow)
     {
         long outputSizeInBytes = 0;
         for (int partition = 0; partition < positionsAppenders.length; partition++) {
             PositionsAppenderPageBuilder partitionPageBuilder = positionsAppenders[partition];
-            if (partitionPageBuilder.requiresFlushBeforeFlattening(page)) {
+            if (partitionPageBuilder.requiresFlushBeforeFlattening(page, partitionByRow)) {
                 Page pagePartition = partitionPageBuilder.build();
                 outputSizeInBytes += pagePartition.getSizeInBytes();
                 enqueuePage(pagePartition, partition);
