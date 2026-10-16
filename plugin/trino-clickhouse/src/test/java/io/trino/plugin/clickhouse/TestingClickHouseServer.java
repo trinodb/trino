@@ -13,13 +13,15 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.clickhouse.jdbc.Driver;
 import org.testcontainers.clickhouse.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
 import java.sql.Connection;
-import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
@@ -83,13 +85,23 @@ public class TestingClickHouseServer
 
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
+        try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
+    }
+
+    // The v2 JDBC driver does not register itself with DriverManager
+    public Connection createConnection()
+            throws SQLException
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", dockerContainer.getUsername());
+        properties.setProperty("password", dockerContainer.getPassword());
+        return new Driver().connect(dockerContainer.getJdbcUrl(), properties);
     }
 
     public String getJdbcUrl()
