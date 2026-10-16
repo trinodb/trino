@@ -100,6 +100,11 @@ public class MultilevelSplitQueue
         int level = split.getPriority().getLevel();
         lock.lock();
         try {
+            // TimeSharingTaskExecutor destroys the task handle before it removes the task's splits from this queue
+            if (split.getTaskHandle().isDestroyed()) {
+                return;
+            }
+
             if (levelWaitingSplits[level].isEmpty()) {
                 // Accesses to levelScheduledTime are not synchronized, so we have a data race
                 // here - our level time math will be off. However, the staleness is bounded by

@@ -15,6 +15,7 @@ package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ForwardingListenableFuture.SimpleForwardingListenableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
@@ -35,6 +36,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
@@ -616,13 +619,45 @@ public class TestTimeSharingTaskExecutor
             taskExecutor.removeTask(taskHandle);
             split.unblock();
 
-            // the destroyed split drains through TaskRunner without reviving
+            // the wait queue drops the destroyed split
             assertEventually(new Duration(10, SECONDS), () -> {
                 assertThat(taskExecutor.getWaitingSplits()).isEqualTo(0);
                 assertThat(taskExecutor.getBlockedSplits()).isEqualTo(0);
                 assertThat(taskExecutor.getRunningSplits()).isEqualTo(0);
                 assertThat(taskExecutor.getTotalSplits()).isEqualTo(0);
             });
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    public void testUnblockedSplitOfRemovedTaskIsNotQueued()
+            throws Exception
+    {
+        TimeSharingTaskExecutor taskExecutor = new TimeSharingTaskExecutor(1, 8, 3, 4, new TestingTicker());
+        taskExecutor.start();
+        try {
+            TaskHandle removedTaskHandle = taskExecutor.addTask(new TaskId(new StageId("removed", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            ListenerTrackingBlockedSplit blockedSplit = new ListenerTrackingBlockedSplit();
+            taskExecutor.enqueueSplits(removedTaskHandle, true, ImmutableList.of(blockedSplit));
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(taskExecutor.getBlockedSplits()).isEqualTo(1));
+
+            TaskHandle runningTaskHandle = taskExecutor.addTask(new TaskId(new StageId("running", 0), 0, 0), () -> 0, 10, new Duration(1, MILLISECONDS), OptionalInt.empty());
+            RunnerHoldingSplit runnerHoldingSplit = new RunnerHoldingSplit();
+            taskExecutor.enqueueSplits(runningTaskHandle, true, ImmutableList.of(runnerHoldingSplit));
+            assertThat(runnerHoldingSplit.awaitStarted()).isTrue();
+
+            taskExecutor.removeTask(removedTaskHandle);
+            blockedSplit.unblock();
+            assertThat(blockedSplit.awaitListener()).isTrue();
+            assertThat(taskExecutor.getWaitingSplits()).isEqualTo(0);
+
+            runnerHoldingSplit.close();
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(taskExecutor.getRunningSplits()).isEqualTo(0));
+            taskExecutor.removeTask(runningTaskHandle);
         }
         finally {
             taskExecutor.stop();
@@ -810,6 +845,90 @@ public class TestTimeSharingTaskExecutor
         public void unblock()
         {
             blocked.set(null);
+        }
+    }
+
+    private static class ListenerTrackingBlockedSplit
+            extends BlockedSplit
+    {
+        private final CountDownLatch listenerDone = new CountDownLatch(1);
+
+        @Override
+        public ListenableFuture<Void> processFor(Duration duration)
+        {
+            return new SimpleForwardingListenableFuture<>(super.processFor(duration))
+            {
+                @Override
+                public void addListener(Runnable listener, Executor executor)
+                {
+                    super.addListener(() -> {
+                        listener.run();
+                        listenerDone.countDown();
+                    }, executor);
+                }
+            };
+        }
+
+        public boolean awaitListener()
+                throws InterruptedException
+        {
+            return listenerDone.await(10, SECONDS);
+        }
+    }
+
+    private static class RunnerHoldingSplit
+            implements SplitRunner
+    {
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final CountDownLatch closed = new CountDownLatch(1);
+
+        @Override
+        public int getPipelineId()
+        {
+            return 0;
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return Span.getInvalid();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return closed.getCount() == 0;
+        }
+
+        @Override
+        public ListenableFuture<Void> processFor(Duration duration)
+        {
+            started.countDown();
+            try {
+                closed.await();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return immediateVoidFuture();
+        }
+
+        @Override
+        public String getInfo()
+        {
+            return "runner-holding-split";
+        }
+
+        @Override
+        public void close()
+        {
+            closed.countDown();
+        }
+
+        public boolean awaitStarted()
+                throws InterruptedException
+        {
+            return started.await(10, SECONDS);
         }
     }
 }
