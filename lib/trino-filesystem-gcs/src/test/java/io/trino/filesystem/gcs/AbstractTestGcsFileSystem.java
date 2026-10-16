@@ -13,6 +13,10 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.api.client.http.HttpRequestInitializer;
+import com.google.api.client.http.HttpResponseInterceptor;
+import com.google.cloud.ServiceOptions;
+import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -36,6 +40,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
@@ -47,6 +52,7 @@ public abstract class AbstractTestGcsFileSystem
         extends AbstractTestTrinoFileSystem
 {
     protected final EncryptionKey randomEncryptionKey = randomAes256();
+    private final AtomicInteger requests = new AtomicInteger();
     private TrinoFileSystem fileSystem;
     private Location rootLocation;
     private Storage storage;
@@ -67,7 +73,12 @@ public abstract class AbstractTestGcsFileSystem
     protected void initialize(GcsFileSystemConfig config, GcsAuth gcsAuth)
             throws IOException
     {
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, gcsAuth);
+        // GcsAuth is the only hook into the storage options, so it also installs the request counter
+        GcsAuth countingAuth = (builder, identity) -> {
+            gcsAuth.setAuth(builder, identity);
+            builder.setTransportOptions(new RequestCountingTransportOptions(requests));
+        };
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, countingAuth);
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
         String bucket = RemoteStorageHelper.generateBucketName();
@@ -191,6 +202,51 @@ public abstract class AbstractTestGcsFileSystem
             int readBytes = trinoInput.readTail(buffer, 0, 8);
             String readString = new String(buffer, 0, readBytes, UTF_8);
             assertThat(readString).isEqualTo(stringToWrite);
+        }
+    }
+
+    @Test
+    void testInputFileExistsSendsOneRequest()
+            throws IOException
+    {
+        Location location = getRootLocation().appendPath("exists");
+        TrinoInputFile inputFile = getFileSystem().newInputFile(location);
+
+        requests.set(0);
+        assertThat(inputFile.exists()).isFalse();
+        assertThat(requests.get()).isEqualTo(1);
+
+        getFileSystem().newOutputFile(location).createOrOverwrite(new byte[] {1});
+        requests.set(0);
+        assertThat(inputFile.exists()).isTrue();
+        assertThat(requests.get()).isEqualTo(1);
+    }
+
+    private static final class RequestCountingTransportOptions
+            extends HttpTransportOptions
+    {
+        private final AtomicInteger requests;
+
+        private RequestCountingTransportOptions(AtomicInteger requests)
+        {
+            super(HttpTransportOptions.newBuilder());
+            this.requests = requests;
+        }
+
+        @Override
+        public HttpRequestInitializer getHttpRequestInitializer(ServiceOptions<?, ?> serviceOptions)
+        {
+            HttpRequestInitializer initializer = super.getHttpRequestInitializer(serviceOptions);
+            return request -> {
+                initializer.initialize(request);
+                HttpResponseInterceptor interceptor = request.getResponseInterceptor();
+                request.setResponseInterceptor(response -> {
+                    requests.incrementAndGet();
+                    if (interceptor != null) {
+                        interceptor.interceptResponse(response);
+                    }
+                });
+            };
         }
     }
 }
