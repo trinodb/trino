@@ -20,8 +20,9 @@ the `hive.metastore` configuration property to define the type of metastore to
 use. Iceberg catalogs instead use the `iceberg.catalog.type` configuration
 property to define the type of metastore to use.
 
-Additional configuration properties specific to the Thrift and Glue Metastores
-are also available. They are discussed later in this topic.
+Additional configuration properties specific to the Thrift metastore, the Glue
+catalog, and the BigLake Hive catalog are also available. They are discussed
+later in this topic.
 
 :::{list-table} General metastore configuration properties
 :widths: 35, 50, 15
@@ -32,8 +33,9 @@ are also available. They are discussed later in this topic.
   - Default
 * - `hive.metastore`
   - The type of Hive metastore to use. Trino currently supports the default Hive
-    Thrift metastore (`thrift`), and the AWS Glue Catalog (`glue`) as metadata
-    sources. You must use this for all object storage catalogs except Iceberg.
+    Thrift metastore (`thrift`), the AWS Glue Catalog (`glue`), and the BigLake
+    Hive catalog (`biglake`) as metadata sources. You must use this for all
+    object storage catalogs except Iceberg.
   - `thrift`
 * - `iceberg.catalog.type`
   - The Iceberg table format manages most metadata in metadata files in the
@@ -452,6 +454,73 @@ described with the following additional property:
     `system.metadata.table_comments` queries.
   - `true`
   :::
+
+(hive-biglake-metastore)=
+## BigLake Hive catalog configuration properties
+
+The Hive connector can read tables that are registered in a
+[BigLake](https://cloud.google.com/biglake) Hive catalog. To use a BigLake Hive
+catalog, set `hive.metastore` to `biglake` in your catalog properties file and
+set the following properties:
+
+:::{list-table} BigLake Hive catalog configuration properties
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property Name
+  - Description
+  - Default
+* - `hive.metastore.biglake.project-id`
+  - ID of the Google Cloud project that owns the BigLake Hive catalog. This
+    property is required.
+  -
+* - `hive.metastore.biglake.catalog-id`
+  - ID of the BigLake Hive catalog to read the metadata from. This property is
+    required.
+  -
+* - `hive.metastore.biglake.request-timeout`
+  - Maximum [duration](prop-type-duration) to wait for a single request to
+    BigLake. The request fails when the timeout expires.
+  - `1m`
+:::
+
+The following example shows a catalog properties file that uses a BigLake Hive
+catalog:
+
+```properties
+connector.name=hive
+hive.metastore=biglake
+hive.metastore.biglake.project-id=example-project-id
+hive.metastore.biglake.catalog-id=example-catalog
+fs.gcs.enabled=true
+gcs.auth-type=APPLICATION_DEFAULT
+```
+
+Trino authenticates to BigLake with Google
+[Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials).
+Trino looks for the credentials when the first query needs the metastore. A
+catalog loads even if no credentials are available, and queries on it fail until
+you provide them.
+
+If the project or the catalog that you configure does not exist, listing the
+schemas fails with an error. The error message includes the reason that BigLake
+returned.
+
+Trino reads table data directly from the storage location of each table.
+Configure the [Google Cloud Storage file
+system](/object-storage/file-system-gcs) to access the storage locations of your
+tables. The preceding example sets `gcs.auth-type` to `APPLICATION_DEFAULT`, so
+that the file system uses the same credentials as the metastore.
+
+The BigLake Hive catalog integration has the following limitations:
+
+* Access is read-only. You can list schemas and tables, describe tables,
+  and query data. Statements that write data or change metadata fail. For
+  example, `CREATE SCHEMA` and `CREATE TABLE` fail with a `NOT_SUPPORTED` error.
+* Trino does not read table or column statistics from the BigLake Hive catalog.
+* The Delta Lake and Lakehouse connectors do not support the BigLake Hive
+  catalog and fail with a `NOT_SUPPORTED` error if you set
+  `hive.metastore=biglake`.
 
 ## Iceberg-specific metastores
 
