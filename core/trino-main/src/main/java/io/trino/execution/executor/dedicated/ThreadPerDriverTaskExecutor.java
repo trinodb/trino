@@ -118,7 +118,6 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void start()
     {
         backgroundTasks.scheduleWithFixedDelay(scheduleMoreLeafSplitsQuietly, 0, 100, TimeUnit.MILLISECONDS);
-        backgroundTasks.scheduleWithFixedDelay(maintenance(this::adjustConcurrency, "Error adjusting task concurrency"), 0, 10, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(maintenance(this::logDiagnostics, "Error logging diagnostics"), 0, 30, TimeUnit.SECONDS);
     }
 
@@ -169,7 +168,9 @@ public class ThreadPerDriverTaskExecutor
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
-                utilizationSupplier);
+                splitConcurrencyAdjustFrequency,
+                utilizationSupplier,
+                scheduleMoreLeafSplitsQuietly);
         tasks.put(taskId, task);
         return task;
     }
@@ -361,9 +362,9 @@ public class ThreadPerDriverTaskExecutor
 
     /// Wrap a task so that a failure does not take its caller down with it.
     /// [ScheduledThreadPoolExecutor#scheduleWithFixedDelay] silently stops rescheduling a task
-    /// that throws, which would leave the worker permanently without leaf split scheduling or
-    /// concurrency adjustment. Failures here are typically symptoms of an overloaded worker,
-    /// such as being unable to create a thread, and it is expected to recover once load subsides.
+    /// that throws, which would leave the worker permanently without leaf split scheduling.
+    /// Failures here are typically symptoms of an overloaded worker, such as being unable to
+    /// create a thread, and it is expected to recover once load subsides.
     @VisibleForTesting
     static Runnable maintenance(Runnable task, String errorMessage)
     {
@@ -423,13 +424,6 @@ public class ThreadPerDriverTaskExecutor
             else {
                 LOG.warn(failure, "%s (%s similar failures suppressed)", message, suppressed);
             }
-        }
-    }
-
-    private void adjustConcurrency()
-    {
-        for (TaskEntry task : tasks.values()) {
-            task.updateConcurrency();
         }
     }
 
