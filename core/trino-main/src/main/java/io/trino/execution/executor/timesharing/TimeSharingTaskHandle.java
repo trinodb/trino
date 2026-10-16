@@ -18,6 +18,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
+import io.trino.execution.executor.SplitConcurrencyController;
 import io.trino.execution.executor.TaskHandle;
 
 import java.util.ArrayDeque;
