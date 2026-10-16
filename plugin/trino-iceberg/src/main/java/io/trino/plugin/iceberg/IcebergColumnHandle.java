@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -31,11 +32,14 @@ import java.util.Optional;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.SPEC_ID;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -220,15 +224,36 @@ public class IcebergColumnHandle
     }
 
     @JsonIgnore
+    public boolean isMetadataColumn()
+    {
+        return isMetadataColumnId(baseColumnIdentity.getId());
+    }
+
+    @JsonIgnore
     public boolean isPartitionColumn()
     {
-        return id == PARTITION.getId();
+        return baseColumnIdentity.getId() == PARTITION.getId() && path.isEmpty();
+    }
+
+    /**
+     * Whether this is a single partition field projected out of the {@code $partition} column. The column id is the partition field id.
+     */
+    @JsonIgnore
+    public boolean isPartitionField()
+    {
+        return baseColumnIdentity.getId() == PARTITION.getId() && !path.isEmpty();
     }
 
     @JsonIgnore
     public boolean isFileModifiedTimeColumn()
     {
         return id == FILE_MODIFIED_TIME.getId();
+    }
+
+    @JsonIgnore
+    public boolean isSpecIdColumn()
+    {
+        return id == SPEC_ID.getId();
     }
 
     @Override
@@ -304,20 +329,31 @@ public class IcebergColumnHandle
                 .build();
     }
 
-    public static IcebergColumnHandle partitionColumnHandle()
+    public static IcebergColumnHandle partitionColumnHandle(IcebergPartitionColumn partitionColumn)
     {
-        return IcebergColumnHandle.required(columnIdentity(PARTITION))
-                .columnType(PARTITION.getType())
+        return IcebergColumnHandle.required(partitionColumnIdentity(partitionColumn))
+                .columnType(partitionColumn.rowType())
                 .build();
     }
 
-    public static ColumnMetadata partitionColumnMetadata()
+    public static ColumnMetadata partitionColumnMetadata(IcebergPartitionColumn partitionColumn)
     {
         return ColumnMetadata.builder()
                 .setName(PARTITION.getColumnName())
-                .setType(PARTITION.getType())
+                .setType(partitionColumn.rowType())
                 .setHidden(true)
                 .build();
+    }
+
+    private static ColumnIdentity partitionColumnIdentity(IcebergPartitionColumn partitionColumn)
+    {
+        List<RowType.Field> fields = partitionColumn.rowType().getFields();
+        ImmutableList.Builder<ColumnIdentity> children = ImmutableList.builderWithExpectedSize(fields.size());
+        for (int i = 0; i < fields.size(); i++) {
+            // Child ids are partition field ids, which are stable across spec evolution
+            children.add(new ColumnIdentity(partitionColumn.fieldIds().get(i), fields.get(i).getName().orElseThrow(), PRIMITIVE, ImmutableList.of()));
+        }
+        return new ColumnIdentity(PARTITION.getId(), PARTITION.getColumnName(), PARTITION.getTypeCategory(), children.build());
     }
 
     public static IcebergColumnHandle pathColumnHandle()
@@ -348,6 +384,22 @@ public class IcebergColumnHandle
         return ColumnMetadata.builder()
                 .setName(FILE_MODIFIED_TIME.getColumnName())
                 .setType(FILE_MODIFIED_TIME.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle specIdColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(SPEC_ID))
+                .columnType(SPEC_ID.getType())
+                .build();
+    }
+
+    public static ColumnMetadata specIdColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(SPEC_ID.getColumnName())
+                .setType(SPEC_ID.getType())
                 .setHidden(true)
                 .build();
     }
