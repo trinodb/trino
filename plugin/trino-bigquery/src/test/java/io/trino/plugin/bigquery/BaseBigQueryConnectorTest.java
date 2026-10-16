@@ -444,6 +444,12 @@ public abstract class BaseBigQueryConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain .*".formatted(fieldName.replace("\\", "\\\\")));
+    }
+
     @Test // TODO: Move this test to BaseConnectorTest
     public void testStreamCommentTableSpecialCharacter()
     {

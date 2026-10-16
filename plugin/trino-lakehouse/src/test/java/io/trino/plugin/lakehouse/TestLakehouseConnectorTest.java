@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -283,6 +284,22 @@ public class TestLakehouseConnectorTest
                  "row(x integer) -> row(\"y\" integer)" -> Optional.empty();
             default -> Optional.of(setup);
         };
+    }
+
+    @Override
+    protected void testRowFieldName(String fieldName)
+    {
+        // The Hive metastore container returns non-ASCII characters in column types as '?', so the table cannot be dropped
+        if (!fieldName.equals("カラム")) {
+            super.testRowFieldName(fieldName);
+        }
+    }
+
+    @Override
+    protected boolean isRowFieldNameRejected(Exception exception, String fieldName)
+    {
+        // TODO Fail with a clear message. The column types written to the metastore are Hive type strings, which cannot contain these field names.
+        return exception.getMessage().matches("Error: .* expected at the position \\d+ of 'struct<%s:string>' but .* is found\\.".formatted(Pattern.quote(fieldName)));
     }
 
     @Disabled("Long names cause metastore timeouts")
