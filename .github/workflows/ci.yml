@@ -536,6 +536,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
@@ -546,6 +547,14 @@ jobs:
             --event-schedule "$EVENT_SCHEDULE" \
             --pr-labels "$PR_LABELS" \
             --verbose > matrix.json
+          if [[ "${FORK_PR}" == "true" ]]; then
+            # Fork PRs get no secrets, so these cells only build and then skip every test step.
+            # Maintainers still run them via /test-with-secrets and in the merge queue.
+            jq '(.include // [])
+              | map(select(((.profile // "") | startswith("cloud-tests")) or (.modules == "plugin/trino-redshift" and .profile == "fte-tests") | not))
+              | if length == 0 then {} else {include: .} end' matrix.json > matrix.filtered.json
+            mv matrix.filtered.json matrix.json
+          fi
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
@@ -967,7 +976,16 @@ jobs:
           contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: .github/bin/build-pt-matrix.py -v > matrix.json
       - id: set-matrix
+        env:
+          FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
+          if [[ "${FORK_PR}" == "true" ]]; then
+            # Fork PRs get no secrets, so these suites only load the image and then report SKIPPED.
+            jq '(.include // [])
+              | map(select(.suite | test("^Suite(Azure|DeltaLakeDatabricks[0-9]+)$") | not))
+              | if length == 0 then {} else {include: .} end' matrix.json > matrix.filtered.json
+            mv matrix.filtered.json matrix.json
+          fi
           echo "PT matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
       - name: Cancel merge queue workflow
