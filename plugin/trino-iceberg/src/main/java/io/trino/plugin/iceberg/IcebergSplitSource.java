@@ -141,6 +141,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedInput;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 import static org.apache.iceberg.util.ByteBuffers.toByteArray;
@@ -701,8 +702,8 @@ public class IcebergSplitSource
             return Optional.empty();
         }
 
-        if (fileFormat != PARQUET) {
-            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted non-Parquet file is not supported: " + location);
+        if (fileFormat != PARQUET && fileFormat != PUFFIN) {
+            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted %s file is not supported: %s".formatted(fileFormat, location));
         }
 
         EncryptedInputFile encryptedInputFile = encryptedInput(fileIo.newInputFile(location, fileSizeInBytes), keyMetadata.duplicate());
@@ -715,7 +716,11 @@ public class IcebergSplitSource
         NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
         ByteBuffer encryptionKey = requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null");
         ByteBuffer aadPrefix = requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null");
-        return Optional.of(new FileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
+        Long fileLength = nativeKeyMetadata.fileLength();
+        return Optional.of(new FileDecryptionData(
+                toByteArray(encryptionKey),
+                toByteArray(aadPrefix),
+                fileLength == null ? OptionalLong.empty() : OptionalLong.of(fileLength)));
     }
 
     @VisibleForTesting

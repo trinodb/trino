@@ -19,6 +19,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.plugin.iceberg.IcebergPageSourceProvider.createParquetFileDecryptionProperties;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,7 @@ final class TestIcebergParquetDecryptionProperties
         assertThat(createParquetFileDecryptionProperties(Optional.empty(), false)).isEmpty();
 
         Optional<FileDecryptionProperties> fileDecryptionProperties = createParquetFileDecryptionProperties(
-                Optional.of(new FileDecryptionData(fileKey, aadPrefix)),
+                Optional.of(new FileDecryptionData(fileKey, aadPrefix, OptionalLong.empty())),
                 false);
         assertThat(fileDecryptionProperties).isPresent();
 
