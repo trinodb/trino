@@ -56,6 +56,7 @@ import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.GC_ENABLED;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
 import static org.apache.iceberg.TableProperties.PARQUET_ROW_GROUP_SIZE_BYTES;
@@ -73,6 +74,7 @@ public class IcebergTableProperties
     public static final String MAX_COMMIT_RETRY = "max_commit_retry";
     public static final String DELETE_AFTER_COMMIT_ENABLED = "delete_after_commit_enabled";
     public static final String MAX_PREVIOUS_VERSIONS = "max_previous_versions";
+    public static final String MAX_INFERRED_METRICS_COLUMN_DEFAULTS = "max_inferred_metrics_column_defaults";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
@@ -93,6 +95,7 @@ public class IcebergTableProperties
             .add(MAX_COMMIT_RETRY)
             .add(DELETE_AFTER_COMMIT_ENABLED)
             .add(MAX_PREVIOUS_VERSIONS)
+            .add(MAX_INFERRED_METRICS_COLUMN_DEFAULTS)
             .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(ORC_BLOOM_FILTER_FPP_PROPERTY)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
@@ -107,6 +110,7 @@ public class IcebergTableProperties
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
     public static final Set<String> PROTECTED_ICEBERG_NATIVE_PROPERTIES = ImmutableSet.<String>builder()
             .addAll(RESERVED_PROPERTIES)
+            .add(METRICS_MAX_INFERRED_COLUMN_DEFAULTS)
             .add(ORC_BLOOM_FILTER_COLUMNS)
             .add(ORC_BLOOM_FILTER_FPP)
             .add(DEFAULT_FILE_FORMAT)
@@ -194,6 +198,16 @@ public class IcebergTableProperties
                         value -> {
                             if (value < 1) {
                                 throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be greater than or equal to 1".formatted(MAX_PREVIOUS_VERSIONS));
+                            }
+                        },
+                        false))
+                .add(integerProperty(
+                        MAX_INFERRED_METRICS_COLUMN_DEFAULTS,
+                        "The maximum number of columns for which metrics are collected by default",
+                        null,
+                        value -> {
+                            if (value < 0) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "%s must be greater than or equal to 0".formatted(MAX_INFERRED_METRICS_COLUMN_DEFAULTS));
                             }
                         },
                         false))
@@ -358,6 +372,11 @@ public class IcebergTableProperties
     public static Optional<Integer> getMaxPreviousVersions(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Integer) tableProperties.get(MAX_PREVIOUS_VERSIONS));
+    }
+
+    public static Optional<Integer> getMaxInferredMetricsColumnDefaults(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(MAX_INFERRED_METRICS_COLUMN_DEFAULTS));
     }
 
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)

@@ -1141,6 +1141,7 @@ The following table properties can be updated after a table is created:
 - `max_commit_retry`
 - `delete_after_commit_enabled`
 - `max_previous_versions`
+- `max_inferred_metrics_column_defaults`
 - `object_store_layout_enabled`
 - `data_location`
 
@@ -1215,6 +1216,13 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - The max number of previous version metadata files to track.
     Defaults to the value of the `iceberg.max-previous-versions` 
     catalog configuration property, which defaults to `100`.
+* - `max_inferred_metrics_column_defaults`
+  - The maximum number of columns for which column metrics are collected by
+    default. Must be greater than or equal to `0`. Defaults to `100` when not
+    set. Maps to the Iceberg
+    `write.metadata.metrics.max-inferred-column-defaults` table property.
+    The connector applies this limit only to ORC writes. The Parquet and Avro
+    writers ignore it.
 * - `orc_bloom_filter_columns`
   - Comma-separated list of columns to use for ORC bloom filter. It improves the
     performance of queries using Equality and IN predicates when reading ORC

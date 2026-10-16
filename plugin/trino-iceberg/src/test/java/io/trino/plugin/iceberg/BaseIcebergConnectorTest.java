@@ -4433,13 +4433,84 @@ public abstract class BaseIcebergConnectorTest
         String values = IntStream.rangeClosed(1, 102)
                 .mapToObj(i -> "'v" + i + "'")
                 .collect(joining(", "));
-        try (TestTable table = newTrinoTable("test_max_inferred_column_defaults", "(" + columns + ") WITH (sorted_by = ARRAY['c102'])")) {
+        try (TestTable table = newTrinoTable("test_max_inferred_column_defaults", "(" + columns + ") WITH (sorted_by = ARRAY['c102'], max_inferred_metrics_column_defaults = 100)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 100");
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + values + ")", 1);
             if (format == ORC) {
                 assertThat(query("SELECT cardinality(value_counts), upper_bounds.\"100\", upper_bounds.\"101\", upper_bounds.\"102\" FROM \"" + table.getName() + "$files\""))
                         .matches("VALUES (BIGINT '101', VARCHAR 'v100', CAST(NULL AS varchar), VARCHAR 'v102')");
             }
         }
+    }
+
+    @Test
+    public void testUpdatingMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_max_inferred_metrics_column_defaults", "(x int)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("max_inferred_metrics_column_defaults = ");
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.metrics.max-inferred-column-defaults");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 5");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 1");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 1");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "1");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 0");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "0");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = DEFAULT");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("max_inferred_metrics_column_defaults = ");
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.metrics.max-inferred-column-defaults");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES max_inferred_metrics_column_defaults = -1",
+                    ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_create_max_inferred_metrics_column_defaults", "(x int) WITH (max_inferred_metrics_column_defaults = 5)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE test_create_invalid_max_inferred_metrics_column_defaults (x int) WITH (max_inferred_metrics_column_defaults = -1)",
+                ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithMaxInferredMetricsColumnDefaults()
+    {
+        try (TestTable table = newTrinoTable("test_ctas_max_inferred_metrics_column_defaults", "WITH (max_inferred_metrics_column_defaults = 5) AS SELECT 1 x")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("max_inferred_metrics_column_defaults = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.metrics.max-inferred-column-defaults", "5");
+        }
+
+        assertQueryFails(
+                "CREATE TABLE test_ctas_invalid_max_inferred_metrics_column_defaults WITH (max_inferred_metrics_column_defaults = -1) AS SELECT 1 x",
+                ".* max_inferred_metrics_column_defaults must be greater than or equal to 0");
     }
 
     @Test
@@ -10473,6 +10544,10 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_create_table_with_gc_enabled_via_extra_properties WITH (extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])) AS SELECT 1 as c1",
                 "\\QIllegal keys in extra_properties: [gc.enabled]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['write.metadata.metrics.max-inferred-column-defaults'], ARRAY['1'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [write.metadata.metrics.max-inferred-column-defaults]");
     }
 
     @Test
