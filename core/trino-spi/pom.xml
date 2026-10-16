@@ -240,6 +240,16 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.connector.ConnectorMetadata::delegateMaterializedViewRefreshToConnector(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.concurrent.CompletableFuture&lt;?&gt; io.trino.spi.connector.ConnectorMetadata::refreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -46,7 +46,6 @@ public class TestLakehouseMetadata
         try {
             EXCLUSIONS = ImmutableSet.<Method>builder()
                     .add(ConnectorMetadata.class.getMethod("supportsMissingColumnsOnInsert"))
-                    .add(ConnectorMetadata.class.getMethod("refreshMaterializedView", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("resolveIndex", ConnectorSession.class, ConnectorTableHandle.class, Set.class, Set.class, TupleDomain.class))
                     .add(ConnectorMetadata.class.getMethod("listFunctions", ConnectorSession.class, String.class))
                     .add(ConnectorMetadata.class.getMethod("getFunctions", ConnectorSession.class, SchemaFunctionName.class))
