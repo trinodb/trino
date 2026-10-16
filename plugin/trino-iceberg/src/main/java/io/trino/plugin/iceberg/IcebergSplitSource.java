@@ -33,7 +33,7 @@ import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -611,7 +611,7 @@ public class IcebergSplitSource
                 .collect(toImmutableList());
         List<DeleteFile> deleteFiles = wholeFileTask.deletes().stream()
                 .peek(file -> verifyDeletionVectorReferencesDataFile(wholeFileTask, file))
-                .map(file -> DeleteFile.fromIceberg(file, parquetFileDecryptionData(
+                .map(file -> DeleteFile.fromIceberg(file, fileDecryptionData(
                         file.format(),
                         file.location(),
                         file.fileSizeInBytes(),
@@ -627,7 +627,7 @@ public class IcebergSplitSource
                         wholeFileTask.file().upperBounds(),
                         wholeFileTask.file().nullValueCounts(),
                         predicatedColumns),
-                parquetFileDecryptionData(
+                fileDecryptionData(
                         wholeFileTask.file().format(),
                         wholeFileTask.file().location(),
                         wholeFileTask.file().fileSizeInBytes(),
@@ -640,14 +640,14 @@ public class IcebergSplitSource
     private record FileScanTaskWithContext(
             FileScanTask fileScanTask,
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            Optional<FileDecryptionData> fileDecryptionData,
             List<DeleteFile> deleteFiles)
     {
         Iterator<FileScanTaskWithContext> split(long targetSplitSize, boolean mergeAdjacent)
         {
             Iterator<FileScanTaskWithContext> splits = Iterators.transform(
                     fileScanTask().split(targetSplitSize).iterator(),
-                    task -> new FileScanTaskWithContext(task, fileStatisticsDomain, parquetFileDecryptionData, deleteFiles));
+                    task -> new FileScanTaskWithContext(task, fileStatisticsDomain, fileDecryptionData, deleteFiles));
             if (!mergeAdjacent) {
                 return splits;
             }
@@ -659,7 +659,7 @@ public class IcebergSplitSource
                     current = new FileScanTaskWithContext(
                             merge(current, peekingSplits.next()),
                             fileStatisticsDomain,
-                            parquetFileDecryptionData,
+                            fileDecryptionData,
                             deleteFiles);
                 }
                 merged.add(current);
@@ -684,7 +684,7 @@ public class IcebergSplitSource
     }
 
     @VisibleForTesting
-    public static Optional<ParquetFileDecryptionData> parquetFileDecryptionData(
+    public static Optional<FileDecryptionData> fileDecryptionData(
             FileFormat fileFormat,
             String location,
             long fileSizeInBytes,
@@ -715,7 +715,7 @@ public class IcebergSplitSource
         NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
         ByteBuffer encryptionKey = requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null");
         ByteBuffer aadPrefix = requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null");
-        return Optional.of(new ParquetFileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
+        return Optional.of(new FileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
     }
 
     @VisibleForTesting
@@ -875,7 +875,7 @@ public class IcebergSplitSource
                 affinityKey,
                 task.file().dataSequenceNumber() == null ? OptionalLong.empty() : OptionalLong.of(task.file().dataSequenceNumber()),
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()),
-                taskWithDomain.parquetFileDecryptionData());
+                taskWithDomain.fileDecryptionData());
     }
 
     private static List<Block> getPartitionBlockValues(FileScanTask task, PartitionSpec spec, TypeManager typeManager)
