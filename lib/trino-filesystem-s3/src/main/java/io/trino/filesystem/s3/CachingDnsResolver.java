@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -43,7 +44,8 @@ import static java.util.Objects.requireNonNull;
  * Returns cached host addresses and refreshes them on a background executor once they are older than
  * the JVM address cache TTL, so a slow DNS lookup does not block the thread opening a connection.
  * A host is resolved on the calling thread when it is first used, after a failed refresh, and after
- * it is unused for longer than the TTL plus {@link #MAX_STALENESS}.
+ * it is unused for longer than the TTL plus {@link #MAX_STALENESS}. Each call starts at the next
+ * address, so connections spread over all addresses of a host.
  */
 final class CachingDnsResolver
         implements DnsResolver
@@ -58,7 +60,7 @@ final class CachingDnsResolver
     private final DnsResolver delegate;
     // The JVM entry from our own lookup is always expired when the refresh runs, but another lookup
     // in the JVM can refill it, so a busy host can lag by up to twice the TTL
-    private final LoadingCache<String, Optional<List<InetAddress>>> addresses;
+    private final LoadingCache<String, Optional<HostAddresses>> addresses;
 
     /**
      * Returns empty when the JVM caches addresses never or forever, so lookups go to the JVM as is.
@@ -107,15 +109,15 @@ final class CachingDnsResolver
                 .build(asyncReloading(new CacheLoader<>()
                 {
                     @Override
-                    public Optional<List<InetAddress>> load(String host)
+                    public Optional<HostAddresses> load(String host)
                             throws UnknownHostException
                     {
-                        return Optional.of(ImmutableList.copyOf(delegate.resolve(host)));
+                        return Optional.of(new HostAddresses(delegate.resolve(host)));
                     }
 
                     // An empty value marks a failed refresh
                     @Override
-                    public ListenableFuture<Optional<List<InetAddress>>> reload(String host, Optional<List<InetAddress>> oldValue)
+                    public ListenableFuture<Optional<HostAddresses>> reload(String host, Optional<HostAddresses> oldValue)
                     {
                         try {
                             return immediateFuture(load(host));
@@ -131,12 +133,12 @@ final class CachingDnsResolver
     public InetAddress[] resolve(String host)
             throws UnknownHostException
     {
-        Optional<List<InetAddress>> cached = get(host);
+        Optional<HostAddresses> cached = get(host);
         if (cached.isEmpty()) {
             addresses.asMap().remove(host, cached);
             cached = get(host);
         }
-        return cached.orElseThrow().toArray(InetAddress[]::new);
+        return cached.orElseThrow().rotate();
     }
 
     @Override
@@ -146,7 +148,7 @@ final class CachingDnsResolver
         return delegate.resolveCanonicalHostname(host);
     }
 
-    private Optional<List<InetAddress>> get(String host)
+    private Optional<HostAddresses> get(String host)
             throws UnknownHostException
     {
         try {
@@ -157,6 +159,33 @@ final class CachingDnsResolver
             throwIfInstanceOf(cause, UnknownHostException.class);
             throwIfUnchecked(cause);
             throw new UncheckedExecutionException(cause);
+        }
+    }
+
+    // Addresses of one host and the offset the next call starts at
+    private static final class HostAddresses
+    {
+        private final List<InetAddress> addresses;
+        private final AtomicInteger nextOffset = new AtomicInteger();
+
+        HostAddresses(InetAddress[] addresses)
+        {
+            this.addresses = ImmutableList.copyOf(addresses);
+        }
+
+        // Starts each connection at the next address of the leading run that shares the first address's family
+        InetAddress[] rotate()
+        {
+            InetAddress[] rotated = addresses.toArray(InetAddress[]::new);
+            int sameFamily = 1;
+            while (sameFamily < rotated.length && rotated[sameFamily].getClass() == rotated[0].getClass()) {
+                sameFamily++;
+            }
+            int offset = Math.floorMod(nextOffset.getAndIncrement(), sameFamily);
+            for (int i = 0; i < sameFamily; i++) {
+                rotated[i] = addresses.get((offset + i) % sameFamily);
+            }
+            return rotated;
         }
     }
 }
