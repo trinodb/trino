@@ -47,6 +47,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.MemoryContext;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -146,19 +147,9 @@ class TestIcebergPageSourceProvider
 
         assertThat(sharedMemoryUsage.get()).isEqualTo(0);
 
-        TestingConnectorSession session = TestingConnectorSession.builder()
-                .setPropertyMetadata(new IcebergSessionProperties(
-                        new IcebergConfig(),
-                        new IcebergEncryptionConfig(),
-                        ORC_READER_CONFIG,
-                        new OrcWriterConfig(),
-                        PARQUET_READER_CONFIG,
-                        new ParquetWriterConfig()).getSessionProperties())
-                .build();
-
         // Create a page source with equality deletes - the delete predicate is lazily loaded
         try (ConnectorPageSource pageSource = provider.createPageSource(
-                session,
+                createSession(),
                 ImmutableList.of(regionkeyHandle, nameHandle),
                 tableSchema,
                 PartitionSpec.unpartitioned(),
@@ -189,6 +180,48 @@ class TestIcebergPageSourceProvider
 
             // After reading, the equality delete filter should be loaded and tracked in memory
             assertThat(sharedMemoryUsage.get()).isGreaterThan(100);
+        }
+    }
+
+    @Test
+    void testMemoryTrackingWhenReadingOnlyPartitionColumns(@TempDir Path tempDir)
+            throws IOException
+    {
+        ColumnIdentity regionkeyIdentity = new ColumnIdentity(1, "regionkey", PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle regionkeyHandle = IcebergColumnHandle.optional(regionkeyIdentity).columnType(BIGINT).build();
+        Schema tableSchema = new Schema(optional(regionkeyIdentity.getId(), "regionkey", Types.LongType.get()));
+
+        Path dataFilePath = tempDir.resolve("data.parquet");
+        writeParquetFileToDisk(dataFilePath, ImmutableList.of(BIGINT), ImmutableList.of("regionkey"), new Page(createBigintBlock(1L, 1L, 1L)));
+        LocalInputFile dataInputFile = new LocalInputFile(dataFilePath.toFile());
+
+        IcebergPageSourceProvider provider = createPageSourceProvider(MemoryContext.NO_LIMIT);
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        try (ConnectorPageSource pageSource = provider.createPageSource(
+                createSession(),
+                ImmutableList.of(regionkeyHandle),
+                tableSchema,
+                PartitionSpec.builderFor(tableSchema).identity("regionkey").build(),
+                new PartitionData(new Object[] {1L}),
+                ImmutableList.of(),
+                DynamicFilter.EMPTY,
+                TupleDomain.all(),
+                TupleDomain.all(),
+                dataInputFile.location().toString(),
+                0,
+                dataInputFile.length(),
+                dataInputFile.length(),
+                3, // fileRecordCount
+                PARQUET,
+                new IcebergTableCredentials(ImmutableMap.of(), ImmutableList.of()),
+                OptionalLong.of(0), // dataSequenceNumber
+                OptionalLong.empty(),
+                Optional.empty(),
+                memoryContext,
+                Optional.empty())) {
+            // the pages are generated from the partition value, without reading the data file
+            assertThat(pageSource).isInstanceOf(FixedPageSource.class);
+            assertThat(memoryContext.getBytes()).isPositive();
         }
     }
 
@@ -278,6 +311,19 @@ class TestIcebergPageSourceProvider
             VARCHAR.writeString(builder, value);
         }
         return builder.build();
+    }
+
+    private static TestingConnectorSession createSession()
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(new IcebergSessionProperties(
+                        new IcebergConfig(),
+                        new IcebergEncryptionConfig(),
+                        ORC_READER_CONFIG,
+                        new OrcWriterConfig(),
+                        PARQUET_READER_CONFIG,
+                        new ParquetWriterConfig()).getSessionProperties())
+                .build();
     }
 
     private static IcebergPageSourceProvider createPageSourceProvider(MemoryContext memoryContext)
