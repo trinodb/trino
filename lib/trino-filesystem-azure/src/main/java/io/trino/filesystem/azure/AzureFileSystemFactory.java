@@ -32,8 +32,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -50,7 +52,9 @@ public class AzureFileSystemFactory
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("azure-upload-%s"));
 
     private final AzureAuth auth;
+    // endpoint validates user locations; serviceEndpoint optionally routes requests to a compatible backend.
     private final String endpoint;
+    private final Optional<URI> serviceEndpoint;
     private final DataSize readBlockSize;
     private final DataSize writeBlockSize;
     private final int maxWriteConcurrency;
@@ -68,6 +72,8 @@ public class AzureFileSystemFactory
         this(openTelemetry,
                 azureAuth,
                 config.getEndpoint(),
+                Optional.empty(),
+                Optional.empty(),
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
                 config.getMaxWriteConcurrency(),
@@ -84,6 +90,8 @@ public class AzureFileSystemFactory
             OpenTelemetry openTelemetry,
             AzureAuth azureAuth,
             String endpoint,
+            Optional<URI> serviceEndpoint,
+            Optional<HttpClient> httpClient,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
@@ -97,6 +105,7 @@ public class AzureFileSystemFactory
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.serviceEndpoint = requireNonNull(serviceEndpoint, "serviceEndpoint is null");
         this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
         this.writeBlockSize = requireNonNull(writeBlockSize, "writeBlockSize is null");
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
@@ -114,7 +123,8 @@ public class AzureFileSystemFactory
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
         clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
-        httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
+        this.httpClient = requireNonNull(httpClient, "httpClient is null")
+                .orElseGet(() -> createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions));
         this.multipart = multipart;
         this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
                 maxHttpRequests,
@@ -147,7 +157,7 @@ public class AzureFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         AzureAuth effectiveAuth = getEffectiveAuth(identity);
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, serviceEndpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     private AzureAuth getEffectiveAuth(ConnectorIdentity identity)

@@ -23,17 +23,13 @@ import static io.trino.filesystem.azure.AbstractTestAzureFileSystem.AccountKind.
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemOAuthGen2Flat
+class TestAzureFileSystemAccessKeyFlatAzure
         extends AbstractTestAzureFileSystem
 {
     @BeforeAll
     void setup()
             throws IOException
     {
-        String account = requireEnv("ABFS_FLAT_ACCOUNT");
-        String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
-        String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
-        String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
-        initializeWithOAuth(account, tenantId, clientId, clientSecret, FLAT);
+        initializeWithAccessKeyAndMultipartWrites(requireEnv("ABFS_FLAT_ACCOUNT"), requireEnv("ABFS_FLAT_ACCESS_KEY"), FLAT);
     }
 }

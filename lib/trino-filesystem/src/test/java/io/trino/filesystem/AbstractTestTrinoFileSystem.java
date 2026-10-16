@@ -1111,10 +1111,15 @@ public abstract class AbstractTestTrinoFileSystem
         }
     }
 
-    private static String retrieveUri(UriLocation uriLocation)
+    protected HttpClient createHttpClient()
+    {
+        return HttpClient.newHttpClient();
+    }
+
+    private String retrieveUri(UriLocation uriLocation)
             throws IOException
     {
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             HttpRequest request = addHeaders(HttpRequest.newBuilder(), uriLocation.headers())
                     .uri(uriLocation.uri())
                     .GET()
