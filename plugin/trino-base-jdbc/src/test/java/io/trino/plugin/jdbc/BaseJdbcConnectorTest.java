@@ -1571,7 +1571,7 @@ public abstract class BaseJdbcConnectorTest
         try (TestView sleepingView = createSleepingView(new Duration(1, MINUTES))) {
             String tableNameToScan = sleepingView.getName().toLowerCase(ENGLISH);
 
-            RemoteLogTracingEvent runningTracingEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(tableNameToScan) && event.getStatus() == RUNNING);
+            RemoteLogTracingEvent runningTracingEvent = new RemoteLogTracingEvent(event -> isScanOf(event, tableNameToScan) && event.getStatus() == RUNNING);
             startTracingDatabaseEvent(runningTracingEvent);
 
             String query = "SELECT * FROM " + sleepingView.getName();
@@ -1580,13 +1580,20 @@ public abstract class BaseJdbcConnectorTest
             assertEventually(() -> assertThat(runningTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(runningTracingEvent);
 
-            RemoteLogTracingEvent cancelledTracingEvent = new RemoteLogTracingEvent(event -> event.getQuery().toLowerCase(ENGLISH).contains(tableNameToScan) && event.getStatus() == CANCELLED);
+            RemoteLogTracingEvent cancelledTracingEvent = new RemoteLogTracingEvent(event -> isScanOf(event, tableNameToScan) && event.getStatus() == CANCELLED);
             startTracingDatabaseEvent(cancelledTracingEvent);
             assertUpdate(format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"));
             future.get();
             assertEventually(() -> assertThat(cancelledTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(cancelledTracingEvent);
         }
+    }
+
+    private static boolean isScanOf(RemoteDatabaseEvent event, String tableName)
+    {
+        // Remote logs arrive asynchronously, so the CREATE VIEW of the sleeping view may be traced too
+        String query = event.getQuery().toLowerCase(ENGLISH);
+        return query.startsWith("select") && query.contains(tableName);
     }
 
     protected void startTracingDatabaseEvent(RemoteLogTracingEvent event)
