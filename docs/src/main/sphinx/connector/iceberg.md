@@ -467,12 +467,17 @@ the following table:
   - `LIST(e)`
 * - `MAP(k,v)`
   - `MAP(k,v)`
+* - `UNKNOWN`
+  - `UNKNOWN`
 :::
 
 :::{note}
 Iceberg `VARIANT` is supported only for tables using Iceberg format version `3`
 or higher. To create a table with `VARIANT` columns, set
 `format_version = 3` in the `WITH` clause. The default is `2`.
+
+`UNKNOWN` columns are always null, are not stored in Parquet and ORC data files,
+and cannot be used inside `ARRAY` or `MAP` for writes.
 :::
 
 No other types are supported.
