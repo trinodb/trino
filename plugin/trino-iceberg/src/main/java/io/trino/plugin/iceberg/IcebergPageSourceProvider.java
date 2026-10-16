@@ -405,7 +405,8 @@ public class IcebergPageSourceProvider
                 return generatePages(
                         fileRecordCount,
                         icebergColumns,
-                        partitionKeys);
+                        partitionKeys,
+                        memoryContext.newLocalMemoryContext(FixedPageSource.class.getSimpleName())::setBytes);
             }
         }
         catch (IOException e) {
@@ -730,7 +731,8 @@ public class IcebergPageSourceProvider
     private static ConnectorPageSource generatePages(
             long totalRowCount,
             List<IcebergColumnHandle> icebergColumns,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            MemoryContext memoryContext)
     {
         int maxPageSize = MAX_RLE_PAGE_SIZE;
         Block[] pageBlocks = new Block[icebergColumns.size()];
@@ -759,7 +761,8 @@ public class IcebergPageSourceProvider
                         return page;
                     }
                 },
-                maxPage.getRetainedSizeInBytes());
+                maxPage.getRetainedSizeInBytes(),
+                memoryContext);
     }
 
     private static ReaderPageSourceWithRowPositions createOrcPageSource(
