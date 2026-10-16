@@ -1818,12 +1818,6 @@ public interface ConnectorMetadata
      */
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
-        return getMaterializedViewFreshness(session, name);
-    }
-
-    @Deprecated(forRemoval = true)
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }
 
