@@ -269,7 +269,7 @@ public class TestJdbcExternalAuthentication
     {
         private final IntSupplier port;
 
-        public DummyExternalAuthModule(IntSupplier port)
+        private DummyExternalAuthModule(IntSupplier port)
         {
             this.port = requireNonNull(port, "port is null");
         }
@@ -290,38 +290,38 @@ public class TestJdbcExternalAuthentication
         private final Map<String, String> logginSessions = new ConcurrentHashMap<>();
         private final Set<String> validTokens = ConcurrentHashMap.newKeySet();
 
-        public String startAuthentication()
+        private String startAuthentication()
         {
             String sessionId = UUID.randomUUID().toString();
             logginSessions.put(sessionId, "");
             return sessionId;
         }
 
-        public void logIn(String sessionId)
+        private void logIn(String sessionId)
         {
             String token = sessionId + "_token";
             validTokens.add(token);
             logginSessions.put(sessionId, token);
         }
 
-        public Optional<String> getToken(String sessionId)
+        private Optional<String> getToken(String sessionId)
                 throws IllegalArgumentException
         {
             return Optional.ofNullable(logginSessions.get(sessionId))
                     .filter(s -> !s.isEmpty());
         }
 
-        public boolean verifyToken(String token)
+        private boolean verifyToken(String token)
         {
             return validTokens.contains(token);
         }
 
-        public void invalidateAllTokens()
+        private void invalidateAllTokens()
         {
             validTokens.clear();
         }
 
-        public int countValidTokens()
+        private int countValidTokens()
         {
             return validTokens.size();
         }

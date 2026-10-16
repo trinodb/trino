@@ -1065,7 +1065,7 @@ public class TrinoConnection
         @Nullable
         private Exception heldException;
 
-        public void hold(Exception exception)
+        private void hold(Exception exception)
         {
             if (heldException == null) {
                 heldException = exception;
@@ -1075,7 +1075,7 @@ public class TrinoConnection
             }
         }
 
-        public void throwIfHeld()
+        private void throwIfHeld()
                 throws SQLException
         {
             if (heldException != null) {

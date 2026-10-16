@@ -145,7 +145,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
         private long longValue;
         private long overflow;
 
-        public SingleLongDecimalWithOverflowAndLongState() {}
+        SingleLongDecimalWithOverflowAndLongState() {}
 
         // for copying
         private SingleLongDecimalWithOverflowAndLongState(long[] unscaledDecimal, long longValue, long overflow)

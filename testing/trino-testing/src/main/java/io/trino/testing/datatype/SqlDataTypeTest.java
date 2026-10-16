@@ -181,7 +181,7 @@ public final class SqlDataTypeTest
         private final Optional<Type> expectedType;
         private final String expectedLiteral;
 
-        public TestCase(Optional<String> columnName, Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
+        private TestCase(Optional<String> columnName, Optional<String> declaredType, String inputLiteral, Optional<Type> expectedType, String expectedLiteral)
         {
             this.columnName = requireNonNull(columnName, "columnName is null");
             this.declaredType = requireNonNull(declaredType, "declaredType is null");
@@ -202,17 +202,17 @@ public final class SqlDataTypeTest
             return inputLiteral;
         }
 
-        public Optional<Type> getExpectedType()
+        private Optional<Type> getExpectedType()
         {
             return expectedType;
         }
 
-        public String getExpectedLiteral()
+        private String getExpectedLiteral()
         {
             return expectedLiteral;
         }
 
-        public Optional<String> getColumnName()
+        private Optional<String> getColumnName()
         {
             return columnName;
         }

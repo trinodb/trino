@@ -62,7 +62,7 @@ public class MongoSplitManager
         private final long dynamicFilteringWaitTimeoutMillis;
         private final ConnectorSplitSource delegateSplitSource;
 
-        public MongoSplitSource(long dynamicFilteringWaitTimeoutMillis, ConnectorSplitSource delegateSplitSource)
+        private MongoSplitSource(long dynamicFilteringWaitTimeoutMillis, ConnectorSplitSource delegateSplitSource)
         {
             this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeoutMillis;
             this.delegateSplitSource = requireNonNull(delegateSplitSource, "delegateSplitSource is null");

@@ -244,7 +244,7 @@ public final class OpenXJsonDeserializer
 
     private abstract static class Decoder
     {
-        public final void decode(Object jsonValue, BlockBuilder builder)
+        private final void decode(Object jsonValue, BlockBuilder builder)
         {
             if (jsonValue == null) {
                 builder.appendNull();
@@ -368,7 +368,7 @@ public final class OpenXJsonDeserializer
     {
         private final DecimalType decimalType;
 
-        public DecimalDecoder(DecimalType decimalType)
+        private DecimalDecoder(DecimalType decimalType)
         {
             this.decimalType = decimalType;
         }
@@ -508,7 +508,7 @@ public final class OpenXJsonDeserializer
         private final List<DateTimeFormatter> timestampFormatters;
         private final TrinoTimestampEncoder<? extends Comparable<?>> timestampEncoder;
 
-        public TimestampDecoder(TimestampType timestampType, List<DateTimeFormatter> timestampFormatters)
+        private TimestampDecoder(TimestampType timestampType, List<DateTimeFormatter> timestampFormatters)
         {
             this.timestampType = timestampType;
             this.timestampFormatters = timestampFormatters;
@@ -532,7 +532,7 @@ public final class OpenXJsonDeserializer
 
         private static final int MIN_NUMERIC_TIMESTAMP_MILLIS_LENGTH = 13;
 
-        public static DecodedTimestamp parseTimestamp(String value, List<DateTimeFormatter> timestampFormatters)
+        private static DecodedTimestamp parseTimestamp(String value, List<DateTimeFormatter> timestampFormatters)
         {
             // first try specified formatters
             for (DateTimeFormatter formatter : timestampFormatters) {
@@ -646,7 +646,7 @@ public final class OpenXJsonDeserializer
     {
         private final VarcharType varcharType;
 
-        public VarcharDecoder(VarcharType varcharType)
+        private VarcharDecoder(VarcharType varcharType)
         {
             this.varcharType = varcharType;
         }
@@ -674,7 +674,7 @@ public final class OpenXJsonDeserializer
     {
         private final CharType charType;
 
-        public CharDecoder(CharType charType)
+        private CharDecoder(CharType charType)
         {
             this.charType = charType;
         }
@@ -702,7 +702,7 @@ public final class OpenXJsonDeserializer
     {
         private final Decoder elementDecoder;
 
-        public ArrayDecoder(Decoder elementDecoder)
+        private ArrayDecoder(Decoder elementDecoder)
         {
             this.elementDecoder = elementDecoder;
         }
@@ -740,7 +740,7 @@ public final class OpenXJsonDeserializer
         private final DistinctMapKeys distinctMapKeys;
         private BlockBuilder tempKeyBlockBuilder;
 
-        public MapDecoder(MapType mapType, Decoder keyDecoder, Decoder valueDecoder)
+        private MapDecoder(MapType mapType, Decoder keyDecoder, Decoder valueDecoder)
         {
             this.keyType = mapType.getKeyType();
             this.keyDecoder = keyDecoder;
@@ -805,7 +805,7 @@ public final class OpenXJsonDeserializer
         private final boolean dotsInKeyNames;
         private final IntUnaryOperator ordinalToFieldPosition;
 
-        public RowDecoder(RowType rowType, OpenXJsonOptions options, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
+        private RowDecoder(RowType rowType, OpenXJsonOptions options, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             this.fieldNames = rowType.getFields().stream()
                     .map(field -> field.getName().orElseThrow())
@@ -819,7 +819,7 @@ public final class OpenXJsonDeserializer
             this.ordinalToFieldPosition = requireNonNull(ordinalToFieldPosition, "ordinalToFieldPosition is null");
         }
 
-        public void decode(Object jsonValue, PageBuilder builder)
+        private void decode(Object jsonValue, PageBuilder builder)
         {
             builder.declarePosition();
             decodeValue(jsonValue, builder::getBlockBuilder);
@@ -981,12 +981,12 @@ public final class OpenXJsonDeserializer
         private final boolean canMatchDottedFieldName;
         private final boolean isDottedFieldName;
 
-        public FieldName(String originalValue, OpenXJsonOptions options)
+        private FieldName(String originalValue, OpenXJsonOptions options)
         {
             this(originalValue, options.isCaseInsensitive(), options.isDotsInFieldNames(), options.getFieldNameMappings());
         }
 
-        public FieldName(String originalValue, boolean caseInsensitive, boolean dotsInFieldNames, Map<String, String> fieldNameMappings)
+        private FieldName(String originalValue, boolean caseInsensitive, boolean dotsInFieldNames, Map<String, String> fieldNameMappings)
         {
             this.originalValue = requireNonNull(originalValue, "originalValue is null");
             this.mappedName = fieldNameMappings.getOrDefault(originalValue, originalValue);
@@ -1011,7 +1011,7 @@ public final class OpenXJsonDeserializer
          * the original value using the set case sensitivity.  This strange behavior is follows
          * the logic of the original code.
          */
-        public boolean originalValueMatchesDottedFieldName(FieldName dottedName)
+        private boolean originalValueMatchesDottedFieldName(FieldName dottedName)
         {
             // skip impossible matches
             if (!canMatchDottedFieldName || !dottedName.isDottedFieldName) {

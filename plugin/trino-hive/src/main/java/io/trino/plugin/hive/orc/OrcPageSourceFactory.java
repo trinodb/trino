@@ -602,7 +602,7 @@ public class OrcPageSourceFactory
         private final long startingRowId;
         private final Block bucketBlock;
 
-        public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
+        MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
         {
             this.startingRowId = startingRowId;
             this.bucketBlock = writeNativeValue(INTEGER, (long) computeBucketValue(bucketId, 0));

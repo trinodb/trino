@@ -63,7 +63,7 @@ public class RawRowEncoder
             this.size = bitSize / 8;
         }
 
-        public int getSize()
+        private int getSize()
         {
             return size;
         }
@@ -129,7 +129,7 @@ public class RawRowEncoder
         private final int start;
         private final int end;
 
-        public ColumnMapping(EncoderColumnHandle columnHandle)
+        private ColumnMapping(EncoderColumnHandle columnHandle)
         {
             this.name = columnHandle.getName();
             this.type = columnHandle.getType();
@@ -217,32 +217,32 @@ public class RawRowEncoder
                     Arrays.stream(allowedFieldTypes).map(Object::toString).collect(joining("/")));
         }
 
-        public String getName()
+        private String getName()
         {
             return name;
         }
 
-        public Type getType()
+        private Type getType()
         {
             return type;
         }
 
-        public int getStart()
+        private int getStart()
         {
             return start;
         }
 
-        public int getEnd()
+        private int getEnd()
         {
             return end;
         }
 
-        public FieldType getFieldType()
+        private FieldType getFieldType()
         {
             return fieldType;
         }
 
-        public int getLength()
+        private int getLength()
         {
             return end - start;
         }

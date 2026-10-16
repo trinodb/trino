@@ -714,7 +714,7 @@ public class ElasticsearchClient
 
     private record MappingSafety(Set<String> unsupportedFields, List<Pattern> sourceIncludes, List<Pattern> sourceExcludes)
     {
-        public boolean supportsPushdown(String path, boolean objectField)
+        private boolean supportsPushdown(String path, boolean objectField)
         {
             return !unsupportedFields.contains(path)
                     && (objectField || ((sourceIncludes.isEmpty() || sourceIncludes.stream().anyMatch(pattern -> pattern.matcher(path).matches()))

@@ -167,7 +167,7 @@ public final class TestIntValueDecoders
     {
         private final ValuesReader delegate;
 
-        public IntApacheParquetValueDecoder(ValuesReader delegate)
+        IntApacheParquetValueDecoder(ValuesReader delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }
@@ -198,7 +198,7 @@ public final class TestIntValueDecoders
     {
         private final ValuesReader delegate;
 
-        public IntToLongApacheParquetValueDecoder(ValuesReader delegate)
+        IntToLongApacheParquetValueDecoder(ValuesReader delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

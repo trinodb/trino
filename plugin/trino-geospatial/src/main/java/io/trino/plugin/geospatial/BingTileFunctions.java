@@ -697,7 +697,7 @@ public final class BingTileFunctions
             this.radianLongitude = toRadians(longitude);
         }
 
-        public double distance(double latitude2, double longitude2)
+        private double distance(double latitude2, double longitude2)
         {
             double radianLatitude2 = toRadians(latitude2);
             double sin2 = sin(radianLatitude2);

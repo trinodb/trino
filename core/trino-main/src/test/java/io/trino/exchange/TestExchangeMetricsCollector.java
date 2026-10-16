@@ -259,7 +259,7 @@ public class TestExchangeMetricsCollector
         private final ExchangeId exchangeId;
         private Metrics metrics;
 
-        public static TestingMetricsExchange of(ExchangeId exchangeId, Metrics metrics)
+        static TestingMetricsExchange of(ExchangeId exchangeId, Metrics metrics)
         {
             return new TestingMetricsExchange(exchangeId, metrics);
         }
@@ -318,7 +318,7 @@ public class TestExchangeMetricsCollector
             return metrics;
         }
 
-        public void setMetrics(Metrics metrics)
+        void setMetrics(Metrics metrics)
         {
             this.metrics = metrics;
         }

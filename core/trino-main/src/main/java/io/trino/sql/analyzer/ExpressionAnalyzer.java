@@ -789,13 +789,13 @@ public class ExpressionAnalyzer
 
         private final List<PatternInputAnalysis> patternRecognitionInputs = new ArrayList<>();
 
-        public Visitor(Scope baseScope, WarningCollector warningCollector)
+        Visitor(Scope baseScope, WarningCollector warningCollector)
         {
             this.baseScope = requireNonNull(baseScope, "baseScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
-        public List<PatternInputAnalysis> getPatternRecognitionInputs()
+        List<PatternInputAnalysis> getPatternRecognitionInputs()
         {
             return patternRecognitionInputs;
         }
@@ -2708,7 +2708,7 @@ public class ExpressionAnalyzer
             return setExpressionType(node, type);
         }
 
-        public List<TypeDescriptorProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
+        List<TypeDescriptorProvider> getCallArgumentTypes(List<Expression> arguments, Context context)
         {
             ImmutableList.Builder<TypeDescriptorProvider> argumentTypesBuilder = ImmutableList.builder();
             for (Expression argument : arguments) {
@@ -4751,42 +4751,42 @@ public class ExpressionAnalyzer
             this.inWindow = inWindow;
         }
 
-        public static Context notInLambda(Scope scope, CorrelationSupport correlationSupport)
+        static Context notInLambda(Scope scope, CorrelationSupport correlationSupport)
         {
             return new Context(scope, null, null, Optional.empty(), correlationSupport, false);
         }
 
-        public Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
+        Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
             return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"), patternRecognitionContext, correlationSupport, inWindow);
         }
 
-        public static Context inWindow(Scope scope, CorrelationSupport correlationSupport)
+        static Context inWindow(Scope scope, CorrelationSupport correlationSupport)
         {
             return new Context(scope, null, null, Optional.empty(), correlationSupport, true);
         }
 
-        public Context inWindow()
+        Context inWindow()
         {
             return new Context(scope, functionInputTypes, fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, true);
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        Context expectingLambda(List<Type> functionInputTypes)
         {
             return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
         }
 
-        public Context notExpectingLambda()
+        Context notExpectingLambda()
         {
             return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, patternRecognitionContext, correlationSupport, inWindow);
         }
 
-        public static Context patternRecognition(Scope scope, Set<String> labels, boolean inWindow)
+        static Context patternRecognition(Scope scope, Set<String> labels, boolean inWindow)
         {
             return new Context(scope, null, null, Optional.of(new PatternRecognitionContext(labels, Navigation.DEFAULT)), CorrelationSupport.DISALLOWED, inWindow);
         }
 
-        public Context withNavigation(Navigation navigation)
+        Context withNavigation(Navigation navigation)
         {
             PatternRecognitionContext patternRecognitionContext = new PatternRecognitionContext(this.patternRecognitionContext.get().labels, navigation);
             return new Context(
@@ -4803,44 +4803,44 @@ public class ExpressionAnalyzer
             return scope;
         }
 
-        public boolean isInLambda()
+        boolean isInLambda()
         {
             return fieldToLambdaArgumentDeclaration != null;
         }
 
-        public boolean isInWindow()
+        boolean isInWindow()
         {
             return inWindow;
         }
 
-        public boolean isExpectingLambda()
+        boolean isExpectingLambda()
         {
             return functionInputTypes != null;
         }
 
-        public boolean isPatternRecognition()
+        boolean isPatternRecognition()
         {
             return patternRecognitionContext.isPresent();
         }
 
-        public Map<FieldId, LambdaArgumentDeclaration> getFieldToLambdaArgumentDeclaration()
+        Map<FieldId, LambdaArgumentDeclaration> getFieldToLambdaArgumentDeclaration()
         {
             checkState(isInLambda());
             return fieldToLambdaArgumentDeclaration;
         }
 
-        public List<Type> getFunctionInputTypes()
+        List<Type> getFunctionInputTypes()
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
         }
 
-        public PatternRecognitionContext getPatternRecognitionContext()
+        PatternRecognitionContext getPatternRecognitionContext()
         {
             return patternRecognitionContext.get();
         }
 
-        public CorrelationSupport getCorrelationSupport()
+        CorrelationSupport getCorrelationSupport()
         {
             return correlationSupport;
         }
@@ -5350,27 +5350,27 @@ public class ExpressionAnalyzer
             this.label = label;
         }
 
-        public static ArgumentLabel noLabel()
+        static ArgumentLabel noLabel()
         {
             return new ArgumentLabel(false, Optional.empty());
         }
 
-        public static ArgumentLabel universalLabel()
+        static ArgumentLabel universalLabel()
         {
             return new ArgumentLabel(true, Optional.empty());
         }
 
-        public static ArgumentLabel explicitLabel(String label)
+        static ArgumentLabel explicitLabel(String label)
         {
             return new ArgumentLabel(true, Optional.of(label));
         }
 
-        public boolean hasLabel()
+        boolean hasLabel()
         {
             return hasLabel;
         }
 
-        public Optional<String> getLabel()
+        Optional<String> getLabel()
         {
             checkState(hasLabel, "no label available");
             return label;

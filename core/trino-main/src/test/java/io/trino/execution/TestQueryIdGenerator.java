@@ -87,7 +87,7 @@ public class TestQueryIdGenerator
     {
         private long now;
 
-        public void setNow(long now)
+        void setNow(long now)
         {
             this.now = now;
         }

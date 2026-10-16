@@ -40,24 +40,24 @@ public class DisjointSet<T>
             this.rank = rank;
         }
 
-        public T getParent()
+        T getParent()
         {
             return parent;
         }
 
-        public void setParent(T parent)
+        void setParent(T parent)
         {
             this.parent = parent;
             this.rank = -1;
         }
 
-        public int getRank()
+        int getRank()
         {
             checkState(parent == null);
             return rank;
         }
 
-        public void incrementRank()
+        void incrementRank()
         {
             checkState(parent == null);
             rank++;

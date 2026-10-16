@@ -434,7 +434,7 @@ public class TestDictionaryCompressionOptimizer
 
         private int rowCount;
 
-        public DataSimulator(
+        private DataSimulator(
                 int stripeMinBytes,
                 int stripeMaxBytes,
                 int stripeMaxRowCount,
@@ -450,7 +450,7 @@ public class TestDictionaryCompressionOptimizer
             this.optimizer = new DictionaryCompressionOptimizer(this.dictionaryColumns, stripeMinBytes, stripeMaxBytes, stripeMaxRowCount, dictionaryMemoryMaxBytes);
         }
 
-        public void advanceToNextStateChange()
+        private void advanceToNextStateChange()
         {
             List<Boolean> directColumnFlags = getDirectColumnFlags();
             while (!optimizer.isFull(getBufferedBytes()) && getBufferedBytes() < stripeMaxBytes && getRowCount() < stripeMaxRowCount && directColumnFlags.equals(getDirectColumnFlags())) {
@@ -462,12 +462,12 @@ public class TestDictionaryCompressionOptimizer
             }
         }
 
-        public boolean isDictionaryMemoryFull()
+        private boolean isDictionaryMemoryFull()
         {
             return optimizer.isFull(getBufferedBytes());
         }
 
-        public void finalOptimize()
+        private void finalOptimize()
         {
             optimizer.finalOptimize(toIntExact(getBufferedBytes()));
         }
@@ -479,7 +479,7 @@ public class TestDictionaryCompressionOptimizer
                     .collect(Collectors.toList());
         }
 
-        public void reset()
+        private void reset()
         {
             rowCount = 0;
             optimizer.reset();
@@ -488,7 +488,7 @@ public class TestDictionaryCompressionOptimizer
             }
         }
 
-        public long getBufferedBytes()
+        private long getBufferedBytes()
         {
             return (long) rowCount * otherColumnsBytesPerRow +
                     dictionaryColumns.stream()
@@ -496,7 +496,7 @@ public class TestDictionaryCompressionOptimizer
                             .sum();
         }
 
-        public int getRowCount()
+        private int getRowCount()
         {
             return rowCount;
         }
@@ -549,13 +549,13 @@ public class TestDictionaryCompressionOptimizer
             this.nullRate = nullRate;
         }
 
-        public void reset()
+        private void reset()
         {
             rowCount = 0;
             direct = false;
         }
 
-        public void advanceTo(int rowCount)
+        private void advanceTo(int rowCount)
         {
             assertThat(rowCount >= this.rowCount).isTrue();
             this.rowCount = rowCount;
@@ -621,7 +621,7 @@ public class TestDictionaryCompressionOptimizer
             return OptionalInt.empty();
         }
 
-        public boolean isDirect()
+        private boolean isDirect()
         {
             return direct;
         }

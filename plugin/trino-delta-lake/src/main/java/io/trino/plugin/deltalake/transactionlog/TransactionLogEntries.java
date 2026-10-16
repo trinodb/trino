@@ -131,7 +131,7 @@ public final class TransactionLogEntries
         private final Location location;
         private final BufferedReader reader;
 
-        public TransactionLogEntryIterator(long entryNumber, TrinoInputFile inputFile)
+        private TransactionLogEntryIterator(long entryNumber, TrinoInputFile inputFile)
         {
             this.entryNumber = entryNumber;
             this.location = inputFile.location();

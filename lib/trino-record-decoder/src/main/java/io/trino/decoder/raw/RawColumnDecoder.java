@@ -64,7 +64,7 @@ public class RawColumnDecoder
             this.size = bitSize / 8;
         }
 
-        public int getSize()
+        private int getSize()
         {
             return size;
         }
@@ -213,7 +213,7 @@ public class RawColumnDecoder
         private final int size;
         private final int start;
 
-        public RawValueProvider(ByteBuffer value, FieldType fieldType, String columnName, Type columnType)
+        private RawValueProvider(ByteBuffer value, FieldType fieldType, String columnName, Type columnType)
         {
             this.value = value;
             this.fieldType = fieldType;

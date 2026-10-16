@@ -173,18 +173,18 @@ public class GroupsFraming
         private final int position;
         private final int group;
 
-        public PositionAndGroup(int position, int group)
+        PositionAndGroup(int position, int group)
         {
             this.position = position;
             this.group = group;
         }
 
-        public int getPosition()
+        int getPosition()
         {
             return position;
         }
 
-        public int getGroup()
+        int getGroup()
         {
             return group;
         }
@@ -211,7 +211,7 @@ public class GroupsFraming
         private final int end;
         private final int endGroupIndex;
 
-        public GroupsFrame(int start, int startGroupIndex, int end, int endGroupIndex)
+        GroupsFrame(int start, int startGroupIndex, int end, int endGroupIndex)
         {
             this.start = start;
             this.startGroupIndex = startGroupIndex;
@@ -219,44 +219,44 @@ public class GroupsFraming
             this.endGroupIndex = endGroupIndex;
         }
 
-        public static int ignoreIndex()
+        static int ignoreIndex()
         {
             return IGNORE_GROUP_INDEX;
         }
 
-        public GroupsFrame withStart(int start, int startGroupIndex)
+        GroupsFrame withStart(int start, int startGroupIndex)
         {
             return new GroupsFrame(start, startGroupIndex, this.end, this.endGroupIndex);
         }
 
-        public GroupsFrame withEnd(int end, int endGroupIndex)
+        GroupsFrame withEnd(int end, int endGroupIndex)
         {
             return new GroupsFrame(this.start, this.startGroupIndex, end, endGroupIndex);
         }
 
-        public int getStart()
+        int getStart()
         {
             return start;
         }
 
-        public int getStartGroupIndex()
+        int getStartGroupIndex()
         {
             checkState(startGroupIndex != IGNORE_GROUP_INDEX, "accessing ignored group index");
             return startGroupIndex;
         }
 
-        public int getEnd()
+        int getEnd()
         {
             return end;
         }
 
-        public int getEndGroupIndex()
+        int getEndGroupIndex()
         {
             checkState(endGroupIndex != IGNORE_GROUP_INDEX, "accessing ignored group index");
             return endGroupIndex;
         }
 
-        public Range getRange()
+        Range getRange()
         {
             return new Range(start, end);
         }

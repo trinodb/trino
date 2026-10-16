@@ -52,7 +52,7 @@ public class Matcher
         // for each thread, array of MatchAggregations evaluated by this thread
         private final MatchAggregations aggregations;
 
-        public Runtime(Program program, int inputLength, boolean matchingAtPartitionStart, List<MatchAggregationInstantiator> aggregationInstantiators, AggregatedMemoryContext aggregationsMemoryContext)
+        Runtime(Program program, int inputLength, boolean matchingAtPartitionStart, List<MatchAggregationInstantiator> aggregationInstantiators, AggregatedMemoryContext aggregationsMemoryContext)
         {
             int initialCapacity = 2 * program.size();
             threads = new IntList(initialCapacity);

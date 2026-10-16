@@ -627,7 +627,7 @@ class TestScalarFunctionAdapter
         private Object objectTimestampValue;
 
         @SuppressWarnings("unused")
-        public boolean neverNull(double doubleValue, Slice sliceValue, Block blockValue)
+        private boolean neverNull(double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -640,7 +640,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean neverNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
+        private boolean neverNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -654,7 +654,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean boxedNull(Double doubleValue, Slice sliceValue, Block blockValue)
+        private boolean boxedNull(Double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -667,7 +667,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean boxedNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
+        private boolean boxedNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
@@ -681,7 +681,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean nullFlag(
+        private boolean nullFlag(
                 double doubleValue,
                 boolean doubleNull,
                 Slice sliceValue,
@@ -720,7 +720,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean nullFlagObjects(
+        private boolean nullFlagObjects(
                 Slice sliceValue,
                 boolean sliceNull,
                 Block blockValue,
@@ -769,7 +769,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean blockPosition(
+        private boolean blockPosition(
                 Block doubleBlock,
                 int doublePosition,
                 Block sliceBlock,
@@ -805,7 +805,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean blockPositionObjects(
+        private boolean blockPositionObjects(
                 Block sliceBlock,
                 int slicePosition,
                 Block blockBlock,
@@ -850,7 +850,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean valueBlockPosition(
+        private boolean valueBlockPosition(
                 LongArrayBlock doubleBlock,
                 int doublePosition,
                 VariableWidthBlock sliceBlock,
@@ -886,7 +886,7 @@ class TestScalarFunctionAdapter
         }
 
         @SuppressWarnings("unused")
-        public boolean valueBlockPositionObjects(
+        private boolean valueBlockPositionObjects(
                 VariableWidthBlock sliceBlock,
                 int slicePosition,
                 ArrayBlock blockBlock,
@@ -930,7 +930,7 @@ class TestScalarFunctionAdapter
             return true;
         }
 
-        public void verify(
+        private void verify(
                 InvocationConvention actualConvention,
                 BitSet nullArguments,
                 List<Type> argumentTypes)
@@ -1039,7 +1039,7 @@ class TestScalarFunctionAdapter
         private final Type type;
         private Object value;
 
-        public TestingInOut(Type type, Object value)
+        private TestingInOut(Type type, Object value)
         {
             this.type = requireNonNull(type, "type is null");
             this.value = value;

@@ -711,18 +711,18 @@ public class TestEvictableLoadingCache
         private final int value;
         private final int additionalField; // not part of equals
 
-        public ClassWithPartialEquals(int value, int additionalField)
+        private ClassWithPartialEquals(int value, int additionalField)
         {
             this.value = value;
             this.additionalField = additionalField;
         }
 
-        public int getValue()
+        private int getValue()
         {
             return value;
         }
 
-        public int getAdditionalField()
+        private int getAdditionalField()
         {
             return additionalField;
         }

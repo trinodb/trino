@@ -302,14 +302,14 @@ public abstract class AbstractParquetDataSource
         private Slice data;
         private int referenceCount = 1;
 
-        public ReferenceCountedReader(DiskRange range, AggregatedMemoryContext memoryContext)
+        private ReferenceCountedReader(DiskRange range, AggregatedMemoryContext memoryContext)
         {
             this.range = range;
             checkArgument(range.length() <= MAX_ARRAY_SIZE, "Cannot read range bigger than %s but got %s", MAX_ARRAY_SIZE, range);
             this.readerMemoryUsage = memoryContext.newLocalMemoryContext(ReferenceCountedReader.class.getSimpleName());
         }
 
-        public void addReference()
+        private void addReference()
         {
             checkState(referenceCount > 0, "Chunk reader is already closed");
             referenceCount++;

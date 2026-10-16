@@ -6754,18 +6754,18 @@ class StatementAnalyzer
         private final Argument argument;
         private final Optional<TableArgumentAnalysis> tableArgumentAnalysis;
 
-        public ArgumentAnalysis(Argument argument, Optional<TableArgumentAnalysis> tableArgumentAnalysis)
+        ArgumentAnalysis(Argument argument, Optional<TableArgumentAnalysis> tableArgumentAnalysis)
         {
             this.argument = requireNonNull(argument, "argument is null");
             this.tableArgumentAnalysis = requireNonNull(tableArgumentAnalysis, "tableArgumentAnalysis is null");
         }
 
-        public Argument getArgument()
+        Argument getArgument()
         {
             return argument;
         }
 
-        public Optional<TableArgumentAnalysis> getTableArgumentAnalysis()
+        Optional<TableArgumentAnalysis> getTableArgumentAnalysis()
         {
             return tableArgumentAnalysis;
         }
@@ -6776,18 +6776,18 @@ class StatementAnalyzer
         private final Map<String, Argument> passedArguments;
         private final List<TableArgumentAnalysis> tableArgumentAnalyses;
 
-        public ArgumentsAnalysis(Map<String, Argument> passedArguments, List<TableArgumentAnalysis> tableArgumentAnalyses)
+        ArgumentsAnalysis(Map<String, Argument> passedArguments, List<TableArgumentAnalysis> tableArgumentAnalyses)
         {
             this.passedArguments = ImmutableMap.copyOf(requireNonNull(passedArguments, "passedArguments is null"));
             this.tableArgumentAnalyses = ImmutableList.copyOf(requireNonNull(tableArgumentAnalyses, "tableArgumentAnalyses is null"));
         }
 
-        public Map<String, Argument> getPassedArguments()
+        Map<String, Argument> getPassedArguments()
         {
             return passedArguments;
         }
 
-        public List<TableArgumentAnalysis> getTableArgumentAnalyses()
+        List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
         }

@@ -106,7 +106,7 @@ public class TestFaultTolerantExchangeDataLossRetry
     {
         private final Map<Key, ErrorCode> failures = new ConcurrentHashMap<>();
 
-        public void injectTaskFailure(String traceToken, int stageId, int partitionId, int attemptId, ErrorCode errorCode)
+        private void injectTaskFailure(String traceToken, int stageId, int partitionId, int attemptId, ErrorCode errorCode)
         {
             failures.put(new Key(traceToken, stageId, partitionId, attemptId), errorCode);
         }

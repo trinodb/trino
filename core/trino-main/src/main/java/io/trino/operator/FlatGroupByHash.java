@@ -291,7 +291,7 @@ public class FlatGroupByHash
         private final Block dictionary;
         private final int[] processed;
 
-        public DictionaryLookBack(Block dictionary)
+        DictionaryLookBack(Block dictionary)
         {
             this.dictionary = dictionary;
             this.processed = new int[dictionary.getPositionCount()];
@@ -304,27 +304,27 @@ public class FlatGroupByHash
             processed = Arrays.copyOf(other.processed, other.processed.length);
         }
 
-        public Block getDictionary()
+        Block getDictionary()
         {
             return dictionary;
         }
 
-        public int getGroupId(int position)
+        int getGroupId(int position)
         {
             return processed[position];
         }
 
-        public boolean isProcessed(int position)
+        boolean isProcessed(int position)
         {
             return processed[position] != -1;
         }
 
-        public void setProcessed(int position, int groupId)
+        void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return sumExact(
                     INSTANCE_SIZE,
@@ -332,7 +332,7 @@ public class FlatGroupByHash
                     dictionary.getRetainedSizeInBytes());
         }
 
-        public DictionaryLookBack copy()
+        DictionaryLookBack copy()
         {
             return new DictionaryLookBack(this);
         }

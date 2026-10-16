@@ -175,7 +175,7 @@ class DynamicFiltersFetcher
         private final long requestStartNanos = System.nanoTime();
         private final long requestedDynamicFiltersVersion;
 
-        public DynamicFiltersResponseCallback(long requestedDynamicFiltersVersion)
+        DynamicFiltersResponseCallback(long requestedDynamicFiltersVersion)
         {
             this.requestedDynamicFiltersVersion = requestedDynamicFiltersVersion;
         }

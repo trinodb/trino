@@ -620,7 +620,7 @@ public class OperatorContext
             blockedWallNanos.getAndAdd(getBlockedTime());
         }
 
-        public long getBlockedTime()
+        long getBlockedTime()
         {
             return nanosBetween(start, System.nanoTime());
         }
@@ -633,7 +633,7 @@ public class OperatorContext
         private final DriverContext driverContext;
         private final AtomicLong spilledBytes = new AtomicLong();
 
-        public OperatorSpillContext(DriverContext driverContext)
+        OperatorSpillContext(DriverContext driverContext)
         {
             this.driverContext = driverContext;
         }
@@ -650,7 +650,7 @@ public class OperatorContext
             }
         }
 
-        public long getSpilledBytes()
+        long getSpilledBytes()
         {
             return spilledBytes.longValue();
         }

@@ -62,7 +62,7 @@ public class UnwrapRowSubscript
         private final TypeManager typeManager;
         private final Session session;
 
-        public Rewriter(Metadata metadata, TypeManager typeManager, Session session)
+        Rewriter(Metadata metadata, TypeManager typeManager, Session session)
         {
             this.metadata = metadata;
             this.typeManager = typeManager;

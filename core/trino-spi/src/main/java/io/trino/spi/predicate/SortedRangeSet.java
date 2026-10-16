@@ -1580,7 +1580,7 @@ public final class SortedRangeSet
             this.highValuePosition = highValuePosition;
         }
 
-        public Range toRange()
+        Range toRange()
         {
             Object low = readNativeValue(type, lowValueBlock, lowValuePosition);
             Object high = readNativeValue(type, highValueBlock, highValuePosition);
@@ -1625,7 +1625,7 @@ public final class SortedRangeSet
          * Returns unioned range if {@code this} and {@code next} overlap or are adjacent.
          * The {@code next} lower bound must not be before {@code this} lower bound.
          */
-        public Optional<RangeView> tryMergeWithNext(RangeView next)
+        Optional<RangeView> tryMergeWithNext(RangeView next)
         {
             if (this.compareTo(next) > 0) {
                 throw new IllegalArgumentException("next before this");
@@ -1663,17 +1663,17 @@ public final class SortedRangeSet
             return Optional.empty();
         }
 
-        public boolean isLowUnbounded()
+        boolean isLowUnbounded()
         {
             return lowValueBlock.isNull(lowValuePosition);
         }
 
-        public boolean isHighUnbounded()
+        boolean isHighUnbounded()
         {
             return highValueBlock.isNull(highValuePosition);
         }
 
-        public boolean isSingleValue()
+        boolean isSingleValue()
         {
             return lowInclusive &&
                     highInclusive &&
@@ -1681,7 +1681,7 @@ public final class SortedRangeSet
                     compareValues(comparisonOperator, lowValueBlock, lowValuePosition, highValueBlock, highValuePosition) == 0;
         }
 
-        public Optional<Object> getSingleValue()
+        Optional<Object> getSingleValue()
         {
             if (!isSingleValue()) {
                 return Optional.empty();
@@ -1690,17 +1690,17 @@ public final class SortedRangeSet
             return Optional.of(readNativeValue(type, lowValueBlock, lowValuePosition));
         }
 
-        public boolean overlaps(RangeView that)
+        boolean overlaps(RangeView that)
         {
             return !this.isFullyBefore(that) && !that.isFullyBefore(this);
         }
 
-        public boolean contains(RangeView that)
+        boolean contains(RangeView that)
         {
             return this.compareLowBound(that) <= 0 && this.compareHighBound(that) >= 0;
         }
 
-        public Optional<RangeView> tryIntersect(RangeView that)
+        Optional<RangeView> tryIntersect(RangeView that)
         {
             if (!overlaps(that)) {
                 return Optional.empty();
@@ -1752,7 +1752,7 @@ public final class SortedRangeSet
                     .toString();
         }
 
-        public String formatRange()
+        String formatRange()
         {
             if (isSingleValue()) {
                 return format("[%s]", type.getObjectValue(lowValueBlock, lowValuePosition));
@@ -1773,7 +1773,7 @@ public final class SortedRangeSet
                     highInclusive ? "]" : ")");
         }
 
-        public RangeView highBound()
+        RangeView highBound()
         {
             return new RangeView(
                     type,
@@ -1787,7 +1787,7 @@ public final class SortedRangeSet
                     this.highValuePosition);
         }
 
-        public RangeView lowBound()
+        RangeView lowBound()
         {
             return new RangeView(
                     type,

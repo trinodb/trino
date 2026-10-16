@@ -284,7 +284,7 @@ public class PartitionedLookupSource
         @GuardedBy("this")
         private int currentPosition;
 
-        public PartitionedLookupOuterPositionIterator(LookupSource[] lookupSources, boolean[][] visitedPositions)
+        PartitionedLookupOuterPositionIterator(LookupSource[] lookupSources, boolean[][] visitedPositions)
         {
             this.lookupSources = lookupSources;
             this.visitedPositions = visitedPositions;
@@ -325,14 +325,14 @@ public class PartitionedLookupSource
      */
     private static class OuterPositionTracker
     {
-        public static class Factory
+        static class Factory
         {
             private final LookupSource[] lookupSources;
             private final boolean[][] visitedPositions;
             private final AtomicBoolean finished = new AtomicBoolean();
             private final AtomicLong referenceCount = new AtomicLong();
 
-            public Factory(List<Supplier<LookupSource>> partitions)
+            Factory(List<Supplier<LookupSource>> partitions)
             {
                 this.lookupSources = partitions.stream()
                         .map(Supplier::get)
@@ -345,12 +345,12 @@ public class PartitionedLookupSource
                         .toArray(boolean[][]::new);
             }
 
-            public OuterPositionTracker create()
+            OuterPositionTracker create()
             {
                 return new OuterPositionTracker(visitedPositions, finished, referenceCount);
             }
 
-            public OuterPositionIterator getOuterPositionIterator()
+            OuterPositionIterator getOuterPositionIterator()
             {
                 // touching atomic values ensures memory visibility between commit and getVisitedPositions
                 verify(referenceCount.get() == 0);
@@ -374,7 +374,7 @@ public class PartitionedLookupSource
         /**
          * No synchronization here, because it would be very expensive. Check comment above.
          */
-        public void positionVisited(int partition, int position)
+        void positionVisited(int partition, int position)
         {
             if (!written) {
                 written = true;
@@ -384,7 +384,7 @@ public class PartitionedLookupSource
             visitedPositions[partition][position] = true;
         }
 
-        public void commit()
+        void commit()
         {
             if (written) {
                 // touching atomic values ensures memory visibility between commit and getVisitedPositions

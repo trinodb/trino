@@ -41,7 +41,7 @@ public final class SchedulingOrderVisitor
     {
         private final Consumer<PlanNodeId> schedulingOrder;
 
-        public Visitor(Consumer<PlanNodeId> schedulingOrder)
+        Visitor(Consumer<PlanNodeId> schedulingOrder)
         {
             this.schedulingOrder = requireNonNull(schedulingOrder, "schedulingOrder is null");
         }

@@ -878,7 +878,7 @@ public class Validator
             this.queryStats = queryStats;
         }
 
-        public synchronized QueryStats getFinalQueryStats()
+        private synchronized QueryStats getFinalQueryStats()
         {
             finished = true;
             return queryStats;

@@ -270,7 +270,7 @@ public class TestScaledWriterScheduler
         private final PlanFragment fragment;
         private final StageId stageId;
 
-        public TestingStageExecution(PlanFragment fragment)
+        TestingStageExecution(PlanFragment fragment)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.stageId = new StageId(new QueryId("query_id"), 0);

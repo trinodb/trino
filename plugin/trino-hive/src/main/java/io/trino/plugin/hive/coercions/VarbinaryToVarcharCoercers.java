@@ -46,7 +46,7 @@ public class VarbinaryToVarcharCoercers
     private static class VarbinaryToVarcharCoercer
             extends TypeCoercer<VarbinaryType, VarcharType>
     {
-        public VarbinaryToVarcharCoercer(VarcharType toType)
+        VarbinaryToVarcharCoercer(VarcharType toType)
         {
             super(VARBINARY, toType);
         }
@@ -81,7 +81,7 @@ public class VarbinaryToVarcharCoercers
     {
         private static final HexFormat HEX_FORMAT = HexFormat.of().withDelimiter(" ");
 
-        public OrcVarbinaryToVarcharCoercer(VarcharType toType)
+        OrcVarbinaryToVarcharCoercer(VarcharType toType)
         {
             super(VARBINARY, toType);
         }

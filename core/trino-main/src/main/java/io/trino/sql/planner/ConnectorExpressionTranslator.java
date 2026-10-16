@@ -225,7 +225,7 @@ public final class ConnectorExpressionTranslator
         private final Map<String, Symbol> variableMappings;
         private final SymbolAllocator symbolAllocator;
 
-        public ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
+        ConnectorToSqlExpressionTranslator(Session session, PlannerContext plannerContext, Map<String, Symbol> variableMappings, SymbolAllocator symbolAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -233,7 +233,7 @@ public final class ConnectorExpressionTranslator
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
-        public Optional<Expression> translate(ConnectorExpression expression)
+        Optional<Expression> translate(ConnectorExpression expression)
         {
             return translate(expression, Map.of());
         }
@@ -283,7 +283,7 @@ public final class ConnectorExpressionTranslator
                     .map(body -> new Lambda(arguments.build(), body));
         }
 
-        protected Optional<Expression> translateCall(io.trino.spi.expression.Call call, Map<String, Symbol> lambdaArguments)
+        Optional<Expression> translateCall(io.trino.spi.expression.Call call, Map<String, Symbol> lambdaArguments)
         {
             if (call.getFunctionName().equals(ENGINE_EXPRESSION_FUNCTION_NAME)) {
                 Slice payload = (Slice) requireNonNull(
@@ -571,7 +571,7 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape, Map<String, Symbol> lambdaArguments)
+        Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern, Optional<ConnectorExpression> escape, Map<String, Symbol> lambdaArguments)
         {
             Optional<Expression> translatedValue = translate(value, lambdaArguments);
             Optional<Expression> translatedPattern = translate(pattern, lambdaArguments);
@@ -609,7 +609,7 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<Expression> translateInPredicate(ConnectorExpression value, ConnectorExpression values, Map<String, Symbol> lambdaArguments)
+        Optional<Expression> translateInPredicate(ConnectorExpression value, ConnectorExpression values, Map<String, Symbol> lambdaArguments)
         {
             Optional<Expression> translatedValue = translate(value, lambdaArguments);
             Optional<List<Expression>> translatedValues = extractExpressionsFromArrayCall(values, lambdaArguments);
@@ -621,7 +621,7 @@ public final class ConnectorExpressionTranslator
             return Optional.empty();
         }
 
-        protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression, Map<String, Symbol> lambdaArguments)
+        Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression, Map<String, Symbol> lambdaArguments)
         {
             if (!(expression instanceof io.trino.spi.expression.Call call)) {
                 return Optional.empty();
@@ -634,7 +634,7 @@ public final class ConnectorExpressionTranslator
             return translateExpressions(call.getArguments(), lambdaArguments);
         }
 
-        protected Optional<List<Expression>> translateExpressions(List<ConnectorExpression> expressions, Map<String, Symbol> lambdaArguments)
+        Optional<List<Expression>> translateExpressions(List<ConnectorExpression> expressions, Map<String, Symbol> lambdaArguments)
         {
             ImmutableList.Builder<Expression> translatedExpressions = ImmutableList.builderWithExpectedSize(expressions.size());
             for (ConnectorExpression expression : expressions) {

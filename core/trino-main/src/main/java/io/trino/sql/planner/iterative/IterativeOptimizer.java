@@ -349,8 +349,7 @@ public class IterativeOptimizer
 
         private final PlanOptimizersStatsCollector iterativeOptimizerStatsCollector;
 
-        public Context(
-                Memo memo,
+        Context(Memo memo,
                 Lookup lookup,
                 PlanNodeIdAllocator idAllocator,
                 SymbolAllocator symbolAllocator,
@@ -376,7 +375,7 @@ public class IterativeOptimizer
             this.runtimeStatsProvider = runtimeStatsProvider;
         }
 
-        public void checkTimeoutNotExhausted()
+        void checkTimeoutNotExhausted()
         {
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
                 StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
@@ -405,7 +404,7 @@ public class IterativeOptimizer
             }
         }
 
-        public PlanOptimizersStatsCollector getIterativeOptimizerStatsCollector()
+        PlanOptimizersStatsCollector getIterativeOptimizerStatsCollector()
         {
             return iterativeOptimizerStatsCollector;
         }

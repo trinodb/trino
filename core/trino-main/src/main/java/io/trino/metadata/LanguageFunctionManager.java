@@ -377,17 +377,17 @@ public class LanguageFunctionManager
         private final Map<FunctionId, LanguageFunctionImplementation> implementationsById = new ConcurrentHashMap<>();
         private final Map<FunctionId, LanguageFunctionData> usedFunctions = new ConcurrentHashMap<>();
 
-        public QueryFunctions(Session session)
+        QueryFunctions(Session session)
         {
             this.session = session;
         }
 
-        public void verifyForCreate(FunctionSpecification function, FunctionManager functionManager, AccessControl accessControl)
+        void verifyForCreate(FunctionSpecification function, FunctionManager functionManager, AccessControl accessControl)
         {
             implementationWithoutSecurity(session.getQueryId(), function).verifyForCreate(functionManager, accessControl);
         }
 
-        public void addInlineFunction(FunctionSpecification function, AccessControl accessControl)
+        void addInlineFunction(FunctionSpecification function, AccessControl accessControl)
         {
             LanguageFunctionImplementation implementation = implementationWithoutSecurity(session.getQueryId(), function);
             FunctionMetadata metadata = implementation.getFunctionMetadata();
@@ -399,12 +399,12 @@ public class LanguageFunctionManager
             implementation.analyzeAndPlan(accessControl);
         }
 
-        public synchronized List<FunctionMetadata> getFunctions(CatalogHandle catalogHandle, SchemaFunctionName name, LanguageFunctionLoader languageFunctionLoader, RunAsIdentityLoader identityLoader)
+        synchronized List<FunctionMetadata> getFunctions(CatalogHandle catalogHandle, SchemaFunctionName name, LanguageFunctionLoader languageFunctionLoader, RunAsIdentityLoader identityLoader)
         {
             return getFunctionListing(catalogHandle, name).getFunctions(languageFunctionLoader, identityLoader);
         }
 
-        public FunctionId analyzeAndPlan(FunctionId functionId, AccessControl accessControl)
+        FunctionId analyzeAndPlan(FunctionId functionId, AccessControl accessControl)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
             checkArgument(function != null, "Unknown function implementation: %s", functionId);
@@ -420,7 +420,7 @@ public class LanguageFunctionManager
             return resolvedFunctionId;
         }
 
-        public Optional<ScalarFunctionImplementation> specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
+        Optional<ScalarFunctionImplementation> specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager)
         {
             LanguageFunctionData data = usedFunctions.get(functionId);
             if (data == null) {
@@ -446,14 +446,14 @@ public class LanguageFunctionManager
             return Optional.of(function.getScalarFunctionImplementation(invocationConvention));
         }
 
-        public FunctionMetadata getFunctionMetadata(FunctionId functionId)
+        FunctionMetadata getFunctionMetadata(FunctionId functionId)
         {
             LanguageFunctionImplementation function = implementationsById.get(functionId);
             checkArgument(function != null, "Unknown function implementation: %s", functionId);
             return function.getFunctionMetadata();
         }
 
-        public Map<FunctionId, LanguageFunctionData> serializeFunctionsForWorkers()
+        Map<FunctionId, LanguageFunctionData> serializeFunctionsForWorkers()
         {
             return ImmutableMap.copyOf(usedFunctions);
         }
@@ -472,19 +472,19 @@ public class LanguageFunctionManager
             private final List<FunctionMetadata> functions = new ArrayList<>();
             private boolean loaded;
 
-            public FunctionListing(FunctionKey key)
+            FunctionListing(FunctionKey key)
             {
                 catalogHandle = key.catalogHandle();
                 name = key.name();
             }
 
-            public synchronized void addFunction(FunctionMetadata function)
+            synchronized void addFunction(FunctionMetadata function)
             {
                 functions.add(function);
                 loaded = true;
             }
 
-            public synchronized List<FunctionMetadata> getFunctions(LanguageFunctionLoader languageFunctionLoader, RunAsIdentityLoader identityLoader)
+            synchronized List<FunctionMetadata> getFunctions(LanguageFunctionLoader languageFunctionLoader, RunAsIdentityLoader identityLoader)
             {
                 if (loaded) {
                     return ImmutableList.copyOf(functions);
@@ -563,12 +563,12 @@ public class LanguageFunctionManager
                 this.engineFunction = !language.equalsIgnoreCase("SQL");
             }
 
-            public FunctionMetadata getFunctionMetadata()
+            FunctionMetadata getFunctionMetadata()
             {
                 return functionMetadata;
             }
 
-            public synchronized void verifyForCreate(FunctionManager functionManager, AccessControl accessControl)
+            synchronized void verifyForCreate(FunctionManager functionManager, AccessControl accessControl)
             {
                 checkState(identityLoader.isEmpty(), "create should not enforce security");
                 analyzeAndPlan(accessControl);
@@ -682,13 +682,13 @@ public class LanguageFunctionManager
                 return functionMetadata.getCanonicalName() + functionMetadata.getSignature();
             }
 
-            public synchronized LanguageFunctionData getFunctionData()
+            synchronized LanguageFunctionData getFunctionData()
             {
                 checkState(data != null, "function not yet analyzed");
                 return data;
             }
 
-            public synchronized FunctionId getResolvedFunctionId()
+            synchronized FunctionId getResolvedFunctionId()
             {
                 checkState(resolvedFunctionId != null, "function not yet analyzed");
                 return resolvedFunctionId;

@@ -526,7 +526,7 @@ public class SqlTaskExecution
         private SplitsState state = ADDING_SPLITS;
         private boolean noMoreSplits;
 
-        public void setNoMoreSplits()
+        void setNoMoreSplits()
         {
             if (noMoreSplits) {
                 return;
@@ -537,18 +537,18 @@ public class SqlTaskExecution
             }
         }
 
-        public SplitsState getState()
+        SplitsState getState()
         {
             return state;
         }
 
-        public void addSplit(ScheduledSplit scheduledSplit)
+        void addSplit(ScheduledSplit scheduledSplit)
         {
             checkState(state == ADDING_SPLITS);
             splits.add(scheduledSplit);
         }
 
-        public Set<ScheduledSplit> removeAllSplits()
+        Set<ScheduledSplit> removeAllSplits()
         {
             checkState(state == ADDING_SPLITS || state == NO_MORE_SPLITS);
             Set<ScheduledSplit> result = splits;
@@ -556,7 +556,7 @@ public class SqlTaskExecution
             return result;
         }
 
-        public void markAsCleanedUp()
+        void markAsCleanedUp()
         {
             checkState(splits.isEmpty());
             checkState(state == NO_MORE_SPLITS);
@@ -603,17 +603,17 @@ public class SqlTaskExecution
                     .startSpan();
         }
 
-        public DriverSplitRunner createPartitionedDriverRunner(ScheduledSplit partitionedSplit)
+        DriverSplitRunner createPartitionedDriverRunner(ScheduledSplit partitionedSplit)
         {
             return createDriverRunner(partitionedSplit, partitionedSplit.split().getSplitWeight().getRawValue());
         }
 
-        public DriverSplitRunner createUnpartitionedDriverRunner()
+        DriverSplitRunner createUnpartitionedDriverRunner()
         {
             return createDriverRunner(null, 0);
         }
 
-        public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, long splitWeight)
+        DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit, long splitWeight)
         {
             checkState(!noMoreDriverRunner.get(), "noMoreDriverRunner is set");
             pendingCreations.incrementAndGet();
@@ -627,7 +627,7 @@ public class SqlTaskExecution
          * @return the created {@link Driver}, or <code>null</code> if the driver factory is already closed because the task is terminating
          */
         @Nullable
-        public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             // Attempt to increment the driver count eagerly, but skip driver creation if the task is already terminating or done
             if (!driverAndTaskTerminationTracker.tryCreateNewDriver()) {
@@ -685,7 +685,7 @@ public class SqlTaskExecution
             }
         }
 
-        public void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)
+        void enqueueSplits(Set<ScheduledSplit> splits, boolean noMoreSplits)
         {
             verify(driverFactory.getSourceId().isPresent(), "not a source driver");
             verify(!this.noMoreSplits.get() || splits.isEmpty(), "cannot add splits after noMoreSplits is set");
@@ -696,7 +696,7 @@ public class SqlTaskExecution
             }
         }
 
-        public void scheduleSplits()
+        void scheduleSplits()
         {
             if (driverReferences.isEmpty()) {
                 return;
@@ -735,23 +735,23 @@ public class SqlTaskExecution
             }
         }
 
-        public boolean isNoMoreSplits()
+        boolean isNoMoreSplits()
         {
             return noMoreSplits.get();
         }
 
-        public void noMoreDriverRunner()
+        void noMoreDriverRunner()
         {
             noMoreDriverRunner.set(true);
             closeDriverFactoryIfFullyCreated();
         }
 
-        public boolean isNoMoreDriverRunner()
+        boolean isNoMoreDriverRunner()
         {
             return noMoreDriverRunner.get();
         }
 
-        public void closeDriverFactoryIfFullyCreated()
+        void closeDriverFactoryIfFullyCreated()
         {
             if (driverFactory.isNoMoreDrivers()) {
                 return;
@@ -762,22 +762,22 @@ public class SqlTaskExecution
             }
         }
 
-        public boolean isNoMoreDrivers()
+        boolean isNoMoreDrivers()
         {
             return driverFactory.isNoMoreDrivers();
         }
 
-        public OptionalInt getDriverInstances()
+        OptionalInt getDriverInstances()
         {
             return driverFactory.getDriverInstances();
         }
 
-        public void splitsAdded(int count, long weightSum)
+        void splitsAdded(int count, long weightSum)
         {
             pipelineContext.splitsAdded(count, weightSum);
         }
 
-        public Span getPipelineSpan()
+        Span getPipelineSpan()
         {
             return pipelineSpan;
         }
@@ -878,7 +878,7 @@ public class SqlTaskExecution
     {
         private final WeakReference<SqlTaskExecution> sqlTaskExecutionReference;
 
-        public CheckTaskCompletionOnBufferFinish(SqlTaskExecution sqlTaskExecution)
+        CheckTaskCompletionOnBufferFinish(SqlTaskExecution sqlTaskExecution)
         {
             // we are only checking for completion of the task, so don't hold up GC if the task is dead
             this.sqlTaskExecutionReference = new WeakReference<>(sqlTaskExecution);
@@ -906,7 +906,7 @@ public class SqlTaskExecution
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         }
 
-        public boolean tryCreateNewDriver()
+        boolean tryCreateNewDriver()
         {
             // Eagerly increment the counter before checking the state machine
             liveCreatedDrivers.incrementAndGet();
@@ -918,19 +918,19 @@ public class SqlTaskExecution
             return true;
         }
 
-        public void driverDestroyed()
+        void driverDestroyed()
         {
             if (liveCreatedDrivers.decrementAndGet() == 0) {
                 checkTaskTermination();
             }
         }
 
-        public long getLiveCreatedDrivers()
+        long getLiveCreatedDrivers()
         {
             return liveCreatedDrivers.get();
         }
 
-        public void checkTaskTermination()
+        void checkTaskTermination()
         {
             if (taskStateMachine.getState().isTerminating()) {
                 long liveCreatedDrivers = this.liveCreatedDrivers.get();

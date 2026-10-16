@@ -120,13 +120,13 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass() {}
 
         @AfterGroups(alwaysRun = true)
-        public void afterGroup() {}
+        private void afterGroup() {}
 
         @AfterMethod(alwaysRun = true)
         public void afterMethod() {}
 
         @AfterSuite(alwaysRun = true)
-        public void afterSuite() {}
+        private void afterSuite() {}
     }
 
     private static class ClassNotAlwaysRun
@@ -135,13 +135,13 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass() {}
 
         @AfterGroups(alwaysRun = true)
-        public void afterGroup() {}
+        private void afterGroup() {}
 
         @AfterMethod(alwaysRun = true)
         public void afterMethod() {}
 
         @AfterSuite(alwaysRun = true)
-        public void afterSuite() {}
+        private void afterSuite() {}
     }
 
     private static class GroupNotAlwaysRun
@@ -150,13 +150,13 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass() {}
 
         @AfterGroups
-        public void afterGroup() {}
+        private void afterGroup() {}
 
         @AfterMethod(alwaysRun = true)
         public void afterMethod() {}
 
         @AfterSuite(alwaysRun = true)
-        public void afterSuite() {}
+        private void afterSuite() {}
     }
 
     private static class MethodNotAlwaysRun
@@ -165,13 +165,13 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass() {}
 
         @AfterGroups(alwaysRun = true)
-        public void afterGroup() {}
+        private void afterGroup() {}
 
         @AfterMethod
         public void afterMethod() {}
 
         @AfterSuite(alwaysRun = true)
-        public void afterSuite() {}
+        private void afterSuite() {}
     }
 
     private static class SuiteNotAlwaysRun
@@ -180,13 +180,13 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass() {}
 
         @AfterGroups(alwaysRun = true)
-        public void afterGroup() {}
+        private void afterGroup() {}
 
         @AfterMethod(alwaysRun = true)
         public void afterMethod() {}
 
         @AfterSuite
-        public void afterSuite() {}
+        private void afterSuite() {}
     }
 
     private static class AllNotAlwaysRunTwice
@@ -198,10 +198,10 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterClass2() {}
 
         @AfterGroups
-        public void afterGroup1() {}
+        private void afterGroup1() {}
 
         @AfterGroups
-        public void afterGroup2() {}
+        private void afterGroup2() {}
 
         @AfterMethod
         public void afterMethod1() {}
@@ -210,10 +210,10 @@ public class TestReportAfterMethodNotAlwaysRun
         public void afterMethod2() {}
 
         @AfterSuite
-        public void afterSuite1() {}
+        private void afterSuite1() {}
 
         @AfterSuite
-        public void afterSuite2() {}
+        private void afterSuite2() {}
     }
 
     private abstract static class BaseClassAlwaysRun

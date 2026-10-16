@@ -195,12 +195,12 @@ public class TypeOperators
         private final OperatorConvention operatorConvention;
         private volatile MethodHandle adapted;
 
-        public OperatorAdaptor(OperatorConvention operatorConvention)
+        private OperatorAdaptor(OperatorConvention operatorConvention)
         {
             this.operatorConvention = operatorConvention;
         }
 
-        public MethodHandle get()
+        private MethodHandle get()
         {
             if (adapted == null) {
                 synchronized (this) {

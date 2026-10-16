@@ -371,24 +371,24 @@ public class UniformNodeSelector
             private long adjustedMaxSplitsWeightPerTask;
             private Optional<Long> lastAdjustmentNanos;
 
-            public TaskAdjustmentInfo(long adjustedMaxSplitsWeightPerTask)
+            TaskAdjustmentInfo(long adjustedMaxSplitsWeightPerTask)
             {
                 this.adjustedMaxSplitsWeightPerTask = adjustedMaxSplitsWeightPerTask;
                 this.lastAdjustmentNanos = Optional.empty();
             }
 
-            public long getAdjustedMaxSplitsWeightPerTask()
+            long getAdjustedMaxSplitsWeightPerTask()
             {
                 return adjustedMaxSplitsWeightPerTask;
             }
 
-            public void setAdjustedMaxSplitsWeightPerTask(long adjustedMaxSplitsWeightPerTask)
+            void setAdjustedMaxSplitsWeightPerTask(long adjustedMaxSplitsWeightPerTask)
             {
                 this.adjustedMaxSplitsWeightPerTask = adjustedMaxSplitsWeightPerTask;
                 this.lastAdjustmentNanos = Optional.of(ticker.read());
             }
 
-            public Optional<Long> getLastAdjustmentNanos()
+            Optional<Long> getLastAdjustmentNanos()
             {
                 return lastAdjustmentNanos;
             }

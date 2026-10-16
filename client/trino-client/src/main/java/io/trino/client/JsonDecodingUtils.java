@@ -370,7 +370,7 @@ public final class JsonDecodingUtils
     {
         private final TypeDecoder typeDecoder;
 
-        public ArrayDecoder(ClientTypeSignature signature, boolean supportsVariantBinary)
+        private ArrayDecoder(ClientTypeSignature signature, boolean supportsVariantBinary)
         {
             requireNonNull(signature, "signature is null");
             checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
@@ -406,7 +406,7 @@ public final class JsonDecodingUtils
         private final String keyType;
         private final TypeDecoder valueDecoder;
 
-        public MapDecoder(ClientTypeSignature signature, boolean supportsVariantBinary)
+        private MapDecoder(ClientTypeSignature signature, boolean supportsVariantBinary)
         {
             requireNonNull(signature, "signature is null");
             checkArgument(signature.getRawType().equals(MAP), "not a map type signature: %s", signature);
@@ -552,7 +552,7 @@ public final class JsonDecodingUtils
     private static class IllegalTokenException
             extends RuntimeException
     {
-        public IllegalTokenException(JsonParser parser)
+        private IllegalTokenException(JsonParser parser)
         {
             super(format("Unexpected token %s [location: %s]", parser.currentToken(), parser.currentLocation()));
         }

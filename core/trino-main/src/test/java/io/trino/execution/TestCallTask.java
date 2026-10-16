@@ -182,7 +182,7 @@ public class TestCallTask
 
     private static class Target
     {
-        public boolean invoked;
+        boolean invoked;
     }
 
     public static class TestingProcedure

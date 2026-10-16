@@ -496,7 +496,7 @@ public class TestJdbcVendorCompatibility
     {
         private final List<ReferenceDriver> drivers;
 
-        public ConnectionSetup(List<ReferenceDriver> drivers)
+        private ConnectionSetup(List<ReferenceDriver> drivers)
         {
             this.drivers = drivers;
             for (ReferenceDriver driver : drivers) {

@@ -456,7 +456,7 @@ public class PreAggregateCaseAggregations
         // default value of cumulative aggregation
         private final Expression cumulativeAggregationDefaultValue;
 
-        public CaseAggregation(
+        CaseAggregation(
                 Symbol aggregationSymbol,
                 ResolvedFunction function,
                 ResolvedFunction cumulativeFunction,
@@ -474,37 +474,37 @@ public class PreAggregateCaseAggregations
             this.cumulativeAggregationDefaultValue = requireNonNull(cumulativeAggregationDefaultValue, "cumulativeAggregationDefaultValue is null");
         }
 
-        public Symbol getAggregationSymbol()
+        Symbol getAggregationSymbol()
         {
             return aggregationSymbol;
         }
 
-        public ResolvedFunction getFunction()
+        ResolvedFunction getFunction()
         {
             return function;
         }
 
-        public ResolvedFunction getCumulativeFunction()
+        ResolvedFunction getCumulativeFunction()
         {
             return cumulativeFunction;
         }
 
-        public CatalogSchemaFunctionName getName()
+        CatalogSchemaFunctionName getName()
         {
             return name;
         }
 
-        public Expression getOperand()
+        Expression getOperand()
         {
             return operand;
         }
 
-        public Expression getResult()
+        Expression getResult()
         {
             return result;
         }
 
-        public Expression getCumulativeAggregationDefaultValue()
+        Expression getCumulativeAggregationDefaultValue()
         {
             return cumulativeAggregationDefaultValue;
         }
@@ -523,7 +523,7 @@ public class PreAggregateCaseAggregations
             this.projection = aggregation.getResult();
         }
 
-        public ResolvedFunction getFunction()
+        ResolvedFunction getFunction()
         {
             return function;
         }
@@ -555,24 +555,24 @@ public class PreAggregateCaseAggregations
         private final Expression projection;
         private final Symbol projectionSymbol;
 
-        public PreAggregation(Symbol aggregationSymbol, Expression projection, Symbol projectionSymbol)
+        PreAggregation(Symbol aggregationSymbol, Expression projection, Symbol projectionSymbol)
         {
             this.aggregationSymbol = requireNonNull(aggregationSymbol, "aggregationSymbol is null");
             this.projection = requireNonNull(projection, "projection is null");
             this.projectionSymbol = requireNonNull(projectionSymbol, "projectionSymbol is null");
         }
 
-        public Symbol getAggregationSymbol()
+        Symbol getAggregationSymbol()
         {
             return aggregationSymbol;
         }
 
-        public Expression getProjection()
+        Expression getProjection()
         {
             return projection;
         }
 
-        public Symbol getProjectionSymbol()
+        Symbol getProjectionSymbol()
         {
             return projectionSymbol;
         }

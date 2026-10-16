@@ -214,7 +214,7 @@ public class TestHiveFileOperations
             return new FileOperation(operationName, fileName);
         }
 
-        public FileOperation
+        private FileOperation
         {
             requireNonNull(operationName, "operationName is null");
             requireNonNull(fileName, "fileName is null");

@@ -577,34 +577,34 @@ public class TestKafkaConnectorTest
         private final String topicName;
         private final List<Field> fields;
 
-        public JsonDateTimeTestCase(String topicName, List<Field> fields)
+        private JsonDateTimeTestCase(String topicName, List<Field> fields)
         {
             this.topicName = requireNonNull(topicName, "topicName is null");
             requireNonNull(fields, "fields is null");
             this.fields = ImmutableList.copyOf(fields);
         }
 
-        public static Builder builder()
+        private static Builder builder()
         {
             return new Builder();
         }
 
-        public String getTopicName()
+        private String getTopicName()
         {
             return topicName;
         }
 
-        public String getFieldNames()
+        private String getFieldNames()
         {
             return fields.stream().map(Field::getFieldName).collect(joining(", "));
         }
 
-        public String getFieldValues()
+        private String getFieldValues()
         {
             return fields.stream().map(Field::getFieldValue).collect(joining(", ", "(", ")"));
         }
 
-        public List<Field> getFields()
+        private List<Field> getFields()
         {
             return fields;
         }
@@ -615,25 +615,25 @@ public class TestKafkaConnectorTest
             return topicName; // for test case label in IDE
         }
 
-        public static class Builder
+        private static class Builder
         {
             private String topicName = "";
             private final ImmutableList.Builder<Field> fields = ImmutableList.builder();
 
-            public Builder setTopicName(String topicName)
+            private Builder setTopicName(String topicName)
             {
                 this.topicName = topicName;
                 return this;
             }
 
-            public Builder addField(Type type, String dataFormat, String fieldValue)
+            private Builder addField(Type type, String dataFormat, String fieldValue)
             {
                 String fieldName = getFieldName(type, dataFormat);
                 this.fields.add(new Field(fieldName, type, dataFormat, Optional.empty(), fieldValue));
                 return this;
             }
 
-            public Builder addField(Type type, String dataFormat, String formatHint, String fieldValue)
+            private Builder addField(Type type, String dataFormat, String formatHint, String fieldValue)
             {
                 String fieldName = getFieldName(type, dataFormat);
                 this.fields.add(new Field(fieldName, type, dataFormat, Optional.of(formatHint), fieldValue));
@@ -645,13 +645,13 @@ public class TestKafkaConnectorTest
                 return String.join("_", dataFormat.replaceAll("-", "_"), type.getDisplayName().replaceAll("\\s|[(]|[)]", "_"));
             }
 
-            public JsonDateTimeTestCase build()
+            private JsonDateTimeTestCase build()
             {
                 return new JsonDateTimeTestCase(topicName, fields.build());
             }
         }
 
-        public static class Field
+        private static class Field
         {
             private final String fieldName;
             private final Type type;
@@ -659,7 +659,7 @@ public class TestKafkaConnectorTest
             private final Optional<String> formatHint;
             private final String fieldValue;
 
-            public Field(String fieldName, Type type, String dataFormat, Optional<String> formatHint, String fieldValue)
+            private Field(String fieldName, Type type, String dataFormat, Optional<String> formatHint, String fieldValue)
             {
                 this.fieldName = requireNonNull(fieldName, "fieldName is null");
                 this.type = requireNonNull(type, "type is null");
@@ -668,27 +668,27 @@ public class TestKafkaConnectorTest
                 this.fieldValue = requireNonNull(fieldValue, "fieldValue is null");
             }
 
-            public String getFieldName()
+            private String getFieldName()
             {
                 return fieldName;
             }
 
-            public Type getType()
+            private Type getType()
             {
                 return type;
             }
 
-            public String getDataFormat()
+            private String getDataFormat()
             {
                 return dataFormat;
             }
 
-            public Optional<String> getFormatHint()
+            private Optional<String> getFormatHint()
             {
                 return formatHint;
             }
 
-            public String getFieldValue()
+            private String getFieldValue()
             {
                 return fieldValue;
             }

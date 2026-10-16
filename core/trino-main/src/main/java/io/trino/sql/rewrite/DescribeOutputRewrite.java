@@ -111,8 +111,7 @@ public final class DescribeOutputRewrite
         private final WarningCollector warningCollector;
         private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
-        public Visitor(
-                Session session,
+        Visitor(Session session,
                 SqlParser parser,
                 AnalyzerFactory analyzerFactory,
                 List<Expression> parameters,

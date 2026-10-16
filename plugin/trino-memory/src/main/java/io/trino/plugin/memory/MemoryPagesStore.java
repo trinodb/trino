@@ -173,7 +173,7 @@ public class MemoryPagesStore
         private final List<Page> pages = new ArrayList<>();
         private long rows;
 
-        public void add(Page page)
+        private void add(Page page)
         {
             pages.add(page);
             rows += page.getPositionCount();

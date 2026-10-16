@@ -116,7 +116,7 @@ public class TestAutoCloseableCloser
             this.failure = failure;
         }
 
-        public boolean isClosed()
+        private boolean isClosed()
         {
             return closed;
         }

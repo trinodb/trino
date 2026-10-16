@@ -84,7 +84,7 @@ public class DecompressionUtils
             this.decompress = decompress;
         }
 
-        public int decompress(byte[] input, byte[] output)
+        private int decompress(byte[] input, byte[] output)
         {
             try {
                 // The native decompressors are not guaranteed to be thread-safe, so a fresh instance is created per call

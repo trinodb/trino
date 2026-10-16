@@ -639,23 +639,23 @@ public final class OrcWriter
         private final StripeInformation stripeInformation;
         private final StripeStatistics statistics;
 
-        public ClosedStripe(StripeInformation stripeInformation, StripeStatistics statistics)
+        private ClosedStripe(StripeInformation stripeInformation, StripeStatistics statistics)
         {
             this.stripeInformation = requireNonNull(stripeInformation, "stripeInformation is null");
             this.statistics = requireNonNull(statistics, "statistics is null");
         }
 
-        public StripeInformation getStripeInformation()
+        private StripeInformation getStripeInformation()
         {
             return stripeInformation;
         }
 
-        public StripeStatistics getStatistics()
+        private StripeStatistics getStatistics()
         {
             return statistics;
         }
 
-        public long getRetainedSizeInBytes()
+        private long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + statistics.getRetainedSizeInBytes();
         }

@@ -230,7 +230,7 @@ public class TestLocalDispatchQuery
     private static class TestClusterSizeMonitor
             extends ClusterSizeMonitor
     {
-        public TestClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
+        TestClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig)
         {
             super(nodeManager, nodeSchedulerConfig);
         }

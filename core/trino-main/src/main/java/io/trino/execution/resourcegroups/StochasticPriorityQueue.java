@@ -158,37 +158,37 @@ final class StochasticPriorityQueue<E>
             this.value = value;
         }
 
-        public E getValue()
+        E getValue()
         {
             return value;
         }
 
-        public void setValue(E value)
+        void setValue(E value)
         {
             this.value = value;
         }
 
-        public Optional<Node<E>> getLeft()
+        Optional<Node<E>> getLeft()
         {
             return left;
         }
 
-        public Optional<Node<E>> getRight()
+        Optional<Node<E>> getRight()
         {
             return right;
         }
 
-        public long getTotalTickets()
+        long getTotalTickets()
         {
             return totalTickets;
         }
 
-        public long getTickets()
+        long getTickets()
         {
             return tickets;
         }
 
-        public void setTickets(long tickets)
+        void setTickets(long tickets)
         {
             checkArgument(tickets > 0, "tickets must be positive");
             if (tickets == this.tickets) {
@@ -204,12 +204,12 @@ final class StochasticPriorityQueue<E>
             this.tickets = tickets;
         }
 
-        public boolean isLeaf()
+        boolean isLeaf()
         {
             return left.isEmpty() && right.isEmpty();
         }
 
-        public Node<E> findLeaf()
+        Node<E> findLeaf()
         {
             int leftDecendants = left.map(node -> node.descendants).orElse(0);
             int rightDecendants = right.map(node -> node.descendants).orElse(0);
@@ -228,7 +228,7 @@ final class StochasticPriorityQueue<E>
             return left.get().findLeaf();
         }
 
-        public void remove()
+        void remove()
         {
             checkState(parent.isPresent(), "Cannot remove root node");
             checkState(isLeaf(), "Can only remove leaf nodes");
@@ -248,7 +248,7 @@ final class StochasticPriorityQueue<E>
             this.parent = Optional.empty();
         }
 
-        public Node<E> addNode(E value, long tickets)
+        Node<E> addNode(E value, long tickets)
         {
             // setTickets call in base case will update totalTickets
             descendants++;

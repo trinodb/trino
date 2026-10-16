@@ -2083,12 +2083,12 @@ class RelationPlanner
             this.symbolMapping = symbolMapping;
         }
 
-        public List<PlanNode> getSources()
+        List<PlanNode> getSources()
         {
             return sources;
         }
 
-        public ListMultimap<Symbol, Symbol> getSymbolMapping()
+        ListMultimap<Symbol, Symbol> getSymbolMapping()
         {
             return symbolMapping;
         }

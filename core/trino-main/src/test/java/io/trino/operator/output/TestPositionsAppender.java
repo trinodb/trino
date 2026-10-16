@@ -635,12 +635,12 @@ public class TestPositionsAppender
             this.blockAdaptation = requireNonNull(blockAdaptation, "blockAdaptation is null");
         }
 
-        public Block adapt(Block block)
+        Block adapt(Block block)
         {
             return blockAdaptation.apply(block);
         }
 
-        public Type getType()
+        Type getType()
         {
             return type;
         }

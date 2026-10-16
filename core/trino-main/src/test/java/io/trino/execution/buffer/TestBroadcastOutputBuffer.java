@@ -1138,7 +1138,7 @@ public class TestBroadcastOutputBuffer
     {
         private ListenableFuture<Void> blockedFuture;
 
-        public MockMemoryReservationHandler(ListenableFuture<Void> blockedFuture)
+        MockMemoryReservationHandler(ListenableFuture<Void> blockedFuture)
         {
             this.blockedFuture = requireNonNull(blockedFuture, "blockedFuture is null");
         }
@@ -1155,7 +1155,7 @@ public class TestBroadcastOutputBuffer
             return true;
         }
 
-        public void updateBlockedFuture(ListenableFuture<Void> blockedFuture)
+        void updateBlockedFuture(ListenableFuture<Void> blockedFuture)
         {
             this.blockedFuture = requireNonNull(blockedFuture);
         }

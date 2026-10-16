@@ -554,12 +554,12 @@ public class TestDefaultJdbcMetadata
         private final Optional<Boolean> supportsRetriesOverride;
         private final Optional<TableScanRedirectApplicationResult> tableScanRedirectApplicationResult;
 
-        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride)
+        private GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride)
         {
             this(jdbcClient, supportsRetriesOverride, Optional.empty());
         }
 
-        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride, Optional<TableScanRedirectApplicationResult> tableScanRedirectApplicationResult)
+        private GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient, Optional<Boolean> supportsRetriesOverride, Optional<TableScanRedirectApplicationResult> tableScanRedirectApplicationResult)
         {
             this.delegate = jdbcClient;
             this.supportsRetriesOverride = supportsRetriesOverride;

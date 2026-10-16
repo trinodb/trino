@@ -94,7 +94,7 @@ public class TrinoToClickHouseWriteChecker<T>
         private final Predicate<ClickHouseVersionUtils> predicate;
         private final Range<Long> range;
 
-        public LongWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<Long> range)
+        private LongWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<Long> range)
         {
             this.predicate = requireNonNull(predicate, "predicate is null");
             this.range = requireNonNull(range, "range is null");
@@ -121,7 +121,7 @@ public class TrinoToClickHouseWriteChecker<T>
         private final Predicate<ClickHouseVersionUtils> predicate;
         private final Range<BigDecimal> range;
 
-        public BigDecimalWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<BigDecimal> range)
+        private BigDecimalWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<BigDecimal> range)
         {
             this.predicate = requireNonNull(predicate, "predicate is null");
             this.range = requireNonNull(range, "range is null");
@@ -148,7 +148,7 @@ public class TrinoToClickHouseWriteChecker<T>
         private final Predicate<ClickHouseVersionUtils> predicate;
         private final Range<LocalDate> range;
 
-        public DateWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<LocalDate> range)
+        private DateWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<LocalDate> range)
         {
             this.predicate = requireNonNull(predicate, "predicate is null");
             this.range = requireNonNull(range, "range is null");
@@ -173,7 +173,7 @@ public class TrinoToClickHouseWriteChecker<T>
         private final Predicate<ClickHouseVersionUtils> predicate;
         private final Range<LocalDateTime> range;
 
-        public TimestampWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<LocalDateTime> range)
+        private TimestampWriteValueChecker(Predicate<ClickHouseVersionUtils> predicate, Range<LocalDateTime> range)
         {
             this.predicate = requireNonNull(predicate, "predicate is null");
             this.range = requireNonNull(range, "range is null");
@@ -203,18 +203,18 @@ public class TrinoToClickHouseWriteChecker<T>
         private final T min;
         private final T max;
 
-        public Range(T min, T max)
+        private Range(T min, T max)
         {
             this.min = requireNonNull(min, "min is null");
             this.max = requireNonNull(max, "max is null");
         }
 
-        public T getMin()
+        private T getMin()
         {
             return min;
         }
 
-        public T getMax()
+        private T getMax()
         {
             return max;
         }

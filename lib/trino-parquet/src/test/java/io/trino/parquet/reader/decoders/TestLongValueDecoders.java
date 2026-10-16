@@ -138,7 +138,7 @@ public final class TestLongValueDecoders
     {
         private final ValuesReader delegate;
 
-        public LongApacheParquetValueDecoder(ValuesReader delegate)
+        LongApacheParquetValueDecoder(ValuesReader delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

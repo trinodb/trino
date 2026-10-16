@@ -125,7 +125,7 @@ public final class IcebergAvroDataConversion
         private final int positionCount;
         private int position;
 
-        public RecordIterator(Page page, List<Type> types, Schema icebergSchema)
+        private RecordIterator(Page page, List<Type> types, Schema icebergSchema)
         {
             requireNonNull(page, "page is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

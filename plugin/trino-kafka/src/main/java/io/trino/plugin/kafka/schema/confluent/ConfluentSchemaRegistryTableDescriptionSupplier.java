@@ -316,7 +316,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             requireNonNull(valueSubject, "valueSubject is null");
         }
 
-        public String tableName()
+        private String tableName()
         {
             return topic.toLowerCase(ENGLISH);
         }

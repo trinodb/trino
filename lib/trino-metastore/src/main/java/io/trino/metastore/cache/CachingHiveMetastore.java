@@ -1386,12 +1386,12 @@ public final class CachingHiveMetastore
             requireNonNull(statsRecording, "statsRecording is null");
         }
 
-        public <K, V> LoadingCache<K, V> buildCache(Function<K, V> loader)
+        private <K, V> LoadingCache<K, V> buildCache(Function<K, V> loader)
         {
             return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader::apply));
         }
 
-        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> loader)
+        private <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> loader)
         {
             CacheLoader<K, V> cacheLoader = new CacheLoader<>()
             {
@@ -1413,7 +1413,7 @@ public final class CachingHiveMetastore
             return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, cacheLoader);
         }
 
-        public <K, V> Cache<K, AtomicReference<V>> buildBulkCache()
+        private <K, V> Cache<K, AtomicReference<V>> buildBulkCache()
         {
             // disable refresh since it can't use the bulk loading and causes too many requests
             return CachingHiveMetastore.buildBulkCache(expiresAfterWriteMillis, maximumSize, statsRecording);

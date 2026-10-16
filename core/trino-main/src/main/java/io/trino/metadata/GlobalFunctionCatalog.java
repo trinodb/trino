@@ -235,14 +235,14 @@ public class GlobalFunctionCatalog
         // function names are currently lower cased
         private final Multimap<String, FunctionMetadata> functionsByLowerCaseName;
 
-        public FunctionMap()
+        FunctionMap()
         {
             functionBundlesById = ImmutableMap.of();
             functionsById = ImmutableMap.of();
             functionsByLowerCaseName = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, FunctionBundle functionBundle)
+        FunctionMap(FunctionMap map, FunctionBundle functionBundle)
         {
             this.functionBundlesById = ImmutableMap.<FunctionId, FunctionBundle>builder()
                     .putAll(map.functionBundlesById)
@@ -276,29 +276,29 @@ public class GlobalFunctionCatalog
             }
         }
 
-        public List<FunctionMetadata> list()
+        List<FunctionMetadata> list()
         {
             return ImmutableList.copyOf(functionsByLowerCaseName.values());
         }
 
-        public Map<FunctionId, FunctionMetadata> getFunctionsById()
+        Map<FunctionId, FunctionMetadata> getFunctionsById()
         {
             return functionsById;
         }
 
-        public Collection<FunctionMetadata> get(String functionName)
+        Collection<FunctionMetadata> get(String functionName)
         {
             return functionsByLowerCaseName.get(functionName.toLowerCase(ENGLISH));
         }
 
-        public FunctionMetadata get(FunctionId functionId)
+        FunctionMetadata get(FunctionId functionId)
         {
             FunctionMetadata functionMetadata = functionsById.get(functionId);
             checkArgument(functionMetadata != null, "Unknown function implementation: %s", functionId);
             return functionMetadata;
         }
 
-        public FunctionBundle getFunctionBundle(FunctionId functionId)
+        FunctionBundle getFunctionBundle(FunctionId functionId)
         {
             FunctionBundle functionBundle = functionBundlesById.get(functionId);
             checkArgument(functionBundle != null, "Unknown function implementation: %s", functionId);

@@ -67,7 +67,7 @@ public class InMemoryCatalogStore
         private final CatalogName catalogName;
         private final CatalogProperties catalogProperties;
 
-        public InMemoryStoredCatalog(CatalogName catalogName, CatalogProperties catalogProperties)
+        InMemoryStoredCatalog(CatalogName catalogName, CatalogProperties catalogProperties)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");

@@ -503,7 +503,7 @@ public final class PartitionedLookupSourceFactory
         private final LookupSource lookupSource;
         private final SpillingInfo spillingInfo;
 
-        public SpillAwareLookupSourceLease(LookupSource lookupSource, SpillingInfo spillingInfo)
+        SpillAwareLookupSourceLease(LookupSource lookupSource, SpillingInfo spillingInfo)
         {
             this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
             this.spillingInfo = requireNonNull(spillingInfo, "spillingInfo is null");

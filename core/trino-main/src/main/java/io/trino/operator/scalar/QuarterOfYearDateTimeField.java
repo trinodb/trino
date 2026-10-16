@@ -60,7 +60,7 @@ public final class QuarterOfYearDateTimeField
     {
         private static final long serialVersionUID = -8167713675442491871L;
 
-        public QuarterOfYearDurationFieldType()
+        QuarterOfYearDurationFieldType()
         {
             super("quarters");
         }

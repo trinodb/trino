@@ -217,7 +217,7 @@ public final class MergePartitioningHandle
         private final int[] insertColumns;
         private final int[] updateColumns;
 
-        public MergePartitionFunction(PartitionFunction insertFunction, PartitionFunction updateFunction, int[] insertColumns, int[] updateColumns)
+        MergePartitionFunction(PartitionFunction insertFunction, PartitionFunction updateFunction, int[] insertColumns, int[] updateColumns)
         {
             this.insertFunction = requireNonNull(insertFunction, "insertFunction is null");
             this.updateFunction = requireNonNull(updateFunction, "updateFunction is null");

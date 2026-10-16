@@ -101,7 +101,7 @@ public class IcebergConnectorFactory
         private final String catalogName;
         private final ConnectorContext context;
 
-        public IcebergFileSystemModule(String catalogName, ConnectorContext context)
+        private IcebergFileSystemModule(String catalogName, ConnectorContext context)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.context = requireNonNull(context, "context is null");

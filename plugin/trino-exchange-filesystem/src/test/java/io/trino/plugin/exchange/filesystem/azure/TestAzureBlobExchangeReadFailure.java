@@ -156,7 +156,7 @@ public class TestAzureBlobExchangeReadFailure
     {
         private final int statusCode;
 
-        public StatusOnlyResponse(HttpRequest request, int statusCode)
+        private StatusOnlyResponse(HttpRequest request, int statusCode)
         {
             super(request);
             this.statusCode = statusCode;

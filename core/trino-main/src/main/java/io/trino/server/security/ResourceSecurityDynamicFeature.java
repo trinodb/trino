@@ -115,7 +115,7 @@ public class ResourceSecurityDynamicFeature
         private final Optional<String> fixedManagementUser;
         private final boolean fixedManagementUserForHttps;
 
-        public ManagementAuthenticationFilter(Optional<String> fixedManagementUser, boolean fixedManagementUserForHttps, AuthenticationFilter fallbackAuthenticationFilter)
+        ManagementAuthenticationFilter(Optional<String> fixedManagementUser, boolean fixedManagementUserForHttps, AuthenticationFilter fallbackAuthenticationFilter)
         {
             this.fixedManagementUser = requireNonNull(fixedManagementUser, "fixedManagementUser is null");
             this.fixedManagementUserForHttps = fixedManagementUserForHttps;
@@ -142,7 +142,7 @@ public class ResourceSecurityDynamicFeature
         private final HttpRequestSessionContextFactory sessionContextFactory;
         private final boolean read;
 
-        public ManagementAuthorizationFilter(AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, boolean read)
+        ManagementAuthorizationFilter(AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory, boolean read)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");

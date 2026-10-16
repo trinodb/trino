@@ -70,12 +70,12 @@ public class TestPagesInputStreamFactory
             closed = true;
         }
 
-        public int flushCount()
+        int flushCount()
         {
             return flushCount;
         }
 
-        public boolean closed()
+        boolean closed()
         {
             return closed;
         }

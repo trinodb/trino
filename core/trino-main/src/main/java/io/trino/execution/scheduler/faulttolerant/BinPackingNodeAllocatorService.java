@@ -575,32 +575,32 @@ public class BinPackingNodeAllocatorService
             this.notEnoughResourcesStopwatch = Stopwatch.createStarted(ticker);
         }
 
-        public NodeRequirements getNodeRequirements()
+        NodeRequirements getNodeRequirements()
         {
             return nodeRequirements;
         }
 
-        public BinPackingNodeLease getLease()
+        BinPackingNodeLease getLease()
         {
             return lease;
         }
 
-        public QueryId getQueryId()
+        QueryId getQueryId()
         {
             return queryId;
         }
 
-        public SettableFuture<InternalNode> getFuture()
+        SettableFuture<InternalNode> getFuture()
         {
             return lease.getNodeSettableFuture();
         }
 
-        public long getMemoryLease()
+        long getMemoryLease()
         {
             return lease.getMemoryLease();
         }
 
-        public Duration markNoMatchingNodeFound()
+        Duration markNoMatchingNodeFound()
         {
             if (!noMatchingNodeStopwatch.isRunning()) {
                 noMatchingNodeStopwatch.start();
@@ -608,32 +608,32 @@ public class BinPackingNodeAllocatorService
             return noMatchingNodeStopwatch.elapsed();
         }
 
-        public Duration getNotEnoughResourcesPeriod()
+        Duration getNotEnoughResourcesPeriod()
         {
             return notEnoughResourcesStopwatch.elapsed();
         }
 
-        public void resetNoMatchingNodeFound()
+        void resetNoMatchingNodeFound()
         {
             noMatchingNodeStopwatch.reset();
         }
 
-        public boolean isSpeculative()
+        boolean isSpeculative()
         {
             return lease.isSpeculative();
         }
 
-        public TaskExecutionClass getExecutionClass()
+        TaskExecutionClass getExecutionClass()
         {
             return lease.getExecutionClass();
         }
 
-        public BinPackingSimulation.ReservationStatus getLastReservationStatus()
+        BinPackingSimulation.ReservationStatus getLastReservationStatus()
         {
             return lastReservationStatus;
         }
 
-        public void setLastReservationStatus(BinPackingSimulation.ReservationStatus lastReservationStatus)
+        void setLastReservationStatus(BinPackingSimulation.ReservationStatus lastReservationStatus)
         {
             requireNonNull(lastReservationStatus, "lastReservationStatus is null");
             this.lastReservationStatus = lastReservationStatus;
@@ -700,17 +700,17 @@ public class BinPackingNodeAllocatorService
             }
         }
 
-        public boolean isSpeculative()
+        boolean isSpeculative()
         {
             return executionClass.get().isSpeculative();
         }
 
-        public TaskExecutionClass getExecutionClass()
+        TaskExecutionClass getExecutionClass()
         {
             return executionClass.get();
         }
 
-        public Optional<TaskId> getAttachedTaskId()
+        Optional<TaskId> getAttachedTaskId()
         {
             return Optional.ofNullable(this.taskId.get());
         }
@@ -725,7 +725,7 @@ public class BinPackingNodeAllocatorService
             }
         }
 
-        public long getMemoryLease()
+        long getMemoryLease()
         {
             return memoryLease.get();
         }
@@ -776,7 +776,7 @@ public class BinPackingNodeAllocatorService
         private final boolean optimizedLocalScheduling;
         private final Duration exhaustedNodeWaitPeriod;
 
-        public BinPackingSimulation(
+        BinPackingSimulation(
                 NodesSnapshot nodesSnapshot,
                 Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Set<BinPackingNodeLease> fulfilledAcquires,
@@ -875,7 +875,7 @@ public class BinPackingNodeAllocatorService
             }
         }
 
-        public ReserveResult tryReserve(PendingAcquire acquire)
+        ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
 
@@ -990,7 +990,7 @@ public class BinPackingNodeAllocatorService
                     && nodesRemainingMemory.get(nodeIdentifier).equals(nodeMemoryPoolInfos.get(nodeIdentifier).getMaxBytes());
         }
 
-        public enum ReservationStatus
+        enum ReservationStatus
         {
             UNKNOWN,
             NONE_MATCHING,
@@ -998,12 +998,12 @@ public class BinPackingNodeAllocatorService
             RESERVED,
         }
 
-        public static class ReserveResult
+        static class ReserveResult
         {
-            public static final ReserveResult NONE_MATCHING = new ReserveResult(ReservationStatus.NONE_MATCHING, Optional.empty());
-            public static final ReserveResult NOT_ENOUGH_RESOURCES_NOW = new ReserveResult(ReservationStatus.NOT_ENOUGH_RESOURCES_NOW, Optional.empty());
+            static final ReserveResult NONE_MATCHING = new ReserveResult(ReservationStatus.NONE_MATCHING, Optional.empty());
+            static final ReserveResult NOT_ENOUGH_RESOURCES_NOW = new ReserveResult(ReservationStatus.NOT_ENOUGH_RESOURCES_NOW, Optional.empty());
 
-            public static ReserveResult reserved(InternalNode node)
+            static ReserveResult reserved(InternalNode node)
             {
                 return new ReserveResult(ReservationStatus.RESERVED, Optional.of(node));
             }
@@ -1018,12 +1018,12 @@ public class BinPackingNodeAllocatorService
                 checkArgument(node.isPresent() == (status == ReservationStatus.RESERVED), "node must be set iff status is RESERVED");
             }
 
-            public ReservationStatus getStatus()
+            ReservationStatus getStatus()
             {
                 return status;
             }
 
-            public InternalNode getNode()
+            InternalNode getNode()
             {
                 return node.orElseThrow(() -> new IllegalStateException("node not set"));
             }

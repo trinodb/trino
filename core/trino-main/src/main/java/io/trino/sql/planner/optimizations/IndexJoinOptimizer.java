@@ -245,7 +245,7 @@ public class IndexJoinOptimizer
         /// A subtree rewritten into an index source is re-executed for every probe-side lookup, so
         /// anything nondeterministic in it would be evaluated independently per lookup and match
         /// different rows each time. The visitors below give up on such a subtree.
-        public static Optional<PlanNode> rewriteWithIndex(
+        static Optional<PlanNode> rewriteWithIndex(
                 PlanNode planNode,
                 Set<Symbol> lookupSymbols,
                 PlanNodeIdAllocator idAllocator,
@@ -445,29 +445,29 @@ public class IndexJoinOptimizer
             return function.deterministic() && arguments.stream().allMatch(DeterminismEvaluator::isDeterministic);
         }
 
-        public static class Context
+        static class Context
         {
             private final Set<Symbol> lookupSymbols;
             private final AtomicBoolean success;
 
-            public Context(Set<Symbol> lookupSymbols, AtomicBoolean success)
+            Context(Set<Symbol> lookupSymbols, AtomicBoolean success)
             {
                 checkArgument(!lookupSymbols.isEmpty(), "lookupSymbols cannot be empty");
                 this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
                 this.success = requireNonNull(success, "success is null");
             }
 
-            public Set<Symbol> getLookupSymbols()
+            Set<Symbol> getLookupSymbols()
             {
                 return lookupSymbols;
             }
 
-            public AtomicBoolean getSuccess()
+            AtomicBoolean getSuccess()
             {
                 return success;
             }
 
-            public void markSuccess()
+            void markSuccess()
             {
                 checkState(success.compareAndSet(false, true), "Can only have one success per context");
             }

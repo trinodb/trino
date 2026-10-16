@@ -706,7 +706,7 @@ public class AzureBlobFileSystemExchangeStorage
         private final List<String> blockIds = new ArrayList<>();
         private volatile boolean closed;
 
-        public AzureExchangeStorageWriter(
+        private AzureExchangeStorageWriter(
                 BlockBlobAsyncClient blockBlobAsyncClient,
                 int blockSize)
         {

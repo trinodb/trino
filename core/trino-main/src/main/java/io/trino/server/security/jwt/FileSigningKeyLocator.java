@@ -147,19 +147,19 @@ public class FileSigningKeyLocator
         private final PublicKey publicKey;
         private final SecretKey secretKey;
 
-        public LoadedKey(PublicKey publicKey)
+        LoadedKey(PublicKey publicKey)
         {
             this.publicKey = requireNonNull(publicKey, "publicKey is null");
             this.secretKey = null;
         }
 
-        public LoadedKey(SecretKey secretKey)
+        LoadedKey(SecretKey secretKey)
         {
             this.secretKey = requireNonNull(secretKey, "secretKey is null");
             this.publicKey = null;
         }
 
-        public Key getKey(SecureDigestAlgorithm<?, ?> algorithm)
+        Key getKey(SecureDigestAlgorithm<?, ?> algorithm)
         {
             if (algorithm instanceof MacAlgorithm) {
                 if (secretKey == null) {

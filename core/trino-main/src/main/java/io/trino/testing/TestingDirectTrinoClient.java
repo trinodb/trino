@@ -169,17 +169,17 @@ public class TestingDirectTrinoClient
             pages.add(page);
         }
 
-        public List<String> columnNames()
+        List<String> columnNames()
         {
             return columnNames;
         }
 
-        public List<Type> columnTypes()
+        List<Type> columnTypes()
         {
             return columnTypes;
         }
 
-        public List<Page> pages()
+        List<Page> pages()
         {
             return pages;
         }

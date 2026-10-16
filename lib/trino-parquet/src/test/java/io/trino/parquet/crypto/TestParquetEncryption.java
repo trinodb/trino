@@ -1035,7 +1035,7 @@ public final class TestParquetEncryption
         private final Optional<byte[]> ageColumnKey;
         private final Optional<byte[]> idColumnKey;
 
-        public TestingKeyRetriever(Optional<byte[]> footerKey, Optional<byte[]> ageColumnKey, Optional<byte[]> idColumnKey)
+        private TestingKeyRetriever(Optional<byte[]> footerKey, Optional<byte[]> ageColumnKey, Optional<byte[]> idColumnKey)
         {
             this.footerKey = footerKey;
             this.ageColumnKey = ageColumnKey;

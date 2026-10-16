@@ -291,7 +291,7 @@ class TestCreateMaterializedViewTask
             return materializedViewProperties.get(viewName);
         }
 
-        public int getCreateMaterializedViewCallCount()
+        int getCreateMaterializedViewCallCount()
         {
             return materializedViews.size();
         }

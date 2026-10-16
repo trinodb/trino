@@ -94,7 +94,7 @@ public class TestJdbcPlugin
     private static class TestingJdbcPlugin
             extends JdbcPlugin
     {
-        public TestingJdbcPlugin(String name, Supplier<Module> module)
+        private TestingJdbcPlugin(String name, Supplier<Module> module)
         {
             super(name, module);
         }
@@ -103,8 +103,8 @@ public class TestJdbcPlugin
     private static class TestingJdbcModule
             extends AbstractConfigurationAwareModule
     {
-        public static final String CATALOG_WITH_PUSH_DOWN_ENABLED = "catalog_with_pushdown_enabled";
-        public static final String CATALOG_WITH_PUSH_DOWN_DISABLED = "catalog_with_pushdown_disabled";
+        private static final String CATALOG_WITH_PUSH_DOWN_ENABLED = "catalog_with_pushdown_enabled";
+        private static final String CATALOG_WITH_PUSH_DOWN_DISABLED = "catalog_with_pushdown_disabled";
 
         @Override
         protected void setup(Binder binder)

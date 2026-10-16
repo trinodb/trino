@@ -105,7 +105,7 @@ public class MemoryPageSinkProvider
         private final long tableId;
         private final List<Page> appendedPages = new ArrayList<>();
 
-        public MemoryPageSink(MemoryPagesStore pagesStore, HostAddress currentHostAddress, long tableId)
+        private MemoryPageSink(MemoryPagesStore pagesStore, HostAddress currentHostAddress, long tableId)
         {
             this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
             this.currentHostAddress = requireNonNull(currentHostAddress, "currentHostAddress is null");

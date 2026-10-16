@@ -227,7 +227,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             return isEnableForcedExchangeBelowGroupId(session);
         }
 
-        protected Optional<PlanNode> transform(AggregationNode aggregation, GroupIdNode groupId, OptionalInt partitionCount, Context context)
+        Optional<PlanNode> transform(AggregationNode aggregation, GroupIdNode groupId, OptionalInt partitionCount, Context context)
         {
             if (groupId.getGroupingSets().size() < 2) {
                 return Optional.empty();

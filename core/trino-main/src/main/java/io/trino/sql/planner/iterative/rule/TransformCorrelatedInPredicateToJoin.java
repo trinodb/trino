@@ -299,13 +299,13 @@ public class TransformCorrelatedInPredicateToJoin
         private final Lookup lookup;
         private final Set<Symbol> correlation;
 
-        public DecorrelatingVisitor(Lookup lookup, Iterable<Symbol> correlation)
+        DecorrelatingVisitor(Lookup lookup, Iterable<Symbol> correlation)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
             this.correlation = ImmutableSet.copyOf(requireNonNull(correlation, "correlation is null"));
         }
 
-        public Optional<Decorrelated> decorrelate(PlanNode reference)
+        Optional<Decorrelated> decorrelate(PlanNode reference)
         {
             return lookup.resolve(reference).accept(this, reference);
         }

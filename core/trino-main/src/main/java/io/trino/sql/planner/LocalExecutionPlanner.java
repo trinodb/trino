@@ -695,7 +695,7 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext)
+        LocalExecutionPlanContext(TaskContext taskContext)
         {
             this(taskContext,
                     new ArrayList<>(),
@@ -718,7 +718,7 @@ public class LocalExecutionPlanner
             this.assignUniqueIdValuePool = assignUniqueIdValuePool;
         }
 
-        public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
+        void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
         {
             boolean inputDriver = context.isInputDriver();
             OptionalInt driverInstances = context.getDriverInstanceCount();
@@ -763,17 +763,17 @@ public class LocalExecutionPlanner
             return ImmutableList.copyOf(driverFactories);
         }
 
-        public StageId getStageId()
+        StageId getStageId()
         {
             return taskContext.getTaskId().stageId();
         }
 
-        public TaskId getTaskId()
+        TaskId getTaskId()
         {
             return taskContext.getTaskId();
         }
 
-        public LocalDynamicFiltersCollector getDynamicFiltersCollector()
+        LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
             return taskContext.getLocalDynamicFiltersCollector();
         }
@@ -794,7 +794,7 @@ public class LocalExecutionPlanner
             return taskContext;
         }
 
-        public Optional<IndexSourceContext> getIndexSourceContext()
+        Optional<IndexSourceContext> getIndexSourceContext()
         {
             return indexSourceContext;
         }
@@ -824,23 +824,23 @@ public class LocalExecutionPlanner
             this.inputDriver = inputDriver;
         }
 
-        public LocalExecutionPlanContext createSubContext()
+        LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
             return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, assignUniqueIdValuePool);
         }
 
-        public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
+        LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
             return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, assignUniqueIdValuePool);
         }
 
-        public OptionalInt getDriverInstanceCount()
+        OptionalInt getDriverInstanceCount()
         {
             return driverInstanceCount;
         }
 
-        public void setDriverInstanceCount(int driverInstanceCount)
+        void setDriverInstanceCount(int driverInstanceCount)
         {
             checkArgument(driverInstanceCount > 0, "driverInstanceCount must be > 0");
             if (this.driverInstanceCount.isPresent()) {
@@ -854,7 +854,7 @@ public class LocalExecutionPlanner
     {
         private final SetMultimap<Symbol, Integer> indexLookupToProbeInput;
 
-        public IndexSourceContext(SetMultimap<Symbol, Integer> indexLookupToProbeInput)
+        IndexSourceContext(SetMultimap<Symbol, Integer> indexLookupToProbeInput)
         {
             this.indexLookupToProbeInput = ImmutableSetMultimap.copyOf(requireNonNull(indexLookupToProbeInput, "indexLookupToProbeInput is null"));
         }
@@ -4318,18 +4318,18 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        public int symbolToChannel(Symbol input)
+        int symbolToChannel(Symbol input)
         {
             checkArgument(layout.containsKey(input));
             return layout.get(input);
         }
 
-        public List<Type> getTypes()
+        List<Type> getTypes()
         {
             return types;
         }
 
-        public Map<Symbol, Integer> getLayout()
+        Map<Symbol, Integer> getLayout()
         {
             return layout;
         }
@@ -4343,7 +4343,7 @@ public class LocalExecutionPlanner
     private static class SpooledPhysicalOperation
             extends PhysicalOperation
     {
-        public SpooledPhysicalOperation(OutputSpoolingOperatorFactory outputSpoolingOperatorFactory, PhysicalOperation operation)
+        SpooledPhysicalOperation(OutputSpoolingOperatorFactory outputSpoolingOperatorFactory, PhysicalOperation operation)
         {
             super(outputSpoolingOperatorFactory, operation.layout, operation);
         }
@@ -4354,18 +4354,18 @@ public class LocalExecutionPlanner
         private final LocalExecutionPlanContext subContext;
         private final PhysicalOperation source;
 
-        public DriverFactoryParameters(LocalExecutionPlanContext subContext, PhysicalOperation source)
+        DriverFactoryParameters(LocalExecutionPlanContext subContext, PhysicalOperation source)
         {
             this.subContext = subContext;
             this.source = source;
         }
 
-        public LocalExecutionPlanContext getSubContext()
+        LocalExecutionPlanContext getSubContext()
         {
             return subContext;
         }
 
-        public PhysicalOperation getSource()
+        PhysicalOperation getSource()
         {
             return source;
         }
@@ -4380,7 +4380,7 @@ public class LocalExecutionPlanner
         private final int firstUnusedChannel;
         private final List<MatchAggregationLabelDependency> labelDependencies;
 
-        public ValueAccessors(List<PhysicalValueAccessor> valueAccessors, List<MatchAggregationInstantiator> aggregations, int aggregationIndex, List<ArgumentComputationSupplier> aggregationArguments, int firstUnusedChannel, List<MatchAggregationLabelDependency> labelDependencies)
+        ValueAccessors(List<PhysicalValueAccessor> valueAccessors, List<MatchAggregationInstantiator> aggregations, int aggregationIndex, List<ArgumentComputationSupplier> aggregationArguments, int firstUnusedChannel, List<MatchAggregationLabelDependency> labelDependencies)
         {
             this.valueAccessors = valueAccessors;
             this.aggregations = aggregations;
@@ -4390,32 +4390,32 @@ public class LocalExecutionPlanner
             this.labelDependencies = labelDependencies;
         }
 
-        public List<PhysicalValueAccessor> getValueAccessors()
+        List<PhysicalValueAccessor> getValueAccessors()
         {
             return valueAccessors;
         }
 
-        public List<MatchAggregationInstantiator> getAggregations()
+        List<MatchAggregationInstantiator> getAggregations()
         {
             return aggregations;
         }
 
-        public int getAggregationIndex()
+        int getAggregationIndex()
         {
             return aggregationIndex;
         }
 
-        public List<ArgumentComputationSupplier> getAggregationArguments()
+        List<ArgumentComputationSupplier> getAggregationArguments()
         {
             return aggregationArguments;
         }
 
-        public int getFirstUnusedChannel()
+        int getFirstUnusedChannel()
         {
             return firstUnusedChannel;
         }
 
-        public List<MatchAggregationLabelDependency> getLabelDependencies()
+        List<MatchAggregationLabelDependency> getLabelDependencies()
         {
             return labelDependencies;
         }
@@ -4448,7 +4448,7 @@ public class LocalExecutionPlanner
         private final FunctionId functionId;
         private final BoundSignature boundSignature;
 
-        public FunctionKey(FunctionId functionId, BoundSignature boundSignature)
+        FunctionKey(FunctionId functionId, BoundSignature boundSignature)
         {
             this.functionId = requireNonNull(functionId, "functionId is null");
             this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");

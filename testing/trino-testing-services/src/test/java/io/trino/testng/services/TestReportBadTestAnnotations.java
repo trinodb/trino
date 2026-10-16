@@ -64,19 +64,20 @@ public class TestReportBadTestAnnotations
             implements TestingInterfaceWithTest
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     private static class TestingTestWithProxy
             extends TestingInterfaceWithTestProxy
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     private static class TestingTestWithoutTestAnnotation
             implements TestingInterface
     {
+        @SuppressWarnings("EffectivelyPrivate")
         public void testWithMissingTestAnnotation() {}
 
         @Override
@@ -103,17 +104,17 @@ public class TestReportBadTestAnnotations
     private static class TestingTestWithSuppressedPublicMethod
     {
         @Test
-        public void test() {}
+        private void test() {}
 
         @ReportBadTestAnnotations.Suppress
-        public void method() {}
+        private void method() {}
     }
 
     private static class TestingTestWithSuppressedPublicMethodInInterface
             implements InterfaceWithSuppressedPublicMethod
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     private interface InterfaceWithSuppressedPublicMethod
@@ -127,7 +128,7 @@ public class TestReportBadTestAnnotations
     private static class TestingTestWithClassLevelTrivialAnnotation
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     @Test(singleThreaded = true)
@@ -135,14 +136,14 @@ public class TestReportBadTestAnnotations
     private static class TestingTestWithClassLevelUsefulAnnotation
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     @Test
     private abstract static class BaseClassWithClassLevelTrivialAnnotation
     {
         @Test
-        public void test() {}
+        private void test() {}
     }
 
     @ReportBadTestAnnotations.Suppress

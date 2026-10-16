@@ -84,7 +84,7 @@ public class UnwrapAtTimeZoneInComparison
         private final PlannerContext plannerContext;
         private final Session session;
 
-        public Visitor(PlannerContext plannerContext, Session session)
+        Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");

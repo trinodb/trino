@@ -261,7 +261,7 @@ public class TestStaticTokenAwareMetastoreClientFactory
         private final ThriftMetastoreClientFactory delegate;
         private final Map<URI, Integer> attempts = new HashMap<>();
 
-        public ConnectionCountingThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
+        ConnectionCountingThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
         {
             this.delegate = new MockThriftMetastoreClientFactory(clients);
         }
@@ -274,12 +274,12 @@ public class TestStaticTokenAwareMetastoreClientFactory
             return delegate.create(uri, delegationToken);
         }
 
-        public void resetConnectionAttempts()
+        void resetConnectionAttempts()
         {
             attempts.clear();
         }
 
-        public Map<URI, Integer> connectionAttempts()
+        Map<URI, Integer> connectionAttempts()
         {
             return ImmutableMap.copyOf(attempts);
         }

@@ -298,7 +298,7 @@ public final class SequenceFileReader
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
         private final ValueType valueType;
 
-        public SingleValueReader(
+        private SingleValueReader(
                 Location location,
                 long fileSize,
                 TrinoDataInputStream input,
@@ -413,7 +413,7 @@ public final class SequenceFileReader
 
         private ValuesBlock valuesBlock = ValuesBlock.EMPTY_VALUES_BLOCK;
 
-        public BlockCompressedValueReader(
+        private BlockCompressedValueReader(
                 Location location,
                 long fileSize,
                 TrinoDataInputStream input,
@@ -509,14 +509,14 @@ public final class SequenceFileReader
         {
             private static final int INSTANCE_SIZE = instanceSize(ValuesBlock.class);
 
-            public static final ValuesBlock EMPTY_VALUES_BLOCK = new ValuesBlock(0, EMPTY_SLICE.getInput(), EMPTY_SLICE.getInput(), TEXT);
+            private static final ValuesBlock EMPTY_VALUES_BLOCK = new ValuesBlock(0, EMPTY_SLICE.getInput(), EMPTY_SLICE.getInput(), TEXT);
 
             private final SliceInput lengthsInput;
             private final SliceInput dataInput;
             private final ValueType valueType;
             private int remainingRows;
 
-            public ValuesBlock(int rowCount, SliceInput lengthsInput, SliceInput dataInput, ValueType valueType)
+            private ValuesBlock(int rowCount, SliceInput lengthsInput, SliceInput dataInput, ValueType valueType)
             {
                 checkArgument(rowCount >= 0, "rowCount is negative");
                 this.remainingRows = rowCount;
@@ -525,12 +525,12 @@ public final class SequenceFileReader
                 this.valueType = requireNonNull(valueType, "valueType is null");
             }
 
-            public long getRetainedSize()
+            private long getRetainedSize()
             {
                 return INSTANCE_SIZE + lengthsInput.getRetainedSize() + dataInput.getRetainedSize();
             }
 
-            public boolean readLine(LineBuffer lineBuffer)
+            private boolean readLine(LineBuffer lineBuffer)
                     throws IOException
             {
                 if (remainingRows <= 0) {
@@ -560,18 +560,18 @@ public final class SequenceFileReader
         private final DynamicSliceOutput compressedBuffer = new DynamicSliceOutput(0);
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
 
-        public ReadBuffer(TrinoDataInputStream input, ValueDecompressor decompressor)
+        private ReadBuffer(TrinoDataInputStream input, ValueDecompressor decompressor)
         {
             this.input = requireNonNull(input, "input is null");
             this.decompressor = decompressor;
         }
 
-        public long getRetainedSize()
+        long getRetainedSize()
         {
             return INSTANCE_SIZE + input.getRetainedSize() + compressedBuffer.getRetainedSize() + uncompressedBuffer.getRetainedSize();
         }
 
-        public Slice readBlock(int length)
+        Slice readBlock(int length)
                 throws IOException
         {
             compressedBuffer.reset();

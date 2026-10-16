@@ -1241,7 +1241,7 @@ public class TestParquetReader
         private final List<Integer> tailReadLengths = new ArrayList<>();
         private long readBytes;
 
-        public RecordingParquetDataSource(Slice input)
+        RecordingParquetDataSource(Slice input)
         {
             this.input = input;
         }
@@ -1292,7 +1292,7 @@ public class TestParquetReader
             throw new UnsupportedOperationException();
         }
 
-        public List<Integer> getTailReadLengths()
+        List<Integer> getTailReadLengths()
         {
             return tailReadLengths;
         }

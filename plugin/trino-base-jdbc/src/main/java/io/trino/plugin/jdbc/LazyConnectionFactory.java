@@ -60,7 +60,7 @@ public final class LazyConnectionFactory
         @GuardedBy("this")
         private boolean closed;
 
-        public LazyConnection(SqlSupplier<Connection> connectionSupplier)
+        private LazyConnection(SqlSupplier<Connection> connectionSupplier)
         {
             this.connectionSupplier = requireNonNull(connectionSupplier, "connectionSupplier is null");
         }

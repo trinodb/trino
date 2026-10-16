@@ -428,7 +428,7 @@ public class PinotSqlFormatter
         private final Pattern<Predicate> pattern;
         private final String operator;
 
-        public ValuesListPredicateRule(Predicate.Type predicateType, String operator)
+        private ValuesListPredicateRule(Predicate.Type predicateType, String operator)
         {
             requireNonNull(predicateType, "predicateType is null");
             this.operator = requireNonNull(operator, "operator is null");
@@ -495,7 +495,7 @@ public class PinotSqlFormatter
         private final Pattern<Predicate> pattern;
         private final String functionName;
 
-        public BinaryFunctionPredicateRule(Predicate.Type predicateType, String functionName)
+        private BinaryFunctionPredicateRule(Predicate.Type predicateType, String functionName)
         {
             requireNonNull(predicateType, "predicateType is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
@@ -527,7 +527,7 @@ public class PinotSqlFormatter
         private final Pattern<Predicate> pattern;
         private final String operator;
 
-        public ExpressionOnlyPredicate(Predicate.Type predicateType, String operator)
+        private ExpressionOnlyPredicate(Predicate.Type predicateType, String operator)
         {
             requireNonNull(predicateType, "predicateType is null");
             this.operator = requireNonNull(operator, "operator is null");

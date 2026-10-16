@@ -73,7 +73,7 @@ public class ArraySortAfterArrayDistinct
         private final Metadata metadata;
         private final Session session;
 
-        public Visitor(Metadata metadata, Session session)
+        Visitor(Metadata metadata, Session session)
         {
             this.metadata = metadata;
             this.session = session;

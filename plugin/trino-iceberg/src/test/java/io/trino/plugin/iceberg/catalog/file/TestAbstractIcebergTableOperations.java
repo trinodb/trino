@@ -290,7 +290,7 @@ public class TestAbstractIcebergTableOperations
     {
         private final String committedMetadataLocation;
 
-        public TestingFileMetastoreTableOperations(FileIO fileIo, HiveMetastore metastore, String committedMetadataLocation)
+        private TestingFileMetastoreTableOperations(FileIO fileIo, HiveMetastore metastore, String committedMetadataLocation)
         {
             super(fileIo, createPerTransactionCache(metastore, 1000), SESSION, "test-database", "test-table", Optional.of("test-owner"), Optional.empty(), ENCRYPTION_MANAGER_FACTORY);
             this.committedMetadataLocation = committedMetadataLocation;

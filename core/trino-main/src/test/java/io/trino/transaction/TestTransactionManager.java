@@ -212,7 +212,7 @@ public class TestTransactionManager
     {
         private final ScheduledExecutorService executorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("idle-check"));
 
-        public ScheduledExecutorService getExecutor()
+        ScheduledExecutorService getExecutor()
         {
             return executorService;
         }

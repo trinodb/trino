@@ -854,7 +854,7 @@ class AggregationAnalyzer
     {
         private final Function<FunctionCall, ResolvedFunction> functionResolver;
 
-        public AggregationFunctionVisitor(Function<FunctionCall, ResolvedFunction> functionResolver)
+        AggregationFunctionVisitor(Function<FunctionCall, ResolvedFunction> functionResolver)
         {
             this.functionResolver = functionResolver;
         }

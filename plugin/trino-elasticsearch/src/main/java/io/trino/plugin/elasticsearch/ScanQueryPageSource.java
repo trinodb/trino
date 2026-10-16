@@ -288,7 +288,7 @@ public class ScanQueryPageSource
         private long readTimeNanos;
         private long totalRecordCount;
 
-        public SearchDocumentIterator(ElasticsearchClient client, Supplier<SearchResult> first, OptionalLong limit)
+        private SearchDocumentIterator(ElasticsearchClient client, Supplier<SearchResult> first, OptionalLong limit)
         {
             this.client = client;
             this.first = first;
@@ -296,7 +296,7 @@ public class ScanQueryPageSource
             this.totalRecordCount = 0;
         }
 
-        public long getReadTimeNanos()
+        private long getReadTimeNanos()
         {
             return readTimeNanos;
         }
@@ -340,7 +340,7 @@ public class ScanQueryPageSource
             currentPosition = 0;
         }
 
-        public void close()
+        private void close()
         {
             if (scrollId != null) {
                 try {

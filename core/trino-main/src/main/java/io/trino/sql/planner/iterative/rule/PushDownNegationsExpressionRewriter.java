@@ -54,7 +54,7 @@ public final class PushDownNegationsExpressionRewriter
         private final Metadata metadata;
         private final CharVarcharCoercion charVarcharCoercion;
 
-        public Visitor(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
+        Visitor(Metadata metadata, CharVarcharCoercion charVarcharCoercion)
         {
             this.metadata = metadata;
             this.charVarcharCoercion = charVarcharCoercion;

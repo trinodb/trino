@@ -59,12 +59,12 @@ public class TestCoalescingCounter
         private final ZoneId zone;
         private Instant instant;
 
-        public TestingClock()
+        TestingClock()
         {
             this(ZoneOffset.UTC);
         }
 
-        public TestingClock(ZoneId zone)
+        TestingClock(ZoneId zone)
         {
             this(zone, Instant.ofEpochMilli(1575000618963L));
         }
@@ -93,7 +93,7 @@ public class TestCoalescingCounter
             return instant;
         }
 
-        public void increment(long delta, TimeUnit unit)
+        void increment(long delta, TimeUnit unit)
         {
             checkArgument(delta >= 0, "delta is negative");
             instant = instant.plusNanos(unit.toNanos(delta));

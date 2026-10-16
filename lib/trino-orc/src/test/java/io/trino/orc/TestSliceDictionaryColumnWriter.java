@@ -281,7 +281,7 @@ public class TestSliceDictionaryColumnWriter
             return 0;
         }
 
-        public List<BloomFilter> getBloomFilters()
+        private List<BloomFilter> getBloomFilters()
         {
             requireNonNull(bloomFilters, "bloomFilters is null");
             return bloomFilters;

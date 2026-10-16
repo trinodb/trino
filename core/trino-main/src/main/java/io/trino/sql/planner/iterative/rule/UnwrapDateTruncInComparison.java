@@ -131,7 +131,7 @@ public class UnwrapDateTruncInComparison
         private final IrExpressionEvaluator evaluator;
         private final IrExpressionOptimizer optimizer;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
+        Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -280,7 +280,7 @@ public class UnwrapDateTruncInComparison
             });
         }
 
-        public Expression trueIfNotNull(Expression argument)
+        Expression trueIfNotNull(Expression argument)
         {
             return or(not(plannerContext.getMetadata(), getCharVarcharCoercion(session), new IsNull(argument)), new Constant(BOOLEAN, null));
         }

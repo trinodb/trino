@@ -458,9 +458,9 @@ class InMemoryGlueCache
         private final Lock writeLock = new ReentrantLock();
         private volatile V value;
 
-        public ValueHolder() {}
+        ValueHolder() {}
 
-        public V getValue(Supplier<V> loader)
+        V getValue(Supplier<V> loader)
         {
             if (value == null) {
                 writeLock.lock();
@@ -479,7 +479,7 @@ class InMemoryGlueCache
             return value;
         }
 
-        public Optional<V> getValueIfPresent()
+        Optional<V> getValueIfPresent()
         {
             return Optional.ofNullable(value);
         }
@@ -487,7 +487,7 @@ class InMemoryGlueCache
         /**
          * Overwrite the value unless it is currently being loaded by another thread.
          */
-        public void tryOverwrite(V value)
+        void tryOverwrite(V value)
         {
             if (writeLock.tryLock()) {
                 try {
@@ -505,7 +505,7 @@ class InMemoryGlueCache
         private final Lock writeLock = new ReentrantLock();
         private final Map<String, Optional<HiveColumnStatistics>> cache = new ConcurrentHashMap<>();
 
-        public Map<String, HiveColumnStatistics> getColumnStatistics(Set<String> columnNames, Function<Set<String>, Map<String, HiveColumnStatistics>> loader)
+        Map<String, HiveColumnStatistics> getColumnStatistics(Set<String> columnNames, Function<Set<String>, Map<String, HiveColumnStatistics>> loader)
         {
             Set<String> missingColumnNames = new HashSet<>();
             Map<String, HiveColumnStatistics> result = new ConcurrentHashMap<>();

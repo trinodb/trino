@@ -155,9 +155,9 @@ public class MaterializedRow
 
     private abstract static class ApproximateNumeric
     {
-        public abstract Number getValue();
+        abstract Number getValue();
 
-        protected abstract Number getNormalizedValue();
+        abstract Number getNormalizedValue();
 
         @Override
         public String toString()

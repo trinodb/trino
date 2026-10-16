@@ -408,33 +408,33 @@ class ArbitraryDistributionSplitAssigner
             this.partitionId = partitionId;
         }
 
-        public int getPartitionId()
+        int getPartitionId()
         {
             return partitionId;
         }
 
-        public void assignSplit(long sizeInBytes)
+        void assignSplit(long sizeInBytes)
         {
             assignedDataSizeInBytes += sizeInBytes;
             assignedSplitCount++;
         }
 
-        public long getAssignedDataSizeInBytes()
+        long getAssignedDataSizeInBytes()
         {
             return assignedDataSizeInBytes;
         }
 
-        public int getAssignedSplitCount()
+        int getAssignedSplitCount()
         {
             return assignedSplitCount;
         }
 
-        public boolean isFull()
+        boolean isFull()
         {
             return full;
         }
 
-        public void setFull(boolean full)
+        void setFull(boolean full)
         {
             this.full = full;
         }

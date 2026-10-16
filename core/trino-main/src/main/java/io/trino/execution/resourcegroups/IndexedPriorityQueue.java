@@ -202,17 +202,17 @@ public final class IndexedPriorityQueue<E>
             this.generation = generation;
         }
 
-        public E getValue()
+        E getValue()
         {
             return value;
         }
 
-        public long getPriority()
+        long getPriority()
         {
             return priority;
         }
 
-        public long getGeneration()
+        long getGeneration()
         {
             return generation;
         }

@@ -333,7 +333,7 @@ public class TestDictionaryAwarePageProjection
     private static class NegativeValueException
             extends RuntimeException
     {
-        public NegativeValueException(long value)
+        NegativeValueException(long value)
         {
             super("value is negative: " + value);
         }

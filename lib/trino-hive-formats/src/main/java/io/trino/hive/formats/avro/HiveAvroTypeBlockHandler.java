@@ -334,7 +334,7 @@ public class HiveAvroTypeBlockHandler
     {
         private final ReadErrorReadAction action;
 
-        public TypeErrorThrower(ReadErrorReadAction action)
+        private TypeErrorThrower(ReadErrorReadAction action)
         {
             this.action = requireNonNull(action, "action is null");
         }
@@ -352,7 +352,7 @@ public class HiveAvroTypeBlockHandler
     {
         private final Type type;
 
-        public HiveVarcharTypeBlockBuildingDecoder(Type type)
+        private HiveVarcharTypeBlockBuildingDecoder(Type type)
         {
             this.type = requireNonNull(type, "type is null");
         }
@@ -376,7 +376,7 @@ public class HiveAvroTypeBlockHandler
     {
         private final Type type;
 
-        public HiveCharTypeBlockBuildingDecoder(Type type)
+        private HiveCharTypeBlockBuildingDecoder(Type type)
         {
             this.type = requireNonNull(type, "type is null");
         }
@@ -402,7 +402,7 @@ public class HiveAvroTypeBlockHandler
         private final LongIoFunction<Decoder> longDecoder;
         private final AtomicReference<ZoneId> convertToTimezone;
 
-        public HiveCoercesedTimestampBlockBuildingDecoder(TimestampType hiveSessionTimestamp, AvroReadAction avroReadAction, AtomicReference<ZoneId> convertToTimezone)
+        private HiveCoercesedTimestampBlockBuildingDecoder(TimestampType hiveSessionTimestamp, AvroReadAction avroReadAction, AtomicReference<ZoneId> convertToTimezone)
         {
             checkArgument(avroReadAction instanceof LongRead, "TimestampMillis type can only be read from Long Avro type");
             this.hiveSessionTimestamp = requireNonNull(hiveSessionTimestamp, "hiveSessionTimestamp is null");

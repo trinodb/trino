@@ -606,7 +606,7 @@ public class TestCassandraTypeMapping
         private final QueryRunner queryRunner;
         private final Session session;
 
-        public CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session)
+        private CassandraCreateAsSelectDataSetup(TrinoSqlExecutor sqlExecutor, String tableNamePrefix, QueryRunner queryRunner, Session session)
         {
             super(sqlExecutor, tableNamePrefix);
             this.queryRunner = queryRunner;

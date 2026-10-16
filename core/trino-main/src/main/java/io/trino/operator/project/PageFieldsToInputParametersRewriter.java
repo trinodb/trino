@@ -88,12 +88,12 @@ public final class PageFieldsToInputParametersRewriter
             this.layout = layout;
         }
 
-        public List<Integer> getInputChannels()
+        List<Integer> getInputChannels()
         {
             return ImmutableList.copyOf(inputChannels);
         }
 
-        public Set<Integer> getEagerlyLoadedChannels()
+        Set<Integer> getEagerlyLoadedChannels()
         {
             return ImmutableSet.copyOf(eagerlyLoadedChannels);
         }

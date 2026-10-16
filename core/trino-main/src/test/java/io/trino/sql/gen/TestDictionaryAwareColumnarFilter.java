@@ -396,18 +396,18 @@ public class TestDictionaryAwareColumnarFilter
         private int lastInputPositionCount;
         private int invocationCount;
 
-        public TestingDictionaryFilter(boolean selectRange, Class<? extends Block> expectedType)
+        TestingDictionaryFilter(boolean selectRange, Class<? extends Block> expectedType)
         {
             this.selectRange = selectRange;
             this.expectedType = expectedType;
         }
 
-        public int getLastInputPositionCount()
+        int getLastInputPositionCount()
         {
             return lastInputPositionCount;
         }
 
-        public int getInvocationCount()
+        int getInvocationCount()
         {
             return invocationCount;
         }
@@ -492,7 +492,7 @@ public class TestDictionaryAwareColumnarFilter
     private static class NegativeValueException
             extends RuntimeException
     {
-        public NegativeValueException(long value)
+        NegativeValueException(long value)
         {
             super("value is negative: " + value);
         }

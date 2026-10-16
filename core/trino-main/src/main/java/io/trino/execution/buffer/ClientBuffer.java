@@ -452,22 +452,22 @@ class ClientBuffer
             this.maxSize = maxSize;
         }
 
-        public long getSequenceId()
+        long getSequenceId()
         {
             return sequenceId;
         }
 
-        public DataSize getMaxSize()
+        DataSize getMaxSize()
         {
             return maxSize;
         }
 
-        public SettableFuture<BufferResult> getResultFuture()
+        SettableFuture<BufferResult> getResultFuture()
         {
             return resultFuture;
         }
 
-        public void completeResultFutureWithEmpty()
+        void completeResultFutureWithEmpty()
         {
             resultFuture.set(emptyResults(taskInstanceId, sequenceId, false));
         }

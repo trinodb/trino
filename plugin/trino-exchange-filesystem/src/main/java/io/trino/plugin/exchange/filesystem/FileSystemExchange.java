@@ -396,7 +396,7 @@ public class FileSystemExchange
 
     private record CommittedTaskAttempt(int partitionId, int attemptId)
     {
-        public CommittedTaskAttempt
+        private CommittedTaskAttempt
         {
             checkArgument(partitionId >= 0, "partitionId is expected to be greater than or equal to zero: %s", partitionId);
             checkArgument(attemptId >= 0, "attemptId is expected to be greater than or equal to zero: %s", attemptId);

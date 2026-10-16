@@ -89,17 +89,17 @@ public class KafkaPageSink
             }
         }
 
-        public long getErrorCount()
+        private long getErrorCount()
         {
             return errorCount.get();
         }
 
-        public long getWrittenBytes()
+        private long getWrittenBytes()
         {
             return writtenBytes.get();
         }
 
-        public Exception getFirstException()
+        private Exception getFirstException()
         {
             return firstException.get();
         }

@@ -137,7 +137,7 @@ public class CassandraCreateAndInsertDataSetup
     private static class CassandraTestTable
             extends TestTable
     {
-        public CassandraTestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
+        private CassandraTestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
         {
             super(sqlExecutor, namePrefix, tableDefinition);
         }

@@ -122,12 +122,12 @@ public class TestOperationTimer
             this.trackCpuTime = trackCpuTime;
         }
 
-        public OperationTiming getTiming()
+        OperationTiming getTiming()
         {
             return timing;
         }
 
-        public void record(Consumer<OperationTiming> timer)
+        void record(Consumer<OperationTiming> timer)
         {
             previousWallNanos = timing.getWallNanos();
             previousCpuNanos = timing.getCpuNanos();

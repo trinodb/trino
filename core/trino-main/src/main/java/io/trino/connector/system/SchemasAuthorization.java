@@ -139,7 +139,7 @@ public class SchemasAuthorization
 
     private record CatalogSchemaAuthorization(String catalog, SchemaAuthorization schemaAuthorization)
     {
-        public CatalogSchemaAuthorization
+        CatalogSchemaAuthorization
         {
             requireNonNull(catalog, "catalog is null");
             requireNonNull(schemaAuthorization, "schemaAuthorization is null");

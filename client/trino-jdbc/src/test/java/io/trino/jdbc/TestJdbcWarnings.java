@@ -301,11 +301,11 @@ public class TestJdbcWarnings
 
     private static class WarningEntry
     {
-        public final int vendorCode;
-        public final String sqlState;
-        public final String message;
+        private final int vendorCode;
+        private final String sqlState;
+        private final String message;
 
-        public WarningEntry(Throwable throwable)
+        private WarningEntry(Throwable throwable)
         {
             requireNonNull(throwable, "throwable is null");
             assertThat(throwable instanceof SQLWarning).isTrue();

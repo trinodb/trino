@@ -236,7 +236,7 @@ public class TestThriftIndexPageSource
         private final boolean shuffleSplits;
         private final boolean twoSplitBatches;
 
-        public TestingThriftService(int rowsPerSplit, boolean shuffleSplits, boolean twoSplitBatches)
+        private TestingThriftService(int rowsPerSplit, boolean shuffleSplits, boolean twoSplitBatches)
         {
             this.rowsPerSplit = rowsPerSplit;
             this.shuffleSplits = shuffleSplits;

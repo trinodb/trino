@@ -64,7 +64,7 @@ public record SkipFieldRecordFieldReadAction(SkipAction skipAction)
     {
         private final SkipAction elementSkipAction;
 
-        public ArraySkipAction(Schema elementSchema)
+        private ArraySkipAction(Schema elementSchema)
         {
             elementSkipAction = createSkipActionForSchema(requireNonNull(elementSchema, "elementSchema is null"));
         }
@@ -86,7 +86,7 @@ public record SkipFieldRecordFieldReadAction(SkipAction skipAction)
     {
         private final SkipFieldRecordFieldReadAction.SkipAction valueSkipAction;
 
-        public MapSkipAction(Schema valueSchema)
+        private MapSkipAction(Schema valueSchema)
         {
             valueSkipAction = createSkipActionForSchema(requireNonNull(valueSchema, "valueSchema is null"));
         }
@@ -109,7 +109,7 @@ public record SkipFieldRecordFieldReadAction(SkipAction skipAction)
     {
         private final SkipFieldRecordFieldReadAction.SkipAction[] fieldSkips;
 
-        public RecordSkipAction(List<Schema.Field> fields)
+        private RecordSkipAction(List<Schema.Field> fields)
         {
             fieldSkips = new SkipFieldRecordFieldReadAction.SkipAction[requireNonNull(fields, "fields is null").size()];
             for (int i = 0; i < fields.size(); i++) {

@@ -123,13 +123,13 @@ public class MergingPageIterator
         private final Page page;
         private final int position;
 
-        public PagePosition(Page page, int position)
+        PagePosition(Page page, int position)
         {
             this.page = requireNonNull(page, "page is null");
             this.position = position;
         }
 
-        public void appendTo(PageBuilder pageBuilder)
+        void appendTo(PageBuilder pageBuilder)
         {
             appendPositionTo(page, position, pageBuilder);
         }

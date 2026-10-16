@@ -591,7 +591,7 @@ public class SliceDictionaryColumnWriter
         private final int valueCount;
         private final ColumnStatistics columnStatistics;
 
-        public DictionaryRowGroup(IntBigArray dictionaryIndexes, int valueCount, int dictionaryEntryCount, ColumnStatistics columnStatistics)
+        DictionaryRowGroup(IntBigArray dictionaryIndexes, int valueCount, int dictionaryEntryCount, ColumnStatistics columnStatistics)
         {
             requireNonNull(dictionaryIndexes, "dictionaryIndexes is null");
             checkArgument(valueCount >= 0, "valueCount is negative");
@@ -611,7 +611,7 @@ public class SliceDictionaryColumnWriter
             }
         }
 
-        public int[] getDictionaryIndexes()
+        int[] getDictionaryIndexes()
         {
             int[] indexes = new int[valueCount];
             int offset = 0;
@@ -626,17 +626,17 @@ public class SliceDictionaryColumnWriter
             return indexes;
         }
 
-        public int getValueCount()
+        int getValueCount()
         {
             return valueCount;
         }
 
-        public ColumnStatistics getColumnStatistics()
+        ColumnStatistics getColumnStatistics()
         {
             return columnStatistics;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE +
                     sizeOf(packedIndexes) +

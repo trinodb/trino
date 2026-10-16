@@ -59,9 +59,9 @@ public class StatisticsAssertion
 
     private static class MetricsCheck
     {
-        public final Metric metric;
-        public final MetricComparisonStrategy strategy;
-        public final MetricComparison.Result expectedComparisonResult;
+        private final Metric metric;
+        private final MetricComparisonStrategy strategy;
+        private final MetricComparison.Result expectedComparisonResult;
 
         MetricsCheck(Metric metric, MetricComparisonStrategy strategy, MetricComparison.Result expectedComparisonResult)
         {

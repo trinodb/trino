@@ -125,27 +125,27 @@ public class ResourceGroupNameTemplate
             this.literal = literal;
         }
 
-        public static NameFragment variable(String variable)
+        private static NameFragment variable(String variable)
         {
             return new NameFragment(variable, null);
         }
 
-        public static NameFragment literal(String literal)
+        private static NameFragment literal(String literal)
         {
             return new NameFragment(null, literal);
         }
 
-        public boolean isVariable()
+        private boolean isVariable()
         {
             return variable != null;
         }
 
-        public String getVariable()
+        private String getVariable()
         {
             return variable;
         }
 
-        public String getLiteral()
+        private String getLiteral()
         {
             return literal;
         }

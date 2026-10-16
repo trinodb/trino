@@ -237,7 +237,7 @@ public class TestHdfsFileSystemKerberos
             return delegate.getUserGroupInformation();
         }
 
-        public int getInvocations()
+        private int getInvocations()
         {
             return invocations.get();
         }

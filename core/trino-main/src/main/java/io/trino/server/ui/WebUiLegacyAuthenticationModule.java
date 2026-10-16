@@ -91,7 +91,7 @@ public class WebUiLegacyAuthenticationModule
         private final String type;
         private final Module module;
 
-        public ConditionalWebUiAuthenticationModule(String type, Module module)
+        ConditionalWebUiAuthenticationModule(String type, Module module)
         {
             this.type = requireNonNull(type, "type is null");
             this.module = requireNonNull(module, "module is null");

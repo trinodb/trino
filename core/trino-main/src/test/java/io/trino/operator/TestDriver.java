@@ -430,7 +430,7 @@ public class TestDriver
             return operatorContext;
         }
 
-        public void unlock()
+        void unlock()
         {
             unlockLatch.countDown();
         }
@@ -518,7 +518,7 @@ public class TestDriver
     {
         private final SettableFuture<Void> finished = SettableFuture.create();
 
-        public BlockedSinkOperator(
+        BlockedSinkOperator(
                 OperatorContext operatorContext,
                 Consumer<Page> pageConsumer,
                 Function<Page, Page> pagePreprocessor)
@@ -544,7 +544,7 @@ public class TestDriver
     {
         private final SettableFuture<Void> blocked = SettableFuture.create();
 
-        public BlockedOperator(
+        BlockedOperator(
                 OperatorContext operatorContext,
                 Consumer<Page> pageConsumer,
                 Function<Page, Page> pagePreprocessor)
@@ -577,7 +577,7 @@ public class TestDriver
     private static class AlwaysBlockedTableScanOperator
             extends TableScanOperator
     {
-        public AlwaysBlockedTableScanOperator(
+        AlwaysBlockedTableScanOperator(
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
@@ -597,7 +597,7 @@ public class TestDriver
     private static class AlwaysBlockedMemoryRevokingTableScanOperator
             extends TableScanOperator
     {
-        public AlwaysBlockedMemoryRevokingTableScanOperator(
+        AlwaysBlockedMemoryRevokingTableScanOperator(
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
@@ -622,7 +622,7 @@ public class TestDriver
     private static class NotBlockedTableScanOperator
             extends TableScanOperator
     {
-        public NotBlockedTableScanOperator(
+        NotBlockedTableScanOperator(
                 OperatorContext operatorContext,
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,

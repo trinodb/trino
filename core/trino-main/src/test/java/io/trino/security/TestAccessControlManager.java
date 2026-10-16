@@ -307,7 +307,7 @@ public class TestAccessControlManager
             assertThatThrownBy(() ->
                     accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
                     {
-                        @SuppressWarnings("unused")
+                        @SuppressWarnings({"unused", "EffectivelyPrivate"})
                         public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName) {}
                     })))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -316,7 +316,7 @@ public class TestAccessControlManager
             assertThatThrownBy(() ->
                     accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
                     {
-                        @SuppressWarnings("unused")
+                        @SuppressWarnings({"unused", "EffectivelyPrivate"})
                         public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption) {}
                     })))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -325,7 +325,7 @@ public class TestAccessControlManager
             assertThatThrownBy(() ->
                     accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
                     {
-                        @SuppressWarnings("unused")
+                        @SuppressWarnings({"unused", "EffectivelyPrivate"})
                         public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName) {}
                     })))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -334,7 +334,7 @@ public class TestAccessControlManager
             assertThatThrownBy(() ->
                     accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
                     {
-                        @SuppressWarnings("unused")
+                        @SuppressWarnings({"unused", "EffectivelyPrivate"})
                         public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, FunctionKind functionKind, CatalogSchemaRoutineName functionName) {}
                     })))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -343,7 +343,7 @@ public class TestAccessControlManager
             assertThatThrownBy(() ->
                     accessControlManager.setSystemAccessControls(ImmutableList.of(new AllowAllSystemAccessControl()
                     {
-                        @SuppressWarnings("unused")
+                        @SuppressWarnings({"unused", "EffectivelyPrivate"})
                         public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption) {}
                     })))
                     .isInstanceOf(IllegalArgumentException.class)

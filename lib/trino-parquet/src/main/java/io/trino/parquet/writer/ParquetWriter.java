@@ -483,13 +483,13 @@ public class ParquetWriter
             this.parquetTimeZone = parquetTimeZone;
         }
 
-        public void addRowGroup(RowGroup rowGroup)
+        void addRowGroup(RowGroup rowGroup)
         {
             checkState(rowGroupBuilder != null, "rowGroupBuilder is null");
             rowGroupBuilder.add(rowGroup);
         }
 
-        public FileMetaData createFileMetadata()
+        FileMetaData createFileMetadata()
         {
             checkState(rowGroupBuilder != null, "rowGroupBuilder is null");
             List<RowGroup> rowGroups = rowGroupBuilder.build();

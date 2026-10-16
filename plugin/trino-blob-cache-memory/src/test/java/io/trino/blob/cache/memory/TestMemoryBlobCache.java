@@ -179,7 +179,7 @@ public class TestMemoryBlobCache
         private long readBytes;
         private boolean closed;
 
-        public TestingBlobSource(byte[] content)
+        private TestingBlobSource(byte[] content)
         {
             this.content = content;
         }
@@ -207,12 +207,12 @@ public class TestMemoryBlobCache
             closed = true;
         }
 
-        public long readBytes()
+        private long readBytes()
         {
             return readBytes;
         }
 
-        public boolean isClosed()
+        private boolean isClosed()
         {
             return closed;
         }

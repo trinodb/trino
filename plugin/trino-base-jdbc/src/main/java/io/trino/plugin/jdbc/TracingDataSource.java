@@ -56,7 +56,7 @@ public class TracingDataSource
         private final String connectionUrl;
         private final Properties properties;
 
-        public JdbcDataSource(Driver driver, String connectionUrl, Properties properties)
+        private JdbcDataSource(Driver driver, String connectionUrl, Properties properties)
         {
             this.driver = requireNonNull(driver, "driver is null");
             this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");

@@ -82,7 +82,7 @@ public class NodeTaskMap
         private final AtomicLong nodeTotalPartitionedSplitWeight = new AtomicLong();
         private final FinalizerService finalizerService;
 
-        public NodeTasks(FinalizerService finalizerService)
+        NodeTasks(FinalizerService finalizerService)
         {
             this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
         }
@@ -109,7 +109,7 @@ public class NodeTaskMap
             }
         }
 
-        public PartitionedSplitCountTracker createPartitionedSplitCountTracker(TaskId taskId)
+        PartitionedSplitCountTracker createPartitionedSplitCountTracker(TaskId taskId)
         {
             requireNonNull(taskId, "taskId is null");
 
@@ -133,7 +133,7 @@ public class NodeTaskMap
             private final AtomicInteger localPartitionedSplitCount = new AtomicInteger();
             private final AtomicLong localPartitionedSplitWeight = new AtomicLong();
 
-            public TaskPartitionedSplitCountTracker(TaskId taskId, AtomicInteger nodeTotalPartitionedSplitCount, AtomicLong nodeTotalPartitionedSplitWeight)
+            TaskPartitionedSplitCountTracker(TaskId taskId, AtomicInteger nodeTotalPartitionedSplitCount, AtomicLong nodeTotalPartitionedSplitWeight)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
                 this.nodeTotalPartitionedSplitCount = requireNonNull(nodeTotalPartitionedSplitCount, "nodeTotalPartitionedSplitCount is null");
@@ -182,7 +182,7 @@ public class NodeTaskMap
                 nodeTotalPartitionedSplitWeight.addAndGet(-leakedWeight);
             }
 
-            public void cleanup()
+            void cleanup()
             {
                 clearLocalSplitInfo(true);
             }

@@ -111,7 +111,7 @@ public class RuleBuilder
             return delegate.calculateStats(node, context);
         }
 
-        public void setNodeStats(PlanNodeId nodeId, PlanNodeStatsEstimate nodeStats)
+        void setNodeStats(PlanNodeId nodeId, PlanNodeStatsEstimate nodeStats)
         {
             stats.put(nodeId, nodeStats);
         }

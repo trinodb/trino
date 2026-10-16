@@ -207,7 +207,7 @@ class TestResultRowsDecoder
         private final AtomicInteger loaded;
         private final AtomicInteger acknowledged;
 
-        public StaticLoader(AtomicInteger loaded, AtomicInteger acknowledged)
+        private StaticLoader(AtomicInteger loaded, AtomicInteger acknowledged)
         {
             this.loaded = requireNonNull(loaded, "loaded is null");
             this.acknowledged = requireNonNull(acknowledged, "acknowledged is null");

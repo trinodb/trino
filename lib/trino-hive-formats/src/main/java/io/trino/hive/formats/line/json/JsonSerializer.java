@@ -237,7 +237,7 @@ public class JsonSerializer
         /**
          * Writes the combined field name and value for the given position into the JSON output
          */
-        public void writeField(JsonGenerator generator, Block block, int position)
+        private void writeField(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             generator.writeFieldName(fieldName);

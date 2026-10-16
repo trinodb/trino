@@ -799,7 +799,7 @@ public class TestSourcePartitionedScheduler
         private CompletableFuture<?> notEmptyFuture = new CompletableFuture<>();
         private boolean closed;
 
-        public QueuedSplitSource(Supplier<ConnectorSplit> splitFactory)
+        QueuedSplitSource(Supplier<ConnectorSplit> splitFactory)
         {
             this.splitFactory = requireNonNull(splitFactory, "splitFactory is null");
         }

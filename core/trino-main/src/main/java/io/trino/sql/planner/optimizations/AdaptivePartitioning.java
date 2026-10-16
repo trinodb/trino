@@ -230,7 +230,7 @@ public class AdaptivePartitioning
                     node.getOrderingScheme());
         }
 
-        public Set<PlanNodeId> getChangedPlanIds()
+        Set<PlanNodeId> getChangedPlanIds()
         {
             return ImmutableSet.copyOf(changedPlanIds);
         }

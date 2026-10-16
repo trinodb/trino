@@ -525,7 +525,7 @@ public final class AggregationFromAnnotationsParser
             List<String> typeParameters,
             Optional<String> serializedType)
     {
-        public static StateMetadata create(AccumulatorStateMetadata metadata)
+        static StateMetadata create(AccumulatorStateMetadata metadata)
         {
             if (metadata == null) {
                 return new StateMetadata(Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty());
@@ -620,7 +620,7 @@ public final class AggregationFromAnnotationsParser
         private final Constructor<T> constructor;
         private final List<ImplementationDependency> dependencies;
 
-        public TypedFactory(Constructor<?> constructor, List<ImplementationDependency> dependencies)
+        TypedFactory(Constructor<?> constructor, List<ImplementationDependency> dependencies)
         {
             //noinspection unchecked
             this.constructor = (Constructor<T>) constructor;

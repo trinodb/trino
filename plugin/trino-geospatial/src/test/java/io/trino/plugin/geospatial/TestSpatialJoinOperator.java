@@ -707,7 +707,7 @@ public class TestSpatialJoinOperator
     private static class TestInternalJoinFilterFunction
             implements InternalJoinFilterFunction
     {
-        public interface Lambda
+        private interface Lambda
         {
             boolean filter(int leftPosition, Page leftPage, int rightPosition, Page rightPage);
         }

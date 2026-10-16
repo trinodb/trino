@@ -1146,17 +1146,17 @@ public class InternalResourceGroup
             requireNonNull(staged, "staged is null");
         }
 
-        public static StagedResourceUsage zero()
+        static StagedResourceUsage zero()
         {
             return new StagedResourceUsage(ZERO, ZERO);
         }
 
-        public StagedResourceUsage promoteStagedToCurrent()
+        StagedResourceUsage promoteStagedToCurrent()
         {
             return new StagedResourceUsage(staged, staged);
         }
 
-        public StagedResourceUsage stage(ResourceUsage resourceUsage)
+        StagedResourceUsage stage(ResourceUsage resourceUsage)
         {
             return new StagedResourceUsage(current, resourceUsage);
         }

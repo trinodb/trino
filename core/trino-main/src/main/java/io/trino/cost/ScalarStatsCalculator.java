@@ -196,7 +196,7 @@ public class ScalarStatsCalculator
             return false;
         }
 
-        protected SymbolStatsEstimate processArithmetic(Call node)
+        SymbolStatsEstimate processArithmetic(Call node)
         {
             requireNonNull(node, "node is null");
             SymbolStatsEstimate left = process(node.arguments().get(0));

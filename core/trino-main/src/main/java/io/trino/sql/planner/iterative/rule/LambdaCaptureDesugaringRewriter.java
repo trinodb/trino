@@ -53,7 +53,7 @@ public final class LambdaCaptureDesugaringRewriter
     {
         private final SymbolAllocator symbolAllocator;
 
-        public Visitor(SymbolAllocator symbolAllocator)
+        Visitor(SymbolAllocator symbolAllocator)
         {
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
@@ -142,7 +142,7 @@ public final class LambdaCaptureDesugaringRewriter
         final LinkedHashSet<Symbol> referencedSymbols;
         final Set<Symbol> letBoundSymbols;
 
-        public Context()
+        Context()
         {
             this(new LinkedHashSet<>(), ImmutableSet.of());
         }
@@ -153,24 +153,24 @@ public final class LambdaCaptureDesugaringRewriter
             this.letBoundSymbols = letBoundSymbols;
         }
 
-        public LinkedHashSet<Symbol> getReferencedSymbols()
+        LinkedHashSet<Symbol> getReferencedSymbols()
         {
             return referencedSymbols;
         }
 
-        public boolean isLetBoundSymbol(Symbol symbol)
+        boolean isLetBoundSymbol(Symbol symbol)
         {
             return letBoundSymbols.contains(symbol);
         }
 
-        public Context withReferencedSymbols(LinkedHashSet<Symbol> symbols)
+        Context withReferencedSymbols(LinkedHashSet<Symbol> symbols)
         {
             // A Let binding from an enclosing scope is a free variable inside a nested lambda, so
             // it must be captured there. Drop the bindings when crossing a lambda boundary.
             return new Context(symbols, ImmutableSet.of());
         }
 
-        public Context forLetBody(Symbol symbol)
+        Context forLetBody(Symbol symbol)
         {
             return new Context(new LinkedHashSet<>(), ImmutableSet.<Symbol>builder()
                     .addAll(letBoundSymbols)

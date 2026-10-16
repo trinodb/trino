@@ -432,12 +432,12 @@ class FunctionBinder
 
     private record ApplicableFunction(CatalogFunctionMetadata function, GroundSignature boundSignature)
     {
-        public FunctionMetadata functionMetadata()
+        FunctionMetadata functionMetadata()
         {
             return function.functionMetadata();
         }
 
-        public Signature declaredSignature()
+        Signature declaredSignature()
         {
             return function.functionMetadata().getSignature();
         }

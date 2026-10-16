@@ -313,28 +313,28 @@ public final class UnnestingPositionsAppender
         private int[] dictionaryIds;
         private int size;
 
-        public DictionaryIdsBuilder(int initialEntryCount)
+        DictionaryIdsBuilder(int initialEntryCount)
         {
             this.initialEntryCount = initialEntryCount;
             this.dictionaryIds = new int[0];
         }
 
-        public int[] getDictionaryIds()
+        int[] getDictionaryIds()
         {
             return dictionaryIds;
         }
 
-        public int size()
+        int size()
         {
             return size;
         }
 
-        public long getRetainedSizeInBytes()
+        long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOf(dictionaryIds);
         }
 
-        public void appendPositions(IntArrayList positions, DictionaryBlock block)
+        void appendPositions(IntArrayList positions, DictionaryBlock block)
         {
             checkArgument(!positions.isEmpty(), "positions is empty");
             ensureCapacity(size + positions.size());
@@ -345,7 +345,7 @@ public final class UnnestingPositionsAppender
             size += positions.size();
         }
 
-        public void appendRange(DictionaryBlock block, int offset, int length)
+        void appendRange(DictionaryBlock block, int offset, int length)
         {
             checkArgument(length > 0, "block has no positions");
             checkFromIndexSize(offset, length, block.getPositionCount());
@@ -356,7 +356,7 @@ public final class UnnestingPositionsAppender
             size += length;
         }
 
-        public DictionaryIdsBuilder newBuilderLike()
+        DictionaryIdsBuilder newBuilderLike()
         {
             if (size == 0) {
                 return this;

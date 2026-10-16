@@ -390,19 +390,19 @@ public class LazyOutputBuffer
 
         private final SettableFuture<BufferResult> futureResult = SettableFuture.create();
 
-        public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+        PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             this.startingSequenceId = startingSequenceId;
             this.maxSize = requireNonNull(maxSize, "maxSize is null");
         }
 
-        public SettableFuture<BufferResult> getFutureResult()
+        SettableFuture<BufferResult> getFutureResult()
         {
             return futureResult;
         }
 
-        public void process(OutputBuffer delegate)
+        void process(OutputBuffer delegate)
         {
             if (futureResult.isDone()) {
                 return;

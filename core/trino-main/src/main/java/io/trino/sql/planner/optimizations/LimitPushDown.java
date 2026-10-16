@@ -48,18 +48,18 @@ public class LimitPushDown
         private final long count;
         private final boolean partial;
 
-        public LimitContext(long count, boolean partial)
+        LimitContext(long count, boolean partial)
         {
             this.count = count;
             this.partial = partial;
         }
 
-        public long getCount()
+        long getCount()
         {
             return count;
         }
 
-        public boolean isPartial()
+        boolean isPartial()
         {
             return partial;
         }

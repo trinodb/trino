@@ -176,9 +176,9 @@ public class DeltaByteArrayDecoders
             inputLengthsOffset += n;
         }
 
-        protected abstract int truncatedLength(Slice slice, int offset, int length);
+        abstract int truncatedLength(Slice slice, int offset, int length);
 
-        protected void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
+        void readBounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             checkFromToIndex(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
             if (length == 0) {
@@ -224,7 +224,7 @@ public class DeltaByteArrayDecoders
             values.addChunk(inputSlice.slice(0, outputOffset));
         }
 
-        protected void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
+        void readUnbounded(BinaryBuffer values, int offset, int length, int totalInputLength)
         {
             checkFromToIndex(inputLengthsOffset, inputLengthsOffset + length, prefixLengths.length);
             if (length == 0) {
@@ -236,7 +236,7 @@ public class DeltaByteArrayDecoders
             inputLengthsOffset += length;
         }
 
-        protected int getSuffixesLength(int length)
+        int getSuffixesLength(int length)
         {
             int totalSuffixesLength = 0;
             for (int i = 0; i < length; i++) {
@@ -245,7 +245,7 @@ public class DeltaByteArrayDecoders
             return totalSuffixesLength;
         }
 
-        protected int getInputLength(int length)
+        int getInputLength(int length)
         {
             int totalInputLength = 0;
             for (int i = 0; i < length; i++) {
@@ -254,7 +254,7 @@ public class DeltaByteArrayDecoders
             return totalInputLength;
         }
 
-        protected InputLengths getInputAndMaxLength(int length)
+        InputLengths getInputAndMaxLength(int length)
         {
             int totalInputLength = 0;
             int maxLength = 0;
@@ -266,7 +266,7 @@ public class DeltaByteArrayDecoders
             return new InputLengths(totalInputLength, maxLength);
         }
 
-        protected record InputLengths(int totalInputLength, int maxInputLength) {}
+        record InputLengths(int totalInputLength, int maxInputLength) {}
 
         private byte[] readUnbounded(int[] outputOffsets, int offset, int length, int totalInputLength)
         {

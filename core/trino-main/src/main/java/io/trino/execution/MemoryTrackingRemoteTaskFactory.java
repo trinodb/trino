@@ -87,7 +87,7 @@ public class MemoryTrackingRemoteTaskFactory
         private long previousUserMemory;
         private long previousRevocableMemory;
 
-        public UpdatePeakMemory(QueryStateMachine stateMachine)
+        UpdatePeakMemory(QueryStateMachine stateMachine)
         {
             this.stateMachine = stateMachine;
         }

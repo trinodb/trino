@@ -106,7 +106,7 @@ public class TestMongoDynamicFiltering
     {
         private final CompletableFuture<?> isBlocked;
 
-        public BlockedDynamicFilter(CompletableFuture<?> isBlocked)
+        private BlockedDynamicFilter(CompletableFuture<?> isBlocked)
         {
             this.isBlocked = requireNonNull(isBlocked, "isBlocked is null");
         }

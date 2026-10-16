@@ -89,7 +89,7 @@ public class SimpleHttpResponseHandler<T>
     private static class ServiceUnavailableException
             extends RuntimeException
     {
-        public ServiceUnavailableException(URI uri)
+        ServiceUnavailableException(URI uri)
         {
             super("Server returned SERVICE_UNAVAILABLE: " + uri);
         }

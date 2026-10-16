@@ -348,7 +348,7 @@ public class DictionaryCompressionOptimizer
         private long pendingPastValueCount;
         private int pendingPastDictionaryEntries;
 
-        public DictionaryColumnManager(DictionaryColumn dictionaryColumn)
+        private DictionaryColumnManager(DictionaryColumn dictionaryColumn)
         {
             this.dictionaryColumn = dictionaryColumn;
         }
@@ -373,7 +373,7 @@ public class DictionaryCompressionOptimizer
             pendingPastDictionaryEntries = 0;
         }
 
-        public void updateHistory(int rowCount)
+        private void updateHistory(int rowCount)
         {
             this.rowCount = rowCount;
             long currentValueCount = dictionaryColumn.getValueCount();
@@ -386,25 +386,25 @@ public class DictionaryCompressionOptimizer
             }
         }
 
-        public long getRawBytes()
+        private long getRawBytes()
         {
             checkState(!directEncoded);
             return dictionaryColumn.getRawBytes();
         }
 
-        public double getRawBytesPerRow()
+        private double getRawBytesPerRow()
         {
             checkState(!directEncoded);
             return 1.0 * getRawBytes() / rowCount;
         }
 
-        public int getDictionaryBytes()
+        private int getDictionaryBytes()
         {
             checkState(!directEncoded);
             return dictionaryColumn.getDictionaryBytes();
         }
 
-        public double getDictionaryBytesPerFutureRow()
+        private double getDictionaryBytesPerFutureRow()
         {
             checkState(!directEncoded);
 
@@ -421,30 +421,30 @@ public class DictionaryCompressionOptimizer
             return dictionaryBytesPerEntry * dictionaryEntriesPerFutureValue;
         }
 
-        public int getIndexBytes()
+        private int getIndexBytes()
         {
             checkState(!directEncoded);
             return dictionaryColumn.getIndexBytes();
         }
 
-        public double getIndexBytesPerRow()
+        private double getIndexBytesPerRow()
         {
             checkState(!directEncoded);
             return 1.0 * getIndexBytes() / rowCount;
         }
 
-        public double getCompressionRatio()
+        private double getCompressionRatio()
         {
             checkState(!directEncoded);
             return 1.0 * getRawBytes() / getBufferedBytes();
         }
 
-        public long getBufferedBytes()
+        private long getBufferedBytes()
         {
             return dictionaryColumn.getBufferedBytes();
         }
 
-        public boolean isDirectEncoded()
+        private boolean isDirectEncoded()
         {
             return directEncoded;
         }
@@ -455,18 +455,18 @@ public class DictionaryCompressionOptimizer
         private final DictionaryColumnManager columnToConvert;
         private final double predictedFileCompressionRatio;
 
-        public DictionaryCompressionProjection(DictionaryColumnManager columnToConvert, double predictedFileCompressionRatio)
+        private DictionaryCompressionProjection(DictionaryColumnManager columnToConvert, double predictedFileCompressionRatio)
         {
             this.columnToConvert = requireNonNull(columnToConvert, "columnToConvert is null");
             this.predictedFileCompressionRatio = predictedFileCompressionRatio;
         }
 
-        public DictionaryColumnManager getColumnToConvert()
+        private DictionaryColumnManager getColumnToConvert()
         {
             return columnToConvert;
         }
 
-        public double getPredictedFileCompressionRatio()
+        private double getPredictedFileCompressionRatio()
         {
             return predictedFileCompressionRatio;
         }

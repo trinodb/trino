@@ -201,7 +201,7 @@ class TestExternalAuthorizerOAuth2RefreshToken
             }
         }
 
-        public int getRedirectCount()
+        int getRedirectCount()
         {
             return redirectCount.get();
         }

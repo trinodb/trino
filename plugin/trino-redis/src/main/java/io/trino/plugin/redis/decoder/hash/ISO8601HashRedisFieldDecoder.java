@@ -51,7 +51,7 @@ class ISO8601HashRedisFieldDecoder
     private static class ISO8601HashRedisValueProvider
             extends HashRedisValueProvider
     {
-        public ISO8601HashRedisValueProvider(DecoderColumnHandle columnHandle, String value)
+        private ISO8601HashRedisValueProvider(DecoderColumnHandle columnHandle, String value)
         {
             super(columnHandle, value);
         }

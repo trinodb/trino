@@ -455,7 +455,7 @@ public class TaskDescriptorStorage
     private class TaskDescriptors
     {
         private final Table<StageId, Integer /* partitionId */, TaskDescriptorHolder> descriptors = HashBasedTable.create();
-        public boolean fullyCompressed;
+        boolean fullyCompressed;
 
         /* tracking of memory usage; see top level comment in TaskDescriptorStorage for meaning */
         private long reservedUncompressedBytes;
@@ -468,7 +468,7 @@ public class TaskDescriptorStorage
         private TrinoException failure;
 
         @GuardedBy("TaskDescriptorStorage.this")
-        public void put(StageId stageId, int partitionId, TaskDescriptor descriptor)
+        void put(StageId stageId, int partitionId, TaskDescriptor descriptor)
         {
             throwIfFailed();
             checkState(!descriptors.contains(stageId, partitionId), "task descriptor is already present for key %s/%s ", stageId, partitionId);
@@ -494,7 +494,7 @@ public class TaskDescriptorStorage
             }
         }
 
-        public TaskDescriptor get(StageId stageId, int partitionId)
+        TaskDescriptor get(StageId stageId, int partitionId)
         {
             throwIfFailed();
             TaskDescriptorHolder descriptor = descriptors.get(stageId, partitionId);
@@ -504,7 +504,7 @@ public class TaskDescriptorStorage
             return descriptor.getTaskDescriptor();
         }
 
-        public void remove(StageId stageId, int partitionId)
+        void remove(StageId stageId, int partitionId)
         {
             throwIfFailed();
             TaskDescriptorHolder descriptorHolder = descriptors.remove(stageId, partitionId);
@@ -524,22 +524,22 @@ public class TaskDescriptorStorage
             }
         }
 
-        public long getReservedUncompressedBytes()
+        long getReservedUncompressedBytes()
         {
             return reservedUncompressedBytes;
         }
 
-        public long getReservedCompressedBytes()
+        long getReservedCompressedBytes()
         {
             return reservedCompressedBytes;
         }
 
-        public long getOriginalCompressedBytes()
+        long getOriginalCompressedBytes()
         {
             return originalCompressedBytes;
         }
 
-        public long getReservedBytes()
+        long getReservedBytes()
         {
             return reservedUncompressedBytes + reservedCompressedBytes;
         }
@@ -563,36 +563,36 @@ public class TaskDescriptorStorage
             }
         }
 
-        public int getStagesCount()
+        int getStagesCount()
         {
             return descriptors.rowMap().size();
         }
 
-        public Stream<Long> getStagesReservedUncompressedBytes()
+        Stream<Long> getStagesReservedUncompressedBytes()
         {
             return stagesReservedUncompressedBytes.values().stream()
                     .map(AtomicLong::get);
         }
 
-        public Stream<Long> getStagesReservedCompressedBytes()
+        Stream<Long> getStagesReservedCompressedBytes()
         {
             return stagesReservedCompressedBytes.values().stream()
                     .map(AtomicLong::get);
         }
 
-        public Stream<Long> getStagesOriginalCompressedBytes()
+        Stream<Long> getStagesOriginalCompressedBytes()
         {
             return stagesOriginalCompressedBytes.values().stream()
                     .map(AtomicLong::get);
         }
 
-        public boolean isFullyCompressed()
+        boolean isFullyCompressed()
         {
             return fullyCompressed;
         }
 
         @GuardedBy("TaskDescriptorStorage.this")
-        public int compress(int limit)
+        int compress(int limit)
         {
             if (fullyCompressed) {
                 return 0;
@@ -846,7 +846,7 @@ public class TaskDescriptorStorage
             this.uncompressedSize = taskDescriptor.getRetainedSizeInBytes();
         }
 
-        public TaskDescriptor getTaskDescriptor()
+        TaskDescriptor getTaskDescriptor()
         {
             if (taskDescriptor != null) {
                 return taskDescriptor;
@@ -860,7 +860,7 @@ public class TaskDescriptorStorage
             return taskDescriptorJsonCodec.fromJson(output);
         }
 
-        public void compress()
+        void compress()
         {
             checkState(!isCompressed(), "TaskDescriptor is compressed");
 
@@ -874,17 +874,17 @@ public class TaskDescriptorStorage
             taskDescriptor = null;
         }
 
-        public boolean isCompressed()
+        boolean isCompressed()
         {
             return compressedTaskDescriptor != null;
         }
 
-        public long getUncompressedSize()
+        long getUncompressedSize()
         {
             return uncompressedSize;
         }
 
-        public long getCompressedSize()
+        long getCompressedSize()
         {
             checkState(isCompressed(), "TaskDescriptor is not compressed");
             return compressedTaskDescriptor.length;

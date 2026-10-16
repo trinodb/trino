@@ -164,12 +164,12 @@ public class TextColumnEncodingFactory
     {
         private final int depth;
 
-        public NotEnoughSeparatorsException(int depth)
+        private NotEnoughSeparatorsException(int depth)
         {
             this.depth = depth;
         }
 
-        public int getDepth()
+        private int getDepth()
         {
             return depth;
         }

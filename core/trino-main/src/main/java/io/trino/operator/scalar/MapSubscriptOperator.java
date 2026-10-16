@@ -150,7 +150,7 @@ public class MapSubscriptOperator
     {
         private final MethodHandle castMethod;
 
-        public MissingKeyExceptionFactory(FunctionDependencies functionDependencies, Type keyType)
+        MissingKeyExceptionFactory(FunctionDependencies functionDependencies, Type keyType)
         {
             MethodHandle castMethod = null;
             try {
@@ -165,7 +165,7 @@ public class MapSubscriptOperator
             this.castMethod = castMethod;
         }
 
-        public TrinoException create(ConnectorSession session, Object value)
+        TrinoException create(ConnectorSession session, Object value)
         {
             String additionalInfo = "";
             if (castMethod != null) {

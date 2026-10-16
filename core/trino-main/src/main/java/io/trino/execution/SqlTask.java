@@ -691,24 +691,24 @@ public class SqlTask
             this.finalDynamicFilterDomains = requireNonNull(finalDynamicFilterDomains, "finalDynamicFilterDomains is null");
         }
 
-        public boolean isFinished()
+        boolean isFinished()
         {
             return finalTaskInfo != null;
         }
 
         @Nullable
-        public SqlTaskExecution getTaskExecution()
+        SqlTaskExecution getTaskExecution()
         {
             return taskExecution;
         }
 
         @Nullable
-        public TaskInfo getFinalTaskInfo()
+        TaskInfo getFinalTaskInfo()
         {
             return finalTaskInfo;
         }
 
-        public SqlTaskIoTotals getIoTotals()
+        SqlTaskIoTotals getIoTotals()
         {
             // if we are finished, return the final IoTotals
             if (finalIoTotals != null) {
@@ -723,7 +723,7 @@ public class SqlTask
             return new SqlTaskIoTotals(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
         }
 
-        public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersSummaryVersion)
+        VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersSummaryVersion)
         {
             // if we are finished, return the final VersionedDynamicFilterDomains
             if (finalDynamicFilterDomains != null) {
@@ -738,7 +738,7 @@ public class SqlTask
             return taskContext.acknowledgeAndGetNewDynamicFilterDomains(callersSummaryVersion);
         }
 
-        public long getDynamicFiltersVersion()
+        long getDynamicFiltersVersion()
         {
             // if we are finished, return the version of the final VersionedDynamicFilterDomains
             if (finalDynamicFilterDomains != null) {
@@ -748,7 +748,7 @@ public class SqlTask
             return taskExecution.getTaskContext().getDynamicFiltersVersion();
         }
 
-        public VersionedDynamicFilterDomains getDynamicFilterDomains()
+        VersionedDynamicFilterDomains getDynamicFilterDomains()
         {
             verify(finalDynamicFilterDomains == null, "finalDynamicFilterDomains has already been set");
             // Task was aborted or failed before taskExecution was created, return an empty VersionedDynamicFilterDomains

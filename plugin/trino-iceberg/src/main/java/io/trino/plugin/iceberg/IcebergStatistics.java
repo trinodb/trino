@@ -224,14 +224,14 @@ public record IcebergStatistics(
         private Optional<Object> min;
         private Optional<Object> max;
 
-        public ColumnStatistics(MethodHandle comparisonHandle, Object initialMin, Object initialMax)
+        private ColumnStatistics(MethodHandle comparisonHandle, Object initialMin, Object initialMax)
         {
             this.comparisonHandle = requireNonNull(comparisonHandle, "comparisonHandle is null");
             this.min = Optional.ofNullable(initialMin);
             this.max = Optional.ofNullable(initialMax);
         }
 
-        public ColumnStatistics(ColumnStatistics other)
+        private ColumnStatistics(ColumnStatistics other)
         {
             requireNonNull(other, "other is null");
             this.comparisonHandle = other.comparisonHandle;
@@ -244,7 +244,7 @@ public record IcebergStatistics(
          *
          * @return Empty if the statistics contained values which were not comparable, otherwise returns the min value.
          */
-        public Optional<Object> getMin()
+        private Optional<Object> getMin()
         {
             return min;
         }
@@ -254,7 +254,7 @@ public record IcebergStatistics(
          *
          * @return Empty if the statistics contained values which were not comparable, otherwise returns the max value.
          */
-        public Optional<Object> getMax()
+        private Optional<Object> getMax()
         {
             return max;
         }
@@ -265,7 +265,7 @@ public record IcebergStatistics(
          * @param lowerBound Trino encoded lower bound value from a file
          * @param upperBound Trino encoded upper bound value from a file
          */
-        public void updateMinMax(@Nullable Object lowerBound, @Nullable Object upperBound)
+        private void updateMinMax(@Nullable Object lowerBound, @Nullable Object upperBound)
         {
             if (min.isPresent()) {
                 if (lowerBound == null) {

@@ -134,7 +134,7 @@ final class RowVariantWriter
 
         private int size = -1;
 
-        public PlannedRowValue(List<Optional<PrimitiveVariantEncoder>> fieldPrimitiveEncoders, List<Optional<PlannedValue>> fieldPlannedValue, FieldBlocks fieldBlocks, int[] fieldIds)
+        PlannedRowValue(List<Optional<PrimitiveVariantEncoder>> fieldPrimitiveEncoders, List<Optional<PlannedValue>> fieldPlannedValue, FieldBlocks fieldBlocks, int[] fieldIds)
         {
             this.fieldPrimitiveEncoders = requireNonNull(fieldPrimitiveEncoders, "fieldPrimitiveEncoders is null");
             this.fieldPlannedValue = requireNonNull(fieldPlannedValue, "fieldPlannedValue is null");
@@ -206,12 +206,12 @@ final class RowVariantWriter
 
     private record FieldBlocks(SqlRow row, IntUnaryOperator blockIndexMapper)
     {
-        public int getPosition()
+        int getPosition()
         {
             return row.getRawIndex();
         }
 
-        public Block getField(int outputIndex)
+        Block getField(int outputIndex)
         {
             return row.getRawFieldBlock(blockIndexMapper.applyAsInt(outputIndex));
         }

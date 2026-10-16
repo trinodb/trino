@@ -76,12 +76,12 @@ public class DeltaLakeTransactionManager
         @GuardedBy("this")
         private DeltaLakeMetadata metadata;
 
-        public synchronized Optional<DeltaLakeMetadata> optionalGet()
+        private synchronized Optional<DeltaLakeMetadata> optionalGet()
         {
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized DeltaLakeMetadata get(ConnectorIdentity identity)
+        private synchronized DeltaLakeMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {

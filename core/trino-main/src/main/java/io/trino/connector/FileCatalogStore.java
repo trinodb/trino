@@ -200,7 +200,7 @@ public final class FileCatalogStore
         private final CatalogName name;
         private final File file;
 
-        public FileStoredCatalog(CatalogName name, File file)
+        FileStoredCatalog(CatalogName name, File file)
         {
             this.name = requireNonNull(name, "name is null");
             this.file = requireNonNull(file, "file is null");

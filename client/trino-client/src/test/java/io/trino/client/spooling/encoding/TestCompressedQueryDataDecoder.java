@@ -128,7 +128,7 @@ class TestCompressedQueryDataDecoder
     private static class TestQueryDataDecoder
             extends CompressedQueryDataDecoder
     {
-        public TestQueryDataDecoder(QueryDataDecoder delegate)
+        private TestQueryDataDecoder(QueryDataDecoder delegate)
         {
             super(delegate);
         }

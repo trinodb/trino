@@ -1247,12 +1247,12 @@ public class OrcTester
             OrcConf.COMPRESS.setString(jobConf, compression.name());
         }
 
-        public static RecordWriterBuilder builder(File file, Format format, CompressionKind compression)
+        private static RecordWriterBuilder builder(File file, Format format, CompressionKind compression)
         {
             return new RecordWriterBuilder(file, format, compression);
         }
 
-        public RecordWriterBuilder withColumns(StandardStructObjectInspector objectInspector)
+        private RecordWriterBuilder withColumns(StandardStructObjectInspector objectInspector)
         {
             List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
             tableProperties.setProperty(IOConstants.COLUMNS, fields.stream()
@@ -1264,13 +1264,13 @@ public class OrcTester
             return this;
         }
 
-        public RecordWriterBuilder withStripeSize(long stripeSizeBytes)
+        private RecordWriterBuilder withStripeSize(long stripeSizeBytes)
         {
             tableProperties.setProperty(OrcConf.STRIPE_SIZE.getAttribute(), Long.toString(stripeSizeBytes));
             return this;
         }
 
-        public RecordWriterBuilder withBloomFilter(StandardStructObjectInspector objectInspector, Double falsePositiveProbability)
+        private RecordWriterBuilder withBloomFilter(StandardStructObjectInspector objectInspector, Double falsePositiveProbability)
         {
             List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
             tableProperties.setProperty(OrcConf.BLOOM_FILTER_COLUMNS.getAttribute(), fields.stream()

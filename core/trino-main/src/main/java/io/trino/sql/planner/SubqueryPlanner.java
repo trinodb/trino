@@ -871,7 +871,7 @@ class SubqueryPlanner
             this.expressions = ImmutableList.copyOf(expressions);
         }
 
-        public static <T> Cluster<T> newCluster(List<T> expressions, Function<T, Object> keyFunction)
+        static <T> Cluster<T> newCluster(List<T> expressions, Function<T, Object> keyFunction)
         {
             long count = expressions.stream()
                     .map(keyFunction)
@@ -883,12 +883,12 @@ class SubqueryPlanner
             return new Cluster<>(expressions);
         }
 
-        public List<T> getExpressions()
+        List<T> getExpressions()
         {
             return expressions;
         }
 
-        public T getRepresentative()
+        T getRepresentative()
         {
             return expressions.get(0);
         }

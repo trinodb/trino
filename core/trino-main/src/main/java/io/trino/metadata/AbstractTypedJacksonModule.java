@@ -70,7 +70,7 @@ public abstract class AbstractTypedJacksonModule<T>
     {
         private final TypeDeserializer typeDeserializer;
 
-        public InternalTypeDeserializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
+        InternalTypeDeserializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
             this.typeDeserializer = new AsPropertyTypeDeserializer(
@@ -98,7 +98,7 @@ public abstract class AbstractTypedJacksonModule<T>
         private final TypeSerializer typeSerializer;
         private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
 
-        public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
+        InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
             super(baseClass);
             this.typeSerializer = new AsPropertyTypeSerializer(typeIdResolver, null, TYPE_PROPERTY);
@@ -142,7 +142,7 @@ public abstract class AbstractTypedJacksonModule<T>
         private final Function<Object, String> nameResolver;
         private final Function<String, Class<?>> classResolver;
 
-        public InternalTypeResolver(Function<Object, String> nameResolver, Function<String, Class<?>> classResolver)
+        InternalTypeResolver(Function<Object, String> nameResolver, Function<String, Class<?>> classResolver)
         {
             this.nameResolver = requireNonNull(nameResolver, "nameResolver is null");
             this.classResolver = requireNonNull(classResolver, "classResolver is null");

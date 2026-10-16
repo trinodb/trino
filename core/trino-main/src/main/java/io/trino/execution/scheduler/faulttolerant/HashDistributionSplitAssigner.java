@@ -309,7 +309,7 @@ class HashDistributionSplitAssigner
     private record PartitionAssignment(TaskPartition taskPartition, long assignedDataSizeInBytes)
             implements Comparable<PartitionAssignment>
     {
-        public PartitionAssignment(TaskPartition taskPartition, long assignedDataSizeInBytes)
+        PartitionAssignment(TaskPartition taskPartition, long assignedDataSizeInBytes)
         {
             this.taskPartition = requireNonNull(taskPartition, "taskPartition is null");
             this.assignedDataSizeInBytes = assignedDataSizeInBytes;

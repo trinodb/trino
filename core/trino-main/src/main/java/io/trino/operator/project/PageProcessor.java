@@ -281,7 +281,7 @@ public class PageProcessor
             private final ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             private long retainedSizeInBytes;
 
-            public long getRetainedSizeInBytes()
+            long getRetainedSizeInBytes()
             {
                 return retainedSizeInBytes;
             }
@@ -348,7 +348,7 @@ public class PageProcessor
             return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), _ -> randomDictionaryId());
         }
 
-        public void reset()
+        void reset()
         {
             dictionarySourceIds.clear();
         }
@@ -356,28 +356,28 @@ public class PageProcessor
 
     private record ProcessBatchResult(ProcessBatchState state, Page page)
     {
-        public boolean isPageTooLarge()
+        boolean isPageTooLarge()
         {
             return state == ProcessBatchState.PAGE_TOO_LARGE;
         }
 
-        public boolean isSuccess()
+        boolean isSuccess()
         {
             return state == ProcessBatchState.SUCCESS;
         }
 
-        public Page getPage()
+        Page getPage()
         {
             verify(state == ProcessBatchState.SUCCESS);
             return verifyNotNull(page);
         }
 
-        public static ProcessBatchResult processBatchTooLarge()
+        static ProcessBatchResult processBatchTooLarge()
         {
             return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
         }
 
-        public static ProcessBatchResult processBatchSuccess(Page page)
+        static ProcessBatchResult processBatchSuccess(Page page)
         {
             return new ProcessBatchResult(ProcessBatchState.SUCCESS, requireNonNull(page));
         }

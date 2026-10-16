@@ -109,7 +109,7 @@ class TestWorkerDynamicCatalogManager
     {
         private final List<CatalogName> droppedCatalogs = new ArrayList<>();
 
-        public List<CatalogName> droppedCatalogs()
+        List<CatalogName> droppedCatalogs()
         {
             return droppedCatalogs;
         }

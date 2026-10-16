@@ -115,10 +115,10 @@ public class AvroPagePositionDataWriter
 
     private abstract static class BlockPositionEncoder
     {
-        protected Block block;
+        Block block;
         private final Optional<SimpleUnionNullIndex> nullIndex;
 
-        public BlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIndex)
+        BlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIndex)
         {
             this.nullIndex = requireNonNull(nullIndex, "nullIdx is null");
         }
@@ -256,7 +256,7 @@ public class AvroPagePositionDataWriter
     private static class BooleanBlockPositionEncoder
             extends BlockPositionEncoder
     {
-        public BooleanBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        BooleanBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -274,7 +274,7 @@ public class AvroPagePositionDataWriter
     {
         private final ToIntBiFunction<Block, Integer> getInt;
 
-        public IntBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex, ToIntBiFunction<Block, Integer> getInt)
+        IntBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex, ToIntBiFunction<Block, Integer> getInt)
         {
             super(isNullWithIndex);
             this.getInt = requireNonNull(getInt, "getInt is null");
@@ -293,7 +293,7 @@ public class AvroPagePositionDataWriter
     {
         private final ToLongBiFunction<Block, Integer> getLong;
 
-        public LongBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex, ToLongBiFunction<Block, Integer> getLong)
+        LongBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex, ToLongBiFunction<Block, Integer> getLong)
         {
             super(isNullWithIndex);
             this.getLong = requireNonNull(getLong, "getLong is null");
@@ -310,7 +310,7 @@ public class AvroPagePositionDataWriter
     private static class FloatBlockPositionEncoder
             extends BlockPositionEncoder
     {
-        public FloatBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        FloatBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -326,7 +326,7 @@ public class AvroPagePositionDataWriter
     private static class DoubleBlockPositionEncoder
             extends BlockPositionEncoder
     {
-        public DoubleBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        DoubleBlockPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -342,7 +342,7 @@ public class AvroPagePositionDataWriter
     private static class StringPositionEncoder
             extends BlockPositionEncoder
     {
-        public StringPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        StringPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -360,7 +360,7 @@ public class AvroPagePositionDataWriter
     private static class BytesPositionEncoder
             extends BlockPositionEncoder
     {
-        public BytesPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
+        BytesPositionEncoder(Optional<SimpleUnionNullIndex> isNullWithIndex)
         {
             super(isNullWithIndex);
         }
@@ -380,7 +380,7 @@ public class AvroPagePositionDataWriter
     {
         private final int fixedSize;
 
-        public FixedBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, int fixedSize)
+        FixedBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, int fixedSize)
         {
             super(nullIdx);
             this.fixedSize = fixedSize;
@@ -403,7 +403,7 @@ public class AvroPagePositionDataWriter
     {
         private final Map<Slice, Integer> symbolToIndex;
 
-        public EnumBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, List<String> symbols)
+        EnumBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, List<String> symbols)
         {
             super(nullIdx);
             ImmutableMap.Builder<Slice, Integer> symbolToIndex = ImmutableMap.builder();
@@ -434,7 +434,7 @@ public class AvroPagePositionDataWriter
         private final BlockPositionEncoder elementBlockPositionEncoder;
         private final ArrayType type;
 
-        public ArrayBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, ArrayType type)
+        ArrayBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, ArrayType type)
                 throws AvroTypeException
         {
             super(nullIdx);
@@ -467,7 +467,7 @@ public class AvroPagePositionDataWriter
         private final BlockPositionEncoder valueBlockPositionEncoder;
         private final MapType type;
 
-        public MapBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, MapType type)
+        MapBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, MapType type)
                 throws AvroTypeException
         {
             super(nullIdx);
@@ -507,7 +507,7 @@ public class AvroPagePositionDataWriter
         private final int[] fieldToChannel;
 
         // used only for nested row building
-        public RecordBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, RowType rowType)
+        RecordBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, AvroTypeManager avroTypeManager, RowType rowType)
                 throws AvroTypeException
         {
             this(nullIdx,
@@ -523,7 +523,7 @@ public class AvroPagePositionDataWriter
         }
 
         // used only for top level page building
-        public RecordBlockPositionEncoder(Schema schema, AvroTypeManager avroTypeManager, List<String> channelNames, List<Type> channelTypes)
+        RecordBlockPositionEncoder(Schema schema, AvroTypeManager avroTypeManager, List<String> channelNames, List<Type> channelTypes)
                 throws AvroTypeException
         {
             this(Optional.empty(), schema, avroTypeManager, channelNames, channelTypes);
@@ -561,7 +561,7 @@ public class AvroPagePositionDataWriter
             encodeInternal(_ -> rawIndex, encoder);
         }
 
-        public void setChannelBlocksFromPage(Page page)
+        void setChannelBlocksFromPage(Page page)
         {
             verify(page.getChannelCount() == channelEncoders.length, "Page must have channels equal to provided type list");
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
@@ -569,7 +569,7 @@ public class AvroPagePositionDataWriter
             }
         }
 
-        public void encodePositionInEachChannel(int position, Encoder encoder)
+        void encodePositionInEachChannel(int position, Encoder encoder)
                 throws IOException
         {
             encodeInternal(_ -> position, encoder);
@@ -591,7 +591,7 @@ public class AvroPagePositionDataWriter
         private final GenericDatumWriter<Object> datumWriter;
         private final BiFunction<Block, Integer, Object> toAvroGeneric;
 
-        public UserDefinedBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, BiFunction<Block, Integer, Object> toAvroGeneric)
+        UserDefinedBlockPositionEncoder(Optional<SimpleUnionNullIndex> nullIdx, Schema schema, BiFunction<Block, Integer, Object> toAvroGeneric)
         {
             super(nullIdx);
             datumWriter = new GenericDatumWriter<>(requireNonNull(schema, "schema is null"));

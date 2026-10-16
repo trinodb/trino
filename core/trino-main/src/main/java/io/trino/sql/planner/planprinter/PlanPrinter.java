@@ -702,7 +702,7 @@ public class PlanPrinter
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
 
-        public Visitor(StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+        Visitor(StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
         {
             this.estimatedStatsAndCosts = requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
             this.stats = requireNonNull(stats, "stats is null");
@@ -2194,27 +2194,27 @@ public class PlanPrinter
                     .collect(joining(", ", "[", "]"));
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Context context)
+        NodeRepresentation addNode(PlanNode node, String name, Context context)
         {
             return addNode(node, name, ImmutableMap.of(), context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Context context)
+        NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Context context)
         {
             return addNode(node, name, descriptor, node.getSources(), Optional.empty(), context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Metrics splitSourceMetrics, Context context)
+        NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, Metrics splitSourceMetrics, Context context)
         {
             return addNode(node, name, descriptor, ImmutableList.of(node.getId()), node.getSources(), ImmutableList.of(), Optional.empty(), splitSourceMetrics, context);
         }
 
-        public NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
+        NodeRepresentation addNode(PlanNode node, String name, Map<String, String> descriptor, List<PlanNode> children, Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost, Context context)
         {
             return addNode(node, name, descriptor, ImmutableList.of(node.getId()), children, ImmutableList.of(), reorderJoinStatsAndCost, Metrics.EMPTY, context);
         }
 
-        public NodeRepresentation addNode(
+        NodeRepresentation addNode(
                 PlanNode rootNode,
                 String name,
                 Map<String, String> descriptor,
@@ -2319,12 +2319,12 @@ public class PlanPrinter
 
     private record Context(Optional<String> tag, boolean isInitialPlan)
     {
-        public Context(boolean isInitialPlan)
+        Context(boolean isInitialPlan)
         {
             this(Optional.empty(), isInitialPlan);
         }
 
-        public Context(String tag, boolean isInitialPlan)
+        Context(String tag, boolean isInitialPlan)
         {
             this(Optional.of(tag), isInitialPlan);
         }

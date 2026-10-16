@@ -421,7 +421,7 @@ public class RegularTableFunctionPartition
         private final Type type;
         private final int indexChannel;
 
-        public NonPartitioningColumnProvider(int inputChannel, int indexChannel)
+        NonPartitioningColumnProvider(int inputChannel, int indexChannel)
         {
             this.inputChannel = inputChannel;
             this.type = pagesIndex.getType(inputChannel);

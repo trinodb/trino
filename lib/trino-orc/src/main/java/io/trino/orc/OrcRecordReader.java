@@ -481,7 +481,7 @@ public class OrcRecordReader
         private long sizeInBytes;
         private long retainedSizeInBytes;
 
-        public OrcSourcePage(int positionCount)
+        private OrcSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
             retainedSizeInBytes = shallowRetainedSizeInBytes();
@@ -592,13 +592,13 @@ public class OrcRecordReader
     {
         private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
 
-        public long retainedSizeInBytes()
+        private long retainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOf(positions);
         }
 
         @CheckReturnValue
-        public Block apply(Block block)
+        private Block apply(Block block)
         {
             if (positions == null) {
                 return block;
@@ -606,7 +606,7 @@ public class OrcRecordReader
             return block.getPositions(positions, 0, positionCount);
         }
 
-        public Block createRowNumberBlock(long filePosition)
+        private Block createRowNumberBlock(long filePosition)
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
@@ -617,7 +617,7 @@ public class OrcRecordReader
         }
 
         @CheckReturnValue
-        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        private SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
             if (this.positions == null) {
                 for (int i = 0; i < size; i++) {
@@ -845,18 +845,18 @@ public class OrcRecordReader
         private final StripeInformation stripe;
         private final Optional<StripeStatistics> stats;
 
-        public StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
+        private StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
         {
             this.stripe = requireNonNull(stripe, "stripe is null");
             this.stats = requireNonNull(stats, "stats is null");
         }
 
-        public StripeInformation getStripe()
+        private StripeInformation getStripe()
         {
             return stripe;
         }
 
-        public Optional<StripeStatistics> getStats()
+        private Optional<StripeStatistics> getStats()
         {
             return stats;
         }

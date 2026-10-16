@@ -340,7 +340,7 @@ public class DecorrelateUnnest
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
 
-        public static PlanNode rewriteNodeSequence(
+        static PlanNode rewriteNodeSequence(
                 PlanNode root,
                 List<Symbol> leftOutputs,
                 Symbol ordinalitySymbol,
@@ -505,18 +505,18 @@ public class DecorrelateUnnest
         PlanNode plan;
         Optional<Symbol> rowNumberSymbol;
 
-        public RewriteResult(PlanNode plan, Optional<Symbol> rowNumberSymbol)
+        RewriteResult(PlanNode plan, Optional<Symbol> rowNumberSymbol)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         }
 
-        public PlanNode getPlan()
+        PlanNode getPlan()
         {
             return plan;
         }
 
-        public Optional<Symbol> getRowNumberSymbol()
+        Optional<Symbol> getRowNumberSymbol()
         {
             return rowNumberSymbol;
         }

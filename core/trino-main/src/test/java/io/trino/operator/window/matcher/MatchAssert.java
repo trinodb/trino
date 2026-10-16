@@ -100,7 +100,7 @@ public class MatchAssert
     {
         private final int[] input;
 
-        public IdentityEvaluator(int[] input, ProjectingPagesWindowIndex dummy)
+        IdentityEvaluator(int[] input, ProjectingPagesWindowIndex dummy)
         {
             super(0, 0, 0, 0, 1, ImmutableList.of(), dummy);
             this.input = input;

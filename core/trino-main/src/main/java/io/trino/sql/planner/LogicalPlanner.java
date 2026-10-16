@@ -1177,7 +1177,7 @@ public class LogicalPlanner
         private final LambdaArgumentDeclaration argument;
         private final Type type;
 
-        public Key(LambdaArgumentDeclaration argument, Type type)
+        Key(LambdaArgumentDeclaration argument, Type type)
         {
             this.argument = requireNonNull(argument, "argument is null");
             this.type = requireNonNull(type, "type is null");

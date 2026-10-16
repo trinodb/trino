@@ -57,7 +57,7 @@ public class FjsMatcher
         private final List<int[]> bmsShifts = new ArrayList<>();
         private final List<int[]> kmpShifts = new ArrayList<>();
 
-        public Fjs(List<Pattern> pattern, int start, int end, boolean exact)
+        Fjs(List<Pattern> pattern, int start, int end, boolean exact)
         {
             this.exact = exact;
 
@@ -185,7 +185,7 @@ public class FjsMatcher
             return true;
         }
 
-        public boolean match(byte[] input, int offset, int length)
+        boolean match(byte[] input, int offset, int length)
         {
             int start = offset;
             int remaining = length;

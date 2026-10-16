@@ -89,7 +89,7 @@ public class InputExtractor
     {
         private final ImmutableSet.Builder<Input> inputs = ImmutableSet.builder();
 
-        public Set<Input> getInputs()
+        Set<Input> getInputs()
         {
             return inputs.build();
         }

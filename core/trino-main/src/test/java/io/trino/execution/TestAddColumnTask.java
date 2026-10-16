@@ -587,7 +587,7 @@ public class TestAddColumnTask
     {
         private final Set<ConnectorCapabilities> capabilities;
 
-        public MockMetadataWithDefaultValue(String catalogName, Set<ConnectorCapabilities> capabilities)
+        MockMetadataWithDefaultValue(String catalogName, Set<ConnectorCapabilities> capabilities)
         {
             super(catalogName);
             this.capabilities = ImmutableSet.copyOf(capabilities);

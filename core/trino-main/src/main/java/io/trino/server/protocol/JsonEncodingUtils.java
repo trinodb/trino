@@ -340,7 +340,7 @@ public final class JsonEncodingUtils
         private final boolean supportsVariant;
         private final boolean supportsVariantBinary;
 
-        public VariantEncoder(boolean supportsVariant, boolean supportsVariantBinary)
+        VariantEncoder(boolean supportsVariant, boolean supportsVariantBinary)
         {
             this.supportsVariant = supportsVariant;
             this.supportsVariantBinary = supportsVariantBinary;
@@ -400,7 +400,7 @@ public final class JsonEncodingUtils
         private final ArrayType arrayType;
         private final TypeEncoder typeEncoder;
 
-        public ArrayEncoder(ArrayType arrayType, TypeEncoder typeEncoder)
+        ArrayEncoder(ArrayType arrayType, TypeEncoder typeEncoder)
         {
             this.arrayType = requireNonNull(arrayType, "arrayType is null");
             this.typeEncoder = requireNonNull(typeEncoder, "typeEncoder is null");
@@ -431,7 +431,7 @@ public final class JsonEncodingUtils
         private final boolean supportsParametricInterval;
         private final TypeEncoder valueEncoder;
 
-        public MapEncoder(MapType mapType, boolean supportsParametricInterval, TypeEncoder valueEncoder)
+        MapEncoder(MapType mapType, boolean supportsParametricInterval, TypeEncoder valueEncoder)
         {
             this.mapType = requireNonNull(mapType, "mapType is null");
             this.supportsParametricInterval = supportsParametricInterval;
@@ -496,7 +496,7 @@ public final class JsonEncodingUtils
         private final RowType rowType;
         private final TypeEncoder[] fieldEncoders;
 
-        public RowEncoder(RowType rowType, TypeEncoder[] fieldEncoders)
+        RowEncoder(RowType rowType, TypeEncoder[] fieldEncoders)
         {
             this.rowType = requireNonNull(rowType, "rowType is null");
             this.fieldEncoders = requireNonNull(fieldEncoders, "fieldEncoders is null");
@@ -526,7 +526,7 @@ public final class JsonEncodingUtils
         private final boolean supportsParametricDateTime;
         private final boolean supportsParametricInterval;
 
-        public TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval)
+        TypeObjectValueEncoder(Type type, boolean supportsParametricDateTime, boolean supportsParametricInterval)
         {
             this.type = requireNonNull(type, "type is null");
             this.supportsParametricDateTime = supportsParametricDateTime;

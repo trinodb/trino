@@ -64,7 +64,7 @@ public final class ExtraCredentialsBasedIdentityCacheMapping
         private final byte[] userHash;
         private final byte[] passwordHash;
 
-        public ExtraCredentialsBasedIdentityCacheKey(Optional<byte[]> userHash, Optional<byte[]> passwordHash)
+        private ExtraCredentialsBasedIdentityCacheKey(Optional<byte[]> userHash, Optional<byte[]> passwordHash)
         {
             this.userHash = userHash.orElse(EMPTY_BYTES);
             this.passwordHash = passwordHash.orElse(EMPTY_BYTES);

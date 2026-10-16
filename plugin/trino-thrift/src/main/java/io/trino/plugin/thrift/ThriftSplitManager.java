@@ -107,7 +107,7 @@ public class ThriftSplitManager
         private final AtomicReference<TrinoThriftId> nextToken;
         private final AtomicReference<Future<?>> future;
 
-        public ThriftSplitSource(
+        private ThriftSplitSource(
                 TrinoThriftService client,
                 TrinoThriftSchemaTableName schemaTableName,
                 Optional<Set<String>> columnNames,

@@ -92,7 +92,7 @@ public class MinNStateFactory
             extends MinMaxNStateFactory.GroupedMinMaxNState
             implements MinNState
     {
-        public GroupedMinNState(LongFunction<TypedHeap> heapFactory)
+        GroupedMinNState(LongFunction<TypedHeap> heapFactory)
         {
             super(heapFactory);
         }
@@ -102,12 +102,12 @@ public class MinNStateFactory
             extends SingleMinMaxNState
             implements MinNState
     {
-        public SingleMinNState(LongFunction<TypedHeap> heapFactory)
+        SingleMinNState(LongFunction<TypedHeap> heapFactory)
         {
             super(heapFactory);
         }
 
-        public SingleMinNState(SingleMinNState state)
+        SingleMinNState(SingleMinNState state)
         {
             super(state);
         }

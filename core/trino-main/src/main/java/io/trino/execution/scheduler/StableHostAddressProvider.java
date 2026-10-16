@@ -153,7 +153,7 @@ public class StableHostAddressProvider
             requireNonNull(hostAndPort, "hostAndPort is null");
         }
 
-        public static TrinoNode of(Node node)
+        static TrinoNode of(Node node)
         {
             return new TrinoNode(node.getNodeIdentifier(), node.getHostAndPort(), XxHash64.hash(node.getNodeIdentifier().getBytes(UTF_8)));
         }

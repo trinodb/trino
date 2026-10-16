@@ -60,7 +60,7 @@ public class PushCastIntoRow
         private final TypeManager typeManager;
         private final Session session;
 
-        public Rewriter(TypeManager typeManager, Session session)
+        Rewriter(TypeManager typeManager, Session session)
         {
             this.typeManager = typeManager;
             this.session = session;

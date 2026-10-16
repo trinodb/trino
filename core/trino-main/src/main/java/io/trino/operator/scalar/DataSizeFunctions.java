@@ -102,12 +102,12 @@ public final class DataSizeFunctions
             this.factor = factor;
         }
 
-        public BigDecimal getFactor()
+        BigDecimal getFactor()
         {
             return factor;
         }
 
-        public static Unit parse(String unitString, String dataSize)
+        static Unit parse(String unitString, String dataSize)
         {
             return switch (unitString) {
                 case "B" -> BYTE;

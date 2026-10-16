@@ -283,7 +283,7 @@ public final class DeltaLakeWriter
     {
         private final Function<Block, Block> elementCoercer;
 
-        public ArrayCoercer(Function<Block, Block> elementCoercer)
+        private ArrayCoercer(Function<Block, Block> elementCoercer)
         {
             this.elementCoercer = requireNonNull(elementCoercer, "elementCoercer is null");
         }
@@ -308,7 +308,7 @@ public final class DeltaLakeWriter
         private final Optional<Function<Block, Block>> keyCoercer;
         private final Optional<Function<Block, Block>> valueCoercer;
 
-        public MapCoercer(MapType mapType)
+        private MapCoercer(MapType mapType)
         {
             this.mapType = requireNonNull(mapType, "mapType is null");
             keyCoercer = createCoercer(mapType.getKeyType());
@@ -334,7 +334,7 @@ public final class DeltaLakeWriter
     {
         private final List<Optional<Function<Block, Block>>> fieldCoercers;
 
-        public RowCoercer(RowType rowType)
+        private RowCoercer(RowType rowType)
         {
             fieldCoercers = rowType.getFieldTypes().stream()
                     .map(DeltaLakeWriter::createCoercer)

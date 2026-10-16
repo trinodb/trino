@@ -200,7 +200,7 @@ final class TestSetDefaultValueTask
     private static class MockMetadataWithDefaultValue
             extends MockMetadata
     {
-        public MockMetadataWithDefaultValue(String catalogName)
+        MockMetadataWithDefaultValue(String catalogName)
         {
             super(catalogName);
         }

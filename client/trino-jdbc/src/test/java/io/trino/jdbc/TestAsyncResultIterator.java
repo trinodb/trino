@@ -135,7 +135,7 @@ class TestAsyncResultIterator
     {
         private final Supplier<ResultRows> queryData;
 
-        public MockStatementClient(Supplier<ResultRows> queryData)
+        private MockStatementClient(Supplier<ResultRows> queryData)
         {
             this.queryData = requireNonNull(queryData, "queryData is null");
         }
@@ -308,7 +308,7 @@ class TestAsyncResultIterator
     {
         private final RuntimeException exception;
 
-        public MockStatementClientThrowingOnAdvance(Supplier<ResultRows> queryData, RuntimeException exception)
+        private MockStatementClientThrowingOnAdvance(Supplier<ResultRows> queryData, RuntimeException exception)
         {
             super(queryData);
             this.exception = requireNonNull(exception, "exception is null");

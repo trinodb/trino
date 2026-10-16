@@ -625,10 +625,10 @@ public class TestPageProcessor
     private static class InvocationCountPageProjection
             implements PageProjection
     {
-        protected final PageProjection delegate;
+        final PageProjection delegate;
         private int invocationCount;
 
-        public InvocationCountPageProjection(PageProjection delegate)
+        InvocationCountPageProjection(PageProjection delegate)
         {
             this.delegate = delegate;
         }
@@ -652,12 +652,12 @@ public class TestPageProcessor
             return delegate.project(session, page, selectedPositions);
         }
 
-        public int getInvocationCount()
+        int getInvocationCount()
         {
             return invocationCount;
         }
 
-        public void setInvocationCount(int invocationCount)
+        void setInvocationCount(int invocationCount)
         {
             this.invocationCount = invocationCount;
         }
@@ -727,7 +727,7 @@ public class TestPageProcessor
     {
         private final SelectedPositions selectedPositions;
 
-        public TestingPageFilter(SelectedPositions selectedPositions)
+        TestingPageFilter(SelectedPositions selectedPositions)
         {
             this.selectedPositions = selectedPositions;
         }

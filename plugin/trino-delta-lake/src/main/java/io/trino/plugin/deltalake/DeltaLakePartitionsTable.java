@@ -310,13 +310,13 @@ public class DeltaLakePartitionsTable
             private final Map<String, Long> nullCounts = new HashMap<>();
             private boolean ignoreDataColumn;
 
-            public Builder(List<DeltaLakeColumnHandle> columns, TypeManager typeManager)
+            private Builder(List<DeltaLakeColumnHandle> columns, TypeManager typeManager)
             {
                 this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
                 this.typeManager = requireNonNull(typeManager, "typeManager is null");
             }
 
-            public void acceptAddFileEntry(AddFileEntry addFileEntry)
+            private void acceptAddFileEntry(AddFileEntry addFileEntry)
             {
                 fileCount++;
                 size += addFileEntry.getSize();
@@ -342,7 +342,7 @@ public class DeltaLakePartitionsTable
                 });
             }
 
-            public DeltaLakePartitionStatistics build()
+            private DeltaLakePartitionStatistics build()
             {
                 ImmutableMap.Builder<String, Object> minValues = ImmutableMap.builder();
                 ImmutableMap.Builder<String, Object> maxValues = ImmutableMap.builder();
@@ -387,7 +387,7 @@ public class DeltaLakePartitionsTable
                 private Optional<Object> min;
                 private Optional<Object> max;
 
-                public ColumnStatistics(MethodHandle comparisonHandle, Object initialMin, Object initialMax)
+                private ColumnStatistics(MethodHandle comparisonHandle, Object initialMin, Object initialMax)
                 {
                     this.comparisonHandle = requireNonNull(comparisonHandle, "comparisonHandle is null");
                     this.min = Optional.ofNullable(initialMin);
@@ -399,7 +399,7 @@ public class DeltaLakePartitionsTable
                  *
                  * @return Empty if the statistics contained values which were not comparable, otherwise returns the min value.
                  */
-                public Optional<Object> getMin()
+                private Optional<Object> getMin()
                 {
                     return min;
                 }
@@ -409,7 +409,7 @@ public class DeltaLakePartitionsTable
                  *
                  * @return Empty if the statistics contained values which were not comparable, otherwise returns the max value.
                  */
-                public Optional<Object> getMax()
+                private Optional<Object> getMax()
                 {
                     return max;
                 }
@@ -420,7 +420,7 @@ public class DeltaLakePartitionsTable
                  * @param lowerBound Trino encoded lower bound value from a file
                  * @param upperBound Trino encoded upper bound value from a file
                  */
-                public void updateMinMax(Object lowerBound, Object upperBound)
+                private void updateMinMax(Object lowerBound, Object upperBound)
                 {
                     if (min.isPresent()) {
                         if (lowerBound == null) {

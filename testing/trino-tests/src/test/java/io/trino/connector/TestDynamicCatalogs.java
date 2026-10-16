@@ -164,7 +164,7 @@ public class TestDynamicCatalogs
     {
         private final Map<CatalogName, CatalogProperties> prepopulatedCatalogs;
 
-        public PrepopulatedInMemoryCatalogStoreModule(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
+        private PrepopulatedInMemoryCatalogStoreModule(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
         {
             this.prepopulatedCatalogs = requireNonNull(prepopulatedCatalogs, "prepopulatedCatalogs is null");
         }
@@ -187,7 +187,7 @@ public class TestDynamicCatalogs
     {
         private final Map<CatalogName, CatalogProperties> prepopulatedCatalogs;
 
-        public PrepopulatedInMemoryCatalogStoreFactory(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
+        private PrepopulatedInMemoryCatalogStoreFactory(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
         {
             this.prepopulatedCatalogs = requireNonNull(prepopulatedCatalogs, "prepopulatedCatalogs is null");
         }
@@ -210,7 +210,7 @@ public class TestDynamicCatalogs
     {
         private final Map<CatalogName, CatalogProperties> prepopulatedCatalogs;
 
-        public PrepopulatedInMemoryCatalogStore(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
+        private PrepopulatedInMemoryCatalogStore(Map<CatalogName, CatalogProperties> prepopulatedCatalogs)
         {
             this.prepopulatedCatalogs = requireNonNull(prepopulatedCatalogs, "prepopulatedCatalogs is null");
         }

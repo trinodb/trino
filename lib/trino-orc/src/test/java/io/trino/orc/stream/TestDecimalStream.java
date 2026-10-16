@@ -276,7 +276,7 @@ public class TestDecimalStream
         private final OrcDataSourceId dataSourceId;
         private final Iterator<Slice> chunks;
 
-        public TestingChunkLoader(OrcDataSourceId dataSourceId, List<Slice> chunks)
+        private TestingChunkLoader(OrcDataSourceId dataSourceId, List<Slice> chunks)
         {
             this.dataSourceId = dataSourceId;
             this.chunks = chunks.iterator();

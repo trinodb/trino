@@ -32,7 +32,7 @@ public class SqlStandardSecurityModule
     private static final class SqlStandardAccessControlMetadataFactory
             implements AccessControlMetadataFactory
     {
-        public SqlStandardAccessControlMetadataFactory() {}
+        SqlStandardAccessControlMetadataFactory() {}
 
         @Override
         public AccessControlMetadata create(SqlStandardAccessControlMetadataMetastore metastore)

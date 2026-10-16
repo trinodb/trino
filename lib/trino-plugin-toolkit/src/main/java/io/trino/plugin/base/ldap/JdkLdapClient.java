@@ -182,13 +182,13 @@ public class JdkLdapClient
     {
         private final DirContext context;
 
-        public CloseableContext(DirContext context)
+        private CloseableContext(DirContext context)
         {
             this.context = requireNonNull(context, "context is null");
         }
 
         @SuppressWarnings("BanJNDI")
-        public NamingEnumeration<SearchResult> search(String name, String filter, Object[] filterArguments, SearchControls searchControls)
+        private NamingEnumeration<SearchResult> search(String name, String filter, Object[] filterArguments, SearchControls searchControls)
                 throws NamingException
         {
             return context.search(name, filter, filterArguments, searchControls);
@@ -207,12 +207,12 @@ public class JdkLdapClient
     {
         private final NamingEnumeration<SearchResult> searchResults;
 
-        public CloseableSearchResults(NamingEnumeration<SearchResult> searchResults)
+        private CloseableSearchResults(NamingEnumeration<SearchResult> searchResults)
         {
             this.searchResults = requireNonNull(searchResults, "searchResults is null");
         }
 
-        public NamingEnumeration<SearchResult> getSearchResult()
+        private NamingEnumeration<SearchResult> getSearchResult()
                 throws NamingException
         {
             return searchResults;

@@ -94,7 +94,7 @@ public final class QueryCardinalityUtil
     {
         private final Lookup lookup;
 
-        public CardinalityExtractorPlanVisitor(Lookup lookup)
+        CardinalityExtractorPlanVisitor(Lookup lookup)
         {
             this.lookup = requireNonNull(lookup, "lookup is null");
         }

@@ -181,7 +181,7 @@ public final class PropertyDerivations
         private final Session session;
         private final SymbolAllocator symbolAllocator;
 
-        public Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
+        Visitor(PlannerContext plannerContext, Session session, SymbolAllocator symbolAllocator)
         {
             this.plannerContext = plannerContext;
             this.optimizer = plannerContext.getExpressionOptimizer();
@@ -662,7 +662,7 @@ public final class PropertyDerivations
                     .build();
         }
 
-        public static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)
+        static Map<Symbol, Symbol> exchangeInputToOutput(ExchangeNode node, int sourceIndex)
         {
             List<Symbol> inputSymbols = node.getInputs().get(sourceIndex);
             Map<Symbol, Symbol> inputToOutput = new HashMap<>();

@@ -440,13 +440,13 @@ public class ArbitraryOutputBuffer
             this.onPagesReleased = requireNonNull(onPagesReleased, "onPagesReleased is null");
         }
 
-        public synchronized void addPages(List<SerializedPageReference> pages)
+        synchronized void addPages(List<SerializedPageReference> pages)
         {
             masterBuffer.addAll(pages);
             bufferedPages.set(masterBuffer.size());
         }
 
-        public synchronized boolean isEmpty()
+        synchronized boolean isEmpty()
         {
             return masterBuffer.isEmpty();
         }
@@ -457,7 +457,7 @@ public class ArbitraryOutputBuffer
             return !noMorePages || !masterBuffer.isEmpty();
         }
 
-        public synchronized void setNoMorePages()
+        synchronized void setNoMorePages()
         {
             this.noMorePages = true;
         }
@@ -489,7 +489,7 @@ public class ArbitraryOutputBuffer
             return ImmutableList.copyOf(pages);
         }
 
-        public void destroy()
+        void destroy()
         {
             checkState(!Thread.holdsLock(this), "Cannot destroy master buffer while holding a lock on this");
             List<SerializedPageReference> pages;
@@ -503,7 +503,7 @@ public class ArbitraryOutputBuffer
             dereferencePages(pages, onPagesReleased);
         }
 
-        public int getBufferedPages()
+        int getBufferedPages()
         {
             return bufferedPages.get();
         }

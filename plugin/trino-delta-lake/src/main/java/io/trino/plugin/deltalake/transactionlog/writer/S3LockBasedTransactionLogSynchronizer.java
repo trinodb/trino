@@ -232,34 +232,34 @@ public class S3LockBasedTransactionLogSynchronizer
         private final String entryFilename;
         private final LockFileContents contents;
 
-        public LockInfo(String lockFilename, LockFileContents contents)
+        private LockInfo(String lockFilename, LockFileContents contents)
         {
             this.lockFilename = requireNonNull(lockFilename, "lockFilename is null");
             this.entryFilename = parseEntryFilename(lockFilename);
             this.contents = requireNonNull(contents, "contents is null");
         }
 
-        public String getLockFilename()
+        String getLockFilename()
         {
             return lockFilename;
         }
 
-        public String getEntryFilename()
+        String getEntryFilename()
         {
             return entryFilename;
         }
 
-        public String getClusterId()
+        String getClusterId()
         {
             return contents.clusterId();
         }
 
-        public String getOwningQuery()
+        String getOwningQuery()
         {
             return contents.owningQuery();
         }
 
-        public Instant getExpirationTime()
+        Instant getExpirationTime()
         {
             return Instant.ofEpochMilli(contents.expirationEpochMillis());
         }

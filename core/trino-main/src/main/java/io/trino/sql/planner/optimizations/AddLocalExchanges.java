@@ -133,7 +133,7 @@ public class AddLocalExchanges
         private final SymbolAllocator symbolAllocator;
         private final Session session;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
+        Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, Session session)
         {
             this.idAllocator = idAllocator;
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -1081,18 +1081,18 @@ public class AddLocalExchanges
         private final PlanNode node;
         private final StreamProperties properties;
 
-        public PlanWithProperties(PlanNode node, StreamProperties properties)
+        PlanWithProperties(PlanNode node, StreamProperties properties)
         {
             this.node = requireNonNull(node, "node is null");
             this.properties = requireNonNull(properties, "properties is null");
         }
 
-        public PlanNode getNode()
+        PlanNode getNode()
         {
             return node;
         }
 
-        public StreamProperties getProperties()
+        StreamProperties getProperties()
         {
             return properties;
         }

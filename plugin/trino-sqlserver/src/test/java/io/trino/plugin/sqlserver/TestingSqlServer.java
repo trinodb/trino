@@ -261,7 +261,7 @@ public final class TestingSqlServer
         private final String databaseName;
         private final Closeable cleanup;
 
-        public InitializedState(MSSQLServerContainer container, String databaseName, Closeable cleanup)
+        private InitializedState(MSSQLServerContainer container, String databaseName, Closeable cleanup)
         {
             this.container = container;
             this.databaseName = databaseName;

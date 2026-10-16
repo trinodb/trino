@@ -1310,7 +1310,7 @@ public class TrinoRestCatalog
     private static class RemoteObjectNotFoundException
             extends RuntimeException
     {
-        public RemoteObjectNotFoundException()
+        RemoteObjectNotFoundException()
         {
             // This exception is a sentinel used only to signal a cache miss to the enclosing catch;
             // it never escapes and is never logged, so the stack trace is pointless overhead and is suppressed.

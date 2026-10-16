@@ -609,7 +609,7 @@ public class PipelineContext
             this.partitioned = partitioned;
         }
 
-        public void accumulate(DriverContext driverContext)
+        void accumulate(DriverContext driverContext)
         {
             if (!driverContext.isExecutionStarted()) {
                 physicallyQueuedDrivers++;
@@ -624,7 +624,7 @@ public class PipelineContext
             }
         }
 
-        public void accumulate(DriverStats driverStats, long splitWeight)
+        void accumulate(DriverStats driverStats, long splitWeight)
         {
             if (driverStats.getStartTime() == null) {
                 // driver has not started running
@@ -640,7 +640,7 @@ public class PipelineContext
             }
         }
 
-        public PipelineStatus build()
+        PipelineStatus build()
         {
             int queuedDrivers;
             int queuedPartitionedSplits;

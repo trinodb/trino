@@ -154,18 +154,18 @@ public class SimpleFilterProjectSemiJoinStatsRule
         private final boolean negated;
         private final Expression remainingPredicate;
 
-        public SemiJoinOutputFilter(boolean negated, Expression remainingPredicate)
+        SemiJoinOutputFilter(boolean negated, Expression remainingPredicate)
         {
             this.negated = negated;
             this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate cannot be null");
         }
 
-        public boolean isNegated()
+        boolean isNegated()
         {
             return negated;
         }
 
-        public Expression getRemainingPredicate()
+        Expression getRemainingPredicate()
         {
             return remainingPredicate;
         }

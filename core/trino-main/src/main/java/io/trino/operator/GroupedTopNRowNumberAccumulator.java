@@ -389,18 +389,18 @@ public class GroupedTopNRowNumberAccumulator
         private final long maxDepth;
         private final long nodeCount;
 
-        public IntegrityStats(long maxDepth, long nodeCount)
+        IntegrityStats(long maxDepth, long nodeCount)
         {
             this.maxDepth = maxDepth;
             this.nodeCount = nodeCount;
         }
 
-        public long getMaxDepth()
+        long getMaxDepth()
         {
             return maxDepth;
         }
 
-        public long getNodeCount()
+        long getNodeCount()
         {
             return nodeCount;
         }
@@ -433,7 +433,7 @@ public class GroupedTopNRowNumberAccumulator
 
         private int totalGroups;
 
-        public void allocateGroupIfNeeded(int groupId)
+        void allocateGroupIfNeeded(int groupId)
         {
             if (totalGroups > groupId) {
                 return;
@@ -445,42 +445,42 @@ public class GroupedTopNRowNumberAccumulator
             sizeBuffer.ensureCapacity(totalGroups);
         }
 
-        public int getTotalGroups()
+        int getTotalGroups()
         {
             return totalGroups;
         }
 
-        public long getHeapRootNodeIndex(int groupId)
+        long getHeapRootNodeIndex(int groupId)
         {
             return heapIndexBuffer.get(groupId);
         }
 
-        public void setHeapRootNodeIndex(int groupId, long heapNodeIndex)
+        void setHeapRootNodeIndex(int groupId, long heapNodeIndex)
         {
             heapIndexBuffer.set(groupId, heapNodeIndex);
         }
 
-        public long getHeapSize(int groupId)
+        long getHeapSize(int groupId)
         {
             return sizeBuffer.get(groupId);
         }
 
-        public void setHeapSize(int groupId, long count)
+        void setHeapSize(int groupId, long count)
         {
             sizeBuffer.set(groupId, count);
         }
 
-        public void addHeapSize(int groupId, long delta)
+        void addHeapSize(int groupId, long delta)
         {
             sizeBuffer.add(groupId, delta);
         }
 
-        public void incrementHeapSize(int groupId)
+        void incrementHeapSize(int groupId)
         {
             sizeBuffer.increment(groupId);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + heapIndexBuffer.sizeOf() + sizeBuffer.sizeOf();
         }
@@ -513,7 +513,7 @@ public class GroupedTopNRowNumberAccumulator
          *
          * @return index referencing the node
          */
-        public long allocateNewNode(long rowId)
+        long allocateNewNode(long rowId)
         {
             long newHeapIndex;
             if (!emptySlots.isEmpty()) {
@@ -532,47 +532,47 @@ public class GroupedTopNRowNumberAccumulator
             return newHeapIndex;
         }
 
-        public void deallocate(long index)
+        void deallocate(long index)
         {
             emptySlots.enqueue(index);
         }
 
-        public long getActiveNodeCount()
+        long getActiveNodeCount()
         {
             return capacity - emptySlots.longSize();
         }
 
-        public long getRowId(long index)
+        long getRowId(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY);
         }
 
-        public void setRowId(long index, long rowId)
+        void setRowId(long index, long rowId)
         {
             buffer.set(index * POSITIONS_PER_ENTRY, rowId);
         }
 
-        public long getLeftChildHeapIndex(long index)
+        long getLeftChildHeapIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + LEFT_CHILD_HEAP_INDEX_OFFSET);
         }
 
-        public void setLeftChildHeapIndex(long index, long childHeapIndex)
+        void setLeftChildHeapIndex(long index, long childHeapIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + LEFT_CHILD_HEAP_INDEX_OFFSET, childHeapIndex);
         }
 
-        public long getRightChildHeapIndex(long index)
+        long getRightChildHeapIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + RIGHT_CHILD_HEAP_INDEX_OFFSET);
         }
 
-        public void setRightChildHeapIndex(long index, long childHeapIndex)
+        void setRightChildHeapIndex(long index, long childHeapIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + RIGHT_CHILD_HEAP_INDEX_OFFSET, childHeapIndex);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + buffer.sizeOf() + emptySlots.sizeOf();
         }

@@ -403,7 +403,7 @@ public class ThreadPerDriverTaskExecutor
             this.message = requireNonNull(message, "message is null");
         }
 
-        public void log(Throwable failure)
+        void log(Throwable failure)
         {
             long now = System.nanoTime();
             while (true) {

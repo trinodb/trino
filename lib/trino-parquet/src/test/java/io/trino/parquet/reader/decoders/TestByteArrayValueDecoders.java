@@ -371,7 +371,7 @@ public final class TestByteArrayValueDecoders
         private final ValuesReader delegate;
         private final int boundedLength;
 
-        public BoundedVarcharApacheParquetValueDecoder(ValuesReader delegate, VarcharType varcharType)
+        BoundedVarcharApacheParquetValueDecoder(ValuesReader delegate, VarcharType varcharType)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             checkArgument(
@@ -410,7 +410,7 @@ public final class TestByteArrayValueDecoders
         private final ValuesReader delegate;
         private final int maxLength;
 
-        public CharApacheParquetValueDecoder(ValuesReader delegate, CharType charType)
+        CharApacheParquetValueDecoder(ValuesReader delegate, CharType charType)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.maxLength = charType.getLength();
@@ -444,7 +444,7 @@ public final class TestByteArrayValueDecoders
     {
         private final ValuesReader delegate;
 
-        public ShortDecimalApacheParquetValueDecoder(ValuesReader delegate)
+        private ShortDecimalApacheParquetValueDecoder(ValuesReader delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

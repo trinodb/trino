@@ -333,7 +333,7 @@ public final class SortingFileWriter
 
     private record TempFile(Location location, long size)
     {
-        public TempFile
+        TempFile
         {
             checkArgument(size >= 0, "size is negative");
             requireNonNull(location, "location is null");

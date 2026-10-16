@@ -269,7 +269,7 @@ public class FileSystemExchangeSink
         @GuardedBy("this")
         private boolean closed;
 
-        public BufferedStorageWriter(
+        private BufferedStorageWriter(
                 FileSystemExchangeStorage exchangeStorage,
                 FileSystemExchangeStats stats,
                 URI outputDirectory,
@@ -297,7 +297,7 @@ public class FileSystemExchangeSink
             setupWriterForNextPart();
         }
 
-        public synchronized void write(Slice data)
+        private synchronized void write(Slice data)
         {
             if (closed) {
                 return;
@@ -325,7 +325,7 @@ public class FileSystemExchangeSink
             currentFileSize += requiredPageStorageSize;
         }
 
-        public synchronized ListenableFuture<Void> finish()
+        private synchronized ListenableFuture<Void> finish()
         {
             if (closed) {
                 return immediateFailedFuture(new IllegalStateException("BufferedStorageWriter has already closed"));
@@ -341,7 +341,7 @@ public class FileSystemExchangeSink
             return asVoid(Futures.allAsList(writers.stream().map(ExchangeStorageWriter::finish).collect(toImmutableList())));
         }
 
-        public synchronized ListenableFuture<Void> abort()
+        private synchronized ListenableFuture<Void> abort()
         {
             if (closed) {
                 return immediateVoidFuture();
@@ -354,7 +354,7 @@ public class FileSystemExchangeSink
             return asVoid(Futures.allAsList(writers.stream().map(ExchangeStorageWriter::abort).collect(toImmutableList())));
         }
 
-        public synchronized long getRetainedSize()
+        private synchronized long getRetainedSize()
         {
             return INSTANCE_SIZE + estimatedSizeOf(writers, ExchangeStorageWriter::getRetainedSize);
         }
@@ -420,7 +420,7 @@ public class FileSystemExchangeSink
         @GuardedBy("this")
         private int numBuffersCreated;
 
-        public BufferPool(FileSystemExchangeStats stats, int maxNumBuffers, int writeBufferSize)
+        private BufferPool(FileSystemExchangeStats stats, int maxNumBuffers, int writeBufferSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
             checkArgument(maxNumBuffers >= 1, "maxNumBuffers must be at least one");
@@ -433,7 +433,7 @@ public class FileSystemExchangeSink
             this.bufferRetainedSize = freeBuffersQueue.peek().getRetainedSize();
         }
 
-        public synchronized CompletableFuture<Void> isBlocked()
+        private synchronized CompletableFuture<Void> isBlocked()
         {
             if (!hasFreeBuffers()) {
                 if (blockedFuture.isDone()) {
@@ -445,7 +445,7 @@ public class FileSystemExchangeSink
             return NOT_BLOCKED;
         }
 
-        public synchronized SliceOutput take()
+        private synchronized SliceOutput take()
         {
             while (true) {
                 if (closed) {
@@ -464,7 +464,7 @@ public class FileSystemExchangeSink
             }
         }
 
-        public void offer(SliceOutput buffer)
+        private void offer(SliceOutput buffer)
         {
             buffer.reset();
 
@@ -481,7 +481,7 @@ public class FileSystemExchangeSink
             completableFuture.complete(null);
         }
 
-        public synchronized long getRetainedSize()
+        private synchronized long getRetainedSize()
         {
             if (closed) {
                 return INSTANCE_SIZE;
@@ -489,7 +489,7 @@ public class FileSystemExchangeSink
             return INSTANCE_SIZE + numBuffersCreated * bufferRetainedSize;
         }
 
-        public void close()
+        private void close()
         {
             CompletableFuture<Void> completableFuture;
             synchronized (this) {

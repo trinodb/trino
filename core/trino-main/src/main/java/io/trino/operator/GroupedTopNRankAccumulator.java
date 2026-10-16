@@ -575,24 +575,24 @@ public class GroupedTopNRankAccumulator
         private final long peerGroupCount;
         private final long valueCount;
 
-        public IntegrityStats(long maxDepth, long peerGroupCount, long valueCount)
+        IntegrityStats(long maxDepth, long peerGroupCount, long valueCount)
         {
             this.maxDepth = maxDepth;
             this.peerGroupCount = peerGroupCount;
             this.valueCount = valueCount;
         }
 
-        public long getMaxDepth()
+        long getMaxDepth()
         {
             return maxDepth;
         }
 
-        public long getPeerGroupCount()
+        long getPeerGroupCount()
         {
             return peerGroupCount;
         }
 
-        public long getValueCount()
+        long getValueCount()
         {
             return valueCount;
         }
@@ -626,7 +626,7 @@ public class GroupedTopNRankAccumulator
 
         private int totalGroups;
 
-        public void allocateGroupIfNeeded(int groupId)
+        void allocateGroupIfNeeded(int groupId)
         {
             if (totalGroups > groupId) {
                 return;
@@ -638,62 +638,62 @@ public class GroupedTopNRankAccumulator
             metricsBuffer.ensureCapacity((long) totalGroups * METRICS_POSITIONS_PER_ENTRY);
         }
 
-        public int getTotalGroups()
+        int getTotalGroups()
         {
             return totalGroups;
         }
 
-        public long getHeapRootNodeIndex(int groupId)
+        long getHeapRootNodeIndex(int groupId)
         {
             return heapIndexBuffer.get(groupId);
         }
 
-        public void setHeapRootNodeIndex(int groupId, long heapNodeIndex)
+        void setHeapRootNodeIndex(int groupId, long heapNodeIndex)
         {
             heapIndexBuffer.set(groupId, heapNodeIndex);
         }
 
-        public long getHeapValueCount(int groupId)
+        long getHeapValueCount(int groupId)
         {
             return metricsBuffer.get((long) groupId * METRICS_POSITIONS_PER_ENTRY);
         }
 
-        public void setHeapValueCount(int groupId, long count)
+        void setHeapValueCount(int groupId, long count)
         {
             metricsBuffer.set((long) groupId * METRICS_POSITIONS_PER_ENTRY, count);
         }
 
-        public void addHeapValueCount(int groupId, long delta)
+        void addHeapValueCount(int groupId, long delta)
         {
             metricsBuffer.add((long) groupId * METRICS_POSITIONS_PER_ENTRY, delta);
         }
 
-        public void incrementHeapValueCount(int groupId)
+        void incrementHeapValueCount(int groupId)
         {
             metricsBuffer.increment((long) groupId * METRICS_POSITIONS_PER_ENTRY);
         }
 
-        public long getHeapSize(int groupId)
+        long getHeapSize(int groupId)
         {
             return metricsBuffer.get((long) groupId * METRICS_POSITIONS_PER_ENTRY + METRICS_HEAP_SIZE_OFFSET);
         }
 
-        public void setHeapSize(int groupId, long size)
+        void setHeapSize(int groupId, long size)
         {
             metricsBuffer.set((long) groupId * METRICS_POSITIONS_PER_ENTRY + METRICS_HEAP_SIZE_OFFSET, size);
         }
 
-        public void addHeapSize(int groupId, long delta)
+        void addHeapSize(int groupId, long delta)
         {
             metricsBuffer.add((long) groupId * METRICS_POSITIONS_PER_ENTRY + METRICS_HEAP_SIZE_OFFSET, delta);
         }
 
-        public void incrementHeapSize(int groupId)
+        void incrementHeapSize(int groupId)
         {
             metricsBuffer.increment((long) groupId * METRICS_POSITIONS_PER_ENTRY + METRICS_HEAP_SIZE_OFFSET);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + heapIndexBuffer.sizeOf() + metricsBuffer.sizeOf();
         }
@@ -727,7 +727,7 @@ public class GroupedTopNRankAccumulator
          *
          * @return index referencing the node
          */
-        public long allocateNewNode(long peerGroupIndex, long peerGroupCount)
+        long allocateNewNode(long peerGroupIndex, long peerGroupCount)
         {
             long newHeapIndex;
             if (!emptySlots.isEmpty()) {
@@ -747,67 +747,67 @@ public class GroupedTopNRankAccumulator
             return newHeapIndex;
         }
 
-        public void deallocate(long index)
+        void deallocate(long index)
         {
             emptySlots.enqueue(index);
         }
 
-        public long getActiveNodeCount()
+        long getActiveNodeCount()
         {
             return capacity - emptySlots.longSize();
         }
 
-        public long getPeerGroupIndex(long index)
+        long getPeerGroupIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY);
         }
 
-        public void setPeerGroupIndex(long index, long peerGroupIndex)
+        void setPeerGroupIndex(long index, long peerGroupIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY, peerGroupIndex);
         }
 
-        public long getPeerGroupCount(long index)
+        long getPeerGroupCount(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET);
         }
 
-        public void setPeerGroupCount(long index, long peerGroupCount)
+        void setPeerGroupCount(long index, long peerGroupCount)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET, peerGroupCount);
         }
 
-        public void incrementPeerGroupCount(long index)
+        void incrementPeerGroupCount(long index)
         {
             buffer.increment(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET);
         }
 
-        public void addPeerGroupCount(long index, long delta)
+        void addPeerGroupCount(long index, long delta)
         {
             buffer.add(index * POSITIONS_PER_ENTRY + PEER_GROUP_COUNT_OFFSET, delta);
         }
 
-        public long getLeftChildHeapIndex(long index)
+        long getLeftChildHeapIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + LEFT_CHILD_HEAP_INDEX_OFFSET);
         }
 
-        public void setLeftChildHeapIndex(long index, long childHeapIndex)
+        void setLeftChildHeapIndex(long index, long childHeapIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + LEFT_CHILD_HEAP_INDEX_OFFSET, childHeapIndex);
         }
 
-        public long getRightChildHeapIndex(long index)
+        long getRightChildHeapIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + RIGHT_CHILD_HEAP_INDEX_OFFSET);
         }
 
-        public void setRightChildHeapIndex(long index, long childHeapIndex)
+        void setRightChildHeapIndex(long index, long childHeapIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + RIGHT_CHILD_HEAP_INDEX_OFFSET, childHeapIndex);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + buffer.sizeOf() + emptySlots.sizeOf();
         }
@@ -840,7 +840,7 @@ public class GroupedTopNRankAccumulator
          *
          * @return index referencing the node
          */
-        public long allocateNewNode(long rowId, long nextPeerIndex)
+        long allocateNewNode(long rowId, long nextPeerIndex)
         {
             long newPeerIndex;
             if (!emptySlots.isEmpty()) {
@@ -858,37 +858,37 @@ public class GroupedTopNRankAccumulator
             return newPeerIndex;
         }
 
-        public void deallocate(long index)
+        void deallocate(long index)
         {
             emptySlots.enqueue(index);
         }
 
-        public long getActiveNodeCount()
+        long getActiveNodeCount()
         {
             return capacity - emptySlots.longSize();
         }
 
-        public long getRowId(long index)
+        long getRowId(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY);
         }
 
-        public void setRowId(long index, long rowId)
+        void setRowId(long index, long rowId)
         {
             buffer.set(index * POSITIONS_PER_ENTRY, rowId);
         }
 
-        public long getNextPeerIndex(long index)
+        long getNextPeerIndex(long index)
         {
             return buffer.get(index * POSITIONS_PER_ENTRY + NEXT_PEER_INDEX_OFFSET);
         }
 
-        public void setNextPeerIndex(long index, long nextPeerIndex)
+        void setNextPeerIndex(long index, long nextPeerIndex)
         {
             buffer.set(index * POSITIONS_PER_ENTRY + NEXT_PEER_INDEX_OFFSET, nextPeerIndex);
         }
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + buffer.sizeOf() + emptySlots.sizeOf();
         }

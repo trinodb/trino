@@ -462,25 +462,25 @@ public class DefaultPageJoiner
         private final long spillEpoch;
         private final IntPredicate spillMask;
 
-        public SpillInfoSnapshot(long spillEpoch, IntPredicate spillMask)
+        SpillInfoSnapshot(long spillEpoch, IntPredicate spillMask)
         {
             this.spillEpoch = spillEpoch;
             this.spillMask = requireNonNull(spillMask, "spillMask is null");
         }
 
-        public static SpillInfoSnapshot from(LookupSourceProvider.LookupSourceLease lookupSourceLease)
+        static SpillInfoSnapshot from(LookupSourceProvider.LookupSourceLease lookupSourceLease)
         {
             return new SpillInfoSnapshot(
                     lookupSourceLease.spillEpoch(),
                     lookupSourceLease.getSpillMask());
         }
 
-        public long getSpillEpoch()
+        long getSpillEpoch()
         {
             return spillEpoch;
         }
 
-        public IntPredicate getSpillMask()
+        IntPredicate getSpillMask()
         {
             return spillMask;
         }

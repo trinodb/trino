@@ -181,7 +181,7 @@ public class RcFilePageSource
         private long sizeInBytes;
         private long retainedSizeInBytes;
 
-        public RcFileSourcePage(int positionCount)
+        RcFileSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
             retainedSizeInBytes = shallowRetainedSizeInBytes();
@@ -292,13 +292,13 @@ public class RcFilePageSource
     {
         private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
 
-        public long retainedSizeInBytes()
+        long retainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOf(positions);
         }
 
         @CheckReturnValue
-        public Block apply(Block block)
+        Block apply(Block block)
         {
             if (positions == null) {
                 return block;
@@ -307,7 +307,7 @@ public class RcFilePageSource
         }
 
         @CheckReturnValue
-        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
             if (this.positions == null) {
                 for (int i = 0; i < size; i++) {

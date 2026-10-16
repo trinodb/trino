@@ -495,7 +495,7 @@ final class TestFakerQueries
 
     private record TestDataType(String name, String type, Map<String, String> properties, String queryExpression, String expectedValue)
     {
-        public TestDataType(String name, String type, String queryExpression, String expectedValue)
+        private TestDataType(String name, String type, String queryExpression, String expectedValue)
         {
             this(name, type, Map.of(), queryExpression, expectedValue);
         }

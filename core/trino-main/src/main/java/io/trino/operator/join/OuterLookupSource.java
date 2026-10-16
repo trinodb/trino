@@ -115,7 +115,7 @@ public final class OuterLookupSource
         @GuardedBy("this")
         private int currentPosition;
 
-        public SharedLookupOuterPositionIterator(LookupSource lookupSource, boolean[] visitedPositions)
+        SharedLookupOuterPositionIterator(LookupSource lookupSource, boolean[] visitedPositions)
         {
             this.lookupSource = requireNonNull(lookupSource, "lookupSource is null");
             this.visitedPositions = requireNonNull(visitedPositions, "visitedPositions is null");
@@ -144,7 +144,7 @@ public final class OuterLookupSource
         private final Supplier<LookupSource> lookupSourceSupplier;
         private final OuterPositionTracker outerPositionTracker;
 
-        public OuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
+        OuterLookupSourceSupplier(Supplier<LookupSource> lookupSourceSupplier)
         {
             this.lookupSourceSupplier = requireNonNull(lookupSourceSupplier, "lookupSourceSupplier is null");
             this.outerPositionTracker = new OuterPositionTracker(lookupSourceSupplier);
@@ -174,7 +174,7 @@ public final class OuterLookupSource
         @GuardedBy("this")
         private boolean finished;
 
-        public OuterPositionTracker(Supplier<LookupSource> lookupSourceSupplier)
+        OuterPositionTracker(Supplier<LookupSource> lookupSourceSupplier)
         {
             this.lookupSourceSupplier = lookupSourceSupplier;
 
@@ -183,13 +183,13 @@ public final class OuterLookupSource
             }
         }
 
-        public synchronized void positionVisited(long position)
+        synchronized void positionVisited(long position)
         {
             verify(!finished);
             visitedPositions[toIntExact(position)] = true;
         }
 
-        public synchronized OuterPositionIterator getOuterPositionIterator()
+        synchronized OuterPositionIterator getOuterPositionIterator()
         {
             finished = true;
             return new SharedLookupOuterPositionIterator(lookupSourceSupplier.get(), visitedPositions);

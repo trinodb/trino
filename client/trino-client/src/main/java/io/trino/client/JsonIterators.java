@@ -54,7 +54,7 @@ public final class JsonIterators
         private final JsonParser parser;
         private final TypeDecoder[] decoders;
 
-        public JsonIterator(JsonParser parser, TypeDecoder[] decoders)
+        private JsonIterator(JsonParser parser, TypeDecoder[] decoders)
                 throws IOException
         {
             requireNonNull(decoders, "decoders is null");
@@ -78,7 +78,7 @@ public final class JsonIterators
             }
         }
 
-        public JsonIterator(InputStream stream, TypeDecoder[] decoders)
+        private JsonIterator(InputStream stream, TypeDecoder[] decoders)
                 throws IOException
         {
             this(JSON_MAPPER.createParser(requireNonNull(stream, "stream is null")), decoders);

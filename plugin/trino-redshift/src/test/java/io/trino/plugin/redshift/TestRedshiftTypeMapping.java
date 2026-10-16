@@ -959,17 +959,17 @@ public class TestRedshiftTypeMapping
             this.expected = expected;
         }
 
-        public int id()
+        private int id()
         {
             return this.id;
         }
 
-        public String input()
+        private String input()
         {
             return this.input;
         }
 
-        public String expected()
+        private String expected()
         {
             return this.expected;
         }

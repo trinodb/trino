@@ -402,7 +402,7 @@ public class SqlRoutineAnalyzer
         private final Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
         private final TypeCoercion typeCoercion;
 
-        public StatementVisitor(Session session, AccessControl accessControl, Type returnType)
+        StatementVisitor(Session session, AccessControl accessControl, Type returnType)
         {
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -410,7 +410,7 @@ public class SqlRoutineAnalyzer
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, getCharVarcharCoercion(session));
         }
 
-        public Analysis getAnalysis()
+        Analysis getAnalysis()
         {
             return analysis;
         }
@@ -639,7 +639,7 @@ public class SqlRoutineAnalyzer
             labels = new LinkedHashSet<>(labels);
         }
 
-        public Context newScope()
+        Context newScope()
         {
             return new Context(variables, labels);
         }

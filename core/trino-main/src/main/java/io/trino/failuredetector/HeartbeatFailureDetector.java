@@ -294,17 +294,17 @@ public class HeartbeatFailureDetector
             this.stats = new Stats(uri);
         }
 
-        public Stats getStats()
+        Stats getStats()
         {
             return stats;
         }
 
-        public ServiceDescriptor getService()
+        ServiceDescriptor getService()
         {
             return service;
         }
 
-        public synchronized void enable()
+        synchronized void enable()
         {
             if (future == null) {
                 future = executor.scheduleAtFixedRate(() -> {
@@ -321,7 +321,7 @@ public class HeartbeatFailureDetector
             }
         }
 
-        public synchronized void disable()
+        synchronized void disable()
         {
             if (future != null) {
                 future.cancel(true);
@@ -330,12 +330,12 @@ public class HeartbeatFailureDetector
             }
         }
 
-        public synchronized boolean isExpired()
+        synchronized boolean isExpired()
         {
             return future == null && disabledTimestamp != null && Duration.nanosSince(disabledTimestamp).compareTo(gcGraceInterval) > 0;
         }
 
-        public synchronized boolean isFailed()
+        synchronized boolean isFailed()
         {
             return future == null || // are we disabled?
                     successTransitionTimestamp == null || // are we in success state?

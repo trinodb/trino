@@ -439,13 +439,13 @@ public class CallColumnarFilterGenerator
         private Optional<FieldDefinition> field = Optional.empty();
         private Optional<MethodHandle> method = Optional.empty();
 
-        public CachedInstanceBinder(ClassDefinition classDefinition, CallSiteBinder callSiteBinder)
+        CachedInstanceBinder(ClassDefinition classDefinition, CallSiteBinder callSiteBinder)
         {
             this.classDefinition = requireNonNull(classDefinition, "classDefinition is null");
             this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
         }
 
-        public FieldDefinition getCachedInstance(MethodHandle methodHandle)
+        FieldDefinition getCachedInstance(MethodHandle methodHandle)
         {
             if (field.isEmpty()) {
                 field = Optional.of(classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance", callSiteBinder.getAccessibleType(methodHandle.type().returnType())));
@@ -454,7 +454,7 @@ public class CallColumnarFilterGenerator
             return field.get();
         }
 
-        public void generateInitializations(Variable thisVariable, BytecodeBlock block)
+        void generateInitializations(Variable thisVariable, BytecodeBlock block)
         {
             if (field.isEmpty()) {
                 return;

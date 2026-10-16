@@ -304,7 +304,7 @@ public final class SqlRoutineCompiler
         private final Map<IrLabel, LabelNode> continueLabels = new HashMap<>();
         private final Map<IrLabel, LabelNode> breakLabels = new HashMap<>();
 
-        public BytecodeVisitor(
+        BytecodeVisitor(
                 ClassDefinition classDefinition,
                 CachedInstanceBinder cachedInstanceBinder,
                 Map<Lambda, CompiledLambda> compiledLambdaMap,
@@ -574,7 +574,7 @@ public final class SqlRoutineCompiler
             return null;
         }
 
-        public static List<IrVariable> extract(IrNode node)
+        static List<IrVariable> extract(IrNode node)
         {
             VariableExtractor extractor = new VariableExtractor();
             extractor.process(node, null);

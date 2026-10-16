@@ -514,7 +514,7 @@ public class TestThreadPerDriverTaskExecutor
             return super.set(value);
         }
 
-        public void awaitListenerAdded()
+        void awaitListenerAdded()
                 throws InterruptedException
         {
             listenerAdded.await();
@@ -529,7 +529,7 @@ public class TestThreadPerDriverTaskExecutor
         private volatile boolean finished;
         private volatile Thread runnerThread;
 
-        public TestingSplitRunner(List<Function<Duration, ListenableFuture<Void>>> invocations)
+        TestingSplitRunner(List<Function<Duration, ListenableFuture<Void>>> invocations)
         {
             this.invocations = invocations;
         }
@@ -596,7 +596,7 @@ public class TestThreadPerDriverTaskExecutor
     private static class CloseFailingSplitRunner
             extends TestingSplitRunner
     {
-        public CloseFailingSplitRunner()
+        CloseFailingSplitRunner()
         {
             super(ImmutableList.of(_ -> Futures.immediateVoidFuture()));
         }

@@ -352,12 +352,12 @@ public class TestLocalDynamicFilterConsumer
             collectedDomains = dynamicFilterDomains;
         }
 
-        public boolean isCollectionComplete()
+        boolean isCollectionComplete()
         {
             return collectedDomains != null;
         }
 
-        public Map<DynamicFilterId, Domain> getCollectedDomains()
+        Map<DynamicFilterId, Domain> getCollectedDomains()
         {
             requireNonNull(collectedDomains, "collectedDomains is null");
             return collectedDomains;

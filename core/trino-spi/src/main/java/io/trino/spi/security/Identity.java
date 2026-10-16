@@ -324,7 +324,7 @@ public class Identity
         private final Runnable delegate;
         private final AtomicBoolean invoked = new AtomicBoolean();
 
-        public InvokeOnceRunnable(Runnable delegate)
+        private InvokeOnceRunnable(Runnable delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

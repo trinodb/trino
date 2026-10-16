@@ -759,74 +759,74 @@ public class TestQueryStateMachine
         private Map<String, String> addPreparedStatements = ImmutableMap.of();
 
         @CanIgnoreReturnValue
-        public QueryStateMachineBuilder withTicker(Ticker ticker)
+        QueryStateMachineBuilder withTicker(Ticker ticker)
         {
             this.ticker = ticker;
             return this;
         }
 
         @CanIgnoreReturnValue
-        public QueryStateMachineBuilder beforeQueryCleanup(Runnable runnable)
+        QueryStateMachineBuilder beforeQueryCleanup(Runnable runnable)
         {
             this.beforeQueryCleanup = Optional.of(runnable);
             return this;
         }
 
-        public QueryStateMachineBuilder withWarningCollector(WarningCollector warningCollector)
+        QueryStateMachineBuilder withWarningCollector(WarningCollector warningCollector)
         {
             this.warningCollector = warningCollector;
             return this;
         }
 
-        public QueryStateMachineBuilder withSetPath(String setPath)
+        QueryStateMachineBuilder withSetPath(String setPath)
         {
             this.setPath = setPath;
             return this;
         }
 
-        public QueryStateMachineBuilder withSetCatalog(String setCatalog)
+        QueryStateMachineBuilder withSetCatalog(String setCatalog)
         {
             this.setCatalog = setCatalog;
             return this;
         }
 
-        public QueryStateMachineBuilder withSetSchema(String setSchema)
+        QueryStateMachineBuilder withSetSchema(String setSchema)
         {
             this.setSchema = setSchema;
             return this;
         }
 
-        public QueryStateMachineBuilder withSetAuthorizationUser(String setAuthorizationUser)
+        QueryStateMachineBuilder withSetAuthorizationUser(String setAuthorizationUser)
         {
             this.setAuthorizationUser = setAuthorizationUser;
             return this;
         }
 
-        public QueryStateMachineBuilder withSetRoles(Map<String, SelectedRole> setRoles)
+        QueryStateMachineBuilder withSetRoles(Map<String, SelectedRole> setRoles)
         {
             this.setRoles = ImmutableMap.copyOf(setRoles);
             return this;
         }
 
-        public QueryStateMachineBuilder withWarnings(List<TrinoWarning> warnings)
+        QueryStateMachineBuilder withWarnings(List<TrinoWarning> warnings)
         {
             this.warnings = ImmutableList.copyOf(warnings);
             return this;
         }
 
-        public QueryStateMachineBuilder withTransactionId(TransactionId transactionId)
+        QueryStateMachineBuilder withTransactionId(TransactionId transactionId)
         {
             this.transactionId = transactionId;
             return this;
         }
 
-        public QueryStateMachineBuilder withAddPreparedStatements(Map<String, String> preparedStatements)
+        QueryStateMachineBuilder withAddPreparedStatements(Map<String, String> preparedStatements)
         {
             this.addPreparedStatements = ImmutableMap.copyOf(preparedStatements);
             return this;
         }
 
-        public QueryStateMachine build()
+        QueryStateMachine build()
         {
             TransactionManager transactionManager = createTestTransactionManager();
             Metadata metadata = TestingMetadataManager.builder()

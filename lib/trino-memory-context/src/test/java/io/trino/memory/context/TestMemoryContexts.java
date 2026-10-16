@@ -258,12 +258,12 @@ public class TestMemoryContexts
         private final long maxMemory;
         private SettableFuture<Void> future;
 
-        public TestMemoryReservationHandler(long maxMemory)
+        private TestMemoryReservationHandler(long maxMemory)
         {
             this.maxMemory = maxMemory;
         }
 
-        public long getReservation()
+        private long getReservation()
         {
             return reservation;
         }
@@ -298,7 +298,7 @@ public class TestMemoryContexts
             return true;
         }
 
-        public void exhaustMemory()
+        private void exhaustMemory()
         {
             reservation = maxMemory;
         }

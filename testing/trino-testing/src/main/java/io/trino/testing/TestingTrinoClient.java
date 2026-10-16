@@ -144,7 +144,7 @@ public class TestingTrinoClient
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
         private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
 
-        public MaterializedResultSession(Session session)
+        private MaterializedResultSession(Session session)
         {
             this.session = requireNonNull(session, "session is null");
         }

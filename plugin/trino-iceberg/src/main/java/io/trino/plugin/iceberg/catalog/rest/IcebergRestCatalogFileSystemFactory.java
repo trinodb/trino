@@ -269,7 +269,7 @@ public class IcebergRestCatalogFileSystemFactory
             Map<String, GcsVendedCredentials> gcsVendedCredentials,
             Optional<AzureVendedCredentials> azureVendedCredentials)
     {
-        public VendedCredentialsCacheKey
+        VendedCredentialsCacheKey
         {
             requireNonNull(user, "user is null");
             s3VendedCredentials = ImmutableMap.copyOf(s3VendedCredentials);
@@ -284,7 +284,7 @@ public class IcebergRestCatalogFileSystemFactory
             Optional<AzureVendedCredentialsProvider> azureVendedCredentialsProvider,
             Map<String, String> extraCredentials)
     {
-        public CachedVendedCredentialsProviders
+        CachedVendedCredentialsProviders
         {
             s3VendedCredentialsProviders = ImmutableMap.copyOf(s3VendedCredentialsProviders);
             gcsVendedCredentialsProviders = ImmutableMap.copyOf(gcsVendedCredentialsProviders);

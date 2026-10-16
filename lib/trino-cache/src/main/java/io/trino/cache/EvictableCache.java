@@ -461,7 +461,7 @@ class EvictableCache<K, V>
     {
         private final CacheLoader<? super K, V> delegate;
 
-        public TokenCacheLoader(CacheLoader<? super K, V> delegate)
+        private TokenCacheLoader(CacheLoader<? super K, V> delegate)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
         }

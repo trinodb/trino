@@ -194,13 +194,13 @@ public class TestTaskExecutorStuckSplits
         @GuardedBy("this")
         private boolean closed;
 
-        public void waitForStart()
+        void waitForStart()
                 throws ExecutionException, InterruptedException, TimeoutException
         {
             startedFuture.get(10, SECONDS);
         }
 
-        public void waitForFinish()
+        void waitForFinish()
                 throws ExecutionException, InterruptedException, TimeoutException
         {
             finishedFuture.get(10, SECONDS);

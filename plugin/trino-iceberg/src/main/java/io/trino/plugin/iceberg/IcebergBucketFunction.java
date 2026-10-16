@@ -133,7 +133,7 @@ public class IcebergBucketFunction
             requireNonNull(hashCodeOperator, "hashCodeOperator is null");
         }
 
-        public Object getValue(Page page, int position)
+        private Object getValue(Page page, int position)
         {
             Block block = page.getBlock(dataPath.getFirst());
             for (int i = 1; i < dataPath.size(); i++) {
@@ -143,7 +143,7 @@ public class IcebergBucketFunction
             return valueTransform.apply(block, position);
         }
 
-        public long computeHash(Page page, int position)
+        private long computeHash(Page page, int position)
         {
             return computeHash(getValue(page, position));
         }

@@ -60,12 +60,12 @@ public class TestGroupByHash
     {
         BIGINT, FLAT;
 
-        public GroupByHash createGroupByHash()
+        GroupByHash createGroupByHash()
         {
             return createGroupByHash(100, NOOP);
         }
 
-        public GroupByHash createGroupByHash(int expectedSize, UpdateMemory updateMemory)
+        GroupByHash createGroupByHash(int expectedSize, UpdateMemory updateMemory)
         {
             return switch (this) {
                 case BIGINT -> new BigintGroupByHash(expectedSize, updateMemory);

@@ -94,7 +94,7 @@ public class RemoveUnsupportedDynamicFilters
         private final CharVarcharCoercion charVarcharCoercion;
         private final TypeCoercion typeCoercion;
 
-        public Rewriter(Session session)
+        Rewriter(Session session)
         {
             this.charVarcharCoercion = getCharVarcharCoercion(session);
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType, charVarcharCoercion);

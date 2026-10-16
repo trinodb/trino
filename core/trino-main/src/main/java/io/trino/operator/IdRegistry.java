@@ -77,7 +77,7 @@ public final class IdRegistry<T>
     {
         private static final long INSTANCE_SIZE = instanceSize(IntFIFOQueue.class);
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + SizeOf.sizeOf(array);
         }
@@ -88,7 +88,7 @@ public final class IdRegistry<T>
     {
         private static final long INSTANCE_SIZE = instanceSize(ObjectList.class);
 
-        public long sizeOf()
+        long sizeOf()
         {
             return INSTANCE_SIZE + SizeOf.sizeOf(a);
         }

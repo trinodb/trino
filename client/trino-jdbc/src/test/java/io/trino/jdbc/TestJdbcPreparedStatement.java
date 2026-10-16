@@ -1605,13 +1605,13 @@ public class TestJdbcPreparedStatement
         private final ConnectionFactory connectionFactory;
         private final Binder binder;
 
-        public BindAssertion(ConnectionFactory connectionFactory, Binder binder)
+        private BindAssertion(ConnectionFactory connectionFactory, Binder binder)
         {
             this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
             this.binder = requireNonNull(binder, "binder is null");
         }
 
-        public BindAssertion isInvalid(String expectedMessage)
+        private BindAssertion isInvalid(String expectedMessage)
                 throws SQLException
         {
             try (Connection connection = connectionFactory.createConnection();
@@ -1624,7 +1624,7 @@ public class TestJdbcPreparedStatement
             return this;
         }
 
-        public BindAssertion roundTripsAs(int expectedSqlType, Object expectedValue)
+        private BindAssertion roundTripsAs(int expectedSqlType, Object expectedValue)
                 throws SQLException
         {
             try (Connection connection = connectionFactory.createConnection();
@@ -1643,7 +1643,7 @@ public class TestJdbcPreparedStatement
             return this;
         }
 
-        public BindAssertion roundTripsAs(int expectedSqlType, Class expectedClass, Object expectedValue)
+        private BindAssertion roundTripsAs(int expectedSqlType, Class expectedClass, Object expectedValue)
                 throws SQLException
         {
             try (Connection connection = connectionFactory.createConnection();
@@ -1662,7 +1662,7 @@ public class TestJdbcPreparedStatement
             return this;
         }
 
-        public BindAssertion resultsIn(String type, String expectedValueLiteral)
+        private BindAssertion resultsIn(String type, String expectedValueLiteral)
                 throws SQLException
         {
             String sql = "" +

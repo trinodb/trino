@@ -600,24 +600,24 @@ public class TestHashDistributionSplitAssigner
         private final ListMultimap<Integer, Split> splits;
         private final boolean noMoreSplits;
 
-        public SplitBatch(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
+        SplitBatch(PlanNodeId planNodeId, ListMultimap<Integer, Split> splits, boolean noMoreSplits)
         {
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.splits = ImmutableListMultimap.copyOf(requireNonNull(splits, "splits is null"));
             this.noMoreSplits = noMoreSplits;
         }
 
-        public PlanNodeId getPlanNodeId()
+        PlanNodeId getPlanNodeId()
         {
             return planNodeId;
         }
 
-        public ListMultimap<Integer, Split> getSplits()
+        ListMultimap<Integer, Split> getSplits()
         {
             return splits;
         }
 
-        public boolean isNoMoreSplits()
+        boolean isNoMoreSplits()
         {
             return noMoreSplits;
         }
@@ -643,73 +643,73 @@ public class TestHashDistributionSplitAssigner
         private boolean mergeAllowed;
         private int expectedTaskCount;
 
-        public AssignerTester withPartitionedSources(PlanNodeId... sources)
+        AssignerTester withPartitionedSources(PlanNodeId... sources)
         {
             partitionedSources = ImmutableSet.copyOf(sources);
             return this;
         }
 
-        public AssignerTester withReplicatedSources(PlanNodeId... sources)
+        AssignerTester withReplicatedSources(PlanNodeId... sources)
         {
             replicatedSources = ImmutableSet.copyOf(sources);
             return this;
         }
 
-        public AssignerTester withSplits(SplitBatch... splits)
+        AssignerTester withSplits(SplitBatch... splits)
         {
             this.splits = ImmutableList.copyOf(splits);
             return this;
         }
 
-        public AssignerTester withSplitPartitionCount(int splitPartitionCount)
+        AssignerTester withSplitPartitionCount(int splitPartitionCount)
         {
             this.splitPartitionCount = splitPartitionCount;
             return this;
         }
 
-        public AssignerTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
+        AssignerTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
         {
             this.partitionToNodeMap = partitionToNodeMap;
             return this;
         }
 
-        public AssignerTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
+        AssignerTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
         {
             this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
             return this;
         }
 
-        public AssignerTester withTaskTargetMaxCount(int taskTargetMaxCount)
+        AssignerTester withTaskTargetMaxCount(int taskTargetMaxCount)
         {
             this.taskTargetMaxCount = taskTargetMaxCount;
             return this;
         }
 
-        public AssignerTester withSourceDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates)
+        AssignerTester withSourceDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates)
         {
             this.sourceDataSizeEstimates = sourceDataSizeEstimates;
             return this;
         }
 
-        public AssignerTester withSplittableSources(PlanNodeId... sources)
+        AssignerTester withSplittableSources(PlanNodeId... sources)
         {
             splittableSources = ImmutableSet.copyOf(sources);
             return this;
         }
 
-        public AssignerTester withMergeAllowed(boolean mergeAllowed)
+        AssignerTester withMergeAllowed(boolean mergeAllowed)
         {
             this.mergeAllowed = mergeAllowed;
             return this;
         }
 
-        public AssignerTester withExpectedTaskCount(int expectedTaskCount)
+        AssignerTester withExpectedTaskCount(int expectedTaskCount)
         {
             this.expectedTaskCount = expectedTaskCount;
             return this;
         }
 
-        public void run()
+        void run()
         {
             FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(splitPartitionCount, partitionToNodeMap);
             Map<Integer, TaskPartition> sourcePartitionToTaskPartition = createSourcePartitionToTaskPartition(
@@ -818,61 +818,61 @@ public class TestHashDistributionSplitAssigner
         private boolean mergeAllowed;
         private Set<PartitionMapping> expectedMappings = ImmutableSet.of();
 
-        public PartitionMappingTester withPartitionedSources(PlanNodeId... sources)
+        PartitionMappingTester withPartitionedSources(PlanNodeId... sources)
         {
             partitionedSources = ImmutableSet.copyOf(sources);
             return this;
         }
 
-        public PartitionMappingTester withSplitPartitionCount(int splitPartitionCount)
+        PartitionMappingTester withSplitPartitionCount(int splitPartitionCount)
         {
             this.splitPartitionCount = splitPartitionCount;
             return this;
         }
 
-        public PartitionMappingTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
+        PartitionMappingTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
         {
             this.partitionToNodeMap = partitionToNodeMap;
             return this;
         }
 
-        public PartitionMappingTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
+        PartitionMappingTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
         {
             this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
             return this;
         }
 
-        public PartitionMappingTester withTargetMinTaskCount(int targetMinTaskCount)
+        PartitionMappingTester withTargetMinTaskCount(int targetMinTaskCount)
         {
             this.targetMinTaskCount = targetMinTaskCount;
             return this;
         }
 
-        public PartitionMappingTester withSourceDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates)
+        PartitionMappingTester withSourceDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates)
         {
             this.sourceDataSizeEstimates = sourceDataSizeEstimates;
             return this;
         }
 
-        public PartitionMappingTester withSplittableSources(PlanNodeId... sources)
+        PartitionMappingTester withSplittableSources(PlanNodeId... sources)
         {
             splittableSources = ImmutableSet.copyOf(sources);
             return this;
         }
 
-        public PartitionMappingTester withMergeAllowed(boolean mergeAllowed)
+        PartitionMappingTester withMergeAllowed(boolean mergeAllowed)
         {
             this.mergeAllowed = mergeAllowed;
             return this;
         }
 
-        public PartitionMappingTester withExpectedMappings(PartitionMapping... mappings)
+        PartitionMappingTester withExpectedMappings(PartitionMapping... mappings)
         {
             expectedMappings = ImmutableSet.copyOf(mappings);
             return this;
         }
 
-        public void run()
+        void run()
         {
             FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(splitPartitionCount, partitionToNodeMap);
             Map<Integer, TaskPartition> actual = createSourcePartitionToTaskPartition(

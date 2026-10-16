@@ -507,7 +507,7 @@ public class PinotClient
         private final Object[] row;
         private final int[] indices;
 
-        public ResultRow(Object[] row, int[] indices)
+        private ResultRow(Object[] row, int[] indices)
         {
             this.row = requireNonNull(row, "row is null");
             this.indices = requireNonNull(indices, "indices is null");

@@ -829,7 +829,7 @@ public class TestPagePartitioner
             }
         };
 
-        public abstract void partitionPage(PagePartitioner pagePartitioner, Page page);
+        abstract void partitionPage(PagePartitioner pagePartitioner, Page page);
     }
 
     public static class PagePartitionerBuilder

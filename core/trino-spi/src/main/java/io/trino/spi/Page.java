@@ -297,18 +297,18 @@ public final class Page
         private final List<DictionaryBlock> blocks = new ArrayList<>();
         private final List<Integer> indexes = new ArrayList<>();
 
-        public void addBlock(DictionaryBlock block, int index)
+        private void addBlock(DictionaryBlock block, int index)
         {
             blocks.add(block);
             indexes.add(index);
         }
 
-        public List<DictionaryBlock> getBlocks()
+        private List<DictionaryBlock> getBlocks()
         {
             return blocks;
         }
 
-        public List<Integer> getIndexes()
+        private List<Integer> getIndexes()
         {
             return indexes;
         }

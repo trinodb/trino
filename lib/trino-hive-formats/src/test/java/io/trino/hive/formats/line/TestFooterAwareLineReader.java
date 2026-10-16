@@ -70,7 +70,7 @@ public class TestFooterAwareLineReader
     {
         private int linesRemaining;
 
-        public TestingLineReader(int fileLines)
+        private TestingLineReader(int fileLines)
         {
             checkArgument(fileLines >= 0, "fileLines is negative");
             this.linesRemaining = fileLines;

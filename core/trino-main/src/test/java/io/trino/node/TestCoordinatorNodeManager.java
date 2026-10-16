@@ -220,7 +220,7 @@ class TestCoordinatorNodeManager
         @GuardedBy("this")
         private Set<URI> nodes = ImmutableSet.of();
 
-        public TestingNodeInventory()
+        TestingNodeInventory()
         {
             announceNodes(activeNodes, inactiveNodes);
         }

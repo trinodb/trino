@@ -344,37 +344,37 @@ public class NumericHistogram
             }
         }
 
-        public int getId()
+        int getId()
         {
             return id;
         }
 
-        public Entry getLeft()
+        Entry getLeft()
         {
             return left;
         }
 
-        public Entry getRight()
+        Entry getRight()
         {
             return right;
         }
 
-        public double getValue()
+        double getValue()
         {
             return value;
         }
 
-        public double getWeight()
+        double getWeight()
         {
             return weight;
         }
 
-        public boolean isValid()
+        boolean isValid()
         {
             return valid;
         }
 
-        public void invalidate()
+        void invalidate()
         {
             this.valid = false;
         }

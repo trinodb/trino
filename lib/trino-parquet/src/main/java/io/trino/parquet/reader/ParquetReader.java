@@ -362,7 +362,7 @@ public class ParquetReader
         private long sizeInBytes;
         private long retainedSizeInBytes;
 
-        public ParquetSourcePage(int positionCount)
+        private ParquetSourcePage(int positionCount)
         {
             selectedPositions = SelectedPositions.allPositions(positionCount);
             retainedSizeInBytes = shallowRetainedSizeInBytes();
@@ -594,42 +594,42 @@ public class ParquetReader
             return new SelectedPositions(positionCount, positionCount, null, 0, SelectionAnalysis.analyzed(true, positionCount == 0 ? 0 : 1, 0));
         }
 
-        public long retainedSizeInBytes()
+        private long retainedSizeInBytes()
         {
             return INSTANCE_SIZE + ANALYSIS_INSTANCE_SIZE + sizeOf(positions);
         }
 
-        public boolean hasPositions()
+        private boolean hasPositions()
         {
             return positions != null;
         }
 
-        public boolean strictlyAscending()
+        private boolean strictlyAscending()
         {
             analyze();
             return analysis.strictlyAscending;
         }
 
-        public boolean isSingleRunAtPageEdge()
+        private boolean isSingleRunAtPageEdge()
         {
             return positionCount > 0
                     && selectedRunCount() == 1
                     && (positions[positionsOffset] == 0 || positions[positionsOffset + positionCount - 1] == originalPositionCount - 1);
         }
 
-        public int selectedRunCount()
+        private int selectedRunCount()
         {
             analyze();
             return analysis.selectedRunCount;
         }
 
-        public int maxSkippedPositionCount()
+        private int maxSkippedPositionCount()
         {
             analyze();
             return analysis.maxSkippedPositionCount;
         }
 
-        public boolean hasRowSelectionLocality()
+        private boolean hasRowSelectionLocality()
         {
             if (analysis.analyzed) {
                 return meetsRowSelectionLocality(
@@ -660,7 +660,7 @@ public class ParquetReader
                     && meetsRowSelectionLocality(skippedPositionCount, analysis.selectedRunCount, analysis.maxSkippedPositionCount);
         }
 
-        public boolean mayHaveMinimumPotentialSkippedBytes(long estimatedUncompressedBytesPerValue, long minimumSkippedPageBytes)
+        private boolean mayHaveMinimumPotentialSkippedBytes(long estimatedUncompressedBytesPerValue, long minimumSkippedPageBytes)
         {
             if (positionCount == 0) {
                 return hasMinimumPotentialSkippedBytes(originalPositionCount, estimatedUncompressedBytesPerValue, minimumSkippedPageBytes);
@@ -675,7 +675,7 @@ public class ParquetReader
         }
 
         @CheckReturnValue
-        public Block apply(Block block)
+        private Block apply(Block block)
         {
             if (positions == null) {
                 return block;
@@ -683,7 +683,7 @@ public class ParquetReader
             return block.getPositions(positions, positionsOffset, positionCount);
         }
 
-        public Block createRowNumberBlock(long batchStartRow, @Nullable long[] batchRowNumbers)
+        private Block createRowNumberBlock(long batchStartRow, @Nullable long[] batchRowNumbers)
         {
             long[] rowNumbers = new long[positionCount];
             for (int i = 0; i < positionCount; i++) {
@@ -699,7 +699,7 @@ public class ParquetReader
         }
 
         @CheckReturnValue
-        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        private SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
             checkFromIndexSize(offset, size, positions.length);
             int[] newPositions = new int[size];
@@ -721,7 +721,7 @@ public class ParquetReader
             return create(originalPositionCount, newPositions, 0, size);
         }
 
-        public SelectedPositions selectPositionsView(int[] positions, int offset, int size)
+        private SelectedPositions selectPositionsView(int[] positions, int offset, int size)
         {
             if (this.positions != null) {
                 return selectPositions(positions, offset, size);
@@ -730,7 +730,7 @@ public class ParquetReader
             return new SelectedPositions(originalPositionCount, size, positions, offset, new SelectionAnalysis());
         }
 
-        public SelectedPositions retainedCopy()
+        private SelectedPositions retainedCopy()
         {
             analyze();
             int[] retainedPositions = Arrays.copyOfRange(positions, positionsOffset, positionsOffset + positionCount);

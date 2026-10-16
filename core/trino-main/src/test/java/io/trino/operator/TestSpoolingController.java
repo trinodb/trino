@@ -107,7 +107,7 @@ class TestSpoolingController
 
     private record SpoolingControllerAssertions(SpoolingController controller)
     {
-        public SpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, SpoolingController.Mode expected)
+        SpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, SpoolingController.Mode expected)
         {
             assertThat(controller.nextMode(positionCount, rawSizeInBytes))
                     .isEqualTo(expected);

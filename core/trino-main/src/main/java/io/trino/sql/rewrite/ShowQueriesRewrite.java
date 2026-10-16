@@ -232,7 +232,7 @@ public final class ShowQueriesRewrite
     {
         private final Session session;
 
-        public Visitor(Session session)
+        Visitor(Session session)
         {
             this.session = requireNonNull(session, "session is null");
         }
@@ -939,7 +939,7 @@ public final class ShowQueriesRewrite
             return node;
         }
 
-        public static Query emptyQuery(List<String> columns, List<Type> types)
+        static Query emptyQuery(List<String> columns, List<Type> types)
         {
             ImmutableList.Builder<SelectItem> items = ImmutableList.builder();
             for (int i = 0; i < columns.size(); i++) {
