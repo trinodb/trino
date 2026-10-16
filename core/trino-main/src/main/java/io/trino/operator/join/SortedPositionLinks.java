@@ -145,6 +145,7 @@ public final class SortedPositionLinks
         {
             requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
             requireNonNull(arrayPositionLinksFactory, "arrayPositionLinksFactory is null");
+            long sortedPositionLinksSizeInBytes = sizeOfPositionLinks(sortedPositionLinks);
             return new Factory()
             {
                 @Override
@@ -153,6 +154,7 @@ public final class SortedPositionLinks
                     return new SortedPositionLinks(
                             arrayPositionLinksFactory.create(ImmutableList.of()),
                             sortedPositionLinks,
+                            sortedPositionLinksSizeInBytes,
                             searchFunctions);
                 }
 
@@ -171,11 +173,11 @@ public final class SortedPositionLinks
     private final long sizeInBytes;
     private final JoinFilterFunction[] searchFunctions;
 
-    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, List<JoinFilterFunction> searchFunctions)
+    private SortedPositionLinks(PositionLinks positionLinks, int[][] sortedPositionLinks, long sortedPositionLinksSizeInBytes, List<JoinFilterFunction> searchFunctions)
     {
         this.positionLinks = requireNonNull(positionLinks, "positionLinks is null");
         this.sortedPositionLinks = requireNonNull(sortedPositionLinks, "sortedPositionLinks is null");
-        this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sizeOfPositionLinks(sortedPositionLinks);
+        this.sizeInBytes = INSTANCE_SIZE + positionLinks.getSizeInBytes() + sortedPositionLinksSizeInBytes;
         requireNonNull(searchFunctions, "searchFunctions is null");
         checkState(!searchFunctions.isEmpty(), "Using sortedPositionLinks with no search functions");
         this.searchFunctions = searchFunctions.toArray(JoinFilterFunction[]::new);
