@@ -1434,15 +1434,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
-        Span span = startSpan("getMaterializedViewFreshness", name);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
-        }
-    }
-
-    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         Span span = startSpan("renameMaterializedView", source);

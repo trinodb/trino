@@ -1249,14 +1249,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getMaterializedViewFreshness(session, name);
-        }
-    }
-
-    @Override
     public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
