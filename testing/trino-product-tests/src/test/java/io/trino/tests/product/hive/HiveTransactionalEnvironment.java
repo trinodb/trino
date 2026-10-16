@@ -21,6 +21,7 @@ import io.trino.testing.containers.environment.QueryResult;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.Network;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.trino.TrinoContainer;
 
 import java.sql.Connection;
@@ -109,6 +110,18 @@ public class HiveTransactionalEnvironment
                         .build())
                 .withCatalog("tpch", Map.of("connector.name", "tpch"))
                 .build();
+        trino.withCopyToContainer(
+                Transferable.of(
+                        """
+                        coordinator=true
+                        node-scheduler.include-coordinator=true
+                        discovery.uri=http://localhost:8080
+                        catalog.management=${ENV:CATALOG_MANAGEMENT}
+                        cache-manager.config-files=etc/cache-manager-memory.properties
+                        # Tests run one query at a time
+                        query.max-memory-per-node=2GB
+                        """),
+                "/etc/trino/config.properties");
         TrinoProductTestContainer.startAndWait(trino);
     }
 
