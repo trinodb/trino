@@ -34,6 +34,6 @@ public class TestAzureFileSystemOAuthHierarchicalAzure
         String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
         String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
         String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
-        initializeWithOAuth(account, tenantId, clientId, clientSecret, HIERARCHICAL);
+        initializeWithOAuth(account, tenantId, clientId, clientSecret, HIERARCHICAL, false);
     }
 }

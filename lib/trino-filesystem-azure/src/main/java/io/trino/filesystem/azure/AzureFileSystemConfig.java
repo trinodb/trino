@@ -24,6 +24,8 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.net.URI;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.Math.max;
@@ -39,6 +41,7 @@ public class AzureFileSystemConfig
 
     private AuthType authType = AuthType.DEFAULT;
     private String endpoint = "core.windows.net";
+    private Optional<URI> serviceEndpoint = Optional.empty();
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private int maxWriteConcurrency = 8;
@@ -76,6 +79,19 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setEndpoint(String endpoint)
     {
         this.endpoint = endpoint;
+        return this;
+    }
+
+    public Optional<URI> getServiceEndpoint()
+    {
+        return serviceEndpoint;
+    }
+
+    @Config("azure.service-endpoint")
+    @ConfigDescription("Base URI for requests to an Azure-compatible storage service")
+    public AzureFileSystemConfig setServiceEndpoint(URI serviceEndpoint)
+    {
+        this.serviceEndpoint = Optional.ofNullable(serviceEndpoint);
         return this;
     }
 

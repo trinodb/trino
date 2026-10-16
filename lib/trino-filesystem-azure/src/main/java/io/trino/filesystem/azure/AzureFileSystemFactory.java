@@ -19,6 +19,7 @@ import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -32,8 +33,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 
@@ -50,7 +53,9 @@ public class AzureFileSystemFactory
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("azure-upload-%s"));
 
     private final AzureAuth auth;
+    // endpoint validates user locations; serviceEndpoint optionally routes requests to a compatible backend.
     private final String endpoint;
+    private final Optional<URI> serviceEndpoint;
     private final DataSize readBlockSize;
     private final DataSize writeBlockSize;
     private final int maxWriteConcurrency;
@@ -65,45 +70,29 @@ public class AzureFileSystemFactory
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
     {
-        this(openTelemetry,
-                azureAuth,
-                config.getEndpoint(),
-                config.getReadBlockSize(),
-                config.getWriteBlockSize(),
-                config.getMaxWriteConcurrency(),
-                config.getMaxSingleUploadSize(),
-                config.getMaxHttpRequests(),
-                config.getMaxHttpConnections(),
-                config.getConnectionPoolMaxIdleTime(),
-                config.getHttpRequestTimeout(),
-                config.getApplicationId(),
-                config.isMultipartWriteEnabled());
+        this(openTelemetry, azureAuth, config, Optional.empty());
     }
 
-    public AzureFileSystemFactory(
+    private AzureFileSystemFactory(
             OpenTelemetry openTelemetry,
             AzureAuth azureAuth,
-            String endpoint,
-            DataSize readBlockSize,
-            DataSize writeBlockSize,
-            int maxWriteConcurrency,
-            DataSize maxSingleUploadSize,
-            int maxHttpRequests,
-            int maxHttpConnections,
-            Duration connectionPoolMaxIdleTime,
-            Duration httpRequestTimeout,
-            String applicationId,
-            boolean multipart)
+            AzureFileSystemConfig config,
+            Optional<HttpClient> httpClient)
     {
+        requireNonNull(config, "config is null");
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
-        this.endpoint = requireNonNull(endpoint, "endpoint is null");
-        this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
-        this.writeBlockSize = requireNonNull(writeBlockSize, "writeBlockSize is null");
+        this.endpoint = requireNonNull(config.getEndpoint(), "endpoint is null");
+        this.serviceEndpoint = requireNonNull(config.getServiceEndpoint(), "serviceEndpoint is null");
+        this.readBlockSize = requireNonNull(config.getReadBlockSize(), "readBlockSize is null");
+        this.writeBlockSize = requireNonNull(config.getWriteBlockSize(), "writeBlockSize is null");
+        int maxWriteConcurrency = config.getMaxWriteConcurrency();
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
-        this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
-        requireNonNull(connectionPoolMaxIdleTime, "connectionPoolMaxIdleTime is null");
-        requireNonNull(httpRequestTimeout, "httpRequestTimeout is null");
+        this.maxSingleUploadSize = requireNonNull(config.getMaxSingleUploadSize(), "maxSingleUploadSize is null");
+        Duration connectionPoolMaxIdleTime = requireNonNull(config.getConnectionPoolMaxIdleTime(), "connectionPoolMaxIdleTime is null");
+        Duration httpRequestTimeout = requireNonNull(config.getHttpRequestTimeout(), "httpRequestTimeout is null");
+        String applicationId = config.getApplicationId();
+        int maxHttpConnections = config.getMaxHttpConnections();
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
         this.connectionProvider = ConnectionProvider.builder(applicationId)
                 .maxConnections(maxHttpConnections)
@@ -114,11 +103,18 @@ public class AzureFileSystemFactory
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
         clientOptions.setMaximumConnectionPoolSize(maxHttpConnections);
-        httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
-        this.multipart = multipart;
+        this.httpClient = requireNonNull(httpClient, "httpClient is null")
+                .orElseGet(() -> createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions));
+        this.multipart = config.isMultipartWriteEnabled();
         this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(
-                maxHttpRequests,
+                config.getMaxHttpRequests(),
                 httpRequestTimeout.toJavaTime());
+    }
+
+    @VisibleForTesting
+    static AzureFileSystemFactory createForTesting(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config, HttpClient httpClient)
+    {
+        return new AzureFileSystemFactory(openTelemetry, azureAuth, config, Optional.of(httpClient));
     }
 
     @PreDestroy
@@ -147,7 +143,7 @@ public class AzureFileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         AzureAuth effectiveAuth = getEffectiveAuth(identity);
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, effectiveAuth, endpoint, serviceEndpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     private AzureAuth getEffectiveAuth(ConnectorIdentity identity)

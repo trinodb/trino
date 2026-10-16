@@ -33,6 +33,10 @@ system support:
     Use `core.usgovcloudapi.net` for the Azure US Government cloud,
     `core.cloudapi.de` for the Azure Germany cloud,
     or `core.chinacloudapi.cn` for the Azure China cloud.
+* - `azure.service-endpoint`
+  - Optional base URI of an alternate Azure-compatible storage service.
+    Unset by default. This does not change the hostname suffix used in file
+    locations, which is controlled by `azure.endpoint`.
 * - `azure.read-block-size`
   - [Data size](prop-type-data-size) for blocks during read operations. Defaults
     to `4MB`.

@@ -34,6 +34,6 @@ public class TestAzureFileSystemOAuthFlatAzure
         String tenantId = requireEnv("ABFS_OAUTH_TENANT_ID");
         String clientId = requireEnv("ABFS_OAUTH_CLIENT_ID");
         String clientSecret = requireEnv("ABFS_OAUTH_CLIENT_SECRET");
-        initializeWithOAuth(account, tenantId, clientId, clientSecret, FLAT);
+        initializeWithOAuth(account, tenantId, clientId, clientSecret, FLAT, false);
     }
 }
