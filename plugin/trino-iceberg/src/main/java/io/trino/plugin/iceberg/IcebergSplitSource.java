@@ -33,7 +33,7 @@ import io.trino.filesystem.cache.SplitAffinityProvider;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.IntList;
 import io.trino.plugin.base.metrics.LongCount;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -141,6 +141,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedInput;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 import static org.apache.iceberg.util.ByteBuffers.toByteArray;
@@ -611,7 +612,7 @@ public class IcebergSplitSource
                 .collect(toImmutableList());
         List<DeleteFile> deleteFiles = wholeFileTask.deletes().stream()
                 .peek(file -> verifyDeletionVectorReferencesDataFile(wholeFileTask, file))
-                .map(file -> DeleteFile.fromIceberg(file, parquetFileDecryptionData(
+                .map(file -> DeleteFile.fromIceberg(file, fileDecryptionData(
                         file.format(),
                         file.location(),
                         file.fileSizeInBytes(),
@@ -627,7 +628,7 @@ public class IcebergSplitSource
                         wholeFileTask.file().upperBounds(),
                         wholeFileTask.file().nullValueCounts(),
                         predicatedColumns),
-                parquetFileDecryptionData(
+                fileDecryptionData(
                         wholeFileTask.file().format(),
                         wholeFileTask.file().location(),
                         wholeFileTask.file().fileSizeInBytes(),
@@ -640,14 +641,14 @@ public class IcebergSplitSource
     private record FileScanTaskWithContext(
             FileScanTask fileScanTask,
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
-            Optional<ParquetFileDecryptionData> parquetFileDecryptionData,
+            Optional<FileDecryptionData> fileDecryptionData,
             List<DeleteFile> deleteFiles)
     {
         Iterator<FileScanTaskWithContext> split(long targetSplitSize, boolean mergeAdjacent)
         {
             Iterator<FileScanTaskWithContext> splits = Iterators.transform(
                     fileScanTask().split(targetSplitSize).iterator(),
-                    task -> new FileScanTaskWithContext(task, fileStatisticsDomain, parquetFileDecryptionData, deleteFiles));
+                    task -> new FileScanTaskWithContext(task, fileStatisticsDomain, fileDecryptionData, deleteFiles));
             if (!mergeAdjacent) {
                 return splits;
             }
@@ -659,7 +660,7 @@ public class IcebergSplitSource
                     current = new FileScanTaskWithContext(
                             merge(current, peekingSplits.next()),
                             fileStatisticsDomain,
-                            parquetFileDecryptionData,
+                            fileDecryptionData,
                             deleteFiles);
                 }
                 merged.add(current);
@@ -684,7 +685,7 @@ public class IcebergSplitSource
     }
 
     @VisibleForTesting
-    public static Optional<ParquetFileDecryptionData> parquetFileDecryptionData(
+    public static Optional<FileDecryptionData> fileDecryptionData(
             FileFormat fileFormat,
             String location,
             long fileSizeInBytes,
@@ -701,8 +702,8 @@ public class IcebergSplitSource
             return Optional.empty();
         }
 
-        if (fileFormat != PARQUET) {
-            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted non-Parquet file is not supported: " + location);
+        if (fileFormat != PARQUET && fileFormat != PUFFIN) {
+            throw new TrinoException(NOT_SUPPORTED, "Reading encrypted %s file is not supported: %s".formatted(fileFormat, location));
         }
 
         EncryptedInputFile encryptedInputFile = encryptedInput(fileIo.newInputFile(location, fileSizeInBytes), keyMetadata.duplicate());
@@ -715,7 +716,11 @@ public class IcebergSplitSource
         NativeEncryptionKeyMetadata nativeKeyMetadata = nativeEncryptionInputFile.keyMetadata();
         ByteBuffer encryptionKey = requireNonNull(nativeKeyMetadata.encryptionKey(), "native encryption key is null");
         ByteBuffer aadPrefix = requireNonNull(nativeKeyMetadata.aadPrefix(), "native AAD prefix is null");
-        return Optional.of(new ParquetFileDecryptionData(toByteArray(encryptionKey), toByteArray(aadPrefix)));
+        Long fileLength = nativeKeyMetadata.fileLength();
+        return Optional.of(new FileDecryptionData(
+                toByteArray(encryptionKey),
+                toByteArray(aadPrefix),
+                fileLength == null ? OptionalLong.empty() : OptionalLong.of(fileLength)));
     }
 
     @VisibleForTesting
@@ -875,7 +880,7 @@ public class IcebergSplitSource
                 affinityKey,
                 task.file().dataSequenceNumber() == null ? OptionalLong.empty() : OptionalLong.of(task.file().dataSequenceNumber()),
                 task.file().firstRowId() == null ? OptionalLong.empty() : OptionalLong.of(task.file().firstRowId()),
-                taskWithDomain.parquetFileDecryptionData());
+                taskWithDomain.fileDecryptionData());
     }
 
     private static List<Block> getPartitionBlockValues(FileScanTask task, PartitionSpec spec, TypeManager typeManager)

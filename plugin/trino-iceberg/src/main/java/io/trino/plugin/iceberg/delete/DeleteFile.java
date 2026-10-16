@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.IcebergSplit.ParquetFileDecryptionData;
+import io.trino.plugin.iceberg.IcebergSplit.FileDecryptionData;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.types.Conversions;
@@ -46,7 +46,7 @@ public record DeleteFile(
         long dataSequenceNumber,
         OptionalLong contentOffset,
         Optional<Integer> contentSizeInBytes,
-        Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+        Optional<FileDecryptionData> fileDecryptionData)
 {
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
@@ -55,7 +55,7 @@ public record DeleteFile(
         return fromIceberg(deleteFile, Optional.empty());
     }
 
-    public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile, Optional<ParquetFileDecryptionData> parquetFileDecryptionData)
+    public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile, Optional<FileDecryptionData> fileDecryptionData)
     {
         ByteBuffer lowerBoundPosition = requireNonNullElse(deleteFile.lowerBounds(), ImmutableMap.<Integer, ByteBuffer>of()).get(DELETE_FILE_POS.fieldId());
         ByteBuffer upperBoundPosition = requireNonNullElse(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of()).get(DELETE_FILE_POS.fieldId());
@@ -81,7 +81,7 @@ public record DeleteFile(
                 deleteFile.dataSequenceNumber(),
                 contentOffset,
                 contentSizeInBytes,
-                parquetFileDecryptionData);
+                fileDecryptionData);
     }
 
     public DeleteFile
@@ -94,7 +94,7 @@ public record DeleteFile(
         requireNonNull(rowPositionUpperBound, "rowPositionUpperBound is null");
         requireNonNull(contentOffset, "contentOffset is null");
         requireNonNull(contentSizeInBytes, "contentSizeInBytes is null");
-        requireNonNull(parquetFileDecryptionData, "parquetFileDecryptionData is null");
+        requireNonNull(fileDecryptionData, "fileDecryptionData is null");
     }
 
     public boolean isDeletionVector()
@@ -110,7 +110,7 @@ public record DeleteFile(
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
                 + estimatedSizeOf(equalityFieldIds, _ -> SIZE_OF_INT)
-                + sizeOf(parquetFileDecryptionData, ParquetFileDecryptionData::getRetainedSizeInBytes);
+                + sizeOf(fileDecryptionData, FileDecryptionData::getRetainedSizeInBytes);
     }
 
     @Override

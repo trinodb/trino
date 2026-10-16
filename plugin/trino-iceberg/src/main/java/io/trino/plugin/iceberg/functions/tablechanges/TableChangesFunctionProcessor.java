@@ -142,7 +142,7 @@ public class TableChangesFunctionProcessor
                 OptionalLong.empty(),
                 functionHandle.nameMappingJson().map(NameMappingParser::fromJson),
                 memoryContext,
-                split.parquetFileDecryptionData());
+                split.fileDecryptionData());
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;
