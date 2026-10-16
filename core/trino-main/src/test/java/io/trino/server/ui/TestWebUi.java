@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
@@ -25,6 +26,7 @@ import io.airlift.http.server.HttpConfig;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.json.JsonMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
@@ -56,6 +58,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriBuilder;
 import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -64,6 +67,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.crypto.SecretKey;
 
@@ -112,6 +117,7 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_DISABLED;
 import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED;
 import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -232,6 +238,112 @@ public class TestWebUi
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestWebUi::authenticate);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             testFormAuthentication(server, httpServerInfo, AUTHENTICATED_USER, TEST_PASSWORD, true);
+        }
+    }
+
+    @Test
+    public void testStatementWithFormAuthentication()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.query-editor.enabled", "true")
+                        .put("http-server.authentication.type", "PASSWORD")
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .buildOrThrow())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators((user, password) -> {
+                if (!TEST_PASSWORD.equals(password)) {
+                    throw new AccessDeniedException("Invalid credentials");
+                }
+                return new BasicPrincipal(user);
+            });
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            OkHttpClient alice = client.newBuilder().cookieJar(new JavaNetCookieJar(new CookieManager())).build();
+            logIn(baseUri, alice, "alice", TEST_PASSWORD, true);
+
+            Request submission = new Request.Builder()
+                    .url(baseUri.resolve("/ui/api/statement").toString())
+                    .header("X-Trino-UI-Request", "true")
+                    .post(RequestBody.create("SELECT current_user", MediaType.get("text/plain")))
+                    .build();
+            assertStatementResponseCode(client, submission, 401);
+            assertStatementResponseCode(alice, submission.newBuilder().removeHeader("X-Trino-UI-Request").build(), 403);
+            assertStatementResponseCode(alice, submission.newBuilder().header("X-Trino-UI-Request", "false").build(), 403);
+            assertStatementResponseCode(alice, submission.newBuilder().addHeader("X-Trino-UI-Request", "true").build(), 403);
+            assertStatementResponseCode(alice, submission.newBuilder().header("X-Trino-User", "bob").build(), 403);
+            assertStatementResponseCode(alice, submission.newBuilder().header("X-Trino-Original-User", "bob").build(), 403);
+            // A Web UI cookie does not authenticate the standard client endpoint.
+            assertStatementResponseCode(alice, submission.newBuilder().url(baseUri.resolve("/v1/statement").toString()).build(), 401);
+
+            JsonNode results = statementResults(alice, submission);
+            assertThat(results.path("nextUri").asText()).contains("/v1/statement/queued/");
+            boolean sawExecuting = false;
+            boolean sawUser = false;
+            for (int page = 0; page < 100 && results.hasNonNull("nextUri"); page++) {
+                URI nextUri = URI.create(results.get("nextUri").asText());
+                assertThat(nextUri.getPath()).startsWith("/v1/statement/");
+                sawExecuting |= nextUri.getPath().startsWith("/v1/statement/executing/");
+                Request next = new Request.Builder()
+                        .url(nextUri.toString())
+                        .build();
+                assertStatementResponseCode(client, next.newBuilder()
+                        .url(next.url().newBuilder().setPathSegment(4, "invalid-slug").build())
+                        .build(), 404);
+                results = statementResults(client, next);
+                assertThat(results.hasNonNull("error")).as(results.toString()).isFalse();
+                if (results.hasNonNull("data")) {
+                    assertThat(results.get("data").get(0).get(0).asText()).isEqualTo("alice");
+                    sawUser = true;
+                }
+            }
+            assertThat(results.hasNonNull("nextUri")).isFalse();
+            assertThat(sawExecuting).isTrue();
+            assertThat(sawUser).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testStatementDisabled(boolean explicitlyDisabled)
+            throws Exception
+    {
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+                .putAll(SECURE_PROPERTIES)
+                .put("web-ui.authentication.type", "fixed")
+                .put("web-ui.user", "test-user");
+        if (explicitlyDisabled) {
+            properties.put("web-ui.query-editor.enabled", "false");
+        }
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(properties.buildOrThrow())
+                .build()) {
+            URI baseUri = server.getInstance(Key.get(HttpServerInfo.class)).getHttpsUri();
+            assertOk(client, getValidApiLocation(baseUri));
+            Request submission = new Request.Builder()
+                    .url(baseUri.resolve("/ui/api/statement").toString())
+                    .header("X-Trino-UI-Request", "true")
+                    .post(RequestBody.create("SELECT 1", MediaType.get("text/plain")))
+                    .build();
+            assertStatementResponseCode(client, submission, SC_METHOD_NOT_ALLOWED);
+        }
+    }
+
+    private static void assertStatementResponseCode(OkHttpClient client, Request request, int status)
+            throws IOException
+    {
+        try (Response response = client.newCall(request).execute()) {
+            assertThat(response.code()).isEqualTo(status);
+        }
+    }
+
+    private static JsonNode statementResults(OkHttpClient client, Request request)
+            throws IOException
+    {
+        try (Response response = client.newCall(request).execute()) {
+            assertThat(response.code()).isEqualTo(200);
+            return new JsonMapperProvider().get().readTree(response.body().string());
         }
     }
 
