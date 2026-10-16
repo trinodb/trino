@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
@@ -28,6 +29,7 @@ import io.trino.spi.type.TypeOperators;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -215,6 +217,8 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Instance method cannot be adapted to no instance");
         }
 
+        methodHandle = methodHandle.asType(getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
+
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, returnType, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());
 
@@ -242,6 +246,76 @@ public final class ScalarFunctionAdapter
             parameterIndex += expectedArgumentConvention.getParameterCount();
         }
         return methodHandle;
+    }
+
+    private static MethodType getCanonicalMethodType(
+            MethodType methodType,
+            Type returnType,
+            List<Type> argumentTypes,
+            InvocationConvention convention)
+    {
+        int parameterIndex = convention.supportsInstanceFactory() ? 1 : 0;
+        if (convention.supportsSession()) {
+            methodType = methodType.changeParameterType(parameterIndex++, ConnectorSession.class);
+        }
+
+        for (int argumentIndex = 0; argumentIndex < argumentTypes.size(); argumentIndex++) {
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            if (argumentConvention == FUNCTION) {
+                parameterIndex += argumentConvention.getParameterCount();
+                continue;
+            }
+
+            Class<?> javaType = argumentTypes.get(argumentIndex).getJavaType();
+            switch (argumentConvention) {
+                case NEVER_NULL -> methodType = canonicalParameterType(methodType, parameterIndex, javaType);
+                case BOXED_NULLABLE -> methodType = canonicalParameterType(methodType, parameterIndex, wrap(javaType));
+                case NULL_FLAG -> methodType = canonicalParameterType(methodType, parameterIndex, javaType)
+                        .changeParameterType(parameterIndex + 1, boolean.class);
+                case BLOCK_POSITION, BLOCK_POSITION_NOT_NULL -> methodType = methodType
+                        .changeParameterType(parameterIndex, Block.class)
+                        .changeParameterType(parameterIndex + 1, int.class);
+                case VALUE_BLOCK_POSITION, VALUE_BLOCK_POSITION_NOT_NULL -> methodType = methodType
+                        .changeParameterType(parameterIndex, ValueBlock.class)
+                        .changeParameterType(parameterIndex + 1, int.class);
+                case FLAT -> methodType = methodType
+                        .changeParameterType(parameterIndex, byte[].class)
+                        .changeParameterType(parameterIndex + 1, int.class)
+                        .changeParameterType(parameterIndex + 2, byte[].class)
+                        .changeParameterType(parameterIndex + 3, int.class);
+                case IN_OUT -> methodType = methodType.changeParameterType(parameterIndex, InOut.class);
+                case FUNCTION -> {}
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        // Only a generic handle needs its return type canonicalized. A void return under NULLABLE_RETURN and the
+        // return type under BLOCK_BUILDER and FLAT_RETURN stay as declared, because asType would invent a null or
+        // drop a value and hide the mismatch from verifyMethodHandleSignature.
+        return switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL, DEFAULT_ON_NULL -> methodType.returnType().isPrimitive()
+                    ? methodType
+                    : methodType.changeReturnType(returnType.getJavaType());
+            case NULLABLE_RETURN -> methodType.returnType() == void.class
+                    ? methodType
+                    : methodType.changeReturnType(wrap(returnType.getJavaType()));
+            case BLOCK_BUILDER -> methodType.changeParameterType(parameterIndex, BlockBuilder.class);
+            case FLAT_RETURN -> methodType
+                    .changeParameterType(parameterIndex, byte[].class)
+                    .changeParameterType(parameterIndex + 1, int.class)
+                    .changeParameterType(parameterIndex + 2, byte[].class)
+                    .changeParameterType(parameterIndex + 3, int.class);
+        };
+    }
+
+    private static MethodType canonicalParameterType(MethodType methodType, int parameterIndex, Class<?> canonicalType)
+    {
+        Class<?> declaredType = methodType.parameterType(parameterIndex);
+        // asType also widens primitives, which would silently turn a long argument into a double
+        if (declaredType.isPrimitive() && declaredType != unwrap(canonicalType)) {
+            throw new WrongMethodTypeException("Cannot convert %s to %s".formatted(canonicalType.getSimpleName(), declaredType.getSimpleName()));
+        }
+        return methodType.changeParameterType(parameterIndex, canonicalType);
     }
 
     private static MethodHandle adaptReturn(
@@ -301,11 +375,6 @@ public final class ScalarFunctionAdapter
             InvocationArgumentConvention expectedArgumentConvention,
             InvocationReturnConvention returnConvention)
     {
-        // For value block, cast specialized parameter to ValueBlock
-        if ((actualArgumentConvention == VALUE_BLOCK_POSITION || actualArgumentConvention == VALUE_BLOCK_POSITION_NOT_NULL) && methodHandle.type().parameterType(parameterIndex) != ValueBlock.class) {
-            methodHandle = methodHandle.asType(methodHandle.type().changeParameterType(parameterIndex, ValueBlock.class));
-        }
-
         if (actualArgumentConvention == expectedArgumentConvention) {
             return methodHandle;
         }
