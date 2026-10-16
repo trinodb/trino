@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -154,8 +152,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
@@ -1301,29 +1297,6 @@ public final class MetadataManager
                 .map(TableHandle::connectorHandle)
                 .collect(toImmutableList());
         return metadata.finishInsert(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), sourceConnectorHandles, fragments, computedStatistics);
-    }
-
-    @Override
-    public boolean delegateMaterializedViewRefreshToConnector(Session session, QualifiedObjectName viewName)
-    {
-        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        return metadata.delegateMaterializedViewRefreshToConnector(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName());
-    }
-
-    @Override
-    public ListenableFuture<Void> refreshMaterializedView(Session session, QualifiedObjectName viewName)
-    {
-        CatalogMetadata catalogMetadata = getRequiredCatalogMetadata(session, viewName.catalogName());
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        return asVoid(toListenableFuture(metadata.refreshMaterializedView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())));
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, _ -> null, directExecutor());
     }
 
     @Override

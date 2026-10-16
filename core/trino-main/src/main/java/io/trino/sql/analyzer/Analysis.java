@@ -257,7 +257,6 @@ public class Analysis
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
-    private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
     private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
@@ -929,16 +928,6 @@ public class Analysis
     public Optional<RefreshMaterializedViewAnalysis> getRefreshMaterializedView()
     {
         return refreshMaterializedView;
-    }
-
-    public void setDelegatedRefreshMaterializedView(QualifiedObjectName viewName)
-    {
-        this.delegatedRefreshMaterializedView = Optional.of(viewName);
-    }
-
-    public Optional<QualifiedObjectName> getDelegatedRefreshMaterializedView()
-    {
-        return delegatedRefreshMaterializedView;
     }
 
     public Query getNamedQuery(Table table)

@@ -88,7 +88,6 @@ import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -685,15 +684,6 @@ public class LogicalPlanner
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis)
     {
-        Optional<QualifiedObjectName> delegatedRefreshMaterializedView = analysis.getDelegatedRefreshMaterializedView();
-        if (delegatedRefreshMaterializedView.isPresent()) {
-            return new RelationPlan(
-                    new RefreshMaterializedViewNode(idAllocator.getNextId(), delegatedRefreshMaterializedView.get()),
-                    analysis.getRootScope(),
-                    ImmutableList.of(),
-                    Optional.empty());
-        }
-
         checkState(analysis.getRefreshMaterializedView().isPresent(), "RefreshMaterializedViewAnalysis handle is missing");
         Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedView().get();
         TableHandle tableHandle = viewAnalysis.getTarget();

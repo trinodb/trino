@@ -103,7 +103,6 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
@@ -1581,16 +1580,6 @@ public class PlanPrinter
                     context);
 
             return processChildren(node, new Context(context.isInitialPlan()));
-        }
-
-        @Override
-        public Void visitRefreshMaterializedView(RefreshMaterializedViewNode node, Context context)
-        {
-            addNode(node,
-                    "RefreshMaterializedView",
-                    ImmutableMap.of("viewName", anonymizer.anonymize(node.getViewName())),
-                    context);
-            return null;
         }
 
         @Override
