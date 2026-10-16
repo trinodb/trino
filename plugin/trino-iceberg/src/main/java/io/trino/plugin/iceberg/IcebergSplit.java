@@ -116,7 +116,10 @@ public record IcebergSplit(
         return helper.toString();
     }
 
-    public record FileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix)
+    /**
+     * The file length is only needed by some formats, such as Puffin deletion vectors but not Parquet.
+     */
+    public record FileDecryptionData(byte[] fileEncryptionKey, byte[] fileAadPrefix, OptionalLong fileLength)
     {
         private static final int INSTANCE_SIZE = instanceSize(FileDecryptionData.class);
 
@@ -124,6 +127,7 @@ public record IcebergSplit(
         {
             requireNonNull(fileEncryptionKey, "fileEncryptionKey is null");
             requireNonNull(fileAadPrefix, "fileAadPrefix is null");
+            requireNonNull(fileLength, "fileLength is null");
         }
 
         @Override
@@ -131,13 +135,14 @@ public record IcebergSplit(
         {
             return o instanceof FileDecryptionData other
                     && Arrays.equals(fileEncryptionKey, other.fileEncryptionKey)
-                    && Arrays.equals(fileAadPrefix, other.fileAadPrefix);
+                    && Arrays.equals(fileAadPrefix, other.fileAadPrefix)
+                    && fileLength.equals(other.fileLength);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(Arrays.hashCode(fileEncryptionKey), Arrays.hashCode(fileAadPrefix));
+            return Objects.hash(Arrays.hashCode(fileEncryptionKey), Arrays.hashCode(fileAadPrefix), fileLength);
         }
 
         @Override
@@ -148,7 +153,7 @@ public record IcebergSplit(
 
         public long getRetainedSizeInBytes()
         {
-            return INSTANCE_SIZE + SizeOf.sizeOf(fileEncryptionKey) + SizeOf.sizeOf(fileAadPrefix);
+            return INSTANCE_SIZE + SizeOf.sizeOf(fileEncryptionKey) + SizeOf.sizeOf(fileAadPrefix) + SizeOf.sizeOf(fileLength);
         }
     }
 }

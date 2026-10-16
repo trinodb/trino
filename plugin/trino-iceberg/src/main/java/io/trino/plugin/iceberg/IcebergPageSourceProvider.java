@@ -116,10 +116,13 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.avro.AvroSchemaUtil;
+import org.apache.iceberg.encryption.AesGcmInputFile;
 import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.encryption.EncryptionManager;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.io.IOUtil;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.io.SeekableInputStream;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -167,6 +170,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.geospatial.serde.JtsGeometrySerde.OGC_CRS84_SRID;
 import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static io.trino.memory.context.AggregatedMemoryContext.newAggregatedMemoryContext;
@@ -237,6 +241,8 @@ import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.TableProperties.ENCRYPTION_TABLE_KEY;
+import static org.apache.iceberg.encryption.Ciphers.CIPHER_BLOCK_SIZE;
+import static org.apache.iceberg.encryption.Ciphers.PLAIN_BLOCK_SIZE;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
@@ -588,13 +594,38 @@ public class IcebergPageSourceProvider
         verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
         TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
         LocalMemoryContext readBufferMemoryContext = memoryContext.newLocalMemoryContext(DeletionVector.class.getSimpleName());
-        try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+        try {
+            long contentOffset = delete.contentOffset().orElseThrow();
             int contentSize = toIntExact(delete.contentSizeInBytes().orElseThrow());
-            readBufferMemoryContext.setBytes(contentSize);
-            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), contentSize);
+            Optional<FileDecryptionData> decryptionData = delete.fileDecryptionData();
+            // An AES-GCM stream reader must buffer a whole ciphertext block to authenticate it, plus the decrypted plaintext block
+            long readBufferSize = decryptionData.isPresent() ? (long) contentSize + CIPHER_BLOCK_SIZE + PLAIN_BLOCK_SIZE : contentSize;
+            readBufferMemoryContext.setBytes(readBufferSize);
+            Slice slice;
+            if (decryptionData.isPresent()) {
+                AesGcmInputFile inputFile = new AesGcmInputFile(
+                        new ForwardingInputFile(trinoInputFile),
+                        decryptionData.get().fileEncryptionKey(),
+                        decryptionData.get().fileAadPrefix(),
+                        decryptionData.get().fileLength().orElseThrow());
+                try (SeekableInputStream inputStream = inputFile.newStream()) {
+                    inputStream.seek(contentOffset);
+                    byte[] content = new byte[contentSize];
+                    IOUtil.readFully(inputStream, content, 0, contentSize);
+                    slice = wrappedBuffer(content);
+                }
+            }
+            else {
+                try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+                    slice = trinoInput.readFully(contentOffset, contentSize);
+                }
+            }
             return DeletionVector.builder().deserialize(slice).build().orElseThrow();
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
+            }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
         }
         finally {

@@ -451,6 +451,12 @@ public class TestIcebergSplitSource
                             }
 
                             @Override
+                            public Long fileLength()
+                            {
+                                return null;
+                            }
+
+                            @Override
                             public ByteBuffer buffer()
                             {
                                 return keyMetadata;
@@ -504,7 +510,7 @@ public class TestIcebergSplitSource
                 keyMetadata,
                 fileIo,
                 encryptionManager))
-                .hasMessageContaining("Reading encrypted non-Parquet file is not supported");
+                .hasMessageContaining("Reading encrypted ORC file is not supported");
 
         assertThat(fileDecryptionData(
                 FileFormat.PARQUET,
@@ -525,6 +531,47 @@ public class TestIcebergSplitSource
         assertThat(decryptionData).isPresent();
         assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
         assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+    }
+
+    @Test
+    public void testFileDecryptionDataFileLength()
+    {
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+        String location = "local:///file-length-" + UUID.randomUUID() + ".puffin";
+        EncryptionManager encryptionManager = EncryptionTestHelpers.createEncryptionManager();
+        NativeEncryptionKeyMetadata keyMetadata = ((NativeEncryptionOutputFile) encryptionManager.encrypt(fileIo.newOutputFile(location))).keyMetadata();
+
+        Optional<FileDecryptionData> withFileLength = fileDecryptionData(
+                FileFormat.PUFFIN,
+                location,
+                10,
+                keyMetadata.copyWithLength(123).buffer(),
+                fileIo,
+                encryptionManager);
+
+        assertThat(withFileLength).isPresent();
+        assertThat(withFileLength.orElseThrow().fileLength()).hasValue(123);
+
+        assertThatThrownBy(() -> fileDecryptionData(
+                FileFormat.PUFFIN,
+                location,
+                10,
+                keyMetadata.buffer(),
+                fileIo,
+                encryptionManager))
+                .hasMessageContaining("Missing encrypted file length in key metadata");
+
+        // Parquet files are decrypted with the key and AAD prefix alone
+        Optional<FileDecryptionData> parquetWithoutFileLength = fileDecryptionData(
+                FileFormat.PARQUET,
+                location,
+                10,
+                keyMetadata.buffer(),
+                fileIo,
+                encryptionManager);
+
+        assertThat(parquetWithoutFileLength).isPresent();
+        assertThat(parquetWithoutFileLength.orElseThrow().fileLength()).isEmpty();
     }
 
     @Test
