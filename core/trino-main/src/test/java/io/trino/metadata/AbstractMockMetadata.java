@@ -50,6 +50,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.ReferencingView;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -1125,6 +1126,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        return getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    @Override
     public RedirectionAwareView getRedirectionAwareView(Session session, QualifiedObjectName viewName)
     {
         return RedirectionAwareView.noRedirection(getView(session, viewName));
@@ -1134,6 +1141,12 @@ public abstract class AbstractMockMetadata
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, List<ReferencingView> referencingViews)
+    {
+        return getTableHandle(session, table, startVersion, endVersion);
     }
 
     @Override
