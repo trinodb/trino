@@ -3575,6 +3575,18 @@ public class IcebergMetadata
             rowDelta.validateNoConflictingDeleteFiles();
         }
         commitUpdate(rowDelta, session, "write");
+
+        // Row-level writes (MERGE, UPDATE, DELETE) do not collect statistics. Carry the existing statistics file over
+        // to the new snapshot, as OPTIMIZE does, so that NDV information is not lost when the snapshot it was
+        // originally written for gets expired.
+        if (isCollectExtendedStatisticsOnWrite(session) && !isS3Tables(icebergTable.location())) {
+            long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
+            tableStatisticsWriter.rewriteStatisticsFile(session, icebergTable, newSnapshotId).ifPresent(newStatsFile ->
+                    transaction.updateStatistics()
+                            .setStatistics(newStatsFile)
+                            .commit());
+        }
+
         commitWriteTransaction(transaction, "write");
         return outputMetadata(icebergTable);
     }

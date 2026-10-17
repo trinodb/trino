@@ -152,8 +152,9 @@ implementation is used:
     `false` is not recommended and does not disable statistics gathering.
   - `true`
 * - `iceberg.extended-statistics.collect-on-write`
-  - Enable collection of extended statistics for write operations. The
-    equivalent catalog session property is
+  - Enable collection of extended statistics for write operations and
+    preservation of existing statistics files across row-level modifications
+    such as `MERGE`, `UPDATE`, and `DELETE`. The equivalent catalog session property is
     `collect_extended_statistics_on_write`.
   - `true`
 * - `iceberg.projection-pushdown-enabled`
