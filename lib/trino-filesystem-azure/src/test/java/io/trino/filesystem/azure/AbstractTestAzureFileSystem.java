@@ -13,6 +13,10 @@
  */
 package io.trino.filesystem.azure;
 
+import com.azure.core.http.HttpClient;
+import com.azure.core.http.HttpHeaderName;
+import com.azure.core.http.policy.HttpPipelinePolicy;
+import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
@@ -43,6 +47,8 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.URI;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ROOT;
@@ -86,11 +92,34 @@ public abstract class AbstractTestAzureFileSystem
         initialize(account, new AzureAuthAccessKey(accountKey), accountKind, true);
     }
 
-    protected void initializeWithOAuth(String account, String tenantId, String clientId, String clientSecret, AccountKind accountKind)
+    protected void initializeWithOAuth(String account, String tenantId, String clientId, String clientSecret, AccountKind accountKind, boolean disableInstanceDiscovery)
             throws IOException
     {
-        String clientEndpoint = "https://login.microsoftonline.com/%s/oauth2/v2.0/token".formatted(tenantId);
-        initialize(account, new AzureAuthOauth(clientEndpoint, tenantId, clientId, clientSecret), accountKind, false);
+        ClientSecretCredentialBuilder builder = new ClientSecretCredentialBuilder()
+                .authorityHost(oauthEndpoint(tenantId).toString())
+                .tenantId(tenantId)
+                .clientId(clientId)
+                .clientSecret(clientSecret);
+        httpClient().ifPresent(builder::httpClient);
+        if (disableInstanceDiscovery) {
+            builder.disableInstanceDiscovery();
+        }
+        initialize(account, new AzureAuthOauth(builder.build()), accountKind, false);
+    }
+
+    protected URI oauthEndpoint(String tenantId)
+    {
+        return URI.create("https://login.microsoftonline.com/%s/oauth2/v2.0/token".formatted(tenantId));
+    }
+
+    protected Optional<URI> serviceEndpoint()
+    {
+        return Optional.empty();
+    }
+
+    protected Optional<HttpClient> httpClient()
+    {
+        return Optional.empty();
     }
 
     private void initialize(String account, AzureAuth azureAuth, AccountKind accountKind, boolean multipartWriteEnabled)
@@ -100,12 +129,14 @@ public abstract class AbstractTestAzureFileSystem
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.accountKind = requireNonNull(accountKind, "accountKind is null");
         this.multipartWriteEnabled = multipartWriteEnabled;
+        Optional<URI> serviceEndpoint = serviceEndpoint();
         containerName = "test-%s-%s".formatted(accountKind.name().toLowerCase(ROOT), randomUUID());
         rootLocation = Location.of("abfs://%s@%s.dfs.core.windows.net/".formatted(containerName, account));
 
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
-                .endpoint("https://%s.blob.core.windows.net".formatted(account))
+                .endpoint(blobEndpoint(account, serviceEndpoint))
                 .containerName(containerName);
+        httpClient().ifPresent(builder::httpClient);
         azureAuth.setAuth(account, builder);
         blobContainerClient = builder.buildClient();
         // this will fail if the container already exists, which is what we want
@@ -118,11 +149,24 @@ public abstract class AbstractTestAzureFileSystem
             checkState(!isHierarchicalNamespaceEnabled, "Expected hierarchical namespaces to not be enabled for storage account %s and container %s with account kind %s".formatted(account, containerName, accountKind));
         }
 
+        AzureFileSystemConfig config = new AzureFileSystemConfig()
+                .setMultipartWriteEnabled(multipartWriteEnabled);
         fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
-                new AzureFileSystemConfig()
-                        .setMultipartWriteEnabled(multipartWriteEnabled));
+                config.getEndpoint(),
+                serviceEndpoint,
+                httpClient(),
+                config.getReadBlockSize(),
+                config.getWriteBlockSize(),
+                config.getMaxWriteConcurrency(),
+                config.getMaxSingleUploadSize(),
+                config.getMaxHttpRequests(),
+                config.getMaxHttpConnections(),
+                config.getConnectionPoolMaxIdleTime(),
+                config.getHttpRequestTimeout(),
+                config.getApplicationId(),
+                config.isMultipartWriteEnabled());
         fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 
         cleanupFiles();
@@ -184,11 +228,47 @@ public abstract class AbstractTestAzureFileSystem
 
     private DataLakeFileSystemClient createDataLakeFileSystemClient()
     {
+        Optional<URI> serviceEndpoint = serviceEndpoint();
         DataLakeServiceClientBuilder serviceClientBuilder = new DataLakeServiceClientBuilder()
-                .endpoint("https://%s.dfs.core.windows.net".formatted(account));
+                .endpoint(dfsEndpoint(account, serviceEndpoint));
+        httpClient().ifPresent(serviceClientBuilder::httpClient);
+        if (serviceEndpoint.isPresent()) {
+            serviceClientBuilder.addPolicy(hostHeaderPolicy("%s.dfs.core.windows.net".formatted(account)));
+        }
         azureAuth.setAuth(account, serviceClientBuilder);
         DataLakeServiceClient serviceClient = serviceClientBuilder.buildClient();
         return serviceClient.getFileSystemClient(containerName);
+    }
+
+    private static String blobEndpoint(String account, Optional<URI> serviceEndpoint)
+    {
+        return serviceEndpoint
+                .map(uri -> appendPath(uri, account))
+                .orElseGet(() -> "https://%s.blob.core.windows.net".formatted(account));
+    }
+
+    private static String dfsEndpoint(String account, Optional<URI> serviceEndpoint)
+    {
+        return serviceEndpoint
+                .map(URI::toString)
+                .orElseGet(() -> "https://%s.dfs.core.windows.net".formatted(account));
+    }
+
+    private static String appendPath(URI endpoint, String path)
+    {
+        String endpointString = endpoint.toString();
+        if (endpointString.endsWith("/")) {
+            return endpointString + path;
+        }
+        return endpointString + "/" + path;
+    }
+
+    private static HttpPipelinePolicy hostHeaderPolicy(String host)
+    {
+        return (context, next) -> {
+            context.getHttpRequest().setHeader(HttpHeaderName.HOST, host);
+            return next.process();
+        };
     }
 
     @Override

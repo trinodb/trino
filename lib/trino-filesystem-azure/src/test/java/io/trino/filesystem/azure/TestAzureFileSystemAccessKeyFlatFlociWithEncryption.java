@@ -17,8 +17,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 @TestInstance(Lifecycle.PER_CLASS)
-public class TestAzureFileSystemGen2FlatWithEncryption
-        extends TestAzureFileSystemGen2Flat
+public class TestAzureFileSystemAccessKeyFlatFlociWithEncryption
+        extends TestAzureFileSystemAccessKeyFlatFloci
 {
     @Override
     protected boolean useServerSideEncryptionWithCustomerKey()

@@ -165,6 +165,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.projectreactor.netty</groupId>
+            <artifactId>reactor-netty-http</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
             <version>${project.version}</version>
@@ -175,6 +187,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -201,6 +219,12 @@
             <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
@@ -216,10 +240,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestAzureFileSystemGen2Flat*.java</exclude>
-                                <exclude>**/TestAzureFileSystemGen2Hierarchical*.java</exclude>
-                                <exclude>**/TestAzureFileSystemOAuthGen2Flat*.java</exclude>
-                                <exclude>**/TestAzureFileSystemOAuthGen2Hierarchical*.java</exclude>
+                                <exclude>**/TestAzureFileSystem*Azure.java</exclude>
+                                <exclude>**/TestAzureFileSystem*AzureWithEncryption.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -236,10 +258,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestAzureFileSystemGen2Flat*.java</include>
-                                <include>**/TestAzureFileSystemGen2Hierarchical*.java</include>
-                                <include>**/TestAzureFileSystemOAuthGen2Flat*.java</include>
-                                <include>**/TestAzureFileSystemOAuthGen2Hierarchical*.java</include>
+                                <include>**/TestAzureFileSystem*Azure.java</include>
+                                <include>**/TestAzureFileSystem*AzureWithEncryption.java</include>
                             </includes>
                         </configuration>
                     </plugin>
