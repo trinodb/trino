@@ -53,14 +53,14 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestHiveMetastoreMetadataQueriesAccessOperations
         extends AbstractTestQueryFramework
 {
-    private static final Logger log = Logger.get(TestHiveMetastoreMetadataQueriesAccessOperations.class);
+    protected static final Logger log = Logger.get(TestHiveMetastoreMetadataQueriesAccessOperations.class);
 
-    private static final int MAX_PREFIXES_COUNT = 20;
+    protected static final int MAX_PREFIXES_COUNT = 20;
     private static final int TEST_SCHEMAS_COUNT = MAX_PREFIXES_COUNT + 1;
     private static final int TEST_TABLES_IN_SCHEMA_COUNT = MAX_PREFIXES_COUNT + 3;
     private static final int TEST_ALL_TABLES_COUNT = TEST_SCHEMAS_COUNT * TEST_TABLES_IN_SCHEMA_COUNT;
 
-    private static final Session SESSION = testSessionBuilder()
+    protected static final Session SESSION = testSessionBuilder()
             .setCatalog("hive")
             .setSchema(Optional.empty())
             .build();
@@ -97,7 +97,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         return queryRunner;
     }
 
-    private static void createTestingTables(QueryRunner queryRunner)
+    protected static void createTestingTables(QueryRunner queryRunner)
     {
         HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());

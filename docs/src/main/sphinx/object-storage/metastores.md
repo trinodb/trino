@@ -113,7 +113,9 @@ properties:
     If a comma-separated list of URIs is provided, the first URI is used by
     default, and the rest of the URIs are fallback metastores. This property
     is required. Example: `thrift://192.0.2.3:9083` or
-    `thrift://192.0.2.3:9083,thrift://192.0.2.4:9083`
+    `thrift://192.0.2.3:9083,thrift://192.0.2.4:9083`. Use `http://` or
+    `https://` URIs to connect to a metastore that serves Thrift over HTTP, see
+    [](hive-thrift-metastore-http).
   -
 * - `hive.metastore.username`
   - The username Trino uses to access the Hive metastore.
@@ -239,6 +241,45 @@ following conditions are met:
   2.3.10, 4.1.0, 4.0.1 or later.
 * All other catalogs committing to tables that this catalogs commits to are also
   on Iceberg 1.3 or later, and disabled Hive locks on commit.
+:::
+
+(hive-thrift-metastore-http)=
+### Thrift metastore over HTTP
+
+A Hive metastore configured with
+`hive.metastore.server.thrift.transport.mode=http` serves the Thrift API over
+HTTP or HTTPS instead of a Thrift socket. To connect to it, use `http://` or
+`https://` URIs in `hive.metastore.uri`, including the path of the metastore
+HTTP endpoint, for example `https://metastore.example.com:9083/metastore`. All
+URIs must use the same scheme.
+
+The `hive.metastore.thrift.*` properties apply to HTTP connections too,
+including timeouts and retries. For `https://` URIs, configure the trust store
+with `hive.metastore.thrift.client.ssl.trust-certificate` and
+`hive.metastore.thrift.client.ssl.trust-certificate-password` if the metastore
+certificate is not trusted by the JVM default trust store. Kerberos
+authentication, metastore impersonation, and SOCKS proxies are not supported
+over HTTP.
+
+The metastore identifies the caller from HTTP headers. A metastore with JWT
+authentication expects a bearer token. Otherwise, it expects the user name in
+the `x-actor-username` header, which you can set with
+`hive.metastore.http.client.additional-headers`.
+
+:::{list-table} Thrift metastore HTTP configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `hive.metastore.http.client.bearer-token`
+  - Bearer token sent in the `Authorization` header to authenticate with a
+    metastore using JWT authentication. Only allowed with `https://` URIs.
+* - `hive.metastore.http.client.additional-headers`
+  - Additional HTTP headers to send with every metastore request, as a
+    comma-separated list of `name:value` pairs. For example,
+    `x-actor-username:trino,header2:value2`. Escape a comma (`,`) or colon (`:`)
+    in a header name or value with a backslash (`\`).
 :::
 
 (hive-thrift-metastore-authentication)=

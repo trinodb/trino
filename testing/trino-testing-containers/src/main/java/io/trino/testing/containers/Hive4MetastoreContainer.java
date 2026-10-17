@@ -20,6 +20,9 @@ import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * A Hive 4 Metastore container for product tests.
@@ -118,6 +121,7 @@ public class Hive4MetastoreContainer
             """;
 
     private String warehouseDir = DEFAULT_WAREHOUSE_DIR;
+    private Optional<String> hiveSiteXmlOverride = Optional.empty();
 
     public Hive4MetastoreContainer()
     {
@@ -156,6 +160,15 @@ public class Hive4MetastoreContainer
     }
 
     /**
+     * Uses a custom hive-site.xml instead of the default S3 template.
+     */
+    public Hive4MetastoreContainer withHiveSiteXml(String hiveSiteXml)
+    {
+        this.hiveSiteXmlOverride = Optional.of(requireNonNull(hiveSiteXml, "hiveSiteXml is null"));
+        return this;
+    }
+
+    /**
      * Configures S3 settings for the Hive Metastore.
      *
      * @param accessKey S3 access key
@@ -175,15 +188,13 @@ public class Hive4MetastoreContainer
     @Override
     public void start()
     {
-        // Ensure the hive-site.xml is generated with the current warehouseDir before starting
-        withCopyToContainer(
-                Transferable.of(getHiveSiteXml(
-                        warehouseDir,
-                        Floci.FLOCI_ACCESS_KEY,
-                        Floci.FLOCI_SECRET_KEY,
-                        "floci",
-                        Floci.FLOCI_PORT)),
-                "/opt/hive/conf/hive-site.xml");
+        String hiveSiteXml = hiveSiteXmlOverride.orElseGet(() -> getHiveSiteXml(
+                warehouseDir,
+                Floci.FLOCI_ACCESS_KEY,
+                Floci.FLOCI_SECRET_KEY,
+                "floci",
+                Floci.FLOCI_PORT));
+        withCopyToContainer(Transferable.of(hiveSiteXml), "/opt/hive/conf/hive-site.xml");
         super.start();
     }
 
