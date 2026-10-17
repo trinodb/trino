@@ -1119,6 +1119,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRepeatedSampledSubquery()
+    {
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) AS x FROM t1 ORDER BY x");
+        analyze("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50))");
+        assertFails("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50))")
+                .hasErrorCode(EXPRESSION_NOT_IN_DISTINCT);
+
+        analyze("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a) FROM t1 GROUP BY 1");
+        assertFails("SELECT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a) FROM t1 GROUP BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (50) WHERE t2.a = t1.a)")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        // a sample that keeps all rows or none is deterministic
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (100)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (100))");
+        analyze("SELECT DISTINCT (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (0)) FROM t1 ORDER BY (SELECT count(*) FROM t2 TABLESAMPLE BERNOULLI (0))");
+    }
+
+    @Test
     public void testNonBooleanWhereClause()
     {
         assertFails("SELECT * FROM t1 WHERE a")
