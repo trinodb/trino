@@ -177,6 +177,26 @@ If a table argument has *pass-through columns*, all of its columns are passed
 on output. For a table argument without this property, only the partitioning
 columns are passed on output.
 
+(tf-table-metadata-arguments)=
+##### Table metadata arguments
+
+A `TableMetadataArgumentSpecification` argument does not read any rows from
+the referenced table. It must be passed as a plain `catalog.schema.table`
+reference, with no aliasing, partitioning, ordering, or empty-table
+treatment, and it cannot reference a `WITH` query. The engine does not plan a
+source for this argument; instead, it fetches the referenced table's
+`ConnectorTableMetadata` during analysis and passes it to the table function
+as a `TableMetadataArgument`.
+
+```java
+TableMetadataArgumentSpecification.builder()
+        .name("INPUT")
+        .build()
+```
+
+Requesting a table's metadata this way is subject to the same access control
+as `SHOW CREATE TABLE` on the referenced table.
+
 ### The `analyze()` method
 
 In order to provide all the necessary information to the Trino engine, the
@@ -252,8 +272,11 @@ functions with any number of table arguments as well as scalar and descriptor
 arguments. To use this execution path, you provide an implementation of a
 processor.
 
-If your table function has one or more table arguments, you must implement
-`TableFunctionDataProcessor`. It processes pages of input data.
+If your table function has one or more table arguments other than
+{ref}`table metadata arguments <tf-table-metadata-arguments>`, you must
+implement `TableFunctionDataProcessor`. It processes pages of input data. A
+table function whose only table arguments use table metadata does not plan a
+source, and does not need this processor.
 
 If your table function is a source operator (it does not have table arguments),
 you must implement `TableFunctionSplitProcessor`. It processes splits. The
