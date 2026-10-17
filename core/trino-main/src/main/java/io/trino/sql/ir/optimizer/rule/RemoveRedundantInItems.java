@@ -17,7 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.NumberType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.ComparisonOperator;
 import io.trino.sql.ir.Expression;
@@ -41,6 +46,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.mayFail;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Collections.singletonList;
 
@@ -59,9 +65,16 @@ public class RemoveRedundantInItems
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In(Expression value, List<Expression> list))) {
+        if (!(expression instanceof In in)) {
             return Optional.empty();
         }
+
+        Expression value = in.value();
+        Optional<List<Expression>> elements = extractArrayElements(in.valueList());
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Expression> list = elements.get();
 
         CharVarcharCoercion charVarcharCoercion = getCharVarcharCoercion(session);
         List<Expression> cannotFail = new ArrayList<>();
@@ -89,12 +102,14 @@ public class RemoveRedundantInItems
             }
         }
 
-        if (exactMatchFound && mayFail.isEmpty()) {
+        // Structural identity does not imply SQL equality for NaN, including
+        // NaN nested inside arrays, rows, or maps.
+        if (exactMatchFound && mayFail.isEmpty() && !canContainNaN(value.type())) {
             ResolvedFunction indeterminate = metadata.resolveOperator(charVarcharCoercion, INDETERMINATE, ImmutableList.of(value.type()));
             return Optional.of(ifExpression(new Call(indeterminate, singletonList(value)), NULL_BOOLEAN, TRUE));
         }
 
-        if (!removed && list.size() > 1) {
+        if (!removed && list.size() != 1) {
             return Optional.empty();
         }
 
@@ -107,6 +122,12 @@ public class RemoveRedundantInItems
             return Optional.of(comparison(metadata, charVarcharCoercion, ComparisonOperator.EQUAL, value, newItems.getFirst()));
         }
 
-        return Optional.of(new In(value, newItems));
+        return Optional.of(new In(value, new Array(value.type(), newItems)));
+    }
+
+    private static boolean canContainNaN(Type type)
+    {
+        return type instanceof DoubleType || type instanceof RealType || type instanceof NumberType ||
+                type.getTypeParameters().stream().anyMatch(RemoveRedundantInItems::canContainNaN);
     }
 }

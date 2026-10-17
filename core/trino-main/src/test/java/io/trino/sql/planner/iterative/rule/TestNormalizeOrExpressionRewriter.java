@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.ArrayType;
+import io.trino.sql.ir.Array;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
@@ -48,12 +50,12 @@ public class TestNormalizeOrExpressionRewriter
         assertThat(normalizeOrExpression(or(
                 comparison(EQUAL, X, ONE),
                 comparison(EQUAL, X, TWO))))
-                .isEqualTo(new In(X, ImmutableList.of(ONE, TWO)));
+                .isEqualTo(new In(X, new Array(X.type(), ImmutableList.of(ONE, TWO))));
 
         assertThat(normalizeOrExpression(or(
-                new In(X, ImmutableList.of(ONE)),
+                new In(X, new Array(X.type(), ImmutableList.of(ONE))),
                 comparison(EQUAL, X, TWO))))
-                .isEqualTo(new In(X, ImmutableList.of(ONE, TWO)));
+                .isEqualTo(new In(X, new Array(X.type(), ImmutableList.of(ONE, TWO))));
     }
 
     @Test
@@ -62,12 +64,12 @@ public class TestNormalizeOrExpressionRewriter
         assertThat(normalizeOrExpression(or(
                 comparison(EQUAL, X, ONE),
                 comparison(EQUAL, X, ONE))))
-                .isEqualTo(new In(X, ImmutableList.of(ONE)));
+                .isEqualTo(new In(X, new Array(X.type(), ImmutableList.of(ONE))));
 
         assertThat(normalizeOrExpression(or(
-                new In(X, ImmutableList.of(ONE)),
+                new In(X, new Array(X.type(), ImmutableList.of(ONE))),
                 comparison(EQUAL, X, ONE))))
-                .isEqualTo(new In(X, ImmutableList.of(ONE)));
+                .isEqualTo(new In(X, new Array(X.type(), ImmutableList.of(ONE))));
     }
 
     @Test
@@ -79,7 +81,7 @@ public class TestNormalizeOrExpressionRewriter
         assertThat(normalizeOrExpression(equalities)).isEqualTo(equalities);
 
         Expression inAndEquality = or(
-                new In(RANDOM, ImmutableList.of(ONE)),
+                new In(RANDOM, new Array(RANDOM.type(), ImmutableList.of(ONE))),
                 comparison(EQUAL, RANDOM, TWO));
         assertThat(normalizeOrExpression(inAndEquality)).isEqualTo(inAndEquality);
     }
@@ -93,7 +95,7 @@ public class TestNormalizeOrExpressionRewriter
         assertThat(normalizeOrExpression(equalities)).isEqualTo(equalities);
 
         Expression inAndEquality = or(
-                new In(X, ImmutableList.of(RANDOM)),
+                new In(X, new Array(X.type(), ImmutableList.of(RANDOM))),
                 comparison(EQUAL, X, RANDOM));
         assertThat(normalizeOrExpression(inAndEquality)).isEqualTo(inAndEquality);
     }
@@ -107,15 +109,26 @@ public class TestNormalizeOrExpressionRewriter
                 comparison(EQUAL, X, RANDOM))))
                 .isEqualTo(or(
                         comparison(EQUAL, X, RANDOM),
-                        new In(X, ImmutableList.of(ONE, TWO))));
+                        new In(X, new Array(X.type(), ImmutableList.of(ONE, TWO)))));
 
         assertThat(normalizeOrExpression(or(
-                new In(X, ImmutableList.of(ONE)),
+                new In(X, new Array(X.type(), ImmutableList.of(ONE))),
                 comparison(EQUAL, X, TWO),
-                new In(X, ImmutableList.of(RANDOM)))))
+                new In(X, new Array(X.type(), ImmutableList.of(RANDOM))))))
                 .isEqualTo(or(
-                        new In(X, ImmutableList.of(RANDOM)),
-                        new In(X, ImmutableList.of(ONE, TWO))));
+                        new In(X, new Array(X.type(), ImmutableList.of(RANDOM))),
+                        new In(X, new Array(X.type(), ImmutableList.of(ONE, TWO)))));
+    }
+
+    @Test
+    void testPreserveRuntimeArray()
+    {
+        In runtimeIn = new In(X, new Reference(new ArrayType(INTEGER), "values"));
+        assertThat(normalizeOrExpression(or(
+                runtimeIn,
+                comparison(EQUAL, X, ONE),
+                comparison(EQUAL, X, TWO))))
+                .isEqualTo(or(runtimeIn, new In(X, new Array(INTEGER, ImmutableList.of(ONE, TWO)))));
     }
 
     private static Expression or(Expression... terms)

@@ -353,11 +353,9 @@ public final class ExpressionTreeRewriter<C>
             }
 
             Expression value = rewrite(node.value(), context.get());
-            List<Expression> values = node.valueList().stream()
-                    .map(entry -> rewrite(entry, context.get()))
-                    .collect(toImmutableList());
+            Expression values = rewrite(node.valueList(), context.get());
 
-            if (node.value() != value || !sameElements(values, node.valueList())) {
+            if (node.value() != value || node.valueList() != values) {
                 return new In(value, values);
             }
 

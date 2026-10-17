@@ -56,6 +56,7 @@ import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
@@ -149,6 +150,10 @@ public class UnwrapYearInComparison
         {
             In in = treeRewriter.defaultRewrite(node, null);
             Expression value = in.value();
+            Optional<List<Expression>> elements = extractArrayElements(in.valueList());
+            if (elements.isEmpty()) {
+                return in;
+            }
 
             if (!(value instanceof Call call) ||
                     !call.function().name().equals(builtinFunctionName("year")) ||
@@ -160,8 +165,8 @@ public class UnwrapYearInComparison
 
             // Convert each value to a comparison expression and try to unwrap it.
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
-            List<Expression> comparisonExpressions = new ArrayList<>(node.valueList().size());
-            for (Expression rightExpression : node.valueList()) {
+            List<Expression> comparisonExpressions = new ArrayList<>(elements.get().size());
+            for (Expression rightExpression : elements.get()) {
                 Optional<Expression> unwrappedExpression = tryUnwrapYear(EQUAL, value, rightExpression);
                 if (unwrappedExpression.isEmpty()) {
                     return in;

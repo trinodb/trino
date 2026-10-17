@@ -45,6 +45,7 @@ import static io.trino.sql.ir.ComparisonOperator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.ComparisonOperator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.bindIfNecessary;
 import static io.trino.sql.ir.IrExpressions.comparison;
+import static io.trino.sql.ir.IrUtils.extractArrayElements;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.Operator.AND;
 
@@ -68,9 +69,16 @@ public class SimplifyContinuousInValues
     @Override
     public Optional<Expression> apply(Expression expression, Session session, SymbolAllocator symbolAllocator, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof In(Expression value, List<Expression> values))) {
+        if (!(expression instanceof In in)) {
             return Optional.empty();
         }
+
+        Expression value = in.value();
+        Optional<List<Expression>> elements = extractArrayElements(in.valueList());
+        if (elements.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Expression> values = elements.get();
 
         if (values.size() < 2) {
             return Optional.empty();
