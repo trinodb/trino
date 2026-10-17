@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.BlocksHash;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -58,12 +59,14 @@ public final class FlatHash
     private static final int RECORDS_PER_GROUP = 1 << RECORDS_PER_GROUP_SHIFT;
     private static final int RECORDS_PER_GROUP_MASK = RECORDS_PER_GROUP - 1;
 
-    private static final int VECTOR_LENGTH = Long.BYTES;
+    private static final byte EMPTY_CONTROL = 0;
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
 
     private final FlatHashStrategy flatHashStrategy;
     private final AppendOnlyVariableWidthData variableWidthData;
     private final UpdateMemory checkMemoryReservation;
+    private final ControlMatcher controlMatcher;
+    private final int vectorLength;
 
     private final boolean cacheHashValue;
     private final int fixedRecordSize;
@@ -83,8 +86,16 @@ public final class FlatHash
 
     public FlatHash(FlatHashStrategy flatHashStrategy, boolean cacheHashValue, int expectedSize, UpdateMemory checkMemoryReservation)
     {
+        this(flatHashStrategy, cacheHashValue, expectedSize, checkMemoryReservation, ControlMatcher.preferred());
+    }
+
+    @VisibleForTesting
+    FlatHash(FlatHashStrategy flatHashStrategy, boolean cacheHashValue, int expectedSize, UpdateMemory checkMemoryReservation, ControlMatcher controlMatcher)
+    {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
+        this.controlMatcher = requireNonNull(controlMatcher, "controlMatcher is null");
+        this.vectorLength = controlMatcher.vectorLength();
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
         this.variableWidthData = hasVariableData ? new AppendOnlyVariableWidthData() : null;
         this.cacheHashValue = cacheHashValue;
@@ -97,12 +108,12 @@ public final class FlatHash
         this.fixedValueOffset = variableWidthOffset + (hasVariableData ? AppendOnlyVariableWidthData.POINTER_SIZE : 0);
         this.fixedRecordSize = fixedValueOffset + flatHashStrategy.getTotalFlatFixedLength();
 
-        this.capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
+        this.capacity = max(vectorLength, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
         this.mask = capacity - 1;
         this.maxFill = calculateMaxFill(capacity);
 
         int groupsRequired = recordGroupsRequiredForCapacity(capacity);
-        this.control = new byte[capacity + VECTOR_LENGTH];
+        this.control = new byte[capacity + vectorLength];
         this.groupIdsByHash = new int[capacity];
         Arrays.fill(groupIdsByHash, -1);
         this.fixedSizeRecords = new byte[groupsRequired][];
@@ -112,6 +123,8 @@ public final class FlatHash
     {
         this.flatHashStrategy = other.flatHashStrategy;
         this.checkMemoryReservation = other.checkMemoryReservation;
+        this.controlMatcher = other.controlMatcher;
+        this.vectorLength = other.vectorLength;
         this.variableWidthData = other.variableWidthData == null ? null : new AppendOnlyVariableWidthData(other.variableWidthData);
         this.cacheHashValue = other.cacheHashValue;
         this.fixedRecordSize = other.fixedRecordSize;
@@ -280,49 +293,44 @@ public final class FlatHash
         int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
-        long repeated = repeat(hashPrefix);
-
         while (true) {
-            final long controlVector = (long) LONG_HANDLE.get(control, bucket);
-
-            int matchIndex = matchInVector(blocks, position, hash, bucket, repeated, controlVector);
+            int matchIndex = matchInVector(blocks, position, hash, bucket, hashPrefix);
             if (matchIndex >= 0) {
                 return matchIndex;
             }
 
-            int emptyIndex = findEmptyInVector(controlVector, bucket);
+            int emptyIndex = findEmptyInVector(bucket);
             if (emptyIndex >= 0) {
                 return -emptyIndex - 1;
             }
 
             bucket = bucket(bucket + step);
-            step += VECTOR_LENGTH;
+            step += vectorLength;
         }
     }
 
-    private int matchInVector(Block[] blocks, int position, long hash, int vectorStartBucket, long repeated, long controlVector)
+    private int matchInVector(Block[] blocks, int position, long hash, int vectorStartBucket, byte hashPrefix)
     {
-        long controlMatches = match(controlVector, repeated);
+        long controlMatches = controlMatcher.match(control, vectorStartBucket, hashPrefix);
         while (controlMatches != 0) {
-            int index = bucket(vectorStartBucket + (Long.numberOfTrailingZeros(controlMatches) >>> 3));
+            int index = bucket(vectorStartBucket + controlMatcher.firstSlot(controlMatches));
             int groupId = groupIdsByHash[index];
             if (valueIdentical(groupId, blocks, position, hash)) {
                 return index;
             }
 
-            controlMatches = controlMatches & (controlMatches - 1);
+            controlMatches = controlMatcher.clearFirstSlot(controlMatches);
         }
         return -1;
     }
 
-    private int findEmptyInVector(long vector, int vectorStartBucket)
+    private int findEmptyInVector(int vectorStartBucket)
     {
-        long controlMatches = match(vector, 0x00_00_00_00_00_00_00_00L);
+        long controlMatches = controlMatcher.match(control, vectorStartBucket, EMPTY_CONTROL);
         if (controlMatches == 0) {
             return -1;
         }
-        int slot = Long.numberOfTrailingZeros(controlMatches) >>> 3;
-        return bucket(vectorStartBucket + slot);
+        return bucket(vectorStartBucket + controlMatcher.firstSlot(controlMatches));
     }
 
     private int addNewGroup(int index, Block[] blocks, int position, long hash)
@@ -369,7 +377,7 @@ public final class FlatHash
     private void setControl(int index, byte hashPrefix)
     {
         control[index] = hashPrefix;
-        if (index < VECTOR_LENGTH) {
+        if (index < vectorLength) {
             control[index + capacity] = hashPrefix;
         }
     }
@@ -407,7 +415,7 @@ public final class FlatHash
         fixedSizeRecords = Arrays.copyOf(fixedSizeRecords, recordGroupsRequiredForCapacity(capacity));
 
         // Construct the new hash table
-        control = new byte[capacity + VECTOR_LENGTH];
+        control = new byte[capacity + vectorLength];
         groupIdsByHash = new int[capacity];
         Arrays.fill(groupIdsByHash, -1);
 
@@ -420,9 +428,8 @@ public final class FlatHash
             // getIndex is not used here because values in a rehash are always distinct
             int step = 1;
             while (true) {
-                final long controlVector = (long) LONG_HANDLE.get(control, bucket);
                 // values are already distinct, so just find the first empty slot
-                int emptyIndex = findEmptyInVector(controlVector, bucket);
+                int emptyIndex = findEmptyInVector(bucket);
                 if (emptyIndex >= 0) {
                     setControl(emptyIndex, hashPrefix);
                     if (groupIdsByHash[emptyIndex] != -1) {
@@ -432,7 +439,7 @@ public final class FlatHash
                     break;
                 }
                 bucket = bucket(bucket + step);
-                step += VECTOR_LENGTH;
+                step += vectorLength;
             }
         }
 
@@ -498,18 +505,6 @@ public final class FlatHash
             throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         return toIntExact(newCapacityLong);
-    }
-
-    private static long repeat(byte value)
-    {
-        return ((value & 0xFF) * 0x01_01_01_01_01_01_01_01L);
-    }
-
-    private static long match(long vector, long repeatedValue)
-    {
-        // HD 6-1
-        long comparison = vector ^ repeatedValue;
-        return (comparison - 0x01_01_01_01_01_01_01_01L) & ~comparison & 0x80_80_80_80_80_80_80_80L;
     }
 
     private static int recordGroupsRequiredForCapacity(int capacity)
