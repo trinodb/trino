@@ -533,6 +533,52 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
     }
 
+    @Test
+    public void testDecimalScaleReduction()
+            throws Exception
+    {
+        // A file written as decimal(10, 3) read as decimal(10, 2) has to lose the third digit by
+        // rounding, the same way a decimal cast does. Reproduces #5128.
+        TestColumn writeColumn = new TestColumn(
+                "decimal_column",
+                DecimalType.createDecimalType(10, 3),
+                HiveDecimal.create(new BigDecimal("10.233")),
+                new BigDecimal("10.233"));
+        TestColumn readColumn = new TestColumn(
+                "decimal_column",
+                DecimalType.createDecimalType(10, 2),
+                HiveDecimal.create(new BigDecimal("10.23")),
+                new BigDecimal("10.23"));
+
+        assertThatFileFormat(ORC)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByPageSource(fileSystemFactory -> new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC));
+
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withSession(PARQUET_SESSION)
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, Optional.empty(), new ParquetReaderConfig(), new HiveConfig()));
+
+        assertThatFileFormat(RCBINARY)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .isReadableByPageSource(fileSystemFactory -> new RcFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
+
+        assertThatFileFormat(SEQUENCEFILE)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withFileWriterFactory(fileSystemFactory -> new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByPageSource(fileSystemFactory -> new SimpleSequenceFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
+
+        assertThatFileFormat(TEXTFILE)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withFileWriterFactory(fileSystemFactory -> new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .isReadableByPageSource(fileSystemFactory -> new SimpleTextFilePageSourceFactory(fileSystemFactory, new HiveConfig()));
+    }
+
     @ParameterizedTest
     @MethodSource("validRowAndFileSizePadding")
     public void testAvro(int rowCount, long fileSizePadding)

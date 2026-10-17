@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
@@ -47,6 +48,7 @@ import java.util.regex.Pattern;
 
 import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
@@ -180,6 +182,27 @@ public final class HiveFormatUtils
     public static BigDecimal scaleDecimal(BigDecimal bigDecimal, DecimalType decimalType)
     {
         return bigDecimal.setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);
+    }
+
+    /**
+     * Rescales the unscaled value of a short decimal to the scale of the column it is read as.
+     * Reducing the scale rounds half away from zero, like {@link #scaleDecimal(BigDecimal,
+     * DecimalType)} does. {@link Decimals#rescale(long, int, int)} cannot be used for that
+     * direction: it rejects a target scale smaller than the source one, and a file can hold more
+     * decimal places than the column it is read as.
+     */
+    public static long rescaleShortDecimal(long value, int fromScale, int toScale)
+    {
+        if (toScale >= fromScale) {
+            return Decimals.rescale(value, fromScale, toScale);
+        }
+        long divisor = longTenToNth(fromScale - toScale);
+        long result = value / divisor;
+        long remainder = value % divisor;
+        if (remainder >= divisor / 2 || remainder <= -(divisor / 2)) {
+            result += value < 0 ? -1 : 1;
+        }
+        return result;
     }
 
     public static Function<String, DecodedTimestamp> createTimestampParser(List<String> timestampFormats)

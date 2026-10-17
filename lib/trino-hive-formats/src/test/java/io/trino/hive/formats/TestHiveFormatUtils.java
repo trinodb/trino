@@ -24,6 +24,7 @@ import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
+import static io.trino.hive.formats.HiveFormatUtils.rescaleShortDecimal;
 import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,6 +39,23 @@ public class TestHiveFormatUtils
         assertThat(parseHiveDate("+5881580-07-11")).isEqualTo(LocalDate.of(5881580, 7, 11));
         assertThat(parseHiveDate("-5877641-06-23")).isEqualTo(LocalDate.of(-5877641, 6, 23));
         assertThat(parseHiveDate("1986-01-33")).isEqualTo(LocalDate.of(1986, 2, 2));
+    }
+
+    @Test
+    public void testRescaleShortDecimal()
+    {
+        // 10.233, 10.234, 10.235 and -10.235 read at scale 2
+        assertThat(rescaleShortDecimal(10233L, 3, 2)).isEqualTo(1023L);
+        assertThat(rescaleShortDecimal(10234L, 3, 2)).isEqualTo(1023L);
+        assertThat(rescaleShortDecimal(10235L, 3, 2)).isEqualTo(1024L);
+        assertThat(rescaleShortDecimal(-10234L, 3, 2)).isEqualTo(-1023L);
+        assertThat(rescaleShortDecimal(-10235L, 3, 2)).isEqualTo(-1024L);
+        // rounding can carry into a new digit
+        assertThat(rescaleShortDecimal(9995L, 3, 2)).isEqualTo(1000L);
+        // increasing the scale stays exact
+        assertThat(rescaleShortDecimal(1023L, 2, 3)).isEqualTo(10230L);
+        assertThat(rescaleShortDecimal(-1023L, 2, 3)).isEqualTo(-10230L);
+        assertThat(rescaleShortDecimal(1023L, 2, 2)).isEqualTo(1023L);
     }
 
     @Test
