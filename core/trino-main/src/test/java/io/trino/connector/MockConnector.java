@@ -168,6 +168,7 @@ public class MockConnector
     private final MockConnectorFactory.ApplyTableFunction applyTableFunction;
     private final MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
+    private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout;
     private final BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType;
@@ -224,6 +225,7 @@ public class MockConnector
             ApplyTableFunction applyTableFunction,
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectView,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType,
@@ -279,6 +281,7 @@ public class MockConnector
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
+        this.redirectView = requireNonNull(redirectView, "redirectView is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
@@ -530,6 +533,12 @@ public class MockConnector
         public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName schemaTableName)
         {
             return redirectTable.apply(session, schemaTableName);
+        }
+
+        @Override
+        public Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName)
+        {
+            return redirectView.apply(session, viewName);
         }
 
         @Override
