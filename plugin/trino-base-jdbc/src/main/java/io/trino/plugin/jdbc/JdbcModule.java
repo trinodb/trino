@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
@@ -61,6 +62,7 @@ public class JdbcModule
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
 
         procedureBinder(binder);
+        tableProcedureBinder(binder);
         tablePropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
@@ -132,6 +134,16 @@ public class JdbcModule
     public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
     {
         procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<TableProcedureMetadata> tableProcedureBinder(Binder binder)
+    {
+        return newSetBinder(binder, TableProcedureMetadata.class);
+    }
+
+    public static void bindTableProcedure(Binder binder, Class<? extends Provider<? extends TableProcedureMetadata>> type)
+    {
+        tableProcedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
     }
 
     public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)
