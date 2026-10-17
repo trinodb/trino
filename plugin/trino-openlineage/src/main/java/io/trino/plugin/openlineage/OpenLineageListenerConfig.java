@@ -25,6 +25,8 @@ import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
 
@@ -34,6 +36,7 @@ public class OpenLineageListenerConfig
     private Set<OpenLineageTrinoFacet> disabledFacets = ImmutableSet.of();
     private Optional<String> namespace = Optional.empty();
     private String jobNameFormat = "$QUERY_ID";
+    private Optional<String> datasetExcludePattern = Optional.empty();
 
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
             .add(QueryType.ALTER_TABLE_EXECUTE)
@@ -116,5 +119,33 @@ public class OpenLineageListenerConfig
     public boolean isJobNameFormatValid()
     {
         return hasValidPlaceholders(jobNameFormat, OpenLineageJobInterpolatedValues.values());
+    }
+
+    public Optional<String> getDatasetExcludePattern()
+    {
+        return datasetExcludePattern;
+    }
+
+    @Config("openlineage-event-listener.dataset.exclude-pattern")
+    @ConfigDescription("Regular expression that must match the whole catalog.schema.table name. Matching datasets are removed from the inputs, outputs, and column lineage of COMPLETE and FAIL events")
+    public OpenLineageListenerConfig setDatasetExcludePattern(String datasetExcludePattern)
+    {
+        this.datasetExcludePattern = Optional.ofNullable(datasetExcludePattern);
+        return this;
+    }
+
+    @AssertTrue(message = "Dataset exclude pattern must be a valid regular expression")
+    public boolean isDatasetExcludePatternValid()
+    {
+        if (datasetExcludePattern.isEmpty()) {
+            return true;
+        }
+        try {
+            Pattern.compile(datasetExcludePattern.get());
+            return true;
+        }
+        catch (PatternSyntaxException e) {
+            return false;
+        }
     }
 }
