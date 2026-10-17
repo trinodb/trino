@@ -87,7 +87,7 @@ public class StaticTokenAwareMetastoreClientFactory
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
+    public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TException
     {
         Comparator<Backoff> comparator = Comparator.comparingLong(Backoff::getBackoffDuration)
@@ -99,7 +99,7 @@ public class StaticTokenAwareMetastoreClientFactory
         TException lastException = null;
         for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(backoff.getUri(), backoff, delegationToken);
+                return getClient(backoff.getUri(), backoff, delegationToken, clientInitializer);
             }
             catch (TException e) {
                 lastException = e;
@@ -111,10 +111,10 @@ public class StaticTokenAwareMetastoreClientFactory
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
-    private ThriftMetastoreClient getClient(URI uri, Backoff backoff, Optional<String> delegationToken)
+    private ThriftMetastoreClient getClient(URI uri, Backoff backoff, Optional<String> delegationToken, ThriftMetastoreClientInitializer clientInitializer)
             throws TException
     {
-        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(uri, delegationToken), new Callback()
+        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(uri, delegationToken, clientInitializer), new Callback()
         {
             @Override
             public void success()
