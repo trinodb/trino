@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -259,7 +258,7 @@ final class TestClickHouseCluster
      */
     private List<String> ddlQueueQueries(String nameFilter)
     {
-        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl(), clickhouseServer.getUsername(), clickhouseServer.getPassword());
+        try (Connection connection = clickhouseServer.createConnection();
                 PreparedStatement statement = connection.prepareStatement("SELECT query FROM system.distributed_ddl_queue WHERE cluster = ? AND query LIKE ?")) {
             statement.setString(1, CLUSTER_NAME);
             statement.setString(2, "%" + nameFilter + "%");
