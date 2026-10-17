@@ -58,6 +58,7 @@ import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
 import io.trino.plugin.iceberg.procedure.RollbackToSnapshotTableProcedure;
 import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
 import io.trino.plugin.lakehouse.procedure.OptimizeTableProcedure;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 
@@ -66,6 +67,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.lakehouse.TableType.ICEBERG;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class LakehouseIcebergModule
         extends AbstractConfigurationAwareModule
@@ -116,6 +118,7 @@ public class LakehouseIcebergModule
             case THRIFT -> new IcebergHiveMetastoreCatalogModule();
             case FILE -> new IcebergFileMetastoreCatalogModule();
             case GLUE -> new IcebergGlueCatalogModule();
+            case BIGLAKE -> throw new TrinoException(NOT_SUPPORTED, "The BigLake metastore is not supported by the Lakehouse connector for Iceberg tables");
         });
 
         binder.install(new IcebergExecutorModule());
