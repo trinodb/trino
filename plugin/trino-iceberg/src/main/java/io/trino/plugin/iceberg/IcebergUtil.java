@@ -70,13 +70,16 @@ import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.NotFoundException;
@@ -183,6 +186,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -1434,5 +1438,23 @@ public final class IcebergUtil
         catch (NotFoundException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, "Error accessing manifest file for table %s".formatted(icebergTable.name()), e);
         }
+    }
+
+    public static TableScan snapshotScan(Table table, IcebergTableHandle handle)
+    {
+        long snapshotId = handle.getSnapshotId().orElseThrow();
+        if (handle.getBranch().isEmpty()) {
+            return table.newScan().useSnapshot(snapshotId);
+        }
+        // Branches, including main, read with the table's current schema, matching the handle's columns.
+        // useRef reads the head and the schema from the current metadata, so fail if the ref is no longer
+        // a branch at the handle's snapshot or the schema differs from the handle's.
+        String branch = handle.getBranch().orElseThrow();
+        SnapshotRef ref = table.refs().get(branch);
+        int handleSchemaId = SchemaParser.fromJson(handle.getTableSchemaJson()).schemaId();
+        if (ref == null || !ref.isBranch() || ref.snapshotId() != snapshotId || table.schema().schemaId() != handleSchemaId) {
+            throw new TrinoException(TRANSACTION_CONFLICT, "Branch %s of table %s changed during query planning".formatted(branch, table.name()));
+        }
+        return table.newScan().useRef(branch);
     }
 }
