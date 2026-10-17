@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
@@ -87,6 +88,7 @@ import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -151,6 +153,19 @@ public class CreateTableTask
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
             return immediateVoidFuture();
+        }
+        Metadata metadata = plannerContext.getMetadata();
+        if (metadata.isView(session, tableName)) {
+            if (statement.getSaveMode() == IGNORE) {
+                return immediateVoidFuture();
+            }
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "View '%s' already exists", tableName);
+        }
+        if (metadata.isMaterializedView(session, tableName)) {
+            if (statement.getSaveMode() == IGNORE) {
+                return immediateVoidFuture();
+            }
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view '%s' already exists", tableName);
         }
 
         String catalogName = tableName.catalogName();
