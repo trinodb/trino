@@ -371,9 +371,13 @@ setQuantifier
     ;
 
 selectItem
-    : aliasedExpression                                    #selectSingle
-    | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
-    | ASTERISK                                              #selectAll
+    : aliasedExpression                                                            #selectSingle
+    | primaryExpression '.' ASTERISK ('(' excludeClause ')')?  (AS columnAliases)? #selectAll
+    | ASTERISK ('(' excludeClause ')')?                                            #selectAll
+    ;
+
+excludeClause
+    : EXCLUDE '(' qualifiedName (',' qualifiedName)* ')'
     ;
 
 aliasedExpression
