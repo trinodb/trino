@@ -2569,20 +2569,19 @@ public class TestExpressionCompiler
                 if (field == TIMEZONE_MINUTE || field == TIMEZONE_HOUR) {
                     continue;
                 }
-                Long expected;
-                Long micros;
-                if (left != null) {
-                    micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
-                    expected = callExtractFunction(micros, field);
-                }
-                else {
-                    micros = null;
-                    expected = null;
-                }
+                Long micros = left == null ? null : left.getMillis() * MICROSECONDS_PER_MILLISECOND;
+                // EXTRACT resolves a field-specific return type instead of always returning BIGINT (see #5701)
+                String returnType = switch (field) {
+                    case YEAR, YEAR_OF_WEEK, YOW -> "INTEGER";
+                    case DAY_OF_YEAR, DOY -> "SMALLINT";
+                    case MONTH, DAY, DAY_OF_MONTH, DAY_OF_WEEK, DOW, WEEK, QUARTER, HOUR, MINUTE, SECOND -> "TINYINT";
+                    case TIMEZONE_MINUTE, TIMEZONE_HOUR -> throw new AssertionError("Unhandled field: " + field);
+                };
+                String expected = left == null ? "CAST(null AS " + returnType + ")" : "%s '%s'".formatted(returnType, callExtractFunction(micros, field));
 
                 assertThat(assertions.expression("extract(%s from from_unixtime(CAST(a as double) / 1000000, 'UTC'))".formatted(field))
                         .binding("a", toLiteral(micros)))
-                        .isEqualTo(expected);
+                        .matches(expected);
             }
         }
     }
