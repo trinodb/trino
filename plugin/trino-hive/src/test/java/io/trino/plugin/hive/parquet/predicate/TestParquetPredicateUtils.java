@@ -171,7 +171,8 @@ public class TestParquetPredicateUtils
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
@@ -214,7 +215,8 @@ public class TestParquetPredicateUtils
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         Domain predicateDomain = Domain.onlyNull(c1Type);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
@@ -257,7 +259,8 @@ public class TestParquetPredicateUtils
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));

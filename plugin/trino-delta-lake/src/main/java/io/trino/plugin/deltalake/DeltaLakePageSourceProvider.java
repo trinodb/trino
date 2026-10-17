@@ -419,7 +419,8 @@ public class DeltaLakePageSourceProvider
                         deltaLakeColumnHandle.basePhysicalType(),
                         hiveColumnProjectionInfo,
                         deltaLakeColumnHandle.columnType().toHiveColumnType(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        true));
             }
             case NAME, NONE -> {
                 checkArgument(fieldIdToName.isEmpty(), "Mapping between field id and name must be empty: %s", fieldIdToName);

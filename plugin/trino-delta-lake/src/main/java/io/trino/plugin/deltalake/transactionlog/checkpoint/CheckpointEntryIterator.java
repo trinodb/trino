@@ -354,7 +354,8 @@ public class CheckpointEntryIterator
                         toHiveType(type),
                         type)),
                 ColumnType.REGULAR,
-                column.getComment());
+                column.getComment(),
+                true);
 
         ImmutableMap.Builder<HiveColumnHandle, Domain> domains = ImmutableMap.<HiveColumnHandle, Domain>builder()
                 .put(handle, Domain.notNull(handle.getType()));
@@ -379,7 +380,8 @@ public class CheckpointEntryIterator
                         DeltaHiveTypeTranslator.toHiveType(partitionColumn.type()),
                         partitionColumn.type())),
                 HiveColumnHandle.ColumnType.REGULAR,
-                addColumn.getComment());
+                addColumn.getComment(),
+                true);
     }
 
     private DeltaLakeTransactionLogEntry buildProtocolEntry(ConnectorSession session, int pagePosition, Block block)

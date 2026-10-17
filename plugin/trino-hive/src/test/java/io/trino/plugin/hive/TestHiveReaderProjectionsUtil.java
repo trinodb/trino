@@ -84,6 +84,7 @@ public class TestHiveReaderProjectionsUtil
                 column.getBaseType(),
                 Optional.of(columnProjection),
                 column.getColumnType(),
-                column.getComment());
+                column.getComment(),
+                column.isNullable());
     }
 }
