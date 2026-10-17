@@ -35,6 +35,7 @@ public class SheetsConfig
     private Optional<String> metadataSheetId = Optional.empty();
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
+    private int maxRows = 10_000;
     // 20s is the default timeout of com.google.api.client.http.HttpRequest
     private Duration connectionTimeout = new Duration(20, TimeUnit.SECONDS);
     private Duration readTimeout = new Duration(20, TimeUnit.SECONDS);
@@ -132,6 +133,20 @@ public class SheetsConfig
     public SheetsConfig setSheetsDataExpireAfterWrite(Duration sheetsDataExpireAfterWriteMinutes)
     {
         this.sheetsDataExpireAfterWrite = sheetsDataExpireAfterWriteMinutes;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxRows()
+    {
+        return maxRows;
+    }
+
+    @Config("gsheets.max-rows")
+    @ConfigDescription("Maximum number of rows, including the header row, read from a sheet. Queries against larger sheets fail. Set to 0 to disable the limit")
+    public SheetsConfig setMaxRows(int maxRows)
+    {
+        this.maxRows = maxRows;
         return this;
     }
 
