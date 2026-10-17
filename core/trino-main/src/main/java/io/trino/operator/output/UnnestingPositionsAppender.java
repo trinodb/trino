@@ -281,11 +281,15 @@ public final class UnnestingPositionsAppender
 
     /**
      * True when appending positions from {@code source} flattens the buffered dictionary into the delegate.
+     * Appending single positions flattens any buffered dictionary.
      */
-    public boolean appendFlattensDictionary(Block source)
+    public boolean appendFlattensDictionary(Block source, boolean singlePositions)
     {
         if (state != State.DICTIONARY) {
             return false;
+        }
+        if (singlePositions) {
+            return true;
         }
         return !(source instanceof DictionaryBlock dictionaryBlock) || dictionaryBlock.getDictionary() != dictionary;
     }

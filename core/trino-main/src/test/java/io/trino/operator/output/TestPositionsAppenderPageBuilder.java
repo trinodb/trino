@@ -188,12 +188,15 @@ public class TestPositionsAppenderPageBuilder
 
         assertThat(pageBuilder.isFull()).isFalse();
         assertThat(pageBuilder.computeAppenderSizes().getDirectSizeInBytes()).isGreaterThanOrEqualTo(maxPageBytes);
-        assertThat(pageBuilder.requiresFlushBeforeFlattening(inputPage))
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(inputPage, false))
                 .as("appending the same dictionary does not flatten")
                 .isFalse();
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(inputPage, true))
+                .as("appending single positions of the same dictionary flattens")
+                .isTrue();
 
         Page pageWithOtherDictionary = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
-        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary))
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary, false))
                 .as("pageBuilder should flush before flattening the dictionary")
                 .isTrue();
         Page flushedPage = pageBuilder.build();
@@ -220,7 +223,7 @@ public class TestPositionsAppenderPageBuilder
 
         assertThat(pageBuilder.computeAppenderSizes().getDirectSizeInBytes()).isLessThan(maxPageBytes);
         Page pageWithOtherDictionary = new Page(DictionaryBlock.create(10, createVarcharDictionary(), ids));
-        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary))
+        assertThat(pageBuilder.requiresFlushBeforeFlattening(pageWithOtherDictionary, false))
                 .as("flattening a dictionary that fits in the current page does not flush")
                 .isFalse();
     }

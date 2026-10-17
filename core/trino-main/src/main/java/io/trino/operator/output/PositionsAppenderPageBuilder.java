@@ -157,19 +157,20 @@ public final class PositionsAppenderPageBuilder
 
     /**
      * True when appending {@code page} flattens a buffered dictionary whose flattened size already fills a page.
+     * {@code singlePositions} is true when positions of {@code page} are appended one at a time.
      */
-    public boolean requiresFlushBeforeFlattening(Page page)
+    public boolean requiresFlushBeforeFlattening(Page page, boolean singlePositions)
     {
-        if (declaredPositions == 0 || !appendFlattensDictionary(page)) {
+        if (declaredPositions == 0 || !appendFlattensDictionary(page, singlePositions)) {
             return false;
         }
         return computeAppenderSizes().getDirectSizeInBytes() >= maxPageSizeInBytes;
     }
 
-    private boolean appendFlattensDictionary(Page page)
+    private boolean appendFlattensDictionary(Page page, boolean singlePositions)
     {
         for (int channel = 0; channel < channelAppenders.length; channel++) {
-            if (channelAppenders[channel].appendFlattensDictionary(page.getBlock(channel))) {
+            if (channelAppenders[channel].appendFlattensDictionary(page.getBlock(channel), singlePositions)) {
                 return true;
             }
         }
