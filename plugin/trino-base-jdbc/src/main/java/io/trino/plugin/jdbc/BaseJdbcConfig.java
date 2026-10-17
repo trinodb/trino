@@ -27,12 +27,16 @@ import jakarta.validation.constraints.Pattern;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.Comparators.max;
 import static jakarta.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig("remote-query-async-cancellation.enabled")
 public class BaseJdbcConfig
 {
+    public static final Duration DEFAULT_STATISTICS_CACHE_TTL = new Duration(30, MINUTES);
+
     private static final String METADATA_CACHE_TTL = "metadata.cache-ttl";
     private static final String METADATA_SCHEMAS_CACHE_TTL = "metadata.schemas.cache-ttl";
     private static final String METADATA_TABLES_CACHE_TTL = "metadata.tables.cache-ttl";
@@ -122,7 +126,7 @@ public class BaseJdbcConfig
     @NotNull
     public Duration getStatisticsCacheTtl()
     {
-        return statisticsCacheTtl.orElse(metadataCacheTtl);
+        return statisticsCacheTtl.orElseGet(() -> max(metadataCacheTtl, DEFAULT_STATISTICS_CACHE_TTL));
     }
 
     @Config(METADATA_STATISTICS_CACHE_TTL)
@@ -164,7 +168,7 @@ public class BaseJdbcConfig
     public boolean isCacheMaximumSizeConsistent()
     {
         return !metadataCacheTtl.isZero() ||
-                (statisticsCacheTtl.isPresent() && !statisticsCacheTtl.get().isZero()) ||
+                !getStatisticsCacheTtl().isZero() ||
                 cacheMaximumSize.isEmpty();
     }
 
