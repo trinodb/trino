@@ -13,6 +13,11 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.base.Throwables;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.testing.containers.TrinoProductTestContainer;
 import io.trino.testing.containers.environment.ProductTestEnvironment;
 import io.trino.testing.containers.environment.QueryResult;
@@ -31,12 +36,16 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +55,19 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeDatabricksEnvironment
         extends ProductTestEnvironment
 {
+    private static final Logger log = Logger.get(DeltaLakeDatabricksEnvironment.class);
+
+    private static final Pattern DATABRICKS_COMMUNICATION_FAILURE = Pattern.compile(DATABRICKS_COMMUNICATION_FAILURE_MATCH);
+
+    // Opening a session is safe to repeat, and outages of the Databricks cluster last up to a few minutes
+    private static final RetryPolicy<Connection> OPEN_CONNECTION_RETRY_POLICY = RetryPolicy.<Connection>builder()
+            .handleIf(DeltaLakeDatabricksEnvironment::isCommunicationFailure)
+            .withBackoff(1, 30, SECONDS)
+            .withMaxRetries(-1)
+            .withMaxDuration(Duration.ofMinutes(3))
+            .onRetry(event -> log.warn(event.getLastException(), "Failed to connect to Databricks on attempt %d, will retry", event.getAttemptCount()))
+            .build();
+
     @FunctionalInterface
     protected interface ConnectionFactory
     {
@@ -224,10 +246,24 @@ public class DeltaLakeDatabricksEnvironment
     public Connection createDatabricksConnection()
             throws SQLException
     {
-        return DriverManager.getConnection(
-                appendJdbcOption(databricksJdbcUrl(), "SocketTimeout=120"),
-                databricksLogin(),
-                databricksToken());
+        String jdbcUrl = appendJdbcOption(databricksJdbcUrl(), "SocketTimeout=120");
+        try {
+            return Failsafe.with(OPEN_CONNECTION_RETRY_POLICY)
+                    .get(() -> DriverManager.getConnection(jdbcUrl, databricksLogin(), databricksToken()));
+        }
+        catch (FailsafeException e) {
+            if (e.getCause() instanceof SQLException sqlException) {
+                throw sqlException;
+            }
+            throw e;
+        }
+    }
+
+    private static boolean isCommunicationFailure(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .map(Throwable::getMessage)
+                .anyMatch(message -> message != null && DATABRICKS_COMMUNICATION_FAILURE.matcher(message).find());
     }
 
     @Override
