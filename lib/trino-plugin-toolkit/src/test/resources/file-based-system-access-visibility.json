@@ -163,5 +163,22 @@
             "privileges": [
             ]
         }
+    ],
+    "table_procedures": [
+        {
+            "user": "bob",
+            "catalog": "alice-catalog",
+            "procedure": "some_table_procedure",
+            "privileges": [
+                "EXECUTE"
+            ]
+        },
+        {
+            "catalog": "specific-catalog",
+            "procedure": "some_table_procedure",
+            "privileges": [
+                "EXECUTE"
+            ]
+        }
     ]
 }
