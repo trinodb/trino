@@ -259,6 +259,80 @@ public class TestIgniteTypeMapping
     }
 
     @Test
+    public void testDecimalNegativeScale()
+    {
+        // Ignite accepts DECIMAL with negative scale in DDL, but the JDBC driver does not report
+        // decimalDigits for such columns, causing a failure when Trino tries to read column metadata.
+
+        // Scale -1: Ignite JDBC driver does not report decimalDigits, causing a crash.
+        // This affects any precision with scale = -1.
+        for (int precision : List.of(3, 5, 9)) {
+            try (TestTable table = new TestTable(
+                    igniteServer::execute,
+                    "test_decimal_neg_scale",
+                    "(pk INT PRIMARY KEY, data DECIMAL(" + precision + ", -1))")) {
+                assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + table.getName()))
+                        .hasMessageContaining("decimal digits not present");
+            }
+        }
+
+        // Scale -1 makes the entire table unreadable - even selecting non-decimal columns
+        // or querying metadata fails, because getColumns() processes all columns during planning.
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, data DECIMAL(5, -1))")) {
+            igniteServer.execute("INSERT INTO " + table.getName() + " VALUES (1, 12340)");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("SELECT pk FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("DESCRIBE " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+
+            assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // A valid decimal column mixed with a scale-(-1) column - one bad column poisons the table
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, good_data DECIMAL(5, 2), bad_data DECIMAL(5, -1))")) {
+            assertThatThrownBy(() -> getQueryRunner().execute("SELECT pk, good_data FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // ALLOW_OVERFLOW decimal mapping does not help - crash at requiredDecimalDigits()
+        // happens before the ALLOW_OVERFLOW check in IgniteClient.toColumnMapping()
+        try (TestTable table = new TestTable(
+                igniteServer::execute,
+                "test_decimal_neg_scale",
+                "(pk INT PRIMARY KEY, data DECIMAL(5, -1))")) {
+            Session allowOverflow = Session.builder(getSession())
+                    .setCatalogSessionProperty("ignite", "decimal_mapping", "ALLOW_OVERFLOW")
+                    .setCatalogSessionProperty("ignite", "decimal_rounding_mode", "HALF_UP")
+                    .setCatalogSessionProperty("ignite", "decimal_default_scale", "0")
+                    .build();
+            assertThatThrownBy(() -> getQueryRunner().execute(allowOverflow, "SELECT * FROM " + table.getName()))
+                    .hasMessageContaining("decimal digits not present");
+        }
+
+        // Scales beyond -1 work correctly - the JDBC driver reports decimalDigits for these,
+        // and the negative scale mapping in IgniteClient.toColumnMapping() maps decimal(p, -s) to decimal(p+s, 0).
+        SqlDataTypeTest.create()
+                // the first column is the primary key, and Ignite matches decimal keys only at the stored scale
+                .addRoundTrip("int", "1", INTEGER)
+                .addRoundTrip("decimal(5, -2)", "CAST(12300 AS decimal(5, -2))", createDecimalType(7, 0), "CAST('12300' AS decimal(7, 0))")
+                .addRoundTrip("decimal(5, -2)", "CAST(-12300 AS decimal(5, -2))", createDecimalType(7, 0), "CAST('-12300' AS decimal(7, 0))")
+                .addRoundTrip("decimal(5, -3)", "CAST(12000 AS decimal(5, -3))", createDecimalType(8, 0), "CAST('12000' AS decimal(8, 0))")
+                .addRoundTrip("decimal(9, -7)", "CAST(120000000 AS decimal(9, -7))", createDecimalType(16, 0), "CAST('120000000' AS decimal(16, 0))")
+                .addRoundTrip("decimal(18, -4)", "CAST(123456789012340000 AS decimal(18, -4))", createDecimalType(22, 0), "CAST('123456789012340000' AS decimal(22, 0))")
+                .addRoundTrip("decimal(18, -4)", "NULL", createDecimalType(22, 0), "CAST(NULL AS decimal(22, 0))")
+                .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal_neg_scale"));
+    }
+
+    @Test
     public void testBinary()
     {
         binaryTest("binary")
