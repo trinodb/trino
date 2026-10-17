@@ -124,6 +124,14 @@ implementation is used:
 * - `iceberg.unique-table-location`
   - Use randomized, unique table locations.
   - `true`
+* - `iceberg.commit-lock.enabled`
+  - Enable serializing concurrent commits to the same table on the coordinator,
+    instead of retrying conflicting commits. Commits from other engines or Trino
+    clusters can still conflict.
+  - `false`
+* - `iceberg.commit-lock.wait-timeout`
+  - Maximum duration to wait for the commit lock before committing without it.
+  - `1m`
 * - `iceberg.dynamic-filtering.wait-timeout`
   - Maximum duration to wait for completion of dynamic filters during split
     generation.

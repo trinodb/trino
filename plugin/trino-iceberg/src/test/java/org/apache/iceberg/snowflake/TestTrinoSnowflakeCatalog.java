@@ -239,6 +239,7 @@ public class TestTrinoSnowflakeCatalog
                 new TableStatisticsWriter(new NodeVersion("test-version")),
                 UNSUPPORTED_DELETION_VECTOR_WRITER,
                 Optional.empty(),
+                Optional.empty(),
                 false,
                 _ -> false,
                 newDirectExecutorService(),
