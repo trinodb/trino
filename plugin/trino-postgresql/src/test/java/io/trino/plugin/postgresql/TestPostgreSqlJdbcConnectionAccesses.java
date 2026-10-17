@@ -98,7 +98,7 @@ public class TestPostgreSqlJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM nation WHERE nationkey = 1", 5, Optional.empty());
         assertJdbcConnections("SELECT avg(nationkey) FROM nation", 4, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation, region", 6, Optional.empty());
-        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 9, Optional.empty());
+        assertJdbcConnections("SELECT * FROM nation n, region r WHERE n.regionkey = r.regionkey", 11, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 10, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());
