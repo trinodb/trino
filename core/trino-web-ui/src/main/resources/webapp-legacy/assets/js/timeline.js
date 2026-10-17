@@ -13,7 +13,7 @@
  */
 
 $(document).ready(function () {
-    $.ajax({url: '/ui/api/query/' + window.location.search.substring(1)})
+    $.ajax({url: '../api/query/' + window.location.search.substring(1)})
         .done(function(data) {
             $('#queryId').text(data.queryId);
             renderTimeline(data);
