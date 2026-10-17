@@ -40,6 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestRemoveRedundantLogicalTerms
 {
+    private static final RewriteVerifier VERIFIER = new RewriteVerifier(PLANNER_CONTEXT);
+
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution(createTestTransactionManager(), PLANNER_CONTEXT);
     private static final ResolvedFunction RANDOM = FUNCTIONS.resolveFunction("random", ImmutableList.of());
 
@@ -139,6 +141,6 @@ class TestRemoveRedundantLogicalTerms
 
     private Optional<Expression> optimize(Expression expression)
     {
-        return new RemoveRedundantLogicalTerms().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of());
+        return VERIFIER.verify(expression, new RemoveRedundantLogicalTerms().apply(expression, testSession(), emptySymbolAllocator(), ImmutableMap.of()));
     }
 }
