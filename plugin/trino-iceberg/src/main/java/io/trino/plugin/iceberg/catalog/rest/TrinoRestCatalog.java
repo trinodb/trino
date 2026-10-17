@@ -922,9 +922,21 @@ public class TrinoRestCatalog
     @Override
     public void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment)
     {
-        loadTable(session, schemaTableName).updateSchema()
-                .updateColumnDoc(columnIdentity.getName(), comment.orElse(null))
-                .commit();
+        Table icebergTable;
+        try {
+            icebergTable = restSessionCatalog.loadTable(convert(session), toRemoteTable(session, schemaTableName, true));
+        }
+        catch (RESTException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load table '%s'".formatted(schemaTableName.getTableName()), e);
+        }
+        try {
+            icebergTable.updateSchema()
+                    .updateColumnDoc(columnIdentity.getName(), comment.orElse(null))
+                    .commit();
+        }
+        finally {
+            invalidateTableCache(schemaTableName);
+        }
     }
 
     @Override
