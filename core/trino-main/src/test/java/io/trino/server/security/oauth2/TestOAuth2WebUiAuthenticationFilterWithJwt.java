@@ -53,7 +53,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
     protected TestingHydraIdentityProvider getHydraIdp()
             throws Exception
     {
-        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false);
+        TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider(TTL_ACCESS_TOKEN_IN_SECONDS, true, false, false);
         hydraIdP.start();
 
         return hydraIdP;
