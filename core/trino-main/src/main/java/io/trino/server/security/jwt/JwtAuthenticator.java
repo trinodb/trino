@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
@@ -29,17 +30,21 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import java.security.Key;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.lang.String.format;
+import static java.util.function.Predicate.not;
 
 public class JwtAuthenticator
         extends AbstractBearerAuthenticator
 {
     private final JwtParser jwtParser;
     private final String principalField;
+    private final Optional<String> groupsField;
     private final UserMapping userMapping;
     private final Optional<String> requiredAudience;
 
@@ -47,6 +52,7 @@ public class JwtAuthenticator
     public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt Locator<Key> signingKeyLocator)
     {
         principalField = config.getPrincipalField();
+        groupsField = config.getGroupsField();
         requiredAudience = Optional.ofNullable(config.getRequiredAudience());
 
         JwtParserBuilder jwtParser = newJwtParserBuilder()
@@ -72,7 +78,24 @@ public class JwtAuthenticator
         }
         return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
                 .withPrincipal(new BasicPrincipal(principal.get()))
+                .withGroups(extractGroups(claims))
                 .build());
+    }
+
+    private Set<String> extractGroups(Claims claims)
+    {
+        if (groupsField.isEmpty()) {
+            return ImmutableSet.of();
+        }
+        return switch (claims.get(groupsField.get())) {
+            case String value when !value.isEmpty() -> ImmutableSet.of(value);
+            case Collection<?> values -> values.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(not(String::isEmpty))
+                    .collect(toImmutableSet());
+            case null, default -> ImmutableSet.of();
+        };
     }
 
     private void validateAudience(Claims claims)

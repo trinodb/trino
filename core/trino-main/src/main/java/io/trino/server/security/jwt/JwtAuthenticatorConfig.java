@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
@@ -27,6 +28,7 @@ public class JwtAuthenticatorConfig
     private String requiredIssuer;
     private String requiredAudience;
     private String principalField = "sub";
+    private Optional<String> groupsField = Optional.empty();
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
 
@@ -80,6 +82,19 @@ public class JwtAuthenticatorConfig
     public JwtAuthenticatorConfig setPrincipalField(String principalField)
     {
         this.principalField = principalField;
+        return this;
+    }
+
+    public Optional<String> getGroupsField()
+    {
+        return groupsField;
+    }
+
+    @Config("http-server.authentication.jwt.groups-field")
+    @ConfigDescription("JWT claim whose value, a string or a list of strings, is added to the user's groups")
+    public JwtAuthenticatorConfig setGroupsField(String groupsField)
+    {
+        this.groupsField = Optional.ofNullable(groupsField);
         return this;
     }
 
