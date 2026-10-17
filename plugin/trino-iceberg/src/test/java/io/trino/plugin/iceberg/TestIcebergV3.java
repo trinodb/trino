@@ -64,6 +64,7 @@ import org.apache.iceberg.types.Types.GeometryType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -552,6 +553,31 @@ public class TestIcebergV3
             finally {
                 assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTimestampNanoBounds(boolean withTimeZone)
+    {
+        String type = withTimeZone ? "TIMESTAMP(9) WITH TIME ZONE" : "TIMESTAMP(9)";
+        String timeZone = withTimeZone ? " UTC" : "";
+        List<String> timestamps = List.of(
+                "1677-09-21 00:12:43.145224192",
+                "1677-09-21 00:12:43.145224193",
+                "2262-04-11 23:47:16.854775807");
+        String values = String.join(", ", timestamps.stream()
+                .map(timestamp -> "(TIMESTAMP '%s%s')".formatted(timestamp, timeZone))
+                .toList());
+        try (TestTable table = newTrinoTable("test_timestamp_nano_bounds", "(x " + type + ") WITH (format = 'PARQUET', format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES " + values, timestamps.size());
+            for (String timestamp : List.of("1677-09-21 00:12:43.145224191", "2262-04-11 23:47:16.854775808")) {
+                assertQueryFails(
+                        "INSERT INTO " + table.getName() + " VALUES TIMESTAMP '%s%s'".formatted(timestamp, timeZone),
+                        "Timestamp value is outside the range supported by Iceberg nano timestamps");
+            }
+            assertThat(query("SELECT x FROM " + table.getName()))
+                    .matches("VALUES " + values);
         }
     }
 
