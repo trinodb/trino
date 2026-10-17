@@ -21,6 +21,7 @@ import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 import static java.math.RoundingMode.UNNECESSARY;
 
@@ -79,7 +80,13 @@ public class TimestampNanosValueWriter
 
     private static long toEpochNanos(Fixed12Block block, int position)
     {
-        return multiplyExact(block.getFixed12First(position), NANOSECONDS_PER_MICROSECOND) +
-                LongMath.divide(block.getFixed12Second(position), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
+        long epochMicros = block.getFixed12First(position);
+        long nanosOfMicro = LongMath.divide(block.getFixed12Second(position), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
+        // Avoid intermediate overflow near Long.MIN_VALUE.
+        if (epochMicros < 0) {
+            epochMicros++;
+            nanosOfMicro -= NANOSECONDS_PER_MICROSECOND;
+        }
+        return addExact(multiplyExact(epochMicros, NANOSECONDS_PER_MICROSECOND), nanosOfMicro);
     }
 }
