@@ -118,6 +118,14 @@ public interface TrinoCatalog
      */
     default void verifyTableWritable(Table icebergTable) {}
 
+    /**
+     * Whether this catalog accepts removing a property that is not present.
+     */
+    default boolean supportsPropertyRemovalWhenPropertyIsMissing()
+    {
+        return true;
+    }
+
     Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
