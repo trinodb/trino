@@ -21,12 +21,15 @@ import io.trino.hive.formats.line.protobuf.examples.DataRecordProtos.DataRecord;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlVarbinary;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -42,6 +45,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -164,16 +168,93 @@ class TestProtobufFormat
                                 field("enumArrayField", new ArrayType(VARCHAR)),
                                 field("bytesArrayField", new ArrayType(VARBINARY))))))), 33));
 
-        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Path.of(getClass().getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS), 1);
+        assertThat(deserialize(columns, dataRecord.toByteArray())).isEqualTo(expectedValues);
+    }
+
+    private static List<Object> deserialize(List<Column> columns, byte[] bytes)
+            throws Exception
+    {
+        ProtobufDeserializerFactory factory = new ProtobufDeserializerFactory(Path.of(TestProtobufFormat.class.getResource("/protobuf/descriptors").toURI()), new Duration(1, HOURS), 1);
         ProtobufDeserializer deserializer = factory.create(columns, Map.of("serialization.class", "io.trino.hive.formats.line.protobuf.examples.DataRecordProtos$DataRecord"));
 
         LineBuffer lineBuffer = new LineBuffer(128, 1024);
         PageBuilder pageBuilder = new PageBuilder(1, deserializer.getTypes());
-        lineBuffer.write(dataRecord.toByteArray());
+        lineBuffer.write(bytes);
 
         deserializer.deserialize(lineBuffer, pageBuilder);
 
-        assertThat(readTrinoValues(columns, pageBuilder.build(), 0)).isEqualTo(expectedValues);
+        return readTrinoValues(columns, pageBuilder.build(), 0);
+    }
+
+    @Test
+    void testSelectiveColumns()
+            throws Exception
+    {
+        DataRecord dataRecord = createSingleRecord()
+                .setInnerRecord(createSingleRecord().build())
+                .addDoubleArrayField(13.37d)
+                .addStringArrayField("foobar")
+                .build();
+
+        List<Column> columns = List.of(
+                new Column("doubleField", DOUBLE, 0),
+                new Column("stringField", VARCHAR, 1),
+                new Column("innerRecord", rowType(
+                        field("doubleField", DOUBLE),
+                        field("stringField", VARCHAR),
+                        field("innerRecord", rowType(
+                                field("doubleField", DOUBLE),
+                                field("stringField", VARCHAR)))), 2),
+                new Column("innerRecordArray", new ArrayType(rowType(
+                        field("doubleField", DOUBLE),
+                        field("stringField", VARCHAR))), 3),
+                new Column("missingField", VARCHAR, 4),
+                new Column("int64Field", BIGINT, 5));
+
+        assertThat(deserialize(columns, dataRecord.toByteArray())).isEqualTo(Arrays.asList(
+                13.37d,
+                "foobar",
+                Arrays.asList(13.37d, "foobar", null),
+                List.of(),
+                null,
+                1337L));
+    }
+
+    @Test
+    void testPackedRepeatedValue()
+            throws Exception
+    {
+        ByteBuffer buffer = ByteBuffer.allocate(19).order(LITTLE_ENDIAN);
+        // field 18 (doubleArrayField), wire type 2 (length delimited)
+        buffer.put((byte) 0x92);
+        buffer.put((byte) 0x01);
+        buffer.put((byte) 16);
+        buffer.putLong(Double.doubleToLongBits(1.0d));
+        buffer.putLong(Double.doubleToLongBits(2.0d));
+        byte[] packedDoubles = buffer.array();
+
+        assertThat(DataRecord.parseFrom(packedDoubles).getDoubleArrayFieldList()).containsExactly(1.0d, 2.0d);
+
+        List<Column> columns = List.of(new Column("doubleArrayField", new ArrayType(DOUBLE), 0));
+        assertThat(deserialize(columns, packedDoubles)).isEqualTo(List.of(List.of(1.0d, 2.0d)));
+    }
+
+    @Test
+    void testColumnsDoNotMapToFieldNumbersByOrdinal()
+            throws Exception
+    {
+        // The ordinal of a column is its position in the query, while the protobuf field number is
+        // determined by the descriptor; columns are matched to fields by name, not by ordinal.
+        // enumField is field 16, bytesField is field 15 and int32Field is field 3.
+        List<Column> columns = List.of(
+                new Column("enumField", VARCHAR, 0),
+                new Column("bytesField", VARBINARY, 1),
+                new Column("int32Field", INTEGER, 3));
+
+        assertThat(deserialize(columns, createSingleRecord().build().toByteArray())).isEqualTo(List.of(
+                "ENUM1",
+                new SqlVarbinary("hello".getBytes(UTF_8)),
+                1337));
     }
 
     private static DataRecord allSingleFields()
