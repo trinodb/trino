@@ -69,6 +69,16 @@ public class IcebergRestCatalogFileSystemFactory
         vendedCredentialsProvidersCache.invalidateAll();
     }
 
+    @VisibleForTesting
+    void expireVendedCredentials()
+    {
+        for (CachedVendedCredentialsProviders providers : vendedCredentialsProvidersCache.asMap().values()) {
+            providers.s3VendedCredentialsProviders().values().forEach(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+            providers.gcsVendedCredentialsProviders().values().forEach(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+            providers.azureVendedCredentialsProvider().ifPresent(AbstractIcebergRestVendedCredentialsProvider::requestRefresh);
+        }
+    }
+
     // Used by ioBuilder function in the RESTSessionCatalog
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
@@ -120,29 +130,38 @@ public class IcebergRestCatalogFileSystemFactory
 
     private TrinoFileSystem getTrinoFileSystem(Location location, ConnectorIdentity identity, CachedVendedCredentialsProviders cached)
     {
-        // Derive the vended credentials to load from the location scheme
-        Optional<VendedCredentials> vendedCredentials = switch (location.scheme().get()) {
-            case "s3", "s3a", "s3n" -> findVendedCredentialsForLocation(cached.s3VendedCredentialsProviders(), location);
-            case "gs" -> findVendedCredentialsForLocation(cached.gcsVendedCredentialsProviders(), location);
-            case "abfs", "abfss", "wasb", "wasbs" -> cached.azureVendedCredentialsProvider().map(AzureVendedCredentialsProvider::getCredentials);
+        // Derive the vended credentials provider to use from the location scheme
+        Optional<? extends VendedCredentialsProvider<? extends VendedCredentials>> optionalVendedCredentialsProvider = switch (location.scheme().get()) {
+            case "s3", "s3a", "s3n" -> findVendedCredentialsProviderForLocation(cached.s3VendedCredentialsProviders(), location);
+            case "gs" -> findVendedCredentialsProviderForLocation(cached.gcsVendedCredentialsProviders(), location);
+            case "abfs", "abfss", "wasb", "wasbs" -> cached.azureVendedCredentialsProvider();
             default -> throw new IllegalArgumentException("Unsupported location scheme for vended credentials: " + location);
         };
-        if (vendedCredentials.isEmpty()) {
+        if (optionalVendedCredentialsProvider.isEmpty()) {
             throw new IllegalStateException("Failed to initialize the vended credentials from the provided fileIoProperties");
         }
 
-        ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+        VendedCredentialsProvider<? extends VendedCredentials> vendedCredentialsProvider = optionalVendedCredentialsProvider.get();
+        return fileSystemFactory.create(() -> withExtraCredentials(identity, mergeExtraCredentials(cached.extraCredentials(), vendedCredentialsProvider.getCredentials())));
+    }
+
+    private static Map<String, String> mergeExtraCredentials(Map<String, String> baseExtraCredentials, VendedCredentials vendedCredentials)
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseExtraCredentials)
+                .putAll(vendedCredentials.toExtraCredentials())
+                .buildOrThrow();
+    }
+
+    private static ConnectorIdentity withExtraCredentials(ConnectorIdentity identity, Map<String, String> extraCredentials)
+    {
+        return ConnectorIdentity.forUser(identity.getUser())
                 .withGroups(identity.getGroups())
                 .withPrincipal(identity.getPrincipal())
                 .withEnabledSystemRoles(identity.getEnabledSystemRoles())
                 .withConnectorRole(identity.getConnectorRole())
-                .withExtraCredentials(ImmutableMap.<String, String>builder()
-                        .putAll(cached.extraCredentials())
-                        .putAll(ImmutableMap.copyOf(vendedCredentials.map(VendedCredentials::toExtraCredentials).orElse(ImmutableMap.of())))
-                        .buildOrThrow())
+                .withExtraCredentials(extraCredentials)
                 .build();
-
-        return fileSystemFactory.create(identityWithExtraCredentials);
     }
 
     private static VendedCredentialsCacheKey createVendedCredentialsCacheKey(ConnectorIdentity identity, Map<String, String> fileIoProperties, List<IcebergStorageCredentials> storageCredentials)
@@ -328,7 +347,7 @@ public class IcebergRestCatalogFileSystemFactory
         }
     }
 
-    private static <V extends VendedCredentials, P extends VendedCredentialsProvider<V>> Optional<VendedCredentials> findVendedCredentialsForLocation(Map<String, P> providers, Location location)
+    private static <V extends VendedCredentials, P extends VendedCredentialsProvider<V>> Optional<P> findVendedCredentialsProviderForLocation(Map<String, P> providers, Location location)
     {
         String locationString = location.toString();
         return providers.entrySet().stream()
@@ -336,7 +355,7 @@ public class IcebergRestCatalogFileSystemFactory
                 // exact match against the table location itself (not just a path underneath it) is still recognized.
                 .filter(e -> locationString.startsWith(stripTrailingSlash(e.getKey())))
                 .max(Comparator.comparingInt(e -> e.getKey().length()))
-                .map(e -> e.getValue().getCredentials());
+                .map(Map.Entry::getValue);
     }
 
     private static boolean isS3Prefix(String prefix)

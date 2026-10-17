@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -40,17 +41,17 @@ final class SwitchingFileSystem
         implements TrinoFileSystem
 {
     private final Optional<ConnectorSession> session;
-    private final Optional<ConnectorIdentity> identity;
+    private final Optional<Supplier<ConnectorIdentity>> identitySupplier;
     private final Function<Location, TrinoFileSystemFactory> loader;
 
     public SwitchingFileSystem(
             Optional<ConnectorSession> session,
-            Optional<ConnectorIdentity> identity,
+            Optional<Supplier<ConnectorIdentity>> identitySupplier,
             Function<Location, TrinoFileSystemFactory> loader)
     {
-        checkArgument(session.isPresent() != identity.isPresent(), "exactly one of session and identity must be present");
+        checkArgument(session.isPresent() != identitySupplier.isPresent(), "exactly one of session and identity must be present");
         this.session = session;
-        this.identity = identity;
+        this.identitySupplier = identitySupplier;
         this.loader = requireNonNull(loader, "loader is null");
     }
 
@@ -204,6 +205,6 @@ final class SwitchingFileSystem
     private TrinoFileSystem createFileSystem(TrinoFileSystemFactory factory)
     {
         return session.map(factory::create).orElseGet(() ->
-                factory.create(identity.orElseThrow()));
+                factory.create(identitySupplier.orElseThrow()));
     }
 }

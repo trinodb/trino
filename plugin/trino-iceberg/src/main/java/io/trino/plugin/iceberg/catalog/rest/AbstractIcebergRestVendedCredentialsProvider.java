@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.rest.ErrorHandlers;
 import org.apache.iceberg.rest.HTTPClient;
@@ -30,6 +31,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +49,7 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
     private final String catalogEndpoint;
     private final boolean refreshCredentialsEnabled;
     private final Optional<String> credentialsEndpoint;
+    private final AtomicBoolean refreshRequested = new AtomicBoolean();
     private volatile T cached;
 
     AbstractIcebergRestVendedCredentialsProvider(
@@ -67,6 +70,12 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
         this.cached = requireNonNull(initialCredentials, "initialCredentials is null");
     }
 
+    @VisibleForTesting
+    void requestRefresh()
+    {
+        refreshRequested.set(true);
+    }
+
     @Override
     public T getCredentials()
     {
@@ -74,7 +83,7 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
         if (shouldRefresh(current)) {
             synchronized (this) {
                 current = cached;
-                if (shouldRefresh(current)) {
+                if (isRefreshable() && (refreshRequested.compareAndSet(true, false) || isStale(current))) {
                     current = refreshCachedState();
                     cached = current;
                 }
@@ -85,9 +94,12 @@ abstract class AbstractIcebergRestVendedCredentialsProvider<T extends VendedCred
 
     private boolean shouldRefresh(T vendedCredentials)
     {
-        return refreshCredentialsEnabled &&
-                credentialsEndpoint.isPresent() &&
-                isStale(vendedCredentials);
+        return isRefreshable() && (refreshRequested.get() || isStale(vendedCredentials));
+    }
+
+    private boolean isRefreshable()
+    {
+        return refreshCredentialsEnabled && credentialsEndpoint.isPresent();
     }
 
     private boolean isStale(T vendedCredentials)
