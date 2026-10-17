@@ -337,6 +337,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.GC_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_INFERRED_METRICS_COLUMN_DEFAULTS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -459,6 +460,7 @@ import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.GC_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP;
 import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
@@ -494,6 +496,7 @@ public class IcebergMetadata
             .add(DELETE_AFTER_COMMIT_ENABLED)
             .add(GC_ENABLED_PROPERTY)
             .add(MAX_PREVIOUS_VERSIONS)
+            .add(MAX_INFERRED_METRICS_COLUMN_DEFAULTS)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
             .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
@@ -2730,6 +2733,16 @@ public class IcebergMetadata
         if (properties.containsKey(MAX_PREVIOUS_VERSIONS)) {
             int maxPreviousVersions = getProperty(properties, MAX_PREVIOUS_VERSIONS);
             updateProperties.set(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(maxPreviousVersions));
+        }
+
+        if (properties.containsKey(MAX_INFERRED_METRICS_COLUMN_DEFAULTS)) {
+            if (properties.get(MAX_INFERRED_METRICS_COLUMN_DEFAULTS).isPresent()) {
+                int maxInferredMetricsColumnDefaults = getProperty(properties, MAX_INFERRED_METRICS_COLUMN_DEFAULTS);
+                updateProperties.set(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, Integer.toString(maxInferredMetricsColumnDefaults));
+            }
+            else {
+                updateProperties.remove(METRICS_MAX_INFERRED_COLUMN_DEFAULTS);
+            }
         }
 
         if (properties.containsKey(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)) {

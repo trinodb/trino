@@ -150,6 +150,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTableProperties.GC_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_INFERRED_METRICS_COLUMN_DEFAULTS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -162,6 +163,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.TARGET_MAX_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getGcEnabled;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxInferredMetricsColumnDefaults;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
@@ -219,6 +221,7 @@ import static org.apache.iceberg.TableProperties.GC_ENABLED;
 import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
+import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -397,6 +400,11 @@ public final class IcebergUtil
         if (icebergTable.properties().containsKey(METADATA_PREVIOUS_VERSIONS_MAX)) {
             int maxPreviousVersions = parseInt(icebergTable.properties().get(METADATA_PREVIOUS_VERSIONS_MAX));
             properties.put(MAX_PREVIOUS_VERSIONS, maxPreviousVersions);
+        }
+
+        if (icebergTable.properties().containsKey(METRICS_MAX_INFERRED_COLUMN_DEFAULTS)) {
+            int maxInferredColumnDefaults = parseInt(icebergTable.properties().get(METRICS_MAX_INFERRED_COLUMN_DEFAULTS));
+            properties.put(MAX_INFERRED_METRICS_COLUMN_DEFAULTS, maxInferredColumnDefaults);
         }
 
         if (icebergTable.properties().containsKey(WRITE_TARGET_FILE_SIZE_BYTES)) {
@@ -1015,6 +1023,8 @@ public final class IcebergUtil
                 .ifPresent(value -> propertiesBuilder.put(GC_ENABLED, Boolean.toString(value)));
         getMaxPreviousVersions(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(value)));
+        getMaxInferredMetricsColumnDefaults(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, Integer.toString(value)));
 
         Optional<HiveCompressionCodec> compressionCodec = IcebergTableProperties.getCompressionCodec(tableMetadata.getProperties());
 
