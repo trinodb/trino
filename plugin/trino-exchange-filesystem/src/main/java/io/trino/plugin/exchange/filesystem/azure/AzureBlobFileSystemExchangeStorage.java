@@ -342,6 +342,16 @@ public class AzureBlobFileSystemExchangeStorage
         return listBlobFilesRecursively(dir);
     }
 
+    @Override
+    public ListenableFuture<List<URI>> listDirectories(URI dir)
+    {
+        verifyUri(dir);
+        if (isHierarchical) {
+            return listGen2Directories(dir);
+        }
+        return listBlobDirectories(dir);
+    }
+
     private ListenableFuture<List<FileStatus>> listBlobFilesRecursively(URI dir)
     {
         return Futures.transform(listObjectsRecursively(dir), pagedResponseList -> {
@@ -395,6 +405,79 @@ public class AzureBlobFileSystemExchangeStorage
                             .map(List::copyOf);
                 })
                 .toFuture());
+    }
+
+    private ListenableFuture<List<URI>> listBlobDirectories(URI dir)
+    {
+        checkArgument(isDirectory(dir), "listBlobDirectories called on file uri %s", dir);
+
+        String containerName = getContainerName(dir);
+        String directoryPath = getPath(dir);
+        String prefix = directoryPath.isEmpty() ? null : directoryPath + PATH_SEPARATOR;
+
+        return Futures.transform(
+                toListenableFuture(blobServiceAsyncClient
+                        .getBlobContainerAsyncClient(containerName)
+                        .listBlobsByHierarchy(PATH_SEPARATOR, new ListBlobsOptions().setPrefix(prefix))
+                        .byPage()
+                        .collectList()
+                        .toFuture()),
+                pagedResponseList -> {
+                    ImmutableList.Builder<URI> directories = ImmutableList.builder();
+                    for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
+                        for (BlobItem blobItem : pagedResponse.getValue()) {
+                            if (Boolean.TRUE.equals(blobItem.isPrefix())) {
+                                directories.add(buildDirectoryUri(dir, blobItem.getName()));
+                            }
+                        }
+                    }
+                    return directories.build();
+                },
+                directExecutor());
+    }
+
+    private ListenableFuture<List<URI>> listGen2Directories(URI dir)
+    {
+        checkArgument(isDirectory(dir), "listGen2Directories called on file uri %s", dir);
+
+        String containerName = getContainerName(dir);
+        String directoryPath = getPath(dir);
+
+        DataLakeFileSystemAsyncClient fileSystemClient = dataLakeServiceAsyncClient.orElseThrow()
+                .getFileSystemAsyncClient(containerName);
+
+        if (directoryPath.isEmpty()) {
+            return toListenableFuture(fileSystemClient.listPaths(new ListPathsOptions().setRecursive(false))
+                    .filter(PathItem::isDirectory)
+                    .map(pathItem -> buildDirectoryUri(dir, pathItem.getName()))
+                    .collectList()
+                    .toFuture());
+        }
+
+        DataLakeDirectoryAsyncClient directoryClient = fileSystemClient.getDirectoryAsyncClient(directoryPath);
+        return toListenableFuture(directoryClient.exists()
+                .<List<URI>>flatMap(exists -> {
+                    if (!exists) {
+                        return Mono.just(List.of());
+                    }
+                    return directoryClient.listPaths(false, false, null)
+                            .filter(PathItem::isDirectory)
+                            .map(pathItem -> buildDirectoryUri(dir, pathItem.getName()))
+                            .collectList()
+                            .map(List::copyOf);
+                })
+                .toFuture());
+    }
+
+    private static URI buildDirectoryUri(URI dir, String name)
+    {
+        String normalizedName = name.endsWith(PATH_SEPARATOR) ? name : name + PATH_SEPARATOR;
+        try {
+            return new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + normalizedName, null, dir.getFragment());
+        }
+        catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     private static FileStatus toFileStatus(URI dir, PathItem pathItem)
