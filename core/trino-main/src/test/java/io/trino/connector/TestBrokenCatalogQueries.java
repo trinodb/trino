@@ -110,6 +110,9 @@ public class TestBrokenCatalogQueries
         assertThat(queryRunner.execute("SELECT count(*) FROM system.metadata.table_comments WHERE catalog_name = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(0L);
 
+        assertThat(queryRunner.execute("SELECT count(*) FROM system.metadata.schema_comments WHERE catalog_name = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
+                .isEqualTo(0L);
+
         assertThat(queryRunner.execute("SELECT count(*) FROM system.metadata.materialized_views WHERE catalog_name = '%s'".formatted(BROKEN_CATALOG)).getOnlyValue())
                 .isEqualTo(0L);
 
