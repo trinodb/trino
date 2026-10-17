@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -116,6 +117,67 @@ public class TestIterativeOptimizer
                             createPlanOptimizersStatsCollector())))
                     .hasErrorCode(OPTIMIZER_TIMEOUT)
                     .hasMessageMatching("The optimizer exhausted the time limit of 1 ms: (no rules invoked|(?s)Top rules:.*(RemoveRedundantIdentityProjections|AddIdentityOverTableScan).*)");
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    public void optimizerStopsWhenPlanningInterrupted()
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(TEST_CATALOG_NAME)
+                .setSchema("tiny")
+                .setSystemProperty("task_concurrency", "1")
+                .setSystemProperty("iterative_optimizer_timeout", "1h");
+
+        try (PlanTester planTester = PlanTester.create(sessionBuilder.build())) {
+            planTester.createCatalog(
+                    planTester.getDefaultSession().getCatalog().get(),
+                    new TpchConnectorFactory(1),
+                    ImmutableMap.of());
+
+            PlanOptimizer optimizer = new IterativeOptimizer(
+                    "TestInterruptedOnNonConvergingPlan",
+                    planTester.getPlannerContext(),
+                    new RuleStatsRecorder(),
+                    planTester.getStatsCalculator(),
+                    planTester.getCostCalculator(),
+                    ImmutableSet.of(new InterruptCurrentThread(), new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
+
+            try {
+                // Interrupt arrives mid-optimization, so only the optimizer can stop the loop before the 1h timeout
+                assertTrinoExceptionThrownBy(() -> planTester.inTransaction(planTester.getDefaultSession(), transactionSession ->
+                        planTester.createPlan(
+                                transactionSession,
+                                "SELECT nationkey FROM nation",
+                                ImmutableList.of(optimizer),
+                                OPTIMIZED_AND_VALIDATED,
+                                NOOP,
+                                createPlanOptimizersStatsCollector())))
+                        .hasErrorCode(GENERIC_INTERNAL_ERROR)
+                        .hasMessage("Planning was interrupted");
+            }
+            finally {
+                // Tests share threads, do not leak the interrupt
+                Thread.interrupted();
+            }
+        }
+    }
+
+    private static class InterruptCurrentThread
+            implements Rule<TableScanNode>
+    {
+        @Override
+        public Pattern<TableScanNode> getPattern()
+        {
+            return tableScan();
+        }
+
+        @Override
+        public Result apply(TableScanNode tableScan, Captures captures, Context context)
+        {
+            Thread.currentThread().interrupt();
+            return Result.empty();
         }
     }
 
