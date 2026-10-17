@@ -31,7 +31,7 @@ public enum PrometheusErrorCode
 
     PrometheusErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0509_0000, name(), type);
+        errorCode = new ErrorCode(code + 0x0516_0000, name(), type);
     }
 
     @Override
