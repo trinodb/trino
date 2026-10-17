@@ -145,6 +145,11 @@ public class QueryAssertions
         runner.installPlugin(plugin);
     }
 
+    public void addCredentialProvider(String name, String factoryName, Map<String, String> properties)
+    {
+        runner.addCredentialProvider(name, factoryName, properties);
+    }
+
     @CheckReturnValue
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
     {
