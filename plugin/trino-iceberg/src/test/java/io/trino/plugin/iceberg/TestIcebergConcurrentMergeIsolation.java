@@ -19,6 +19,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -26,6 +27,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.types.Types;
@@ -128,6 +130,108 @@ final class TestIcebergConcurrentMergeIsolation
             assertUpdate(merge(table.getName(), "1", "10", "100", predicate, false), 1);
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES (BIGINT '1', 20, 100)");
+        }
+    }
+
+    @Test
+    void testSerialMergeOrderControl()
+    {
+        try (TestTable firstThenSecond = newTrinoTable("test_merge_serial_first_then_second", "(k bigint, part integer, v integer) WITH (partitioning = ARRAY['part'])");
+                TestTable secondThenFirst = newTrinoTable("test_merge_serial_second_then_first", "(k bigint, part integer, v integer) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + firstThenSecond.getName() + " VALUES (0, 0, 0)", 1);
+            assertUpdate("INSERT INTO " + secondThenFirst.getName() + " VALUES (0, 0, 0)", 1);
+
+            String first = merge(firstThenSecond.getName(), "1", "10", "100", "t.k = s.k", false);
+            String second = merge(firstThenSecond.getName(), "1", "20", "200", "t.k = s.k", false);
+            assertUpdate(first, 1);
+            assertUpdate(second, 1);
+            assertThat(query("SELECT * FROM " + firstThenSecond.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0), (BIGINT '1', 10, 200)");
+
+            first = merge(secondThenFirst.getName(), "1", "10", "100", "t.k = s.k", false);
+            second = merge(secondThenFirst.getName(), "1", "20", "200", "t.k = s.k", false);
+            assertUpdate(second, 1);
+            assertUpdate(first, 1);
+            assertThat(query("SELECT * FROM " + secondThenFirst.getName()))
+                    .matches("VALUES (BIGINT '0', 0, 0), (BIGINT '1', 20, 100)");
+        }
+    }
+
+    @Test
+    void testFilesSystemTableCapturesSourceSnapshot()
+    {
+        try (TestTable table = newTrinoTable("test_files_captured_source_snapshot", "(k bigint)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+
+            IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+            SchemaTableName baseTableName = new SchemaTableName(getSession().getSchema().orElseThrow(), table.getName());
+            SchemaTableName filesTableName = new SchemaTableName(baseTableName.getSchemaName(), baseTableName.getTableName() + "$files");
+            SystemTable filesTableAtResolution = metadata.getSystemTable(SESSION, filesTableName).orElseThrow();
+            IcebergTableHandle sourceAtResolution = (IcebergTableHandle) filesTableAtResolution
+                    .getSourceTableHandles()
+                    .getFirst();
+
+            assertThat(sourceAtResolution.getSchemaName()).isEqualTo(baseTableName.getSchemaName());
+            assertThat(sourceAtResolution.getTableName()).isEqualTo(baseTableName.getTableName());
+            assertThat(sourceAtResolution.getSnapshotId()).isPresent();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            IcebergMetadata metadataAfterAppend = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+            IcebergTableHandle latestTableHandle = (IcebergTableHandle) metadataAfterAppend.getTableHandle(
+                    SESSION,
+                    baseTableName,
+                    Optional.empty(),
+                    Optional.empty());
+            IcebergTableHandle sourceAfterAppend = (IcebergTableHandle) metadataAfterAppend.getSystemTable(SESSION, filesTableName)
+                    .orElseThrow()
+                    .getSourceTableHandles()
+                    .getFirst();
+
+            assertThat(sourceAfterAppend.getSnapshotId()).isEqualTo(latestTableHandle.getSnapshotId());
+            assertThat(sourceAfterAppend.getSnapshotId()).isNotEqualTo(sourceAtResolution.getSnapshotId());
+            assertThat(filesTableAtResolution.getSourceTableHandles()).containsExactly(sourceAtResolution);
+        }
+    }
+
+    @Test
+    void testSystemTableDependencyWithUnknownPartitionTransform()
+    {
+        String tableName = "test_unknown_transform_system_table" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName(getSession().getSchema().orElseThrow(), tableName);
+        TrinoCatalog catalog = getConnectorService(getQueryRunner(), TrinoCatalogFactory.class)
+                .create(getSession().getIdentity().toConnectorIdentity());
+        Schema schema = new Schema(Types.NestedField.optional(1, "id", Types.LongType.get()));
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema,
+                """
+                {"spec-id": 0, "fields": [
+                    {"name": "id_custom", "transform": "custom_transform", "source-id": 1, "field-id": 1000}]}
+                """);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        schema,
+                        partitionSpec,
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of(FORMAT_VERSION, "2"))
+                .commitTransaction();
+        try {
+            IcebergMetadata metadata = getConnectorService(getQueryRunner(), IcebergMetadataFactory.class).create(SESSION.getIdentity());
+            SystemTable historyTable = metadata.getSystemTable(
+                            SESSION,
+                            new SchemaTableName(schemaTableName.getSchemaName(), tableName + "$history"))
+                    .orElseThrow();
+            IcebergTableHandle sourceTable = (IcebergTableHandle) historyTable.getSourceTableHandles().getFirst();
+
+            assertThat(sourceTable.getSchemaName()).isEqualTo(schemaTableName.getSchemaName());
+            assertThat(sourceTable.getTableName()).isEqualTo(schemaTableName.getTableName());
+            assertThat(sourceTable.getSnapshotId()).isEmpty();
+            assertThat(sourceTable.getTablePartitioning()).isEmpty();
+            assertThat(query("SELECT * FROM \"" + tableName + "$history\"")).returnsEmptyResult();
+        }
+        finally {
+            catalog.dropTable(SESSION, schemaTableName);
         }
     }
 

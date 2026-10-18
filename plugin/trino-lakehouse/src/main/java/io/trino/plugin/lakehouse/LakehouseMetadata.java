@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.lakehouse;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -244,17 +243,6 @@ public class LakehouseMetadata
                 .or(() -> icebergMetadata.getSystemTable(session, tableName))
                 .or(() -> deltaMetadata.getSystemTable(session, tableName))
                 .or(() -> hudiMetadata.getSystemTable(session, tableName));
-    }
-
-    @Override
-    public List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
-    {
-        for (ConnectorMetadata metadata : ImmutableList.of(hiveMetadata, icebergMetadata, deltaMetadata, hudiMetadata)) {
-            if (metadata.getSystemTable(session, tableName).isPresent()) {
-                return metadata.resolveSystemTableSourceTableHandles(session, tableName);
-            }
-        }
-        return ImmutableList.of();
     }
 
     @Override
