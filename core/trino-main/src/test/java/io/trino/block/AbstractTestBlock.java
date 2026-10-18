@@ -351,7 +351,7 @@ public abstract class AbstractTestBlock
             ValueBlock dictionary = dictionaryBlock.getDictionary();
             double averageEntrySize = dictionary.getSizeInBytes() * 1.0 / dictionary.getPositionCount();
             int entryCount = dictionaryBlock.getPositionCount();
-            return (long) (averageEntrySize * entryCount) + ((long) Integer.BYTES * entryCount);
+            return (long) (averageEntrySize * entryCount);
         }
         return copyBlockViaCopyRegion(block).getSizeInBytes();
     }
