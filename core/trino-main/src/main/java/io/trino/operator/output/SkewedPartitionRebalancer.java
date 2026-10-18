@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,7 +47,6 @@ import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
-import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
@@ -60,6 +60,9 @@ import static java.lang.Math.max;
  * 1. Mitigate skewness across tasks.
  * 2. Scale few big partitions across tasks even if there's no skewness among them. This will essentially speed the
  *    local scaling without impacting much overall resource utilization.
+ * <p>
+ * A partition moves to a task bucket only when its own data per task since the last rebalance exceeds
+ * the data of that task bucket.
  * <p>
  * Example:
  * <p>
@@ -350,8 +353,9 @@ public class SkewedPartitionRebalancer
                 continue;
             }
 
-            List<TaskBucket> minSkewedTaskBuckets = findSkewedMinTaskBuckets(maxTaskBucket, minTaskBuckets);
-            if (minSkewedTaskBuckets.isEmpty()) {
+            // Rebalance only while the task buckets themselves are skewed
+            TaskBucket minTaskBucket = minTaskBuckets.peek();
+            if (!isSkewed(estimatedTaskBucketDataSizeSinceLastRebalance[maxTaskBucket.id], estimatedTaskBucketDataSizeSinceLastRebalance[minTaskBucket.id])) {
                 break;
             }
 
@@ -371,11 +375,10 @@ public class SkewedPartitionRebalancer
 
                 int totalAssignedTasks = partitionAssignments.get(maxPartition).size();
                 if (partitionDataSize[maxPartition] >= (minPartitionDataProcessedRebalanceThreshold * totalAssignedTasks)) {
-                    for (TaskBucket minTaskBucket : minSkewedTaskBuckets) {
-                        if (rebalancePartition(maxPartition, minTaskBucket, maxTaskBuckets, minTaskBuckets)) {
-                            scaledPartitions[maxPartition] = true;
-                            break;
-                        }
+                    Optional<TaskBucket> smallerTaskBucket = findTaskBucketSmallerThanPartition(maxPartition, maxTaskBucket, minTaskBuckets);
+                    if (smallerTaskBucket.isPresent()) {
+                        rebalancePartition(maxPartition, smallerTaskBucket.get(), maxTaskBuckets, minTaskBuckets);
+                        scaledPartitions[maxPartition] = true;
                     }
                 }
                 else {
@@ -386,37 +389,49 @@ public class SkewedPartitionRebalancer
     }
 
     @GuardedBy("this")
-    private List<TaskBucket> findSkewedMinTaskBuckets(TaskBucket maxTaskBucket, IndexedPriorityQueue<TaskBucket> minTaskBuckets)
+    private Optional<TaskBucket> findTaskBucketSmallerThanPartition(int partition, TaskBucket maxTaskBucket, IndexedPriorityQueue<TaskBucket> minTaskBuckets)
     {
-        ImmutableList.Builder<TaskBucket> minSkewedTaskBuckets = ImmutableList.builder();
+        long maxTaskBucketDataSize = estimatedTaskBucketDataSizeSinceLastRebalance[maxTaskBucket.id];
+        List<TaskBucket> assignments = partitionAssignments.get(partition);
         for (TaskBucket minTaskBucket : minTaskBuckets) {
-            double skewness =
-                    ((double) (estimatedTaskBucketDataSizeSinceLastRebalance[maxTaskBucket.id]
-                            - estimatedTaskBucketDataSizeSinceLastRebalance[minTaskBucket.id]))
-                            / estimatedTaskBucketDataSizeSinceLastRebalance[maxTaskBucket.id];
-            if (skewness <= TASK_BUCKET_SKEWNESS_THRESHOLD || isNaN(skewness)) {
+            long minTaskBucketDataSize = estimatedTaskBucketDataSizeSinceLastRebalance[minTaskBucket.id];
+            // Task buckets are ordered by size, so no later task bucket qualifies either
+            if (partitionDataSizeSinceLastRebalancePerTask[partition] <= minTaskBucketDataSize || !isSkewed(maxTaskBucketDataSize, minTaskBucketDataSize)) {
                 break;
             }
-            if (maxTaskBucket.taskId != minTaskBucket.taskId) {
-                minSkewedTaskBuckets.add(minTaskBucket);
+            if (!isAssignedToTask(assignments, minTaskBucket.taskId)) {
+                return Optional.of(minTaskBucket);
             }
         }
+        return Optional.empty();
+    }
 
-        return minSkewedTaskBuckets.build();
+    private static boolean isAssignedToTask(List<TaskBucket> assignments, int taskId)
+    {
+        for (TaskBucket taskBucket : assignments) {
+            if (taskBucket.taskId == taskId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSkewed(long dataSize, long minDataSize)
+    {
+        if (dataSize <= 0) {
+            return false;
+        }
+        return ((double) (dataSize - minDataSize)) / dataSize > TASK_BUCKET_SKEWNESS_THRESHOLD;
     }
 
     @GuardedBy("this")
-    private boolean rebalancePartition(
+    private void rebalancePartition(
             int partitionId,
             TaskBucket toTaskBucket,
             IndexedPriorityQueue<TaskBucket> maxTasks,
             IndexedPriorityQueue<TaskBucket> minTasks)
     {
         List<TaskBucket> assignments = partitionAssignments.get(partitionId);
-        if (assignments.stream().anyMatch(taskBucket -> taskBucket.taskId == toTaskBucket.taskId)) {
-            return false;
-        }
-
         assignments.add(toTaskBucket);
 
         int newTaskCount = assignments.size();
@@ -438,7 +453,6 @@ public class SkewedPartitionRebalancer
         }
 
         log.debug("Rebalanced partition %s to task %s with taskCount %s", partitionId, toTaskBucket.taskId, assignments.size());
-        return true;
     }
 
     private final class TaskBucket
