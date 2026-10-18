@@ -226,6 +226,27 @@ class TestSkewedPartitionRebalancer
     }
 
     @Test
+    void testRebalanceWhenRowCountTimesDataProcessedExceedsLong()
+    {
+        int partitionCount = 3;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                3,
+                3,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+
+        rebalancer.addPartitionRowCount(0, 1L << 32);
+        rebalancer.addPartitionRowCount(1, 0);
+        rebalancer.addPartitionRowCount(2, 0);
+        rebalancer.addDataProcessed(1L << 31);
+        rebalancer.rebalance();
+
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(ImmutableList.of(0, 1), ImmutableList.of(1), ImmutableList.of(2));
+    }
+
+    @Test
     public void testConsiderSkewedPartitionOnlyWithinACycle()
     {
         int partitionCount = 3;
