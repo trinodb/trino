@@ -132,7 +132,7 @@ class TestIncrementalRefreshVisitor
     {
         TableHandle tableHandle = new TableHandle(
                 GlobalSystemConnector.CATALOG_HANDLE,
-                new SystemTableHandle("jdbc", "tables", TupleDomain.all()),
+                new SystemTableHandle("jdbc", "tables", TupleDomain.all(), List.of()),
                 TestingTransactionHandle.create());
         return new TableScanNode(
                 new PlanNodeId("tableScan"),

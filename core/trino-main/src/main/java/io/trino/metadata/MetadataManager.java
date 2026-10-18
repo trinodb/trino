@@ -1451,7 +1451,7 @@ public final class MetadataManager
                     }
                     if (handle.catalogHandle().getType() == CatalogHandle.CatalogHandleType.SYSTEM && handle.catalogHandle().getRootCatalogHandle().equals(catalogHandle)) {
                         SystemTableHandle systemTableHandle = (SystemTableHandle) handle.connectorHandle();
-                        return metadata.resolveSystemTableSourceTableHandles(connectorSession, systemTableHandle.schemaTableName()).stream();
+                        return systemTableHandle.sourceTableHandles().stream();
                     }
                     return Stream.empty();
                 })

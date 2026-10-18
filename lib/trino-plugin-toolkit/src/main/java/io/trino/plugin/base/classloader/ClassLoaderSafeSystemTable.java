@@ -22,12 +22,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableCredentials;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -59,6 +61,14 @@ public class ClassLoaderSafeSystemTable
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata();
+        }
+    }
+
+    @Override
+    public List<ConnectorTableHandle> getSourceTableHandles()
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSourceTableHandles();
         }
     }
 
