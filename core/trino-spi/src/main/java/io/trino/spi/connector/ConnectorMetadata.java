@@ -214,18 +214,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns the underlying table reads of a connector-provided system table for row-change conflict detection.
-     * This method is called for system table scans retained in the optimized write plan, rather than metadata lookups.
-     * Returned handles must belong to this connector and cover all table reads of the system table without relying
-     * on constraints on the system table's columns. They are passed to {@link #finishMerge} as source table handles.
-     * The default implementation reports no underlying table reads.
-     */
-    default List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
-    {
-        return emptyList();
-    }
-
-    /**
      * Attempt to push down partitioning into the table. If a connector can provide
      * data for the table using the specified partitioning, it should return a
      * table handle that when passed to {@link #getTableProperties(ConnectorSession, ConnectorTableHandle)}

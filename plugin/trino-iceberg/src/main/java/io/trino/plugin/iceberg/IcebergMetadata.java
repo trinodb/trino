@@ -330,7 +330,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabl
 import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
-import static io.trino.plugin.iceberg.IcebergTableName.isSystemView;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
@@ -744,12 +743,12 @@ public class IcebergMetadata
         if (endVersion.isPresent()) {
             long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
             return tableHandleForSnapshot(
-                    session,
                     tableName,
                     table,
                     OptionalLong.of(snapshotId),
                     schemaFor(table, snapshotId),
-                    Optional.empty());
+                    Optional.empty(),
+                    getTablePartitioning(session, table));
         }
         return tableHandleForCurrentSnapshot(session, tableName, table);
     }
@@ -772,21 +771,21 @@ public class IcebergMetadata
     private IcebergTableHandle tableHandleForCurrentSnapshot(ConnectorSession session, SchemaTableName tableName, BaseTable table)
     {
         return tableHandleForSnapshot(
-                session,
                 tableName,
                 table,
                 getCurrentSnapshotId(table),
                 table.schema(),
-                Optional.of(table.spec()));
+                Optional.of(table.spec()),
+                getTablePartitioning(session, table));
     }
 
     private IcebergTableHandle tableHandleForSnapshot(
-            ConnectorSession session,
             SchemaTableName tableName,
             BaseTable table,
             OptionalLong tableSnapshotId,
             Schema tableSchema,
-            Optional<PartitionSpec> partitionSpec)
+            Optional<PartitionSpec> partitionSpec,
+            Optional<IcebergTablePartitioning> tablePartitioning)
     {
         validateTableForTrino(table, tableSnapshotId);
         Map<String, String> tableProperties = table.properties();
@@ -806,7 +805,7 @@ public class IcebergMetadata
                 Optional.ofNullable(tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING)),
                 table.location(),
                 table.properties(),
-                getTablePartitioning(session, table),
+                tablePartitioning,
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -906,33 +905,7 @@ public class IcebergMetadata
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
     }
 
-    @Override
-    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
-    }
-
-    @Override
-    public List<ConnectorTableHandle> resolveSystemTableSourceTableHandles(ConnectorSession session, SchemaTableName tableName)
-    {
-        if (!isIcebergTableName(tableName.getTableName()) || isSystemView(tableName.getTableName())) {
-            return ImmutableList.of();
-        }
-        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
-        if (baseTable.isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
-        SchemaTableName sourceName = getMaterializedView(session, baseName)
-                .map(definition -> getMaterializedViewStorageTableName(baseName, definition))
-                .orElse(baseName);
-        // System table rows can depend on any file in the current base table, not only the partitions written.
-        return ImmutableList.of(tableHandleForCurrentSnapshot(session, sourceName, baseTable.orElseThrow()));
-    }
-
-    private Optional<BaseTable> getRawBaseTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTableSource> getSystemTableSource(ConnectorSession session, SchemaTableName tableName)
     {
         if (!isIcebergTableName(tableName.getTableName()) || isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
             return Optional.empty();
@@ -943,8 +916,10 @@ public class IcebergMetadata
         SchemaTableName baseName = new SchemaTableName(tableName.getSchemaName(), name);
         try {
             return getMaterializedView(session, baseName)
-                    .map(definition -> loadMaterializedViewStorageTable(session, baseName, definition))
-                    .or(() -> Optional.of(catalog.loadTable(session, baseName)));
+                    .map(definition -> new SystemTableSource(
+                            getMaterializedViewStorageTableName(baseName, definition),
+                            loadMaterializedViewStorageTable(session, baseName, definition)))
+                    .or(() -> Optional.of(new SystemTableSource(baseName, catalog.loadTable(session, baseName))));
         }
         catch (TableNotFoundException e) {
             return Optional.empty();
@@ -954,6 +929,8 @@ public class IcebergMetadata
             return Optional.empty();
         }
     }
+
+    private record SystemTableSource(SchemaTableName tableName, BaseTable table) {}
 
     private BaseTable loadMaterializedViewStorageTable(ConnectorSession session, SchemaTableName materializedViewName, ConnectorMaterializedViewDefinition definition)
     {
@@ -973,15 +950,16 @@ public class IcebergMetadata
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
-        if (baseTable.isEmpty()) {
+        Optional<SystemTableSource> source = getSystemTableSource(session, tableName);
+        if (source.isEmpty()) {
             return Optional.empty();
         }
-        BaseTable table = baseTable.get();
+        BaseTable table = source.orElseThrow().table();
         TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
-        return switch (tableType) {
+        Optional<SystemTable> systemTable = switch (tableType) {
             case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(tableName, table));
             case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, icebergScanExecutor));
@@ -995,15 +973,33 @@ public class IcebergMetadata
             case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
             default -> Optional.empty();
         };
+        return systemTable.map(result -> {
+            // System table rows can depend on any file in the captured base table, not only the partitions written.
+            List<ConnectorTableHandle> sourceTableHandles = ImmutableList.of(tableHandleForSnapshot(
+                    source.orElseThrow().tableName(),
+                    table,
+                    getCurrentSnapshotId(table),
+                    table.schema(),
+                    Optional.of(table.spec()),
+                    Optional.empty()));
+            return new ClassLoaderSafeSystemTable(result, getClass().getClassLoader())
+            {
+                @Override
+                public List<ConnectorTableHandle> getSourceTableHandles()
+                {
+                    return sourceTableHandles;
+                }
+            };
+        });
     }
 
     private Optional<ConnectorViewDefinition> getRawSystemView(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<BaseTable> baseTable = getRawBaseTable(session, tableName);
-        if (baseTable.isEmpty()) {
+        Optional<SystemTableSource> source = getSystemTableSource(session, tableName);
+        if (source.isEmpty()) {
             return Optional.empty();
         }
-        BaseTable table = baseTable.get();
+        BaseTable table = source.orElseThrow().table();
         TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
         return switch (tableType) {
             case PARTITIONS -> Optional.of(PartitionsView.create(typeManager, table, catalogName.toString(), tableName.getSchemaName(), tableNameFrom(tableName.getTableName())));
