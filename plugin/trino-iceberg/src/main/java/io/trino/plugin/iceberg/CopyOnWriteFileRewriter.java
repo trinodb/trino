@@ -16,19 +16,25 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.RollbackAction;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.spi.Page;
+import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
@@ -39,6 +45,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.mapping.NameMapping;
+import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,8 +55,11 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergPageSink.createLocalSchemeIfAbsent;
+import static io.trino.plugin.iceberg.IcebergPageSink.getIndexPathToField;
+import static io.trino.plugin.iceberg.IcebergPageSink.getNestedFieldIds;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -61,16 +71,27 @@ public class CopyOnWriteFileRewriter
     private final IcebergFileWriterFactory fileWriterFactory;
     private final IcebergFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final PageSorter pageSorter;
+    private final DataSize sortingFileWriterBufferSize;
+    private final int sortingFileWriterMaxOpenFiles;
+    private final Optional<String> sortedWritingLocalStagingPath;
 
     @Inject
     public CopyOnWriteFileRewriter(
             IcebergFileWriterFactory fileWriterFactory,
             IcebergFileSystemFactory fileSystemFactory,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            PageSorter pageSorter,
+            SortingFileWriterConfig sortingFileWriterConfig,
+            IcebergConfig icebergConfig)
     {
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterConfig, "sortingFileWriterConfig is null").getWriterSortBufferSize();
+        this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.sortedWritingLocalStagingPath = requireNonNull(icebergConfig, "icebergConfig is null").getSortedWritingLocalStagingPath();
     }
 
     /**
@@ -132,8 +153,14 @@ public class CopyOnWriteFileRewriter
             MetricsConfig metricsConfig,
             Map<String, String> fileIoProperties,
             Map<String, String> tableProperties,
-            Optional<NameMapping> nameMapping)
+            Optional<NameMapping> nameMapping,
+            List<TrinoSortField> sortFields,
+            LocationProvider locationProvider,
+            AggregatedMemoryContext memoryContext)
     {
+        requireNonNull(sortFields, "sortFields is null");
+        requireNonNull(locationProvider, "locationProvider is null");
+        requireNonNull(memoryContext, "memoryContext is null");
         long startTimeMs = System.currentTimeMillis();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), requireNonNull(fileIoProperties, "fileIoProperties is null"));
 
@@ -145,6 +172,9 @@ public class CopyOnWriteFileRewriter
                 writeFileFormat,
                 metricsConfig,
                 tableProperties);
+        if (!sortFields.isEmpty()) {
+            writer = sortingWriter(session, fileSystem, writer, schema, sortFields, locationProvider);
+        }
 
         long originalRecordCount = readFilterWrite(
                 session,
@@ -161,7 +191,8 @@ public class CopyOnWriteFileRewriter
                 sourceFileFirstRowId,
                 sourceFileFormat,
                 fileIoProperties,
-                nameMapping);
+                nameMapping,
+                memoryContext);
 
         return finalizeRewrite(
                 writer,
@@ -285,7 +316,8 @@ public class CopyOnWriteFileRewriter
             OptionalLong sourceFileFirstRowId,
             IcebergFileFormat fileFormat,
             Map<String, String> fileIoProperties,
-            Optional<NameMapping> nameMapping)
+            Optional<NameMapping> nameMapping,
+            AggregatedMemoryContext memoryContext)
     {
         List<IcebergColumnHandle> dataColumns = schema.columns().stream()
                 .map(column -> getColumnHandle(column, typeManager))
@@ -314,7 +346,7 @@ public class CopyOnWriteFileRewriter
                 OptionalLong.of(sourceDataSequenceNumber),
                 sourceFileFirstRowId,
                 nameMapping,
-                newSimpleAggregatedMemoryContext(),
+                memoryContext,
                 Optional.empty())) {
             int dataColumnCount = dataColumns.size();
             int[] dataChannels = new int[dataColumnCount];
@@ -358,6 +390,45 @@ public class CopyOnWriteFileRewriter
             throw e;
         }
         return originalRecordCount;
+    }
+
+    private IcebergFileWriter sortingWriter(
+            ConnectorSession session,
+            TrinoFileSystem fileSystem,
+            IcebergFileWriter writer,
+            Schema schema,
+            List<TrinoSortField> sortFields,
+            LocationProvider locationProvider)
+    {
+        ImmutableList.Builder<List<Integer>> sortIndexPaths = ImmutableList.builder();
+        ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
+        Types.StructType struct = schema.asStruct();
+        for (TrinoSortField sortField : sortFields) {
+            if (schema.findField(sortField.sourceColumnId()) == null) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
+            }
+            sortIndexPaths.add(getIndexPathToField(struct, getNestedFieldIds(struct, sortField.sourceColumnId())));
+            sortOrders.add(sortField.sortOrder());
+        }
+        List<Type> types = schema.columns().stream()
+                .map(column -> getColumnHandle(column, typeManager).getType())
+                .collect(toImmutableList());
+        Location tempDirectory = sortedWritingLocalStagingPath
+                .map(path -> path.replace("${USER}", session.getIdentity().getUser()))
+                .map(IcebergPageSink::createLocalSchemeIfAbsent)
+                .orElseGet(() -> Location.of(locationProvider.newDataLocation("trino-tmp-files")));
+        String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
+        return new IcebergSortingFileWriter(
+                fileSystem,
+                tempDirectory.appendPath(tempName),
+                writer,
+                sortingFileWriterBufferSize,
+                sortingFileWriterMaxOpenFiles,
+                types,
+                sortIndexPaths.build(),
+                sortOrders.build(),
+                pageSorter,
+                typeManager.getTypeOperators());
     }
 
     private static void rollbackQuietly(IcebergFileWriter writer, Throwable primary)

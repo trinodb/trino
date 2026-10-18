@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.spi.TrinoException;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Set;
 
+import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.MERGE_ISOLATION_LEVEL;
@@ -27,6 +31,7 @@ import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * The Iceberg connector resolves the copy-on-write vs merge-on-read mode for every row-level
@@ -127,5 +132,19 @@ final class TestIcebergCopyOnWriteResolvers
 
         assertThat(IcebergMetadata.resolveCopyOnWriteIsolationLevel(properties))
                 .isEqualTo(IsolationLevel.SNAPSHOT);
+    }
+
+    @Test
+    public void testCopyOnWritePropertiesDoNotRequireAllowList()
+    {
+        verifyExtraProperties(Set.of(), Map.of(MERGE_MODE, COW), _ -> false);
+        verifyExtraProperties(Set.of(), Map.of(MERGE_ISOLATION_LEVEL, "snapshot"), _ -> false);
+
+        assertThatThrownBy(() -> verifyExtraProperties(Set.of(), Map.of(MERGE_MODE, "bogus"), _ -> false))
+                .isInstanceOf(TrinoException.class)
+                .matches(exception -> ((TrinoException) exception).getErrorCode().equals(INVALID_TABLE_PROPERTY.toErrorCode()));
+        assertThatThrownBy(() -> verifyExtraProperties(Set.of(), Map.of("not_allowed_property", "x"), _ -> false))
+                .isInstanceOf(TrinoException.class)
+                .matches(exception -> ((TrinoException) exception).getErrorCode().equals(INVALID_TABLE_PROPERTY.toErrorCode()));
     }
 }

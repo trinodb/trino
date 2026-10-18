@@ -251,7 +251,9 @@ implementation is used:
   -  
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
-     Use `*` to allow all properties.
+     Use `*` to allow all properties. `write.merge.mode` and
+     `write.merge.isolation-level` are always allowed because Trino interprets
+     them for [](iceberg-row-level-operation-modes).
   - `[]`
 * - `iceberg.split-manager-threads`
   -  Number of threads to use for generating splits.
@@ -926,6 +928,10 @@ unambiguous, the connector intentionally **ignores** the sibling properties
 row-level statement, even though those properties remain valid Iceberg table
 properties.
 
+`write.merge.mode` and `write.merge.isolation-level` can be set through
+`extra_properties` on a default catalog. They do not need to be listed in
+`iceberg.allowed-extra-properties`. Other extra property keys still do.
+
 The following statement opts a table in to copy-on-write for all row-level
 operations:
 
@@ -954,7 +960,9 @@ same single-property contract: the connector reads
 Copy-on-write is supported on Iceberg format v2 and v3 tables with data files
 in Parquet, ORC, or Avro. When a v3 table is under copy-on-write, row-lineage
 columns (`_row_id`, `_last_updated_sequence_number`) are preserved on
-rewritten data files. Copy-on-write does not alter the Iceberg specification
+rewritten data files. When sorted writing is enabled, rewritten files are
+sorted by the table sort order. When it is disabled, rewritten files are
+recorded as unsorted. Copy-on-write does not alter the Iceberg specification
 version of the target table; it only changes how writes are committed.
 
 When a table is switched from merge-on-read to copy-on-write, any pre-existing
@@ -1386,9 +1394,11 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     for details.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
-    except for `write.merge.mode`, which selects the mode of row-level operations as described
-    in [](iceberg-row-level-operation-modes). The properties are available in the `$properties`
-    metadata table.
+    except for `write.merge.mode` and `write.merge.isolation-level`, which select the mode
+    and conflict-detection isolation of row-level operations as described in
+    [](iceberg-row-level-operation-modes). Those two keys are always permitted. Other keys
+    must be listed in `iceberg.allowed-extra-properties`. The properties are available in
+    the `$properties` metadata table.
     The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
 

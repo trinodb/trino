@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -39,14 +40,17 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.io.LocationProvider;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static java.util.Objects.requireNonNull;
@@ -210,6 +214,9 @@ public class IcebergPageSinkProvider
         IcebergTableCredentials icebergTableCredentials = tableCredentials.map(IcebergTableCredentials.class::cast).get();
         Map<String, String> fileIoProperties = icebergTableCredentials.fileIoProperties();
         ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema, icebergTableCredentials);
+        boolean sortRewrites = isSortedWritingEnabled(session) && !tableHandle.sortFields().isEmpty();
+        int rewriteSortOrderId = sortRewrites ? tableHandle.sortOrderId() : SortOrder.unsorted().orderId();
+        List<TrinoSortField> rewriteSortFields = sortRewrites ? tableHandle.sortFields() : ImmutableList.of();
 
         return new IcebergMergeSink(
                 formatVersion,
@@ -228,11 +235,12 @@ public class IcebergPageSinkProvider
                 pageSink,
                 schema.columns().size(),
                 memoryContext,
-                tableHandle.sortOrderId(),
+                rewriteSortOrderId,
                 merge.getRowLevelOperationMode(),
                 copyOnWriteFileRewriter,
                 pageSourceProviderFactory.createPageSourceProvider(memoryContext),
                 merge.getBaseTableProperties(),
-                merge.getPreExistingDeletesByDataFile());
+                merge.getPreExistingDeletesByDataFile(),
+                rewriteSortFields);
     }
 }

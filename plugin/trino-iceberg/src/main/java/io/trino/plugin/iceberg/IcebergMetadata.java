@@ -3430,20 +3430,17 @@ public class IcebergMetadata
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
-        Optional<ConnectorPartitioningHandle> partitionedLayout = getWriteLayout(schema, partitionSpec, true)
-                .flatMap(ConnectorTableLayout::getPartitioning)
-                .map(IcebergPartitioningHandle.class::cast)
-                .map(IcebergPartitioningHandle::forUpdate);
-        if (partitionedLayout.isPresent()) {
-            return partitionedLayout;
-        }
-
-        // For unpartitioned CoW tables, hash DELETE/UPDATE rows by file path (via
-        // IcebergUpdateBucketFunction) so deletions for the same file land on one worker.
+        // Hash DELETE/UPDATE rows by file path for every CoW table, partitioned or not.
+        // Partition layout would not keep one data file on one task when an UPDATE changes
+        // the partition key, and two partial rewrites of the same file duplicate survivors.
         if (isCopyOnWriteMode(table.getStorageProperties())) {
             return Optional.of(new IcebergPartitioningHandle(true, ImmutableList.of(), ImmutableList.of()));
         }
-        return Optional.empty();
+
+        return getWriteLayout(schema, partitionSpec, true)
+                .flatMap(ConnectorTableLayout::getPartitioning)
+                .map(IcebergPartitioningHandle.class::cast)
+                .map(IcebergPartitioningHandle::forUpdate);
     }
 
     @Override
@@ -3486,7 +3483,7 @@ public class IcebergMetadata
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
         if (mergeHandle.getRowLevelOperationMode() == RowLevelOperationMode.COPY_ON_WRITE) {
-            return finishCopyOnWrite(session, handle, mergeHandle.getBaseTableProperties(), fragments);
+            return finishCopyOnWrite(session, handle, fragments);
         }
         return finishWrite(session, handle, fragments);
     }
@@ -3622,7 +3619,6 @@ public class IcebergMetadata
     private Optional<ConnectorOutputMetadata> finishCopyOnWrite(
             ConnectorSession session,
             IcebergTableHandle table,
-            Map<String, String> baseTableProperties,
             Collection<Slice> fragments)
     {
         List<CommitTaskData> commitTasks = fragments.stream()
@@ -3663,7 +3659,7 @@ public class IcebergMetadata
             // Always commit through OverwriteFiles so conflict validators run for every CoW
             // commit, including insert-only MERGEs (Iceberg still labels those as "append").
             OverwriteFiles overwriteFiles = transaction.newOverwrite();
-            configureCopyOnWriteConflictDetection(overwriteFiles, table, icebergTable, baseTableProperties, rewriteTasks);
+            configureCopyOnWriteConflictDetection(overwriteFiles, table, icebergTable, rewriteTasks);
 
             appendRewriteTasks(overwriteFiles, schema, partitionSpecs, sortOrders, rewriteTasks);
 
@@ -3768,7 +3764,6 @@ public class IcebergMetadata
             OverwriteFiles overwriteFiles,
             IcebergTableHandle table,
             Table icebergTable,
-            Map<String, String> baseTableProperties,
             List<CommitTaskData> rewriteTasks)
     {
         OptionalLong baseSnapshotId = table.getSnapshotId();
@@ -3787,9 +3782,9 @@ public class IcebergMetadata
             }
         }
 
-        // Resolve isolation from the properties frozen at beginMerge, not the freshly committed table, so a
-        // concurrent ALTER TABLE SET PROPERTIES between planning and commit cannot change conflict detection.
-        IsolationLevel isolationLevel = resolveCopyOnWriteIsolationLevel(baseTableProperties);
+        // Resolve isolation from the planning-time properties on the table handle, same freeze point as
+        // the operation mode. A concurrent ALTER TABLE SET PROPERTIES must not change conflict detection.
+        IsolationLevel isolationLevel = resolveCopyOnWriteIsolationLevel(table.getStorageProperties());
         if (isolationLevel == IsolationLevel.SERIALIZABLE) {
             overwriteFiles.validateNoConflictingData();
         }

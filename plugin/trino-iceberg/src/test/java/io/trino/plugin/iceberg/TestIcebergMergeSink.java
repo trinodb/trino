@@ -21,8 +21,11 @@ import io.airlift.slice.Slices;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.NullSafeHashCompiler;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.parquet.cache.ParquetFooterCache;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -188,10 +191,17 @@ final class TestIcebergMergeSink
                 memoryContext,
                 0,
                 RowLevelOperationMode.MERGE_ON_READ,
-                new CopyOnWriteFileRewriter(fileWriterFactory, new DefaultIcebergFileSystemFactory(new MemoryFileSystemFactory()), TESTING_TYPE_MANAGER),
+                new CopyOnWriteFileRewriter(
+                        fileWriterFactory,
+                        new DefaultIcebergFileSystemFactory(new MemoryFileSystemFactory()),
+                        TESTING_TYPE_MANAGER,
+                        new PagesIndexPageSorter(new PagesIndex.TestingFactory(false)),
+                        new SortingFileWriterConfig(),
+                        new IcebergConfig()),
                 pageSourceProvider,
                 ImmutableMap.of(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableList.of());
     }
 
     private static Page deletionsPage(String filePath, int rowCount)

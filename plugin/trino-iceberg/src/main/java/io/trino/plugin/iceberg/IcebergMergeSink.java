@@ -17,10 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeletionVector;
@@ -72,9 +75,11 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -120,6 +125,7 @@ public class IcebergMergeSink
     // in IcebergMetadata.beginMerge and shipped here via IcebergMergeTableHandle. Workers no
     // longer issue newScan().useSnapshot().planFiles() against the manifest list.
     private final Map<String, List<DeleteFile>> preExistingDeletesByDataFile;
+    private final List<TrinoSortField> sortFields;
     // Paths of CoW rewrite output files submitted to the executor but not yet handed off to the
     // coordinator via the fragment list. Populated before supplyAsync and drained in the task's
     // finally block. On abort(), any remaining paths are bulk-deleted so orphans from in-flight
@@ -149,7 +155,8 @@ public class IcebergMergeSink
             CopyOnWriteFileRewriter copyOnWriteFileRewriter,
             IcebergPageSourceProvider pageSourceProvider,
             Map<String, String> baseTableProperties,
-            Map<String, List<DeleteFile>> preExistingDeletesByDataFile)
+            Map<String, List<DeleteFile>> preExistingDeletesByDataFile,
+            List<TrinoSortField> sortFields)
     {
         this.formatVersion = formatVersion;
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
@@ -174,6 +181,7 @@ public class IcebergMergeSink
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.baseTableProperties = ImmutableMap.copyOf(requireNonNull(baseTableProperties, "baseTableProperties is null"));
         this.preExistingDeletesByDataFile = ImmutableMap.copyOf(requireNonNull(preExistingDeletesByDataFile, "preExistingDeletesByDataFile is null"));
+        this.sortFields = ImmutableList.copyOf(requireNonNull(sortFields, "sortFields is null"));
     }
 
     @Override
@@ -192,7 +200,9 @@ public class IcebergMergeSink
         });
 
         writtenBytes = insertPageSink.getCompletedBytes();
-        memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes);
+        synchronized (memoryContext) {
+            memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes);
+        }
     }
 
     private void processRemovals(Page removals)
@@ -357,46 +367,87 @@ public class IcebergMergeSink
         IcebergFileFormat writeFileFormat = resolveWriteFileFormat(tableProperties);
 
         List<CompletableFuture<CopyOnWriteFileRewriter.RewriteResult>> futures = new ArrayList<>(inputs.size());
-        for (RewriteInput input : inputs) {
-            // Compute the destination path up front so abort() can clean it up even if the
-            // supplyAsync task is still running (CompletableFuture.cancel cannot interrupt it).
-            String newFilePath = CopyOnWriteFileRewriter.computeNewFilePath(
-                    session, writeFileFormat, locationProvider, input.partitionSpec(), input.partitionData());
-            inFlightRewritePaths.add(newFilePath);
-            futures.add(CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            return copyOnWriteFileRewriter.rewriteFile(
-                                    session,
-                                    pageSourceProvider,
-                                    input.originalPath(),
-                                    newFilePath,
-                                    input.sourceFileSizeInBytes(),
-                                    input.deletionVector(),
-                                    rewriteSchema,
-                                    input.partitionSpec(),
-                                    input.partitionData(),
-                                    input.preExistingDeletes(),
-                                    input.sourceDataSequenceNumber(),
-                                    input.sourceFileFirstRowId(),
-                                    input.sourceFileFormat(),
-                                    writeFileFormat,
-                                    metricsConfig,
-                                    fileIoProperties,
-                                    tableProperties,
-                                    nameMapping);
-                        }
-                        finally {
-                            // Normal completion: the successful task's rollback is captured in the
-                            // returned RewriteResult; a failed task has already self-cleaned in
-                            // finalizeRewrite. Either way, abort() no longer needs to track this path.
-                            inFlightRewritePaths.remove(newFilePath);
-                        }
-                    },
-                    copyOnWriteRewriteExecutor));
-        }
+        AggregatedMemoryContext rewriteMemory = newRewriteMemoryContext();
+        try {
+            for (RewriteInput input : inputs) {
+                // Compute the destination path up front so abort() can clean it up even if the
+                // supplyAsync task is still running (CompletableFuture.cancel cannot interrupt it).
+                String newFilePath = CopyOnWriteFileRewriter.computeNewFilePath(
+                        session, writeFileFormat, locationProvider, input.partitionSpec(), input.partitionData());
+                inFlightRewritePaths.add(newFilePath);
+                futures.add(CompletableFuture.supplyAsync(
+                        () -> {
+                            AggregatedMemoryContext taskMemory = rewriteMemory.newAggregatedMemoryContext();
+                            try {
+                                return copyOnWriteFileRewriter.rewriteFile(
+                                        session,
+                                        pageSourceProvider,
+                                        input.originalPath(),
+                                        newFilePath,
+                                        input.sourceFileSizeInBytes(),
+                                        input.deletionVector(),
+                                        rewriteSchema,
+                                        input.partitionSpec(),
+                                        input.partitionData(),
+                                        input.preExistingDeletes(),
+                                        input.sourceDataSequenceNumber(),
+                                        input.sourceFileFirstRowId(),
+                                        input.sourceFileFormat(),
+                                        writeFileFormat,
+                                        metricsConfig,
+                                        fileIoProperties,
+                                        tableProperties,
+                                        nameMapping,
+                                        sortFields,
+                                        locationProvider,
+                                        taskMemory);
+                            }
+                            finally {
+                                taskMemory.close();
+                                // Normal completion: the successful task's rollback is captured in the
+                                // returned RewriteResult; a failed task has already self-cleaned in
+                                // finalizeRewrite. Either way, abort() no longer needs to track this path.
+                                inFlightRewritePaths.remove(newFilePath);
+                            }
+                        },
+                        copyOnWriteRewriteExecutor));
+            }
 
-        return awaitAllRewritesOrRollback(futures);
+            return awaitAllRewritesOrRollback(futures);
+        }
+        finally {
+            rewriteMemory.close();
+        }
+    }
+
+    private AggregatedMemoryContext newRewriteMemoryContext()
+    {
+        return newRootAggregatedMemoryContext(new MemoryReservationHandler()
+        {
+            private long reserved;
+
+            @Override
+            public ListenableFuture<Void> reserveMemory(String allocationTag, long delta)
+            {
+                reserve(delta);
+                return immediateVoidFuture();
+            }
+
+            @Override
+            public boolean tryReserveMemory(String allocationTag, long delta)
+            {
+                reserve(delta);
+                return true;
+            }
+
+            private void reserve(long delta)
+            {
+                synchronized (memoryContext) {
+                    reserved += delta;
+                    memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes + Math.max(reserved, 0));
+                }
+            }
+        }, 0L);
     }
 
     /**

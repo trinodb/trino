@@ -176,8 +176,7 @@ public class IcebergSplitManager
                     icebergTable,
                     icebergTable.newIncrementalChangelogScan()
                             .fromSnapshotExclusive(functionHandle.startSnapshotId())
-                            .toSnapshot(functionHandle.endSnapshotId())
-                            .planWith(icebergPlanningExecutor));
+                            .toSnapshot(functionHandle.endSnapshotId()));
             return new ClassLoaderSafeConnectorSplitSource(tableChangesSplitSource, IcebergSplitManager.class.getClassLoader());
         }
 
