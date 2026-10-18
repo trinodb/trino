@@ -325,7 +325,7 @@ public class SkewedPartitionRebalancer
             // at least partitionDataSizeAtLastRebalance. Otherwise, it will affect the ordering of minTaskBuckets
             // priority queue.
             partitionDataSize[partition] = max(
-                    (partitionRowCount.get(partition) * dataProcessed) / totalPartitionRowCount,
+                    (long) (((double) partitionRowCount.get(partition) * dataProcessed) / totalPartitionRowCount),
                     partitionDataSize[partition]);
         }
     }
