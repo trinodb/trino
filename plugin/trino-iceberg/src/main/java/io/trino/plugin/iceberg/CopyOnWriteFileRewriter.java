@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.plugin.hive.RollbackAction;
 import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.iceberg.delete.DeleteFile;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -176,6 +178,9 @@ public class CopyOnWriteFileRewriter
             writer = sortingWriter(session, fileSystem, writer, schema, sortFields, locationProvider);
         }
 
+        // SortingFileWriter.commit() drops the output writer's rollback. Always delete the
+        // output path as well so an empty rewrite or a later abort cannot leave that file.
+        RollbackAction outputRollback = () -> fileSystem.deleteFile(Location.of(newFilePath));
         long originalRecordCount = readFilterWrite(
                 session,
                 pageSourceProvider,
@@ -203,7 +208,8 @@ public class CopyOnWriteFileRewriter
                 writeFileFormat,
                 originalRecordCount,
                 originalFileSize,
-                startTimeMs);
+                startTimeMs,
+                outputRollback);
     }
 
     /**
@@ -227,11 +233,12 @@ public class CopyOnWriteFileRewriter
             IcebergFileFormat writeFileFormat,
             long originalRecordCount,
             long originalFileSize,
-            long startTimeMs)
+            long startTimeMs,
+            RollbackAction outputRollback)
     {
         RollbackAction rollbackAction;
         try {
-            rollbackAction = writer.commit();
+            rollbackAction = combineRollbacks(writer.commit(), outputRollback);
         }
         catch (RuntimeException | Error e) {
             rollbackQuietly(writer, e);
@@ -348,6 +355,7 @@ public class CopyOnWriteFileRewriter
                 nameMapping,
                 memoryContext,
                 Optional.empty())) {
+            LocalMemoryContext writerMemory = memoryContext.newLocalMemoryContext(CopyOnWriteFileRewriter.class.getSimpleName());
             int dataColumnCount = dataColumns.size();
             int[] dataChannels = new int[dataColumnCount];
             for (int channel = 0; channel < dataColumnCount; channel++) {
@@ -375,6 +383,7 @@ public class CopyOnWriteFileRewriter
 
                 if (keptCount > 0) {
                     writer.appendRows(dataPage.getPositions(kept, 0, keptCount));
+                    writerMemory.setBytes(writer.getMemoryUsage());
                 }
             }
         }
@@ -429,6 +438,37 @@ public class CopyOnWriteFileRewriter
                 sortOrders.build(),
                 pageSorter,
                 typeManager.getTypeOperators());
+    }
+
+    private static RollbackAction combineRollbacks(RollbackAction first, RollbackAction second)
+    {
+        return () -> {
+            Throwable failure = null;
+            try {
+                first.run();
+            }
+            catch (Throwable t) {
+                failure = t;
+            }
+            try {
+                second.run();
+            }
+            catch (Throwable t) {
+                if (failure == null) {
+                    failure = t;
+                }
+                else {
+                    failure.addSuppressed(t);
+                }
+            }
+            if (failure instanceof IOException ioException) {
+                throw ioException;
+            }
+            if (failure != null) {
+                throwIfUnchecked(failure);
+                throw new RuntimeException(failure);
+            }
+        };
     }
 
     private static void rollbackQuietly(IcebergFileWriter writer, Throwable primary)

@@ -188,7 +188,7 @@ final class TestIcebergMergeSink
                 ImmutableMap.of(0, PartitionSpec.unpartitioned()),
                 insertPageSink,
                 1,
-                memoryContext,
+                new IcebergMergeSink.QueryMemoryLedger(memoryContext),
                 0,
                 RowLevelOperationMode.MERGE_ON_READ,
                 new CopyOnWriteFileRewriter(

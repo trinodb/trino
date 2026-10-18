@@ -34,10 +34,12 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.metrics.InMemoryMetricsReporter;
 import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.types.TypeUtil;
@@ -156,11 +158,23 @@ public class IcebergSplitManager
                 .filter(id -> schema.findField(id) != null) // Newly added column may not be found in current snapshot schema until new files are added
                 .collect(toImmutableSet());
 
-        return icebergTable.newScan()
+        Scan<?, FileScanTask, CombinedScanTask> scan = icebergTable.newScan()
                 .useSnapshot(toSnapshotId)
                 .project(TypeUtil.select(schema, projectedIds)) // Using Scan.project method because Scan.select throws an exception for nested variant
                 .planWith(executor)
                 .metricsReporter(metricsReporter);
+        return copyOnWriteWholeFileScan(scan, table);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Scan<?, FileScanTask, CombinedScanTask> copyOnWriteWholeFileScan(Scan<?, FileScanTask, CombinedScanTask> scan, IcebergTableHandle table)
+    {
+        if (IcebergMetadata.resolveRowLevelOperationMode(table.getStorageProperties()) != RowLevelOperationMode.COPY_ON_WRITE) {
+            return scan;
+        }
+        // Iceberg otherwise splits large files before Trino sees them. Avro row positions are
+        // split-relative, so a copy-on-write deletion vector would delete the wrong rows.
+        return (Scan<?, FileScanTask, CombinedScanTask>) scan.option(TableProperties.SPLIT_SIZE, Long.toString(Long.MAX_VALUE));
     }
 
     @Override

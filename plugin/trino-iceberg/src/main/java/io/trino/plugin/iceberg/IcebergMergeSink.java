@@ -72,6 +72,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
@@ -112,6 +113,7 @@ public class IcebergMergeSink
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
     private final MemoryContext memoryContext;
+    private final QueryMemoryLedger memoryLedger;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
     private long fileDeletionsRetainedBytes;
     private final int writeSortOrderId;
@@ -149,7 +151,7 @@ public class IcebergMergeSink
             Map<Integer, PartitionSpec> partitionsSpecs,
             ConnectorPageSink insertPageSink,
             int columnCount,
-            MemoryContext memoryContext,
+            QueryMemoryLedger memoryLedger,
             int writeSortOrderId,
             RowLevelOperationMode rowLevelOperationMode,
             CopyOnWriteFileRewriter copyOnWriteFileRewriter,
@@ -174,7 +176,8 @@ public class IcebergMergeSink
         this.partitionsSpecs = ImmutableMap.copyOf(requireNonNull(partitionsSpecs, "partitionsSpecs is null"));
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.memoryLedger = requireNonNull(memoryLedger, "memoryLedger is null");
+        this.memoryContext = memoryLedger.operatorContext();
         this.writeSortOrderId = writeSortOrderId;
         this.rowLevelOperationMode = requireNonNull(rowLevelOperationMode, "rowLevelOperationMode is null");
         this.copyOnWriteFileRewriter = requireNonNull(copyOnWriteFileRewriter, "copyOnWriteFileRewriter is null");
@@ -200,9 +203,7 @@ public class IcebergMergeSink
         });
 
         writtenBytes = insertPageSink.getCompletedBytes();
-        synchronized (memoryContext) {
-            memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes);
-        }
+        memoryLedger.setWriterState(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes);
     }
 
     private void processRemovals(Page removals)
@@ -442,10 +443,8 @@ public class IcebergMergeSink
 
             private void reserve(long delta)
             {
-                synchronized (memoryContext) {
-                    reserved += delta;
-                    memoryContext.setBytes(insertPageSink.getMemoryUsage() + fileDeletionsRetainedBytes + Math.max(reserved, 0));
-                }
+                reserved += delta;
+                memoryLedger.setRewriteBytes(Math.max(reserved, 0));
             }
         }, 0L);
     }
@@ -663,6 +662,51 @@ public class IcebergMergeSink
      * and recoverable via {@code remove_orphan_files}. Files whose tasks already completed are
      * covered either by the task's {@code finally} removal or the sink's rollback chain.
      */
+    static final class QueryMemoryLedger
+    {
+        private final MemoryContext operatorContext;
+        private final AtomicLong filters = new AtomicLong();
+        private final AtomicLong rewrites = new AtomicLong();
+        private long writerState;
+
+        QueryMemoryLedger(MemoryContext operatorContext)
+        {
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        }
+
+        MemoryContext operatorContext()
+        {
+            return operatorContext;
+        }
+
+        MemoryContext filterContext()
+        {
+            return currentBytes -> {
+                filters.set(currentBytes);
+                publish();
+            };
+        }
+
+        void setWriterState(long bytes)
+        {
+            synchronized (this) {
+                writerState = bytes;
+                publish();
+            }
+        }
+
+        void setRewriteBytes(long bytes)
+        {
+            rewrites.set(bytes);
+            publish();
+        }
+
+        private synchronized void publish()
+        {
+            operatorContext.setBytes(writerState + filters.get() + Math.max(rewrites.get(), 0));
+        }
+    }
+
     static void cleanupInFlightRewrites(Set<String> inFlightRewritePaths, FileIO fileIo, ExecutorService executor)
     {
         if (inFlightRewritePaths.isEmpty()) {

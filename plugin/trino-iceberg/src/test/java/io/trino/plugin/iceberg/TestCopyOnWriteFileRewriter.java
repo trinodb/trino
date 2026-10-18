@@ -103,7 +103,8 @@ final class TestCopyOnWriteFileRewriter
                 UNPARTITIONED,
                 Optional.empty(),
                 IcebergFileFormat.PARQUET, /* originalRecordCount */ 150, /* originalFileSize */ 1000,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                () -> {});
 
         assertThat(result.newFile()).isPresent();
         assertThat(writer.calls).containsExactly("commit");
@@ -123,7 +124,8 @@ final class TestCopyOnWriteFileRewriter
                 UNPARTITIONED,
                 Optional.empty(),
                 IcebergFileFormat.PARQUET, /* originalRecordCount */ 150, /* originalFileSize */ 1000,
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                () -> {});
 
         assertThat(result.newFile()).isEmpty();
         // Empty file cleaned up at the sink: rollback action was consumed, now no-op.
@@ -147,7 +149,8 @@ final class TestCopyOnWriteFileRewriter
                 IcebergFileFormat.PARQUET,
                 150,
                 1000,
-                System.currentTimeMillis()))
+                System.currentTimeMillis(),
+                () -> {}))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("commit exploded");
 
@@ -170,7 +173,8 @@ final class TestCopyOnWriteFileRewriter
                 IcebergFileFormat.PARQUET,
                 150,
                 1000,
-                System.currentTimeMillis()))
+                System.currentTimeMillis(),
+                () -> {}))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("metrics exploded");
 
@@ -194,7 +198,8 @@ final class TestCopyOnWriteFileRewriter
                 IcebergFileFormat.PARQUET,
                 150,
                 1000,
-                System.currentTimeMillis()))
+                System.currentTimeMillis(),
+                () -> {}))
                 .isInstanceOf(TrinoException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ICEBERG_FILESYSTEM_ERROR.toErrorCode())
                 .hasMessageContaining(NEW_PATH)

@@ -218,6 +218,7 @@ public class IcebergPageSinkProvider
         int rewriteSortOrderId = sortRewrites ? tableHandle.sortOrderId() : SortOrder.unsorted().orderId();
         List<TrinoSortField> rewriteSortFields = sortRewrites ? tableHandle.sortFields() : ImmutableList.of();
 
+        IcebergMergeSink.QueryMemoryLedger memoryLedger = new IcebergMergeSink.QueryMemoryLedger(memoryContext);
         return new IcebergMergeSink(
                 formatVersion,
                 locationProvider,
@@ -234,11 +235,11 @@ public class IcebergPageSinkProvider
                 partitionsSpecs,
                 pageSink,
                 schema.columns().size(),
-                memoryContext,
+                memoryLedger,
                 rewriteSortOrderId,
                 merge.getRowLevelOperationMode(),
                 copyOnWriteFileRewriter,
-                pageSourceProviderFactory.createPageSourceProvider(memoryContext),
+                pageSourceProviderFactory.createPageSourceProvider(memoryLedger.filterContext()),
                 merge.getBaseTableProperties(),
                 merge.getPreExistingDeletesByDataFile(),
                 rewriteSortFields);

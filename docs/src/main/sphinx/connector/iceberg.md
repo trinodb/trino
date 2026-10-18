@@ -921,8 +921,10 @@ Iceberg defines two strategies for executing row-level `DELETE`, `UPDATE`, and
 
 The Trino Iceberg connector selects the mode for every row-level operation
 from a single table property: `write.merge.mode`. Setting it to
-`copy-on-write` enables copy-on-write for `DELETE`, `UPDATE`, and `MERGE`; any
-other value, or no value at all, selects merge-on-read. To keep the behaviour
+`copy-on-write` enables copy-on-write for `DELETE`, `UPDATE`, and `MERGE`.
+`merge-on-read`, or leaving the property unset, selects merge-on-read. Any
+other string is rejected. This differs from Iceberg, whose default for
+`write.merge.mode` is `copy-on-write`. To keep the behaviour
 unambiguous, the connector intentionally **ignores** the sibling properties
 `write.delete.mode` and `write.update.mode` when deciding how to execute a
 row-level statement, even though those properties remain valid Iceberg table
@@ -942,8 +944,8 @@ SET PROPERTIES extra_properties = MAP(
     ARRAY['copy-on-write']);
 ```
 
-Setting the property back to `merge-on-read` (or removing it) returns the
-table to the default merge-on-read path:
+Setting the property back to `merge-on-read` returns the table to the default
+merge-on-read path:
 
 ```sql
 ALTER TABLE example.testdb.customer_orders
@@ -991,10 +993,10 @@ underlying Iceberg snapshot may have been silently accepted, in which case
 the new data files must remain reachable. Use `ALTER TABLE ... EXECUTE
 remove_orphan_files` to reclaim any data files left behind in this case.
 
-The connector exports the following JMX counters under
-`io.trino.plugin.iceberg:type=CopyOnWriteStats,name=<catalog>` for
-operational visibility on copy-on-write workloads. All values are monotonic
-totals; rate computation is left to the JMX consumer.
+The connector exports the following JMX statistics under
+`io.trino.plugin.iceberg:type=CopyOnWriteStats,name=<catalog>`. Each name below
+is a nested counter. Read the total from `<Name>.TotalCount`. `OneMinute`,
+`FiveMinute`, and `FifteenMinute` rates are exported on the same bean.
 
 :::{list-table} Copy-on-write JMX counters
 :widths: 35 65

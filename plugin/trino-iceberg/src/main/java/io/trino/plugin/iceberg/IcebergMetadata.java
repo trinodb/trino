@@ -3533,9 +3533,11 @@ public class IcebergMetadata
     {
         verify(icebergTable instanceof HasTableOperations, "Unexpected table implementation: %s", icebergTable.getClass().getName());
         Map<String, String> baseTableProperties = ImmutableMap.copyOf(icebergTable.properties());
+        if (table.getSnapshotId().isEmpty()) {
+            return new CopyOnWriteMergeState(baseTableProperties, ImmutableMap.of());
+        }
 
-        long snapshotId = table.getSnapshotId().orElseThrow(
-                () -> new VerifyException("Missing snapshot ID for copy-on-write merge: " + table.getSchemaTableName()));
+        long snapshotId = table.getSnapshotId().orElseThrow();
         long planStartNanos = System.nanoTime();
         Map<String, List<io.trino.plugin.iceberg.delete.DeleteFile>> preExistingDeletesByDataFile =
                 planPreExistingDeletesByDataFile(icebergTable, snapshotId, icebergPlanningExecutor);
@@ -3659,7 +3661,7 @@ public class IcebergMetadata
             // Always commit through OverwriteFiles so conflict validators run for every CoW
             // commit, including insert-only MERGEs (Iceberg still labels those as "append").
             OverwriteFiles overwriteFiles = transaction.newOverwrite();
-            configureCopyOnWriteConflictDetection(overwriteFiles, table, icebergTable, rewriteTasks);
+            configureCopyOnWriteConflictDetection(overwriteFiles, table, icebergTable, rewriteTasks, insertTasks);
 
             appendRewriteTasks(overwriteFiles, schema, partitionSpecs, sortOrders, rewriteTasks);
 
@@ -3764,22 +3766,36 @@ public class IcebergMetadata
             OverwriteFiles overwriteFiles,
             IcebergTableHandle table,
             Table icebergTable,
-            List<CommitTaskData> rewriteTasks)
+            List<CommitTaskData> rewriteTasks,
+            List<CommitTaskData> insertTasks)
     {
         OptionalLong baseSnapshotId = table.getSnapshotId();
         if (baseSnapshotId.isPresent()) {
             overwriteFiles.validateFromSnapshot(baseSnapshotId.orElseThrow());
         }
 
+        // Replaced files receive a new data sequence number. Using the DML row predicate as the
+        // conflict filter would hide equality deletes of copied-forward rows, so file replacement
+        // detects conflicts on the partitions of the files we replace or insert. Insert-only
+        // commits keep the scan predicate, matching merge-on-read.
+        TupleDomain<IcebergColumnHandle> detectionDomain;
         if (!rewriteTasks.isEmpty()) {
-            // Narrow conflict detection to files we actually read; inserts don't widen it.
-            TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, _) -> !isMetadataColumnId(column.getId()));
-            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
-            effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, rewriteTasks, typeManager));
-            effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
-            if (!effectivePredicate.isAll()) {
-                overwriteFiles.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
+            List<CommitTaskData> replacedAndInserted = new ArrayList<>(rewriteTasks.size() + insertTasks.size());
+            replacedAndInserted.addAll(rewriteTasks);
+            replacedAndInserted.addAll(insertTasks);
+            detectionDomain = extractTupleDomainsFromCommitTasks(table, icebergTable, replacedAndInserted, typeManager);
+        }
+        else {
+            detectionDomain = table.getEnforcedPredicate()
+                    .filter((column, _) -> !isMetadataColumnId(column.getId()))
+                    .intersect(table.getUnenforcedPredicate());
+            if (!insertTasks.isEmpty()) {
+                detectionDomain = detectionDomain.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, insertTasks, typeManager));
             }
+        }
+        detectionDomain = detectionDomain.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
+        if (!detectionDomain.isAll()) {
+            overwriteFiles.conflictDetectionFilter(toIcebergExpression(detectionDomain));
         }
 
         // Resolve isolation from the planning-time properties on the table handle, same freeze point as
