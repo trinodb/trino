@@ -3430,17 +3430,21 @@ public class IcebergMetadata
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
         int specId = table.getSpecId().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle"));
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, table.getPartitionSpecJsons().get(specId));
-        // Hash DELETE/UPDATE rows by file path for every CoW table, partitioned or not.
-        // Partition layout would not keep one data file on one task when an UPDATE changes
-        // the partition key, and two partial rewrites of the same file duplicate survivors.
-        if (isCopyOnWriteMode(table.getStorageProperties())) {
-            return Optional.of(new IcebergPartitioningHandle(true, ImmutableList.of(), ImmutableList.of()));
-        }
-
-        return getWriteLayout(schema, partitionSpec, true)
+        Optional<ConnectorPartitioningHandle> partitionedLayout = getWriteLayout(schema, partitionSpec, true)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
+        if (partitionedLayout.isPresent()) {
+            // Must match the insert layout's bucket-to-node map. A file-path-only handle fails
+            // partitioned MERGE with "Insert and update layout have mismatched BucketNodeMap".
+            // forUpdate() still hashes the merge row id, so one data file stays on one task.
+            return partitionedLayout;
+        }
+
+        if (isCopyOnWriteMode(table.getStorageProperties())) {
+            return Optional.of(new IcebergPartitioningHandle(true, ImmutableList.of(), ImmutableList.of()));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -3463,6 +3467,9 @@ public class IcebergMetadata
         // file in CoW. Write properties (compression, format, etc.) are still read fresh below
         // because they only influence the format of newly written files.
         RowLevelOperationMode operationMode = resolveRowLevelOperationMode(table.getStorageProperties());
+        if (operationMode == RowLevelOperationMode.COPY_ON_WRITE) {
+            resolveCopyOnWriteIsolationLevel(table.getStorageProperties());
+        }
 
         CopyOnWriteMergeState copyOnWriteState = operationMode == RowLevelOperationMode.COPY_ON_WRITE
                 ? prepareCopyOnWriteMergeState(table, icebergTable)
@@ -3617,7 +3624,13 @@ public class IcebergMetadata
      */
     static IsolationLevel resolveCopyOnWriteIsolationLevel(Map<String, String> tableProperties)
     {
-        return IsolationLevel.fromName(tableProperties.getOrDefault(MERGE_ISOLATION_LEVEL, MERGE_ISOLATION_LEVEL_DEFAULT));
+        String isolationLevel = tableProperties.getOrDefault(MERGE_ISOLATION_LEVEL, MERGE_ISOLATION_LEVEL_DEFAULT);
+        try {
+            return IsolationLevel.fromName(isolationLevel);
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid value for %s: %s".formatted(MERGE_ISOLATION_LEVEL, isolationLevel), e);
+        }
     }
 
     private static boolean isCopyOnWriteMode(Map<String, String> tableProperties)

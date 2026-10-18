@@ -120,6 +120,9 @@ final class TestIcebergCopyOnWriteResolvers
     {
         assertThat(IcebergMetadata.resolveCopyOnWriteIsolationLevel(Map.of()))
                 .isEqualTo(IsolationLevel.fromName(MERGE_ISOLATION_LEVEL_DEFAULT));
+        assertThatThrownBy(() -> IcebergMetadata.resolveCopyOnWriteIsolationLevel(Map.of(MERGE_ISOLATION_LEVEL, "bogus")))
+                .isInstanceOf(TrinoException.class)
+                .matches(exception -> ((TrinoException) exception).getErrorCode().equals(INVALID_TABLE_PROPERTY.toErrorCode()));
     }
 
     @Test
