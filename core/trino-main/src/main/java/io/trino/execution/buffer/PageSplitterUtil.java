@@ -97,7 +97,7 @@ public final class PageSplitterUtil
 
     private static long getDictionaryBlockSizeForSplit(DictionaryBlock dictionaryBlock)
     {
-        long dictionaryAndIdsSizeInBytes = dictionaryBlock.getDictionary().getSizeInBytes() + Integer.BYTES * (long) dictionaryBlock.getPositionCount();
-        return min(dictionaryBlock.getSizeInBytes(), dictionaryAndIdsSizeInBytes);
+        long valuesSizeInBytes = min(dictionaryBlock.getSizeInBytes(), dictionaryBlock.getDictionary().getSizeInBytes());
+        return valuesSizeInBytes + Integer.BYTES * (long) dictionaryBlock.getPositionCount();
     }
 }
