@@ -75,6 +75,31 @@ final class TestIcebergMergeSink
     }
 
     @Test
+    void testV2SkipsPositionDeleteFileForFullyDeletedDataFile()
+    {
+        IcebergMergeSink mergeSink = createMergeSink(2, new TestingInsertPageSink(0), _ -> {});
+
+        // Every row of file-1 is deleted, one of the three rows of file-2 is deleted
+        mergeSink.storeMergedRows(deletionsPage(ImmutableList.of(
+                new Deletion("file-1", 0, 3),
+                new Deletion("file-1", 1, 3),
+                new Deletion("file-1", 2, 3),
+                new Deletion("file-2", 0, 3))));
+
+        JsonCodec<CommitTaskData> codec = JsonCodec.jsonCodec(CommitTaskData.class);
+        ImmutableMap.Builder<String, CommitTaskData> tasks = ImmutableMap.builder();
+        for (Slice fragment : mergeSink.finish().join()) {
+            CommitTaskData task = codec.fromJson(fragment.getBytes());
+            tasks.put(task.referencedDataFile().orElseThrow().path(), task);
+        }
+        Map<String, CommitTaskData> tasksByDataFile = tasks.buildOrThrow();
+        assertThat(tasksByDataFile.get("file-1").path()).isEmpty();
+        assertThat(tasksByDataFile.get("file-1").metrics().recordCount()).isEqualTo(3);
+        assertThat(tasksByDataFile.get("file-2").path()).isNotEmpty();
+        assertThat(tasksByDataFile.get("file-2").metrics().recordCount()).isEqualTo(1);
+    }
+
+    @Test
     void testMemoryUsageCoversInsertSinkAndDeletions()
     {
         AtomicLong reportedBytes = new AtomicLong();
@@ -137,15 +162,20 @@ final class TestIcebergMergeSink
                     .orElseThrow();
             ImmutableList.Builder<Long> rows = ImmutableList.builder();
             deletionVector.forEachDeletedRow(rows::add);
-            deletedRows.put(task.referencedDataFile().orElseThrow(), rows.build());
+            deletedRows.put(task.referencedDataFile().orElseThrow().path(), rows.build());
         }
         return deletedRows.buildOrThrow();
     }
 
     private static IcebergMergeSink createMergeSink(ConnectorPageSink insertPageSink, MemoryContext memoryContext)
     {
+        return createMergeSink(3, insertPageSink, memoryContext);
+    }
+
+    private static IcebergMergeSink createMergeSink(int formatVersion, ConnectorPageSink insertPageSink, MemoryContext memoryContext)
+    {
         return new IcebergMergeSink(
-                3,
+                formatVersion,
                 LocationProviders.locationsFor("memory:///table", ImmutableMap.of()),
                 new IcebergFileWriterFactory(TESTING_TYPE_MANAGER, new NodeVersion("test"), new FileFormatDataSourceStats(), new IcebergConfig(), new OrcWriterConfig(), new ParquetWriterConfig()),
                 new MemoryFileSystemFactory().create(SESSION),
@@ -185,6 +215,9 @@ final class TestIcebergMergeSink
         BlockBuilder partitionSpecIdBuilder = INTEGER.createFixedSizeBlockBuilder(rowCount);
         BlockBuilder partitionDataBuilder = VARCHAR.createBlockBuilder(null, rowCount);
         BlockBuilder sourceRowIdBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileRecordCountBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileSizeBuilder = BIGINT.createFixedSizeBlockBuilder(rowCount);
+        BlockBuilder fileFormatBuilder = VARCHAR.createBlockBuilder(null, rowCount);
         for (Deletion deletion : deletions) {
             BIGINT.writeLong(dataBuilder, deletion.rowPosition());
             TINYINT.writeByte(operationBuilder, (byte) DELETE_OPERATION_NUMBER);
@@ -194,6 +227,9 @@ final class TestIcebergMergeSink
             INTEGER.writeInt(partitionSpecIdBuilder, 0);
             VARCHAR.writeString(partitionDataBuilder, "{}");
             sourceRowIdBuilder.appendNull();
+            BIGINT.writeLong(fileRecordCountBuilder, deletion.fileRecordCount());
+            BIGINT.writeLong(fileSizeBuilder, 0);
+            VARCHAR.writeString(fileFormatBuilder, IcebergFileFormat.PARQUET.name());
         }
         Block rowIdBlock = RowBlock.fromFieldBlocks(rowCount, new Block[] {
                 filePathBuilder.build(),
@@ -201,11 +237,20 @@ final class TestIcebergMergeSink
                 partitionSpecIdBuilder.build(),
                 partitionDataBuilder.build(),
                 sourceRowIdBuilder.build(),
+                fileRecordCountBuilder.build(),
+                fileSizeBuilder.build(),
+                fileFormatBuilder.build(),
         });
         return new Page(dataBuilder.build(), operationBuilder.build(), caseNumberBuilder.build(), rowIdBlock);
     }
 
-    private record Deletion(String filePath, long rowPosition) {}
+    private record Deletion(String filePath, long rowPosition, long fileRecordCount)
+    {
+        private Deletion(String filePath, long rowPosition)
+        {
+            this(filePath, rowPosition, Long.MAX_VALUE);
+        }
+    }
 
     private static final class TestingInsertPageSink
             implements ConnectorPageSink

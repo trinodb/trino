@@ -104,7 +104,7 @@ final class TestIcebergOptimizeManifestsProcedure
     void testOptimizeManifests()
     {
         try (TestTable table = newTrinoTable("test_optimize_manifests", "(x int)")) {
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 3", 2);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
 
@@ -124,7 +124,7 @@ final class TestIcebergOptimizeManifestsProcedure
             assertThat(Sets.intersection(optimizedManifestFiles, manifestFiles)).hasSize(1);
 
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES 2");
+                    .matches("VALUES 2, 3");
         }
     }
 

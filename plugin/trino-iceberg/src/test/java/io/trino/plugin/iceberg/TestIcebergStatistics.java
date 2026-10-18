@@ -181,7 +181,7 @@ public class TestIcebergStatistics
         double nameDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
                 .filter(row -> "name".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
-        assertThat(nameDataSize).isBetween(1000.0, 3000.0);
+        assertThat(nameDataSize).isBetween(250.0, 1500.0);
         double infoDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
                 .filter(row -> "info".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
@@ -194,7 +194,7 @@ public class TestIcebergStatistics
                   ('regionkey', null, 5, 0, null, '0', '4'),
                   ('name', %s, 25, 0, null, null, null),
                   ('info', %s, null, 0, null, null, null),
-                  (null, null, null, null, 50, null, null)
+                  (null, null, null, null, 25, null, null)
                 """.formatted(nameDataSize, infoDataSize));
 
         assertUpdate("ANALYZE " + tableName);
@@ -206,8 +206,8 @@ public class TestIcebergStatistics
                   ('regionkey', null, 5, 0, null, '0', '4'),
                   ('name', %s, 25, 0, null, null, null),
                   ('info', %s, 25, 0, null, null, null),
-                  (null, null, null, null, 50, null, null)
-                """.formatted(nameDataSize, infoDataSize)); // Row count statistics do not yet account for position deletes
+                  (null, null, null, null, 25, null, null)
+                """.formatted(nameDataSize, infoDataSize));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1254,11 +1254,11 @@ public class TestIcebergStatistics
                 .projected("column_name", "distinct_values_count", "row_count")
                 .skippingTypesCheck()
                 .containsAll("VALUES " +
-                        "('nationkey', DOUBLE '25', null), " +
-                        "('name', DOUBLE '25', null), " +
-                        "('regionkey', DOUBLE '5', null), " +
-                        "('comment', DOUBLE '25', null), " +
-                        "(null, null, DOUBLE '25')");
+                        "('nationkey', DOUBLE '0', null), " +
+                        "('name', DOUBLE '0', null), " +
+                        "('regionkey', DOUBLE '0', null), " +
+                        "('comment', DOUBLE '0', null), " +
+                        "(null, null, DOUBLE '0')");
     }
 
     @Test

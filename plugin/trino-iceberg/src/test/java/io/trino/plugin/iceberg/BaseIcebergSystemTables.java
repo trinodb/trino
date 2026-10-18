@@ -449,7 +449,7 @@ public abstract class BaseIcebergSystemTables
         latestSequenceNumbers.add(1L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
 
-        assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1)", 1);
+        assertUpdate("INSERT INTO test_schema.test_metadata_log_entries VALUES (1), (2)", 2);
         latestSchemaIds.add(0);
         latestSequenceNumbers.add(2L);
         assertMetadataLogEntries(latestSchemaIds, latestSequenceNumbers);
@@ -962,7 +962,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testEntriesAfterPositionDelete()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT 1 id, DATE '2014-01-01' dt")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_entries", "AS SELECT * FROM (VALUES (1, DATE '2014-01-01'), (2, DATE '2014-01-01')) t(id, dt)")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
 
             Table icebergTable = loadTable(table.getName());

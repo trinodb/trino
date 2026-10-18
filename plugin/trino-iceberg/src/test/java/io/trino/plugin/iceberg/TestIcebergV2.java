@@ -271,10 +271,11 @@ public class TestIcebergV2
     {
         try (TestTable table = newTrinoTable("test_position_deletes_after_partition_evolution_", "WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(name, 4)']");
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (25, 'ATLANTIS', 0, 'mythical')", 1);
-            // Deletes rows from data files written under both the previous and the current partition spec
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE 'A%'", 3);
-            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 23");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (25, 'ATLANTIS', 0, 'mythical'), (26, 'ATLANTIS', 0, 'mythical')", 2);
+            // Deletes rows from data files written under both the previous and the current partition spec, leaving
+            // a row in each file
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name LIKE 'A%' AND nationkey <> 26", 3);
+            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 24");
             assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 3");
         }
     }
@@ -1229,7 +1230,7 @@ public class TestIcebergV2
             assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
             assertUpdate("DELETE FROM " + tableName + " WHERE regionkey <= 2", "SELECT count(*) FROM nation WHERE regionkey <= 2");
             assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey > 2");
-            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
         }
     }
 
@@ -1244,7 +1245,7 @@ public class TestIcebergV2
             assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
             assertUpdate("DELETE FROM " + tableName + " WHERE b % 2 = 0", 6);
             assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (1, 3), (1, 5), (2, 1), (2, 3), (2, 5)");
-            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
         }
     }
 
@@ -1259,7 +1260,73 @@ public class TestIcebergV2
             assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
             assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
             assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey % 2 = 0");
-            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(2);
+            assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        }
+    }
+
+    @Test
+    public void testDeletingEntireFileWithTemporalPartition()
+    {
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_day_partition_", "(id INTEGER, ts TIMESTAMP(6)) WITH (partitioning = ARRAY['day(ts)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, TIMESTAMP '2026-01-01 01:00:00'), (2, TIMESTAMP '2026-01-01 02:00:00')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, TIMESTAMP '2026-01-02 01:00:00'), (4, TIMESTAMP '2026-01-02 02:00:00')", 2);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertQuery("SELECT id FROM " + table.getName(), "VALUES 3, 4");
+
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0", "VALUES 1");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+        }
+    }
+
+    @Test
+    public void testDeletingEntireFileWithNullPartition()
+    {
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_null_partition_", "(id INTEGER, part INTEGER) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL), (2, NULL), (3, 1), (4, 1)", 4);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertQuery("SELECT id FROM " + table.getName(), "VALUES 3, 4");
+
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0", "VALUES 1");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+        }
+    }
+
+    @Test
+    public void testDeletingEntireFileWithBucketPartition()
+    {
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_bucket_partition_", "(id INTEGER, grp INTEGER) WITH (partitioning = ARRAY['bucket(id, 4)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 1 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            long removedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+
+            // Every file of the first insert is fully deleted, in each bucket
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE grp = 1", 100);
+            assertQuery("SELECT count(*), min(id) FROM " + table.getName(), "VALUES (100, 101)");
+
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0", "VALUES " + (dataFiles - removedDataFiles));
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+        }
+    }
+
+    @Test
+    public void testDeletingEntireFileUnderPreviousPartitionSpec()
+    {
+        try (TestTable table = newTrinoTable("test_deleting_entire_file_previous_spec_", "(id INTEGER, part INTEGER) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(id, 4)']");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            long removedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0 AND partition.part = 0");
+
+            // Delete every row of the previous spec's files for part = 0
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 100 AND part = 0", 50);
+            assertQuery("SELECT count(*), count_if(id <= 100) FROM " + table.getName(), "VALUES (150, 50)");
+
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0", "VALUES " + (dataFiles - removedDataFiles));
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
         }
     }
 
@@ -1269,9 +1336,10 @@ public class TestIcebergV2
         String tableName = "test_deleting_entire_file_with_multiple_splits" + randomNameSuffix();
         assertUpdate(
                 Session.builder(getSession()).setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "5").build(),
-                "CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.nation",
+                "CREATE TABLE " + tableName + " WITH (format = 'ORC', partitioning = ARRAY['bucket(nationkey, 1)']) AS SELECT * FROM tpch.tiny.nation",
                 25);
-        // Set the split size to a small number of bytes so each ORC stripe gets its own split
+        // Set the split size to a small number of bytes so each ORC stripe gets its own split. The single
+        // bucket routes merge rows by data file, so every split of the file reaches the same writer.
         this.loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
 
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
@@ -1281,7 +1349,7 @@ public class TestIcebergV2
         long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertThat(initialSnapshotId).isEqualTo(parentSnapshotId);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
-        assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        assertThat(this.loadTable(tableName).newScan().planFiles()).isEmpty();
     }
 
     @Test
@@ -1300,6 +1368,25 @@ public class TestIcebergV2
             assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
             assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
             assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
+        }
+    }
+
+    @Test
+    public void testUpdateAndMergeRemoveEntireFile()
+    {
+        try (TestTable table = newTrinoTable("test_update_merge_entire_file_", "(id INTEGER, v VARCHAR, part INTEGER) WITH (partitioning = ARRAY['part'])")) {
+            // Each data file is in its own partition, and merge rows of a partitioned table are routed by data
+            // file, so a single writer sees every row of a file
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a', 1), (2, 'a', 1)", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'a', 2), (4, 'a', 2)", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'a', 3), (6, 'a', 3)", 2);
+
+            assertUpdate("UPDATE " + table.getName() + " SET v = 'b' WHERE id <= 2", 2);
+            assertUpdate("MERGE INTO " + table.getName() + " t USING (VALUES 3, 4) s(id) ON t.id = s.id WHEN MATCHED THEN DELETE", 2);
+
+            assertQuery("SELECT id, v FROM " + table.getName(), "VALUES (1, 'b'), (2, 'b'), (5, 'a'), (6, 'a')");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+            assertThat(loadTable(table.getName()).newScan().planFiles()).hasSize(2);
         }
     }
 
@@ -1743,7 +1830,7 @@ public class TestIcebergV2
             assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
             assertUpdate("DELETE FROM " + tableName + " WHERE district.name = 'Bengaluru'", 4);
-            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
 
             assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
             Table icebergTable = loadTable(tableName);
@@ -1757,7 +1844,7 @@ public class TestIcebergV2
                             "(11, ROW('Bengaluru'), ROW('KA')), " +
                             "(12, ROW('Bengaluru'), ROW('KA'))",
                     4);
-            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
+            assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
 
             assertQuery("SELECT id, district.name, state.name FROM " + tableName, "VALUES " +
                     "(1, 'Patna', 'BH'), " +
