@@ -3599,8 +3599,16 @@ public class IcebergMetadata
      */
     static RowLevelOperationMode resolveRowLevelOperationMode(Map<String, String> tableProperties)
     {
-        return RowLevelOperationMode.fromName(
-                tableProperties.getOrDefault(MERGE_MODE, RowLevelOperationMode.MERGE_ON_READ.modeName()));
+        String mode = tableProperties.get(MERGE_MODE);
+        if (mode == null) {
+            return RowLevelOperationMode.MERGE_ON_READ;
+        }
+        try {
+            return RowLevelOperationMode.fromName(mode);
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid value for %s: %s".formatted(MERGE_MODE, mode), e);
+        }
     }
 
     /**
@@ -3614,8 +3622,7 @@ public class IcebergMetadata
 
     private static boolean isCopyOnWriteMode(Map<String, String> tableProperties)
     {
-        return RowLevelOperationMode.COPY_ON_WRITE.modeName()
-                .equals(tableProperties.get(MERGE_MODE));
+        return resolveRowLevelOperationMode(tableProperties) == RowLevelOperationMode.COPY_ON_WRITE;
     }
 
     private Optional<ConnectorOutputMetadata> finishCopyOnWrite(

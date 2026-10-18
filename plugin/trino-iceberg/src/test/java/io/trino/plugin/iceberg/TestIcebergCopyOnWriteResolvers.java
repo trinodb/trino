@@ -54,6 +54,8 @@ final class TestIcebergCopyOnWriteResolvers
     {
         assertThat(IcebergMetadata.resolveRowLevelOperationMode(Map.of(MERGE_MODE, COW)))
                 .isEqualTo(RowLevelOperationMode.COPY_ON_WRITE);
+        assertThat(IcebergMetadata.resolveRowLevelOperationMode(Map.of(MERGE_MODE, "COPY-ON-WRITE")))
+                .isEqualTo(RowLevelOperationMode.COPY_ON_WRITE);
     }
 
     @Test

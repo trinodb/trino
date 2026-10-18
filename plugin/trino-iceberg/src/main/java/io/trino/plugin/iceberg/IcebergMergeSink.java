@@ -112,7 +112,6 @@ public class IcebergMergeSink
     private final Map<Integer, PartitionSpec> partitionsSpecs;
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
-    private final MemoryContext memoryContext;
     private final QueryMemoryLedger memoryLedger;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
     private long fileDeletionsRetainedBytes;
@@ -177,7 +176,6 @@ public class IcebergMergeSink
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
         this.memoryLedger = requireNonNull(memoryLedger, "memoryLedger is null");
-        this.memoryContext = memoryLedger.operatorContext();
         this.writeSortOrderId = writeSortOrderId;
         this.rowLevelOperationMode = requireNonNull(rowLevelOperationMode, "rowLevelOperationMode is null");
         this.copyOnWriteFileRewriter = requireNonNull(copyOnWriteFileRewriter, "copyOnWriteFileRewriter is null");
@@ -672,11 +670,6 @@ public class IcebergMergeSink
         QueryMemoryLedger(MemoryContext operatorContext)
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        }
-
-        MemoryContext operatorContext()
-        {
-            return operatorContext;
         }
 
         MemoryContext filterContext()
