@@ -416,14 +416,14 @@ public class OutputSpoolingOperatorFactory
         public synchronized void add(Page page)
         {
             buffer.add(page);
-            sizeInBytes += page.getSizeInBytes();
+            sizeInBytes += page.getRetainedSizeInBytes();
         }
 
         public synchronized void addAll(List<Page> pages)
         {
             buffer.addAll(pages);
             for (Page page : pages) {
-                sizeInBytes += page.getSizeInBytes();
+                sizeInBytes += page.getRetainedSizeInBytes();
             }
         }
 
