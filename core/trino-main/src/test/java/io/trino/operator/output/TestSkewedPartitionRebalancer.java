@@ -294,6 +294,118 @@ class TestSkewedPartitionRebalancer
                 .containsExactly(ImmutableList.of(0, 2), ImmutableList.of(1), ImmutableList.of(2, 0));
     }
 
+    @Test
+    void testNoRebalanceWhenPartitionIsNotLargerThanTargetTaskBucket()
+    {
+        int partitionCount = 16;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                2,
+                2,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+
+        // Task0 (Bucket0) holds partitions 0, 4, 8 and 12, Task1 (Bucket1) holds partitions 3, 7, 11 and 15
+        for (int partition = 0; partition < partitionCount; partition++) {
+            if (partition % 4 == 0) {
+                rebalancer.addPartitionRowCount(partition, 90);
+            }
+            else if (partition % 4 == 3) {
+                rebalancer.addPartitionRowCount(partition, 25);
+            }
+            else {
+                rebalancer.addPartitionRowCount(partition, 50);
+            }
+        }
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        // Task buckets are skewed, but each partition of the max task bucket is smaller than the min task bucket
+        rebalancer.rebalance();
+
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1));
+    }
+
+    @Test
+    void testRebalanceOnlySkewedPartitionOfTaskBucket()
+    {
+        int partitionCount = 8;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                2,
+                2,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+
+        rebalancer.addPartitionRowCount(0, 1000);
+        for (int partition = 1; partition < partitionCount; partition++) {
+            rebalancer.addPartitionRowCount(partition, 100);
+        }
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        // Partition 0 moves to Task1 while partition 4 in the same task bucket stays
+        rebalancer.rebalance();
+
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(
+                        ImmutableList.of(0, 1),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1));
+    }
+
+    @Test
+    void testNoRebalanceWhenTargetTaskBucketIsNotSkewed()
+    {
+        int partitionCount = 8;
+        SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
+                partitionCount,
+                2,
+                2,
+                MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
+
+        // Task0 (Bucket0) holds partition 0, Task0 (Bucket1) holds partition 2, Task1 buckets hold two partitions each
+        rebalancer.addPartitionRowCount(0, 100);
+        rebalancer.addPartitionRowCount(2, 25);
+        rebalancer.addPartitionRowCount(1, 25);
+        rebalancer.addPartitionRowCount(5, 25);
+        rebalancer.addPartitionRowCount(3, 25);
+        rebalancer.addPartitionRowCount(7, 25);
+        rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
+        // The min task bucket is on the task of partition 0 and the Task1 buckets are not skewed against Task0 (Bucket0)
+        rebalancer.rebalance();
+
+        assertThat(rebalancer.getPartitionAssignments())
+                .containsExactly(
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1),
+                        ImmutableList.of(0),
+                        ImmutableList.of(1));
+    }
+
     private static List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
     {
         List<List<Integer>> partitionPositions = new ArrayList<>();
