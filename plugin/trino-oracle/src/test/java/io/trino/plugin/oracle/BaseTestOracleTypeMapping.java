@@ -1352,6 +1352,24 @@ public abstract class BaseTestOracleTypeMapping
         testUnsupportedOracleType("BFILE"); // Never in mapping
     }
 
+    @Test
+    public void testSdoGeometryConvertedToVarchar()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("oracle", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "test_sdo_geometry",
+                "(id NUMBER, geom MDSYS.SDO_GEOMETRY)",
+                ImmutableList.of("(1, MDSYS.SDO_GEOMETRY(2001, 4326, MDSYS.SDO_POINT_TYPE(1, 2, NULL), NULL, NULL))"))) {
+            assertQuery(
+                    session,
+                    "SELECT typeof(geom), geom LIKE 'POINT%1%2%' FROM " + table.getName(),
+                    "VALUES ('varchar', true)");
+        }
+    }
+
     /**
      * Check that unsupported data types are ignored
      */

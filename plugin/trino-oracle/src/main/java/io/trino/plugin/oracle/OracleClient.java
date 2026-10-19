@@ -33,12 +33,14 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -651,6 +653,39 @@ public class OracleClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    @Override
+    protected PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, ParameterizedExpression> columnExpressions,
+            Optional<JdbcSplit> split)
+    {
+        if (getUnsupportedTypeHandling(session) != CONVERT_TO_VARCHAR) {
+            return super.prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, split);
+        }
+        ImmutableMap.Builder<String, ParameterizedExpression> expressions = ImmutableMap.builder();
+        columns.stream()
+                .filter(column -> isSdoGeometry(column.getJdbcTypeHandle()))
+                .filter(column -> !columnExpressions.containsKey(column.getColumnName()))
+                .forEach(column -> expressions.put(
+                        column.getColumnName(),
+                        new ParameterizedExpression(
+                                format("MDSYS.SDO_UTIL.TO_WKTGEOMETRY(%s)", quoted(column.getColumnName())),
+                                ImmutableList.of())));
+        expressions.putAll(columnExpressions);
+        return super.prepareQuery(session, connection, table, groupingSets, columns, expressions.buildOrThrow(), split);
+    }
+
+    private static boolean isSdoGeometry(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcTypeName()
+                .map(typeName -> typeName.equalsIgnoreCase("SDO_GEOMETRY") || typeName.equalsIgnoreCase("MDSYS.SDO_GEOMETRY"))
+                .orElse(false);
     }
 
     private static ColumnMapping oracleTimestampColumnMapping(TimestampType timestampType)

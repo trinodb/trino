@@ -72,7 +72,7 @@ public class TestingOracleServer
 
     private void createContainer()
     {
-        OracleContainer container = new OracleContainer("gvenzl/oracle-free:23.9-slim")
+        OracleContainer container = new OracleContainer("gvenzl/oracle-free:23.9-full")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 // mode must be set explicitly: the temporary file is created with owner-only permissions,
