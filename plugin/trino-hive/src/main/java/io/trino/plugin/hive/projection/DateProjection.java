@@ -32,6 +32,7 @@ import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +58,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.ceilDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
@@ -150,6 +152,11 @@ final class DateProjection
 
         Instant leftBound = adjustBoundToDateFormat(this.leftBound);
         Instant rightBound = adjustBoundToDateFormat(this.rightBound);
+        long intervalSeconds = interval * intervalUnit.getDuration().getSeconds();
+        boolean skipSubDayValues = columnType instanceof VarcharType &&
+                intervalSeconds > 0 &&
+                intervalSeconds < DAYS.getDuration().getSeconds() &&
+                !hasTimeFields(dateFormat.parse(formatValue(leftBound)));
 
         Instant currentValue = leftBound;
         while (!currentValue.isAfter(rightBound)) {
@@ -157,9 +164,17 @@ final class DateProjection
             if (isValueInDomain(partitionValueFilter, currentValue, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
             }
-            currentValue = currentValue.atZone(UTC_TIME_ZONE_ID)
-                    .plus(interval, intervalUnit)
-                    .toInstant();
+            if (skipSubDayValues) {
+                // Values without time fields change only at UTC midnight,
+                // so jump to the first interval step at or after the next midnight
+                long secondsToNextDay = SECONDS.between(currentValue, currentValue.truncatedTo(DAYS).plus(1, DAYS));
+                currentValue = currentValue.plusSeconds(ceilDiv(secondsToNextDay, intervalSeconds) * intervalSeconds);
+            }
+            else {
+                currentValue = currentValue.atZone(UTC_TIME_ZONE_ID)
+                        .plus(interval, intervalUnit)
+                        .toInstant();
+            }
         }
 
         return builder.build();
@@ -313,6 +328,13 @@ final class DateProjection
             return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
         }
         return LocalDateTime.from(parsed).toInstant(UTC);
+    }
+
+    private static boolean hasTimeFields(TemporalAccessor parsed)
+    {
+        return Arrays.stream(ChronoField.values())
+                .filter(ChronoField::isTimeBased)
+                .anyMatch(parsed::isSupported);
     }
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
