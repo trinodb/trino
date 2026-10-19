@@ -74,10 +74,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
@@ -134,7 +131,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
-        denySetSchemaAuthorization(schemaName, principal);
+        denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
     }
 
     /**
@@ -330,7 +327,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        denySetTableAuthorization(tableName.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
     }
 
     /**
@@ -456,7 +453,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        denySetViewAuthorization(viewName.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
     }
 
     /**

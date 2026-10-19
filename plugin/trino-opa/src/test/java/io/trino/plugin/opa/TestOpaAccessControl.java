@@ -29,6 +29,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -466,7 +467,10 @@ final class TestOpaAccessControl
         TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, "my_user");
 
         ThrowingMethodWrapper methodWrapper = new ThrowingMethodWrapper(
-                accessControl -> accessControl.checkCanSetSchemaAuthorization(TEST_SECURITY_CONTEXT, schema, principal));
+                accessControl -> accessControl.checkCanSetEntityAuthorization(
+                        TEST_SECURITY_CONTEXT,
+                        new EntityKindAndName("SCHEMA", ImmutableList.of(schema.getCatalogName(), schema.getSchemaName())),
+                        principal));
 
         String expectedRequest =
                 """
