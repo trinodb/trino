@@ -15,8 +15,8 @@
 
     <properties>
         <frontend.package.goal>package</frontend.package.goal>
-        <frontend.check.goal>check</frontend.check.goal>
-        <!-- allow -DskipTests to also skip the frontend checks (lint, prettier, tsc, flow, licenses) -->
+        <frontend.check.goal>verify</frontend.check.goal>
+        <!-- allow -DskipTests to also skip the frontend checks (lint, prettier, bun check, flow, licenses) -->
         <skipTests>false</skipTests>
     </properties>
 
@@ -153,7 +153,7 @@
             </activation>
             <properties>
                 <frontend.package.goal>package:clean</frontend.package.goal>
-                <frontend.check.goal>check:clean</frontend.check.goal>
+                <frontend.check.goal>verify:clean</frontend.check.goal>
             </properties>
         </profile>
     </profiles>
