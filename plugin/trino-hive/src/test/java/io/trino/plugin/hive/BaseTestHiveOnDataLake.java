@@ -77,11 +77,11 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
-    private static final String HIVE_TEST_SCHEMA = "hive_datalake";
+    protected static final String HIVE_TEST_SCHEMA = "hive_datalake";
     private static final DataSize HIVE_S3_STREAMING_PART_SIZE = DataSize.of(5, MEGABYTE);
 
-    private final HiveFlociDataLake hiveFlociDataLake;
-    private final String bucketName;
+    protected final HiveFlociDataLake hiveFlociDataLake;
+    protected final String bucketName;
 
     private HiveMetastore metastoreClient;
 
