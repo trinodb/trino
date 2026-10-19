@@ -22,6 +22,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Collation;
 import com.mongodb.client.model.CreateCollectionOptions;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Indexes;
 import io.trino.Session;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -738,6 +740,23 @@ public class TestMongoConnectorTest
                 .matches("VALUES 1, 2");
 
         assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    public void testInsertUnordered()
+    {
+        try (TestTable table = newTrinoTable("test_insert_unordered", "(x bigint)")) {
+            client.getDatabase("tpch").getCollection(table.getName())
+                    .createIndex(Indexes.ascending("x"), new IndexOptions().unique(true));
+
+            // Unordered inserts continue with the remaining rows after a duplicate key
+            assertThat(query("INSERT INTO " + table.getName() + " VALUES 1, 1, 2"))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining("E11000 duplicate key error");
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '2'");
+        }
     }
 
     @Test
