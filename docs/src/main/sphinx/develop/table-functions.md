@@ -37,7 +37,8 @@ public class MyFunction
                                 .name("ROW_COUNT")
                                 .type(INTEGER)
                                 .build()),
-                GENERIC_TABLE);
+                GENERIC_TABLE,
+                "Returns a table with the specified number of columns and rows");
     }
 }
 ```
