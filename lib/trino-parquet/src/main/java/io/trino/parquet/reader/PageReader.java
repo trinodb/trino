@@ -36,6 +36,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
@@ -200,7 +201,7 @@ public final class PageReader
         }
         catch (IOException e) {
             releaseCurrentPage();
-            throw new RuntimeException("Could not decompress page", e);
+            throw new UncheckedIOException("Could not decompress page", e);
         }
         catch (RuntimeException | Error e) {
             releaseCurrentPage();
@@ -229,7 +230,7 @@ public final class PageReader
         }
         catch (IOException e) {
             releaseCurrentPage();
-            throw new RuntimeException("Error reading dictionary page", e);
+            throw new UncheckedIOException("Error reading dictionary page", e);
         }
         catch (RuntimeException | Error e) {
             releaseCurrentPage();
