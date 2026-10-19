@@ -209,7 +209,7 @@
         <dep.okio.version>3.18.2</dep.okio.version>
         <dep.parquet.version>1.18.1</dep.parquet.version>
         <dep.protobuf.version>4.36.2</dep.protobuf.version>
-        <dep.sis.version>1.6</dep.sis.version>
+        <dep.sis.version>1.7</dep.sis.version>
         <dep.snowflake.version>4.4.0</dep.snowflake.version>
         <dep.swagger.version>2.2.55</dep.swagger.version>
         <dep.takari.version>2.3.4</dep.takari.version>
