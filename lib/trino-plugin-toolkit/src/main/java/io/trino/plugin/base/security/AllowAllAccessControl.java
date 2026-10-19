@@ -118,32 +118,19 @@ public class AllowAllAccessControl
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames) {}
 
     @Deprecated
-    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 
     @Override
     public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch) {}
 
-    @Deprecated
-    @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
-
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch) {}
-
-    @Deprecated
-    @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
     public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
     public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumnNames) {}
-
-    @Deprecated
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumnNames) {}
 
     @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName) {}
@@ -164,7 +151,6 @@ public class AllowAllAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames) {}
 
     @Deprecated
-    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 
     @Override

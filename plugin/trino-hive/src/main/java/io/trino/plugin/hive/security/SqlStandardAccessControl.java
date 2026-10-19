@@ -338,7 +338,6 @@ public class SqlStandardAccessControl
     }
 
     @Deprecated
-    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkCanSelectFromColumns(context, tableName, Optional.empty(), columnNames);
@@ -352,26 +351,12 @@ public class SqlStandardAccessControl
         }
     }
 
-    @Deprecated
-    @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkCanInsertIntoTable(context, tableName, Optional.empty());
-    }
-
     @Override
     public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
         if (!checkTablePermission(context, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString(), branch);
         }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkCanDeleteFromTable(context, tableName, Optional.empty());
     }
 
     @Override
@@ -388,13 +373,6 @@ public class SqlStandardAccessControl
         if (!checkTablePermission(context, tableName, UPDATE, false)) {
             denyUpdateTableColumns(tableName.toString(), branch, updatedColumns);
         }
-    }
-
-    @Deprecated
-    @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
-    {
-        checkCanUpdateTableColumns(context, tableName, Optional.empty(), updatedColumns);
     }
 
     @Override
@@ -441,7 +419,6 @@ public class SqlStandardAccessControl
     }
 
     @Deprecated
-    @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         checkCanCreateViewWithSelectFromColumns(context, tableName, Optional.empty(), columnNames);
