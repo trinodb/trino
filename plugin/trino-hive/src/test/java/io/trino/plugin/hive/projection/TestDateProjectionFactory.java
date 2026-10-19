@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.spi.predicate.Domain;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_FORMAT;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL_UNIT;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -31,8 +33,10 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.time.temporal.ChronoUnit.HOURS;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Timeout.ThreadMode.SEPARATE_THREAD;
 
 class TestDateProjectionFactory
 {
@@ -67,6 +71,38 @@ class TestDateProjectionFactory
     }
 
     @Test
+    void testTimestampWithHoursInterval()
+    {
+        Projection projection = new DateProjection("test", TIMESTAMP_MICROS, ImmutableMap.of(
+                COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd",
+                COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-02-28", "2020-02-29"),
+                COLUMN_PROJECTION_INTERVAL, 6,
+                COLUMN_PROJECTION_INTERVAL_UNIT, HOURS));
+        assertThat(projection.getProjectedValues(Optional.empty())).containsExactly(
+                "2020-02-28 00:00:00",
+                "2020-02-28 06:00:00",
+                "2020-02-28 12:00:00",
+                "2020-02-28 18:00:00",
+                "2020-02-29 00:00:00");
+    }
+
+    @Test
+    void testVarcharWithTimeFields()
+    {
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(
+                COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd HH:mm:ss",
+                COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-02-28 00:00:00", "2020-02-29 00:00:00"),
+                COLUMN_PROJECTION_INTERVAL, 6,
+                COLUMN_PROJECTION_INTERVAL_UNIT, HOURS));
+        assertThat(projection.getProjectedValues(Optional.empty())).containsExactly(
+                "2020-02-28 00:00:00",
+                "2020-02-28 06:00:00",
+                "2020-02-28 12:00:00",
+                "2020-02-28 18:00:00",
+                "2020-02-29 00:00:00");
+    }
+
+    @Test
     void testDateWithHoursInterval()
     {
         Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(
@@ -75,5 +111,17 @@ class TestDateProjectionFactory
                 COLUMN_PROJECTION_INTERVAL_UNIT, HOURS));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("2020-01-01", "2020-01-02", "2020-01-03");
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2020-01-02"))))).containsExactly("2020-01-02");
+    }
+
+    @Test
+    @Timeout(value = 10, threadMode = SEPARATE_THREAD)
+    void testDateWithSecondsInterval()
+    {
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(
+                COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd",
+                COLUMN_PROJECTION_RANGE, ImmutableList.of("1900-01-01", "2100-01-01"),
+                COLUMN_PROJECTION_INTERVAL_UNIT, SECONDS));
+        assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2050-01-01")))))
+                .containsExactly("2050-01-01");
     }
 }
