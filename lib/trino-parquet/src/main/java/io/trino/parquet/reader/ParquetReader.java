@@ -73,6 +73,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -442,8 +443,8 @@ public class ParquetReader
                         };
                         recordSelectionDecision(readMode);
                     }
-                    catch (IOException e) {
-                        throw exceptionTransform.apply(e);
+                    catch (IOException | RuntimeException e) {
+                        throw transformException(e);
                     }
                 }
                 blocks[channel] = block;
@@ -451,6 +452,15 @@ public class ParquetReader
                 retainedSizeInBytes += block.getRetainedSizeInBytes();
             }
             return block;
+        }
+
+        private RuntimeException transformException(Exception exception)
+        {
+            // Page readers cannot throw checked exceptions, so unwrap to let the transform see the original cause
+            if (exception instanceof UncheckedIOException uncheckedIOException) {
+                return exceptionTransform.apply(uncheckedIOException.getCause());
+            }
+            return exceptionTransform.apply(exception);
         }
 
         @Override

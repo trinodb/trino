@@ -21,6 +21,7 @@ import io.trino.parquet.ParquetReaderOptions;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -73,7 +74,7 @@ public final class ChunkedInputStream
             verify(read == length, "expected to read %s bytes but got %s", length, read);
         }
         catch (IOException e) {
-            throw new RuntimeException("Failed to read " + length + " bytes", e);
+            throw new UncheckedIOException("Failed to read " + length + " bytes", e);
         }
         return Slices.wrappedBuffer(bytes);
     }
