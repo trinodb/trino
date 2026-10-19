@@ -316,16 +316,6 @@ public class FunctionMetadata
             return this;
         }
 
-        /**
-         * @deprecated Use {@link #description(String)} with an empty string.
-         */
-        @Deprecated
-        public Builder noDescription()
-        {
-            this.description = "";
-            return this;
-        }
-
         public Builder description(String description)
         {
             requireNonNull(description, "description is null");
