@@ -516,7 +516,7 @@ public abstract class BaseHiveConnectorTest
         String schemaName = "schema_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
-                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
                 .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
