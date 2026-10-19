@@ -1362,7 +1362,7 @@ public abstract class BaseTestOracleTypeMapping
                 onRemoteDatabase(),
                 "test_sdo_geometry",
                 "(id NUMBER, geom MDSYS.SDO_GEOMETRY)",
-                ImmutableList.of("(1, MDSYS.SDO_GEOMETRY(2001, 4326, MDSYS.SDO_POINT_TYPE(1, 2, NULL), NULL, NULL))"))) {
+                ImmutableList.of("1, MDSYS.SDO_GEOMETRY(2001, 4326, MDSYS.SDO_POINT_TYPE(1, 2, NULL), NULL, NULL)"))) {
             assertQuery(
                     session,
                     "SELECT typeof(geom), geom LIKE 'POINT%1%2%' FROM " + table.getName(),

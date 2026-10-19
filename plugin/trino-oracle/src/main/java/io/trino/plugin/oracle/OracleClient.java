@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -665,7 +666,8 @@ public class OracleClient
             Map<String, ParameterizedExpression> columnExpressions,
             Optional<JdbcSplit> split)
     {
-        if (getUnsupportedTypeHandling(session) != CONVERT_TO_VARCHAR) {
+        if (getUnsupportedTypeHandling(session) != CONVERT_TO_VARCHAR ||
+                !(table.getRelationHandle() instanceof JdbcNamedRelationHandle)) {
             return super.prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, split);
         }
         ImmutableMap.Builder<String, ParameterizedExpression> expressions = ImmutableMap.builder();
