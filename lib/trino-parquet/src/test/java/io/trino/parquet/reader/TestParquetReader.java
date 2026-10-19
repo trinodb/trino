@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.Column;
 import io.trino.parquet.DiskRange;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
@@ -283,6 +284,39 @@ public class TestParquetReader
             // Column index should filter at least the first row group
             assertThat(((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
                     .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).rowCount());
+        }
+    }
+
+    @Test
+    public void testLazyBlockReadFailureIsTransformed()
+            throws URISyntaxException, IOException
+    {
+        List<String> columnNames = ImmutableList.of("l_comment");
+        List<Type> types = ImmutableList.of(VARCHAR);
+        // Page size limit is exceeded by every page, so loading the lazy block fails with ParquetCorruptionException
+        ParquetReaderOptions options = ParquetReaderOptions.builder()
+                .withMaxPageReadSize(DataSize.ofBytes(1))
+                .build();
+        File file = new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(new FileParquetDataSource(file, options), Optional.empty());
+
+        try (ParquetReader reader = createParquetReader(
+                new FileParquetDataSource(file, options),
+                parquetMetadata,
+                options,
+                newSimpleAggregatedMemoryContext(),
+                types,
+                columnNames,
+                TupleDomain.all(),
+                false,
+                UTC,
+                exception -> new IllegalStateException("transformed", exception))) {
+            SourcePage page = reader.nextPage();
+            assertThat(page).isNotNull();
+            assertThatThrownBy(() -> page.getBlock(0))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("transformed")
+                    .hasCauseInstanceOf(ParquetCorruptionException.class);
         }
     }
 
