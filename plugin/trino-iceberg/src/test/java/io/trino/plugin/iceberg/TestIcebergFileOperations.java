@@ -764,6 +764,45 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testV3DeleteWithDeletionVector()
+    {
+        String tableName = "test_v3_delete_dv_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('four', 4)", 1);
+
+        // Partially deletes a data file, so a deletion vector is written
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'two'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 3)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .add(new FileOperation(DELETE, "OutputFile.create"))
+                        .build());
+
+        // Fully deletes a data file, so the data file is removed
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE key = 'four'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
+                        .add(new FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 10)
+                        .add(new FileOperation(MANIFEST, "OutputFile.create"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testRemoveOrphanFiles()
     {
         String tableName = "test_remove_orphan_files_" + randomNameSuffix();

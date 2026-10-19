@@ -3558,7 +3558,7 @@ public class IcebergMetadata
                                 partitionSpec))
                                 : Optional.empty();
                         deletionVectorInfos.add(new DeletionVectorInfo(
-                                task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")).path(),
+                                task.referencedDataFile().orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing referencedDataFile")),
                                 task.serializedDeletionVector()
                                         .map(Slices::wrappedBuffer)
                                         .orElseThrow(() -> new VerifyException("v3 POSITION_DELETES task missing serializedDeletionVector")),

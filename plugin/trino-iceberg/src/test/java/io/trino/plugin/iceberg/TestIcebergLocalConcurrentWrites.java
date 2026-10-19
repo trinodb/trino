@@ -1217,14 +1217,22 @@ final class TestIcebergLocalConcurrentWrites
     }
 
     @Test
-    public void testOptimizeDuringWriteOperations()
+    public void testOptimizeDuringWriteOperationsV2()
             throws Exception
     {
-        runOptimizeDuringWriteOperations(true);
-        runOptimizeDuringWriteOperations(false);
+        runOptimizeDuringWriteOperations(true, 2);
+        runOptimizeDuringWriteOperations(false, 2);
     }
 
-    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
+    @Test
+    public void testOptimizeDuringWriteOperationsV3()
+            throws Exception
+    {
+        runOptimizeDuringWriteOperations(true, 3);
+        runOptimizeDuringWriteOperations(false, 3);
+    }
+
+    private void runOptimizeDuringWriteOperations(boolean useSmallFiles, int formatVersion)
             throws Exception
     {
         int threads = 5;
@@ -1241,7 +1249,7 @@ final class TestIcebergLocalConcurrentWrites
 
         try (TestTable table = newTrinoTable(
                 "test_optimize_during_write_operations",
-                "(int_col INT)")) {
+                "(int_col INT) WITH (format_version = " + formatVersion + ")")) {
             String tableName = table.getName();
 
             // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
