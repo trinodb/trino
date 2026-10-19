@@ -328,7 +328,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, new SchemaTableName("aliceschema", "test"), Map.of()));
         assertDenied(() -> accessControl.checkCanCreateTable(CHARLIE, testTable, Map.of()));
 
-        accessControl.checkCanCreateViewWithSelectFromColumns(BOB, bobTable, ImmutableSet.of());
+        accessControl.checkCanCreateViewWithSelectFromColumns(BOB, bobTable, Optional.empty(), ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, bobTable);
         accessControl.checkCanTruncateTable(ADMIN, bobTable);
 
@@ -361,7 +361,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()), "Cannot select from table secret.secret");
         assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), Optional.empty(), ImmutableSet.of()), "Cannot select from table secret.secret");
         assertDenied(() -> accessControl.checkCanSelectFromColumns(CHARLIE, bobTable, Optional.empty(), ImmutableSet.of("private", "public")), "Cannot select from columns [private] in table or view bobschema.bobtable");
-        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, Optional.empty(), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanRenameMaterializedView(BOB, new SchemaTableName("bobschema", "bobmaterializedview"), new SchemaTableName("bobschema", "newbobaterializedview")));
