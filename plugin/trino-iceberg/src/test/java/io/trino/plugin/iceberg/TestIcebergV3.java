@@ -90,6 +90,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.geometryType;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1478,10 +1479,11 @@ public class TestIcebergV3
         }
     }
 
-    @Test
-    void testFullyDeletedDataFileIsDroppedInsteadOfWritingDeletionVector()
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testFullyDeletedDataFileIsDroppedInsteadOfWritingDeletionVector(IcebergFileFormat format)
     {
-        try (TestTable table = newTrinoTable("test_full_delete_v3", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+        try (TestTable table = newTrinoTable("test_full_delete_v3", "(id INTEGER) WITH (format = '%s', format_version = 3)".formatted(format))) {
             // First file: rows 1..100. Second file: rows 101..200.
             assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(101, 200)) t(x)", 100);
@@ -1565,6 +1567,107 @@ public class TestIcebergV3
             assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
                     .matches("VALUES (BIGINT '0')");
         }
+    }
+
+    @Test
+    void testFullyDeletedDataFileUnderPreviousPartitionSpecIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_previous_spec_v3", "(id INTEGER, part INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['bucket(id, 4)']");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            long droppedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0 AND partition.part = 0");
+
+            // Delete every row of the previous spec's files for part = 0
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 100 AND part = 0", 50);
+            assertThat(query("SELECT count(*), count_if(id <= 100) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '150', BIGINT '50')");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '%s')".formatted(dataFiles - droppedDataFiles));
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithTemporalPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_day_partition_v3", "(id INTEGER, ts TIMESTAMP(6)) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['day(ts)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, TIMESTAMP '2026-01-01 01:00:00'), (2, TIMESTAMP '2026-01-01 02:00:00')", 2);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, TIMESTAMP '2026-01-02 01:00:00'), (4, TIMESTAMP '2026-01-02 02:00:00')", 2);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertThat(query("SELECT id FROM " + table.getName()))
+                    .matches("VALUES 3, 4");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithBucketPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_bucket_partition_v3", "(id INTEGER, grp INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['bucket(id, 4)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 1 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            long removedDataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, 2 FROM UNNEST(sequence(101, 200)) t(x)", 100);
+            long dataFiles = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0");
+
+            // Every file of the first insert is fully deleted, in each bucket
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE grp = 1", 100);
+            assertThat(query("SELECT count(*), min(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '101')");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '%s')".formatted(dataFiles - removedDataFiles));
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithNullPartitionIsDropped()
+    {
+        try (TestTable table = newTrinoTable("test_full_delete_null_partition_v3", "(id INTEGER, part INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, NULL), (2, NULL), (3, 1), (4, 1)", 4);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id <= 2", 2);
+            assertThat(query("SELECT id FROM " + table.getName()))
+                    .matches("VALUES 3, 4");
+
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 0"))
+                    .matches("VALUES (BIGINT '1')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+        }
+    }
+
+    @Test
+    void testFullyDeletedDataFileWithMultipleSplitsIsDropped()
+    {
+        String tableName = "test_full_delete_multiple_splits_v3_" + randomNameSuffix();
+        assertUpdate(
+                Session.builder(getSession()).setCatalogSessionProperty("iceberg", "parquet_writer_row_group_max_row_count", "1000").build(),
+                "CREATE TABLE " + tableName + " WITH (format = 'PARQUET', format_version = 3) AS SELECT x AS id FROM UNNEST(sequence(1, 5000)) t(x)",
+                5000);
+        // Each row group gets its own split, and the coordinator merges the deletion vectors of all splits
+        // before checking the record count
+        loadTable(tableName).updateProperties().set(SPLIT_SIZE, "100").commit();
+        assertThat(loadTable(tableName).newScan().planTasks()).hasSizeGreaterThan(1);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE id > 0", 5000);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 0"))
+                .matches("VALUES (BIGINT '0')");
+        assertThat(query("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = 1"))
+                .matches("VALUES (BIGINT '0')");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
