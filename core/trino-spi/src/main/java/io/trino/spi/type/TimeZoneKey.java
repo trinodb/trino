@@ -169,7 +169,7 @@ public final class TimeZoneKey
     {
         requireNonNull(zoneId, "zoneId is null");
         if (zoneId.isEmpty()) {
-            throw new IllegalArgumentException("Zone id is an empty string");
+            throw new TimeZoneNotSupportedException(zoneId);
         }
 
         TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId);
