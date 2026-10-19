@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -58,7 +57,6 @@ import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import jakarta.annotation.Nullable;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -96,6 +94,7 @@ import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.isClassDumpEnabled;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Objects.requireNonNull;
@@ -251,7 +250,7 @@ public class PageFunctionCompiler
             throw e;
         }
         catch (Exception e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+            if (isCompilerLimitExceeded(e)) {
                 throw new TrinoException(
                         QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Failed to execute query; there may be too many columns used or expressions are too complex",
@@ -479,7 +478,7 @@ public class PageFunctionCompiler
             throw e;
         }
         catch (Exception e) {
-            if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+            if (isCompilerLimitExceeded(e)) {
                 throw new TrinoException(
                         QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",
