@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ContiguousSet;
@@ -285,7 +284,6 @@ import io.trino.sql.planner.rowpattern.MatchNumberValuePointer;
 import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.type.BlockTypeOperators;
-import org.objectweb.asm.MethodTooLargeException;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -393,6 +391,7 @@ import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.MoreLists.mappedCopy;
 import static io.trino.util.MoreMath.previousPowerOfTwo;
 import static io.trino.util.SpatialJoinUtils.ST_CONTAINS;
@@ -2163,7 +2162,7 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+                if (isCompilerLimitExceeded(e)) {
                     throw new TrinoException(
                             QUERY_EXCEEDED_COMPILER_LIMIT,
                             "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
