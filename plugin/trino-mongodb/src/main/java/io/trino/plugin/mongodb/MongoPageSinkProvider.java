@@ -32,12 +32,15 @@ public class MongoPageSinkProvider
 {
     private final MongoSession mongoSession;
     private final String implicitPrefix;
+    private final boolean insertOrdered;
 
     @Inject
+    @SuppressWarnings("deprecation")
     public MongoPageSinkProvider(MongoClientConfig config, MongoSession mongoSession)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
         this.implicitPrefix = config.getImplicitRowFieldPrefix();
+        this.insertOrdered = config.isInsertOrdered();
     }
 
     @Override
@@ -49,7 +52,7 @@ public class MongoPageSinkProvider
             ConnectorPageSinkId pageSinkId)
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
-        return new MongoPageSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId);
+        return new MongoPageSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId, insertOrdered);
     }
 
     @Override
@@ -61,6 +64,6 @@ public class MongoPageSinkProvider
             ConnectorPageSinkId pageSinkId)
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
-        return new MongoPageSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId);
+        return new MongoPageSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId, insertOrdered);
     }
 }
