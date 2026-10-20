@@ -16,13 +16,11 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.inject.Inject;
-import io.airlift.json.JsonCodec;
 import io.trino.filesystem.s3.S3RemoteSignerProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTClient;
-import org.apache.iceberg.rest.RESTUtil;
 import org.apache.iceberg.rest.auth.AuthConfig;
 import org.apache.iceberg.rest.auth.AuthSession;
 import org.apache.iceberg.rest.auth.AuthSessionCache;
@@ -32,14 +30,11 @@ import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.hash.Hashing.sha256;
-import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningContext.EXTRA_CREDENTIALS_PROPERTY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -51,8 +46,6 @@ import static org.apache.iceberg.util.ThreadPools.authRefreshPool;
 public final class IcebergRestCatalogS3RemoteSignerProvider
         implements S3RemoteSignerProvider, AutoCloseable
 {
-    private static final JsonCodec<Map<String, String>> AUTHENTICATION_CODEC = mapJsonCodec(String.class, String.class);
-
     private final HTTPClient httpClient;
     private final AuthSessionCache authSessions;
 
@@ -82,19 +75,19 @@ public final class IcebergRestCatalogS3RemoteSignerProvider
         }
         IcebergRestCatalogS3RemoteSigningContext context = IcebergRestCatalogS3RemoteSigningContext.fromJson(contextJson);
         // A token can be shared by tables with different refresh credentials or scopes
-        String sessionKey = sha256().hashString(AUTHENTICATION_CODEC.toJson(new TreeMap<>(context.authentication())), UTF_8).toString();
+        String sessionKey = sha256().hashString(context.authentication().toJson(), UTF_8).toString();
         return Optional.of(new IcebergS3RemoteSigner(
                 httpClient,
                 () -> authSessions.cachedSession(sessionKey, _ -> createAuthSession(context.authentication())),
                 context));
     }
 
-    private OAuth2Util.AuthSession createAuthSession(Map<String, String> properties)
+    private OAuth2Util.AuthSession createAuthSession(IcebergRestCatalogS3RemoteSigningAuthentication authentication)
     {
-        AuthConfig config = AuthConfig.fromProperties(properties);
+        AuthConfig config = authentication.toAuthConfig();
         OAuth2Util.AuthSession parent = new OAuth2Util.AuthSession(OAuth2Util.authHeaders(config.token()), config);
         ScheduledExecutorService executor = config.keepRefreshed() ? authRefreshPool() : null;
-        RESTClient refreshClient = refreshClient(properties);
+        RESTClient refreshClient = httpClient.withAuthSession(new OAuth2Util.AuthSession(authentication.headers(), AuthConfig.fromProperties(ImmutableMap.of())));
         if (config.token() != null) {
             return OAuth2Util.AuthSession.fromAccessToken(refreshClient, executor, config.token(), config.expiresAtMillis(), parent);
         }
@@ -102,14 +95,6 @@ public final class IcebergRestCatalogS3RemoteSignerProvider
             return OAuth2Util.AuthSession.fromCredential(refreshClient, executor, config.credential(), parent);
         }
         return parent;
-    }
-
-    private RESTClient refreshClient(Map<String, String> properties)
-    {
-        Map<String, String> catalogHeaders = new HashMap<>(RESTUtil.configHeaders(properties));
-        // Token requests must not inherit a catalog or table bearer token.
-        catalogHeaders.keySet().removeIf("Authorization"::equalsIgnoreCase);
-        return httpClient.withAuthSession(new OAuth2Util.AuthSession(catalogHeaders, AuthConfig.fromProperties(ImmutableMap.of())));
     }
 
     @PreDestroy

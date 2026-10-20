@@ -59,9 +59,8 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningAuthentication.AUTHENTICATION_PROPERTY;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningContext.EXTRA_CREDENTIALS_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.encodeAuthenticationProperties;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.list;
@@ -645,7 +644,7 @@ final class TestIcebergRestCatalogS3RemoteSignerProvider
             return ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
                     .putAll(tableProperties)
-                    .put(AUTHENTICATION_PROPERTY, encodeAuthenticationProperties(catalogProperties, tableProperties, catalogSession))
+                    .put(AUTHENTICATION_PROPERTY, IcebergRestCatalogS3RemoteSigningAuthentication.create(catalogProperties, tableProperties, catalogSession).toJson())
                     .buildKeepingLast();
         }
 

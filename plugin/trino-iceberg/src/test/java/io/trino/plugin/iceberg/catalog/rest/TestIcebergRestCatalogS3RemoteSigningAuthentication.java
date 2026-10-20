@@ -74,9 +74,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningAuthentication.AUTHENTICATION_PROPERTY;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningContext.EXTRA_CREDENTIALS_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.decodeAuthenticationProperties;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -107,13 +106,14 @@ final class TestIcebergRestCatalogS3RemoteSigningAuthentication
                     "unrelated-option", "value",
                     S3FileIOProperties.SECRET_ACCESS_KEY, "unused-storage-secret"));
             Table table = server.loadTable("table");
-            Map<String, String> authentication = decodeAuthenticationProperties(table.io().properties().get(AUTHENTICATION_PROPERTY));
-            assertThat(authentication)
-                    .containsEntry(CatalogProperties.URI, server.uri("/catalog").toString())
-                    .containsEntry(OAuth2Properties.CREDENTIAL, "catalog-client:catalog-secret")
-                    .containsEntry(OAuth2Properties.AUDIENCE, "signer")
-                    .containsEntry(OAuth2Properties.RESOURCE, "storage")
-                    .doesNotContainKeys("unrelated-option", S3FileIOProperties.SECRET_ACCESS_KEY, S3FileIOProperties.REMOTE_SIGNING_ENABLED);
+            String authenticationJson = table.io().properties().get(AUTHENTICATION_PROPERTY);
+            assertThat(authenticationJson).doesNotContain("unrelated-option", "unused-storage-secret", S3FileIOProperties.REMOTE_SIGNING_ENABLED);
+            IcebergRestCatalogS3RemoteSigningAuthentication authentication = IcebergRestCatalogS3RemoteSigningAuthentication.fromJson(authenticationJson);
+            assertThat(authentication.credential()).contains("catalog-client:catalog-secret");
+            assertThat(authentication.oauth2ServerUri()).isEqualTo(server.uri("/catalog/v1/oauth/tokens").toString());
+            assertThat(authentication.audience()).contains("signer");
+            assertThat(authentication.resource()).contains("storage");
+            assertThat(authentication.headers()).containsEntry("x-signer-context", "catalog");
             server.clearRequests();
 
             assertThat(server.sign(table).request().firstMatchingHeader("Authorization")).contains("signed");
@@ -352,7 +352,7 @@ final class TestIcebergRestCatalogS3RemoteSigningAuthentication
             }
             server.initializeCatalog(properties.buildOrThrow());
             Table table = server.loadTable("table");
-            AuthConfig authentication = AuthConfig.fromProperties(decodeAuthenticationProperties(table.io().properties().get(AUTHENTICATION_PROPERTY)));
+            AuthConfig authentication = IcebergRestCatalogS3RemoteSigningAuthentication.fromJson(table.io().properties().get(AUTHENTICATION_PROPERTY)).toAuthConfig();
             assertThat(authentication.keepRefreshed()).isTrue();
             assertThat(authentication.exchangeEnabled()).isTrue();
             // Iceberg schedules token refresh only when an expiry is known.
@@ -363,6 +363,26 @@ final class TestIcebergRestCatalogS3RemoteSigningAuthentication
             assertThat(server.servlet.tokenRequests).isEmpty();
             assertThat(server.servlet.signingCalls).extracting(SigningCall::authorization).containsExactly("Bearer opaque-catalog-token");
         }
+    }
+
+    @Test
+    void testConfiguredTokenLifetimeAppliesWithoutExpiryClaim()
+    {
+        Map<String, String> catalogProperties = ImmutableMap.of(CatalogProperties.URI, "http://localhost/catalog");
+        long start = System.currentTimeMillis();
+        AuthConfig opaqueToken = IcebergRestCatalogS3RemoteSigningAuthentication.create(
+                        catalogProperties,
+                        ImmutableMap.of(OAuth2Properties.TOKEN, "opaque-table-token", OAuth2Properties.TOKEN_EXPIRES_IN_MS, "60000"),
+                        AuthSession.EMPTY)
+                .toAuthConfig();
+        assertThat(opaqueToken.expiresAtMillis()).isBetween(start + 60_000, System.currentTimeMillis() + 60_000);
+
+        AuthConfig tokenWithExpiryClaim = IcebergRestCatalogS3RemoteSigningAuthentication.create(
+                        catalogProperties,
+                        ImmutableMap.of(OAuth2Properties.TOKEN, EXPIRED_TOKEN, OAuth2Properties.TOKEN_EXPIRES_IN_MS, "60000"),
+                        AuthSession.EMPTY)
+                .toAuthConfig();
+        assertThat(tokenWithExpiryClaim.expiresAtMillis()).isEqualTo(1000);
     }
 
     @ParameterizedTest

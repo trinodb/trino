@@ -33,6 +33,8 @@ import org.apache.iceberg.aws.s3.S3FileIOProperties;
 import org.apache.iceberg.azure.AzureProperties;
 import org.apache.iceberg.gcp.GCPProperties;
 import org.apache.iceberg.rest.RESTCatalogProperties;
+import org.apache.iceberg.rest.auth.AuthSession;
+import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -62,6 +64,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestIcebergRestCatalogFileSystemFactory
 {
+    private static final IcebergRestCatalogS3RemoteSigningAuthentication TABLE_TOKEN_AUTHENTICATION = IcebergRestCatalogS3RemoteSigningAuthentication.create(
+            ImmutableMap.of(CatalogProperties.URI, "http://localhost"),
+            ImmutableMap.of(OAuth2Properties.TOKEN, "table-token"),
+            AuthSession.EMPTY);
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testS3RemoteSigningOnlyForwardsSignerProperties(boolean onWorker)
@@ -78,7 +85,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                 CatalogProperties.URI, "http://localhost",
                 RESTCatalogProperties.REMOTE_SIGNING_ENDPOINT, "v1/namespaces/test/tables/table/sign",
                 RESTCatalogProperties.REMOTE_SIGNING_CONFIG, "{\"properties\":{\"key\":\"value\"}}",
-                IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY, "{\"token\":\"table-token\"}",
+                IcebergRestCatalogS3RemoteSigningAuthentication.AUTHENTICATION_PROPERTY, TABLE_TOKEN_AUTHENTICATION.toJson(),
                 "header.X-Signer-Context", "table");
         Map<String, String> fileIoProperties = ImmutableMap.<String, String>builder()
                 .putAll(signingProperties)
@@ -101,7 +108,7 @@ final class TestIcebergRestCatalogFileSystemFactory
                         URI.create("http://localhost/v1/namespaces/test/tables/table/sign"),
                         ImmutableMap.of("X-Signer-Context", ImmutableList.of("table")),
                         ImmutableMap.of("key", "value"),
-                        ImmutableMap.of("token", "table-token")));
+                        TABLE_TOKEN_AUTHENTICATION));
     }
 
     @Test
@@ -879,7 +886,7 @@ final class TestIcebergRestCatalogFileSystemFactory
         return ImmutableMap.of(
                 CatalogProperties.URI, "http://localhost",
                 RESTCatalogProperties.REMOTE_SIGNING_ENDPOINT, "v1/namespaces/test/tables/table/sign",
-                IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY, "{\"token\":\"table-token\"}",
+                IcebergRestCatalogS3RemoteSigningAuthentication.AUTHENTICATION_PROPERTY, TABLE_TOKEN_AUTHENTICATION.toJson(),
                 S3FileIOProperties.REMOTE_SIGNING_ENABLED, "true");
     }
 

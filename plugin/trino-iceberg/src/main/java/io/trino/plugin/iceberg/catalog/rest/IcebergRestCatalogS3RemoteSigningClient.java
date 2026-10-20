@@ -29,8 +29,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.AUTHENTICATION_PROPERTY;
-import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningProperties.encodeAuthenticationProperties;
+import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogS3RemoteSigningAuthentication.AUTHENTICATION_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
 final class IcebergRestCatalogS3RemoteSigningClient
@@ -181,7 +180,7 @@ final class IcebergRestCatalogS3RemoteSigningClient
         return responseType.cast(LoadTableResponse.builder()
                 .withTableMetadata(table.tableMetadata())
                 .addAllConfig(table.config())
-                .addConfig(AUTHENTICATION_PROPERTY, encodeAuthenticationProperties(catalogProperties, table.config(), authSession))
+                .addConfig(AUTHENTICATION_PROPERTY, IcebergRestCatalogS3RemoteSigningAuthentication.create(catalogProperties, table.config(), authSession).toJson())
                 .addAllCredentials(table.credentials())
                 .withRemoteSigningConfig(table.remoteSigningConfig())
                 .withLabels(table.labels())
