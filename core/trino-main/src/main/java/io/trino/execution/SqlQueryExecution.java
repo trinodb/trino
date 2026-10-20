@@ -707,10 +707,17 @@ public class SqlQueryExecution
     @Override
     public ResultQueryInfo getResultQueryInfo()
     {
+        // read state before acquiring reference to scheduler, because planning
+        // sets scheduler before the query starts.
+        QueryState state = stateMachine.getQueryState();
+        // acquire reference to scheduler before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears scheduler when
+        // the query finishes.
         Optional<QueryScheduler> scheduler = Optional.ofNullable(queryScheduler.get());
         return stateMachine.getFinalQueryInfo()
                 .map(ResultQueryInfo::new)
                 .orElseGet(() -> stateMachine.updateResultQueryInfo(
+                        state,
                         scheduler.map(QueryScheduler::getBasicStagesInfo),
                         () -> scheduler.map(QueryScheduler::getStagesInfo)));
     }
