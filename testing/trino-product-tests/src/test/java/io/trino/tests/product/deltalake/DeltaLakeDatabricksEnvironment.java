@@ -136,7 +136,7 @@ public class DeltaLakeDatabricksEnvironment
 
     protected String databricksJdbcUrl()
     {
-        return requireEnv("DATABRICKS_143_JDBC_URL");
+        return requireEnv("DATABRICKS_154_JDBC_URL");
     }
 
     protected final String databricksLogin()
