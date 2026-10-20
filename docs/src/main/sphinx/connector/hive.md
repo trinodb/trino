@@ -252,7 +252,7 @@ Hive connector documentation.
     tables which can be inefficient when writing to object stores like S3.
   - `true`
 * - `hive.table-local-staging-directory-enabled`
-  - Stage ordinary non-transactional inserts inside the table at
+  - Stage ordinary non-transactional inserts and managed CTAS inside the table at
     `<table>/.hive-staging/<operation-id>/`, with partition names beneath
     this operation directory. Requires
     `hive.temporary-staging-directory-enabled` and filesystem support for
@@ -261,7 +261,8 @@ Hive connector documentation.
     custom locations, including locations on another filesystem. Append file
     promotion keeps target roots in place; new partition directories can be
     promoted within the table boundary.
-    Managed CTAS with table-local staging is unsupported.
+    Unpartitioned managed CTAS promotes reported files individually; partitioned
+    managed CTAS promotes partition directories within the unchanged table root.
     Actual overwrite operations in this mode are unsupported. Setting
     `insert_existing_partitions_behavior` to `OVERWRITE` still permits inserting
     into a new partition; overwriting an existing partition or an unpartitioned
@@ -372,6 +373,15 @@ rollback rely on unique query filenames. This mode does not serialize writers
 or fence other catalogs or engines that move target roots or replace the same
 files. A changed target location detected during finishing is rejected rather
 than promoting files across the original boundary.
+
+Managed CTAS allocates staging inside a previously absent table root. In-process
+rollback removes reported promotion destinations and query-created directories
+only when empty, preserving unrelated files and other staging operations. A
+coordinator crash can leave the table root, staging, or partially promoted files
+without table metadata. Because CTAS rejects an existing target directory, these
+leftovers can block retry. Verify ownership and operation liveness before manual
+cleanup; the presence of `.hive-staging` does not authorize reclaiming a table
+root. Local staging does not add durable crash recovery or cross-engine fencing.
 
 (hive-file-system-configuration)=
 ### File system access configuration

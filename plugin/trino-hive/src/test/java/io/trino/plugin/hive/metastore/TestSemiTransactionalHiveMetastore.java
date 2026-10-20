@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
@@ -31,11 +32,13 @@ import io.trino.metastore.HiveBasicStatistics;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveLocationService;
 import io.trino.plugin.hive.LocationHandle;
+import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.UpdateStatisticsBatch;
@@ -81,8 +84,10 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
@@ -831,6 +836,191 @@ final class TestSemiTransactionalHiveMetastore
         assertThatThrownBy(() -> boundaryFileSystem.renameFile(TABLE_LOCATION.appendPath("data"), nested.appendPath("data"))).isInstanceOf(IOException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalCtas(boolean partitioned)
+            throws IOException
+    {
+        boundaryFileSystem.enforceBoundaries = true;
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(partitioned, List.of(file));
+        Location source = partitioned ? staging.appendPath("ds=3") : staging;
+        Location target = partitioned ? CTAS_LOCATION.appendPath("ds=3") : CTAS_LOCATION;
+        writeFile(source.appendPath(file));
+        writeFile(CTAS_LOCATION.appendPath("unrelated"));
+        Location other = CTAS_LOCATION.appendPath(".hive-staging/other-operation/data");
+        writeFile(other);
+        if (partitioned) {
+            addCtasPartition(source, List.of(file));
+        }
+        transactionalMetastore.commit();
+        assertThat(path(target.appendPath(file))).exists();
+        assertThat(path(CTAS_LOCATION.appendPath("unrelated"))).exists();
+        assertThat(path(other)).exists();
+        assertThat(path(staging)).doesNotExist();
+        Table table = metastore.getTable(TABLE.getSchemaName(), "ctas_table").orElseThrow();
+        assertThat(table.getTableType()).isEqualTo(MANAGED_TABLE.name());
+        if (partitioned) {
+            assertThat(boundaryFileSystem.directoryRenames).containsExactly(new FileRename(source, target));
+            assertThat(boundaryFileSystem.renames).isEmpty();
+            assertThat(metastore.getPartition(table, List.of("3"))).isPresent();
+        }
+        else {
+            assertThat(boundaryFileSystem.renames).containsExactly(new FileRename(source.appendPath(file), target.appendPath(file)));
+            assertThat(boundaryFileSystem.directoryRenames).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalEmptyCtas(boolean partitioned)
+    {
+        boundaryFileSystem.enforceBoundaries = true;
+        Location staging = prepareLocalCtas(partitioned, List.of());
+        transactionalMetastore.commit();
+        assertThat(path(CTAS_LOCATION)).isDirectory();
+        assertThat(path(staging)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isPresent();
+        assertThat(boundaryFileSystem.renames).isEmpty();
+        assertThat(boundaryFileSystem.directoryRenames).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalCtasRollbackAndRetry(boolean partitioned)
+            throws IOException
+    {
+        Location staging = prepareLocalCtas(partitioned, List.of());
+        writeFile(staging.appendPath("ds=3/" + SESSION.getQueryId() + "_unreported"));
+        transactionalMetastore.rollback();
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+        beginTransaction();
+        prepareLocalCtas(partitioned, List.of());
+        transactionalMetastore.commit();
+        assertThat(path(CTAS_LOCATION)).isDirectory();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isPresent();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalCtasPromotionFailure(boolean partitioned)
+            throws IOException
+    {
+        boundaryFileSystem.enforceBoundaries = true;
+        boundaryFileSystem.failAfterRename = !partitioned;
+        boundaryFileSystem.failVerificationAfterRename = !partitioned;
+        boundaryFileSystem.failAfterDirectoryRename = partitioned;
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(partitioned, List.of(file));
+        Location source = partitioned ? staging.appendPath("ds=3") : staging;
+        writeFile(source.appendPath(file));
+        if (partitioned) {
+            addCtasPartition(source, List.of(file));
+        }
+        assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+        boundaryFileSystem.failAfterDirectoryRename = false;
+        beginTransaction();
+        prepareLocalCtas(partitioned, List.of());
+        transactionalMetastore.commit();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isPresent();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalCtasMetadataFailure(boolean partitioned)
+            throws IOException
+    {
+        boundaryFileSystem.enforceBoundaries = true;
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(partitioned, List.of(file));
+        Location source = partitioned ? staging.appendPath("ds=3") : staging;
+        writeFile(source.appendPath(file));
+        if (partitioned) {
+            addCtasPartition(source, List.of(file));
+        }
+        metastore.failAfterNextUpdate = true;
+        assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+        beginTransaction();
+        prepareLocalCtas(partitioned, List.of());
+        transactionalMetastore.commit();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isPresent();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalEmptyCtasCreateFailure(boolean partitioned)
+    {
+        prepareLocalCtas(partitioned, List.of());
+        metastore.failNextTableCreate = true;
+        assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+        beginTransaction();
+        prepareLocalCtas(partitioned, List.of());
+        transactionalMetastore.commit();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isPresent();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalCtasFailurePreservesUnrelatedFiles(boolean partitioned)
+            throws IOException
+    {
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(partitioned, List.of(file));
+        Location source = partitioned ? staging.appendPath("ds=3") : staging;
+        writeFile(source.appendPath(file));
+        if (partitioned) {
+            addCtasPartition(source, List.of(file));
+        }
+        Location unrelated = CTAS_LOCATION.appendPath("unrelated");
+        writeFile(unrelated);
+        Location otherStaging = CTAS_LOCATION.appendPath(".hive-staging/other-operation");
+        boundaryFileSystem.createDirectory(otherStaging);
+        metastore.failAfterNextUpdate = true;
+        assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+        assertThat(path(unrelated)).exists();
+        assertThat(path(otherStaging)).isDirectory();
+        assertThat(path(staging)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+    }
+
+    @Test
+    void testTableLocalCtasRollbackBeforeWriteDeclaration()
+    {
+        HiveLocationService service = new HiveLocationService(_ -> boundaryFileSystem, new HiveConfig().setTableLocalStagingDirectoryEnabled(true));
+        service.forNewTableAsSelect(transactionalMetastore, SESSION, TABLE.getSchemaName(), "ctas_table", Optional.empty(), false);
+        transactionalMetastore.rollback();
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+    }
+
+    @Test
+    void testRollbackCleansInsertAndCtasBeforeFragmentsArrive()
+            throws IOException
+    {
+        Location insertStaging = declareLocalWrite(TABLE, TABLE_LOCATION);
+        writeFile(insertStaging.appendPath(SESSION.getQueryId() + "_unreported"));
+        Location existing = TABLE_LOCATION.appendPath("existing");
+        writeFile(existing);
+        Location otherStaging = TABLE_LOCATION.appendPath(".hive-staging/other-operation/data");
+        writeFile(otherStaging);
+        HiveLocationService service = new HiveLocationService(_ -> boundaryFileSystem, new HiveConfig().setTableLocalStagingDirectoryEnabled(true));
+        LocationHandle ctas = service.forNewTableAsSelect(transactionalMetastore, SESSION, TABLE.getSchemaName(), "ctas_table", Optional.empty(), false);
+        writeFile(service.getQueryWriteInfo(ctas).writePath().appendPath(SESSION.getQueryId() + "_unreported"));
+
+        transactionalMetastore.rollback();
+
+        assertThat(path(insertStaging)).doesNotExist();
+        assertThat(path(CTAS_LOCATION)).doesNotExist();
+        assertThat(path(existing)).exists();
+        assertThat(path(otherStaging)).exists();
+    }
+
     @Test
     void testCtasLocationMasterSwitchAndGlobalMode()
     {
@@ -840,10 +1030,44 @@ final class TestSemiTransactionalHiveMetastore
             assertThat(handle.getWriteMode()).isEqualTo(config.isTemporaryStagingDirectoryEnabled() ? STAGE_AND_MOVE_TO_TARGET_DIRECTORY : DIRECT_TO_TARGET_NEW_DIRECTORY);
             assertThat(handle.getStagingOperationId()).isEmpty();
         }
-        HiveLocationService service = new HiveLocationService(_ -> boundaryFileSystem, new HiveConfig().setTableLocalStagingDirectoryEnabled(true));
-        assertTrinoExceptionThrownBy(() -> service.forNewTableAsSelect(transactionalMetastore, SESSION, TABLE.getSchemaName(), "ctas_table", Optional.empty(), false))
-                .hasMessage("Managed CTAS is not supported with table-local staging");
-        assertThat(path(CTAS_LOCATION)).doesNotExist();
+    }
+
+    @Test
+    void testCtasUnsupportedStagingFileSystem()
+    {
+        metastore.createDatabase(Database.builder()
+                .setDatabaseName("memory_database")
+                .setLocation(Optional.of("memory:///warehouse"))
+                .setOwnerName(Optional.empty())
+                .setOwnerType(Optional.empty())
+                .build());
+        HiveLocationService service = new HiveLocationService(new MemoryFileSystemFactory(), new HiveConfig().setTableLocalStagingDirectoryEnabled(true));
+        LocationHandle handle = service.forNewTableAsSelect(transactionalMetastore, SESSION, "memory_database", "table", Optional.empty(), false);
+        assertThat(handle.getWriteMode()).isEqualTo(DIRECT_TO_TARGET_NEW_DIRECTORY);
+        assertThat(handle.getStagingOperationId()).isEmpty();
+    }
+
+    @Test
+    void testTableLocalCtasPartitionMetadataFailurePreservesUnrelatedFiles()
+            throws IOException
+    {
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(true, List.of(file));
+        writeFile(staging.appendPath("ds=3").appendPath(file));
+        addCtasPartition(staging.appendPath("ds=3"), List.of(file));
+        writeFile(CTAS_LOCATION.appendPath("unrelated"));
+        Location other = CTAS_LOCATION.appendPath(".hive-staging/other-operation/data");
+        writeFile(other);
+        metastore.failNextPartitionAdd = true;
+        assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+        assertThat(path(CTAS_LOCATION.appendPath("ds=3"))).doesNotExist();
+        assertThat(path(CTAS_LOCATION.appendPath("unrelated"))).exists();
+        assertThat(path(other)).exists();
+        assertThat(path(staging)).doesNotExist();
+        assertThat(metastore.getTable(TABLE.getSchemaName(), "ctas_table")).isEmpty();
+        beginTransaction();
+        assertTrinoExceptionThrownBy(() -> prepareLocalCtas(true, List.of()))
+                .hasMessageContaining("already exists");
     }
 
     @ParameterizedTest
@@ -860,12 +1084,78 @@ final class TestSemiTransactionalHiveMetastore
         transactionalMetastore.rollback();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testTableLocalNestedPartitionCtas(boolean failMetadata)
+            throws IOException
+    {
+        boundaryFileSystem.enforceBoundaries = true;
+        String file = SESSION.getQueryId() + "_new";
+        Location staging = prepareLocalCtas(List.of("ds", "hour"), List.of(file));
+        Location source = staging.appendPath("ds=3/hour=4");
+        Location target = CTAS_LOCATION.appendPath("ds=3/hour=4");
+        writeFile(source.appendPath(file));
+        Partition partition = Partition.builder(newLocalPartition())
+                .setTableName("ctas_table")
+                .setValues(List.of("3", "4"))
+                .withStorage(storage -> storage.setLocation(target.toString()))
+                .build();
+        transactionalMetastore.addPartition(SESSION, TABLE.getSchemaName(), "ctas_table", partition, source, Optional.of(List.of(file)), STATISTICS_UPDATE, false);
+        if (failMetadata) {
+            metastore.failAfterNextUpdate = true;
+            assertThatThrownBy(transactionalMetastore::commit).isInstanceOf(TrinoException.class);
+            assertThat(path(CTAS_LOCATION)).doesNotExist();
+        }
+        else {
+            transactionalMetastore.commit();
+            assertThat(path(target.appendPath(file))).exists();
+        }
+        assertThat(boundaryFileSystem.directoryRenames).containsExactly(new FileRename(source, target));
+    }
+
+    private Location prepareLocalCtas(boolean partitioned, List<String> files)
+    {
+        return prepareLocalCtas(partitioned ? List.of("ds") : List.of(), files);
+    }
+
+    private Location prepareLocalCtas(List<String> partitionColumns, List<String> files)
+    {
+        boolean partitioned = !partitionColumns.isEmpty();
+        HiveLocationService service = new HiveLocationService(_ -> boundaryFileSystem, new HiveConfig().setTableLocalStagingDirectoryEnabled(true));
+        LocationHandle handle = service.forNewTableAsSelect(transactionalMetastore, SESSION, TABLE.getSchemaName(), "ctas_table", Optional.empty(), false);
+        WriteInfo writeInfo = service.getQueryWriteInfo(handle);
+        assertThat(writeInfo.targetPath()).isEqualTo(CTAS_LOCATION);
+        assertThat(writeInfo.writePath().toString()).startsWith(CTAS_LOCATION + "/.hive-staging/");
+        assertThat(writeInfo.writeMode()).isEqualTo(STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY);
+        Table table = Table.builder()
+                .setDatabaseName(TABLE.getSchemaName())
+                .setTableName("ctas_table")
+                .setTableType(MANAGED_TABLE.name())
+                .setOwner(Optional.of("test"))
+                .setDataColumns(dataColumns())
+                .setPartitionColumns(partitionColumns.stream().map(name -> new Column(name, HIVE_INT, Optional.empty(), Map.of())).toList())
+                .setParameters(Map.of(TRINO_QUERY_ID_NAME, SESSION.getQueryId()))
+                .withStorage(storage -> storage.setStorageFormat(ORC.toStorageFormat()).setLocation(CTAS_LOCATION.toString()))
+                .build();
+        transactionalMetastore.createTable(SESSION, table, NO_PRIVILEGES, Optional.of(writeInfo.writePath()), partitioned ? Optional.empty() : Optional.of(files), false, partitioned ? PartitionStatistics.empty() : STATISTICS_UPDATE, false);
+        return writeInfo.writePath();
+    }
+
+    private void addCtasPartition(Location staging, List<String> files)
+    {
+        Partition partition = Partition.builder(newLocalPartition())
+                .setTableName("ctas_table")
+                .withStorage(storage -> storage.setLocation(CTAS_LOCATION.appendPath("ds=3").toString()))
+                .build();
+        transactionalMetastore.addPartition(SESSION, TABLE.getSchemaName(), "ctas_table", partition, staging, Optional.of(files), STATISTICS_UPDATE, false);
+    }
+
     private Location declareLocalWrite(SchemaTableName table, Location target)
             throws IOException
     {
         Location staging = target.appendPath(".hive-staging/operation");
         boundaryFileSystem.createDirectory(staging);
-        transactionalMetastore.declareTableLocalWrite(SESSION, table, target, staging);
+        transactionalMetastore.declareTableLocalWrite(SESSION, table, target, staging, false);
         return staging;
     }
 
@@ -1136,6 +1426,7 @@ final class TestSemiTransactionalHiveMetastore
     {
         private boolean failAfterNextUpdate;
         private boolean failNextPartitionAdd;
+        private boolean failNextTableCreate;
 
         PartiallyFailingMetastore(LocalFileSystemFactory fileSystemFactory)
         {
@@ -1146,6 +1437,16 @@ final class TestSemiTransactionalHiveMetastore
                             .setCatalogDirectory("local:///metastore")
                             .setMetastoreUser("test")
                             .setDisableLocationChecks(true));
+        }
+
+        @Override
+        public synchronized void createTable(Table table, PrincipalPrivileges privileges)
+        {
+            if (failNextTableCreate) {
+                failNextTableCreate = false;
+                throw new TrinoException(HIVE_METASTORE_ERROR, "table create failed");
+            }
+            super.createTable(table, privileges);
         }
 
         @Override

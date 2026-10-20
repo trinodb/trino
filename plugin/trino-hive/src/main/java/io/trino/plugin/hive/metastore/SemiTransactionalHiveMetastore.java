@@ -1258,6 +1258,18 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName)
     {
+        return declareIntentionToWrite(session, writeMode, stagingPathRoot, schemaTableName, Optional.empty());
+    }
+
+    public synchronized void declareTableLocalWrite(ConnectorSession session, SchemaTableName table, Location target, Location staging, boolean newTable)
+    {
+        declareIntentionToWrite(session, WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY, staging, table, newTable ? Optional.of(target) : Optional.empty());
+        registerTableLocalStagingDirectory(session, table, target, staging);
+    }
+
+    @GuardedBy("this")
+    private String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName, Optional<Location> newTableRoot)
+    {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.get(schemaTableName);
@@ -1270,14 +1282,8 @@ public class SemiTransactionalHiveMetastore
         if (writeMode == WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
             stagingTargets.put(stagingPathRoot, Optional.empty());
         }
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, session.getIdentity(), session.getQueryId(), stagingPathRoot, schemaTableName, stagingTargets));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, session.getIdentity(), session.getQueryId(), stagingPathRoot, schemaTableName, stagingTargets, newTableRoot));
         return declarationId;
-    }
-
-    public synchronized void declareTableLocalWrite(ConnectorSession session, SchemaTableName table, Location target, Location staging)
-    {
-        declareIntentionToWrite(session, WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY, staging, table);
-        registerTableLocalStagingDirectory(session, table, target, staging);
     }
 
     public synchronized void registerTableLocalStagingDirectory(ConnectorSession session, SchemaTableName table, Location target, Location staging)
@@ -1809,7 +1815,14 @@ public class SemiTransactionalHiveMetastore
                     Optional<Location> currentLocation = tableAndMore.getCurrentLocation();
                     Location targetPath = targetLocation.get();
                     TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-                    if (table.getPartitionColumns().isEmpty() && currentLocation.isPresent()) {
+                    if (usesTableLocalStaging(queryId, table.getSchemaTableName())) {
+                        // Staging already created the root. Never rename it or recursively clean it on abort.
+                        createDirectory(fileSystem, targetPath);
+                        if (table.getPartitionColumns().isEmpty()) {
+                            prepareTableLocalFilePromotion(identity, queryId, table.getSchemaTableName(), currentLocation.orElseThrow(), targetPath, tableAndMore.getFileNames().orElseThrow());
+                        }
+                    }
+                    else if (table.getPartitionColumns().isEmpty() && currentLocation.isPresent()) {
                         // CREATE TABLE AS SELECT unpartitioned table
                         if (targetPath.equals(currentLocation.get())) {
                             // Target path and current path are the same. Therefore, directory move is not needed.
@@ -2445,6 +2458,14 @@ public class SemiTransactionalHiveMetastore
     {
         checkHoldsLock();
         cleanTableLocalStagingDirectories();
+        for (DeclaredIntentionToWrite intention : declaredIntentionsToWrite) {
+            intention.newTableRoot().ifPresent(root -> {
+                TrinoFileSystem fileSystem = fileSystemFactory.create(intention.identity());
+                deleteTableLocalDirectoryIfEmpty(fileSystem, intention.rootPath().parentDirectory());
+                deleteTableLocalDirectoryIfEmpty(fileSystem, root);
+            });
+        }
+
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             switch (declaredIntentionToWrite.mode()) {
                 case STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY -> {
@@ -3132,7 +3153,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public record DeclaredIntentionToWrite(String declarationId, WriteMode mode, ConnectorIdentity identity, String queryId, Location rootPath, SchemaTableName schemaTableName, Map<Location, Optional<Location>> stagingTargets)
+    public record DeclaredIntentionToWrite(String declarationId, WriteMode mode, ConnectorIdentity identity, String queryId, Location rootPath, SchemaTableName schemaTableName, Map<Location, Optional<Location>> stagingTargets, Optional<Location> newTableRoot)
     {
         public DeclaredIntentionToWrite
         {
@@ -3143,6 +3164,7 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(rootPath, "rootPath is null");
             requireNonNull(schemaTableName, "schemaTableName is null");
             requireNonNull(stagingTargets, "stagingTargets is null");
+            requireNonNull(newTableRoot, "newTableRoot is null");
         }
     }
 

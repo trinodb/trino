@@ -23,6 +23,7 @@ import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
@@ -83,11 +84,13 @@ public class HiveLocationService
         // Skip using temporary directory if the destination is external. Target may be on a different file system.
         if (temporaryStagingDirectoryEnabled && externalLocation.isEmpty()) {
             boolean tableLocal = tableLocalStagingDirectoryEnabled && !transactional;
-            if (tableLocal) {
-                throw new TrinoException(NOT_SUPPORTED, "Managed CTAS is not supported with table-local staging");
-            }
-            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, temporaryStagingDirectoryPath);
+            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, tableLocal ? ".hive-staging" : temporaryStagingDirectoryPath);
             if (writePath.isPresent()) {
+                if (tableLocal) {
+                    // Register immediately: handle construction or worker setup may fail before any fragments arrive.
+                    metastore.declareTableLocalWrite(session, new SchemaTableName(schemaName, tableName), targetPath, writePath.get(), true);
+                    return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY, Optional.of(writePath.get().fileName()));
+                }
                 return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
             }
         }

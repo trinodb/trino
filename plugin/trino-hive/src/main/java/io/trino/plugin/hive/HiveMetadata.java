@@ -1869,7 +1869,10 @@ public class HiveMetadata
                 retryMode != NO_RETRIES);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), schemaTableName);
+        // Local ownership is declared when staging is allocated, before handle construction.
+        if (writeInfo.writeMode() != LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), schemaTableName);
+        }
 
         return result;
     }
@@ -2199,7 +2202,7 @@ public class HiveMetadata
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (writeInfo.writeMode() == LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
             // Track the allocated directory even if constructing the write handle fails.
-            metastore.declareTableLocalWrite(session, tableName, writeInfo.targetPath(), writeInfo.writePath());
+            metastore.declareTableLocalWrite(session, tableName, writeInfo.targetPath(), writeInfo.writePath(), false);
         }
 
         AcidTransaction transaction = NO_ACID_TRANSACTION;
