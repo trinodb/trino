@@ -52,6 +52,7 @@ public class MarkdownTablePrinter
         requireNonNull(columns, "columns is null");
         this.fieldNames = columns.stream()
                 .map(Column::getName)
+                .map(MarkdownTablePrinter::formatValue)
                 .collect(toImmutableList());
         this.alignments = columns.stream()
                 .map(Column::getTypeSignature)
