@@ -38,11 +38,18 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalUnit;
 import java.util.Arrays;
 import java.util.Date;
@@ -1663,6 +1670,105 @@ abstract class BaseTestHiveOnDataLake
         assertQuery(
                 format("SELECT name FROM %s", fullyQualifiedTestTableName),
                 "VALUES ('POLAND_1'), ('POLAND_2'), ('CZECH_1'), ('CZECH_2')");
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "yyyy-MM,DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,HOURS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,MINUTES,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM,SECONDS,2020-10-01,2020-12-01,2021-02-01",
+            "'abc'-yyyy-MM,DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy-MM-'abc',DAYS,2020-10-01,2020-12-01,2021-02-01",
+            "yyyy,DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,HOURS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,MINUTES,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy,SECONDS,2020-01-01,2021-01-01,2022-01-01",
+            "'abc'-yyyy,DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy-'abc',DAYS,2020-01-01,2021-01-01,2022-01-01",
+            "yyyy-'Q'Q,DAYS,2020-07-01,2020-10-01,2021-01-01",
+    }, quoteCharacter = '"')
+    public void testDatePartitionProjectionOnVarcharColumnWithYearOrMonthFormat(String pattern, ChronoUnit intervalUnit, LocalDate firstDate, LocalDate secondDate, LocalDate thirdDate)
+    {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+        String beforeRange = firstDate.minusMonths(1).format(formatter);
+        String first = firstDate.format(formatter);
+        String second = secondDate.format(formatter);
+        String third = thirdDate.format(formatter);
+        String afterRange = thirdDate.plusYears(1).format(formatter);
+        String tableName = getFullyQualifiedTestTableName(getRandomTestTableName());
+        assertUpdate(
+                """
+                CREATE TABLE %s (
+                    name varchar,
+                    projected_date varchar WITH (
+                        partition_projection_type = 'date',
+                        partition_projection_format = '%s',
+                        partition_projection_range = ARRAY['%s', '%s'],
+                        partition_projection_interval_unit = '%s'
+                    )
+                ) WITH (
+                    partitioned_by = ARRAY['projected_date'],
+                    partition_projection_enabled = true
+                )
+                """.formatted(tableName, pattern.replace("'", "''"), first, third, intervalUnit.name()));
+        assertUpdate("INSERT INTO %s VALUES ('before', '%s'), ('first', '%s'), ('second', '%s'), ('third', '%s'), ('after', '%s')".formatted(tableName, beforeRange, first, second, third, afterRange), 5);
+
+        assertQuery("SELECT name FROM " + tableName, "VALUES 'first', 'second', 'third'");
+        assertQuery("SELECT name FROM %s WHERE projected_date = '%s'".formatted(tableName, second), "VALUES 'second'");
+        assertQuery("SELECT name FROM %s WHERE projected_date >= '%s'".formatted(tableName, second), "VALUES 'second', 'third'");
+    }
+
+    @Test
+    public void testDatePartitionProjectionWithWeekFormat()
+    {
+        assertQueryFails(
+                """
+                CREATE TABLE %s (
+                    name varchar,
+                    projected_week varchar WITH (
+                        partition_projection_type = 'date',
+                        partition_projection_format = 'yyyy-ww',
+                        partition_projection_range = ARRAY['2020-01', '2021-01'],
+                        partition_projection_interval_unit = 'DAYS'
+                    )
+                ) WITH (
+                    partitioned_by = ARRAY['projected_week'],
+                    partition_projection_enabled = true
+                )
+                """.formatted(getFullyQualifiedTestTableName(getRandomTestTableName())),
+                "Column projection for column 'projected_week' failed\\. Property: 'partition_projection_format' value 'yyyy-ww' is invalid: " +
+                        "a format without a day must have year, quarter, or month precision");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"MONTHS", "YEARS", "WEEKS"})
+    public void testDatePartitionProjectionWithYearOrMonthFormatRejectsUnsupportedInterval(String intervalUnit)
+    {
+        String intervalUnitProperty = Optional.ofNullable(intervalUnit)
+                .map(unit -> ", partition_projection_interval_unit = '%s'".formatted(unit))
+                .orElse("");
+        for (String pattern : ImmutableList.of("yyyy-MM", "'abc'-yyyy-MM", "yyyy-MM-'abc'", "yyyy", "'abc'-yyyy", "yyyy-'abc'")) {
+            assertQueryFails(
+                    """
+                    CREATE TABLE %s (
+                        name varchar,
+                        projected_month varchar WITH (
+                            partition_projection_type = 'date',
+                            partition_projection_format = '%s',
+                            partition_projection_range = ARRAY['NOW-1DAY', 'NOW']
+                            %s
+                        )
+                    ) WITH (
+                        partitioned_by = ARRAY['projected_month'],
+                        partition_projection_enabled = true
+                    )
+                    """.formatted(getFullyQualifiedTestTableName(getRandomTestTableName()), pattern.replace("'", "''"), intervalUnitProperty),
+                    "Column projection for column 'projected_month' failed. " +
+                            "Property: 'partition_projection_interval_unit' value '%s' is invalid. Available options: \\[Days, Hours, Minutes, Seconds\\]"
+                                    .formatted(Optional.ofNullable(intervalUnit).map(ChronoUnit::valueOf).orElse(ChronoUnit.MONTHS)));
+        }
     }
 
     @Test
