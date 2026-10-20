@@ -23,7 +23,6 @@ import io.airlift.concurrent.ThreadPoolExecutorMBean;
 
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -80,7 +79,7 @@ public final class FairScheduler
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
-        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
+        executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new StaggeredExitSynchronousQueue(10, TimeUnit.MILLISECONDS), threadFactory);
         executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
     }
