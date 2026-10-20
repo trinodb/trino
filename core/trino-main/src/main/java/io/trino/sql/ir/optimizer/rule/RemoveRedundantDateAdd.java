@@ -16,12 +16,6 @@ package io.trino.sql.ir.optimizer.rule;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.TimeField;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Call;
@@ -36,8 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.operator.scalar.DateTimeFunctions.isValidDateUnit;
-import static io.trino.operator.scalar.DateTimeFunctions.isValidTimestampUnit;
+import static io.trino.operator.scalar.DateTimeFunctions.isValidDateTimeUnit;
 
 /**
  * Replaces {@code date_add(unit, 0, x)} with {@code x}. Adding zero of any unit leaves the value
@@ -61,20 +54,10 @@ public class RemoveRedundantDateAdd
             if (unitExpression instanceof Constant(VarcharType _, Slice unit)
                     && amountExpression instanceof Constant(Type _, Long amount)
                     && amount == 0
-                    && isKnownValidUnit(dateTime.type(), unit)) {
+                    && isValidDateTimeUnit(dateTime.type(), unit)) {
                 return Optional.of(dateTime);
             }
         }
         return Optional.empty();
-    }
-
-    private static boolean isKnownValidUnit(Type type, Slice unit)
-    {
-        return switch (type) {
-            case DateType _ -> isValidDateUnit(unit);
-            case TimeType _, TimeWithTimeZoneType _ -> TimeField.isValidUnit(unit);
-            case TimestampType _, TimestampWithTimeZoneType _ -> isValidTimestampUnit(unit);
-            default -> false;
-        };
     }
 }

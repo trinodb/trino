@@ -24,10 +24,16 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 import io.trino.type.DateTimes;
 import io.trino.type.LongInterval;
 import io.trino.util.DateTimeUtils;
@@ -397,6 +403,16 @@ public final class DateTimeFunctions
             }
         }
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit.toStringUtf8() + "' is not a valid DATE field");
+    }
+
+    public static boolean isValidDateTimeUnit(Type type, Slice unit)
+    {
+        return switch (type) {
+            case DateType _ -> isValidDateUnit(unit);
+            case TimeType _, TimeWithTimeZoneType _ -> TimeField.isValidUnit(unit);
+            case TimestampType _, TimestampWithTimeZoneType _ -> isValidTimestampUnit(unit);
+            default -> false;
+        };
     }
 
     public static boolean isValidTimestampUnit(Slice unit)
