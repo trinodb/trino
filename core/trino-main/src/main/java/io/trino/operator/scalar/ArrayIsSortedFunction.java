@@ -26,7 +26,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
-@ScalarFunction("array_is_sorted")
+@ScalarFunction(value = "array_is_sorted", neverFails = true)
 @Description("Returns whether the array is sorted in ascending order, with nulls last")
 public final class ArrayIsSortedFunction
 {
