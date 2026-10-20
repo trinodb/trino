@@ -170,6 +170,7 @@ import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.PendingUpdate;
 import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.RowDelta;
@@ -1820,9 +1821,8 @@ public class IcebergMetadata
                     newSnapshotId,
                     INCREMENTAL_UPDATE,
                     collectedStatistics);
-            transaction.updateStatistics()
-                    .setStatistics(statisticsFile)
-                    .commit();
+            commitUpdate(transaction.updateStatistics()
+                    .setStatistics(statisticsFile), "update table statistics");
         }
     }
 
@@ -2328,9 +2328,8 @@ public class IcebergMetadata
 
         long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
         tableStatisticsWriter.rewriteStatisticsFile(session, icebergTable, newSnapshotId).ifPresent(newStatsFile ->
-                transaction.updateStatistics()
-                        .setStatistics(newStatsFile)
-                        .commit());
+                commitUpdate(transaction.updateStatistics()
+                        .setStatistics(newStatsFile), "update table statistics during optimize"));
 
         commitWriteTransaction(transaction, "optimize");
 
@@ -2356,6 +2355,16 @@ public class IcebergMetadata
         }
         catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
+        }
+    }
+
+    private static void commitUpdate(PendingUpdate<?> update, String operation)
+    {
+        try {
+            update.commit();
+        }
+        catch (UncheckedIOException | ValidationException | CommitFailedException | CommitStateUnknownException | RESTException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to %s: %s", operation, requireNonNullElse(e.getMessage(), e)), e);
         }
     }
 
@@ -2419,7 +2428,7 @@ public class IcebergMetadata
             for (StatisticsFile statisticsFile : statisticsFiles) {
                 updateStatistics.removeStatistics(statisticsFile.snapshotId());
             }
-            updateStatistics.commit();
+            commitUpdate(updateStatistics, "drop extended stats");
             commitTransaction(transaction, "drop extended stats");
             return ImmutableMap.of("removed_statistics_count", (long) statisticsFiles.size());
         }
@@ -2435,7 +2444,7 @@ public class IcebergMetadata
 
         try {
             Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-            icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
+            commitUpdate(icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId), "rollback to snapshot");
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
@@ -2463,12 +2472,11 @@ public class IcebergMetadata
 
         // ForwardingFileIo handles bulk operations so no separate function implementation is needed
         try {
-            table.expireSnapshots()
+            commitUpdate(table.expireSnapshots()
                     .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
                     .retainLast(retainLast)
                     .cleanExpiredMetadata(cleanExpiredMetadata)
-                    .planWith(icebergScanExecutor)
-                    .commit();
+                    .planWith(icebergScanExecutor), "expire snapshots");
         }
         catch (NotFoundException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, e);
@@ -3350,9 +3358,8 @@ public class IcebergMetadata
                 snapshotId,
                 REPLACE,
                 collectedStatistics);
-        transaction.updateStatistics()
-                .setStatistics(statisticsFile)
-                .commit();
+        commitUpdate(transaction.updateStatistics()
+                .setStatistics(statisticsFile), "statistics collection");
 
         commitWriteTransaction(transaction, "statistics collection");
     }
@@ -4187,10 +4194,9 @@ public class IcebergMetadata
         if (isFullRefresh) {
             // delete before insert .. simulating overwrite
             log.info("Performing full MV refresh for storage table: %s", table.name());
-            transaction.newDelete()
+            commitUpdate(transaction.newDelete()
                     .deleteFromRowFilter(Expressions.alwaysTrue())
-                    .scanManifestsWith(icebergScanExecutor)
-                    .commit();
+                    .scanManifestsWith(icebergScanExecutor), "refresh materialized view");
         }
         else {
             log.info("Performing incremental MV refresh for storage table: %s", table.name());
