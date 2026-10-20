@@ -46,6 +46,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -529,34 +530,36 @@ public class TestIcebergSplitSource
     @Test
     public void testParquetFileDecryptionDataWithStandardKeyMetadataManager()
     {
-        FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
-        String location = "local:///standard-key-metadata-manager-" + UUID.randomUUID() + ".parquet";
-        SchemaTableName nationTable = new SchemaTableName("tpch", "nation");
-        Table icebergTable = catalog.loadTable(SESSION, nationTable);
-        icebergTable.updateProperties().set(ENCRYPTION_TABLE_KEY, "test-key-id").commit();
-        ((TrinoHiveCatalog) catalog).invalidateTableCache(nationTable);
-        try {
-            EncryptionManager standardEncryptionManager = EncryptionTestHelpers.createEncryptionManager();
-            NativeEncryptionOutputFile encryptedOutputFile = (NativeEncryptionOutputFile) standardEncryptionManager.encrypt(fileIo.newOutputFile(location));
-            byte[] expectedKey = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().encryptionKey());
-            byte[] expectedAadPrefix = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().aadPrefix());
-            EncryptionManager tableEncryptionManager = catalog.loadTable(SESSION, nationTable).encryption();
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_standard_key_metadata_manager", "(id bigint)")) {
+            FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
+            String location = "local:///standard-key-metadata-manager-" + UUID.randomUUID() + ".parquet";
+            SchemaTableName tableName = new SchemaTableName("tpch", testTable.getName());
+            Table icebergTable = catalog.loadTable(SESSION, tableName);
+            icebergTable.updateProperties().set(ENCRYPTION_TABLE_KEY, "test-key-id").commit();
+            ((TrinoHiveCatalog) catalog).invalidateTableCache(tableName);
+            try {
+                EncryptionManager standardEncryptionManager = EncryptionTestHelpers.createEncryptionManager();
+                NativeEncryptionOutputFile encryptedOutputFile = (NativeEncryptionOutputFile) standardEncryptionManager.encrypt(fileIo.newOutputFile(location));
+                byte[] expectedKey = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().encryptionKey());
+                byte[] expectedAadPrefix = ByteBuffers.toByteArray(encryptedOutputFile.keyMetadata().aadPrefix());
+                EncryptionManager tableEncryptionManager = catalog.loadTable(SESSION, tableName).encryption();
 
-            Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
-                    FileFormat.PARQUET,
-                    location,
-                    10,
-                    encryptedOutputFile.keyMetadata().buffer(),
-                    fileIo,
-                    tableEncryptionManager);
+                Optional<ParquetFileDecryptionData> decryptionData = parquetFileDecryptionData(
+                        FileFormat.PARQUET,
+                        location,
+                        10,
+                        encryptedOutputFile.keyMetadata().buffer(),
+                        fileIo,
+                        tableEncryptionManager);
 
-            assertThat(decryptionData).isPresent();
-            assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
-            assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
-        }
-        finally {
-            icebergTable.updateProperties().remove(ENCRYPTION_TABLE_KEY).commit();
-            ((TrinoHiveCatalog) catalog).invalidateTableCache(nationTable);
+                assertThat(decryptionData).isPresent();
+                assertThat(decryptionData.orElseThrow().fileEncryptionKey()).containsExactly(expectedKey);
+                assertThat(decryptionData.orElseThrow().fileAadPrefix()).containsExactly(expectedAadPrefix);
+            }
+            finally {
+                icebergTable.updateProperties().remove(ENCRYPTION_TABLE_KEY).commit();
+                ((TrinoHiveCatalog) catalog).invalidateTableCache(tableName);
+            }
         }
     }
 
