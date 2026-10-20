@@ -172,6 +172,8 @@ import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
+import static io.airlift.http.server.ServerFeature.VIRTUAL_THREADS;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -212,6 +214,8 @@ public class ServerMainModule
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
         });
+        // Run request handlers on virtual threads so blocking handlers never starve the platform pool that reads connections
+        httpServerBinder(binder).withFeature(VIRTUAL_THREADS);
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
