@@ -544,10 +544,10 @@ public final class ShowQueriesRewrite
             Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
             Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getMaterializedViewProperties(session, objectName, viewDefinition.get());
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("materialized view " + objectName, INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
@@ -596,10 +596,10 @@ public final class ShowQueriesRewrite
             Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
             Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
             Map<String, Object> properties = metadata.getViewProperties(session, objectName);
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, objectName.catalogName());
             Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
