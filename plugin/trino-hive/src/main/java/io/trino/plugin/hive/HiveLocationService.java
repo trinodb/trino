@@ -29,6 +29,7 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
@@ -44,6 +45,7 @@ public class HiveLocationService
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean temporaryStagingDirectoryEnabled;
     private final String temporaryStagingDirectoryPath;
+    private final boolean tableLocalStagingDirectoryEnabled;
 
     @Inject
     public HiveLocationService(TrinoFileSystemFactory fileSystemFactory, HiveConfig hiveConfig)
@@ -51,6 +53,7 @@ public class HiveLocationService
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.temporaryStagingDirectoryEnabled = hiveConfig.isTemporaryStagingDirectoryEnabled();
         this.temporaryStagingDirectoryPath = hiveConfig.getTemporaryStagingDirectoryPath();
+        this.tableLocalStagingDirectoryEnabled = hiveConfig.isTableLocalStagingDirectoryEnabled();
     }
 
     @Override
@@ -67,7 +70,7 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation)
+    public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation, boolean transactional)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Location targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(metastore, fileSystem, schemaName, tableName));
@@ -79,6 +82,10 @@ public class HiveLocationService
 
         // Skip using temporary directory if the destination is external. Target may be on a different file system.
         if (temporaryStagingDirectoryEnabled && externalLocation.isEmpty()) {
+            boolean tableLocal = tableLocalStagingDirectoryEnabled && !transactional;
+            if (tableLocal) {
+                throw new TrinoException(NOT_SUPPORTED, "Managed CTAS is not supported with table-local staging");
+            }
             Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, temporaryStagingDirectoryPath);
             if (writePath.isPresent()) {
                 return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
@@ -94,9 +101,13 @@ public class HiveLocationService
         Location targetPath = Location.of(table.getStorage().getLocation());
 
         if (temporaryStagingDirectoryEnabled && !isTransactionalTable(table.getParameters())) {
-            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, temporaryStagingDirectoryPath);
+            Optional<Location> writePath = createTemporaryPath(fileSystem, session.getIdentity(), targetPath, tableLocalStagingDirectoryEnabled ? ".hive-staging" : temporaryStagingDirectoryPath);
             if (writePath.isPresent()) {
-                return new LocationHandle(targetPath, writePath.get(), STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
+                return new LocationHandle(
+                        targetPath,
+                        writePath.get(),
+                        tableLocalStagingDirectoryEnabled ? STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY : STAGE_AND_MOVE_TO_TARGET_DIRECTORY,
+                        tableLocalStagingDirectoryEnabled ? Optional.of(writePath.get().fileName()) : Optional.empty());
             }
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
@@ -119,6 +130,9 @@ public class HiveLocationService
     @Override
     public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
+        if (overwrite && locationHandle.getWriteMode() == STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            throw new TrinoException(NOT_SUPPORTED, "Overwrite is not supported with table-local staging");
+        }
         if (overwrite && locationHandle.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
             throw new TrinoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
         }
@@ -126,8 +140,11 @@ public class HiveLocationService
     }
 
     @Override
-    public WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName)
+    public WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName, boolean overwrite)
     {
+        if (overwrite && locationHandle.getWriteMode() == STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            throw new TrinoException(NOT_SUPPORTED, "Overwrite is not supported with table-local staging");
+        }
         if (partition.isPresent()) {
             // existing partition
             WriteMode writeMode = locationHandle.getWriteMode();
@@ -136,8 +153,9 @@ public class HiveLocationService
             return new WriteInfo(targetPath, writePath, writeMode);
         }
         // new partition
+        Location targetPath = locationHandle.getTargetPath().appendPath(partitionName);
         return new WriteInfo(
-                locationHandle.getTargetPath().appendPath(partitionName),
+                targetPath,
                 locationHandle.getWritePath().appendPath(partitionName),
                 locationHandle.getWriteMode());
     }
@@ -146,8 +164,22 @@ public class HiveLocationService
     {
         return switch (writeMode) {
             case STAGE_AND_MOVE_TO_TARGET_DIRECTORY -> locationHandle.getWritePath().appendPath(partitionName);
+            case STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY -> {
+                // Ordinary partitions share the table operation directory. Custom locations stage at
+                // their destination, including when that destination is on a different filesystem.
+                if (targetPath.equals(locationHandle.getTargetPath().appendPath(partitionName))) {
+                    yield locationHandle.getWritePath().appendPath(partitionName);
+                }
+                yield tableLocalStagingPath(locationHandle, targetPath);
+            }
             case DIRECT_TO_TARGET_EXISTING_DIRECTORY -> targetPath;
             case DIRECT_TO_TARGET_NEW_DIRECTORY -> throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
         };
+    }
+
+    private static Location tableLocalStagingPath(LocationHandle locationHandle, Location targetPath)
+    {
+        // The operation directory name is allocated once on the coordinator and shared by all writers.
+        return targetPath.appendPath(".hive-staging").appendPath(locationHandle.getStagingOperationId().orElseThrow());
     }
 }

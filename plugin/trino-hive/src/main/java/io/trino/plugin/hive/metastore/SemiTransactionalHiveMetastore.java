@@ -78,9 +78,12 @@ import io.trino.spi.type.TypeManager;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -667,6 +670,9 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null) {
             Table table = getExistingTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            if (usesTableLocalStaging(session.getQueryId(), schemaTableName)) {
+                registerTableLocalStagingDirectory(session, schemaTableName, Location.of(table.getStorage().getLocation()), currentLocation);
+            }
             if (isAcidTransactionRunning()) {
                 table = Table.builder(table).setWriteId(OptionalLong.of(getRequiredAcidTransaction().getWriteId())).build();
             }
@@ -913,6 +919,9 @@ public class SemiTransactionalHiveMetastore
             boolean cleanExtraOutputFilesOnCommit)
     {
         setShared();
+        if (usesTableLocalStaging(session.getQueryId(), partition.getSchemaTableName())) {
+            registerTableLocalStagingDirectory(session, partition.getSchemaTableName(), Location.of(partition.getStorage().getLocation()), currentLocation);
+        }
         checkArgument(getQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), _ -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
@@ -968,6 +977,9 @@ public class SemiTransactionalHiveMetastore
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.getSchemaTableName(), _ -> new HashMap<>());
 
         for (PartitionUpdateInfo partitionInfo : partitionUpdateInfos) {
+            if (usesTableLocalStaging(session.getQueryId(), table.getSchemaTableName())) {
+                registerTableLocalStagingDirectory(session, table.getSchemaTableName(), partitionInfo.currentLocation());
+            }
             Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionInfo.partitionValues());
             if (oldPartitionAction != null) {
                 switch (oldPartitionAction.type()) {
@@ -999,6 +1011,9 @@ public class SemiTransactionalHiveMetastore
                 String partitionName = partitionNames.get(i);
 
                 Partition partition = partitionsByNames.get(partitionName);
+                if (usesTableLocalStaging(session.getQueryId(), table.getSchemaTableName())) {
+                    registerTableLocalStagingDirectory(session, table.getSchemaTableName(), Location.of(partition.getStorage().getLocation()), partitionInfo.currentLocation());
+                }
                 PartitionStatistics currentStatistics = new PartitionStatistics(basicStats.get(partitionName), columnStats.get(partitionName));
 
                 partitionActionsOfTable.put(
@@ -1250,12 +1265,67 @@ public class SemiTransactionalHiveMetastore
                 throw new TrinoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Trino is configured to skip temporary directories.");
             }
         }
-        ConnectorIdentity identity = session.getIdentity();
-        String queryId = session.getQueryId();
-        String declarationId = queryId + "_" + declaredIntentionsToWriteCounter;
-        declaredIntentionsToWriteCounter++;
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, identity, queryId, stagingPathRoot, schemaTableName));
+        String declarationId = session.getQueryId() + "_" + declaredIntentionsToWriteCounter++;
+        Map<Location, Optional<Location>> stagingTargets = new HashMap<>();
+        if (writeMode == WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            stagingTargets.put(stagingPathRoot, Optional.empty());
+        }
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, session.getIdentity(), session.getQueryId(), stagingPathRoot, schemaTableName, stagingTargets));
         return declarationId;
+    }
+
+    public synchronized void declareTableLocalWrite(ConnectorSession session, SchemaTableName table, Location target, Location staging)
+    {
+        declareIntentionToWrite(session, WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY, staging, table);
+        registerTableLocalStagingDirectory(session, table, target, staging);
+    }
+
+    public synchronized void registerTableLocalStagingDirectory(ConnectorSession session, SchemaTableName table, Location target, Location staging)
+    {
+        registerTableLocalStagingDirectory(session, table, staging, Optional.of(target));
+    }
+
+    private void registerTableLocalStagingDirectory(ConnectorSession session, SchemaTableName table, Location staging)
+    {
+        registerTableLocalStagingDirectory(session, table, staging, Optional.empty());
+    }
+
+    private void registerTableLocalStagingDirectory(ConnectorSession session, SchemaTableName table, Location staging, Optional<Location> target)
+    {
+        Map<Location, Optional<Location>> targets = localWrite(session.getQueryId(), table).orElseThrow().stagingTargets();
+        Optional<Location> previous = targets.getOrDefault(staging, Optional.empty());
+        if (previous.isPresent() && target.isPresent() && !previous.equals(target)) {
+            throw new TrinoException(TRANSACTION_CONFLICT, "Table or partition location changed during table-local staged insert");
+        }
+        targets.put(staging, target.or(() -> previous));
+    }
+
+    private synchronized Optional<DeclaredIntentionToWrite> localWrite(String queryId, SchemaTableName table)
+    {
+        return declaredIntentionsToWrite.stream()
+                .filter(intention -> intention.queryId().equals(queryId) && intention.schemaTableName().equals(table) && intention.mode() == WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY)
+                .findFirst();
+    }
+
+    private boolean usesTableLocalStaging(String queryId, SchemaTableName table)
+    {
+        return localWrite(queryId, table).isPresent();
+    }
+
+    private void validateTableLocalTarget(String queryId, SchemaTableName table, Location staging, Location target)
+    {
+        if (!localWrite(queryId, table).orElseThrow().stagingTargets().getOrDefault(staging, Optional.empty()).filter(target::equals).isPresent()) {
+            throw new TrinoException(TRANSACTION_CONFLICT, "Table or partition location changed during table-local staged insert");
+        }
+    }
+
+    private synchronized void cleanTableLocalStagingDirectories()
+    {
+        for (DeclaredIntentionToWrite intention : declaredIntentionsToWrite) {
+            for (Location staging : intention.stagingTargets().keySet()) {
+                recursiveDeleteFilesAndLog(intention.identity(), staging, ImmutableSet.of(intention.queryId()), true, "table-local staging cleanup");
+            }
+        }
     }
 
     public synchronized void dropDeclaredIntentionToWrite(String declarationId)
@@ -1617,6 +1687,8 @@ public class SemiTransactionalHiveMetastore
         private final List<DirectoryDeletionTask> deletionTasksForFinish = new ArrayList<>();
         private final List<DirectoryRenameTask> renameTasksForAbort = new ArrayList<>();
         private final Queue<DirectoryCleanUpTask> cleanUpTasksForAbort = new ConcurrentLinkedQueue<>();
+        private final Queue<FilePromotion> filePromotions = new ConcurrentLinkedQueue<>();
+        private final Queue<DirectoryDeletionTask> tableLocalCreatedDirectories = new ConcurrentLinkedQueue<>();
 
         // Notify callback about changes on the schema tables / partitions
         private final Set<Table> tablesToInvalidate = new LinkedHashSet<>();
@@ -1661,6 +1733,9 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Table table = tableAndMore.getTable();
+            if (usesTableLocalStaging(queryId, table.getSchemaTableName())) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwrite is not supported with table-local staging");
+            }
             Location targetLocation = Location.of(table.getStorage().getLocation());
             Table oldTable = delegate.getTable(table.getDatabaseName(), table.getTableName())
                     .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
@@ -1781,14 +1856,17 @@ public class SemiTransactionalHiveMetastore
             Location targetPath = Location.of(table.getStorage().getLocation());
             tablesToInvalidate.add(table);
             Location currentPath = tableAndMore.getCurrentLocation().orElseThrow();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
-
-            if (!targetPath.equals(currentPath)) {
+            if (usesTableLocalStaging(queryId, table.getSchemaTableName())) {
+                prepareTableLocalFilePromotion(identity, queryId, table.getSchemaTableName(), currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
+            }
+            else if (!targetPath.equals(currentPath)) {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if staging directory is used, we cherry-pick files to be moved
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
+                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow(), Optional.empty());
             }
             else {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if we inserted directly into table directory, we need to remove extra output files which should not be part of the table
                 cleanExtraOutputFiles(identity, queryId, tableAndMore);
             }
@@ -1817,7 +1895,7 @@ public class SemiTransactionalHiveMetastore
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
             if (!targetPath.equals(currentPath)) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow());
+                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, tableAndMore.getFileNames().orElseThrow(), Optional.empty());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
                     table.getSchemaTableName(),
@@ -1850,6 +1928,9 @@ public class SemiTransactionalHiveMetastore
             deleteOnly = false;
 
             Partition partition = partitionAndMore.partition();
+            if (usesTableLocalStaging(queryId, partition.getSchemaTableName())) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwrite is not supported with table-local staging");
+            }
             partitionsToInvalidate.add(partition);
             String targetLocation = partition.getStorage().getLocation();
             Partition oldPartition = getOptionalPartition(delegate, partition.getSchemaTableName(), partition.getValues())
@@ -1972,22 +2053,55 @@ public class SemiTransactionalHiveMetastore
                     partition.getSchemaTableName(),
                     _ -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
+            boolean tableLocal = usesTableLocalStaging(queryId, partition.getSchemaTableName());
+            if (tableLocal) {
+                validateTableLocalTarget(queryId, partition.getSchemaTableName(), currentPath, targetPath);
+            }
+            Runnable registerAbortCleanup = () -> {
+                if (tableLocal) {
+                    for (String fileName : partitionAndMore.getFileNames()) {
+                        filePromotions.add(new FilePromotion(identity, targetPath.appendPath(fileName), Optional.empty()));
+                    }
+                    tableLocalCreatedDirectories.add(new DirectoryDeletionTask(identity, targetPath));
+                }
+                else {
+                    cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, true));
+                }
+            };
+
+            // New ordinary partitions stage outside the partition, inside the unchanged table root.
+            // Retain directory promotion; local abort only removes reported files and an empty target.
             fileSystemOperationFutures.add(CompletableFuture.runAsync(() -> {
                 if (fileSystemOperationsCancelled.get()) {
                     return;
                 }
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
+                if (tableLocal && directoryExists(fileSystem, targetPath)) {
+                    throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Unable to create partition directory %s: target directory already exists", targetPath));
+                }
+                if (tableLocal) {
+                    Location parent = targetPath.parentDirectory();
+                    while (!directoryExists(fileSystem, parent)) {
+                        tableLocalCreatedDirectories.add(new DirectoryDeletionTask(identity, parent));
+                        parent = parent.parentDirectory();
+                    }
+                }
                 if (directoryExists(fileSystem, currentPath)) {
+                    if (tableLocal) {
+                        // Directory promotion must not carry unreported query files into the destination:
+                        // abort tracks only the reported filenames, even without query retries enabled.
+                        SemiTransactionalHiveMetastore.cleanExtraOutputFiles(fileSystem, queryId, currentPath, ImmutableSet.copyOf(partitionAndMore.getFileNames()));
+                    }
                     if (!targetPath.equals(currentPath)) {
                         renameDirectory(
                                 fileSystem,
                                 currentPath,
                                 targetPath,
-                                () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, true)));
+                                registerAbortCleanup);
                     }
                 }
                 else {
-                    cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, true));
+                    registerAbortCleanup.run();
                     createDirectory(fileSystem, targetPath);
                 }
             }, fileSystemExecutor));
@@ -2004,14 +2118,17 @@ public class SemiTransactionalHiveMetastore
             partitionsToInvalidate.add(partition);
             Location targetPath = Location.of(partition.getStorage().getLocation());
             Location currentPath = partitionAndMore.currentLocation();
-            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
-
-            if (!targetPath.equals(currentPath)) {
+            if (usesTableLocalStaging(queryId, partition.getSchemaTableName())) {
+                prepareTableLocalFilePromotion(identity, queryId, partition.getSchemaTableName(), currentPath, targetPath, partitionAndMore.getFileNames());
+            }
+            else if (!targetPath.equals(currentPath)) {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if staging directory is used, we cherry-pick files to be moved
                 TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, partitionAndMore.getFileNames());
+                asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, partitionAndMore.getFileNames(), Optional.empty());
             }
             else {
+                cleanUpTasksForAbort.add(new DirectoryCleanUpTask(identity, targetPath, false));
                 // if we inserted directly into partition directory, we need to remove extra output files which should not be part of the table
                 cleanExtraOutputFiles(identity, queryId, partitionAndMore);
             }
@@ -2024,8 +2141,42 @@ public class SemiTransactionalHiveMetastore
                     partitionAndMore.statisticsUpdateMode()));
         }
 
+        private void prepareTableLocalFilePromotion(ConnectorIdentity identity, String queryId, SchemaTableName table, Location currentPath, Location targetPath, List<String> fileNames)
+        {
+            validateTableLocalTarget(queryId, table, currentPath, targetPath);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
+            createDirectory(fileSystem, targetPath);
+            asyncRename(fileSystem, fileSystemExecutor, fileSystemOperationsCancelled, fileSystemOperationFutures, currentPath, targetPath, fileNames, Optional.of(new FilePromotionTracker(identity, filePromotions)));
+        }
+
         private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
         {
+            // Reconcile uncertain attempts before staging cleanup can discard the source evidence.
+            for (FilePromotion promotion : filePromotions) {
+                TrinoFileSystem fileSystem = fileSystemFactory.create(promotion.identity());
+                try {
+                    if (promotion.source().isPresent()) {
+                        if (!fileSystem.newInputFile(promotion.target()).exists()) {
+                            continue;
+                        }
+                        Location source = promotion.source().get();
+                        if (fileSystem.newInputFile(source).exists() && !sameFileContents(fileSystem, source, promotion.target())) {
+                            logCleanupFailure("Preserving conflicting promotion destination: %s", promotion.target());
+                            continue;
+                        }
+                    }
+                    if (!deleteFileIfExists(fileSystem, promotion.target())) {
+                        logCleanupFailure("Error deleting promotion destination: %s", promotion.target());
+                    }
+                }
+                catch (IOException e) {
+                    logCleanupFailure(e, "Unable to reconcile promotion from %s to %s; manual cleanup may be required", promotion.source(), promotion.target());
+                }
+            }
+            for (DirectoryDeletionTask directory : tableLocalCreatedDirectories.stream().sorted(Comparator.comparingInt((DirectoryDeletionTask entry) -> entry.location().toString().length()).reversed()).toList()) {
+                TrinoFileSystem fileSystem = fileSystemFactory.create(directory.identity());
+                deleteTableLocalDirectoryIfEmpty(fileSystem, directory.location());
+            }
             Set<String> queryIds = declaredIntentionsToWrite.stream()
                     .map(DeclaredIntentionToWrite::queryId)
                     .collect(toImmutableSet());
@@ -2066,6 +2217,7 @@ public class SemiTransactionalHiveMetastore
 
         private void pruneAndDeleteStagingDirectories(List<DeclaredIntentionToWrite> declaredIntentionsToWrite)
         {
+            cleanTableLocalStagingDirectories();
             for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
                 if (declaredIntentionToWrite.mode() != WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
                     continue;
@@ -2292,9 +2444,12 @@ public class SemiTransactionalHiveMetastore
     private void rollbackShared()
     {
         checkHoldsLock();
-
+        cleanTableLocalStagingDirectories();
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             switch (declaredIntentionToWrite.mode()) {
+                case STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY -> {
+                    // Registered operation directories have already been cleaned, without enumerating partitions.
+                }
                 case STAGE_AND_MOVE_TO_TARGET_DIRECTORY, DIRECT_TO_TARGET_NEW_DIRECTORY -> {
                     // For STAGE_AND_MOVE_TO_TARGET_DIRECTORY, there is no need to clean up the target directory as
                     // it will only be written to during the commit call and the commit call cleans up after failures.
@@ -2445,7 +2600,8 @@ public class SemiTransactionalHiveMetastore
             List<CompletableFuture<?>> fileRenameFutures,
             Location currentPath,
             Location targetPath,
-            List<String> fileNames)
+            List<String> fileNames,
+            Optional<FilePromotionTracker> tracker)
     {
         for (String fileName : fileNames) {
             Location source = currentPath.appendPath(fileName);
@@ -2455,7 +2611,12 @@ public class SemiTransactionalHiveMetastore
                     return;
                 }
                 try {
-                    fileSystem.renameFile(source, target);
+                    if (tracker.isPresent()) {
+                        tracker.get().renameFile(fileSystem, source, target);
+                    }
+                    else {
+                        fileSystem.renameFile(source, target);
+                    }
                 }
                 catch (IOException e) {
                     throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target), e);
@@ -2591,6 +2752,39 @@ public class SemiTransactionalHiveMetastore
     private static boolean isDeltaDirectory(Location directory)
     {
         return DELTA_DIRECTORY_MATCHER.matcher(asFileLocation(directory).fileName()).matches();
+    }
+
+    private static void deleteTableLocalDirectoryIfEmpty(TrinoFileSystem fileSystem, Location path)
+    {
+        try {
+            // Do not traverse or remove another operation's empty staging directories.
+            if (fileSystem.listDirectories(path).isEmpty() && !fileSystem.listFiles(path).hasNext()) {
+                deleteEmptyDirectoryIfExists(fileSystem, path);
+            }
+        }
+        catch (IOException e) {
+            log.warn(e, "Error checking table-local directory: %s", path);
+        }
+    }
+
+    private static boolean sameFileContents(TrinoFileSystem fileSystem, Location first, Location second)
+            throws IOException
+    {
+        if (fileSystem.newInputFile(first).length() != fileSystem.newInputFile(second).length()) {
+            return false;
+        }
+        try (var firstStream = fileSystem.newInputFile(first).newStream(); var secondStream = fileSystem.newInputFile(second).newStream()) {
+            while (true) {
+                byte[] firstBytes = firstStream.readNBytes(8192);
+                byte[] secondBytes = secondStream.readNBytes(8192);
+                if (!Arrays.equals(firstBytes, secondBytes)) {
+                    return false;
+                }
+                if (firstBytes.length == 0) {
+                    return true;
+                }
+            }
+        }
     }
 
     private static boolean deleteFileIfExists(TrinoFileSystem fileSystem, Location location)
@@ -2938,7 +3132,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public record DeclaredIntentionToWrite(String declarationId, WriteMode mode, ConnectorIdentity identity, String queryId, Location rootPath, SchemaTableName schemaTableName)
+    public record DeclaredIntentionToWrite(String declarationId, WriteMode mode, ConnectorIdentity identity, String queryId, Location rootPath, SchemaTableName schemaTableName, Map<Location, Optional<Location>> stagingTargets)
     {
         public DeclaredIntentionToWrite
         {
@@ -2948,6 +3142,42 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(queryId, "queryId is null");
             requireNonNull(rootPath, "rootPath is null");
             requireNonNull(schemaTableName, "schemaTableName is null");
+            requireNonNull(stagingTargets, "stagingTargets is null");
+        }
+    }
+
+    // A source is retained only for an ambiguous rename; confirmed destinations need exact deletion.
+    private record FilePromotion(ConnectorIdentity identity, Location target, Optional<Location> source) {}
+
+    private record FilePromotionTracker(ConnectorIdentity identity, Queue<FilePromotion> promotions)
+    {
+        public void renameFile(TrinoFileSystem fileSystem, Location source, Location target)
+                throws IOException
+        {
+            boolean attempted = false;
+            try {
+                if (fileSystem.newInputFile(target).exists()) {
+                    throw new IOException("Target location already exists: " + target);
+                }
+                if (!fileSystem.newInputFile(source).exists()) {
+                    throw new IOException("Source location does not exist: " + source);
+                }
+                attempted = true;
+                fileSystem.renameFile(source, target);
+                promotions.add(new FilePromotion(identity, target, Optional.empty()));
+            }
+            catch (IOException e) {
+                if (attempted && !(e instanceof FileAlreadyExistsException)) {
+                    promotions.add(new FilePromotion(identity, target, Optional.of(source)));
+                    try {
+                        log.debug("Failed promotion destination %s exists: %s", target, fileSystem.newInputFile(target).exists());
+                    }
+                    catch (IOException verificationFailure) {
+                        e.addSuppressed(verificationFailure);
+                    }
+                }
+                throw e;
+            }
         }
     }
 

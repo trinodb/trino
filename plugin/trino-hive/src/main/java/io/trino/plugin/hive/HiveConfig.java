@@ -137,6 +137,7 @@ public class HiveConfig
     private boolean collectColumnStatisticsOnWrite = true;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
+    private boolean tableLocalStagingDirectoryEnabled;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
     private boolean delegateTransactionalManagedTableLocationToMetastore;
 
@@ -1023,6 +1024,19 @@ public class HiveConfig
     public boolean isTemporaryStagingDirectoryEnabled()
     {
         return isTemporaryStagingDirectoryEnabled;
+    }
+
+    @Config("hive.table-local-staging-directory-enabled")
+    @ConfigDescription("Stage ordinary inserts inside each target table or partition directory")
+    public HiveConfig setTableLocalStagingDirectoryEnabled(boolean tableLocalStagingDirectoryEnabled)
+    {
+        this.tableLocalStagingDirectoryEnabled = tableLocalStagingDirectoryEnabled;
+        return this;
+    }
+
+    public boolean isTableLocalStagingDirectoryEnabled()
+    {
+        return tableLocalStagingDirectoryEnabled;
     }
 
     @Config("hive.temporary-staging-directory-path")

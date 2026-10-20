@@ -296,7 +296,7 @@ public class HiveWriterFactory
                 }
                 else {
                     // a new partition in a new partitioned table
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get(), false);
 
                     if (!writeInfo.writeMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
@@ -324,7 +324,7 @@ public class HiveWriterFactory
                 if (partitionName.isPresent()) {
                     // a new partition in an existing partitioned table
                     updateMode = UpdateMode.NEW;
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get(), false);
                 }
                 else {
                     writeInfo = switch (insertExistingPartitionsBehavior) {
@@ -390,7 +390,7 @@ public class HiveWriterFactory
                     compressionCodec = selectCompressionCodec(session, outputStorageFormat);
                     schema.putAll(getHiveSchema(partition.get(), table));
 
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get(), false);
                 }
                 case OVERWRITE -> {
                     // Overwrite an existing partition
@@ -404,7 +404,7 @@ public class HiveWriterFactory
                     compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
                     schema.putAll(getHiveSchema(table));
 
-                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get(), true);
                 }
                 case ERROR -> {
                     throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());

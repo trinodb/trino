@@ -28,15 +28,15 @@ public interface LocationService
 {
     Location forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
 
-    LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation);
+    LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation, boolean transactional);
 
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
     LocationHandle forOptimize(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
     /**
-     * targetPath and writePath will be root directory of all partition and table paths
-     * that may be returned by {@link #getTableWriteInfo(LocationHandle, boolean)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
+     * Except for existing partitions with custom locations in table-local mode,
+     * targetPath and writePath are root directories of the partition and table paths returned by {@link #getTableWriteInfo(LocationHandle, boolean)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String, boolean)} method.
      */
     WriteInfo getQueryWriteInfo(LocationHandle locationHandle);
 
@@ -44,9 +44,10 @@ public interface LocationService
 
     /**
      * If {@code partition} is present, returns {@code WriteInfo} for appending existing partition;
-     * otherwise, returns {@code WriteInfo} for writing new partition or overwriting existing partition.
+     * otherwise, returns {@code WriteInfo} for writing a new partition or overwriting an existing partition.
+     * {@code overwrite} describes the actual operation, rather than the session's existing-partition behavior.
      */
-    WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName);
+    WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName, boolean overwrite);
 
     record WriteInfo(Location targetPath, Location writePath, WriteMode writeMode)
     {

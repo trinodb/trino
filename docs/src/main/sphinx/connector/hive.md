@@ -251,10 +251,33 @@ Hive connector documentation.
     disabled, the target storage will be used for staging while writing sorted
     tables which can be inefficient when writing to object stores like S3.
   - `true`
+* - `hive.table-local-staging-directory-enabled`
+  - Stage ordinary non-transactional inserts inside the table at
+    `<table>/.hive-staging/<operation-id>/`, with partition names beneath
+    this operation directory. Requires
+    `hive.temporary-staging-directory-enabled` and filesystem support for
+    temporary staging. Uses destination-local staging at
+    `<partition>/.hive-staging/<operation-id>/` for existing partitions with
+    custom locations, including locations on another filesystem. Append file
+    promotion keeps target roots in place; new partition directories can be
+    promoted within the table boundary.
+    Managed CTAS with table-local staging is unsupported.
+    Actual overwrite operations in this mode are unsupported. Setting
+    `insert_existing_partitions_behavior` to `OVERWRITE` still permits inserting
+    into a new partition; overwriting an existing partition or an unpartitioned
+    table is rejected. Transactional writes, external CTAS, `OPTIMIZE`, and
+    filesystems where temporary staging is unavailable retain their existing
+    write paths.
+  - `false`
 * - `hive.temporary-staging-directory-path`
   - Controls the location of temporary staging directory that is used for write
     operations. The `${USER}` placeholder can be used to use a different
-    location for each user.
+    location for each user. Continues to control existing commit staging and
+    sorted-write temporary files. Table-local staging uses `.hive-staging`
+    independently of this value. Existing relative values can already create
+    child staging on some filesystems; they retain their existing commit
+    protocol when table-local staging is disabled. HDFS excludes encryption
+    zones from its temporary-directory API, and ViewFS uses a relative prefix.
   - `/tmp/presto-${USER}`
 * - `hive.hive-views.enabled`
   - Enable translation for [Hive views](hive-views).
@@ -331,6 +354,24 @@ Hive connector documentation.
     should be reloaded from disk.
   - `1d`
 :::
+
+With table-local insert staging, cleanup tracks the coordinator-created staging
+path and custom-location paths reported in worker write fragments. Ordinary
+partition staging is beneath the known operation directory and can be cleaned
+even without a worker fragment. Cleanup does not enumerate all
+metastore partitions. A failed worker that never reports its fragment can leave
+staging at a custom partition location, including a location outside the table
+root. Such unreported custom paths require manual cleanup. Coordinator crashes can
+also leave staging or partially promoted files; this feature does not add a
+durable transaction journal or automatic crash recovery. Before manual cleanup,
+identify the failed operation and its files. The presence of `.hive-staging`
+does not establish that a directory is abandoned. For existing tables, cleanup
+preserves target roots and shared `.hive-staging` containers, and only removes a
+reported operation directory when its eligible contents have been removed. Promotion and
+rollback rely on unique query filenames. This mode does not serialize writers
+or fence other catalogs or engines that move target roots or replace the same
+files. A changed target location detected during finishing is rejected rather
+than promoting files across the original boundary.
 
 (hive-file-system-configuration)=
 ### File system access configuration

@@ -1848,7 +1848,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTableAsSelect(metastore, session, schemaName, tableName, externalLocation);
+        LocationHandle locationHandle = locationService.forNewTableAsSelect(metastore, session, schemaName, tableName, externalLocation, isTransactional);
 
         AcidTransaction transaction = isTransactional ? forCreateTable() : NO_ACID_TRANSACTION;
 
@@ -2196,6 +2196,11 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, format("%s Hive table with %s property not supported", description, SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
+        if (writeInfo.writeMode() == LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            // Track the allocated directory even if constructing the write handle fails.
+            metastore.declareTableLocalWrite(session, tableName, writeInfo.targetPath(), writeInfo.writePath());
+        }
 
         AcidTransaction transaction = NO_ACID_TRANSACTION;
         if (isForMerge) {
@@ -2217,7 +2222,6 @@ public class HiveMetadata
                 transaction,
                 retryMode != NO_RETRIES);
 
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
                 && writeInfo.writeMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             if (isTransactional) {
@@ -2229,7 +2233,10 @@ public class HiveMetadata
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
         }
-        metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), tableName);
+        // Local ownership is declared when staging is allocated, before handle construction.
+        if (writeInfo.writeMode() != LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), tableName);
+        }
         return result;
     }
 
@@ -2247,6 +2254,15 @@ public class HiveMetadata
                 .map(Slice::getInput)
                 .map(partitionUpdateCodec::fromJson)
                 .collect(toImmutableList());
+
+        if (handle.getLocationHandle().getWriteMode() == LocationHandle.WriteMode.STAGE_AND_MOVE_FILES_TO_TARGET_DIRECTORY) {
+            for (PartitionUpdate update : partitionUpdates) {
+                metastore.registerTableLocalStagingDirectory(session, handle.getSchemaTableName(), update.getTargetPath(), update.getWritePath());
+            }
+            if (partitionUpdates.stream().anyMatch(update -> update.getUpdateMode() == OVERWRITE)) {
+                throw new TrinoException(NOT_SUPPORTED, "Overwrite is not supported with table-local staging");
+            }
+        }
 
         Table table = finishChangingTable(AcidOperation.INSERT, "insert", session, handle, partitionUpdates, computedStatistics);
 

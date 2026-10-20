@@ -136,7 +136,7 @@ public class CreateEmptyPartitionProcedure
             HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
 
-            WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
+            WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName, false);
             Slice serializedPartitionUpdate = Slices.wrappedBuffer(
                     partitionUpdateJsonCodec.toJsonBytes(
                             new PartitionUpdate(
