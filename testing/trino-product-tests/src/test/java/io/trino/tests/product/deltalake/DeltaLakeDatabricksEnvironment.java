@@ -136,8 +136,7 @@ public class DeltaLakeDatabricksEnvironment
 
     protected String databricksJdbcUrl()
     {
-        // Arrow requires additional JVM options that are not needed by these tests.
-        return appendJdbcOption(requireEnv("DATABRICKS_143_JDBC_URL"), "EnableArrow=0");
+        return requireEnv("DATABRICKS_143_JDBC_URL");
     }
 
     protected final String databricksLogin()
