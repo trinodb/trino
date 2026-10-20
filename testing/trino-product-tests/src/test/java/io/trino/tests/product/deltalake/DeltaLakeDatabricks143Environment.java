@@ -21,6 +21,6 @@ public class DeltaLakeDatabricks143Environment
     @Override
     protected String databricksJdbcUrl()
     {
-        return appendJdbcOption(requireEnv("DATABRICKS_143_JDBC_URL"), "EnableArrow=0");
+        return requireEnv("DATABRICKS_143_JDBC_URL");
     }
 }
