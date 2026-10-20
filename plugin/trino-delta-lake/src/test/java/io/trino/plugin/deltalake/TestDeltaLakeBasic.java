@@ -163,6 +163,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("region_113_lts", "databricks113/region"),
             new ResourceTable("region_122_lts", "databricks122/region"),
             new ResourceTable("region_133_lts", "databricks133/region"),
+            new ResourceTable("region_143_lts", "databricks143/region"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
@@ -785,6 +786,14 @@ public class TestDeltaLakeBasic
     void testDatabricks133()
     {
         assertThat(query("SELECT * FROM region_133_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks143()
+    {
+        assertThat(query("SELECT * FROM region_143_lts"))
                 .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
                 .matches("SELECT * FROM tpch.tiny.region");
     }

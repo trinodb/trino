@@ -59,7 +59,6 @@ SUITES = [
     "SuiteCompatibility",
     "SuiteGcs",
     "SuiteAzure",
-    "SuiteDeltaLakeDatabricks143",
     "SuiteDeltaLakeDatabricks154",
     "SuiteDeltaLakeDatabricks164",
     "SuiteDeltaLakeDatabricks173",
@@ -69,7 +68,6 @@ SUITES = [
 ALL_SUITES = frozenset(SUITES)
 ALL_CONNECTORS_SMOKE = frozenset({"SuiteAllConnectorsSmoke"})
 DATABRICKS_SUITES = frozenset({
-    "SuiteDeltaLakeDatabricks143",
     "SuiteDeltaLakeDatabricks154",
     "SuiteDeltaLakeDatabricks164",
     "SuiteDeltaLakeDatabricks173",
