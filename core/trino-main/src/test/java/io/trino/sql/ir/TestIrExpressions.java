@@ -31,8 +31,12 @@ import static io.trino.SystemSessionProperties.getCharVarcharCoercion;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeDescriptorProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -49,6 +53,7 @@ import static io.trino.sql.ir.IrExpressions.matchBetween;
 import static io.trino.sql.ir.IrExpressions.matchComparison;
 import static io.trino.sql.ir.IrExpressions.matchNullIf;
 import static io.trino.sql.ir.IrExpressions.mayBeNull;
+import static io.trino.sql.ir.IrExpressions.mayFail;
 import static io.trino.sql.ir.IrExpressions.mayReturnNullOnNonNullInput;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.Logical.Operator.AND;
@@ -69,6 +74,36 @@ public class TestIrExpressions
     private static final ResolvedFunction SPLIT_PART = FUNCTIONS.resolveFunction("split_part", fromTypes(VARCHAR, VARCHAR, BIGINT));
     private static final ResolvedFunction NEGATION_BIGINT = new TestingFunctionResolution().resolveOperator(NEGATION, ImmutableList.of(BIGINT));
     private static final ResolvedFunction RANDOM = new TestingFunctionResolution().resolveFunction("random", fromTypes());
+    private static final ResolvedFunction DATE_TRUNC_TIMESTAMP_TZ = FUNCTIONS.resolveFunction("date_trunc", fromTypes(VARCHAR, TIMESTAMP_TZ_MILLIS));
+    private static final ResolvedFunction DATE_TRUNC_DATE = FUNCTIONS.resolveFunction("date_trunc", fromTypes(VARCHAR, DATE));
+    private static final ResolvedFunction DATE_TRUNC_TIME = FUNCTIONS.resolveFunction("date_trunc", fromTypes(VARCHAR, TIME_MILLIS));
+    private static final ResolvedFunction DATE_DIFF_TIMESTAMP = FUNCTIONS.resolveFunction("date_diff", fromTypes(VARCHAR, TIMESTAMP_MILLIS, TIMESTAMP_MILLIS));
+    private static final ResolvedFunction DATE_ADD_TIMESTAMP = FUNCTIONS.resolveFunction("date_add", fromTypes(VARCHAR, BIGINT, TIMESTAMP_MILLIS));
+
+    @Test
+    public void testMayFailDateTimeUnitFunctions()
+    {
+        Reference timestamp = new Reference(TIMESTAMP_TZ_MILLIS, "x");
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIMESTAMP_TZ, ImmutableList.of(new Constant(VARCHAR, utf8Slice("day")), timestamp)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIMESTAMP_TZ, ImmutableList.of(new Constant(VARCHAR, utf8Slice("HOUR")), timestamp)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIMESTAMP_TZ, ImmutableList.of(constantNull(VARCHAR), timestamp)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIMESTAMP_TZ, ImmutableList.of(new Constant(VARCHAR, utf8Slice("fortnight")), timestamp)))).isTrue();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIMESTAMP_TZ, ImmutableList.of(new Reference(VARCHAR, "unit"), timestamp)))).isTrue();
+
+        Reference date = new Reference(DATE, "d");
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_DATE, ImmutableList.of(new Constant(VARCHAR, utf8Slice("month")), date)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_DATE, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hour")), date)))).isTrue();
+
+        Reference time = new Reference(TIME_MILLIS, "t");
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIME, ImmutableList.of(new Constant(VARCHAR, utf8Slice("hour")), time)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_TRUNC_TIME, ImmutableList.of(new Constant(VARCHAR, utf8Slice("day")), time)))).isTrue();
+
+        Reference start = new Reference(TIMESTAMP_MILLIS, "start");
+        Reference end = new Reference(TIMESTAMP_MILLIS, "end");
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_DIFF_TIMESTAMP, ImmutableList.of(new Constant(VARCHAR, utf8Slice("second")), start, end)))).isFalse();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_DIFF_TIMESTAMP, ImmutableList.of(new Constant(VARCHAR, utf8Slice("fortnight")), start, end)))).isTrue();
+        assertThat(mayFail(PLANNER_CONTEXT, CHAR_VARCHAR_COERCION, new Call(DATE_ADD_TIMESTAMP, ImmutableList.of(new Constant(VARCHAR, utf8Slice("second")), new Constant(BIGINT, 1L), start)))).isTrue();
+    }
 
     @Test
     public void testMayBeNullConstantsAndReferences()

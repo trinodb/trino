@@ -110,6 +110,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -214,6 +215,8 @@ public class TestLogicalPlanner
     private static final ResolvedFunction FAIL = FUNCTIONS.resolveFunction("fail", fromTypes(INTEGER, VARCHAR));
     private static final ResolvedFunction LOWER = FUNCTIONS.resolveFunction("lower", fromTypes(VARCHAR));
     private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
+    private static final ResolvedFunction DATE_TRUNC_DATE = FUNCTIONS.resolveFunction("date_trunc", fromTypes(createVarcharType(5), DATE));
+    private static final ResolvedFunction DATE_TRUNC_DATE_VARCHAR9 = FUNCTIONS.resolveFunction("date_trunc", fromTypes(createVarcharType(9), DATE));
 
     private static final WindowNode.Frame ROWS_FROM_CURRENT = new WindowNode.Frame(
             ROWS,
@@ -600,6 +603,39 @@ public class TestLogicalPlanner
                                         .right(
                                                 any(
                                                         tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))));
+    }
+
+    @Test
+    public void testDateTruncWithConstantUnitPushedBelowJoin()
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE date_trunc('month', l.shipdate) = l.commitdate",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_ORDERKEY", "L_ORDERKEY")
+                                .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                .right(
+                                        anyTree(
+                                                filter(
+                                                        comparison(EQUAL, new Reference(DATE, "L_COMMITDATE"), new Call(DATE_TRUNC_DATE, ImmutableList.of(new Constant(createVarcharType(5), utf8Slice("month")), new Reference(DATE, "L_SHIPDATE")))),
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_SHIPDATE", "shipdate", "L_COMMITDATE", "commitdate"))))))));
+    }
+
+    @Test
+    public void testDateTruncWithInvalidUnitStaysOnJoin()
+    {
+        assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey = l.orderkey WHERE date_trunc('fortnight', l.shipdate) = l.commitdate",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_ORDERKEY", "O_ORDERKEY")
+                                .filter(comparison(EQUAL, new Call(DATE_TRUNC_DATE_VARCHAR9, ImmutableList.of(new Constant(createVarcharType(9), utf8Slice("fortnight")), new Reference(DATE, "L_SHIPDATE"))), new Reference(DATE, "L_COMMITDATE")))
+                                .left(
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_SHIPDATE", "shipdate", "L_COMMITDATE", "commitdate"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")))))));
     }
 
     @Test

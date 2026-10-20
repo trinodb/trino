@@ -14,6 +14,7 @@
 package io.trino.sql.ir;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -50,6 +51,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
+import static io.trino.operator.scalar.DateTimeFunctions.isValidDateTimeUnit;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULO;
@@ -539,7 +541,19 @@ public final class IrExpressions
         if (isModulsOrDivide(function) && arguments.get(1) instanceof Constant divisor && !canCauseDivisionByZeroError(divisor)) {
             return false;
         }
+        if (isDateTruncOrDateDiff(function) && arguments.getFirst() instanceof Constant unit) {
+            // a null unit yields null and a unit the operand type supports cannot fail
+            if (unit.value() == null || (unit.value() instanceof Slice unitName && isValidDateTimeUnit(arguments.get(1).type(), unitName))) {
+                return false;
+            }
+        }
         return true;
+    }
+
+    private static boolean isDateTruncOrDateDiff(ResolvedFunction function)
+    {
+        return (function.name().equals(builtinFunctionName("date_trunc")) && function.signature().getArity() == 2) ||
+                (function.name().equals(builtinFunctionName("date_diff")) && function.signature().getArity() == 3);
     }
 
     private static boolean isModulsOrDivide(ResolvedFunction function)
