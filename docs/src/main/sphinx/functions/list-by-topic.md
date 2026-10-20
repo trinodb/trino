@@ -60,6 +60,7 @@ For more details, see {doc}`array`
 - {func}`array_first`
 - {func}`array_histogram`
 - {func}`array_intersect`
+- {func}`array_is_sorted`
 - {func}`array_join`
 - {func}`array_last`
 - {func}`array_max`
