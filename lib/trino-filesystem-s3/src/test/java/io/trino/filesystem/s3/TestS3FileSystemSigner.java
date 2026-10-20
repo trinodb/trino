@@ -26,6 +26,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeParams;
 import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 
+import java.util.Optional;
+
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4Signer;
 import static io.trino.filesystem.s3.S3FileSystemConfig.SignerType.Aws4UnsignedPayloadSigner;
@@ -91,7 +93,7 @@ final class TestS3FileSystemSigner
 
     private static S3AuthSchemeProvider createClientAuthSchemeProvider(S3FileSystemConfig config)
     {
-        S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config.setRegion(Region.US_EAST_1.id()), new S3FileSystemStats());
+        S3FileSystemLoader loader = new S3FileSystemLoader(OpenTelemetry.noop(), config.setRegion(Region.US_EAST_1.id()), new S3FileSystemStats(), Optional.empty());
         try (S3Client client = loader.createClient()) {
             return client.serviceClientConfiguration().authSchemeProvider();
         }

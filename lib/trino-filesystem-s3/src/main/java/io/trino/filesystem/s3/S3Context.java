@@ -18,20 +18,31 @@ import io.trino.filesystem.s3.S3FileSystemConfig.S3ChecksumAlgorithm;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import io.trino.spi.security.ConnectorIdentity;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.http.auth.aws.scheme.AwsV4AuthScheme;
+import software.amazon.awssdk.http.auth.spi.scheme.AuthSchemeOption;
+import software.amazon.awssdk.http.auth.spi.signer.HttpSigner;
+import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
+import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
+import software.amazon.awssdk.services.s3.auth.scheme.S3AuthSchemeProvider;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.KMS;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
+import static io.trino.filesystem.s3.S3RemoteSigningAuthScheme.REQUEST_SIGNER;
 import static java.util.Objects.requireNonNull;
 
 record S3Context(
@@ -41,7 +52,8 @@ record S3Context(
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
         StorageClassType storageClass,
         ObjectCannedAcl cannedAcl,
-        S3ChecksumAlgorithm checksumAlgorithm)
+        S3ChecksumAlgorithm checksumAlgorithm,
+        Optional<HttpSigner<AwsCredentialsIdentity>> remoteSigner)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -51,6 +63,19 @@ record S3Context(
         requireNonNull(s3SseContext, "sseContext is null");
         requireNonNull(credentialsProviderOverride, "credentialsProviderOverride is null");
         requireNonNull(checksumAlgorithm, "checksumAlgorithm is null");
+        requireNonNull(remoteSigner, "remoteSigner is null");
+    }
+
+    public S3Context(
+            int partSize,
+            boolean requesterPays,
+            S3SseContext s3SseContext,
+            Optional<AwsCredentialsProvider> credentialsProviderOverride,
+            StorageClassType storageClass,
+            ObjectCannedAcl cannedAcl,
+            S3ChecksumAlgorithm checksumAlgorithm)
+    {
+        this(partSize, requesterPays, s3SseContext, credentialsProviderOverride, storageClass, cannedAcl, checksumAlgorithm, Optional.empty());
     }
 
     public RequestPayer requestPayer()
@@ -60,7 +85,7 @@ record S3Context(
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, checksumAlgorithm);
+        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, checksumAlgorithm, remoteSigner);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -75,9 +100,22 @@ record S3Context(
         return this;
     }
 
+    public S3Context withRemoteSigner(HttpSigner<AwsCredentialsIdentity> remoteSigner)
+    {
+        return new S3Context(
+                partSize,
+                requesterPays,
+                s3SseContext,
+                Optional.of(AnonymousCredentialsProvider.create()),
+                storageClass,
+                cannedAcl,
+                checksumAlgorithm,
+                Optional.of(remoteSigner));
+    }
+
     public S3Context withSseCustomerKey(String key)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, checksumAlgorithm);
+        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, checksumAlgorithm, remoteSigner);
     }
 
     public S3Context withCredentialsProviderOverride(AwsCredentialsProvider credentialsProviderOverride)
@@ -89,12 +127,38 @@ record S3Context(
                 Optional.of(credentialsProviderOverride),
                 storageClass,
                 cannedAcl,
-                checksumAlgorithm);
+                checksumAlgorithm,
+                remoteSigner);
     }
 
-    public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
+    public void applyRequestOverrides(AwsRequestOverrideConfiguration.Builder builder)
     {
         credentialsProviderOverride.ifPresent(builder::credentialsProvider);
+        remoteSigner.ifPresent(signer -> addSignerOverride(builder, signer));
+    }
+
+    public boolean remoteSigningEnabled()
+    {
+        return remoteSigner.isPresent();
+    }
+
+    private static void addSignerOverride(AwsRequestOverrideConfiguration.Builder request, HttpSigner<AwsCredentialsIdentity> signer)
+    {
+        // S3 clients are shared across tables; keep each table's signer in its request options.
+        request.addPlugin(configuration -> {
+            S3ServiceClientConfiguration.Builder s3Configuration = (S3ServiceClientConfiguration.Builder) configuration;
+            S3AuthSchemeProvider delegate = s3Configuration.authSchemeProvider();
+            s3Configuration.authSchemeProvider(parameters -> {
+                List<AuthSchemeOption> options = delegate.resolveAuthScheme(parameters).stream()
+                        .filter(option -> option.schemeId().equals(AwsV4AuthScheme.SCHEME_ID))
+                        .map(option -> option.toBuilder().putSignerProperty(REQUEST_SIGNER, signer).build())
+                        .collect(toImmutableList());
+                if (options.isEmpty()) {
+                    throw SdkClientException.create("Remote signing requires the SigV4 authentication scheme");
+                }
+                return options;
+            });
+        });
     }
 
     record S3SseContext(S3SseType sseType, Optional<String> sseKmsKeyId, Optional<S3SseCustomerKey> sseCustomerKey)

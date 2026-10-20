@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
 public class IcebergRestCatalogFileSystem
         implements TrinoFileSystem
@@ -124,11 +125,12 @@ public class IcebergRestCatalogFileSystem
 
     private String locationPrefix(Location location)
     {
+        // Catalog-wide S3 settings also wrap scheme-less paths, which are delegated to Hadoop's default filesystem.
         return storageCredentials.stream()
-                .filter(credential -> location.toString().startsWith(credential.prefix()))
+                .filter(credential -> location.toString().startsWith(credential.prefix()) || location.toString().equals(stripTrailingSlash(credential.prefix())))
                 .max(Comparator.comparingInt(credential -> credential.prefix().length()))
                 .map(IcebergStorageCredentials::prefix)
-                .orElseGet(() -> location.scheme().orElseThrow());
+                .orElseGet(() -> location.scheme().orElse(""));
     }
 
     @Override

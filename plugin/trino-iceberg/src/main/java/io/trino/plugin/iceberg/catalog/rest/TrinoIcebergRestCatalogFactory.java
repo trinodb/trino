@@ -63,6 +63,7 @@ public class TrinoIcebergRestCatalogFactory
     private final boolean uniqueTableLocation;
     private final TypeManager typeManager;
     private final boolean caseInsensitiveNameMatching;
+    private final boolean remoteSigningEnabled;
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
     private final Optional<Cache<NamespaceListingKey, List<TableIdentifier>>> namespaceTableListingCache;
@@ -77,6 +78,7 @@ public class TrinoIcebergRestCatalogFactory
             ForwardingFileIoFactory fileIoFactory,
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
+            Optional<IcebergRestCatalogS3Config> s3Config,
             SecurityProperties securityProperties,
             IcebergRestCatalogPropertiesProvider catalogPropertiesProvider,
             IcebergConfig icebergConfig,
@@ -99,6 +101,9 @@ public class TrinoIcebergRestCatalogFactory
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.caseInsensitiveNameMatching = restConfig.isCaseInsensitiveNameMatching();
+        this.remoteSigningEnabled = requireNonNull(s3Config, "s3Config is null")
+                .map(IcebergRestCatalogS3Config::isRemoteSigningEnabled)
+                .orElse(false);
         this.remoteNamespaceMappingCache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(restConfig.getCaseInsensitiveNameMatchingCacheMaximumSize())
                 .expireAfterWrite(restConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS)
@@ -137,10 +142,15 @@ public class TrinoIcebergRestCatalogFactory
         // for authorization and config route
         if (icebergCatalog == null) {
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(config)
-                            .uri(config.get(CatalogProperties.URI))
-                            .withHeaders(RESTUtil.configHeaders(config))
-                            .build(),
+                    config -> {
+                        if (remoteSigningEnabled) {
+                            return new IcebergRestCatalogS3RemoteSigningClient(config);
+                        }
+                        return HTTPClient.builder(config)
+                                .uri(config.get(CatalogProperties.URI))
+                                .withHeaders(RESTUtil.configHeaders(config))
+                                .build();
+                    },
                     (context, config) -> {
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())
