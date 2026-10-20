@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.httpquery;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.FutureCallback;
@@ -251,13 +252,13 @@ public class HttpEventListener
         return true;
     }
 
-    private Duration nextDelay(Duration delay)
+    @VisibleForTesting
+    Duration nextDelay(Duration delay)
     {
-        if (delay.compareTo(Duration.valueOf("0s")) == 0) {
-            return retryDelay;
+        Duration newDuration = retryDelay;
+        if (delay.compareTo(Duration.valueOf("0s")) != 0) {
+            newDuration = Duration.succinctDuration(delay.getValue(TimeUnit.SECONDS) * backoffBase, TimeUnit.SECONDS);
         }
-
-        Duration newDuration = Duration.succinctDuration(delay.getValue(TimeUnit.SECONDS) * backoffBase, TimeUnit.SECONDS);
         if (newDuration.compareTo(maxDelay) > 0) {
             return maxDelay;
         }
