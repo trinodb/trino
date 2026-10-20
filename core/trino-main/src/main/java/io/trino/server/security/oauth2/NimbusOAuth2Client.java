@@ -86,7 +86,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class NimbusOAuth2Client
         implements OAuth2Client
 {
-    private static final Logger LOG = Logger.get(NimbusAirliftHttpClient.class);
+    private static final Logger LOG = Logger.get(NimbusOAuth2Client.class);
 
     private final Issuer issuer;
     private final ClientID clientId;
