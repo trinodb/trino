@@ -515,7 +515,7 @@ public class TestQueryStateMachine
         stateMachine.resultsConsumed();
 
         BasicStagesInfo stages = createBasicStagesInfo(stageCount, StageState.FINISHED, baseStatValue);
-        ResultQueryInfo queryInfo = stateMachine.getResultQueryInfo(Optional.of(stages));
+        ResultQueryInfo queryInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.of(stages));
         BasicQueryStats stats = queryInfo.queryStats();
 
         assertThat(queryInfo.state()).isEqualTo(QUEUED);
@@ -542,11 +542,38 @@ public class TestQueryStateMachine
         assertStats(stats, baseStatValue * stageCount);
 
         stateMachine.transitionToFailed(new TrinoException(() -> new ErrorCode(0, "", ErrorType.EXTERNAL), "", new IOException()));
-        queryInfo = stateMachine.getResultQueryInfo(Optional.of(stages));
+        queryInfo = stateMachine.getResultQueryInfo(stateMachine.getQueryState(), Optional.of(stages));
         assertThat(queryInfo.failureInfo()).isNotNull();
         assertThat(queryInfo.errorCode().getCode()).isEqualTo(0);
         assertThat(queryInfo.finalQueryInfo()).isTrue();
         assertThat(queryInfo.state()).isEqualTo(FAILED);
+    }
+
+    @Test
+    public void testUpdateResultQueryInfoWithEarlierState()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        assertThat(stateMachine.transitionToPlanning()).isTrue();
+        QueryState planningState = stateMachine.getQueryState();
+        assertThat(stateMachine.transitionToStarting()).isTrue();
+        assertThat(stateMachine.transitionToRunning()).isTrue();
+
+        ResultQueryInfo queryInfo = stateMachine.updateResultQueryInfo(planningState, Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(PLANNING);
+        assertThat(queryInfo.stages()).isEmpty();
+
+        QueryState runningState = stateMachine.getQueryState();
+        assertThat(stateMachine.transitionToFailed(newFailedCause())).isTrue();
+
+        queryInfo = stateMachine.updateResultQueryInfo(runningState, Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(RUNNING);
+        assertThat(queryInfo.finalQueryInfo()).isFalse();
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+
+        queryInfo = stateMachine.updateResultQueryInfo(stateMachine.getQueryState(), Optional.empty(), Optional::empty);
+        assertThat(queryInfo.state()).isEqualTo(FAILED);
+        assertThat(queryInfo.finalQueryInfo()).isTrue();
+        assertThat(stateMachine.getFinalQueryInfo()).isPresent();
     }
 
     private void assertStats(BasicQueryStats stats, int expectedStatsValue)

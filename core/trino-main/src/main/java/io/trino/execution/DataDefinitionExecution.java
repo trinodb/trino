@@ -277,7 +277,7 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public ResultQueryInfo getResultQueryInfo()
     {
-        return stateMachine.getFinalQueryInfo().map(ResultQueryInfo::new).orElseGet(() -> stateMachine.updateResultQueryInfo(Optional.empty(), Optional::empty));
+        return stateMachine.getFinalQueryInfo().map(ResultQueryInfo::new).orElseGet(() -> stateMachine.updateResultQueryInfo(stateMachine.getQueryState(), Optional.empty(), Optional::empty));
     }
 
     @Override
