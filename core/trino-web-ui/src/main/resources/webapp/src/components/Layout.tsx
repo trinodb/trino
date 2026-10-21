@@ -45,6 +45,10 @@ import { useAuth } from './AuthContext'
 import { useSnackbar } from './SnackbarContext'
 import { Cluster, clusterApi } from '../api/webapp/api'
 import { ApiResponse } from '../api/base'
+import { pollCoordinator } from '../utils/poll'
+
+// Version and uptime change rarely; this only keeps uptime and the connection dot fresh
+const CLUSTER_INFO_INTERVAL_MS = 5_000
 
 interface settingsMenuItem {
     key: string
@@ -151,13 +155,12 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         }
     }, [location, selectedDrawerItemKey])
 
-    useEffect(() => {
-        const runLoop = () => {
-            getClusterStats()
-            setTimeout(runLoop, 1000)
-        }
-        runLoop()
-    }, [])
+    useEffect(
+        // Version, uptime and the connection dot. Cleaned up on unmount: the old loop kept running, so the dev
+        // build's double mount polled twice a second.
+        () => pollCoordinator(getClusterStats, CLUSTER_INFO_INTERVAL_MS),
+        []
+    )
 
     useEffect(() => {
         if (error) {
@@ -165,7 +168,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         }
     }, [error, showSnackbar])
 
-    const getClusterStats = () => {
+    const getClusterStats = () =>
         clusterApi().then((apiResponse: ApiResponse<Cluster>) => {
             if (apiResponse.status === 200 && apiResponse.data) {
                 setCluster(apiResponse.data)
@@ -174,7 +177,6 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                 setNoConnection(true)
             }
         })
-    }
 
     const onLogout = () => {
         logout({ redirect: authInfo?.authType != 'form' })

@@ -28,6 +28,10 @@ import {
     formatDataSizeBytes,
     precisionRound,
 } from '../utils/utils.ts'
+import { pollCoordinator } from '../utils/poll.ts'
+
+// Cluster stats: one request at a time, at most this often
+const STATS_INTERVAL_MS = 1_500
 
 interface ClusterStats {
     runningQueries: number[]
@@ -69,14 +73,12 @@ export const Dashboard = () => {
     })
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        const runLoop = () => {
-            getClusterStats()
-            setTimeout(runLoop, 1000)
-        }
-        runLoop()
+    // One request at a time, at most every STATS_INTERVAL_MS, none while the tab is hidden
+    useEffect(
+        () => pollCoordinator(getClusterStats, STATS_INTERVAL_MS),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+        []
+    )
 
     useEffect(() => {
         if (error) {
@@ -86,7 +88,7 @@ export const Dashboard = () => {
 
     const getClusterStats = () => {
         setError(null)
-        statsApi().then((apiResponse: ApiResponse<Stats>) => {
+        return statsApi().then((apiResponse: ApiResponse<Stats>) => {
             if (apiResponse.status === 200 && apiResponse.data) {
                 const newClusterStats: Stats = apiResponse.data
                 setClusterStats((prevClusterStats) => {

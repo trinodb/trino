@@ -32,7 +32,11 @@ import { QueryListItem } from './QueryListItem.tsx'
 import { ApiResponse } from '../api/base.ts'
 import { Texts } from '../constant.ts'
 import { QueryInfo, queryApi } from '../api/webapp/api.ts'
+import { pollCoordinator } from '../utils/poll.ts'
 import { getHumanReadableState, parseDataSize, parseDuration } from '../utils/utils.ts'
+
+// Query list: one request at a time, at most this often (the response lists every query the coordinator remembers)
+const QUERY_LIST_INTERVAL_MS = 1_500
 
 const STATE_TYPE = {
     RUNNING: (queryInfo: QueryInfo) =>
@@ -126,18 +130,13 @@ export const QueryList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        // Each filter change restarts the loop; a request still in flight from the previous loop is ignored
+        // Each filter change restarts the loop; a request still in flight from the previous loop is ignored.
+        // One request at a time, at most every QUERY_LIST_INTERVAL_MS, none while the tab is hidden.
         let active = true
-        let timeoutId: number
-        const runLoop = () => {
-            getQueryListStatus(() => active)
-            timeoutId = setTimeout(runLoop, 1000)
-        }
-        runLoop()
-
+        const stop = pollCoordinator(() => getQueryListStatus(() => active), QUERY_LIST_INTERVAL_MS)
         return () => {
             active = false
-            clearTimeout(timeoutId)
+            stop()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchString, stateFilters, errorTypeFilters, sortType, sortOrder, reorderInterval, maxQueries])
@@ -206,7 +205,7 @@ export const QueryList = () => {
     // (filtered with the old settings) and must not overwrite the list the new settings already produced
     const getQueryListStatus = (isCurrent: () => boolean) => {
         setError(null)
-        queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
+        return queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
             if (!isCurrent()) {
                 return
             }
