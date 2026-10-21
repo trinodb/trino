@@ -175,17 +175,18 @@ export const WorkerStatus = () => {
 
         const queries: { [key: string]: number[] } = {}
         const reservations = pool.queryMemoryReservations
-        const revocableReservations = pool.queryMemoryRevocableReservations
 
         for (let query in reservations) {
             queries[query] = [reservations[query], 0]
         }
 
-        for (let query in revocableReservations) {
+        // Revocable memory is reported per task; a task ID starts with its query ID
+        for (const [taskId, bytes] of Object.entries(pool.taskMemoryRevocableReservations ?? {})) {
+            const query = taskId.substring(0, taskId.indexOf('.'))
             if (queries.hasOwnProperty.call(queries, query)) {
-                queries[query][1] = revocableReservations[query]
+                queries[query][1] += bytes
             } else {
-                queries[query] = [0, revocableReservations[query]]
+                queries[query] = [0, bytes]
             }
         }
 
