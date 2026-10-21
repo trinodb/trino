@@ -62,6 +62,18 @@ final class TestIcebergHllStatistics
     }
 
     @Test
+    void testAllNullColumn()
+    {
+        try (TestTable table = newTrinoTable("test_hll_all_null", "AS SELECT nationkey, CAST(NULL AS bigint) AS x FROM tpch.sf1.nation")) {
+            assertThat(distinctValuesCount(table.getName(), "x")).isEqualTo(0.0);
+
+            // NDV keeps being collected after non-null values arrive
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, nationkey FROM tpch.sf1.nation", 25);
+            assertDistinctValuesCountApproximately(table.getName(), "x", 25);
+        }
+    }
+
+    @Test
     void testDropExtendedStats()
     {
         try (TestTable table = newTrinoTable("test_hll_drop_extended_stats", "AS SELECT * FROM tpch.sf1.nation")) {

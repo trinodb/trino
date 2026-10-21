@@ -492,6 +492,8 @@ public class IcebergMetadata
     private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
+    // Matches approx_set default
+    private static final int HLL_NUMBER_OF_BUCKETS = 4096;
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(FILE_FORMAT_PROPERTY)
@@ -3247,7 +3249,9 @@ public class IcebergMetadata
         String totalRecords = snapshot.summary().get(TOTAL_RECORDS_PROP);
         if (totalRecords != null && Long.parseLong(totalRecords) == 0) {
             // Table has no data (empty, or wiped out). Collect NDV stats on all columns
-            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), ndvSketchAlgorithm, _ -> {});
+            // Ancestor statistics files may still exist and the writer checks them
+            SketchAlgorithm algorithm = resolveNdvSketchAlgorithm(icebergTable, snapshotId, ndvSketchAlgorithm);
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), algorithm, _ -> {});
         }
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
@@ -4633,10 +4637,11 @@ public class IcebergMetadata
                             columnNameToId.get(statisticMetadata.getColumnName()),
                             "Column not found in table: [%s]",
                             statisticMetadata.getColumnName());
-                    if (!block.isNull(0)) {
-                        Slice serialized = (Slice) blockToNativeValue(HYPER_LOG_LOG, block);
-                        ndvSketches.put(columnId, new NdvSketch.Hll(HyperLogLog.newInstance(serialized)));
-                    }
+                    // approx_set returns NULL for all-null input
+                    HyperLogLog sketch = block.isNull(0)
+                            ? HyperLogLog.newInstance(HLL_NUMBER_OF_BUCKETS)
+                            : HyperLogLog.newInstance((Slice) blockToNativeValue(HYPER_LOG_LOG, block));
+                    ndvSketches.put(columnId, new NdvSketch.Hll(sketch));
                 }
                 else {
                     throw new UnsupportedOperationException("Unsupported statistic: " + statisticMetadata);

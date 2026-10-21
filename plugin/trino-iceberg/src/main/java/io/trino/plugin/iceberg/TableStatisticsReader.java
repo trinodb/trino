@@ -318,16 +318,28 @@ public final class TableStatisticsReader
 
     /**
      * Returns the algorithm of the NDV sketches already stored for the snapshot, or {@code configured} if there are none.
+     * THETA takes precedence when both are present.
      */
     public static SketchAlgorithm resolveNdvSketchAlgorithm(Table icebergTable, long snapshotId, SketchAlgorithm configured)
     {
-        return getLatestStatisticsFile(icebergTable, snapshotId)
-                .flatMap(statisticsFile -> statisticsFile.blobMetadata().stream()
-                        .map(BlobMetadata::type)
-                        .filter(TableStatisticsReader::isNdvSketchBlobType)
-                        .findFirst())
-                .map(blobType -> blobType.equals(NdvSketch.TRINO_DATASKETCHES_HLL_V1) ? SketchAlgorithm.HLL : SketchAlgorithm.THETA)
-                .orElse(configured);
+        Set<SketchAlgorithm> foundAlgorithms = getLatestStatisticsFile(icebergTable, snapshotId).stream()
+                .flatMap(statisticsFile -> statisticsFile.blobMetadata().stream())
+                .map(BlobMetadata::type)
+                .map(blobType -> switch (blobType) {
+                    case NdvSketch.TRINO_DATASKETCHES_HLL_V1 -> Optional.of(SketchAlgorithm.HLL);
+                    case StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1 -> Optional.of(SketchAlgorithm.THETA);
+                    default -> Optional.<SketchAlgorithm>empty();
+                })
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet());
+
+        if (foundAlgorithms.contains(SketchAlgorithm.THETA)) {
+            return SketchAlgorithm.THETA;
+        }
+        if (foundAlgorithms.contains(SketchAlgorithm.HLL)) {
+            return SketchAlgorithm.HLL;
+        }
+        return configured;
     }
 
     private static boolean isNdvSketchBlobType(String blobType)

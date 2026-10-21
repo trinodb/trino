@@ -100,6 +100,20 @@ final class TestIcebergSketchAlgorithmSwitch
         thetaRunner.execute("DROP TABLE " + tableName);
     }
 
+    @Test
+    void testInsertAfterDeleteKeepsExistingAlgorithm()
+    {
+        String tableName = "test_switch_algorithm_insert_after_delete";
+        thetaRunner.execute("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation");
+        thetaRunner.execute("ANALYZE " + tableName);
+
+        hllRunner.execute("DELETE FROM " + tableName);
+        hllRunner.execute("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation");
+        assertThat(blobTypes(tableName)).containsOnly(APACHE_DATASKETCHES_THETA_V1);
+
+        thetaRunner.execute("DROP TABLE " + tableName);
+    }
+
     private Set<String> blobTypes(String tableName)
     {
         BaseTable table = loadTable(
