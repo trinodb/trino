@@ -175,8 +175,8 @@ const QueryText = (props: { queryInfo: QueryInfo; formattedQueryText: string }) 
     )
 }
 
-// Narrow column of actions shown to the left of the query text; the kill confirmation lives in QueryList, shared by
-// every row
+// Narrow column of actions shown to the left of the query text; the kill confirmation lives in QueryList so the
+// keyboard shortcut and this button share it
 const QueryActions = (props: { queryInfo: QueryInfo; onKill: (queryInfo: QueryInfo) => void }) => {
     const { queryInfo, onKill } = props
     const { showSnackbar } = useSnackbar()
@@ -311,7 +311,7 @@ export const QueryListItem = React.memo(function QueryListItem(props: IQueryList
                 <CompactMetric value={String(done ? 0 : stats.queuedDrivers)} title="Queued splits" />
             </Box>
             {/* Pinned: stays in view while the rows scroll sideways. Hidden by the app bar's compact button, which
-                leaves just the table (the error stays in the Status tooltip) */}
+                leaves just the table (the error stays in the Status tooltip; Backspace still kills) */}
             {!hideQueryText && (
                 <Box sx={COMPACT_TABLE_PINNED_SX}>
                     {queryInfo.state === 'FAILED' && (

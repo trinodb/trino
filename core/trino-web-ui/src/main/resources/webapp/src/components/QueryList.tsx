@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
     Alert,
     Box,
@@ -37,13 +38,20 @@ import { DebouncedTextField } from './DebouncedTextField.tsx'
 import { QueryListItem } from './QueryListItem.tsx'
 import { useAuth } from './AuthContext'
 import { KillQueryDialog } from './KillQueryDialog.tsx'
+import { useSnackbar } from './SnackbarContext.ts'
 import { ApiResponse } from '../api/base.ts'
 import { APP_BAR_HEIGHT, Texts } from '../constant.ts'
 import { QueryInfo, queryApi } from '../api/webapp/api.ts'
 import { useClusterStatsStore } from '../store'
 import { updateQueryCpuShares } from '../utils/queryCpuShare.ts'
 import { pollCoordinator } from '../utils/poll.ts'
-import { getCompactStatusRank, getHumanReadableState, parseDataSize, parseDuration } from '../utils/utils.ts'
+import {
+    getCompactStatusRank,
+    getHumanReadableState,
+    isKillable,
+    parseDataSize,
+    parseDuration,
+} from '../utils/utils.ts'
 import { COMPACT_QUERY_GRID_SX, COMPACT_TABLE_CONTENT_SX, COMPACT_TABLE_SCROLLER_SX } from './compactQueryGrid.ts'
 
 // Query list: one request at a time, at most this often (the response lists every query the coordinator remembers)
@@ -126,17 +134,25 @@ const COMPACT_HEADER_COLUMNS: ({ sortType: keyof typeof SORT_TYPE; label: string
         { sortType: 'QUEUED_SPLITS', label: 'Queued', title: 'Queued splits' },
     ]
 
+// Header columns reachable with ←/→ when the header has keyboard focus, in display order
+const SORTABLE_COLUMNS = COMPACT_HEADER_COLUMNS.flatMap((column) =>
+    column && typeof column === 'object' ? [column.sortType] : []
+)
+
 // Column headers of the compact rows: same grid, click a column to sort by it
 const CompactQueryHeader = (props: {
     sortType: keyof typeof SORT_TYPE
     sortOrder: keyof typeof SORT_ORDER
     onSort: (sortType: keyof typeof SORT_TYPE) => void
+    // Column reached with the keyboard (↑ from the first query), outlined until the user moves back down
+    keyboardColumn: keyof typeof SORT_TYPE | null
 }) => (
     <Box sx={{ ...COMPACT_QUERY_GRID_SX, py: 0.5, color: 'text.secondary', fontWeight: 500 }}>
         {COMPACT_HEADER_COLUMNS.map((column, index) =>
             column && typeof column === 'object' ? (
                 <ButtonBase
                     key={column.sortType}
+                    id={`compact-header-${column.sortType}`}
                     disableRipple
                     title={column.title}
                     onClick={() => props.onSort(column.sortType)}
@@ -152,6 +168,9 @@ const CompactQueryHeader = (props: {
                         font: 'inherit',
                         color: props.sortType === column.sortType ? 'text.primary' : 'inherit',
                         borderRadius: 0.5,
+                        outline: props.keyboardColumn === column.sortType ? 2 : 0,
+                        outlineColor: 'primary.main',
+                        outlineOffset: 1,
                         '&:hover': { color: 'text.primary' },
                     }}
                 >
@@ -225,7 +244,19 @@ export const QueryList = () => {
     const username = useAuth().authInfo?.username
     const headerScrollRef = useRef<HTMLDivElement>(null)
     const rowsScrollRef = useRef<HTMLDivElement>(null)
+    const navigate = useNavigate()
+    const { showSnackbar } = useSnackbar()
+    // Query highlighted by keyboard navigation, and the query the kill dialog asks about. Returning from a query page
+    // with Esc passes that query's id, so it starts selected (it shows only if the query is still listed).
+    const location = useLocation()
+    const [selectedQueryId, setSelectedQueryId] = useState<string | null>(
+        (location.state as { selectedQueryId?: string } | null)?.selectedQueryId ?? null
+    )
+    // Scroll the returned-to query into view once it first appears in the list
+    const scrollToSelectedRef = useRef(selectedQueryId !== null)
     const [killTarget, setKillTarget] = useState<QueryInfo | null>(null)
+    // Index into SORTABLE_COLUMNS while the column header has keyboard focus (↑ from the first query), else null
+    const [headerColumn, setHeaderColumn] = useState<number | null>(null)
 
     useEffect(() => {
         // Each filter change restarts the loop; a request still in flight from the previous loop is ignored.
@@ -520,6 +551,114 @@ export const QueryList = () => {
         )
     }
 
+    // Keyboard: ↑/↓ select a query, Enter opens it, Backspace asks to kill it (Enter confirms, Esc cancels in the
+    // dialog). ↑ from the first query moves into the column header: ←/→ pick a column, Enter or Space sorts by it,
+    // ↓ goes back to the queries. Ignored while typing in a field or while the kill dialog is open.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement
+            // The dialog's own Enter/Escape reach window after it already handled them (and may have closed)
+            if (
+                killTarget !== null ||
+                event.defaultPrevented ||
+                target.closest('[role="dialog"]') ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.altKey ||
+                target.isContentEditable ||
+                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+            ) {
+                return
+            }
+            if (headerColumn !== null) {
+                if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    const next = Math.min(
+                        SORTABLE_COLUMNS.length - 1,
+                        Math.max(0, headerColumn + (event.key === 'ArrowRight' ? 1 : -1))
+                    )
+                    setHeaderColumn(next)
+                    // Bring the column into view; the header follows the rows' sideways scroll, so scroll those
+                    const cell = document.getElementById(`compact-header-${SORTABLE_COLUMNS[next]}`)
+                    if (cell && headerScrollRef.current && rowsScrollRef.current) {
+                        cell.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+                        rowsScrollRef.current.scrollLeft = headerScrollRef.current.scrollLeft
+                    }
+                } else if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    sortByColumn(SORTABLE_COLUMNS[headerColumn])
+                } else if (event.key === 'ArrowDown' && displayedQueries.length > 0) {
+                    event.preventDefault()
+                    setHeaderColumn(null)
+                    setSelectedQueryId(displayedQueries[0].queryId)
+                    document
+                        .getElementById(`query-list-item-${displayedQueries[0].queryId}`)
+                        ?.scrollIntoView({ block: 'nearest' })
+                }
+                return
+            }
+            const index = displayedQueries.findIndex((query) => query.queryId === selectedQueryId)
+            const selected = index === -1 ? null : displayedQueries[index]
+            // ↑ from the first query, or before anything is selected (e.g. right after loading), goes to the header
+            if (event.key === 'ArrowUp' && index <= 0 && displayedQueries.length > 0) {
+                event.preventDefault()
+                setSelectedQueryId(null)
+                setHeaderColumn(Math.max(0, SORTABLE_COLUMNS.indexOf(sortType)))
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                if (displayedQueries.length === 0) {
+                    return
+                }
+                event.preventDefault()
+                const next =
+                    index === -1
+                        ? 0
+                        : Math.min(
+                              displayedQueries.length - 1,
+                              Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1))
+                          )
+                const nextId = displayedQueries[next].queryId
+                setSelectedQueryId(nextId)
+                document.getElementById(`query-list-item-${nextId}`)?.scrollIntoView({ block: 'nearest' })
+            } else if (event.key === 'Enter' && selected) {
+                event.preventDefault()
+                if (event.shiftKey) {
+                    // Shift+Enter: new tab, like shift-clicking a link (the app routes on the URL hash)
+                    window.open(`${window.location.href.split('#')[0]}#/queries/${selected.queryId}`, '_blank')
+                } else {
+                    navigate(`/queries/${selected.queryId}`)
+                }
+            } else if (event.key === 'Backspace' && selected) {
+                event.preventDefault()
+                if (isKillable(selected)) {
+                    setKillTarget(selected)
+                } else {
+                    showSnackbar(Texts.QueryList.Actions.AlreadyDone, 'info')
+                }
+            }
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+        // No dependency list: the handler reads most of this component's state and the sort helpers, so it is
+        // re-attached after every render (the list re-renders about once a second; attaching is cheap)
+    })
+
+    // After the first load, bring the query we returned from into view (if it is still listed)
+    useEffect(() => {
+        if (!scrollToSelectedRef.current || loading) {
+            return
+        }
+        scrollToSelectedRef.current = false
+        document.getElementById(`query-list-item-${selectedQueryId}`)?.scrollIntoView({ block: 'center' })
+    }, [loading, displayedQueries, selectedQueryId])
+
+    // The browser keeps history state across a page refresh; drop the returned-to query once read so a refresh
+    // starts with nothing selected
+    useEffect(() => {
+        if (location.state) {
+            navigate(location.pathname, { replace: true, state: null })
+        }
+    }, [location.state, location.pathname, navigate])
+
     if (loading || error) {
         return (
             <Box
@@ -539,7 +678,18 @@ export const QueryList = () => {
     }
 
     const renderQuery = (queryInfo: QueryInfo) => (
-        <Box key={queryInfo.queryId}>
+        <Box
+            key={queryInfo.queryId}
+            id={`query-list-item-${queryInfo.queryId}`}
+            sx={{
+                // Keeps a keyboard-selected query clear of the app bar and the sticky table header
+                scrollMarginTop: APP_BAR_HEIGHT + 48,
+                outline: queryInfo.queryId === selectedQueryId ? 2 : 0,
+                outlineColor: 'primary.main',
+                outlineOffset: -2,
+                borderRadius: 1,
+            }}
+        >
             <QueryListItem queryInfo={queryInfo} onKill={setKillTarget} />
             <Divider sx={{ mb: 1 }} />
         </Box>
@@ -691,7 +841,12 @@ export const QueryList = () => {
                     >
                         <Box ref={headerScrollRef} sx={{ overflowX: 'hidden' }}>
                             <Box sx={COMPACT_TABLE_CONTENT_SX}>
-                                <CompactQueryHeader sortType={sortType} sortOrder={sortOrder} onSort={sortByColumn} />
+                                <CompactQueryHeader
+                                    sortType={sortType}
+                                    sortOrder={sortOrder}
+                                    onSort={sortByColumn}
+                                    keyboardColumn={headerColumn === null ? null : SORTABLE_COLUMNS[headerColumn]}
+                                />
                             </Box>
                         </Box>
                     </Box>

@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { ReactNode } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import React, { ReactNode, useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
@@ -35,6 +35,7 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
 export const QueryDetails = () => {
     const { queryId } = useParams()
     const [searchParams, setSearchParams] = useSearchParams()
+    const navigate = useNavigate()
     const requestedTab = searchParams.get('tab')
     const tabValue: TabValue = tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
 
@@ -53,6 +54,27 @@ export const QueryDetails = () => {
 
         setSearchParams(nextParams)
     }
+
+    // Escape goes back to the dashboard, unless something on the page is using it (a dialog, a menu, a field, the
+    // JSON editor) or already handled it
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement
+            if (
+                event.key !== 'Escape' ||
+                event.defaultPrevented ||
+                target.isContentEditable ||
+                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+                target.closest('[role="dialog"], [role="menu"], [role="listbox"], .monaco-editor')
+            ) {
+                return
+            }
+            // The dashboard re-selects this query if it is still listed
+            navigate('/dashboard', { state: { selectedQueryId: queryId } })
+        }
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [navigate, queryId])
 
     return (
         <>

@@ -71,6 +71,7 @@ export const Texts = {
             KillRequested: 'Kill requested',
             KillConfirmTitle: 'Kill this query?',
             KillConfirmCancel: 'Cancel',
+            AlreadyDone: 'This query has already finished',
             Expand: 'Show full query',
             Collapse: 'Show less',
         },

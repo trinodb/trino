@@ -11,17 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material'
 import { QueryInfo, killQueryApi } from '../api/webapp/api.ts'
 import { Texts } from '../constant.ts'
 import { useSnackbar } from './SnackbarContext.ts'
 
-// Confirmation before killing a query from the list, opened by the row's kill button. Kill starts focused, Escape
-// cancels.
+// Confirmation before killing a query from the list, opened by the row's kill button or the Backspace shortcut.
+// ←/→ move between Cancel and Kill (Kill starts focused), Enter picks the focused one, Escape cancels.
 export const KillQueryDialog = (props: { queryInfo: QueryInfo | null; onClose: () => void }) => {
     const { queryInfo, onClose } = props
     const { showSnackbar } = useSnackbar()
+    const cancelRef = useRef<HTMLButtonElement>(null)
+    const killRef = useRef<HTMLButtonElement>(null)
     const focusRingSx = { '&.Mui-focusVisible': { outline: '2px solid', outlineOffset: 2 } }
     // The dialog fades out after queryInfo becomes null; keep showing the last query so the text does not change
     // mid-animation
@@ -47,7 +49,26 @@ export const KillQueryDialog = (props: { queryInfo: QueryInfo | null; onClose: (
     }
 
     return (
-        <Dialog open={queryInfo !== null} onClose={onClose}>
+        <Dialog
+            open={queryInfo !== null}
+            onClose={onClose}
+            onKeyDown={(event) => {
+                if (event.key === 'ArrowLeft') {
+                    event.preventDefault()
+                    cancelRef.current?.focus()
+                } else if (event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    killRef.current?.focus()
+                } else if (event.key === 'Enter') {
+                    event.preventDefault()
+                    if (document.activeElement === cancelRef.current) {
+                        onClose()
+                    } else {
+                        killQuery()
+                    }
+                }
+            }}
+        >
             <DialogTitle>{Texts.QueryList.Actions.KillConfirmTitle}</DialogTitle>
             <DialogContent>
                 <DialogContentText>
@@ -56,10 +77,18 @@ export const KillQueryDialog = (props: { queryInfo: QueryInfo | null; onClose: (
             </DialogContent>
             <DialogActions>
                 {/* No ripple: the pulsing focus circle replaced by a plain outline */}
-                <Button onClick={onClose} disableRipple sx={focusRingSx}>
+                <Button ref={cancelRef} onClick={onClose} disableRipple sx={focusRingSx}>
                     {Texts.QueryList.Actions.KillConfirmCancel}
                 </Button>
-                <Button color="error" variant="contained" onClick={killQuery} autoFocus disableRipple sx={focusRingSx}>
+                <Button
+                    ref={killRef}
+                    color="error"
+                    variant="contained"
+                    onClick={killQuery}
+                    autoFocus
+                    disableRipple
+                    sx={focusRingSx}
+                >
                     {Texts.QueryList.Actions.Kill}
                 </Button>
             </DialogActions>
