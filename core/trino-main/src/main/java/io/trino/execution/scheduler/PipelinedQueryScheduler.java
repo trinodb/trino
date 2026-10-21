@@ -272,11 +272,8 @@ public class PipelinedQueryScheduler
         }
         started = true;
 
-        if (queryStateMachine.isDone()) {
-            return;
-        }
-
-        // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
+        // when query is done or any time a stage completes, attempt to transition query to "final query info ready".
+        // Registered before the isDone check so a query already done fires it at once
         queryStateMachine.addStateChangeListener(state -> {
             if (!state.isDone()) {
                 return;
@@ -306,6 +303,10 @@ public class PipelinedQueryScheduler
 
             queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo()));
         });
+
+        if (queryStateMachine.isDone()) {
+            return;
+        }
 
         Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
 

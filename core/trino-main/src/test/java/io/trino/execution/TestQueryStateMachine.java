@@ -440,6 +440,34 @@ public class TestQueryStateMachine
     }
 
     @Test
+    public void testFinalQueryInfoWhenCanceledBeforeStarting()
+    {
+        // canceled before starting, when the query has no tasks
+        List<Consumer<QueryStateMachine>> notStarted = ImmutableList.of(
+                _ -> {},
+                QueryStateMachine::transitionToWaitingForResources,
+                QueryStateMachine::transitionToDispatching,
+                QueryStateMachine::transitionToPlanning);
+        for (Consumer<QueryStateMachine> reachState : notStarted) {
+            QueryStateMachine stateMachine = createQueryStateMachine();
+            reachState.accept(stateMachine);
+            assertThat(stateMachine.transitionToCanceled()).isTrue();
+            assertThat(stateMachine.getFinalQueryInfo()).isPresent();
+        }
+
+        // canceled after starting, when the query may have tasks
+        List<Consumer<QueryStateMachine>> started = ImmutableList.of(
+                QueryStateMachine::transitionToStarting,
+                QueryStateMachine::transitionToRunning);
+        for (Consumer<QueryStateMachine> reachState : started) {
+            QueryStateMachine stateMachine = createQueryStateMachine();
+            reachState.accept(stateMachine);
+            assertThat(stateMachine.transitionToCanceled()).isTrue();
+            assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+        }
+    }
+
+    @Test
     public void testPreserveFirstFailure()
             throws Exception
     {

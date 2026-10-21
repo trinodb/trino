@@ -312,18 +312,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         checkState(!started, "already started");
         started = true;
 
-        if (queryStateMachine.isDone()) {
-            return;
-        }
-
-        taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
-        queryStateMachine.addStateChangeListener(state -> {
-            if (state.isDone()) {
-                taskDescriptorStorage.destroy(queryStateMachine.getQueryId());
-            }
-        });
-
-        // when query is done, attempt to transition query to "final query info ready"
+        // when query is done, attempt to transition query to "final query info ready".
+        // Registered before the isDone check so a query already done fires it at once
         queryStateMachine.addStateChangeListener(state -> {
             if (!state.isDone()) {
                 return;
@@ -337,6 +327,17 @@ public class EventDrivenFaultTolerantQueryScheduler
                 scheduler.abort();
             }
             queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStages()));
+        });
+
+        if (queryStateMachine.isDone()) {
+            return;
+        }
+
+        taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
+        queryStateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                taskDescriptorStorage.destroy(queryStateMachine.getQueryId());
+            }
         });
 
         startAttempt();
