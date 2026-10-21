@@ -32,13 +32,29 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeOperators;
@@ -49,15 +65,18 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.math.LongMath.pow;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
@@ -74,18 +93,24 @@ import static io.trino.server.protocol.TestJsonEncodingUtils.TypedColumn.typed;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.IntervalField.DAY;
 import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.IntervalDayTimeType.createIntervalDayTimeType;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,6 +126,144 @@ public class TestJsonEncodingUtils
     protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
     {
         return new JsonQueryDataEncoder.Factory(new JsonMapper()).create(session, columns);
+    }
+
+    @Test
+    public void testDecimalSerialization()
+            throws IOException
+    {
+        for (int precision : new int[] {1, 18, 19, 38}) {
+            for (int scale : new int[] {0, precision / 2, precision}) {
+                DecimalType type = DecimalType.createDecimalType(precision, scale);
+                String max = "9".repeat(precision);
+                BlockBuilder builder = type.createBlockBuilder(null, 4);
+                List<String> values = new ArrayList<>(List.of("0", "1", "-1", max, "-" + max));
+                Random random = new Random(0);
+                for (int i = 0; i < 50; i++) {
+                    BigInteger value = new BigInteger(127, random).mod(BigInteger.TEN.pow(precision));
+                    values.add(value.toString());
+                    values.add(value.negate().toString());
+                }
+                for (String value : values) {
+                    if (type.isShort()) {
+                        type.writeLong(builder, Long.parseLong(value));
+                    }
+                    else {
+                        type.writeObject(builder, Int128.valueOf(value));
+                    }
+                }
+                builder.appendNull();
+                assertSpecializedEncoding(type, builder.build());
+            }
+        }
+    }
+
+    @Test
+    public void testDateSerialization()
+            throws IOException
+    {
+        assertSpecializedEncoding(DATE, createTypedLongsBlock(DATE, null, -2147483648L, -719529L, -1L, 0L, 1L, 2932897L, 2147483647L));
+    }
+
+    @Test
+    public void testTemporalSerialization()
+            throws IOException
+    {
+        for (int precision = 0; precision <= 12; precision++) {
+            long unit = pow(10, 12 - precision);
+            TimeType timeType = TimeType.createTimeType(precision);
+            TimeWithTimeZoneType timeWithTimeZoneType = TimeWithTimeZoneType.createTimeWithTimeZoneType(precision);
+            TimestampType timestampType = TimestampType.createTimestampType(precision);
+            TimestampWithTimeZoneType timestampWithTimeZoneType = TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision);
+            BlockBuilder times = timeType.createBlockBuilder(null, 20);
+            BlockBuilder timesWithTimeZone = timeWithTimeZoneType.createBlockBuilder(null, 100);
+            BlockBuilder timestamps = timestampType.createBlockBuilder(null, 20);
+            BlockBuilder timestampsWithTimeZone = timestampWithTimeZoneType.createBlockBuilder(null, 100);
+            for (long picos : new long[] {0, 1, 499_999_999, 500_000_000, 999_999_999, 999_999_999_999L, PICOSECONDS_PER_DAY - 1}) {
+                picos = (picos / unit) * unit;
+                timeType.writeLong(times, picos);
+                for (int offset : new int[] {-840, -345, 0, 345, 840}) {
+                    if (timeWithTimeZoneType.isShort()) {
+                        timeWithTimeZoneType.writeLong(timesWithTimeZone, packTimeWithTimeZone(picos / 1000, offset));
+                    }
+                    else {
+                        timeWithTimeZoneType.writeObject(timesWithTimeZone, new LongTimeWithTimeZone(picos, offset));
+                    }
+                }
+            }
+            for (long seconds : new long[] {-377736739200L, -86401, -1, 0, 1, 1711846799, 253402300800L}) {
+                for (long fraction : new long[] {0, 499_999_999, 500_000_000, PICOSECONDS_PER_SECOND - 1}) {
+                    fraction = (fraction / unit) * unit;
+                    long epochMicros = seconds * 1_000_000 + fraction / 1_000_000;
+                    if (timestampType.isShort()) {
+                        timestampType.writeLong(timestamps, epochMicros);
+                    }
+                    else {
+                        timestampType.writeObject(timestamps, new LongTimestamp(epochMicros, (int) (fraction % 1_000_000)));
+                    }
+                    for (String zone : List.of("UTC", "Europe/Warsaw", "America/Los_Angeles", "+05:45")) {
+                        TimeZoneKey zoneKey = TimeZoneKey.getTimeZoneKey(zone);
+                        long epochMillis = seconds * 1000 + fraction / 1_000_000_000;
+                        if (timestampWithTimeZoneType.isShort()) {
+                            timestampWithTimeZoneType.writeLong(timestampsWithTimeZone, packDateTimeWithZone(epochMillis, zoneKey));
+                        }
+                        else {
+                            timestampWithTimeZoneType.writeObject(timestampsWithTimeZone, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, (int) (fraction % 1_000_000_000), zoneKey));
+                        }
+                    }
+                }
+            }
+            times.appendNull();
+            timesWithTimeZone.appendNull();
+            timestamps.appendNull();
+            timestampsWithTimeZone.appendNull();
+            assertSpecializedEncoding(timeType, times.build());
+            assertSpecializedEncoding(timeWithTimeZoneType, timesWithTimeZone.build());
+            assertSpecializedEncoding(timestampType, timestamps.build());
+            assertSpecializedEncoding(timestampWithTimeZoneType, timestampsWithTimeZone.build());
+        }
+    }
+
+    private void assertSpecializedEncoding(Type type, Block block)
+            throws IOException
+    {
+        int[] positions = new int[block.getPositionCount()];
+        for (int i = 0; i < positions.length; i++) {
+            positions[i] = positions.length - i - 1;
+        }
+        for (Block input : List.of(block, DictionaryBlock.create(positions.length, block, positions), RunLengthEncodedBlock.create(block.getSingleValueBlock(0), 5), RunLengthEncodedBlock.create(block.getSingleValueBlock(block.getPositionCount() - 1), 5))) {
+            for (boolean parametric : List.of(false, true)) {
+                Session session = sessionWithoutCapability(ClientCapabilities.PARAMETRIC_DATETIME);
+                if (parametric) {
+                    session = sessionWithCapability(ClientCapabilities.PARAMETRIC_DATETIME);
+                }
+                List<List<Object>> expected = new ArrayList<>();
+                for (int position = 0; position < input.getPositionCount(); position++) {
+                    Object value = type.getObjectValue(input, position);
+                    if (!parametric) {
+                        value = switch (value) {
+                            case SqlTime time -> time.roundTo(3);
+                            case SqlTimeWithTimeZone time -> time.roundTo(3);
+                            case SqlTimestamp timestamp -> timestamp.roundTo(3);
+                            case SqlTimestampWithTimeZone timestamp -> timestamp.roundTo(3);
+                            case null, default -> value;
+                        };
+                    }
+                    expected.add(singletonList(value == null ? null : value.toString()));
+                }
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                QueryDataEncoder encoder = newEncoder(session, List.of(typed("value", type)));
+                try {
+                    encoder.encodeTo(output, List.of(new Page(input)));
+                }
+                finally {
+                    encoder.close();
+                }
+                assertThat(output.toString(UTF_8))
+                        .describedAs("%s, parametric=%s, block=%s", type, parametric, input.getClass().getSimpleName())
+                        .isEqualTo(new JsonMapper().writeValueAsString(expected));
+            }
+        }
     }
 
     @Test
