@@ -104,6 +104,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Statement;
@@ -208,6 +209,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -559,6 +561,33 @@ public class MySqlClient
     {
         requireNonNull(value, "value is null");
         return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
+    }
+
+    @Override
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        return declareUtcZone(super.getColumns(session, connection, metadata));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        return declareUtcZone(super.getColumns(session, schemaTableName, remoteTableName));
+    }
+
+    private static List<JdbcColumnHandle> declareUtcZone(List<JdbcColumnHandle> columns)
+    {
+        return columns.stream()
+                .map(columnHandle -> {
+                    if (!containsTimestampWithTimeZone(columnHandle.getColumnType())) {
+                        return columnHandle;
+                    }
+                    return JdbcColumnHandle.builderFrom(columnHandle)
+                            .setTimeZone(Optional.of(UTC_KEY))
+                            .build();
+                })
+                .collect(toImmutableList());
     }
 
     @Override
