@@ -94,9 +94,13 @@ public class ApiCallStats
 
     /**
      * Emits {@code <prefix>.all.*} for the aggregate and {@code <prefix>.<callName>.*} for each call name.
+     * Returns {@link Metrics#EMPTY} when no call was recorded.
      */
     public Metrics toMetrics(String prefix)
     {
+        if (callStats.isEmpty()) {
+            return Metrics.EMPTY;
+        }
         ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.builder();
         allCallsStats.storeTo(metrics, prefix + ".all");
         for (Entry<String, CallStats> entry : callStats.entrySet()) {
