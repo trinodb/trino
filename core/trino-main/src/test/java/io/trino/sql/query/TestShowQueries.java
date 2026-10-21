@@ -316,6 +316,18 @@ public class TestShowQueries
     }
 
     @Test
+    public void testShowCreateTableWithMixedCaseName()
+    {
+        // Both forms resolve to the same canonical name
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE Mock.MockSchema.MockTable").getOnlyValue())
+                .asString()
+                .startsWith("CREATE TABLE mock.mockschema.mocktable");
+        assertThat(assertions.getQueryRunner().execute("SHOW CREATE TABLE \"Mock\".\"MockSchema\".\"MockTable\"").getOnlyValue())
+                .asString()
+                .startsWith("CREATE TABLE mock.mockschema.mocktable");
+    }
+
+    @Test
     public void testShowCreateMaterializedViewWithMixedCaseName()
     {
         // Both forms resolve to the same canonical name but retain the original spelling in the generated SQL.
