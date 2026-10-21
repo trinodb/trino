@@ -2141,21 +2141,124 @@ public class TestIcebergV3
         catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }
 
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testDeleteFromTableWithUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_delete_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.builderFor(schema).identity("x").build(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            for (int value : List.of(1, 2)) {
+                Record record = GenericRecord.create(schema);
+                record.setField("x", value);
+                record.setField("y", null);
+                PartitionData partition = new PartitionData(table.spec().partitionType());
+                partition.set(0, value);
+                appendDataFile(table, format.toIceberg(), record, partition);
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL)");
+            assertUpdate("DELETE FROM " + tableName + " WHERE x = 1", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, NULL)");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 1");
+            assertUpdate("DELETE FROM " + tableName, 1);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("y unknown");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testDeleteFromTablePartitionedByUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_delete_partitioned_by_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "data", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "part", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.builderFor(schema).identity("part").build(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            Record record = GenericRecord.create(schema);
+            record.setField("data", 1);
+            record.setField("part", null);
+            appendDataFile(table, format.toIceberg(), record, new PartitionData(table.spec().partitionType()));
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE part IS NOT NULL");
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 1");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE part IS NULL", 1);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(IcebergFileFormat.class)
+    void testTruncateTableWithUnknownType(IcebergFileFormat format)
+            throws Exception
+    {
+        String tableName = "test_truncate_unknown_type" + randomNameSuffix();
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "x", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "y", Types.UnknownType.get()));
+        createV3Table(tableName, schema, PartitionSpec.unpartitioned(), format.name());
+        try {
+            Table table = loadTable(tableName);
+            Record record = GenericRecord.create(schema);
+            record.setField("x", 1);
+            record.setField("y", null);
+            appendDataFile(table, format.toIceberg(), record, null);
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+            assertUpdate("TRUNCATE TABLE " + tableName);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 0");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                    .contains("y unknown");
+        }
+        finally {
+            catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
+        }
+    }
+
     @Test
     void testUnsupportedWriteOnUnknownType()
+            throws Exception
     {
         String tableName = "test_write_unknown_type" + randomNameSuffix();
         createV3Table(tableName, new Schema(
                 Types.NestedField.optional(1, "x", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "y", Types.UnknownType.get())));
 
+        Table table = loadTable(tableName);
+        Record record = GenericRecord.create(table.schema());
+        record.setField("x", 1);
+        record.setField("y", null);
+        appendDataFile(table, FileFormat.PARQUET, record, null);
+
         assertQueryFails("INSERT INTO " + tableName + " VALUES (1, NULL)", "Writing to Iceberg tables with unknown type columns is not supported");
         assertQueryFails("UPDATE " + tableName + " SET x = 2", "Writing to Iceberg tables with unknown type columns is not supported");
         assertQueryFails("DELETE FROM " + tableName + " WHERE x = 1", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("DELETE FROM " + tableName, "Writing to Iceberg tables with unknown type columns is not supported");
         assertQueryFails("MERGE INTO " + tableName + " t USING (VALUES 1) s(x) ON t.x = s.x WHEN MATCHED THEN DELETE", "Writing to Iceberg tables with unknown type columns is not supported");
-        assertQueryFails("TRUNCATE TABLE " + tableName, "Writing to Iceberg tables with unknown type columns is not supported");
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Writing to Iceberg tables with unknown type columns is not supported");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
 
         catalog.dropTable(SESSION, new SchemaTableName("tpch", tableName));
     }
