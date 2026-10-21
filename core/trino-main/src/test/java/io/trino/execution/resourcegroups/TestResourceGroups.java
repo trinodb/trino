@@ -14,6 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.trino.execution.MockManagedQueryExecution;
 import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
@@ -49,6 +50,7 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResourceGroups
@@ -450,6 +452,285 @@ public class TestResourceGroups
         root.updateGroupsAndProcessQueuedQueries();
         Stream.of(root, child).forEach(group -> assertWithinCpuLimit(group, 2));
         assertThat(q2.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testQueryHoldsSlotUntilItsTasksEnd()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(1);
+        root.setHardConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        // A done query with running tasks still occupies its worker, so it keeps its slot
+        query1.completeWithRunningTasks();
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueuedQueries()).isEqualTo(1);
+
+        query1.finishTasks();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueuedQueries()).isEqualTo(0);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testFailedQueryHoldsSlotUntilItsTasksEnd()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(1);
+        root.setHardConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        query1.failWithRunningTasks(new RuntimeException("query failed"));
+        assertThat(query1.getState()).isEqualTo(FAILED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        query1.finishTasks();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testSlotIsFreedWhenFinalQueryInfoDoesNotArrive()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(1);
+        root.setHardConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        // The timeout counts from the moment the query is first seen done, not from when it ended
+        query1.completeWithRunningTasks();
+        ticker.increment(4, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        ticker.increment(4, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(0);
+
+        ticker.increment(1, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueuedQueries()).isEqualTo(0);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(1);
+
+        // A query that is not done is never freed, and the late final query info of a freed query frees nothing
+        ticker.increment(10, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        query1.finishTasks();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(1);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testSlotsOfSeveralQueriesAreFreedInOneSweep()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(3);
+        root.setHardConcurrencyLimit(3);
+
+        List<MockManagedQueryExecution> running = new ArrayList<>();
+        List<MockManagedQueryExecution> queued = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder().build();
+            root.run(query);
+            assertThat(query.getState()).isEqualTo(RUNNING);
+            running.add(query);
+        }
+        for (int i = 0; i < 3; i++) {
+            MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder().build();
+            root.run(query);
+            assertThat(query.getState()).isEqualTo(QUEUED);
+            queued.add(query);
+        }
+
+        running.forEach(MockManagedQueryExecution::completeWithRunningTasks);
+        root.updateGroupsAndProcessQueuedQueries();
+        ticker.increment(5, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        assertThat(queued).allSatisfy(query -> assertThat(query.getState()).isEqualTo(RUNNING));
+        assertThat(root.getRunningQueries()).isEqualTo(3);
+        assertThat(root.getQueuedQueries()).isEqualTo(0);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(3);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testSlotIsFreedWhenStatsOfQueryWithoutFinalQueryInfoCannotBeRead()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(1);
+        root.setHardConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialCpuUsageMillis(2).build();
+        root.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        root.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        root.updateGroupsAndProcessQueuedQueries();
+        query1.failStatsWhileTasksRun();
+        query1.completeWithRunningTasks();
+        root.updateGroupsAndProcessQueuedQueries();
+        ticker.increment(5, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getQueuedQueries()).isEqualTo(0);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(1);
+        // the last reading of the freed query stands
+        assertThat(root.getResourceUsageSnapshot().cpuUsageMillis()).isEqualTo(2);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testSlotIsFreedInSubGroupWhenFinalQueryInfoDoesNotArrive()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(1);
+        root.setHardConcurrencyLimit(1);
+        InternalResourceGroup child = root.getOrCreateSubGroup("child");
+        child.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        child.setMaxQueuedQueries(1);
+        child.setHardConcurrencyLimit(1);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
+        child.run(query1);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
+        child.run(query2);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
+
+        query1.completeWithRunningTasks();
+        root.updateGroupsAndProcessQueuedQueries();
+        ticker.increment(5, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(child.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+        assertThat(child.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(1);
+        assertThat(root.getQueriesFreedWithoutFinalQueryInfo().getTotalCount()).isEqualTo(1);
+
+        query1.finishTasks();
+        assertThat(child.getRunningQueries()).isEqualTo(1);
+        assertThat(root.getRunningQueries()).isEqualTo(1);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCpuUsageOfQueryFreedWithoutFinalQueryInfoIsAccounted()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setCpuQuotaGenerationMillisPerSecond(1);
+        root.setHardCpuLimit(Duration.ofMillis(3));
+        root.setSoftCpuLimit(Duration.ofMillis(3));
+        root.setHardConcurrencyLimit(100);
+        root.setMaxQueuedQueries(100);
+
+        MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder().build();
+        root.run(query);
+        assertThat(query.getState()).isEqualTo(RUNNING);
+
+        query.consumeCpuTimeMillis(2);
+        query.completeWithRunningTasks();
+        root.updateGroupsAndProcessQueuedQueries();
+        query.consumeCpuTimeMillis(2);
+
+        ticker.increment(5, MINUTES);
+        root.updateGroupsAndProcessQueuedQueries();
+        assertExceedsCpuLimit(root, 4);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testUsageOfQueryWithFinalQueryInfoWithoutStagesIsAccounted()
+    {
+        TestingTicker ticker = new TestingTicker();
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor(), ticker);
+        root.setCpuQuotaGenerationMillisPerSecond(1);
+        root.setHardCpuLimit(Duration.ofMillis(3));
+        root.setSoftCpuLimit(Duration.ofMillis(3));
+        root.setHardPhysicalDataScanLimitBytes(5);
+        root.setPhysicalDataScanQuotaGenerationBytesPerSecond(1);
+        root.setHardConcurrencyLimit(100);
+        root.setMaxQueuedQueries(100);
+
+        MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder().build();
+        root.run(query);
+        assertThat(query.getState()).isEqualTo(RUNNING);
+
+        query.consumeCpuTimeMillis(4);
+        query.consumePhysicalInputDataBytes(6);
+        root.updateGroupsAndProcessQueuedQueries();
+        query.completeWithRunningTasks();
+        // the final query info reports less than the last reading of the query, which stands
+        query.finishTasksWithoutStageStats();
+        assertThat(root.getRunningQueries()).isEqualTo(0);
+        assertExceedsCpuLimit(root, 4);
+        assertExceedsPhysicalDataScanLimit(root, 6);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testCpuUsageOfEndingTasksIsAccounted()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setCpuQuotaGenerationMillisPerSecond(1);
+        root.setHardCpuLimit(Duration.ofMillis(3));
+        root.setSoftCpuLimit(Duration.ofMillis(3));
+        root.setHardConcurrencyLimit(100);
+        root.setMaxQueuedQueries(100);
+
+        MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder().build();
+        root.run(query);
+        assertThat(query.getState()).isEqualTo(RUNNING);
+
+        // The tasks of a done query keep reporting CPU time until they end
+        query.consumeCpuTimeMillis(2);
+        query.completeWithRunningTasks();
+        query.consumeCpuTimeMillis(2);
+        assertWithinCpuLimit(root, 0);
+
+        query.finishTasks();
+        assertExceedsCpuLimit(root, 4);
     }
 
     @Test
