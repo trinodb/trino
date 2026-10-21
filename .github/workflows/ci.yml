@@ -917,7 +917,7 @@ jobs:
           $MAVEN clean install ${MAVEN_FAST_INSTALL} -P product-test-distribution -pl '!:trino-docs'
       - name: Determine changed Maven modules
         if: >-
-          github.event_name == 'pull_request' &&
+          (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: |
@@ -956,7 +956,7 @@ jobs:
         run: .github/bin/build-pt-matrix.py --test
       - name: Build product-test matrix from changed modules
         if: >-
-          github.event_name == 'pull_request' &&
+          (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: |
@@ -966,7 +966,7 @@ jobs:
             > matrix.json
       - name: Build full product-test matrix
         if: >-
-          github.event_name != 'pull_request' ||
+          (github.event_name != 'pull_request' && github.event_name != 'merge_group') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all') ||
           contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: .github/bin/build-pt-matrix.py -v --server core/trino-server/target/trino-server-*.tar.gz > matrix.json
