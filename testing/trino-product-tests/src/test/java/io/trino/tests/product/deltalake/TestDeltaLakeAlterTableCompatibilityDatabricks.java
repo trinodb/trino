@@ -39,8 +39,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestDeltaLakeAlterTableCompatibilityDatabricks
 {
     @Test
-    @TestGroup.DeltaLakeDatabricks164
-    @TestGroup.DeltaLakeDatabricks173
     void testConfiguredConnectors(DeltaLakeDatabricksEnvironment env)
     {
         assertDefaultConnectors(env, "hive", "delta_lake");
