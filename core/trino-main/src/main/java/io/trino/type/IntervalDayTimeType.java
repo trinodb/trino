@@ -23,8 +23,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static io.trino.spi.type.IntervalField.DAY;
-import static io.trino.spi.type.IntervalField.HOUR;
-import static io.trino.spi.type.IntervalField.MINUTE;
 import static io.trino.spi.type.IntervalField.SECOND;
 import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.spi.type.TypeParameter.numericParameter;

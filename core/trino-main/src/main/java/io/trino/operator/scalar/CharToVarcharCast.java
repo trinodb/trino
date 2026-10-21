@@ -15,8 +15,6 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
-import io.trino.Session;
-import io.trino.SystemSessionProperties;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -29,7 +27,7 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Varchars.truncateToLength;
 
 /// `CHAR` to `VARCHAR` cast whose behavior follows the session's char/varchar coercion
-/// direction ([SystemSessionProperties#getCharVarcharCoercion(Session)].
+/// direction ([io.trino.SystemSessionProperties#getCharVarcharCoercion(io.trino.Session)].
 public final class CharToVarcharCast
 {
     private CharToVarcharCast() {}
