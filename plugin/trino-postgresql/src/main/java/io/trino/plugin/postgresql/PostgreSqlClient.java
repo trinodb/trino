@@ -131,6 +131,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
@@ -242,6 +243,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.containsTimestampWithTimeZone;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -482,6 +484,22 @@ public class PostgreSqlClient
     }
 
     @Override
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        return super.getColumns(session, connection, metadata).stream()
+                .map(columnHandle -> {
+                    if (!containsTimestampWithTimeZone(columnHandle.getColumnType())) {
+                        return columnHandle;
+                    }
+                    return JdbcColumnHandle.builderFrom(columnHandle)
+                            .setTimeZone(Optional.of(UTC_KEY))
+                            .build();
+                })
+                .collect(toImmutableList());
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -512,6 +530,7 @@ public class PostgreSqlClient
                                 .setColumnName(columnName)
                                 .setJdbcTypeHandle(typeHandle)
                                 .setColumnType(columnMapping.get().getType())
+                                .setTimeZone(containsTimestampWithTimeZone(columnMapping.get().getType()) ? Optional.of(UTC_KEY) : Optional.empty())
                                 .setNullable(nullable)
                                 .setComment(comment)
                                 .build());
