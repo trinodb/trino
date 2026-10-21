@@ -1193,6 +1193,20 @@ public abstract class BaseIcebergSystemTables
         }
     }
 
+    @Test
+    public void testPropertiesTableWithSortOrderTableProperty()
+    {
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).containsEntry("sort-order", "y ASC NULLS FIRST");
+        }
+
+        try (TestTable table = newTrinoTable("test_properties_sort_order", "(x BIGINT, y DOUBLE)")) {
+            loadTable(table.getName()).updateProperties().set("sort-order", "x ASC NULLS FIRST").commit();
+            assertThat(getTableProperties(table.getName())).doesNotContainKey("sort-order");
+        }
+    }
+
     private Map<String, String> getTableProperties(String tableName)
     {
         return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()

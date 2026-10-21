@@ -49,6 +49,7 @@ public class PropertiesTable
             .add("current-snapshot-id")
             .add("location")
             .add("format-version")
+            .add("sort-order")
             .build();
 
     private final ConnectorTableMetadata tableMetadata;
