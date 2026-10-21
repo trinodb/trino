@@ -1294,6 +1294,42 @@ public class TestTupleDomainParquetPredicate
                 .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
     }
 
+    /**
+     * A null count does not depend on what the values are read as, so a row group is still eliminated on it for a
+     * column whose bounds cannot narrow the domain, while the column stays out of the candidates for the column index
+     * and the dictionary either way.
+     */
+    @ParameterizedTest
+    @MethodSource("unnarrowableColumns")
+    public void testNullCountsEliminateRowGroupWhereBoundsCannot(PrimitiveTypeName physicalType, LogicalTypeAnnotation annotation, Type type, Object value)
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(physicalType).as(annotation).named("Test column"), 0, 0);
+        Map<ColumnDescriptor, Long> valueCounts = ImmutableMap.of(column, 10L);
+        TupleDomainParquetPredicate equalToValue = new TupleDomainParquetPredicate(withColumnDomains(ImmutableMap.of(column, singleValue(type, value))), singletonList(column), UTC);
+        TupleDomainParquetPredicate isNull = new TupleDomainParquetPredicate(withColumnDomains(ImmutableMap.of(column, onlyNull(type))), singletonList(column), UTC);
+
+        Statistics<?> onlyNulls = Statistics.getBuilderForReading(column.getPrimitiveType()).withNumNulls(10).build();
+        assertThat(equalToValue.getIndexLookupCandidates(valueCounts, ImmutableMap.of(column, onlyNulls), ID)).isEmpty();
+        assertThat(isNull.getIndexLookupCandidates(valueCounts, ImmutableMap.of(column, statisticsFor(physicalType)), ID)).isEmpty();
+
+        // neither count rules the row group out here, and the column is not a candidate with statistics or without
+        Statistics<?> someNulls = Statistics.getBuilderForReading(column.getPrimitiveType()).withNumNulls(5).build();
+        assertThat(equalToValue.getIndexLookupCandidates(valueCounts, ImmutableMap.of(column, someNulls), ID)).isEqualTo(Optional.of(ImmutableList.of()));
+        assertThat(equalToValue.getIndexLookupCandidates(valueCounts, ImmutableMap.of(), ID)).isEqualTo(Optional.of(ImmutableList.of()));
+    }
+
+    private static Stream<Arguments> unnarrowableColumns()
+    {
+        return Stream.of(
+                // an ordinary char column, whose bounds are ordered differently from the values the reader produces
+                Arguments.of(BINARY, stringType(), createCharType(3), utf8Slice("a")),
+                // a real over an integral column, which the reader reinterprets as float bits
+                Arguments.of(INT32, null, REAL, (long) floatToRawIntBits(1.0f)),
+                // an integer over a byte array, which the reader refuses outright
+                Arguments.of(BINARY, null, INTEGER, 42L));
+    }
+
     @Test
     public void testColumnIndexWithNullPages()
             throws Exception
