@@ -33,6 +33,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
@@ -169,6 +171,8 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeDescriptor;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.trino.spi.connector.SaveMode.FAIL;
+import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -989,6 +993,40 @@ public abstract class BaseHiveConnectorTest
         // new owner can drop table
         assertUpdate(alice, "DROP TABLE test_table_authorization_role.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
+    }
+
+    @Test
+    public void testCreateViewIgnoreKeepsExistingView()
+    {
+        String viewName = "test_create_view_ignore_" + randomNameSuffix();
+        Session session = getSession();
+        QualifiedObjectName view = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), viewName);
+        ViewDefinition definition = new ViewDefinition(
+                "SELECT 2 AS x",
+                session.getCatalog(),
+                session.getSchema(),
+                ImmutableList.of(new ViewColumn("x", INTEGER.getTypeId(), Optional.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of());
+
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT 1 AS x");
+        try {
+            // the engine checks for an existing view first, so call the metadata directly to reach the connector
+            getQueryRunner().inTransaction(session, transactionSession -> {
+                getQueryRunner().getPlannerContext().getMetadata().createView(transactionSession, view, definition, ImmutableMap.of(), IGNORE);
+                return null;
+            });
+            assertThat(query("SELECT * FROM " + viewName)).matches("VALUES 1");
+
+            assertThatThrownBy(() -> getQueryRunner().inTransaction(session, transactionSession -> {
+                getQueryRunner().getPlannerContext().getMetadata().createView(transactionSession, view, definition, ImmutableMap.of(), FAIL);
+                return null;
+            })).hasMessageContaining("already exists");
+        }
+        finally {
+            assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
