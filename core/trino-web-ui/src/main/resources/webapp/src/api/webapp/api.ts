@@ -155,6 +155,9 @@ export interface QueryStats {
     runningPercentage: number
     spilledDataSize: string
     totalCpuTime: string
+    totalBlockedTime: string
+    inputBlockedTime: string
+    outputBlockedTime: string
     totalDrivers: number
     totalMemoryReservation: string
     totalScheduledTime: string
