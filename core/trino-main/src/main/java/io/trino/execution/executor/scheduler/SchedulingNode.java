@@ -72,14 +72,14 @@ import static io.trino.execution.executor.scheduler.State.RUNNING;
 ///                not all blocked
 /// ```
 ///
-/// The three write operations ([#enqueue], [#block], [#dequeue]) are path operations from the root
-/// to a leaf. Weight bookkeeping propagates along that path:
+/// The write operations ([#enqueue], [#block], [#finish], [#dequeue]) are path operations from the
+/// root to a leaf. Weight bookkeeping propagates along that path:
 ///
 ///   - A leaf remembers its own outstanding quantum (`uncommittedWeight`); an internal node folds
 ///     all its running descendants' quanta into its single `weight` scalar.
-///   - [#dequeue] charges the quantum to *every* node on the path; [#enqueue] reconciles
-///     `delta - quantum` at every node, so each level's subtree total advances by exactly the CPU
-///     its subtree consumed — depth does not distort fairness at any level.
+///   - [#dequeue] charges the quantum to *every* node on the path; [#enqueue], [#block] and
+///     [#finish] reconcile `delta - quantum` at every node, so each level's subtree total advances
+///     by exactly the CPU its subtree consumed — depth does not distort fairness at any level.
 ///   - Baseline freeze/thaw is applied at every level: a node that becomes fully blocked stores its
 ///     weight as an offset below the parent's baseline, and rebases to the current baseline when it
 ///     becomes runnable again.
@@ -154,7 +154,7 @@ final class SchedulingNode<T>
         SchedulingNode<T> group = navigate(path);
         ImmutableSet.Builder<T> builder = ImmutableSet.builder();
         group.collectLeaves(builder);
-        finishRecursive(path, 0);
+        finishRecursive(path, 0, 0);
         return builder.build();
     }
 
@@ -180,9 +180,9 @@ final class SchedulingNode<T>
         blockRecursive(path, 0, delta);
     }
 
-    public void finish(List<Object> path)
+    public void finish(List<Object> path, long delta)
     {
-        finishRecursive(path, 0);
+        finishRecursive(path, 0, delta);
     }
 
     public T dequeue(long quantum)
@@ -260,7 +260,9 @@ final class SchedulingNode<T>
         return quantum;
     }
 
-    private void blockRecursive(List<Object> path, int index, long delta)
+    /// Block the leaf reached by `path[index..]`, charging `delta` for the work its subtree just
+    /// performed. Returns the leaf's reconciled quantum, as [#enqueueRecursive] does.
+    private long blockRecursive(List<Object> path, int index, long delta)
     {
         Object childKey = path.get(index);
         boolean childIsLeaf = index == path.size() - 1;
@@ -270,21 +272,30 @@ final class SchedulingNode<T>
         State previousChildState = child.state;
         checkArgument(previousChildState == RUNNABLE || previousChildState == RUNNING, "Already blocked: %s", path);
 
+        long quantum;
         if (childIsLeaf) {
-            weight += delta;
+            quantum = child.uncommittedWeight;
             child.weight += delta; // commit
             child.uncommittedWeight = 0;
             child.state = BLOCKED;
         }
         else {
-            child.blockRecursive(path, index + 1, delta);
+            quantum = child.blockRecursive(path, index + 1, delta);
         }
+
+        weight += delta - quantum;
 
         transitionChild(child, previousChildState);
         updateState();
+
+        return quantum;
     }
 
-    private void finishRecursive(List<Object> path, int index)
+    /// Remove the node reached by `path[index..]`, charging `delta` for the work it just performed.
+    /// Returns the reconciled quantum of a removed leaf, as [#enqueueRecursive] does. A removed
+    /// group's running tasks are cancelled without reporting their work, so their quanta stay
+    /// charged to the ancestors as an upper bound.
+    private long finishRecursive(List<Object> path, int index, long delta)
     {
         Object childKey = path.get(index);
         boolean childIsLeaf = index == path.size() - 1;
@@ -292,19 +303,24 @@ final class SchedulingNode<T>
         SchedulingNode<T> child = children.get(childKey);
         checkArgument(child != null, "Unknown %s: %s", childIsLeaf ? "task" : "group", path);
 
+        long quantum;
         if (childIsLeaf) {
+            quantum = child.uncommittedWeight;
             children.remove(childKey);
             blocked.remove(child);
             runnable.removeIfPresent(child);
             baseline.removeIfPresent(child);
-            updateState();
         }
         else {
             State previousChildState = child.state;
-            child.finishRecursive(path, index + 1);
+            quantum = child.finishRecursive(path, index + 1, delta);
             transitionChild(child, previousChildState);
-            updateState();
         }
+
+        weight += delta - quantum;
+        updateState();
+
+        return quantum;
     }
 
     private SchedulingNode<T> dequeueRecursive(long quantum)
@@ -348,6 +364,9 @@ final class SchedulingNode<T>
             }
             case BLOCKED -> {
                 if (previousChildState != BLOCKED) {
+                    // The child's weight was just reconciled, so refresh its baseline entry before
+                    // freezing against the baseline; a stale entry would still carry the quantum.
+                    baseline.addOrReplace(child, child.orderingWeight());
                     child.weight -= baselineWeight();
                     blocked.add(child);
                     runnable.removeIfPresent(child);

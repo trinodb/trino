@@ -68,10 +68,10 @@ public class TestSchedulingNode
         assertThat(node.dequeue(1)).isEqualTo("T2");
         assertThat(node.dequeue(1)).isEqualTo("T1");
 
-        node.finish(List.of("G1", "T1"));
-        node.finish(List.of("G1", "T2"));
-        node.finish(List.of("G1", "T3"));
-        node.finish(List.of("G1", "T4"));
+        node.finish(List.of("G1", "T1"), 0);
+        node.finish(List.of("G1", "T2"), 0);
+        node.finish(List.of("G1", "T3"), 0);
+        node.finish(List.of("G1", "T4"), 0);
 
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
     }
@@ -246,13 +246,13 @@ public class TestSchedulingNode
         node.enqueue(List.of("G1", "T3"), 2);
 
         assertThat(node.peek()).isEqualTo("T1");
-        node.finish(List.of("G1", "T1"));
+        node.finish(List.of("G1", "T1"), 0);
         assertThat(node.peek()).isEqualTo("T2");
         assertThat(node.state(List.of("G1"))).isEqualTo(State.RUNNABLE);
 
         // check that the group becomes not-runnable
-        node.finish(List.of("G1", "T2"));
-        node.finish(List.of("G1", "T3"));
+        node.finish(List.of("G1", "T2"), 0);
+        node.finish(List.of("G1", "T3"), 0);
         assertThat(node.peek()).isNull();
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
 
@@ -276,13 +276,13 @@ public class TestSchedulingNode
         assertThat(node.peek()).isEqualTo("T3");
         assertThat(node.state(List.of("G1"))).isEqualTo(State.RUNNABLE);
 
-        node.finish(List.of("G1", "T3"));
+        node.finish(List.of("G1", "T3"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.RUNNING);
 
-        node.finish(List.of("G1", "T1"));
+        node.finish(List.of("G1", "T1"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.RUNNING);
 
-        node.finish(List.of("G1", "T2"));
+        node.finish(List.of("G1", "T2"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
     }
 
@@ -300,11 +300,73 @@ public class TestSchedulingNode
         node.block(List.of("G1", "T2"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
 
-        node.finish(List.of("G1", "T1"));
+        node.finish(List.of("G1", "T1"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
 
-        node.finish(List.of("G1", "T2"));
+        node.finish(List.of("G1", "T2"), 0);
         assertThat(node.state(List.of("G1"))).isEqualTo(State.BLOCKED);
+    }
+
+    @Test
+    public void testBlockChargesElapsedWeight()
+    {
+        SchedulingNode<String> node = new SchedulingNode<>();
+        node.startGroup(List.of("G1"));
+        node.startGroup(List.of("G2"));
+
+        node.enqueue(List.of("G1", "T1"), 0);
+        node.enqueue(List.of("G2", "T2"), 0);
+        assertThat(node.dequeue(1000)).isEqualTo("T1");
+        assertThat(node.dequeue(1000)).isEqualTo("T2");
+        node.enqueue(List.of("G1", "T3"), 0);
+
+        // G1 used 10 of its quantum before blocking, G2 used 20 before yielding
+        node.block(List.of("G1", "T1"), 10);
+        node.enqueue(List.of("G2", "T2"), 20);
+
+        assertThat(node.dequeue(1000)).isEqualTo("T3");
+    }
+
+    @Test
+    public void testFinishChargesElapsedWeight()
+    {
+        SchedulingNode<String> node = new SchedulingNode<>();
+        node.startGroup(List.of("G1"));
+        node.startGroup(List.of("G2"));
+
+        node.enqueue(List.of("G1", "T1"), 0);
+        node.enqueue(List.of("G2", "T2"), 0);
+        assertThat(node.dequeue(1000)).isEqualTo("T1");
+        assertThat(node.dequeue(1000)).isEqualTo("T2");
+        node.enqueue(List.of("G1", "T3"), 0);
+
+        // G1 used 10 of its quantum before finishing, G2 used 20 before yielding
+        node.finish(List.of("G1", "T1"), 10);
+        node.enqueue(List.of("G2", "T2"), 20);
+
+        assertThat(node.dequeue(1000)).isEqualTo("T3");
+    }
+
+    @Test
+    public void testBlockedGroupResumesAtBaseline()
+    {
+        SchedulingNode<String> node = new SchedulingNode<>();
+        node.startGroup(List.of("G1"));
+        node.startGroup(List.of("G2"));
+
+        node.enqueue(List.of("G1", "T1"), 0);
+        node.enqueue(List.of("G2", "T2"), 0);
+        assertThat(node.dequeue(1000)).isEqualTo("T1");
+        assertThat(node.dequeue(1000)).isEqualTo("T2");
+
+        node.block(List.of("G1", "T1"), 10);
+        node.enqueue(List.of("G2", "T2"), 20);
+        node.enqueue(List.of("G1", "T1"), 0);
+
+        // G1 resumes level with G2 rather than ahead of it, so the groups alternate
+        String first = node.dequeue(1000);
+        node.enqueue(List.of(first.equals("T1") ? "G1" : "G2", first), 20);
+        assertThat(node.dequeue(1000)).isNotEqualTo(first);
     }
 
     @Test

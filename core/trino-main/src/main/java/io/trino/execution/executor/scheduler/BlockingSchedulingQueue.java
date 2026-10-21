@@ -137,7 +137,7 @@ final class BlockingSchedulingQueue<G, T>
         }
     }
 
-    public boolean finish(G group, T task)
+    public boolean finish(G group, T task, long deltaWeight)
     {
         lock.lock();
         try {
@@ -145,7 +145,7 @@ final class BlockingSchedulingQueue<G, T>
                 return false;
             }
 
-            root.finish(List.of(group, task));
+            root.finish(List.of(group, task), deltaWeight);
             return true;
         }
         finally {

@@ -178,6 +178,40 @@ public class TestSchedulingTree
         assertThat(c).isCloseTo(a + b, Percentage.withPercentage(10));
     }
 
+    @ParameterizedTest
+    @EnumSource(Transition.class)
+    public void testElapsedWeightReconciledAtEveryLevel(Transition transition)
+    {
+        // Tenant A's task stops early after a short run; tenant B's task yields after a longer one.
+        // Every ancestor of A's task is charged only the time it used, not the quantum it was
+        // granted, so A's remaining task runs next at both levels.
+        SchedulingNode<String> tree = new SchedulingNode<>();
+        tree.startGroup(path("A"));
+        tree.startGroup(path("A", "Q"));
+        tree.startGroup(path("B"));
+        tree.startGroup(path("B", "Q"));
+
+        tree.enqueue(path("A", "Q", "a1"), 0);
+        tree.enqueue(path("B", "Q", "b"), 0);
+        assertThat(tree.dequeue(1000)).isEqualTo("a1");
+        assertThat(tree.dequeue(1000)).isEqualTo("b");
+        tree.enqueue(path("A", "Q", "a2"), 0);
+
+        switch (transition) {
+            case BLOCKED -> tree.block(path("A", "Q", "a1"), 10);
+            case FINISHED -> tree.finish(path("A", "Q", "a1"), 10);
+        }
+        tree.enqueue(path("B", "Q", "b"), 20);
+
+        assertThat(tree.dequeue(1000)).isEqualTo("a2");
+    }
+
+    enum Transition
+    {
+        BLOCKED,
+        FINISHED,
+    }
+
     private static List<Object> path(Object... elements)
     {
         return List.of(elements);

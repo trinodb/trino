@@ -214,10 +214,12 @@ public final class FairScheduler
             // If the runner exited due to an exception in user code or
             // normally (not in response to an interruption during blocking or yield),
             // it must have had a semaphore permit reserved, so release it.
+            long delta = 0;
             if (task.getState() == TaskControl.State.RUNNING) {
+                delta = task.elapsed();
                 concurrencyControl.release(task);
             }
-            queue.finish(task.group(), task);
+            queue.finish(task.group(), task, delta);
             task.transitionToFinished();
         }
     }
