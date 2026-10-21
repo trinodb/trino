@@ -50,6 +50,7 @@ import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribu
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 /**
  * Helps in distributing big or skewed partitions across available tasks to improve the performance of
@@ -58,11 +59,11 @@ import static java.lang.Math.max;
  * This rebalancer initialize a bunch of buckets for each task based on a given taskBucketCount and then tries to
  * uniformly distribute partitions across those buckets. This helps to mitigate two problems:
  * 1. Mitigate skewness across tasks.
- * 2. Scale few big partitions across tasks even if there's no skewness among them. This will essentially speed the
- *    local scaling without impacting much overall resource utilization.
+ * 2. Scale few big partitions across tasks. This will essentially speed the local scaling without impacting much
+ *    overall resource utilization.
  * <p>
  * A partition moves to a task bucket only when its own data per task since the last rebalance exceeds
- * the data of that task bucket.
+ * the data of that task bucket, and only from a task that is skewed against the task of that task bucket.
  * <p>
  * Example:
  * <p>
@@ -110,6 +111,9 @@ public class SkewedPartitionRebalancer
 
     @GuardedBy("this")
     private final long[] estimatedTaskBucketDataSizeSinceLastRebalance;
+
+    @GuardedBy("this")
+    private final long[] estimatedTaskDataSizeSinceLastRebalance;
 
     private final List<List<TaskBucket>> partitionAssignments;
 
@@ -205,6 +209,7 @@ public class SkewedPartitionRebalancer
         this.partitionDataSizeAtLastRebalance = new long[partitionCount];
         this.partitionDataSizeSinceLastRebalancePerTask = new long[partitionCount];
         this.estimatedTaskBucketDataSizeSinceLastRebalance = new long[taskCount * taskBucketCount];
+        this.estimatedTaskDataSizeSinceLastRebalance = new long[taskCount];
 
         int[] taskBucketIds = new int[taskCount];
         ImmutableList.Builder<List<TaskBucket>> partitionAssignments = ImmutableList.builder();
@@ -290,12 +295,14 @@ public class SkewedPartitionRebalancer
         }
 
         Arrays.fill(estimatedTaskBucketDataSizeSinceLastRebalance, 0);
+        Arrays.fill(estimatedTaskDataSizeSinceLastRebalance, 0);
         for (int partition = 0; partition < partitionCount; partition++) {
             List<TaskBucket> taskAssignments = partitionAssignments.get(partition);
             for (TaskBucket taskBucket : taskAssignments) {
                 IndexedPriorityQueue<Integer> queue = taskBucketMaxPartitions.get(taskBucket.id);
                 queue.addOrUpdate(partition, partitionDataSizeSinceLastRebalancePerTask[partition]);
                 estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id] += partitionDataSizeSinceLastRebalancePerTask[partition];
+                estimatedTaskDataSizeSinceLastRebalance[taskBucket.taskId] += partitionDataSizeSinceLastRebalancePerTask[partition];
             }
         }
 
@@ -359,6 +366,11 @@ public class SkewedPartitionRebalancer
                 break;
             }
 
+            // Rebalance only off a task that is skewed against the least loaded task
+            if (!isSkewed(estimatedTaskDataSizeSinceLastRebalance[maxTaskBucket.taskId], getMinTaskDataSize())) {
+                continue;
+            }
+
             while (true) {
                 Integer maxPartition = maxPartitions.poll();
                 if (maxPartition == null) {
@@ -392,6 +404,7 @@ public class SkewedPartitionRebalancer
     private Optional<TaskBucket> findTaskBucketSmallerThanPartition(int partition, TaskBucket maxTaskBucket, IndexedPriorityQueue<TaskBucket> minTaskBuckets)
     {
         long maxTaskBucketDataSize = estimatedTaskBucketDataSizeSinceLastRebalance[maxTaskBucket.id];
+        long maxTaskDataSize = estimatedTaskDataSizeSinceLastRebalance[maxTaskBucket.taskId];
         List<TaskBucket> assignments = partitionAssignments.get(partition);
         for (TaskBucket minTaskBucket : minTaskBuckets) {
             long minTaskBucketDataSize = estimatedTaskBucketDataSizeSinceLastRebalance[minTaskBucket.id];
@@ -399,11 +412,21 @@ public class SkewedPartitionRebalancer
             if (partitionDataSizeSinceLastRebalancePerTask[partition] <= minTaskBucketDataSize || !isSkewed(maxTaskBucketDataSize, minTaskBucketDataSize)) {
                 break;
             }
-            if (!isAssignedToTask(assignments, minTaskBucket.taskId)) {
+            if (!isAssignedToTask(assignments, minTaskBucket.taskId) && isSkewed(maxTaskDataSize, estimatedTaskDataSizeSinceLastRebalance[minTaskBucket.taskId])) {
                 return Optional.of(minTaskBucket);
             }
         }
         return Optional.empty();
+    }
+
+    @GuardedBy("this")
+    private long getMinTaskDataSize()
+    {
+        long minTaskDataSize = Long.MAX_VALUE;
+        for (long taskDataSize : estimatedTaskDataSizeSinceLastRebalance) {
+            minTaskDataSize = min(minTaskDataSize, taskDataSize);
+        }
+        return minTaskDataSize;
     }
 
     private static boolean isAssignedToTask(List<TaskBucket> assignments, int taskId)
@@ -440,12 +463,14 @@ public class SkewedPartitionRebalancer
         // taskBucket as well as increase the priority of min taskBucket.
         for (TaskBucket taskBucket : assignments) {
             if (taskBucket.equals(toTaskBucket)) {
-                estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id] +=
-                        (partitionDataSizeSinceLastRebalancePerTask[partitionId] * oldTaskCount) / newTaskCount;
+                long addedDataSize = (partitionDataSizeSinceLastRebalancePerTask[partitionId] * oldTaskCount) / newTaskCount;
+                estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id] += addedDataSize;
+                estimatedTaskDataSizeSinceLastRebalance[taskBucket.taskId] += addedDataSize;
             }
             else {
-                estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id] -=
-                        partitionDataSizeSinceLastRebalancePerTask[partitionId] / newTaskCount;
+                long removedDataSize = partitionDataSizeSinceLastRebalancePerTask[partitionId] / newTaskCount;
+                estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id] -= removedDataSize;
+                estimatedTaskDataSizeSinceLastRebalance[taskBucket.taskId] -= removedDataSize;
             }
 
             maxTasks.addOrUpdate(taskBucket, estimatedTaskBucketDataSizeSinceLastRebalance[taskBucket.id]);
