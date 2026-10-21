@@ -52,7 +52,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 
-import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
+import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 import static java.lang.String.format;
 
 /**
@@ -145,7 +145,7 @@ public abstract class LdapEnvironment
         cliJarPath = findCliJar();
 
         // Start Trino with HTTPS and LDAP authentication using the standard Trino image
-        trinoContainer = withResourceLimits(new GenericContainer<>(DockerImageName.parse(getDefaultTrinoImage())))
+        trinoContainer = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases(TRINO_HOST)
                 .withExposedPorts(HTTPS_PORT);

@@ -27,7 +27,7 @@ public final class SuiteDeltaLakeDatabricks18
     static void main()
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteDeltaLakeDatabricks18.class);
 
         List<TestRunResult> results = new ArrayList<>();
         results.add(SuiteRunner.forEnvironment(DeltaLakeDatabricks18Environment.class)

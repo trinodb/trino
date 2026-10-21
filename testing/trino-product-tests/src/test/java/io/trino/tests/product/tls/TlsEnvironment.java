@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import static io.trino.testing.containers.TrinoProductTestContainer.withResourceLimits;
+import static io.trino.testing.containers.TrinoProductTestContainer.configureTrinoContainer;
 
 /**
  * Three-node TLS environment used by SuiteTls.
@@ -172,7 +172,7 @@ public class TlsEnvironment
     private GenericContainer<?> createTrinoContainer(String hostName, boolean coordinatorNode)
     {
         String fqdn = hostName + ".docker.cluster";
-        GenericContainer<?> container = withResourceLimits(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
+        GenericContainer<?> container = configureTrinoContainer(new GenericContainer<>(DockerImageName.parse(TrinoTestImages.getDefaultTrinoImage())))
                 .withNetwork(network)
                 .withNetworkAliases(hostName, fqdn)
                 .withCreateContainerCmdModifier(command -> command.withHostName(hostName))

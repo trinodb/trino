@@ -46,6 +46,6 @@ public class KafkaSslSchemaRegistryEnvironment
     @Override
     protected void customizeTrinoContainer(TrinoContainer container)
     {
-        KafkaSslEnvironment.configureTrinoContainer(container);
+        KafkaSslEnvironment.configureKafkaClient(container);
     }
 }

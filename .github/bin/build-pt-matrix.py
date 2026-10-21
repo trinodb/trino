@@ -3,205 +3,47 @@
 import argparse
 import json
 import logging
+import re
 import sys
+import tarfile
+import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
 
+# Declares the server plugins each suite uses
+SUITES_FILE = Path("testing/trino-product-tests/src/test/resources/product-test-suites.yaml")
 SUITE_DIR = Path("testing/trino-product-tests/src/test/java/io/trino/tests/product/suite")
 SUITE_HELPERS = {"SuiteRunner", "SuiteTag"}
-# TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
-DISABLED_SUITES = {"SuiteSnowflake"}
+SERVER_TARBALL = "core/trino-server/target/trino-server-*.tar.gz"
 
-SUITES = [
-    "SuiteMysql",
-    "SuitePostgresql",
-    "SuiteSqlServer",
-    "SuiteFunctions",
-    "SuiteTpch",
-    "SuiteTpcds",
-    "SuiteExasol",
-    # "SuiteSnowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
-    "SuiteCassandra",
-    "SuiteClickhouse",
-    "SuiteBlackHole",
-    "SuiteAllConnectorsSmoke",
-    "SuiteIgnite",
-    "SuiteKafka",
-    "SuiteLdap",
-    "SuiteOauth2",
-    "SuiteClients",
-    "SuiteJdbcKerberos",
-    "SuiteLoki",
-    "SuiteRanger",
-    "SuiteTls",
-    "SuiteHiveBasic",
-    "SuiteHmsOnly",
-    "SuiteHiveStorageFormats",
-    "SuiteSqlCancel",
-    "SuiteHdfsImpersonation",
-    "SuiteTwoHives",
-    "SuiteHive4",
-    "SuiteHudi",
-    "SuiteHiveTransactional",
-    "SuiteAuthorization",
-    "SuiteFaultTolerant",
-    "SuiteHiveSpark",
-    "SuiteHiveAlluxioCaching",
-    "SuiteStorageFormatsDetailed",
-    "SuiteParquet",
-    "SuiteIceberg",
-    "SuiteIcebergVariants",
-    "SuiteDeltaLakeFloci",
-    "SuiteDeltaLakeHdfs",
-    "SuiteDeltaLakeOss",
-    "SuiteDeltaLakeAlluxioCaching",
-    "SuiteCompatibility",
-    "SuiteGcs",
-    "SuiteAzure",
-    "SuiteDeltaLakeDatabricks154",
-    "SuiteDeltaLakeDatabricks18",
-]
-
-ALL_SUITES = frozenset(SUITES)
-ALL_CONNECTORS_SMOKE = frozenset({"SuiteAllConnectorsSmoke"})
-DATABRICKS_SUITES = frozenset({
-    "SuiteDeltaLakeDatabricks154",
-    "SuiteDeltaLakeDatabricks18",
-})
-DELTA_LAKE_SUITES = DATABRICKS_SUITES | {
-    "SuiteAzure",
-    "SuiteDeltaLakeAlluxioCaching",
-    "SuiteDeltaLakeFloci",
-    "SuiteDeltaLakeHdfs",
-    "SuiteDeltaLakeOss",
-    "SuiteGcs",
-}
-HIVE_SUITES = DATABRICKS_SUITES | {
-    "SuiteAuthorization",
-    "SuiteAzure",
-    "SuiteClients",
-    "SuiteCompatibility",
-    "SuiteDeltaLakeFloci",
-    "SuiteDeltaLakeHdfs",
-    "SuiteDeltaLakeOss",
-    "SuiteGcs",
-    "SuiteHdfsImpersonation",
-    "SuiteHive4",
-    "SuiteHiveAlluxioCaching",
-    "SuiteHiveBasic",
-    "SuiteHiveSpark",
-    "SuiteHiveStorageFormats",
-    "SuiteHiveTransactional",
-    "SuiteHmsOnly",
-    "SuiteHudi",
-    "SuiteIceberg",
-    "SuiteIcebergVariants",
-    "SuiteParquet",
-    "SuiteSqlCancel",
-    "SuiteStorageFormatsDetailed",
-    "SuiteTpcds",
-    "SuiteTpch",
-    "SuiteTwoHives",
-}
-ICEBERG_SUITES = {
-    "SuiteAzure",
-    "SuiteCompatibility",
-    "SuiteDeltaLakeFloci",
-    "SuiteGcs",
-    "SuiteHiveStorageFormats",
-    "SuiteHmsOnly",
-    "SuiteIceberg",
-    "SuiteIcebergVariants",
-    "SuiteStorageFormatsDetailed",
-}
-JDBC_CONNECTOR_SUITES = ALL_CONNECTORS_SMOKE | {
-    "SuiteClickhouse",
-    "SuiteClients",
-    "SuiteExasol",
-    "SuiteIgnite",
-    "SuiteMysql",
-    "SuitePostgresql",
-    "SuiteRanger",
-    # "SuiteSnowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
-    "SuiteSqlServer",
-}
-
-# Only modules in this map are eligible for matrix filtering. The suites include secondary
-# connectors and services used by each environment, not only the connector named by the suite.
-# Any impacted module absent from this map causes a full run.
-MODULE_TO_SUITES = {
-    # The old product-test impact analysis was connector-oriented. Keep this first pass at the
-    # same level: shared libraries, clients, core, and other infrastructure cause a full run.
-    "plugin/trino-base-jdbc": JDBC_CONNECTOR_SUITES,
-    "plugin/trino-blob-cache-alluxio": {
-        "SuiteDeltaLakeAlluxioCaching",
-        "SuiteHiveAlluxioCaching",
-        "SuiteIcebergVariants",
-    },
-    "plugin/trino-exchange-filesystem": {"SuiteFaultTolerant"},
-    "plugin/trino-example-jdbc": set(),
-    "plugin/trino-spooling-filesystem": {"SuitePostgresql"},
-
-    # Connectors loaded by the all-connectors smoke environment, plus their focused suites.
-    "plugin/trino-bigquery": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-blackhole": ALL_CONNECTORS_SMOKE | {"SuiteBlackHole"},
-    "plugin/trino-cassandra": ALL_CONNECTORS_SMOKE | {"SuiteCassandra"},
-    "plugin/trino-clickhouse": ALL_CONNECTORS_SMOKE | {"SuiteClickhouse"},
-    "plugin/trino-delta-lake": ALL_CONNECTORS_SMOKE | DELTA_LAKE_SUITES,
-    "plugin/trino-druid": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-duckdb": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-elasticsearch": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-exasol": {"SuiteExasol"},
-    "plugin/trino-faker": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-google-sheets": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-hive": ALL_CONNECTORS_SMOKE | HIVE_SUITES,
-    "plugin/trino-hudi": ALL_CONNECTORS_SMOKE | {"SuiteHudi"},
-    "plugin/trino-iceberg": ALL_CONNECTORS_SMOKE | ICEBERG_SUITES,
-    "plugin/trino-ignite": ALL_CONNECTORS_SMOKE | {"SuiteIgnite"},
-    "plugin/trino-jmx": ALL_CONNECTORS_SMOKE | {
-        "SuiteDeltaLakeAlluxioCaching",
-        "SuiteHiveAlluxioCaching",
-        "SuiteIcebergVariants",
-    },
-    "plugin/trino-kafka": ALL_CONNECTORS_SMOKE | {"SuiteKafka"},
-    "plugin/trino-loki": ALL_CONNECTORS_SMOKE | {"SuiteLoki"},
-    "plugin/trino-mariadb": ALL_CONNECTORS_SMOKE | {"SuiteMysql", "SuiteRanger"},
-    "plugin/trino-memory": ALL_CONNECTORS_SMOKE | {"SuiteClients", "SuiteJdbcKerberos"},
-    "plugin/trino-mongodb": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-mysql": ALL_CONNECTORS_SMOKE | {"SuiteMysql"},
-    "plugin/trino-opensearch": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-oracle": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-pinot": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-postgresql": ALL_CONNECTORS_SMOKE | {"SuiteClients", "SuitePostgresql"},
-    "plugin/trino-prometheus": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-redis": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-redshift": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-singlestore": ALL_CONNECTORS_SMOKE,
-    # "plugin/trino-snowflake": ALL_CONNECTORS_SMOKE | {"SuiteSnowflake"}, TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
-    "plugin/trino-sqlserver": ALL_CONNECTORS_SMOKE | {"SuiteSqlServer"},
-    "plugin/trino-tpcds": ALL_CONNECTORS_SMOKE | {"SuiteFunctions", "SuiteParquet", "SuiteTpcds"},
-    "plugin/trino-thrift": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-thrift-api": ALL_CONNECTORS_SMOKE,
-    "plugin/trino-thrift-testing-server": ALL_CONNECTORS_SMOKE,
-
-    # Security and function plugins exercised outside connector-named suites.
-    "plugin/trino-ldap-group-provider": {"SuiteLdap"},
-    "plugin/trino-password-authenticators": {"SuiteLdap"},
-    "plugin/trino-ranger": {"SuiteRanger"},
-    "plugin/trino-teradata-functions": {"SuiteFunctions"},
-}
+# Changes to these run all suites. trino-root stands for any file outside a module, including
+# the product-test Docker image. trino-cli is used by several suites and baked into the image.
+FULL_RUN_ARTIFACTS = {"trino-root", "trino-product-tests", "trino-cli", "trino-server", "trino-server-core"}
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build the JUnit product-test matrix, optionally filtered by GIB impacted modules."
+        description="Build the JUnit product-test matrix, optionally filtered by the changed Maven modules."
     )
     parser.add_argument(
-        "-i",
-        "--impacted",
-        type=argparse.FileType("r"),
-        help="File containing affected Maven module paths, one per line",
+        "-c",
+        "--changed",
+        type=Path,
+        help="GIB GAV log of changed Maven modules; a missing file selects all suites",
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        type=Path,
+        help=f"Server tarball, used to check the declared plugins and to locate the changed modules; defaults to the only {SERVER_TARBALL}",
+    )
+    parser.add_argument(
+        "-p",
+        "--classpath",
+        type=Path,
+        help="Product-test classpath.txt, used to locate the changed modules; required with --changed",
     )
     parser.add_argument(
         "-v",
@@ -219,6 +61,8 @@ def main():
         help="Test this script instead of executing it",
     )
     args = parser.parse_args()
+    if args.changed is not None and args.classpath is None:
+        parser.error("--changed requires --classpath")
     logging.basicConfig(level=args.loglevel, format="%(levelname)s: %(message)s")
 
     if args.test:
@@ -226,164 +70,267 @@ def main():
         unittest.main()
         return
 
-    impacted_modules = None
-    if args.impacted is not None:
-        impacted_modules = {line.strip() for line in args.impacted if line.strip()}
-    print(json.dumps(build_matrix(impacted_modules)))
+    config = load_config(SUITES_FILE)
+    with tarfile.open(args.server or server_tarball(Path())) as server:
+        server_files = server.getnames()
+    validate_config(config, {path.stem for path in SUITE_DIR.glob("Suite*.java")} - SUITE_HELPERS, server_plugins(server_files))
+    if args.changed is None or not args.changed.is_file():
+        logging.info("No changed modules reported; using the full product-test matrix")
+        suites = all_suites(config)
+    else:
+        classpath = args.classpath.read_text().strip().split(":")
+        locations = artifact_locations(server_files, classpath)
+        validate_locations(server_plugins(server_files), locations)
+        suites = select_suites(config, changed_artifacts(args.changed.read_text()), locations)
+    print(json.dumps(build_matrix(suites)))
 
 
-def build_matrix(impacted_modules):
-    selected_suites = suites_for_impacted_modules(impacted_modules)
-    if selected_suites is None:
-        selected_suites = ALL_SUITES
+def server_tarball(root):
+    tarballs = sorted(root.glob(SERVER_TARBALL))
+    if len(tarballs) != 1:
+        raise ValueError(f"Expected one server tarball {SERVER_TARBALL}, found {[str(tarball) for tarball in tarballs]}")
+    return tarballs[0]
 
-    include = []
-    for suite in SUITES:
-        if suite in selected_suites:
-            include.append({"suite": suite})
+
+def changed_artifacts(gib_log):
+    """Artifact ids from GIB's GAV log, e.g. io.trino:trino-mysql:485-SNAPSHOT."""
+    return {line.split(":")[1] for line in gib_log.splitlines() if line}
+
+
+def load_config(path):
+    with path.open() as file:
+        config = yaml.safe_load(file)
+    for key in ("smoke-suite", "installed-by-default", "smoke-only", "suites", "disabled-suites"):
+        if config.get(key) is None:
+            raise ValueError(f"{path} must declare {key}")
+    for suite, plugins in config["suites"].items():
+        if plugins is None:
+            raise ValueError(f"{path} must declare the plugins of {suite}, or [] when it uses none")
+    return config
+
+
+def enabled_suites(config):
+    """The suites other than the smoke suite, in the declared order."""
+    return [suite for suite in config["suites"] if suite not in config["disabled-suites"]]
+
+
+def all_suites(config):
+    """The smoke suite first, as it runs for every change, then the other suites."""
+    return [config["smoke-suite"]] + enabled_suites(config)
+
+
+def server_plugins(server_files):
+    return {match.group(1) for path in server_files if (match := re.match(r"[^/]+/plugin/([^/]+)/", path))}
+
+
+def validate_config(config, suite_classes, plugins):
+    """Fail when a suite, or a server plugin, is added or removed without updating the suites file."""
+    declared_suites = set(config["suites"]) | {config["smoke-suite"]}
+    if suite_classes != declared_suites:
+        raise ValueError(f"Suites missing from {SUITES_FILE}: {sorted(suite_classes - declared_suites)}, "
+                         f"declared suites without a class: {sorted(declared_suites - suite_classes)}")
+    declared_plugins = set(config["installed-by-default"]) | set(config["smoke-only"]) | set().union(*config["suites"].values())
+    if plugins != declared_plugins:
+        raise ValueError(f"Server plugins not used by any suite in {SUITES_FILE}, nor declared smoke-only: {sorted(plugins - declared_plugins)}, "
+                         f"declared plugins missing from the server: {sorted(declared_plugins - plugins)}")
+
+
+def validate_locations(plugins, locations):
+    """Fail when the jars of a plugin are not recognized, as changes to them would not select the plugin's suites."""
+    unlocated_plugins = plugins - set().union(*locations.values())
+    if unlocated_plugins:
+        raise ValueError(f"Server plugins without a recognized Trino jar: {sorted(unlocated_plugins)}")
+
+
+def artifact_locations(server_files, classpath):
+    """Map each io.trino artifactId to where its jar lands: "lib", "product-tests", or a plugin directory."""
+    locations = {}
+    for path in server_files:
+        # trino-server-485/plugin/hive/io.trino_trino-parquet-485.jar, trino-server-485/plugin/hive/trino-hive-485.jar
+        match = re.fullmatch(r"[^/]+/(lib|plugin/([^/]+))/(?:[^/]+/)*(?:io\.trino_)?(trino-[a-z0-9-]+?)-\d[^/]*\.jar", path)
+        if match:
+            locations.setdefault(match.group(3), set()).add(match.group(2) or "lib")
+    for path in classpath:
+        # lib/io.trino.trino-jdbc-485.jar
+        match = re.fullmatch(r"lib/io\.trino\.(trino-[a-z0-9-]+?)-\d[^/]*\.jar", path)
+        if match:
+            locations.setdefault(match.group(1), set()).add("product-tests")
+    return locations
+
+
+def select_suites(config, changed_artifacts, locations):
+    if not changed_artifacts:
+        logging.info("No non-test changes; skipping product tests")
+        return []
+    logging.info("Changed modules: %s", ", ".join(sorted(changed_artifacts)))
+    plugins = set()
+    for artifact in sorted(changed_artifacts):
+        where = locations.get(artifact, set())
+        if not where:
+            logging.info("%s is not part of the server nor of the product tests", artifact)
+        if artifact in FULL_RUN_ARTIFACTS or {"lib", "product-tests", *config["installed-by-default"]} & where:
+            logging.info("%s affects every product test; using the full product-test matrix", artifact)
+            return all_suites(config)
+        plugins |= where
+    if not plugins:
+        logging.info("No changes to the server nor to the product tests; skipping product tests")
+        return []
+    suites = [config["smoke-suite"]] + [suite for suite in enabled_suites(config) if plugins & set(config["suites"][suite])]
+    logging.info("Selected product-test suites: %s", ", ".join(suites))
+    return suites
+
+
+def build_matrix(suites):
+    include = [{"suite": suite} for suite in suites]
     return {"include": include} if include else {}
 
 
-def suites_for_impacted_modules(impacted_modules):
-    if impacted_modules is None:
-        logging.info("Impact filtering was not requested; using the full product-test matrix")
-        return None
-    if not impacted_modules:
-        logging.info("GIB reported no modules; using the full product-test matrix")
-        return None
-
-    unknown_modules = impacted_modules - MODULE_TO_SUITES.keys()
-    if unknown_modules:
-        logging.info(
-            "Modules without an unambiguous product-test mapping (%s); using the full product-test matrix",
-            ", ".join(sorted(unknown_modules)),
-        )
-        return None
-
-    selected_suites = set()
-    for module in impacted_modules:
-        selected_suites.update(MODULE_TO_SUITES[module])
-    logging.info("GIB impacted modules: %s", ", ".join(sorted(impacted_modules)))
-    logging.info("Selected product-test suites: %s", ", ".join(sorted(selected_suites)))
-    return selected_suites
-
-
-def validate_configuration(suite_dir=SUITE_DIR):
-    declared_suites = SUITES
-    duplicate_suites = sorted({suite for suite in declared_suites if declared_suites.count(suite) > 1})
-    if duplicate_suites:
-        raise ValueError(f"Suites declared more than once: {', '.join(duplicate_suites)}")
-
-    actual_suites = {path.stem for path in suite_dir.glob("Suite*.java")} - SUITE_HELPERS - DISABLED_SUITES
-    missing_suites = sorted(set(declared_suites) - actual_suites)
-    if missing_suites:
-        raise ValueError(f"Declared product test suites are missing: {', '.join(missing_suites)}")
-
-    unwired_suites = sorted(actual_suites - set(declared_suites))
-    if unwired_suites:
-        raise ValueError(f"Product test suites are missing from the CI matrix: {', '.join(unwired_suites)}")
-
-    invalid_mapped_suites = sorted(set().union(*MODULE_TO_SUITES.values()) - set(declared_suites))
-    if invalid_mapped_suites:
-        raise ValueError(f"Module mappings contain unknown suites: {', '.join(invalid_mapped_suites)}")
-
-    missing_modules = sorted(module for module in MODULE_TO_SUITES if not Path(module, "pom.xml").is_file())
-    if missing_modules:
-        raise ValueError(f"Mapped Maven modules are missing: {', '.join(missing_modules)}")
-
-
 class TestBuildMatrix(unittest.TestCase):
-    def test_connector_only_change(self):
+    CONFIG = {
+        "smoke-suite": "SuiteSmoke",
+        "installed-by-default": ["tpch"],
+        "smoke-only": ["opa"],
+        "suites": {
+            "SuiteMysql": ["mysql", "mariadb"],
+            "SuiteRanger": ["mariadb", "ranger"],
+            "SuiteHive": ["hive"],
+            "SuiteDeltaLake": ["delta-lake", "hive"],
+            "SuiteTls": [],
+            "SuiteSnowflake": ["snowflake"],
+        },
+        "disabled-suites": ["SuiteSnowflake"],
+    }
+    ALL_SUITES = ["SuiteSmoke", "SuiteMysql", "SuiteRanger", "SuiteHive", "SuiteDeltaLake", "SuiteTls"]
+    LOCATIONS = artifact_locations(
+        [
+            "trino-server-485/lib/io.trino_trino-main-485.jar",
+            "trino-server-485/lib/io.trino_trino-plugin-toolkit-485.jar",
+            "trino-server-485/plugin/mysql/trino-mysql-485.jar",
+            "trino-server-485/plugin/mysql/trino-mysql-485-services.jar",
+            "trino-server-485/plugin/mysql/io.trino_trino-base-jdbc-485.jar",
+            "trino-server-485/plugin/mysql/io.trino_trino-plugin-toolkit-485.jar",
+            "trino-server-485/plugin/mariadb/io.trino_trino-base-jdbc-485.jar",
+            "trino-server-485/plugin/hive/io.trino_trino-hive-485.jar",
+            "trino-server-485/plugin/hive/hdfs/io.trino_trino-hdfs-485.jar",
+            "trino-server-485/plugin/delta-lake/io.trino_trino-hive-485.jar",
+            "trino-server-485/plugin/opa/trino-opa-485.jar",
+            "trino-server-485/plugin/tpch/trino-tpch-485.jar",
+        ],
+        [
+            "lib/io.trino.trino-jdbc-485.jar",
+            "lib/io.trino.trino-testing-containers-485.jar",
+            "lib/org.testcontainers.testcontainers-trino-2.0.5.jar",
+        ],
+    )
+
+    def select(self, *artifacts):
+        return select_suites(self.CONFIG, set(artifacts), self.LOCATIONS)
+
+    def test_artifact_locations(self):
         self.assertEqual(
-            build_matrix({"plugin/trino-mysql"}),
+            self.LOCATIONS,
             {
-                "include": [
-                    {"suite": "SuiteMysql"},
-                    {"suite": "SuiteAllConnectorsSmoke"},
-                ],
+                "trino-main": {"lib"},
+                "trino-plugin-toolkit": {"lib", "mysql"},
+                "trino-mysql": {"mysql"},
+                "trino-base-jdbc": {"mysql", "mariadb"},
+                "trino-hive": {"hive", "delta-lake"},
+                "trino-hdfs": {"hive"},
+                "trino-opa": {"opa"},
+                "trino-tpch": {"tpch"},
+                "trino-jdbc": {"product-tests"},
+                "trino-testing-containers": {"product-tests"},
             },
         )
 
-    def test_secondary_connector(self):
+    def test_changed_artifacts(self):
+        self.assertEqual(changed_artifacts("io.trino:trino-mysql:485-SNAPSHOT\n\nio.trino:trino-root:485-SNAPSHOT\n"), {"trino-mysql", "trino-root"})
+        self.assertEqual(changed_artifacts(""), set())
+
+    def test_disabled_suite(self):
+        self.assertEqual(select_suites(self.CONFIG, {"trino-snowflake"}, {"trino-snowflake": {"snowflake"}}), ["SuiteSmoke"])
+
+    def test_validate_locations(self):
+        validate_locations({"mysql", "opa"}, self.LOCATIONS)
+        with self.assertRaisesRegex(ValueError, r"without a recognized Trino jar: \['shortened'\]"):
+            validate_locations({"mysql", "shortened"}, self.LOCATIONS)
+
+    def test_snapshot_version(self):
         self.assertEqual(
-            build_matrix({"plugin/trino-mariadb"}),
-            {
-                "include": [
-                    {"suite": "SuiteMysql"},
-                    {"suite": "SuiteAllConnectorsSmoke"},
-                    {"suite": "SuiteRanger"},
-                ],
-            },
-        )
+            artifact_locations(
+                ["trino-server-485-SNAPSHOT/plugin/geospatial/trino-geospatial-485-SNAPSHOT.jar",
+                 "trino-server-485-SNAPSHOT/plugin/geospatial/io.trino_trino-geospatial-toolkit-485-SNAPSHOT.jar"],
+                ["lib/io.trino.trino-testing-services-485-SNAPSHOT.jar"]),
+            {"trino-geospatial": {"geospatial"}, "trino-geospatial-toolkit": {"geospatial"}, "trino-testing-services": {"product-tests"}})
 
-    def test_shared_connector_module(self):
-        # GIB includes all downstream modules. trino-example-jdbc is understood to have no product suite.
-        impacted_modules = {
-            "plugin/trino-base-jdbc",
-            "plugin/trino-clickhouse",
-            "plugin/trino-druid",
-            "plugin/trino-duckdb",
-            "plugin/trino-example-jdbc",
-            "plugin/trino-exasol",
-            "plugin/trino-ignite",
-            "plugin/trino-mariadb",
-            "plugin/trino-mysql",
-            "plugin/trino-oracle",
-            "plugin/trino-postgresql",
-            "plugin/trino-redshift",
-            "plugin/trino-singlestore",
-            # "plugin/trino-snowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
-            "plugin/trino-sqlserver",
-        }
-        matrix = build_matrix(impacted_modules)
-        selected_suites = suites_from_matrix(matrix)
-        self.assertEqual(selected_suites, JDBC_CONNECTOR_SUITES)
+    def test_suites_file(self):
+        config = load_config(SUITES_FILE)
+        self.assertEqual(all_suites(config)[0], "SuiteAllConnectorsSmoke")
 
-    def test_multiple_understood_modules(self):
-        matrix = build_matrix({"plugin/trino-kafka", "plugin/trino-loki"})
-        self.assertEqual(
-            suites_from_matrix(matrix),
-            {"SuiteAllConnectorsSmoke", "SuiteKafka", "SuiteLoki"},
-        )
+    def test_no_changes(self):
+        self.assertEqual(self.select(), [])
+        self.assertEqual(build_matrix([]), {})
 
-    def test_core_change_runs_full_matrix(self):
-        self.assertEqual(build_matrix({"core/trino-main"}), build_matrix(None))
+    def test_plugin(self):
+        self.assertEqual(self.select("trino-mysql"), ["SuiteSmoke", "SuiteMysql"])
 
-    def test_shared_infrastructure_change_runs_full_matrix(self):
-        self.assertEqual(build_matrix({"lib/trino-plugin-toolkit"}), build_matrix(None))
+    def test_plugin_used_by_smoke_suite_only(self):
+        self.assertEqual(self.select("trino-opa"), ["SuiteSmoke"])
 
-    def test_product_test_framework_change_runs_full_matrix(self):
-        self.assertEqual(build_matrix({"testing/trino-product-tests"}), build_matrix(None))
+    def test_library_bundled_in_plugins(self):
+        self.assertEqual(self.select("trino-base-jdbc"), ["SuiteSmoke", "SuiteMysql", "SuiteRanger"])
+        self.assertEqual(self.select("trino-hdfs"), ["SuiteSmoke", "SuiteHive", "SuiteDeltaLake"])
 
-    def test_unknown_module_runs_full_matrix(self):
-        self.assertEqual(build_matrix({"plugin/trino-new-connector"}), build_matrix(None))
+    def test_multiple_plugins(self):
+        self.assertEqual(self.select("trino-mysql", "trino-hive"), ["SuiteSmoke", "SuiteMysql", "SuiteHive", "SuiteDeltaLake"])
 
-    def test_unknown_module_mixed_with_understood_module_runs_full_matrix(self):
-        self.assertEqual(
-            build_matrix({"plugin/trino-mysql", "plugin/trino-new-connector"}),
-            build_matrix(None),
-        )
+    def test_module_outside_server(self):
+        self.assertEqual(self.select("trino-tests"), [])
 
-    def test_empty_gib_output_runs_full_matrix(self):
-        self.assertEqual(build_matrix(set()), build_matrix(None))
+    def test_plugin_installed_by_default(self):
+        self.assertEqual(self.select("trino-tpch"), self.ALL_SUITES)
 
-    def test_forced_full_run(self):
-        matrix = build_matrix(None)
-        self.assertEqual(suites_from_matrix(matrix), ALL_SUITES)
-        self.assertEqual(len(matrix["include"]), len(ALL_SUITES))
+    def test_server_library(self):
+        self.assertEqual(self.select("trino-mysql", "trino-plugin-toolkit"), self.ALL_SUITES)
 
-    def test_understood_module_without_product_tests_produces_empty_matrix(self):
-        self.assertEqual(build_matrix({"plugin/trino-example-jdbc"}), {})
+    def test_product_tests_classpath(self):
+        self.assertEqual(self.select("trino-testing-containers"), self.ALL_SUITES)
 
-    def test_matrix_is_complete(self):
-        validate_configuration()
+    def test_full_run_artifacts(self):
+        for artifact in FULL_RUN_ARTIFACTS:
+            self.assertEqual(self.select(artifact), self.ALL_SUITES)
 
+    def test_full_matrix(self):
+        self.assertEqual(build_matrix(all_suites(self.CONFIG)), {"include": [{"suite": suite} for suite in self.ALL_SUITES]})
 
-def suites_from_matrix(matrix):
-    return {item["suite"] for item in matrix.get("include", [])}
+    def test_server_tarball(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "core/trino-server/target"
+            target.mkdir(parents=True)
+            with self.assertRaisesRegex(ValueError, r"Expected one server tarball .*, found \[\]"):
+                server_tarball(root)
+            (target / "trino-server-485-SNAPSHOT.tar.gz").touch()
+            self.assertEqual(server_tarball(root), target / "trino-server-485-SNAPSHOT.tar.gz")
+            (target / "trino-server-486-SNAPSHOT.tar.gz").touch()
+            with self.assertRaisesRegex(ValueError, r"Expected one server tarball .*, found \[.*485.*, .*486.*\]"):
+                server_tarball(root)
 
+    def test_server_plugins(self):
+        self.assertEqual(server_plugins(["trino-server-485/plugin/hive/hdfs/a.jar", "trino-server-485/plugin/opa/", "trino-server-485/lib/a.jar"]), {"hive", "opa"})
 
-validate_configuration()
+    def test_validate_config(self):
+        suites = {"SuiteSmoke", "SuiteMysql", "SuiteRanger", "SuiteHive", "SuiteDeltaLake", "SuiteTls", "SuiteSnowflake"}
+        plugins = {"tpch", "opa", "mysql", "mariadb", "ranger", "hive", "delta-lake", "snowflake"}
+        validate_config(self.CONFIG, suites, plugins)
+        with self.assertRaisesRegex(ValueError, r"Suites missing from .*\['SuiteNew'\]"):
+            validate_config(self.CONFIG, suites | {"SuiteNew"}, plugins)
+        with self.assertRaisesRegex(ValueError, r"declared suites without a class: \['SuiteTls'\]"):
+            validate_config(self.CONFIG, suites - {"SuiteTls"}, plugins)
+        with self.assertRaisesRegex(ValueError, r"nor declared smoke-only: \['new'\]"):
+            validate_config(self.CONFIG, suites, plugins | {"new"})
+        with self.assertRaisesRegex(ValueError, r"missing from the server: \['opa'\]"):
+            validate_config(self.CONFIG, suites, plugins - {"opa"})
 
 
 if __name__ == "__main__":

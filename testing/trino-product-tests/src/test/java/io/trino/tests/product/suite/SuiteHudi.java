@@ -28,7 +28,7 @@ public final class SuiteHudi
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteHudi.class);
 
         List<TestRunResult> results = new ArrayList<>();
 
