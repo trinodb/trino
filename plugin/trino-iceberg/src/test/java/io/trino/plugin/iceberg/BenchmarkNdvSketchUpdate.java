@@ -60,7 +60,7 @@ public class BenchmarkNdvSketchUpdate
     {
         HyperLogLog sketch = HyperLogLog.newInstance(4096);
         for (long value : data.values) {
-            sketch.addHash(value);
+            sketch.add(value);
         }
         return sketch;
     }
