@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.hdfs.HdfsTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -156,7 +157,7 @@ class TestIcebergPageSourceProvider
                         new ParquetWriterConfig()).getSessionProperties())
                 .build();
 
-        // Create a page source with equality deletes - the delete predicate is lazily loaded
+        // Create a page source with equality deletes - the deletes start loading when the page source is created
         try (ConnectorPageSource pageSource = provider.createPageSource(
                 session,
                 ImmutableList.of(regionkeyHandle, nameHandle),
@@ -179,16 +180,17 @@ class TestIcebergPageSourceProvider
                 Optional.empty(),
                 newSimpleAggregatedMemoryContext(),
                 Optional.empty())) {
-            // Memory should still be 0 before reading any pages (lazy loading)
-            assertThat(sharedMemoryUsage.get()).isEqualTo(0);
+            // The provider loads deletes on a direct executor, so the equality delete filter is loaded and
+            // tracked in memory before any page is read
+            long memoryUsageBeforeRead = sharedMemoryUsage.get();
+            assertThat(memoryUsageBeforeRead).isGreaterThan(100);
 
-            // Read pages to trigger lazy loading of equality deletes
             while (!pageSource.isFinished()) {
                 pageSource.getNextSourcePage();
             }
 
-            // After reading, the equality delete filter should be loaded and tracked in memory
-            assertThat(sharedMemoryUsage.get()).isGreaterThan(100);
+            // The filter is shared across splits, so reading pages does not change its tracked size
+            assertThat(sharedMemoryUsage.get()).isEqualTo(memoryUsageBeforeRead);
         }
     }
 
@@ -294,7 +296,8 @@ class TestIcebergPageSourceProvider
                 blocksHashFactory,
                 ENCRYPTION_MANAGER_FACTORY,
                 memoryContext,
-                new IcebergConfig().getDomainCompactionThreshold());
+                new IcebergConfig().getDomainCompactionThreshold(),
+                newDirectExecutorService());
     }
 
     private static class TestingParquetFooterCache
