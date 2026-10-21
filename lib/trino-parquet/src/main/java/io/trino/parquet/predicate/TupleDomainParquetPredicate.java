@@ -147,15 +147,16 @@ public class TupleDomainParquetPredicate
                 continue;
             }
             // Page stats and the dictionary decode a column whose type does not match no differently from the
-            // row-group statistics, so neither can narrow its domain and neither is worth reading
-            if (!canNarrowDomain(effectivePredicateDomain.getType(), column.getPrimitiveType())) {
-                continue;
-            }
+            // row-group statistics, so neither can narrow its domain and neither is worth reading. The null counts
+            // of the row-group statistics do not depend on the type, so those are still consulted below
+            boolean canNarrow = canNarrowDomain(effectivePredicateDomain.getType(), column.getPrimitiveType());
 
             Statistics<?> columnStatistics = statistics.get(column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
-                candidateColumns.add(column);
+                if (canNarrow) {
+                    candidateColumns.add(column);
+                }
                 continue;
             }
 
@@ -178,7 +179,9 @@ public class TupleDomainParquetPredicate
             if (effectivePredicateDomain.contains(domain)) {
                 continue;
             }
-            candidateColumns.add(column);
+            if (canNarrow) {
+                candidateColumns.add(column);
+            }
         }
         return Optional.of(candidateColumns.build());
     }
