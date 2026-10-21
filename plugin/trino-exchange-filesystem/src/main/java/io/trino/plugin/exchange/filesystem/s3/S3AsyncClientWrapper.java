@@ -140,7 +140,7 @@ public abstract class S3AsyncClientWrapper
     }
 
     /**
-     * Based on {@link software.amazon.awssdk.services.s3.DefaultS3AsyncClient#applyPaginatorUserAgent(S3Request)}
+     * Based on {@code software.amazon.awssdk.services.s3.DefaultS3AsyncClient#applyPaginatorUserAgent(S3Request)}
      */
     private <T extends S3Request> T applyPaginatorUserAgent(T request)
     {
