@@ -185,7 +185,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>452</dep.airlift.version>
+        <dep.airlift.version>453</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.2</dep.avro.version>
@@ -631,6 +631,27 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>guice</artifactId>
                 <version>${dep.airlift.guice.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>http-client</artifactId>
+                <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <!-- HTTP client response compression is not enabled, so leave out the codecs and their native libraries -->
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-brotli</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-gzip</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty.compression</groupId>
+                        <artifactId>jetty-compression-zstandard</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
