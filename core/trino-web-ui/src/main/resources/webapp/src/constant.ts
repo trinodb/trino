@@ -15,6 +15,9 @@ export enum StoreKey {
     Config = 'app-config',
 }
 
+// Height of the fixed app bar; sticky elements below it offset by this much
+export const APP_BAR_HEIGHT = 43
+
 export const Texts = {
     Auth: {
         Authenticating: 'Authenticating to Trino...',
@@ -49,16 +52,10 @@ export const Texts = {
     },
     Menu: {
         Header: {
-            Themes: 'Themes',
-            Settings: 'Settings',
-            Profile: 'Profile',
+            Home: 'Dashboard',
+            LightMode: 'Switch to light mode',
+            DarkMode: 'Switch to dark mode',
             Logout: 'Logout',
-        },
-        Drawer: {
-            Dashboard: 'Dashboard',
-            Workers: 'Workers',
-            QueryHistory: 'Query history',
-            DemoComponents: 'Demo components',
         },
     },
     QueryList: {

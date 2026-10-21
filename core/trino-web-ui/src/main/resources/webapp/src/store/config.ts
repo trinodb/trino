@@ -22,7 +22,6 @@ export enum Theme {
 }
 
 export const DEFAULT_CONFIG = {
-    avatar: '',
     theme: Theme.Auto as Theme,
 }
 

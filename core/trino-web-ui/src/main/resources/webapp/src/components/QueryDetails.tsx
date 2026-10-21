@@ -56,18 +56,17 @@ export const QueryDetails = () => {
 
     return (
         <>
-            <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Query details</Typography>
-            </Box>
-
             <>
-                <Grid container sx={{ pt: 2, alignItems: 'center' }}>
+                <Grid container sx={{ alignItems: 'center' }}>
                     <Grid size={{ xs: 12, lg: 4 }}>
-                        <Typography variant="h6">{queryId}</Typography>
+                        <Typography variant="h6" sx={{ overflowWrap: 'anywhere' }}>
+                            {queryId}
+                        </Typography>
                     </Grid>
                     <Grid size={{ xs: 12, lg: 8 }}>
                         <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', lg: 'flex-end' } }}>
-                            <Tabs value={tabValue} onChange={handleTabChange}>
+                            {/* Scrollable so the six tabs never push the page wider than a phone screen */}
+                            <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" sx={{ minWidth: 0 }}>
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />
                                 <Tab value="stagePerformance" label="Stage performance" />

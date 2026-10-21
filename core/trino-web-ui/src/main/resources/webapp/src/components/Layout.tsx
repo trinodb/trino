@@ -12,127 +12,50 @@
  * limitations under the License.
  */
 import React, { ReactNode, useEffect, useState } from 'react'
-import { useLocation, Link } from 'react-router-dom'
-import {
-    Avatar,
-    AppBar,
-    Box,
-    IconButton,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Menu,
-    MenuItem,
-    Drawer as MuiDrawer,
-    Stack,
-    Toolbar,
-    Tooltip,
-    Typography,
-} from '@mui/material'
-import { alpha, CSSObject, Theme, styled } from '@mui/material/styles'
-import { DarkModeOutlined, LightModeOutlined, SettingsBrightnessOutlined } from '@mui/icons-material'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import { Link } from 'react-router-dom'
+import { AppBar, Box, IconButton, Stack, Toolbar, Tooltip, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
+import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import LogoutIcon from '@mui/icons-material/Logout'
-import { Texts } from '../constant'
+import { APP_BAR_HEIGHT, Texts } from '../constant'
 import trinoLogo from '../assets/trino.svg'
-import { RouterItem, routers, routersMapper } from '../router.tsx'
-import { Theme as ThemeStore, useConfigStore } from '../store'
+import { Theme as ThemeStore, useClusterStatsStore, useConfigStore } from '../store'
 import { useAuth } from './AuthContext'
+import { ClusterSummary } from './ClusterSummary'
 import { useSnackbar } from './SnackbarContext'
 import { Cluster, clusterApi } from '../api/webapp/api'
 import { ApiResponse } from '../api/base'
 import { pollCoordinator } from '../utils/poll'
 
+// Compact app bar (default is 64px); the spacer in <main> uses the same sx so content starts below the bar
+const headerToolbarSx = { minHeight: APP_BAR_HEIGHT, px: { xs: 1.5, sm: 2 } }
+
 // Version and uptime change rarely; this only keeps uptime and the connection dot fresh
 const CLUSTER_INFO_INTERVAL_MS = 5_000
-
-interface settingsMenuItem {
-    key: string
-    caption: string
-    icon?: ReactNode
-    divider?: boolean
-    onClick?: () => void
-    disabled?: boolean
-}
-
-const openedDrawer = (theme: Theme, width: number): CSSObject => ({
-    width: width,
-    transition: theme.transitions.create('width', {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.enteringScreen,
-    }),
-    overflowX: 'hidden',
-})
-
-const closedDrawer = (theme: Theme): CSSObject => ({
-    transition: theme.transitions.create('width', {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.leavingScreen,
-    }),
-    overflowX: 'hidden',
-    width: `calc(${theme.spacing(7)} + 1px)`,
-    [theme.breakpoints.up('sm')]: {
-        width: `calc(${theme.spacing(8)} + 1px)`,
-    },
-})
-
-const DrawerFooter = styled('div')(({ theme }) => ({
-    display: 'flex',
-    flexGrow: 0,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    padding: theme.spacing(0, 1.5),
-}))
-
-// @ts-expect-error TS2339
-const Drawer = styled(MuiDrawer)(({ theme, open, width }) => ({
-    width: width,
-    flexShrink: 0,
-    whiteSpace: 'nowrap',
-    boxSizing: 'border-box',
-    ...(open && {
-        ...openedDrawer(theme, width),
-        '& .MuiDrawer-paper': openedDrawer(theme, width),
-    }),
-    ...(!open && {
-        ...closedDrawer(theme),
-        '& .MuiDrawer-paper': closedDrawer(theme),
-    }),
-}))
 
 export const RootLayout = (props: { children: React.ReactNode }) => {
     const config = useConfigStore()
     const { authInfo, logout, error } = useAuth()
     const { showSnackbar } = useSnackbar()
-    const location = useLocation()
-    const [drawerOpen, setDrawerOpen] = useState<boolean>(true)
-    const [selectedDrawerItemKey, setSelectedDrawerItemKey] = useState(
-        location.pathname.substring(location.pathname.lastIndexOf('/') + 1)
-    )
-    const [anchorElTheme, setAnchorElTheme] = useState<Element | null>(null)
-    const [anchorElUser, setAnchorElUser] = useState<Element | null>(null)
+    const isDarkMode = useTheme().palette.mode === 'dark'
+    const startClusterStatsPolling = useClusterStatsStore((state) => state.startPolling)
     const [cluster, setCluster] = useState<Cluster | null>(null)
     const [noConnection, setNoConnection] = useState<boolean | null>(null)
     const username = authInfo?.username || ''
-    const userInitials = username?.charAt(0).toUpperCase()
 
     const HeaderStat = (props: { title: string; value?: ReactNode; valueLeading?: ReactNode }) => (
-        <Box sx={{ px: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ px: 1.5, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
             <Typography
                 variant="caption"
                 sx={(theme) => ({
-                    display: 'block',
-                    lineHeight: 1.1,
+                    lineHeight: 1,
                     color: alpha(theme.palette.common.white, 0.8),
                 })}
             >
                 {props.title}
             </Typography>
-            <Typography variant="body2" sx={{ lineHeight: 1.2, fontWeight: 500, textAlign: 'left' }} noWrap>
+            <Typography variant="body2" sx={{ lineHeight: 1, fontWeight: 500, textAlign: 'left' }} noWrap>
                 {props.valueLeading ? (
                     <Box
                         component="span"
@@ -148,19 +71,16 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         </Box>
     )
 
-    useEffect(() => {
-        const router = routersMapper[location.pathname]
-        if (router && router.itemKey != null && selectedDrawerItemKey !== router.itemKey) {
-            setSelectedDrawerItemKey(router.itemKey)
-        }
-    }, [location, selectedDrawerItemKey])
-
     useEffect(
         // Version, uptime and the connection dot. Cleaned up on unmount: the old loop kept running, so the dev
         // build's double mount polled twice a second.
         () => pollCoordinator(getClusterStats, CLUSTER_INFO_INTERVAL_MS),
         []
     )
+
+    useEffect(() => {
+        startClusterStatsPolling()
+    }, [startClusterStatsPolling])
 
     useEffect(() => {
         if (error) {
@@ -182,70 +102,20 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         logout({ redirect: authInfo?.authType != 'form' })
     }
 
-    const openUserMenu = (event: React.MouseEvent) => {
-        setAnchorElUser(event.currentTarget)
+    const toggleTheme = () => {
+        config.update((config) => (config.theme = isDarkMode ? ThemeStore.Light : ThemeStore.Dark))
     }
-
-    const closeUserMenu = () => {
-        setAnchorElUser(null)
-    }
-
-    const openThemeMenu = (event: React.MouseEvent) => {
-        setAnchorElTheme(event.currentTarget)
-    }
-
-    const closeThemeMenu = () => {
-        setAnchorElTheme(null)
-    }
-
-    const setTheme = (theme: ThemeStore) => {
-        config.update((config) => (config.theme = theme))
-    }
-
-    const toggleDrawer = () => {
-        drawerOpen ? setDrawerOpen(false) : setDrawerOpen(true)
-    }
-
-    const settingsMenuItems: settingsMenuItem[] = [
-        {
-            key: 'username',
-            caption: username,
-            divider: true,
-        },
-        {
-            key: 'logout',
-            caption: Texts.Menu.Header.Logout,
-            onClick: () => {
-                closeUserMenu()
-                onLogout()
-            },
-            icon: <LogoutIcon />,
-            disabled: authInfo?.authType === 'fixed',
-        },
-    ]
 
     return (
         <Box sx={{ display: 'flex' }}>
-            <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-                <Toolbar>
-                    <Box component="img" sx={{ height: 50 }} alt="logo" src={trinoLogo} />
-                    <Typography
-                        variant="h6"
-                        noWrap
-                        component="a"
-                        href="/"
-                        sx={{
-                            mx: 2,
-                            display: 'flex',
-                            flexGrow: 1,
-                            fontFamily: 'roboto',
-                            fontWeight: 400,
-                            color: 'inherit',
-                            textDecoration: 'none',
-                        }}
-                    >
-                        Trino
-                    </Typography>
+            <AppBar position="fixed">
+                <Toolbar variant="dense" sx={headerToolbarSx}>
+                    <Tooltip title={Texts.Menu.Header.Home}>
+                        <IconButton component={Link} to="/" aria-label={Texts.Menu.Header.Home} sx={{ p: 0.25 }}>
+                            <Box component="img" sx={{ height: 35, display: 'block' }} alt="Trino" src={trinoLogo} />
+                        </IconButton>
+                    </Tooltip>
+                    <ClusterSummary />
                     <Stack
                         direction="row"
                         sx={{
@@ -256,7 +126,6 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                         }}
                     >
                         <HeaderStat title="Version" value={cluster?.nodeVersion?.version} />
-                        <HeaderStat title="Environment" value={cluster?.environment} />
                         <HeaderStat
                             title="Uptime"
                             value={cluster?.uptime}
@@ -276,129 +145,34 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                         />
                     </Stack>
                     <Box sx={{ flexGrow: 0 }}>
-                        <Tooltip title={Texts.Menu.Header.Themes}>
-                            <IconButton sx={{ mx: 2, color: 'inherit' }} onClick={openThemeMenu}>
-                                {config.theme === ThemeStore.Auto ? (
-                                    <SettingsBrightnessOutlined />
-                                ) : config.theme === ThemeStore.Light ? (
-                                    <LightModeOutlined />
-                                ) : config.theme === ThemeStore.Dark ? (
-                                    <DarkModeOutlined />
-                                ) : null}
+                        <Tooltip title={isDarkMode ? Texts.Menu.Header.LightMode : Texts.Menu.Header.DarkMode}>
+                            <IconButton
+                                sx={{ mx: { xs: 0.5, sm: 1.5 }, p: 0.5, color: 'inherit' }}
+                                onClick={toggleTheme}
+                            >
+                                {isDarkMode ? <DarkModeOutlined /> : <LightModeOutlined />}
                             </IconButton>
                         </Tooltip>
-                        <Menu
-                            sx={{ mt: '45px' }}
-                            id="menu-appbar"
-                            anchorEl={anchorElTheme}
-                            anchorOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            keepMounted
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            open={Boolean(anchorElTheme)}
-                            onClose={closeThemeMenu}
-                        >
-                            {Object.keys(ThemeStore).map((key) => {
-                                const value = ThemeStore[key as keyof typeof ThemeStore]
-                                return (
-                                    <MenuItem
-                                        key={key}
-                                        onClick={() => setTheme(value)}
-                                        selected={value === config.theme}
-                                    >
-                                        <ListItemIcon>
-                                            {value === ThemeStore.Auto ? (
-                                                <SettingsBrightnessOutlined />
-                                            ) : value === ThemeStore.Light ? (
-                                                <LightModeOutlined />
-                                            ) : value === ThemeStore.Dark ? (
-                                                <DarkModeOutlined />
-                                            ) : null}
-                                        </ListItemIcon>
-                                        <Typography sx={{ textAlign: 'center' }}>{key}</Typography>
-                                    </MenuItem>
-                                )
-                            })}
-                        </Menu>
                     </Box>
-                    <Box sx={{ flexGrow: 0 }}>
-                        <Tooltip title={Texts.Menu.Header.Settings}>
-                            <IconButton onClick={openUserMenu} sx={{ p: 0 }}>
-                                <Avatar src={config.avatar}>{userInitials}</Avatar>
+                    <Tooltip title={username ? `${Texts.Menu.Header.Logout} (${username})` : Texts.Menu.Header.Logout}>
+                        {/* span keeps the tooltip working while the button is disabled */}
+                        <span>
+                            <IconButton
+                                onClick={onLogout}
+                                disabled={authInfo?.authType === 'fixed'}
+                                aria-label={Texts.Menu.Header.Logout}
+                                sx={{ p: 0.5, color: 'inherit' }}
+                            >
+                                <LogoutIcon />
                             </IconButton>
-                        </Tooltip>
-                        <Menu
-                            sx={{ mt: '45px' }}
-                            id="menu-appbar"
-                            anchorEl={anchorElUser}
-                            anchorOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            keepMounted
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            open={Boolean(anchorElUser)}
-                            onClose={closeUserMenu}
-                        >
-                            {settingsMenuItems.map((settingsMenuItem) => (
-                                <MenuItem
-                                    sx={{ justifyContent: 'flex-start' }}
-                                    key={settingsMenuItem.key}
-                                    divider={settingsMenuItem.divider}
-                                    onClick={settingsMenuItem.onClick}
-                                    disabled={settingsMenuItem.disabled}
-                                >
-                                    {settingsMenuItem.icon ? (
-                                        <ListItemIcon>{settingsMenuItem.icon}</ListItemIcon>
-                                    ) : (
-                                        <div />
-                                    )}
-                                    <Typography>{settingsMenuItem.caption}</Typography>
-                                </MenuItem>
-                            ))}
-                        </Menu>
-                    </Box>
+                        </span>
+                    </Tooltip>
                 </Toolbar>
             </AppBar>
-            {/*@ts-expect-error TS2322*/}
-            <Drawer variant="permanent" open={drawerOpen} width={240}>
-                <Toolbar />
-                <Box sx={{ overflowX: 'hidden', flexGrow: 1 }}>
-                    <List>
-                        {routers.map((routerItem: RouterItem) =>
-                            routerItem.hidden ? null : (
-                                <ListItem key={routerItem.text} disablePadding>
-                                    <ListItemButton
-                                        key={routerItem.itemKey}
-                                        component={Link}
-                                        to={routerItem.routeProps.path ?? '/'}
-                                        selected={routerItem.itemKey === selectedDrawerItemKey}
-                                    >
-                                        <ListItemIcon>{routerItem.icon}</ListItemIcon>
-                                        {drawerOpen && <ListItemText primary={routerItem.text} />}
-                                    </ListItemButton>
-                                </ListItem>
-                            )
-                        )}
-                    </List>
-                </Box>
-                <DrawerFooter>
-                    <IconButton onClick={toggleDrawer}>
-                        {drawerOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-                    </IconButton>
-                </DrawerFooter>
-            </Drawer>
-            <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-                <Toolbar />
-                <Box sx={{ flexGrow: 1, px: 3 }}>{props.children}</Box>
+            {/* minWidth 0: as a flex item main would otherwise grow to its widest child and overflow the screen */}
+            <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 1.5, sm: 3 } }}>
+                <Toolbar variant="dense" sx={headerToolbarSx} />
+                <Box sx={{ flexGrow: 1, px: { xs: 0, sm: 2 } }}>{props.children}</Box>
             </Box>
         </Box>
     )

@@ -11,74 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useEffect, useState } from 'react'
-import Typography from '@mui/material/Typography'
-import { Box, Divider, Grid } from '@mui/material'
+import { useEffect } from 'react'
+import { Collapse, Grid } from '@mui/material'
 import { MetricCard } from './MetricCard.tsx'
 import { QueryList } from './QueryList.tsx'
 import { useSnackbar } from './SnackbarContext.ts'
-import { ApiResponse } from '../api/base.ts'
-import { statsApi, Stats } from '../api/webapp/api.ts'
-import { Texts } from '../constant.ts'
-import {
-    MAX_HISTORY,
-    addExponentiallyWeightedToHistory,
-    addToHistory,
-    formatCount,
-    formatDataSizeBytes,
-    precisionRound,
-} from '../utils/utils.ts'
-import { pollCoordinator } from '../utils/poll.ts'
-
-// Cluster stats: one request at a time, at most this often
-const STATS_INTERVAL_MS = 1_500
-
-interface ClusterStats {
-    runningQueries: number[]
-    queuedQueries: number[]
-    blockedQueries: number[]
-    activeWorkers: number[]
-    runningDrivers: number[]
-    reservedMemory: number[]
-    rowInputRate: number[]
-    byteInputRate: number[]
-    perWorkerCpuTimeRate: number[]
-
-    lastRefresh: number | null
-
-    lastInputRows: number
-    lastInputBytes: number
-    lastCpuTime: number
-}
+import { useClusterStatsStore } from '../store'
+import { formatCount, formatDataSizeBytes, precisionRound } from '../utils/utils.ts'
 
 export const Dashboard = () => {
     const { showSnackbar } = useSnackbar()
-    const initialFilledHistory = Array(MAX_HISTORY).fill(0)
-    const [clusterStats, setClusterStats] = useState<ClusterStats>({
-        runningQueries: initialFilledHistory,
-        queuedQueries: initialFilledHistory,
-        blockedQueries: initialFilledHistory,
-        activeWorkers: initialFilledHistory,
-        runningDrivers: initialFilledHistory,
-        reservedMemory: initialFilledHistory,
-        rowInputRate: initialFilledHistory,
-        byteInputRate: initialFilledHistory,
-        perWorkerCpuTimeRate: initialFilledHistory,
-
-        lastRefresh: null,
-
-        lastInputRows: 0,
-        lastInputBytes: 0,
-        lastCpuTime: 0,
-    })
-    const [error, setError] = useState<string | null>(null)
-
-    // One request at a time, at most every STATS_INTERVAL_MS, none while the tab is hidden
-    useEffect(
-        () => pollCoordinator(getClusterStats, STATS_INTERVAL_MS),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
-    )
+    const { history: clusterStats, error, panelsOpen } = useClusterStatsStore()
 
     useEffect(() => {
         if (error) {
@@ -86,86 +29,20 @@ export const Dashboard = () => {
         }
     }, [error, showSnackbar])
 
-    const getClusterStats = () => {
-        setError(null)
-        return statsApi().then((apiResponse: ApiResponse<Stats>) => {
-            if (apiResponse.status === 200 && apiResponse.data) {
-                const newClusterStats: Stats = apiResponse.data
-                setClusterStats((prevClusterStats) => {
-                    let newRowInputRate: number[] = initialFilledHistory
-                    let newByteInputRate: number[] = initialFilledHistory
-                    let newPerWorkerCpuTimeRate: number[] = initialFilledHistory
-                    if (prevClusterStats.lastRefresh !== null) {
-                        const rowsInputSinceRefresh = newClusterStats.totalInputRows - prevClusterStats.lastInputRows
-                        const bytesInputSinceRefresh = newClusterStats.totalInputBytes - prevClusterStats.lastInputBytes
-                        const cpuTimeSinceRefresh = newClusterStats.totalCpuTimeSecs - prevClusterStats.lastCpuTime
-                        const secsSinceRefresh = (Date.now() - prevClusterStats.lastRefresh) / 1000.0
-
-                        newRowInputRate = addExponentiallyWeightedToHistory(
-                            rowsInputSinceRefresh / (secsSinceRefresh || 1),
-                            prevClusterStats.rowInputRate
-                        )
-                        newByteInputRate = addExponentiallyWeightedToHistory(
-                            bytesInputSinceRefresh / (secsSinceRefresh || 1),
-                            prevClusterStats.byteInputRate
-                        )
-                        newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory(
-                            cpuTimeSinceRefresh / (newClusterStats.activeWorkers || 1) / (secsSinceRefresh || 1),
-                            prevClusterStats.perWorkerCpuTimeRate
-                        )
-                    }
-
-                    return {
-                        // instantaneous stats
-                        runningQueries: addToHistory(newClusterStats.runningQueries, prevClusterStats.runningQueries),
-                        queuedQueries: addToHistory(newClusterStats.queuedQueries, prevClusterStats.queuedQueries),
-                        blockedQueries: addToHistory(newClusterStats.blockedQueries, prevClusterStats.blockedQueries),
-                        activeWorkers: addToHistory(newClusterStats.activeWorkers, prevClusterStats.activeWorkers),
-
-                        // moving averages
-                        runningDrivers: addExponentiallyWeightedToHistory(
-                            newClusterStats.runningDrivers,
-                            prevClusterStats.runningDrivers
-                        ),
-                        reservedMemory: addExponentiallyWeightedToHistory(
-                            newClusterStats.reservedMemory,
-                            prevClusterStats.reservedMemory
-                        ),
-
-                        // moving averages for diffs
-                        rowInputRate: newRowInputRate,
-                        byteInputRate: newByteInputRate,
-                        perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
-
-                        lastInputRows: newClusterStats.totalInputRows,
-                        lastInputBytes: newClusterStats.totalInputBytes,
-                        lastCpuTime: newClusterStats.totalCpuTimeSecs,
-
-                        lastRefresh: Date.now(),
-                    }
-                })
-                setError(null)
-            } else {
-                setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
-            }
-        })
-    }
-
     return (
         <>
-            <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Cluster overview</Typography>
-            </Box>
-            <>
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+            {/* Opened from the cluster summary in the app bar */}
+            <Collapse in={panelsOpen} id="dashboard-metric-panels">
+                {/* Three tiles per row from the md breakpoint (900px); one per row below, where three would not fit */}
+                <Grid container spacing={1} sx={{ pb: 1 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Running queries"
                             values={clusterStats.runningQueries}
                             tooltip="Total number of queries currently running"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Active workers"
                             values={clusterStats.activeWorkers}
@@ -173,7 +50,7 @@ export const Dashboard = () => {
                             tooltip="Total number of active worker nodes"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Input rows/s"
                             values={clusterStats.rowInputRate}
@@ -181,14 +58,14 @@ export const Dashboard = () => {
                             tooltip="Moving average of input rows processed per second"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Queued queries"
                             values={clusterStats.queuedQueries}
                             tooltip="Total number of queries currently queued and awaiting execution"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Runnable drivers"
                             values={clusterStats.runningDrivers}
@@ -196,7 +73,7 @@ export const Dashboard = () => {
                             tooltip="Moving average of total running drivers"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Input bytes/s"
                             values={clusterStats.byteInputRate}
@@ -204,14 +81,14 @@ export const Dashboard = () => {
                             tooltip="Moving average of input bytes processed per second"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Blocked queries"
                             values={clusterStats.blockedQueries}
                             tooltip="Total number of queries currently blocked and unable to make progress"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Reserved memory"
                             values={clusterStats.reservedMemory}
@@ -219,7 +96,7 @@ export const Dashboard = () => {
                             tooltip="Total amount of memory reserved by all running queries"
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <MetricCard
                             title="Worker parallelism"
                             values={clusterStats.perWorkerCpuTimeRate}
@@ -228,13 +105,8 @@ export const Dashboard = () => {
                         />
                     </Grid>
                 </Grid>
-
-                <Box sx={{ pt: 2 }}>
-                    <Typography variant="h6">Query details</Typography>
-                    <Divider />
-                </Box>
-                <QueryList />
-            </>
+            </Collapse>
+            <QueryList />
         </>
     )
 }

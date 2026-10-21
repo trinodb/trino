@@ -221,14 +221,19 @@ export function formatCount(count: number | null): string {
 }
 
 export function formatDataSizeBytes(size: number | null): string {
-    return formatDataSizeMinUnit(size, '')
+    return formatDataSizeMinUnit(size, '', false)
+}
+
+// Like formatDataSizeBytes but rounded to a whole number of the chosen unit, e.g. 4.11G -> 4G
+export function formatDataSizeBytesWhole(size: number | null): string {
+    return formatDataSizeMinUnit(size, '', true)
 }
 
 export function formatDataSize(size: number | null): string {
-    return formatDataSizeMinUnit(size, 'B')
+    return formatDataSizeMinUnit(size, 'B', false)
 }
 
-function formatDataSizeMinUnit(size: number | null, minUnit: string): string {
+function formatDataSizeMinUnit(size: number | null, minUnit: string, wholeNumber: boolean): string {
     if (size === null) {
         return ''
     }
@@ -257,7 +262,7 @@ function formatDataSizeMinUnit(size: number | null, minUnit: string): string {
         size /= 1024
         unit = 'P' + minUnit
     }
-    return precisionRound(size) + unit
+    return (wholeNumber ? Math.round(size).toString() : precisionRound(size)) + unit
 }
 
 export function parseDataSize(value: string): number | null {
