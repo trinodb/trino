@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.io.StringWriter;
 import java.util.List;
 
+import static io.trino.cli.MarkdownTablePrinter.consoleWidth;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
@@ -157,6 +158,43 @@ public class TestMarkdownTablePrinter
                 "| hello                                     | wide\u7f51       |        123 |\n" +
                 "| some long<br>text \u7f51<br>does not\u7f51<br>fit | more<br>text |       4567 |\n" +
                 "| bye                                       | done         |        -15 |\n";
+
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
+    }
+
+    @Test
+    public void testMarkdownPrintingSupplementaryCharacterWidths()
+    {
+        // U+1D11E MUSICAL SYMBOL G CLEF is encoded as a UTF-16 surrogate pair,
+        // but wcwidth reports one display column for the full code point.
+        assertThat(consoleWidth("\uD834\uDD1E")).isEqualTo(1);
+        assertThat(consoleWidth("a\uD834\uDD1Eb")).isEqualTo(3);
+        // Wide emoji must still use two columns.
+        assertThat(consoleWidth("\uD83D\uDE00")).isEqualTo(2);
+    }
+
+    @Test
+    public void testMarkdownPrintingSupplementaryCharacterAlignment()
+            throws Exception
+    {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("clef", VARCHAR))
+                .add(column("n", BIGINT))
+                .build();
+        StringWriter writer = new StringWriter();
+        OutputPrinter printer = new MarkdownTablePrinter(columns, writer);
+
+        printer.printRows(rows(
+                        row("\uD834\uDD1E", 1),
+                        row("\uD83D\uDE00", 22)),
+                true);
+        printer.finish();
+
+        String expected = "" +
+                "| clef |  n |\n" +
+                "| ---- | --:|\n" +
+                "| \uD834\uDD1E    |  1 |\n" +
+                "| \uD83D\uDE00   | 22 |\n";
 
         assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
