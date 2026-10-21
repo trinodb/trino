@@ -40,6 +40,8 @@ import { KillQueryDialog } from './KillQueryDialog.tsx'
 import { ApiResponse } from '../api/base.ts'
 import { APP_BAR_HEIGHT, Texts } from '../constant.ts'
 import { QueryInfo, queryApi } from '../api/webapp/api.ts'
+import { useClusterStatsStore } from '../store'
+import { updateQueryCpuShares } from '../utils/queryCpuShare.ts'
 import { pollCoordinator } from '../utils/poll.ts'
 import { getCompactStatusRank, getHumanReadableState, parseDataSize, parseDuration } from '../utils/utils.ts'
 import { COMPACT_QUERY_GRID_SX, COMPACT_TABLE_CONTENT_SX, COMPACT_TABLE_SCROLLER_SX } from './compactQueryGrid.ts'
@@ -88,6 +90,8 @@ const SORT_TYPE = {
     ELAPSED: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.elapsedTime),
     EXECUTION: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.executionTime),
     CPU: (queryInfo: QueryInfo) => parseDuration(queryInfo.queryStats.totalCpuTime),
+    // Queries without a current rate (done, or just appeared) sort as 0
+    CPU_CURRENT: (queryInfo: QueryInfo) => queryInfo.cpuShare ?? 0,
     CUMULATIVE_MEMORY: (queryInfo: QueryInfo) => queryInfo.queryStats.cumulativeUserMemory,
     CURRENT_MEMORY: (queryInfo: QueryInfo) => parseDataSize(queryInfo.queryStats.userMemoryReservation),
     TOTAL_MEMORY: (queryInfo: QueryInfo) => parseDataSize(queryInfo.queryStats.totalMemoryReservation),
@@ -111,6 +115,11 @@ const COMPACT_HEADER_COLUMNS: ({ sortType: keyof typeof SORT_TYPE; label: string
         { sortType: 'TOTAL_MEMORY', label: 'Mem', title: 'Current total reserved memory' },
         { sortType: 'PEAK_MEMORY', label: 'Peak Mem', title: 'Peak total memory' },
         { sortType: 'CPU', label: 'CPU', title: 'CPU time' },
+        {
+            sortType: 'CPU_CURRENT',
+            label: 'CPU Current',
+            title: 'Share of all cluster cores this query is using now (last 10 s)',
+        },
         'Splits',
         { sortType: 'FINISHED_SPLITS', label: 'Finished', title: 'Finished splits' },
         { sortType: 'RUNNING_SPLITS', label: 'Running', title: 'Running splits' },
@@ -307,6 +316,8 @@ export const QueryList = () => {
             setLoading(false)
             if (apiResponse.status === 200 && apiResponse.data) {
                 const queriesList = apiResponse.data
+                // Derived from this same response and the app bar's stats poll: no extra requests
+                updateQueryCpuShares(queriesList, useClusterStatsStore.getState().history.lastAvailableProcessors)
 
                 const queryMap = queriesList.reduce((map: Record<string, QueryInfo>, queryInfo: QueryInfo) => {
                     map[queryInfo.queryId] = queryInfo

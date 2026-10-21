@@ -16,6 +16,7 @@ import { ApiResponse } from '../api/base'
 import { statsApi, Stats, workerApi, workerStatusApi } from '../api/webapp/api'
 import { Texts } from '../constant'
 import { MAX_HISTORY, addExponentiallyWeightedToHistory, addToHistory } from '../utils/utils'
+import { CPU_AVERAGE_WINDOW_MS } from '../utils/queryCpuShare'
 import { pollCoordinator } from '../utils/poll'
 
 // Cluster stats: one request at a time, at most this often
@@ -40,6 +41,8 @@ export interface ClusterStatsHistory {
     lastCpuTime: number
     // Latest reported reservation, unsmoothed (the reservedMemory history is a moving average that starts at 0)
     lastReservedMemory: number
+    // Cores of every node the coordinator tracks (coordinator included); the base of the per-query CPU share
+    lastAvailableProcessors: number
     // Cumulative query CPU seconds counted only above the counter's high-water mark (cpuPeak), with sample times,
     // over the last CPU_WINDOW_MS; cpuBelowPeakSince is when the raw counter last fell below the mark
     cpuSamples: { time: number; cpuSecs: number }[]
@@ -49,8 +52,8 @@ export interface ClusterStatsHistory {
 
 const initialFilledHistory: number[] = Array(MAX_HISTORY).fill(0)
 
-// Window over which the cluster CPU rate is measured
-const CPU_WINDOW_MS = 10_000
+// Window over which the cluster CPU rate is measured (same as the query CPU average)
+const CPU_WINDOW_MS = CPU_AVERAGE_WINDOW_MS
 // Until a worker reports its query memory pool size, ask again at most this often
 const POOL_RETRY_MS = 10_000
 
@@ -72,6 +75,7 @@ const initialHistory: ClusterStatsHistory = {
     lastInputBytes: 0,
     lastCpuTime: 0,
     lastReservedMemory: 0,
+    lastAvailableProcessors: 0,
     cpuSamples: [],
     cpuPeak: 0,
     cpuBelowPeakSince: null,
@@ -156,6 +160,7 @@ const nextHistory = (prev: ClusterStatsHistory, stats: Stats): ClusterStatsHisto
         lastInputBytes: stats.totalInputBytes,
         lastCpuTime: stats.totalCpuTimeSecs,
         lastReservedMemory: stats.reservedMemory,
+        lastAvailableProcessors: stats.totalAvailableProcessors,
         cpuSamples,
         cpuPeak,
         cpuBelowPeakSince,

@@ -204,6 +204,9 @@ export interface QueryInfo extends QueryInfoBase {
     sessionUser: string
     queryDataEncoding: string
     traceToken: string
+    // Set by the query list, not the server: share of all cluster cores (0-100) this query used over the last
+    // few seconds; undefined until two samples exist or once the query is done
+    cpuShare?: number
 }
 
 export interface Session {

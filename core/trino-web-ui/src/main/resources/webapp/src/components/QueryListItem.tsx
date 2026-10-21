@@ -98,6 +98,9 @@ const getStatusColor = (queryInfo: QueryInfo): string => {
     }
 }
 
+// Share of cluster cores: one decimal below 10% so small but real consumers do not all read 0%
+const formatCpuShare = (percent: number) => (percent < 10 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`)
+
 // One cell of the compact row; the column header names it, the tooltip explains it
 const CompactMetric = (props: { value: string; title: string }) => (
     <Box
@@ -295,6 +298,10 @@ export const QueryListItem = React.memo(function QueryListItem(props: IQueryList
                 <CompactMetric
                     value={formatDurationClock(parseDuration(stats.totalCpuTime))}
                     title="CPU time spent by this query"
+                />
+                <CompactMetric
+                    value={queryInfo.cpuShare === undefined ? '' : formatCpuShare(queryInfo.cpuShare)}
+                    title="Share of all cluster cores this query is using now (last 10 s)"
                 />
                 {/* Empty cell under the header's "Splits" label */}
                 <Box component="span" />

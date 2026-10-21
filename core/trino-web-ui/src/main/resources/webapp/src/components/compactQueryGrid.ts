@@ -13,12 +13,12 @@
  */
 
 // Shared by the compact query rows and the sortable header above them, so every column lines up like a table.
-// Columns: created, wall, status, user, separator, memory, peak memory, CPU, "Splits" label, finished,
+// Columns: created, wall, status, user, separator, memory, peak memory, CPU, CPU current, "Splits" label, finished,
 // running and queued splits. Every column has a fixed width except user, which shrinks from USER_MAX to USER_MIN as
 // space runs out. Cells never wrap. Below the width where user hits USER_MIN, the header and rows scroll sideways
 // together (see QueryList).
 const FIXED_BEFORE_USER = [64, 64, 80]
-const FIXED_AFTER_USER = [8, 64, 80, 64, 48, 72, 72, 72]
+const FIXED_AFTER_USER = [8, 64, 80, 64, 88, 48, 72, 72, 72]
 const USER_MIN = 64
 const USER_MAX = 160
 const GAP = 10
