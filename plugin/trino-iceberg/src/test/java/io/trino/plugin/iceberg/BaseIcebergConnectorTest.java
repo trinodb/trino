@@ -7549,6 +7549,22 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsWithGcDisabled()
+    {
+        try (TestTable table = newTrinoTable("test_expire_snapshots_gc_disabled_", "(key varchar, value integer) WITH (gc_enabled = false)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('one', 1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('two', 2)", 1);
+            List<Long> initialSnapshots = getSnapshotIds(table.getName());
+
+            assertQueryFails(
+                    prepareCleanUpSession(),
+                    "ALTER TABLE " + table.getName() + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
+                    "Cannot expire snapshots from a table with 'gc_enabled' set to false");
+            assertThat(getSnapshotIds(table.getName())).isEqualTo(initialSnapshots);
+        }
+    }
+
+    @Test
     public void testExpireSnapshotsMaterializedView()
             throws Exception
     {
@@ -7832,6 +7848,23 @@ public abstract class BaseIcebergConnectorTest
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
         assertThat(updatedDataFiles).doesNotContain(orphanFile1, orphanFile2);
+    }
+
+    @Test
+    public void testRemoveOrphanFilesWithGcDisabled()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_remove_orphan_files_gc_disabled_", "(key varchar, value integer) WITH (gc_enabled = false)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES ('one', 1)", 1);
+            String orphanFile = getIcebergTableDataPath(getTableLocation(table.getName())) + "/invalidData." + format;
+            createFile(orphanFile, new byte[123]);
+
+            assertQueryFails(
+                    prepareCleanUpSession(),
+                    "ALTER TABLE " + table.getName() + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
+                    "Cannot remove orphan files from a table with 'gc_enabled' set to false");
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).contains(orphanFile);
+        }
     }
 
     @Test
