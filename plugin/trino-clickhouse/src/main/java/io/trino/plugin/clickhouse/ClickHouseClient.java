@@ -95,12 +95,13 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -199,6 +200,7 @@ import static java.lang.String.join;
 import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -212,6 +214,11 @@ public class ClickHouseClient
 
     // An empty character means that the table doesn't have a comment in ClickHouse
     private static final String NO_COMMENT = "";
+
+    private static final DateTimeFormatter TIMESTAMP_LITERAL_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("uuuu-MM-dd HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, 9, true)
+            .toFormatter();
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
@@ -985,7 +992,8 @@ public class ClickHouseClient
             LocalDateTime timestamp = LocalDateTime.ofEpochSecond(epochSecond, 0, UTC);
             // ClickHouse stores incorrect results when the values are out of supported range.
             DATETIME.validate(version, timestamp);
-            statement.setObject(index, Timestamp.valueOf(timestamp));
+            // Use a string because java.sql.Timestamp shifts values in the JVM zone's DST gap
+            statement.setString(index, TIMESTAMP_LITERAL_FORMATTER.format(timestamp));
         };
     }
 

@@ -1027,6 +1027,24 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
+    @Test
+    public void testTimestampReadInJvmDstGap()
+    {
+        // 2018-04-01 02:13:55 does not exist in the JVM zone America/Bahia_Banderas
+        SqlDataTypeTest.create()
+                .addRoundTrip("DateTime", "'2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_timestamp_read_dst_gap"));
+    }
+
+    @Test
+    public void testTimestampWriteInJvmDstGap()
+    {
+        // 2018-04-01 02:13:55 does not exist in the JVM zone America/Bahia_Banderas
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_write_dst_gap"));
+    }
+
     private SqlDataTypeTest timestampTest(String inputType)
     {
         return unsupportedTimestampBecomeUnexpectedValueTest(inputType)
