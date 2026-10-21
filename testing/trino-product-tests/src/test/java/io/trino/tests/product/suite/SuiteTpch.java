@@ -27,7 +27,7 @@ public final class SuiteTpch
     public static void main(String[] args)
             throws Exception
     {
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteTpch.class);
 
         List<TestRunResult> results = new ArrayList<>();
 

@@ -46,8 +46,7 @@ public final class SuiteKafka
     public static void main(String[] args)
             throws Exception
     {
-        // Set strict mode to ensure tests are properly isolated
-        System.setProperty("trino.product-test.environment-mode", "STRICT");
+        SuiteRunner.initialize(SuiteKafka.class);
 
         List<TestRunResult> results = new ArrayList<>();
 
