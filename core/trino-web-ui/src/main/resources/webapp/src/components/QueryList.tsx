@@ -126,14 +126,19 @@ export const QueryList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+        // Each filter change restarts the loop; a request still in flight from the previous loop is ignored
+        let active = true
         let timeoutId: number
         const runLoop = () => {
-            getQueryListStatus()
+            getQueryListStatus(() => active)
             timeoutId = setTimeout(runLoop, 1000)
         }
         runLoop()
 
-        return () => clearTimeout(timeoutId)
+        return () => {
+            active = false
+            clearTimeout(timeoutId)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchString, stateFilters, errorTypeFilters, sortType, sortOrder, reorderInterval, maxQueries])
 
@@ -197,9 +202,14 @@ export const QueryList = () => {
               })
     }
 
-    const getQueryListStatus = () => {
+    // isCurrent: false once the filters that started this request have changed; its response is then stale
+    // (filtered with the old settings) and must not overwrite the list the new settings already produced
+    const getQueryListStatus = (isCurrent: () => boolean) => {
         setError(null)
         queryApi().then((apiResponse: ApiResponse<QueryInfo[]>) => {
+            if (!isCurrent()) {
+                return
+            }
             setLoading(false)
             if (apiResponse.status === 200 && apiResponse.data) {
                 const queriesList = apiResponse.data
