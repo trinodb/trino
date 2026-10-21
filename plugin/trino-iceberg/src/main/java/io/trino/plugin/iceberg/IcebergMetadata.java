@@ -3384,7 +3384,6 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        validateNoUnknownTypeForWrite(SchemaParser.fromJson(((IcebergTableHandle) tableHandle).getTableSchemaJson()));
         StructType type = StructType.of(ImmutableList.<NestedField>builder()
                 .add(MetadataColumns.FILE_PATH)
                 .add(MetadataColumns.ROW_POSITION)
@@ -3738,7 +3737,6 @@ public class IcebergMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        validateNoUnknownTypeForWrite(icebergTable);
 
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
@@ -3762,7 +3760,6 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        validateNoUnknownTypeForWrite(icebergTable);
         DeleteFiles deleteFiles = icebergTable.newDelete()
                 .deleteFromRowFilter(alwaysTrue())
                 .scanManifestsWith(icebergScanExecutor);
