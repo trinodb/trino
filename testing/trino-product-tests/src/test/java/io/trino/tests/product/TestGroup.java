@@ -419,11 +419,6 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
-    @Tag("delta-lake-databricks-154")
-    @interface DeltaLakeDatabricks154 {}
-
-    @Target({TYPE, METHOD})
-    @Retention(RUNTIME)
     @Tag("delta-lake-databricks-164")
     @interface DeltaLakeDatabricks164 {}
 
