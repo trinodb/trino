@@ -74,13 +74,16 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -207,6 +210,10 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
+        private final List<FinalTaskInfoListener> finalTaskInfoListeners = new CopyOnWriteArrayList<>();
+        private final AtomicInteger forcedFinalizations = new AtomicInteger();
+        private volatile boolean withholdFinalTaskInfo;
+
         public MockRemoteTask(
                 TaskId taskId,
                 PlanFragment fragment,
@@ -278,9 +285,13 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public synchronized TaskStatus getTaskStatus()
+        public TaskStatus getTaskStatus()
         {
-            TaskState state = taskStateMachine.getState();
+            return taskStatus(taskStateMachine.getState());
+        }
+
+        private synchronized TaskStatus taskStatus(TaskState state)
+        {
             List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (state == TaskState.FAILED || state == TaskState.FAILING) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
@@ -429,20 +440,38 @@ public class MockRemoteTaskFactory
         @Override
         public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
         {
-            taskStateMachine.addStateChangeListener(_ -> stateChangeListener.stateChanged(getTaskStatus()));
+            // the status of the notified state, as HttpRemoteTask delivers it, so a listener never observes a later state
+            taskStateMachine.addStateChangeListener(state -> stateChangeListener.stateChanged(taskStatus(state)));
         }
 
         @Override
         public void addFinalTaskInfoListener(StateChangeListener<TaskInfo> stateChangeListener)
         {
-            AtomicBoolean done = new AtomicBoolean();
-            StateChangeListener<TaskState> fireOnceStateChangeListener = state -> {
-                if (state.isDone() && done.compareAndSet(false, true)) {
-                    stateChangeListener.stateChanged(getTaskInfo());
-                }
-            };
-            taskStateMachine.addStateChangeListener(fireOnceStateChangeListener);
-            fireOnceStateChangeListener.stateChanged(taskStateMachine.getState());
+            FinalTaskInfoListener listener = new FinalTaskInfoListener(stateChangeListener, new AtomicBoolean());
+            finalTaskInfoListeners.add(listener);
+            taskStateMachine.addStateChangeListener(state -> fireFinalTaskInfo(listener, state));
+            fireFinalTaskInfo(listener, taskStateMachine.getState());
+        }
+
+        private void fireFinalTaskInfo(FinalTaskInfoListener listener, TaskState state)
+        {
+            if (state.isDone() && !withholdFinalTaskInfo && listener.fired().compareAndSet(false, true)) {
+                listener.listener().stateChanged(getTaskInfo());
+            }
+        }
+
+        /**
+         * Simulates a task whose final task info never reaches the coordinator: the final task info
+         * listeners only fire once {@link #forceFinalizationUsingTaskStatus()} is called.
+         */
+        public void withholdFinalTaskInfo()
+        {
+            withholdFinalTaskInfo = true;
+        }
+
+        public int forcedFinalizations()
+        {
+            return forcedFinalizations.get();
         }
 
         @Override
@@ -479,7 +508,14 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void forceFinalizationUsingTaskStatus() {}
+        public void forceFinalizationUsingTaskStatus()
+        {
+            TaskState state = taskStateMachine.getState();
+            checkState(state.isDone(), "task status is not terminal");
+            forcedFinalizations.incrementAndGet();
+            withholdFinalTaskInfo = false;
+            finalTaskInfoListeners.forEach(listener -> fireFinalTaskInfo(listener, state));
+        }
 
         @Override
         public synchronized PartitionedSplitsInfo getPartitionedSplitsInfo()
@@ -542,5 +578,7 @@ public class MockRemoteTaskFactory
         {
             throw new UnsupportedOperationException();
         }
+
+        private record FinalTaskInfoListener(StateChangeListener<TaskInfo> listener, AtomicBoolean fired) {}
     }
 }

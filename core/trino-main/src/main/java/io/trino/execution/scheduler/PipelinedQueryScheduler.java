@@ -133,6 +133,7 @@ import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.output.SkewedPartitionRebalancer.getSkewedBucketCount;
@@ -553,7 +554,7 @@ public class PipelinedQueryScheduler
                 NodeScheduler nodeScheduler,
                 StageManager stageManager,
                 InternalNodeManager nodeManager,
-                Executor executor,
+                ScheduledExecutorService executor,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 SqlTaskManager coordinatorTaskManager)
         {
@@ -570,6 +571,7 @@ public class PipelinedQueryScheduler
                         taskLifecycleListener,
                         nodeManager,
                         executor,
+                        NO_FINAL_TASK_INFO_CHECK_INTERVAL,
                         bucketToPartitionForStagesConsumedByCoordinator.get(stage.getFragment().getId()).map(BucketToPartition::bucketToPartition),
                         OptionalInt.empty(),
                         0);
@@ -935,6 +937,7 @@ public class PipelinedQueryScheduler
                         taskLifecycleListener,
                         nodeManager,
                         executor,
+                        NO_FINAL_TASK_INFO_CHECK_INTERVAL,
                         bucketToPartition.map(BucketToPartition::bucketToPartition),
                         skewedBucketCount,
                         attempt);
