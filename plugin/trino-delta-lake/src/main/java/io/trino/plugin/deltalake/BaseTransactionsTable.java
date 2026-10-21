@@ -142,7 +142,7 @@ public abstract class BaseTransactionsTable
         try {
             checkArgument(endVersionInclusive.isPresent(), "endVersionInclusive must be present");
             List<Transaction> transactions = loadNewTail(fileSystem, table.location(), startVersionExclusive, endVersionInclusive, DataSize.ofBytes(0)).getTransactions();
-            return new FixedPageSource(buildPages(session, pagesBuilder, transactions, fileSystem));
+            return new FixedPageSource(buildPages(pagesBuilder, transactions, fileSystem));
         }
         catch (TrinoException e) {
             throw e;
@@ -152,6 +152,6 @@ public abstract class BaseTransactionsTable
         }
     }
 
-    protected abstract List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
+    protected abstract List<Page> buildPages(PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
             throws IOException;
 }

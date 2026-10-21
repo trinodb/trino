@@ -4072,6 +4072,19 @@ public class TestDeltaLakeBasic
         // The first two versions commitInfo doesn't contain `inCommitTimestamp`, the value is read from `timestamp` in commitInfo
         // The last two versions commitInfo contain `inCommitTimestamp`, the value is read from it.
         assertQuery("SELECT date_diff('millisecond', TIMESTAMP '1970-01-01 00:00:00 UTC', timestamp) FROM \"%s$history\"".formatted(tableName), "VALUES 1739859668531L, 1739859684775L, 1739859743394L, 1739859755480L");
+
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu"))
+                .build();
+        assertThat(query(session, "SELECT timestamp FROM \"%s$history\"".formatted(tableName)))
+                .matches(
+                        """
+                        VALUES
+                            TIMESTAMP '2025-02-18 06:21:08.531 UTC',
+                            TIMESTAMP '2025-02-18 06:21:24.775 UTC',
+                            TIMESTAMP '2025-02-18 06:22:23.394 UTC',
+                            TIMESTAMP '2025-02-18 06:22:35.480 UTC'
+                        """);
     }
 
     /**

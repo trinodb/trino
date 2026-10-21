@@ -23,7 +23,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
@@ -62,7 +61,7 @@ public class DeltaLakeTransactionsTable
     }
 
     @Override
-    protected List<Page> buildPages(ConnectorSession session, PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
+    protected List<Page> buildPages(PageListBuilder pagesBuilder, List<Transaction> transactions, TrinoFileSystem fileSystem)
     {
         for (Transaction transaction : transactions) {
             pagesBuilder.beginRow();

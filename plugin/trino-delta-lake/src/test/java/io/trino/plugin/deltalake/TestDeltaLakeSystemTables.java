@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -29,6 +30,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -100,6 +102,18 @@ public class TestDeltaLakeSystemTables
                                 (BIGINT '1', VARCHAR 'WRITE', BIGINT '0', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '0', VARCHAR 'CREATE TABLE', BIGINT '0', VARCHAR 'WriteSerializable', true)
                             """);
+        }
+    }
+
+    @Test
+    void testHistoryTableTimestampInUtc()
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
+                .build();
+        try (TestTable table = newTrinoTable("test_history_timestamp_", "(col int)")) {
+            assertThat(query(session, "SELECT DISTINCT timezone(timestamp) FROM \"" + table.getName() + "$history\""))
+                    .matches("VALUES VARCHAR 'UTC'");
         }
     }
 
