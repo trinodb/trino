@@ -15,7 +15,7 @@ import React, { ReactNode, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AppBar, Box, IconButton, Stack, Toolbar, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material'
+import { DarkModeOutlined, DensitySmallOutlined, LightModeOutlined } from '@mui/icons-material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { APP_BAR_HEIGHT, Texts } from '../constant'
@@ -144,6 +144,28 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                             }
                         />
                     </Stack>
+                    <Tooltip
+                        title={config.hideQueryText ? Texts.Menu.Header.ShowQueryText : Texts.Menu.Header.HideQueryText}
+                    >
+                        <IconButton
+                            onClick={() => config.update((config) => (config.hideQueryText = !config.hideQueryText))}
+                            aria-label={Texts.Menu.Header.HideQueryText}
+                            aria-pressed={config.hideQueryText}
+                            // Filled while on, like a pressed toggle
+                            sx={(theme) => ({
+                                ml: { xs: 0.5, sm: 1 },
+                                p: 0.5,
+                                borderRadius: 1,
+                                color: 'inherit',
+                                bgcolor: config.hideQueryText ? alpha(theme.palette.common.white, 0.16) : 'transparent',
+                                '&:hover': {
+                                    bgcolor: alpha(theme.palette.common.white, config.hideQueryText ? 0.24 : 0.08),
+                                },
+                            })}
+                        >
+                            <DensitySmallOutlined />
+                        </IconButton>
+                    </Tooltip>
                     <Box sx={{ flexGrow: 0 }}>
                         <Tooltip title={isDarkMode ? Texts.Menu.Header.LightMode : Texts.Menu.Header.DarkMode}>
                             <IconButton

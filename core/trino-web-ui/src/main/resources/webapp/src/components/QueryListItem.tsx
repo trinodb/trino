@@ -11,47 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useMemo } from 'react'
-import { Box, Grid, Stack, Tooltip, Typography } from '@mui/material'
-import type { SvgIconComponent } from '@mui/icons-material'
-import AvTimerIcon from '@mui/icons-material/AvTimer'
-import BadgeIcon from '@mui/icons-material/Badge'
-import BrokenImageIcon from '@mui/icons-material/BrokenImage'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import DevicesIcon from '@mui/icons-material/Devices'
-import DownloadingIcon from '@mui/icons-material/Downloading'
-import FunctionsIcon from '@mui/icons-material/Functions'
-import GroupsIcon from '@mui/icons-material/Groups'
-import HighlightOff from '@mui/icons-material/HighlightOff'
-import HistoryToggleOffIcon from '@mui/icons-material/HistoryToggleOff'
-import Memory from '@mui/icons-material/Memory'
-import NotStartedIcon from '@mui/icons-material/NotStarted'
-import PlayCircleIcon from '@mui/icons-material/PlayCircle'
-import QueryBuilderIcon from '@mui/icons-material/QueryBuilder'
+import React, { useMemo, useState } from 'react'
+import { Box, ButtonBase, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { amber, blue, deepPurple, green, grey, lightBlue, orange, red } from '@mui/material/colors'
 import { CodePreview } from './CodePreview.tsx'
-import { QueryProgressBar } from './QueryProgressBar'
-import { QueryInfo } from '../api/webapp/api.ts'
-import { formatDataSizeBytes, formatShortTime, parseAndFormatDataSize, truncateString } from '../utils/utils.ts'
-import { styled } from '@mui/material/styles'
+import { QueryInfo, queryStatusApi } from '../api/webapp/api.ts'
+import { Texts } from '../constant.ts'
+import { useSnackbar } from './SnackbarContext.ts'
+import { useConfigStore } from '../store'
+import {
+    formatDurationClock,
+    getCompactStatusLabel,
+    formatShortTime,
+    getHumanReadableState,
+    getQueryProgressPercentage,
+    isKillable,
+    parseAndFormatDataSize,
+    parseDuration,
+} from '../utils/utils.ts'
+import { alpha } from '@mui/material/styles'
 import { Link as RouterLink } from 'react-router-dom'
-import { SvgIconProps } from '@mui/material/SvgIcon'
+import { COMPACT_QUERY_GRID_SX, COMPACT_TABLE_PINNED_SX } from './compactQueryGrid.ts'
 
 interface IQueryListItemProps {
     queryInfo: QueryInfo
+    // Opens the shared kill confirmation (owned by QueryList)
+    onKill: (queryInfo: QueryInfo) => void
 }
 
-const StyledLink = styled(RouterLink)(({ theme }) => ({
-    textDecoration: 'none',
-    color: theme.palette.info.main,
-    '&:hover': {
-        textDecoration: 'underline',
-    },
-    fontSize: 14,
-    fontWeight: 500,
-}))
+// Query text in the list never takes more than this many rendered lines
+const QUERY_PREVIEW_MAX_LINES = 6
 
+// Server-side cap on queryTextPreview (TrimmedBasicQueryInfo.MAX_QUERY_PREVIEW_LENGTH); longer texts arrive cut
+const QUERY_PREVIEW_SERVER_MAX_LENGTH = 300
+
+// Removes the common indentation and blank lines. Length is capped visually by CodePreview's maxLines, which
+// counts wrapped lines too, so a single very long line cannot take more space than six short ones.
 const stripQueryTextWhitespace = (queryText: string) => {
-    const maxLines = 6
     const lines = queryText.split('\n')
     let minLeadingWhitespace = -1
     for (let i = 0; i < lines.length; i++) {
@@ -70,308 +69,255 @@ const stripQueryTextWhitespace = (queryText: string) => {
         }
     }
 
-    let formattedQueryText = ''
+    return lines
+        .map((line) => line.substring(minLeadingWhitespace).replace(/\s+$/g, ''))
+        .filter((line) => line.length > 0)
+        .join('\n')
+}
 
-    for (let i = 0; i < lines.length; i++) {
-        const trimmedLine = lines[i].substring(minLeadingWhitespace).replace(/\s+$/g, '')
+// Colour per state for the compact row's background tint
+const getStatusColor = (queryInfo: QueryInfo): string => {
+    switch (queryInfo.state) {
+        case 'QUEUED':
+        case 'WAITING_FOR_RESOURCES':
+            return amber[700]
+        case 'DISPATCHING':
+        case 'PLANNING':
+        case 'STARTING':
+            return lightBlue[600]
+        case 'RUNNING':
+            return queryInfo.queryStats.fullyBlocked ? deepPurple[400] : blue[600]
+        case 'FINISHING':
+            return blue[600]
+        case 'FINISHED':
+            return green[600]
+        case 'FAILED':
+            return queryInfo.errorCode?.name === 'USER_CANCELED' ? orange[700] : red[600]
+        default:
+            return grey[500]
+    }
+}
 
-        if (trimmedLine.length > 0) {
-            formattedQueryText += trimmedLine
-            if (i < maxLines - 1) {
-                formattedQueryText += '\n'
-            } else {
-                formattedQueryText += '\n...'
-                break
+// One cell of the compact row; the column header names it, the tooltip explains it
+const CompactMetric = (props: { value: string; title: string }) => (
+    <Box
+        component="span"
+        title={props.title}
+        sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+    >
+        {props.value}
+    </Box>
+)
+
+// The list only carries a preview, cut by the server at MAX_QUERY_PREVIEW_LENGTH; fetch the full text only when
+// the preview may be truncated
+const fetchFullQueryText = async (queryInfo: QueryInfo): Promise<string> => {
+    if (queryInfo.queryTextPreview.length < QUERY_PREVIEW_SERVER_MAX_LENGTH) {
+        return queryInfo.queryTextPreview
+    }
+    const apiResponse = await queryStatusApi(queryInfo.queryId, true)
+    if (apiResponse.status !== 200 || !apiResponse.data) {
+        throw new Error(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+    }
+    return apiResponse.data.query
+}
+
+// Query text capped at QUERY_PREVIEW_MAX_LINES. When text is hidden (by the line cap or the server's preview
+// cut) a thin bar under it expands to the full query and collapses it again.
+const QueryText = (props: { queryInfo: QueryInfo; formattedQueryText: string }) => {
+    const { queryInfo, formattedQueryText } = props
+    const { showSnackbar } = useSnackbar()
+    const [expanded, setExpanded] = useState(false)
+    const [clamped, setClamped] = useState(false)
+    const [fullText, setFullText] = useState<string | null>(null)
+    const previewCut = queryInfo.queryTextPreview.length >= QUERY_PREVIEW_SERVER_MAX_LENGTH
+
+    const toggle = async () => {
+        if (!expanded && fullText === null) {
+            try {
+                setFullText(stripQueryTextWhitespace(await fetchFullQueryText(queryInfo)))
+            } catch (error) {
+                showSnackbar((error as Error).message, 'error')
+                return
             }
+        }
+        setExpanded(!expanded)
+    }
+
+    return (
+        <Box sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <CodePreview
+                code={expanded ? (fullText ?? formattedQueryText) : formattedQueryText}
+                maxLines={expanded ? undefined : QUERY_PREVIEW_MAX_LINES}
+                onClampedChange={setClamped}
+            />
+            {(expanded || clamped || previewCut) && (
+                <ButtonBase
+                    onClick={toggle}
+                    disableRipple
+                    aria-expanded={expanded}
+                    aria-label={expanded ? Texts.QueryList.Actions.Collapse : Texts.QueryList.Actions.Expand}
+                    title={expanded ? Texts.QueryList.Actions.Collapse : Texts.QueryList.Actions.Expand}
+                    sx={(theme) => ({
+                        height: 14,
+                        bgcolor: alpha(theme.palette.text.primary, 0.06),
+                        color: 'text.secondary',
+                        '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.18) },
+                    })}
+                >
+                    <ExpandMoreIcon sx={{ fontSize: 16, transform: expanded ? 'rotate(180deg)' : 'none' }} />
+                </ButtonBase>
+            )}
+        </Box>
+    )
+}
+
+// Narrow column of actions shown to the left of the query text; the kill confirmation lives in QueryList, shared by
+// every row
+const QueryActions = (props: { queryInfo: QueryInfo; onKill: (queryInfo: QueryInfo) => void }) => {
+    const { queryInfo, onKill } = props
+    const { showSnackbar } = useSnackbar()
+    const canKill = isKillable(queryInfo)
+
+    const copyQuery = async () => {
+        let queryText: string
+        try {
+            queryText = await fetchFullQueryText(queryInfo)
+        } catch (error) {
+            showSnackbar((error as Error).message, 'error')
+            return
+        }
+        try {
+            await navigator.clipboard.writeText(queryText)
+            showSnackbar(Texts.QueryList.Actions.Copied, 'success')
+        } catch {
+            showSnackbar(Texts.QueryList.Actions.CopyFailed, 'error')
         }
     }
 
-    return formattedQueryText
+    return (
+        // Buttons side by side so a one-line query keeps its one-line height
+        <Stack
+            direction="row"
+            sx={(theme) => ({
+                flexShrink: 0,
+                alignItems: 'flex-start',
+                px: 0.25,
+                py: 0.25,
+                border: `1px solid ${theme.palette.mode === 'dark' ? '#3f3f3f' : '#ddd'}`,
+                borderRight: 'none',
+                borderBottom: 'none',
+            })}
+        >
+            <Tooltip title={Texts.QueryList.Actions.Copy} placement="top">
+                <IconButton size="small" onClick={copyQuery} aria-label={Texts.QueryList.Actions.Copy}>
+                    <ContentCopyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title={Texts.QueryList.Actions.Kill} placement="top">
+                {/* span keeps the tooltip working while the button is disabled */}
+                <span>
+                    <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => onKill(queryInfo)}
+                        disabled={!canKill}
+                        aria-label={Texts.QueryList.Actions.Kill}
+                    >
+                        <CancelOutlinedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        </Stack>
+    )
 }
 
-// Lightweight memoized replacement for the previous renderTextWithIcon function.
-// Uses the icon component type directly (no React.cloneElement) and native title
-// attribute instead of MUI Tooltip to minimise DOM weight per query row.
-const TextWithIcon = React.memo(function TextWithIcon(props: {
-    Icon: SvgIconComponent
-    title: string
-    tooltip: string
-    spacing?: number
-    color?: SvgIconProps['color']
-}) {
-    const { Icon, title, tooltip, spacing = 0, color = 'inherit' } = props
-    return (
-        <Box sx={{ display: 'flex', alignItems: 'center' }} title={tooltip} aria-label={`${tooltip}: ${title}`}>
-            <Icon fontSize="small" color={color} />
-            <Typography variant="body2" sx={{ ml: spacing }}>
-                {title}
-            </Typography>
-        </Box>
-    )
-})
-
-// --- Memoized sub-sections of the left pane ---
-
-const QueryHeader = React.memo(function QueryHeader(props: { queryId: string; createTime: string }) {
-    const { queryId, createTime } = props
-    return (
-        <Box
-            sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                pb: 1,
-                mb: 1,
-                borderBottom: '1px solid #ccc',
-            }}
-        >
-            <Box>
-                <Tooltip placement="top-start" title="Query ID">
-                    <StyledLink to={`/queries/${queryId}`}>{queryId}</StyledLink>
-                </Tooltip>
-            </Box>
-            <Box>
-                <Tooltip placement="top-start" title="Submit time">
-                    <Typography variant="body2">{formatShortTime(new Date(Date.parse(createTime)))}</Typography>
-                </Tooltip>
-            </Box>
-        </Box>
-    )
-})
-
-const QueryIdentity = React.memo(
-    function QueryIdentity(props: {
-        sessionUser: string
-        sessionSource: string
-        queryDataEncoding: string
-        resourceGroupId: string[]
-    }) {
-        const { sessionUser, sessionSource, queryDataEncoding, resourceGroupId } = props
-        return (
-            <Box>
-                <Box>
-                    <TextWithIcon
-                        Icon={BadgeIcon}
-                        title={truncateString(sessionUser, 35)}
-                        tooltip="User"
-                        spacing={1}
-                        color="info"
-                    />
-                </Box>
-                <Box>
-                    <TextWithIcon
-                        Icon={DevicesIcon}
-                        title={truncateString(sessionSource, 35)}
-                        tooltip="Source"
-                        spacing={1}
-                        color="info"
-                    />
-                </Box>
-                <Box>
-                    <TextWithIcon
-                        Icon={DownloadingIcon}
-                        title={queryDataEncoding ? 'spooled ' + queryDataEncoding : 'non-spooled'}
-                        tooltip="Protocol encoding"
-                        spacing={1}
-                        color="info"
-                    />
-                </Box>
-                <Box>
-                    <TextWithIcon
-                        Icon={GroupsIcon}
-                        title={truncateString(resourceGroupId ? resourceGroupId.join('.') : 'n/a', 35)}
-                        tooltip="Resource group"
-                        spacing={1}
-                        color="info"
-                    />
-                </Box>
-            </Box>
-        )
-    },
-    (prev, next) =>
-        prev.sessionUser === next.sessionUser &&
-        prev.sessionSource === next.sessionSource &&
-        prev.queryDataEncoding === next.queryDataEncoding &&
-        prev.resourceGroupId?.join('.') === next.resourceGroupId?.join('.')
-)
-
-const QuerySplits = React.memo(function QuerySplits(props: {
-    completedDrivers: number
-    runningDrivers: number
-    queuedDrivers: number
-    failedTasks: number
-    state: string
-    retryPolicy: string
-}) {
-    const { completedDrivers, runningDrivers, queuedDrivers, failedTasks, state, retryPolicy } = props
-    const isDone = state === 'FINISHED' || state === 'FAILED'
-    return (
-        <Grid container spacing={3}>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={CheckCircleIcon}
-                    title={completedDrivers.toString()}
-                    tooltip="Complete splits"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={PlayCircleIcon}
-                    title={(isDone ? 0 : runningDrivers).toString()}
-                    tooltip="Running splits"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={NotStartedIcon}
-                    title={(isDone ? 0 : queuedDrivers).toString()}
-                    tooltip="Queued splits"
-                    spacing={1}
-                />
-            </Grid>
-            {retryPolicy === 'TASK' && (
-                <Grid size={{ xs: 3 }}>
-                    <TextWithIcon
-                        Icon={HighlightOff}
-                        title={failedTasks.toString()}
-                        tooltip="Failed tasks"
-                        spacing={1}
-                    />
-                </Grid>
-            )}
-        </Grid>
-    )
-})
-
-const QueryTiming = React.memo(function QueryTiming(props: {
-    executionTime: string
-    elapsedTime: string
-    totalCpuTime: string
-}) {
-    const { executionTime, elapsedTime, totalCpuTime } = props
-    return (
-        <Grid container spacing={3}>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={HistoryToggleOffIcon}
-                    title={executionTime.toString()}
-                    tooltip="Wall time spent executing the query (not including queued time)"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={QueryBuilderIcon}
-                    title={elapsedTime.toString()}
-                    tooltip="Total query wall time"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={AvTimerIcon}
-                    title={totalCpuTime.toString()}
-                    tooltip="CPU time spent by this query"
-                    spacing={1}
-                />
-            </Grid>
-        </Grid>
-    )
-})
-
-const QueryMemory = React.memo(function QueryMemory(props: {
-    totalMemoryReservation: string
-    peakTotalMemoryReservation: string
-    cumulativeUserMemory: number
-}) {
-    const { totalMemoryReservation, peakTotalMemoryReservation, cumulativeUserMemory } = props
-    return (
-        <Grid container spacing={3}>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={Memory}
-                    title={parseAndFormatDataSize(totalMemoryReservation)}
-                    tooltip="Current total reserved memory"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={BrokenImageIcon}
-                    title={parseAndFormatDataSize(peakTotalMemoryReservation)}
-                    tooltip="Peak total memory"
-                    spacing={1}
-                />
-            </Grid>
-            <Grid size={{ xs: 3 }}>
-                <TextWithIcon
-                    Icon={FunctionsIcon}
-                    title={formatDataSizeBytes(cumulativeUserMemory / 1000.0)}
-                    tooltip="Cumulative user memory"
-                    spacing={1}
-                />
-            </Grid>
-        </Grid>
-    )
-})
-
+// One clickable summary line on the shared table grid, then the query text
 export const QueryListItem = React.memo(function QueryListItem(props: IQueryListItemProps) {
-    const { queryInfo } = props
-
+    const { queryInfo, onKill } = props
     const formattedQueryText = useMemo(
         () => stripQueryTextWhitespace(queryInfo.queryTextPreview),
         [queryInfo.queryTextPreview]
     )
+    const stats = queryInfo.queryStats
+    const statusColor = getStatusColor(queryInfo)
+    // Running queries fill the row up to their progress; other states get a flat tint
+    const progress = queryInfo.state === 'RUNNING' ? getQueryProgressPercentage(queryInfo) : 100
+    const rowBackground = (filled: number, rest: number) =>
+        `linear-gradient(to right, ${alpha(statusColor, filled)} ${progress}%, ${alpha(statusColor, rest)} ${progress}%)`
+    const done = queryInfo.state === 'FINISHED' || queryInfo.state === 'FAILED'
+    const hideQueryText = useConfigStore((state) => state.hideQueryText)
 
     return (
-        <Grid container spacing={1}>
-            <Grid size={{ xs: 12, lg: 4 }}>
-                <QueryHeader queryId={queryInfo.queryId} createTime={queryInfo.queryStats.createTime} />
-                <QueryIdentity
-                    sessionUser={queryInfo.sessionUser}
-                    sessionSource={queryInfo.sessionSource}
-                    queryDataEncoding={queryInfo.queryDataEncoding}
-                    resourceGroupId={queryInfo.resourceGroupId}
+        <Stack spacing={0.5} sx={{ py: hideQueryText ? 0.25 : 0.5 }}>
+            <Box
+                component={RouterLink}
+                to={`/queries/${queryInfo.queryId}`}
+                title={`${getHumanReadableState(queryInfo)}${queryInfo.state === 'RUNNING' ? ` ${progress}%` : ''} · ${queryInfo.queryId}`}
+                sx={{
+                    ...COMPACT_QUERY_GRID_SX,
+                    py: 0.5,
+                    borderRadius: 1,
+                    color: 'text.primary',
+                    textDecoration: 'none',
+                    // Tint keeps text readable in both themes; hover deepens it
+                    background: rowBackground(0.32, 0.1),
+                    '&:hover': { background: rowBackground(0.44, 0.18) },
+                }}
+            >
+                <CompactMetric
+                    value={formatShortTime(new Date(Date.parse(stats.createTime)))}
+                    title={`Created ${new Date(Date.parse(stats.createTime)).toLocaleString()}`}
                 />
-                <QuerySplits
-                    completedDrivers={queryInfo.queryStats.completedDrivers}
-                    runningDrivers={queryInfo.queryStats.runningDrivers}
-                    queuedDrivers={queryInfo.queryStats.queuedDrivers}
-                    failedTasks={queryInfo.queryStats.failedTasks}
-                    state={queryInfo.state}
-                    retryPolicy={queryInfo.retryPolicy}
+                <CompactMetric
+                    value={formatDurationClock(parseDuration(stats.elapsedTime))}
+                    title="Total query wall time, including queued time"
                 />
-                <QueryTiming
-                    executionTime={queryInfo.queryStats.executionTime}
-                    elapsedTime={queryInfo.queryStats.elapsedTime}
-                    totalCpuTime={queryInfo.queryStats.totalCpuTime}
+                <CompactMetric value={getCompactStatusLabel(queryInfo)} title={getHumanReadableState(queryInfo)} />
+                <Box
+                    component="span"
+                    title={`User: ${queryInfo.sessionUser}`}
+                    sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                    {queryInfo.sessionUser}
+                </Box>
+                <Box component="span" sx={{ color: 'text.disabled' }}>
+                    |
+                </Box>
+                <CompactMetric
+                    value={parseAndFormatDataSize(stats.totalMemoryReservation)}
+                    title="Current total reserved memory"
                 />
-                <QueryMemory
-                    totalMemoryReservation={queryInfo.queryStats.totalMemoryReservation}
-                    peakTotalMemoryReservation={queryInfo.queryStats.peakTotalMemoryReservation}
-                    cumulativeUserMemory={queryInfo.queryStats.cumulativeUserMemory}
+                <CompactMetric
+                    value={parseAndFormatDataSize(stats.peakTotalMemoryReservation)}
+                    title="Peak total memory"
                 />
-            </Grid>
-            <Grid size={{ xs: 12, lg: 8 }}>
-                <Stack spacing={1} sx={{ flex: 1 }}>
-                    <QueryProgressBar queryInfoBase={queryInfo} />
-                    <Grid container>
-                        <Grid
-                            key={queryInfo.queryId}
-                            sx={{
-                                display: 'flex',
-                                flexGrow: 1,
-                                alignItems: 'flex-start',
-                                width: '100%',
-                            }}
-                        >
-                            <CodePreview code={formattedQueryText} height="158px" />
-                        </Grid>
-                    </Grid>
-                </Stack>
-            </Grid>
-        </Grid>
+                <CompactMetric
+                    value={formatDurationClock(parseDuration(stats.totalCpuTime))}
+                    title="CPU time spent by this query"
+                />
+                {/* Empty cell under the header's "Splits" label */}
+                <Box component="span" />
+                {/* A finished or failed query reports no running or queued splits */}
+                <CompactMetric value={String(stats.completedDrivers)} title="Finished splits" />
+                <CompactMetric value={String(done ? 0 : stats.runningDrivers)} title="Running splits" />
+                <CompactMetric value={String(done ? 0 : stats.queuedDrivers)} title="Queued splits" />
+            </Box>
+            {/* Pinned: stays in view while the rows scroll sideways. Hidden by the app bar's compact button, which
+                leaves just the table (the error stays in the Status tooltip) */}
+            {!hideQueryText && (
+                <Box sx={COMPACT_TABLE_PINNED_SX}>
+                    {queryInfo.state === 'FAILED' && (
+                        <Typography variant="body2" sx={{ px: 1, pb: 0.5, color: 'error.main', fontWeight: 500 }}>
+                            {getHumanReadableState(queryInfo)}
+                        </Typography>
+                    )}
+                    <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+                        <QueryActions queryInfo={queryInfo} onKill={onKill} />
+                        <QueryText queryInfo={queryInfo} formattedQueryText={formattedQueryText} />
+                    </Box>
+                </Box>
+            )}
+        </Stack>
     )
 })
