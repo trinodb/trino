@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
@@ -58,14 +59,29 @@ public class ApiCallStats
 
     public <T> T measure(String callName, Callable<T> call)
     {
+        return measureCall(callName, call, _ -> false);
+    }
+
+    /**
+     * Exceptions of type {@code expectedException} are rethrown but not counted as failures.
+     */
+    public <T> T measure(String callName, Callable<T> call, Class<? extends Exception> expectedException)
+    {
+        return measureCall(callName, call, expectedException::isInstance);
+    }
+
+    private <T> T measureCall(String callName, Callable<T> call, Predicate<Exception> isExpectedException)
+    {
         CallStats stats = callStats.computeIfAbsent(callName, _ -> new CallStats());
         long start = ticker.read();
         try {
             return call.call();
         }
         catch (Exception e) {
-            stats.recordFailure();
-            allCallsStats.recordFailure();
+            if (!isExpectedException.test(e)) {
+                stats.recordFailure();
+                allCallsStats.recordFailure();
+            }
             Throwables.throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
