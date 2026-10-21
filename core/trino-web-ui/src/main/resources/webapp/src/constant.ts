@@ -55,6 +55,7 @@ export const Texts = {
             Home: 'Dashboard',
             LightMode: 'Switch to light mode',
             DarkMode: 'Switch to dark mode',
+            Nodes: 'Cluster nodes',
             HideQueryText: 'Hide query text',
             ShowQueryText: 'Show query text',
             Logout: 'Logout',

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Link as RouterLink } from 'react-router-dom'
 import { Box, Card, Tooltip, Typography } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { useTheme } from '@mui/material/styles'
@@ -22,18 +21,15 @@ interface IMetricCardProps {
     title: string
     values: number[]
     numberFormatter?: (n: number | null) => string
-    // Makes the title a link
-    link?: string
     tooltip?: string
 }
 
 export const MetricCard = (props: IMetricCardProps) => {
     const theme = useTheme<Theme>()
-    const { title, values, numberFormatter, link, tooltip } = props
+    const { title, values, numberFormatter, tooltip } = props
     const lastValue = values[values.length - 1]
     const maxValue = Math.max(...values, 1)
     const color = theme.palette.secondary.main
-    const titleSx = { flex: '0 1 9.5rem', minWidth: 0 }
 
     // One 37px row, like the query Timeline rows: title, latest value, then the sparkline filling the rest. The
     // value has a fixed width so charts line up across tiles. The chart always keeps at least a quarter of the tile;
@@ -41,21 +37,9 @@ export const MetricCard = (props: IMetricCardProps) => {
     return (
         <Card variant="outlined" sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, height: 37 }}>
             <Tooltip placement="top-start" title={tooltip}>
-                {link ? (
-                    <Typography
-                        variant="body2"
-                        noWrap
-                        component={RouterLink}
-                        to={link}
-                        sx={{ ...titleSx, color: 'info.main' }}
-                    >
-                        {title}
-                    </Typography>
-                ) : (
-                    <Typography variant="body2" noWrap sx={titleSx}>
-                        {title}
-                    </Typography>
-                )}
+                <Typography variant="body2" noWrap sx={{ flex: '0 1 9.5rem', minWidth: 0 }}>
+                    {title}
+                </Typography>
             </Tooltip>
             <Typography
                 variant="body2"

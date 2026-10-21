@@ -52,7 +52,7 @@ export interface ClusterStatsHistory {
 
 const initialFilledHistory: number[] = Array(MAX_HISTORY).fill(0)
 
-// Window over which the cluster CPU rate is measured (same as the query CPU average)
+// Window over which the cluster CPU rate is measured (same as the query and node CPU averages)
 const CPU_WINDOW_MS = CPU_AVERAGE_WINDOW_MS
 // Until a worker reports its query memory pool size, ask again at most this often
 const POOL_RETRY_MS = 10_000
@@ -175,6 +175,11 @@ export interface ClusterStatsStore {
     // Whether the dashboard shows its metric cards; toggled from the summary in the app bar
     panelsOpen: boolean
     setPanelsOpen: (open: boolean) => void
+    // Whether the dashboard shows the nodes table (server button in the app bar), and which node is expanded
+    nodesOpen: boolean
+    setNodesOpen: (open: boolean) => void
+    expandedNodeId: string | null
+    setExpandedNodeId: (nodeId: string | null) => void
     // Query memory pool of one worker (bytes), loaded once per page load; null until known or if no worker answered
     workerPoolBytes: number | null
     startPolling: () => void
@@ -205,6 +210,10 @@ export const useClusterStatsStore = create<ClusterStatsStore>()((set, get) => ({
     error: null,
     panelsOpen: false,
     setPanelsOpen: (panelsOpen) => set({ panelsOpen }),
+    nodesOpen: false,
+    setNodesOpen: (nodesOpen) => set({ nodesOpen }),
+    expandedNodeId: null,
+    setExpandedNodeId: (expandedNodeId) => set({ expandedNodeId }),
     workerPoolBytes: null,
     startPolling: () => {
         if (polling) {

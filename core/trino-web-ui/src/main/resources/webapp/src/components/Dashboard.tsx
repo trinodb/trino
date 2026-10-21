@@ -14,6 +14,7 @@
 import { useEffect } from 'react'
 import { Collapse, Grid } from '@mui/material'
 import { MetricCard } from './MetricCard.tsx'
+import { NodeList } from './NodeList.tsx'
 import { QueryList } from './QueryList.tsx'
 import { useSnackbar } from './SnackbarContext.ts'
 import { useClusterStatsStore } from '../store'
@@ -21,7 +22,7 @@ import { formatCount, formatDataSizeBytes, precisionRound } from '../utils/utils
 
 export const Dashboard = () => {
     const { showSnackbar } = useSnackbar()
-    const { history: clusterStats, error, panelsOpen } = useClusterStatsStore()
+    const { history: clusterStats, error, panelsOpen, nodesOpen } = useClusterStatsStore()
 
     useEffect(() => {
         if (error) {
@@ -46,7 +47,6 @@ export const Dashboard = () => {
                         <MetricCard
                             title="Active workers"
                             values={clusterStats.activeWorkers}
-                            link="/workers"
                             tooltip="Total number of active worker nodes"
                         />
                     </Grid>
@@ -105,6 +105,10 @@ export const Dashboard = () => {
                         />
                     </Grid>
                 </Grid>
+            </Collapse>
+            {/* Opened from the server button in the app bar; unmounted while closed so node statuses are not polled */}
+            <Collapse in={nodesOpen} id="dashboard-nodes" unmountOnExit>
+                <NodeList />
             </Collapse>
             <QueryList />
         </>

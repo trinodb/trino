@@ -14,7 +14,6 @@
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
 import { DemoComponents } from './components/DemoComponents'
-import { WorkersList } from './components/WorkersList.tsx'
 
 export interface RouterItem {
     itemKey: string
@@ -29,13 +28,6 @@ export const routers: RouterItems = [
         routeProps: {
             path: '/dashboard',
             element: <Dashboard />,
-        },
-    },
-    {
-        itemKey: 'workers',
-        routeProps: {
-            path: '/workers',
-            element: <WorkersList />,
         },
     },
     {

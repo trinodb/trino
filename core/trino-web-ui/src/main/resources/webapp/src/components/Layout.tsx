@@ -12,10 +12,10 @@
  * limitations under the License.
  */
 import React, { ReactNode, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AppBar, Box, IconButton, Stack, Toolbar, Tooltip, Typography } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import { DarkModeOutlined, DensitySmallOutlined, LightModeOutlined } from '@mui/icons-material'
+import { DarkModeOutlined, DensitySmallOutlined, DnsOutlined, LightModeOutlined } from '@mui/icons-material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { APP_BAR_HEIGHT, Texts } from '../constant'
@@ -43,6 +43,10 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
     const [cluster, setCluster] = useState<Cluster | null>(null)
     const [noConnection, setNoConnection] = useState<boolean | null>(null)
     const username = authInfo?.username || ''
+    const { nodesOpen, setNodesOpen } = useClusterStatsStore()
+    const navigate = useNavigate()
+    const onDashboard = useLocation().pathname === '/dashboard'
+    const nodesShown = onDashboard && nodesOpen
 
     const HeaderStat = (props: { title: string; value?: ReactNode; valueLeading?: ReactNode }) => (
         <Box sx={{ px: 1.5, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
@@ -106,6 +110,16 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         config.update((config) => (config.theme = isDarkMode ? ThemeStore.Light : ThemeStore.Dark))
     }
 
+    // Shows or hides the nodes table on the dashboard, navigating there first from other pages
+    const toggleNodes = () => {
+        if (onDashboard) {
+            setNodesOpen(!nodesOpen)
+        } else {
+            setNodesOpen(true)
+            navigate('/dashboard')
+        }
+    }
+
     return (
         <Box sx={{ display: 'flex' }}>
             <AppBar position="fixed">
@@ -151,7 +165,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                             onClick={() => config.update((config) => (config.hideQueryText = !config.hideQueryText))}
                             aria-label={Texts.Menu.Header.HideQueryText}
                             aria-pressed={config.hideQueryText}
-                            // Filled while on, like a pressed toggle
+                            // Filled while on, like the nodes button
                             sx={(theme) => ({
                                 ml: { xs: 0.5, sm: 1 },
                                 p: 0.5,
@@ -176,6 +190,27 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                             </IconButton>
                         </Tooltip>
                     </Box>
+                    <Tooltip title={Texts.Menu.Header.Nodes}>
+                        <IconButton
+                            onClick={toggleNodes}
+                            aria-label={Texts.Menu.Header.Nodes}
+                            aria-expanded={nodesShown}
+                            aria-controls="dashboard-nodes"
+                            // Filled while the nodes table is shown, like a pressed toggle
+                            sx={(theme) => ({
+                                mr: { xs: 0.5, sm: 1 },
+                                p: 0.5,
+                                borderRadius: 1,
+                                color: 'inherit',
+                                bgcolor: nodesShown ? alpha(theme.palette.common.white, 0.16) : 'transparent',
+                                '&:hover': {
+                                    bgcolor: alpha(theme.palette.common.white, nodesShown ? 0.24 : 0.08),
+                                },
+                            })}
+                        >
+                            <DnsOutlined />
+                        </IconButton>
+                    </Tooltip>
                     <Tooltip title={username ? `${Texts.Menu.Header.Logout} (${username})` : Texts.Menu.Header.Logout}>
                         {/* span keeps the tooltip working while the button is disabled */}
                         <span>

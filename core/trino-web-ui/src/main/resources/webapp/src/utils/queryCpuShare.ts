@@ -14,8 +14,8 @@
 import { QueryInfo } from '../api/webapp/api.ts'
 import { parseDuration } from './utils.ts'
 
-// Window over which a query's CPU rate is measured; the same 10 s as the app bar's cluster CPU. The list reports
-// totalCpuTime as a rounded duration string ("1.25h", "3.40d": two decimals of the largest
+// Window over which a query's CPU rate is measured; the same 10 s as the app bar's cluster CPU and the nodes'
+// CPU. The list reports totalCpuTime as a rounded duration string ("1.25h", "3.40d": two decimals of the largest
 // unit), so long-running queries move in coarse steps that the window averages out.
 export const CPU_AVERAGE_WINDOW_MS = 10_000
 const WINDOW_MS = CPU_AVERAGE_WINDOW_MS
