@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
-import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -55,9 +54,11 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,8 +66,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
-import static io.trino.jdbc.AbstractTrinoResultSet.TIMESTAMP_FORMATTER;
 import static io.trino.jdbc.AbstractTrinoResultSet.TIME_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
@@ -80,10 +79,12 @@ import static io.trino.jdbc.ObjectCasts.castToInt;
 import static io.trino.jdbc.ObjectCasts.castToShort;
 import static io.trino.jdbc.ObjectCasts.invalidConversion;
 import static java.lang.Long.parseLong;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TrinoPreparedStatement
         extends TrinoStatement
@@ -95,6 +96,8 @@ public class TrinoPreparedStatement
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
                     .toFormatter();
+
+    private static final DateTimeFormatter LOCAL_DATE_TIME_MILLIS_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS");
 
     private static final DateTimeFormatter OFFSET_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
@@ -311,7 +314,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            return ISO_LOCAL_DATE.format(toLocalDateTime((java.util.Date) value, TimeZone.getDefault()));
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -415,7 +418,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            return LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime((java.util.Date) value, TimeZone.getDefault()));
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -425,6 +428,27 @@ public class TrinoPreparedStatement
             return (String) value;
         }
         throw invalidConversion(value, "timestamp");
+    }
+
+    private static LocalDateTime toLocalDateTime(java.util.Date value, TimeZone timeZone)
+    {
+        // java.util.Date uses the Julian calendar for dates preceding the introduction of the Gregorian calendar,
+        // while Joda and java.time use the proleptic Gregorian calendar, so the same millisecond value represents
+        // a different year/month/day. Read the fields using GregorianCalendar, which is consistent with java.util.Date.
+        Calendar calendar = new GregorianCalendar(timeZone);
+        calendar.setTime(value);
+        int year = calendar.get(Calendar.YEAR);
+        if (calendar.get(Calendar.ERA) == GregorianCalendar.BC) {
+            year = 1 - year;
+        }
+        return LocalDateTime.of(
+                year,
+                calendar.get(Calendar.MONTH) + 1,
+                calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                calendar.get(Calendar.SECOND),
+                toIntExact(MILLISECONDS.toNanos(calendar.get(Calendar.MILLISECOND))));
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -459,7 +483,7 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
+            String formattedDateTime = LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime(x, cal.getTimeZone()));
             setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }
