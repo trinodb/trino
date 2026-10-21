@@ -383,7 +383,10 @@ public final class HttpRemoteTask
                     cleanUpTask(state);
                 }
                 else {
-                    partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
+                    // synchronized with cleanUpTask so a stale status cannot overwrite the final zero count
+                    synchronized (this) {
+                        partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
+                    }
                     updateSplitQueueSpace();
                 }
                 if (state.isDone()) {

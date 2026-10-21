@@ -73,6 +73,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -85,6 +86,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
@@ -567,6 +569,30 @@ public class TestPagePartitioner
         singlePartitionPartitioner.close();
         List<Object> singlePartitionOutput = readChannel(outputBuffer.getEnqueuedDeserialized(0), 0, BIGINT);
         assertThat(singlePartitionOutput).containsExactlyElementsOf(readChannel(Stream.of(page), 0, BIGINT));
+    }
+
+    @Test
+    public void testRowWiseAppendKeepsDictionary()
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT, VARCHAR).build();
+        OperatorContext operatorContext = operatorContext();
+        // 13 buffered ids per partition of 100 kB entries flatten to more than a page
+        Block dictionary = createStringsBlock("a".repeat(100_000), "b".repeat(100_000));
+
+        Page columnarPage = new Page(createLongSequenceBlock(0, 24), DictionaryBlock.create(24, dictionary, IntStream.range(0, 24).map(position -> position / 2 % 2).toArray()));
+        pagePartitioner.partitionPage(columnarPage, operatorContext);
+        Page rowWisePage = new Page(createLongSequenceBlock(0, 2), DictionaryBlock.create(2, dictionary, new int[] {0, 1}));
+        pagePartitioner.partitionPage(rowWisePage, operatorContext);
+        assertThat(outputBuffer.getEnqueued()).isEmpty();
+
+        pagePartitioner.close();
+        for (int partition = 0; partition < PARTITION_COUNT; partition++) {
+            List<Slice> enqueued = outputBuffer.getEnqueued(partition);
+            assertThat(enqueued).hasSize(1);
+            assertThat(PAGE_DESERIALIZER.deserialize(enqueued.getFirst()).getPositionCount()).isEqualTo(13);
+            assertThat((long) enqueued.getFirst().length()).isLessThan(2 * dictionary.getSizeInBytes());
+        }
     }
 
     @Test

@@ -16,5 +16,5 @@ package io.trino.metastore.type;
 // copy of org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category
 public enum Category
 {
-    PRIMITIVE, LIST, MAP, STRUCT, UNION
+    PRIMITIVE, LIST, MAP, STRUCT, UNION, UNKNOWN
 }

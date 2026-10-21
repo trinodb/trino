@@ -94,7 +94,7 @@ public class TestPostgreSqlRollbacks
 
             String query = "CREATE TABLE " + destinationTable + " AS SELECT * FROM " + slowSource.getName();
             completionService.submit(() -> {
-                QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), query, "Query killed. Message: Killed by test");
+                QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), query, "Query killed by user '.*'\\. Message: Killed by test");
                 return null;
             });
 
@@ -152,7 +152,7 @@ public class TestPostgreSqlRollbacks
                     " USING (SELECT 'Carol' AS customer, 9 AS purchases, 'Centreville' AS address FROM " + slowSource.getName() + ") s ON (t.customer = s.customer)" +
                     " WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
             completionService.submit(() -> {
-                QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), query, "Query killed. Message: Killed by test");
+                QueryAssertions.assertQueryFails(queryRunner, queryRunner.getDefaultSession(), query, "Query killed by user '.*'\\. Message: Killed by test");
                 return null;
             });
 

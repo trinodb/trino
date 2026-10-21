@@ -76,6 +76,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
@@ -99,6 +100,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -155,9 +158,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunct
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
@@ -197,6 +200,7 @@ import static java.lang.String.join;
 import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -210,6 +214,11 @@ public class ClickHouseClient
 
     // An empty character means that the table doesn't have a comment in ClickHouse
     private static final String NO_COMMENT = "";
+
+    private static final DateTimeFormatter TIMESTAMP_LITERAL_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("uuuu-MM-dd HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, 9, true)
+            .toFormatter();
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
 
@@ -304,11 +313,10 @@ public class ClickHouseClient
     public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        // Clickhouse maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
-                schemaName.orElse(null),
                 null,
+                escapeObjectNameForMetadataQuery(schemaName, metadata.getSearchStringEscape()).orElse(null),
                 escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
@@ -317,7 +325,7 @@ public class ClickHouseClient
     protected String getTableRemoteSchemaName(ResultSet resultSet)
             throws SQLException
     {
-        return resultSet.getString("TABLE_CAT");
+        return resultSet.getString("TABLE_SCHEM");
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -373,11 +381,10 @@ public class ClickHouseClient
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        // for Clickhouse, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT");
+                String schemaName = resultSet.getString("TABLE_SCHEM");
                 // skip internal schemas
                 if (filterRemoteSchema(schemaName)) {
                     schemaNames.add(schemaName);
@@ -426,7 +433,7 @@ public class ClickHouseClient
                         "SELECT engine, sorting_key, partition_key, primary_key, sampling_key " +
                         "FROM system.tables " +
                         "WHERE database = ? AND name = ?")) {
-            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null));
+            statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getSchemaName().orElse(null));
             statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
 
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -737,7 +744,7 @@ public class ClickHouseClient
                     DISABLE_PUSHDOWN));
             case Types.DOUBLE -> Optional.of(doubleColumnMapping());
             case Types.DECIMAL -> {
-                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int decimalDigits = typeHandle.decimalDigits().orElse(0);
                 int precision = typeHandle.requiredColumnSize();
                 if (precision <= Decimals.MAX_PRECISION) {
                     yield Optional.of(ColumnMapping.mapping(
@@ -773,10 +780,17 @@ public class ClickHouseClient
             case Types.TIMESTAMP -> {
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.requiredDecimalDigits());
+                    verify(typeHandle.decimalDigits().isEmpty() || typeHandle.decimalDigits().get() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.decimalDigits());
+                    // The v2 JDBC driver reports DateTime('zone') as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
+                    if (column.hasTimeZone()) {
+                        yield Optional.of(ColumnMapping.longMapping(
+                                TIMESTAMP_TZ_SECONDS,
+                                shortTimestampWithTimeZoneReadFunction(),
+                                shortTimestampWithTimeZoneWriteFunction(version, column.getTimeZone())));
+                    }
                     yield Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
-                            timestampReadFunction(TIMESTAMP_SECONDS),
+                            clickHouseTimestampReadFunction(TIMESTAMP_SECONDS),
                             timestampSecondsWriteFunction(version)));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
@@ -785,7 +799,7 @@ public class ClickHouseClient
             case Types.TIMESTAMP_WITH_TIMEZONE -> {
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp with time zone precision, but got %s", typeHandle.requiredDecimalDigits());
+                    verify(typeHandle.decimalDigits().isEmpty() || typeHandle.decimalDigits().get() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.decimalDigits());
                     yield Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_TZ_SECONDS,
                             shortTimestampWithTimeZoneReadFunction(),
@@ -964,6 +978,11 @@ public class ClickHouseClient
         };
     }
 
+    private static LongReadFunction clickHouseTimestampReadFunction(TimestampType timestampType)
+    {
+        return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+    }
+
     private static LongWriteFunction timestampSecondsWriteFunction(ClickHouseVersionUtils version)
     {
         return (statement, index, value) -> {
@@ -973,7 +992,8 @@ public class ClickHouseClient
             LocalDateTime timestamp = LocalDateTime.ofEpochSecond(epochSecond, 0, UTC);
             // ClickHouse stores incorrect results when the values are out of supported range.
             DATETIME.validate(version, timestamp);
-            statement.setObject(index, timestamp);
+            // Use a string because java.sql.Timestamp shifts values in the JVM zone's DST gap
+            statement.setString(index, TIMESTAMP_LITERAL_FORMATTER.format(timestamp));
         };
     }
 
@@ -981,7 +1001,8 @@ public class ClickHouseClient
     {
         return (resultSet, columnIndex) -> {
             ZonedDateTime zonedDateTime = resultSet.getObject(columnIndex, ZonedDateTime.class);
-            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
+            // clickhouse-jdbc 0.10+ returns a named zone (e.g. Asia/Kathmandu); normalize to fixed offset (eg: +05:45) to match Trino's representation
+            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.withFixedOffsetZone().getZone().getId());
         };
     }
 

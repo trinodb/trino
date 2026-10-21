@@ -245,6 +245,14 @@ final class TestTimeZoneKey
         }
     }
 
+    @Test
+    public void testEmptyZoneId()
+    {
+        assertThatThrownBy(() -> TimeZoneKey.getTimeZoneKey(""))
+                .isInstanceOf(TimeZoneNotSupportedException.class)
+                .hasMessage("Time zone not supported: empty zone id");
+    }
+
     private void assertTimeZoneNotSupported(String zoneId)
     {
         assertThatThrownBy(() -> TimeZoneKey.getTimeZoneKey(zoneId))

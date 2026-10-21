@@ -48,7 +48,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEqualsIgnoreOrder;
 import static io.trino.testing.containers.environment.QueryResultAssert.assertThat;
-import static io.trino.tests.product.hive.HiveTimestampPrecision.NANOSECONDS;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;

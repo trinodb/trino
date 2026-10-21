@@ -13,12 +13,16 @@
  */
 package io.trino.testing.containers;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.URI;
@@ -46,6 +50,15 @@ import static java.util.Objects.requireNonNull;
 public class HadoopContainer
         extends GenericContainer<HadoopContainer>
 {
+    private static final Logger log = Logger.get(HadoopContainer.class);
+
+    private static final RetryPolicy<Object> DOWNLOAD_RETRY_POLICY = RetryPolicy.builder()
+            .handle(IOException.class)
+            .withMaxAttempts(5)
+            .withBackoff(Duration.ofSeconds(1), Duration.ofSeconds(10))
+            .onRetry(event -> log.warn(event.getLastException(), "Download failed (attempt %s), retrying", event.getAttemptCount()))
+            .build();
+
     private static final String DEFAULT_IMAGE = "ghcr.io/trinodb/testing/hive3.1";
     private static final String KERBERIZED_IMAGE = "ghcr.io/trinodb/testing/hive3.1-kerberos";
     private static final String GCP_CREDENTIALS_FILE = "/etc/trino/gcp-credentials.json";
@@ -888,8 +901,8 @@ public class HadoopContainer
             String lzoHadoopUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-hadoop/1.0.6/lzo-hadoop-1.0.6.jar";
             String lzoCoreUrl = "https://repo1.maven.org/maven2/org/anarres/lzo/lzo-core/1.0.6/lzo-core-1.0.6.jar";
 
-            byte[] lzoHadoopJar = downloadUrl(lzoHadoopUrl);
-            byte[] lzoCoreJar = downloadUrl(lzoCoreUrl);
+            byte[] lzoHadoopJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoHadoopUrl));
+            byte[] lzoCoreJar = Failsafe.with(DOWNLOAD_RETRY_POLICY).get(() -> downloadUrl(lzoCoreUrl));
 
             // Verify downloads succeeded
             if (lzoHadoopJar.length < 1000) {

@@ -184,6 +184,10 @@ public final class UnnestingPositionsAppender
 
     public void append(int position, Block source)
     {
+        if (state == State.DICTIONARY && source instanceof DictionaryBlock dictionaryBlock && dictionaryBlock.getDictionary() == dictionary) {
+            dictionaryIdsBuilder.append(dictionaryBlock.getId(position));
+            return;
+        }
         if (state != State.DIRECT) {
             transitionToDirect();
         }
@@ -332,6 +336,13 @@ public final class UnnestingPositionsAppender
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE + sizeOf(dictionaryIds);
+        }
+
+        public void append(int dictionaryId)
+        {
+            ensureCapacity(size + 1);
+            dictionaryIds[size] = dictionaryId;
+            size++;
         }
 
         public void appendPositions(IntArrayList positions, DictionaryBlock block)

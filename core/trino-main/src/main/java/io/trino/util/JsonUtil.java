@@ -92,7 +92,6 @@ import java.util.TreeMap;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -324,7 +323,7 @@ public final class JsonUtil
                 case VarcharType _ -> (writer, block, position) -> writer.varchar(type.getSlice(block, position));
                 case JsonType _ -> (writer, block, position) -> writer.nest((Json) type.getObject(block, position));
                 // These casts retain their historical string representation, as the scalar casts do.
-                case DateType _ -> (writer, block, position) -> writer.varchar(utf8Slice(printDate(toIntExact(type.getLong(block, position)))));
+                case DateType _ -> (writer, block, position) -> writer.varchar(printDate(toIntExact(type.getLong(block, position))));
                 case TimestampType _ -> (writer, block, position) -> writer.varchar(utf8Slice(type.getObjectValue(block, position).toString()));
                 case ArrayType arrayType -> {
                     JsonValueWriter elementWriter = createJsonValueWriter(arrayType.getElementType());

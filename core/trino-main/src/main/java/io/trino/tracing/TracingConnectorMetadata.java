@@ -99,7 +99,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -735,24 +734,6 @@ public class TracingConnectorMetadata
         }
         try (var _ = scopedSpan(span)) {
             return delegate.finishInsert(session, insertHandle, sourceTableHandles, fragments, computedStatistics);
-        }
-    }
-
-    @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.delegateMaterializedViewRefreshToConnector(session, viewName);
-        }
-    }
-
-    @Override
-    public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        Span span = startSpan("refreshMaterializedView", viewName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.refreshMaterializedView(session, viewName);
         }
     }
 
@@ -1449,15 +1430,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
             return delegate.getMaterializedViewFreshness(session, name, considerGracePeriod);
-        }
-    }
-
-    @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
-        Span span = startSpan("getMaterializedViewFreshness", name);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
         }
     }
 

@@ -347,7 +347,7 @@ public final class HiveBucketing
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
                 yield isTypeSupportedForBucketing(mapTypeInfo.getMapKeyTypeInfo()) && isTypeSupportedForBucketing(mapTypeInfo.getMapValueTypeInfo());
             }
-            case STRUCT, UNION -> false;
+            case STRUCT, UNION, UNKNOWN -> false;
         };
     }
 

@@ -75,15 +75,6 @@ public class Identity
         return enabledRoles;
     }
 
-    /**
-     * @deprecated Use getConnectorRoles
-     */
-    @Deprecated
-    public Map<String, SelectedRole> getRoles()
-    {
-        return getCatalogRoles();
-    }
-
     public Map<String, SelectedRole> getCatalogRoles()
     {
         return catalogRoles;
@@ -228,33 +219,6 @@ public class Identity
         {
             this.enabledRoles = new HashSet<>(requireNonNull(enabledRoles, "enabledRoles is null"));
             return this;
-        }
-
-        /**
-         * @deprecated Use withConnectorRole
-         */
-        @Deprecated
-        public Builder withRole(String catalog, SelectedRole role)
-        {
-            return withConnectorRole(catalog, role);
-        }
-
-        /**
-         * @deprecated Use withConnectorRoles
-         */
-        @Deprecated
-        public Builder withRoles(Map<String, SelectedRole> roles)
-        {
-            return withConnectorRoles(roles);
-        }
-
-        /**
-         * @deprecated Use withAdditionalConnectorRoles
-         */
-        @Deprecated
-        public Builder withAdditionalRoles(Map<String, SelectedRole> roles)
-        {
-            return withAdditionalConnectorRoles(roles);
         }
 
         public Builder withConnectorRole(String catalog, SelectedRole role)

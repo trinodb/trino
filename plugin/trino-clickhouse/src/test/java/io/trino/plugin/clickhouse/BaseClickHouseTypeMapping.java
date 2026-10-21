@@ -1027,6 +1027,24 @@ public abstract class BaseClickHouseTypeMapping
         }
     }
 
+    @Test
+    public void testTimestampReadInJvmDstGap()
+    {
+        // 2018-04-01 02:13:55 does not exist in the JVM zone America/Bahia_Banderas
+        SqlDataTypeTest.create()
+                .addRoundTrip("DateTime", "'2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_timestamp_read_dst_gap"));
+    }
+
+    @Test
+    public void testTimestampWriteInJvmDstGap()
+    {
+        // 2018-04-01 02:13:55 does not exist in the JVM zone America/Bahia_Banderas
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_write_dst_gap"));
+    }
+
     private SqlDataTypeTest timestampTest(String inputType)
     {
         return unsupportedTimestampBecomeUnexpectedValueTest(inputType)
@@ -1238,6 +1256,25 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
+    }
+
+    @Test
+    public void testDynamic()
+    {
+        Session convertToVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("Dynamic", "42", VARCHAR, "VARCHAR '42'")
+                .addRoundTrip("Dynamic", "'hello'", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Dynamic", "''", VARCHAR, "VARCHAR ''")
+                .addRoundTrip("Dynamic", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Dynamic", "CAST('hello' AS Nullable(String))", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Dynamic", "CAST(NULL AS Nullable(String))", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Variant(String, Int64)", "'hello'", VARCHAR, "VARCHAR 'hello'")
+                .addRoundTrip("Variant(String, Int64)", "42", VARCHAR, "VARCHAR '42'")
+                .addRoundTrip("Variant(String, Int64)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .execute(getQueryRunner(), convertToVarchar, clickhouseCreateAndInsert("tpch.test_dynamic"));
     }
 
     @Test

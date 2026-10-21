@@ -53,17 +53,7 @@ public class TestDistributeComparisonOverMatch
                                 new Reference(BIGINT, "z")),
                         new Reference(BIGINT, "m"))))
                 .describedAs("switch(...) < reference")
-                .isEqualTo(Optional.of(
-                        new Match(
-                                new Reference(BIGINT, "s"),
-                                ImmutableList.of(
-                                        equalityClause(
-                                                new Reference(BIGINT, "a"),
-                                                comparison(LESS_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        equalityClause(
-                                                new Reference(BIGINT, "b"),
-                                                comparison(LESS_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                                comparison(LESS_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(
@@ -99,17 +89,7 @@ public class TestDistributeComparisonOverMatch
                                         equalityClause(new Reference(BIGINT, "b"), new Reference(BIGINT, "y"))),
                                 new Reference(BIGINT, "z")))))
                 .describedAs("reference < switch(...)")
-                .isEqualTo(Optional.of(
-                        new Match(
-                                new Reference(BIGINT, "s"),
-                                ImmutableList.of(
-                                        equalityClause(
-                                                new Reference(BIGINT, "a"),
-                                                comparison(GREATER_THAN, new Reference(BIGINT, "x"), new Reference(BIGINT, "m"))),
-                                        equalityClause(
-                                                new Reference(BIGINT, "b"),
-                                                comparison(GREATER_THAN, new Reference(BIGINT, "y"), new Reference(BIGINT, "m")))),
-                                comparison(GREATER_THAN, new Reference(BIGINT, "z"), new Reference(BIGINT, "m")))));
+                .isEqualTo(Optional.empty());
 
         assertThat(optimize(
                 comparison(

@@ -1028,6 +1028,20 @@ public class TestDetermineJoinDistributionType
                 noLookup(),
                 _ -> sourceStatsEstimate1)).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
 
+        // join node with known estimate, with nulls
+        PlanNodeStatsEstimate sourceStatsEstimateWithNulls = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(1000)
+                .addSymbolStatistics(sourceSymbol1, SymbolStatsEstimate.builder().setNullsFraction(0.5).build())
+                .addSymbolStatistics(sourceSymbol2, SymbolStatsEstimate.builder().setNullsFraction(0.5).build())
+                .build();
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.join(
+                        INNER,
+                        planBuilder.values(sourceSymbol1),
+                        planBuilder.values(sourceSymbol2)),
+                noLookup(),
+                _ -> sourceStatsEstimateWithNulls)).isEqualTo(sourceStatsEstimateWithNulls.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
+
         // un-estimated join with non-expanding source
         assertThat(getFirstKnownOutputSizeInBytes(
                 planBuilder.join(

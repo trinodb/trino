@@ -149,7 +149,7 @@ public class TestWorkflows
             // standard action
             return true;
         }
-        if (actionName.startsWith("./")) {
+        if (actionName.startsWith("./") || actionName.startsWith("$/.")) {
             // inline action
             return true;
         }

@@ -35,6 +35,7 @@ import org.apache.parquet.format.Util;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -141,7 +142,7 @@ public final class ParquetColumnChunkIterator
             return result;
         }
         catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 

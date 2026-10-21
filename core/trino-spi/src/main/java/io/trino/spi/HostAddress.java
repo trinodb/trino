@@ -55,7 +55,6 @@ import static java.util.Objects.requireNonNull;
  * concerned with brackets, colons, and port numbers.  Full validation of the
  * host field (if desired) is the caller's responsibility.
  *
- * @author Paul Marks
  * @since 10.0
  */
 public class HostAddress

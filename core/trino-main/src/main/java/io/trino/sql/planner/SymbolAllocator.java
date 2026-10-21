@@ -25,9 +25,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class SymbolAllocator
 {
@@ -41,8 +41,12 @@ public class SymbolAllocator
 
     public SymbolAllocator(Collection<Symbol> initial)
     {
-        symbols = new HashMap<>(initial.stream()
-                .collect(toMap(Symbol::name, e -> e)));
+        Map<String, Symbol> symbols = new HashMap<>(initial.size());
+        for (Symbol symbol : initial) {
+            Symbol previous = symbols.put(symbol.name(), symbol);
+            checkArgument(previous == null, "Duplicate symbol name: %s", symbol.name());
+        }
+        this.symbols = symbols;
     }
 
     public Symbol newSymbol(Symbol symbolHint)
@@ -94,11 +98,6 @@ public class SymbolAllocator
     {
         String nameHint = field.getName().orElse("field");
         return newSymbol(nameHint, field.getType());
-    }
-
-    public Collection<Symbol> getSymbols()
-    {
-        return symbols.values();
     }
 
     private int nextId()

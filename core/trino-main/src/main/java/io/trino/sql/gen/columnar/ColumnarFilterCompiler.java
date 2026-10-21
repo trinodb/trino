@@ -13,7 +13,6 @@
  */
 package io.trino.sql.gen.columnar;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -49,7 +48,6 @@ import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.CharVarcharCoercion;
 import jakarta.annotation.Nullable;
-import org.objectweb.asm.MethodTooLargeException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -84,6 +82,7 @@ import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
 import static io.trino.sql.gen.columnar.IsNullColumnarFilter.createIsNullColumnarFilter;
 import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.isCompilerLimitExceeded;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -320,7 +319,7 @@ public class ColumnarFilterCompiler
 
     private static TrinoException handleCompilationError(Exception e)
     {
-        if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+        if (isCompilerLimitExceeded(e)) {
             return new TrinoException(
                     QUERY_EXCEEDED_COMPILER_LIMIT,
                     "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.",

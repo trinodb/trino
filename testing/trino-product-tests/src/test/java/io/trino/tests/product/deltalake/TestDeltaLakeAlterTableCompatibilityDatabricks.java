@@ -27,7 +27,7 @@ import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DAT
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.DeltaLakeDatabricksUtilsJunit.getDatabricksRuntimeVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_143_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_154_RUNTIME_VERSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,9 +39,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestDeltaLakeAlterTableCompatibilityDatabricks
 {
     @Test
-    @TestGroup.DeltaLakeDatabricks154
-    @TestGroup.DeltaLakeDatabricks164
-    @TestGroup.DeltaLakeDatabricks173
     void testConfiguredConnectors(DeltaLakeDatabricksEnvironment env)
     {
         assertDefaultConnectors(env, "hive", "delta_lake");
@@ -51,7 +48,7 @@ class TestDeltaLakeAlterTableCompatibilityDatabricks
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     void testTrinoAlterTablePreservesGeneratedColumn(DeltaLakeDatabricksEnvironment env)
     {
-        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+        if (getDatabricksRuntimeVersion(env).orElseThrow().isAtLeast(DATABRICKS_154_RUNTIME_VERSION)) {
             return;
         }
 

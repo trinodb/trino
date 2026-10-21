@@ -74,10 +74,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowBranches;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
@@ -134,7 +131,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
-        denySetSchemaAuthorization(schemaName, principal);
+        denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schemaName)), principal);
     }
 
     /**
@@ -330,7 +327,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        denySetTableAuthorization(tableName.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(tableName.getSchemaName(), tableName.getTableName())), principal);
     }
 
     /**
@@ -350,15 +347,6 @@ public interface ConnectorAccessControl
      */
     default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
     {
-        checkCanSelectFromColumns(context, tableName, columnNames);
-    }
-
-    /**
-     * @deprecated use {@link #checkCanSelectFromColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
-     */
-    @Deprecated
-    default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
         denySelectColumns(tableName.toString(), columnNames);
     }
 
@@ -369,15 +357,6 @@ public interface ConnectorAccessControl
      */
     default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
     {
-        checkCanInsertIntoTable(context, tableName);
-    }
-
-    /**
-     * @deprecated use {@link #checkCanInsertIntoTable(ConnectorSecurityContext, SchemaTableName, Optional)}
-     */
-    @Deprecated
-    default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
         denyInsertTable(tableName.toString());
     }
 
@@ -387,15 +366,6 @@ public interface ConnectorAccessControl
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch)
-    {
-        checkCanDeleteFromTable(context, tableName);
-    }
-
-    /**
-     * @deprecated use {@link #checkCanDeleteFromTable(ConnectorSecurityContext, SchemaTableName, Optional)}
-     */
-    @Deprecated
-    default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDeleteTable(tableName.toString());
     }
@@ -416,15 +386,6 @@ public interface ConnectorAccessControl
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> updatedColumns)
-    {
-        checkCanUpdateTableColumns(context, tableName, updatedColumns);
-    }
-
-    /**
-     * @deprecated use {@link #checkCanUpdateTableColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
-     */
-    @Deprecated
-    default void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
     {
         denyUpdateTableColumns(tableName.toString(), updatedColumns);
     }
@@ -456,7 +417,7 @@ public interface ConnectorAccessControl
      */
     default void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        denySetViewAuthorization(viewName.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(viewName.getSchemaName(), viewName.getTableName())), principal);
     }
 
     /**
@@ -485,15 +446,6 @@ public interface ConnectorAccessControl
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Optional<String> branch, Set<String> columnNames)
-    {
-        checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
-    }
-
-    /**
-     * @deprecated use {@link #checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext, SchemaTableName, Optional, Set)}
-     */
-    @Deprecated
-    default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
     }

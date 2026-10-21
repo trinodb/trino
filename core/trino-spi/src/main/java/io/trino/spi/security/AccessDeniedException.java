@@ -174,24 +174,6 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal)
-    {
-        denySetSchemaAuthorization(schemaName, principal, null);
-    }
-
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s%s", schemaName, principal, formatExtraInfo(extraInfo)));
-    }
-
     public static void denyShowSchemas()
     {
         denyShowSchemas(null);
@@ -340,24 +322,6 @@ public class AccessDeniedException
     public static void denyAlterColumn(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot alter a column for table %s%s", tableName, formatExtraInfo(extraInfo)));
-    }
-
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
-    {
-        denySetTableAuthorization(tableName, principal, null);
-    }
-
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot set authorization for table %s to %s%s", tableName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameColumn(String tableName)
@@ -528,24 +492,6 @@ public class AccessDeniedException
     public static void denyRefreshView(String viewName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot refresh view %s%s", viewName, formatExtraInfo(extraInfo)));
-    }
-
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
-    {
-        denySetViewAuthorization(viewName, principal, null);
-    }
-
-    /**
-     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
-     */
-    @Deprecated(forRemoval = true)
-    public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)

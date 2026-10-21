@@ -31,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
@@ -44,6 +45,7 @@ import io.trino.sql.ir.Match;
 import io.trino.sql.ir.MatchClause;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -1373,6 +1375,103 @@ public class TestLogicalPlanner
                                                 .right(
                                                         project(ImmutableMap.of("SUBQUERY", expression(TRUE)),
                                                                 node(ValuesNode.class))))))));
+    }
+
+    @Test
+    public void testCorrelatedSubqueryWithCaseOnCorrelationKey()
+    {
+        assertPlan(
+                "SELECT (SELECT max(o.totalprice) FROM orders o WHERE o.custkey = IF(c.nationkey = 1, NULL, c.custkey)) FROM customer c",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("CASE_KEY", "O_CUSTKEY")
+                                .left(
+                                        project(
+                                                ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                        ImmutableList.of(new WhenClause(
+                                                                comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                new Constant(BIGINT, null))),
+                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey")))))
+                                .right(anyTree(
+                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey")))))));
+    }
+
+    @Test
+    public void testJoinWithCaseOnJoinKey()
+    {
+        assertPlan(
+                "SELECT c.name, o.orderkey FROM customer c, orders o WHERE o.custkey = IF(c.nationkey = 1, NULL, c.custkey)",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_CUSTKEY", "CASE_KEY")
+                                .addDynamicFilter("DF", "CASE_KEY")
+                                .left(
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters
+                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_CUSTKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey"))))
+                                .right(
+                                        exchange(
+                                                project(
+                                                        ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                                ImmutableList.of(new WhenClause(
+                                                                        comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                        new Constant(BIGINT, null))),
+                                                                new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testJoinWithSimpleCaseOnJoinKey()
+    {
+        assertPlan(
+                "SELECT c.name, o.orderkey FROM customer c, orders o WHERE o.custkey = CASE c.nationkey WHEN 1 THEN NULL ELSE c.custkey END",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("O_CUSTKEY", "CASE_KEY")
+                                .addDynamicFilter("DF", "CASE_KEY")
+                                .left(
+                                        filter(
+                                                TRUE,
+                                                dynamicFilters -> dynamicFilters
+                                                        .addConsumer(consumer -> consumer.alias("DF").expression(BIGINT, "O_CUSTKEY")),
+                                                tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey"))))
+                                .right(
+                                        exchange(
+                                                project(
+                                                        ImmutableMap.of("CASE_KEY", expression(new Match(
+                                                                new Reference(BIGINT, "C_NATIONKEY"),
+                                                                ImmutableList.of(equalityClause(new Constant(BIGINT, 1L), new Constant(BIGINT, null))),
+                                                                new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testCorrelatedSubqueryWithNestedCaseOnCorrelationKey()
+    {
+        assertPlan(
+                "SELECT (SELECT max(o.totalprice) FROM orders o WHERE o.custkey = IF(c.nationkey = 1, IF(c.acctbal > 0, NULL, c.custkey), c.custkey)) FROM customer c",
+                anyTree(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("CASE_KEY", "O_CUSTKEY")
+                                .left(
+                                        project(
+                                                ImmutableMap.of("CASE_KEY", expression(new Case(
+                                                        ImmutableList.of(new WhenClause(
+                                                                comparison(EQUAL, new Reference(BIGINT, "C_NATIONKEY"), new Constant(BIGINT, 1L)),
+                                                                new Case(
+                                                                        ImmutableList.of(new WhenClause(
+                                                                                comparison(GREATER_THAN, new Reference(DOUBLE, "C_ACCTBAL"), new Constant(DOUBLE, 0.0)),
+                                                                                new Constant(BIGINT, null))),
+                                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                        new Reference(BIGINT, "C_CUSTKEY")))),
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey", "C_NATIONKEY", "nationkey", "C_ACCTBAL", "acctbal")))))
+                                .right(anyTree(
+                                        tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey")))))));
     }
 
     @Test

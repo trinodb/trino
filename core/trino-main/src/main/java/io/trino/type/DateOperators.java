@@ -25,7 +25,6 @@ import io.trino.spi.type.StandardTypes;
 import java.time.DateTimeException;
 
 import static io.airlift.slice.SliceUtf8.trim;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.util.DateTimeUtils.parseDate;
@@ -43,13 +42,13 @@ public final class DateOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DATE) long value)
     {
-        String stringValue = printDate(toIntExact(value));
-        // String is all-ASCII, so String.length() here returns actual code points count
+        Slice stringValue = printDate(toIntExact(value));
+        // String is all-ASCII, so Slice.length() here returns actual code points count
         if (stringValue.length() <= x) {
-            return utf8Slice(stringValue);
+            return stringValue;
         }
 
-        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, x));
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue.toStringUtf8(), x));
     }
 
     // fallible

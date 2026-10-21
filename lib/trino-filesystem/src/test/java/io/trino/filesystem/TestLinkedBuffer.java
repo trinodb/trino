@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.filesystem;
 
-import io.trino.filesystem.s3.S3OutputStream.LinkedBuffer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -171,6 +172,29 @@ public class TestLinkedBuffer
 
         assertThat(firstRead).isEqualTo(data);
         assertThat(secondRead).isEqualTo(data);
+    }
+
+    @Test
+    void testTakeByteBuffers()
+    {
+        LinkedBuffer buffer = new LinkedBuffer(10, 30);
+        byte[] data = testBytes(50);
+
+        buffer.write(data, 0, data.length);
+
+        // 10 + 20 + 20 of 30
+        List<ByteBuffer> buffers = buffer.takeByteBuffers();
+        assertThat(buffers).extracting(ByteBuffer::remaining).containsExactly(10, 20, 20);
+
+        ByteBuffer combined = ByteBuffer.allocate(data.length);
+        buffers.forEach(combined::put);
+        assertThat(combined.array()).isEqualTo(data);
+    }
+
+    @Test
+    void testTakeByteBuffersEmpty()
+    {
+        assertThat(new LinkedBuffer(10, 30).takeByteBuffers()).isEmpty();
     }
 
     @Test

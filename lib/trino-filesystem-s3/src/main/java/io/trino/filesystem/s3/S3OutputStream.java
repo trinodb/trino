@@ -16,7 +16,9 @@ package io.trino.filesystem.s3;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.DataStreamProvider;
 import io.trino.filesystem.FileMayHaveAlreadyExistedException;
+import io.trino.filesystem.LinkedBuffer;
 import io.trino.filesystem.TrinoOutputStream;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -38,11 +40,9 @@ import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.io.SequenceInputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
@@ -61,11 +60,8 @@ import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.toStora
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
-import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
-import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
-import static java.util.Collections.enumeration;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -479,22 +475,13 @@ final class S3OutputStream
         }
     }
 
-    interface DataStreamProvider
-    {
-        InputStream takeInputStream();
-
-        int allocated();
-
-        int size();
-    }
-
     record ByteArrayStreamProvider(byte[] data)
             implements DataStreamProvider
     {
         @Override
-        public InputStream takeInputStream()
+        public List<ByteBuffer> takeByteBuffers()
         {
-            return new ByteArrayInputStream(data);
+            return ImmutableList.of(ByteBuffer.wrap(data));
         }
 
         @Override
@@ -507,124 +494,6 @@ final class S3OutputStream
         public int size()
         {
             return data.length;
-        }
-    }
-
-    @VisibleForTesting
-    static class LinkedBuffer
-            implements DataStreamProvider
-    {
-        final int initialBufferSize;
-        final int maxBufferSize;
-        List<byte[]> parts;
-        int currentBufferSize;
-        byte[] currentBuffer;
-        int currentOffset;
-        int allocatedSize;
-        int totalSize;
-
-        public LinkedBuffer(int initialBufferSize, int maxBufferSize)
-        {
-            checkArgument(initialBufferSize <= maxBufferSize, "initialBufferSize must be less than or equal to maxBufferSize");
-            this.initialBufferSize = initialBufferSize;
-            this.maxBufferSize = maxBufferSize;
-            this.parts = new ArrayList<>();
-            this.currentBufferSize = initialBufferSize;
-            this.currentBuffer = new byte[initialBufferSize];
-            this.currentOffset = 0;
-            this.allocatedSize = initialBufferSize;
-            this.totalSize = 0;
-        }
-
-        @SuppressWarnings("NumericCastThatLosesPrecision")
-        public void write(int b)
-        {
-            if (remainingCapacity() == 0) {
-                parts.add(currentBuffer);
-                resetBuffer();
-            }
-            currentBuffer[currentOffset] = (byte) b;
-            currentOffset++;
-            totalSize++;
-        }
-
-        public void write(byte[] bytes, int offset, int length)
-        {
-            writeInternal(bytes, offset, length);
-        }
-
-        @Override
-        public int allocated()
-        {
-            return allocatedSize;
-        }
-
-        @Override
-        public int size()
-        {
-            return totalSize;
-        }
-
-        @Override
-        public InputStream takeInputStream()
-        {
-            ImmutableList.Builder<InputStream> streams = ImmutableList.builderWithExpectedSize(parts.size() + ((currentOffset == 0) ? 0 : 1));
-            for (byte[] part : parts) {
-                streams.add(new ByteArrayInputStream(part));
-            }
-            if (currentOffset > 0) {
-                streams.add(new ByteArrayInputStream(currentBuffer, 0, currentOffset));
-            }
-            return new SequenceInputStream(enumeration(streams.build()));
-        }
-
-        public LinkedBuffer startNextPart()
-        {
-            return new LinkedBuffer(currentBufferSize, maxBufferSize);
-        }
-
-        @VisibleForTesting
-        void reset()
-        {
-            allocatedSize = initialBufferSize;
-            currentBufferSize = initialBufferSize;
-            currentBuffer = new byte[currentBufferSize];
-            currentOffset = 0;
-            totalSize = 0;
-            parts = new ArrayList<>();
-        }
-
-        private int remainingCapacity()
-        {
-            return currentBufferSize - currentOffset;
-        }
-
-        private void resetBuffer()
-        {
-            // scale buffer capacity by 2 or up to the maximum allowed
-            currentBufferSize = min(currentBufferSize * 2, maxBufferSize);
-            currentBuffer = new byte[currentBufferSize];
-            currentOffset = 0;
-            allocatedSize += currentBufferSize;
-        }
-
-        private void writeInternal(byte[] srcBytes, int srcOffset, int srcLength)
-        {
-            while (srcLength > 0) {
-                if (remainingCapacity() == 0) {
-                    parts.add(currentBuffer);
-                    resetBuffer();
-                }
-
-                int bytesToWrite = min(srcLength, remainingCapacity());
-
-                arraycopy(srcBytes, srcOffset, currentBuffer, currentOffset, bytesToWrite);
-
-                currentOffset += bytesToWrite;
-                totalSize += bytesToWrite;
-                srcOffset += bytesToWrite;
-                srcLength -= bytesToWrite;
-            }
         }
     }
 }

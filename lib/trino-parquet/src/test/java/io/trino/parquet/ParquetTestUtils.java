@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -184,6 +185,25 @@ public class ParquetTestUtils
             DateTimeZone timeZone)
             throws IOException
     {
+        return createParquetReader(input, parquetMetadata, options, memoryContext, types, columnNames, predicate, forceSelectedPositionsPushdown, timeZone, exception -> {
+            throwIfUnchecked(exception);
+            return new RuntimeException(exception);
+        });
+    }
+
+    public static ParquetReader createParquetReader(
+            ParquetDataSource input,
+            ParquetMetadata parquetMetadata,
+            ParquetReaderOptions options,
+            AggregatedMemoryContext memoryContext,
+            List<Type> types,
+            List<String> columnNames,
+            TupleDomain<String> predicate,
+            boolean forceSelectedPositionsPushdown,
+            DateTimeZone timeZone,
+            Function<Exception, RuntimeException> exceptionTransform)
+            throws IOException
+    {
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         MessageType fileSchema = fileMetaData.getSchema();
         MessageColumnIO messageColumnIO = getColumnIO(fileSchema, fileSchema);
@@ -220,10 +240,7 @@ public class ParquetTestUtils
                 timeZone,
                 memoryContext,
                 options,
-                exception -> {
-                    throwIfUnchecked(exception);
-                    return new RuntimeException(exception);
-                },
+                exceptionTransform,
                 Optional.of(parquetPredicate),
                 Optional.empty(),
                 Optional.empty(),
