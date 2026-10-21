@@ -1052,6 +1052,9 @@ The command accepts an optional `clean_expired_metadata` parameter (defaults to 
 When true, cleans up metadata such as partition specs and schemas that are no
 longer referenced by snapshots.
 
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
+
 (iceberg-remove-orphan-files)=
 ##### remove_orphan_files
 
@@ -1081,6 +1084,9 @@ The value for `retention_threshold` must be higher than or equal to
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
+
+The procedure fails on tables with the `gc_enabled` table property set to
+`false`.
 
 The output of the query has the following metrics:
 

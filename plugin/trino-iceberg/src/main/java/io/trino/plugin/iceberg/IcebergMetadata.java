@@ -298,6 +298,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_GC_DISABLED;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
@@ -374,6 +375,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.isGcEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.loadDataManifestsFromSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
@@ -2460,6 +2462,7 @@ public class IcebergMetadata
             boolean cleanExpiredMetadata)
     {
         BaseTable table = catalog.loadTable(session, schemaTableName);
+        checkGcEnabled(table, "expire snapshots");
         Duration retention = requireNonNull(retentionThreshold, "retention is null");
         validateTableExecuteParameters(
                 table,
@@ -2526,6 +2529,7 @@ public class IcebergMetadata
         IcebergRemoveOrphanFilesHandle removeOrphanFilesHandle = (IcebergRemoveOrphanFilesHandle) executeHandle.procedureHandle();
 
         BaseTable table = catalog.loadTable(session, executeHandle.schemaTableName());
+        checkGcEnabled(table, "remove orphan files");
         Duration retention = requireNonNull(removeOrphanFilesHandle.retentionThreshold(), "retention is null");
         validateTableExecuteParameters(
                 table,
@@ -2550,6 +2554,13 @@ public class IcebergMetadata
                 icebergFileDeleteExecutor,
                 executeHandle.schemaTableName(),
                 expiration);
+    }
+
+    private static void checkGcEnabled(BaseTable table, String operation)
+    {
+        if (!isGcEnabled(table.operations().current())) {
+            throw new TrinoException(ICEBERG_GC_DISABLED, "Cannot %s from a table with '%s' set to false".formatted(operation, GC_ENABLED_PROPERTY));
+        }
     }
 
     public Map<String, Long> executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
