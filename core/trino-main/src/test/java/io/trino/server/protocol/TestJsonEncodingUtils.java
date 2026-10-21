@@ -60,6 +60,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.variant.Variant;
 import io.trino.type.LongInterval;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonGenerator;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.ByteArrayInputStream;
@@ -88,6 +89,7 @@ import static io.trino.block.BlockAssertions.createSmallintsBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTinyintsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
+import static io.trino.server.protocol.JsonEncodingUtils.createTypeEncoder;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.TestJsonEncodingUtils.TypedColumn.typed;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -105,6 +107,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VariantType.VARIANT;
@@ -121,6 +124,37 @@ public class TestJsonEncodingUtils
     protected QueryDataEncoder createEncoder(Session session, List<OutputColumn> columns)
     {
         return new JsonQueryDataEncoder.Factory(new JsonMapper()).create(session, columns);
+    }
+
+    @Test
+    public void testInvalidSpecializedValues()
+            throws IOException
+    {
+        assertThat(JsonEncodingUtils.class.desiredAssertionStatus()).isTrue();
+        assertInvalidSpecializedValue(DecimalType.createDecimalType(1, 0), 10L);
+        assertInvalidSpecializedValue(DecimalType.createDecimalType(19, 0), Int128.valueOf("10000000000000000000"));
+        assertInvalidSpecializedValue(TimeType.createTimeType(3), 1L);
+        assertInvalidSpecializedValue(TimeType.createTimeType(12), -1L);
+        assertInvalidSpecializedValue(TimeWithTimeZoneType.createTimeWithTimeZoneType(3), packTimeWithTimeZone(1, 0));
+        assertInvalidSpecializedValue(TimeWithTimeZoneType.createTimeWithTimeZoneType(12), new LongTimeWithTimeZone(PICOSECONDS_PER_DAY, 0));
+        assertInvalidSpecializedValue(TimestampType.createTimestampType(3), 1L);
+        assertInvalidSpecializedValue(TimestampType.createTimestampType(9), new LongTimestamp(0, 1));
+        assertInvalidSpecializedValue(TimestampWithTimeZoneType.createTimestampWithTimeZoneType(0), packDateTimeWithZone(1, TimeZoneKey.UTC_KEY));
+        assertInvalidSpecializedValue(TimestampWithTimeZoneType.createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone.fromEpochMillisAndFraction(0, 1, TimeZoneKey.UTC_KEY));
+    }
+
+    private static void assertInvalidSpecializedValue(Type type, Object value)
+            throws IOException
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, builder, value);
+        Block block = builder.build();
+        for (boolean parametric : List.of(false, true)) {
+            try (JsonGenerator generator = new JsonMapper().createGenerator(new ByteArrayOutputStream())) {
+                assertThatThrownBy(() -> createTypeEncoder(type, parametric, true, true, true).encode(generator, block, 0))
+                        .isInstanceOf(IllegalArgumentException.class);
+            }
+        }
     }
 
     @Test
