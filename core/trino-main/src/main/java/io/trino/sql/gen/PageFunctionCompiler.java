@@ -89,7 +89,6 @@ import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewr
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
