@@ -1317,7 +1317,7 @@ public final class Int128Math
         return (remainder >= (divisor >> 1));
     }
 
-    private static int dividePositives(long dividendHigh, long dividendLow, int divisor, long[] result, int offset)
+    static int dividePositives(long dividendHigh, long dividendLow, int divisor, long[] result, int offset)
     {
         long remainder = dividendHigh;
         long high = remainder / divisor;
