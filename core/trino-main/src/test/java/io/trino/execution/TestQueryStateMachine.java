@@ -45,6 +45,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.connector.CatalogVersion;
+import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -63,6 +65,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -103,6 +106,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -628,6 +632,139 @@ public class TestQueryStateMachine
         stateMachine.updateFinalQueryInfo(stagesInfoProvider);
         assertThat(stagesInfoBuilds.get()).isEqualTo(1);
         assertThat(stateMachine.getFinalQueryInfo()).isPresent();
+    }
+
+    @Test
+    public void testFinalQueryInfoPublishedWithoutStagesThatCannotBeSummarized()
+    {
+        // the query is done and every stage is final, but summarizing the stages overflows
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        stateMachine.transitionToRunning();
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+
+        QueryInfo queryInfo = stateMachine.updateQueryInfo(Optional.of(unsummarizableStages(StageState.FINISHED)));
+
+        assertThat(queryInfo.isFinalQueryInfo()).isTrue();
+        assertThat(queryInfo.getStages()).isEmpty();
+        assertThat(stateMachine.getFinalQueryInfo()).contains(queryInfo);
+    }
+
+    @Test
+    public void testQueryInfoWithStagesThatCannotBeSummarizedBeforeAllStagesAreFinal()
+    {
+        // a stage is still running, so its final stage info publishes the stages again
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        stateMachine.transitionToRunning();
+        assertThat(stateMachine.transitionToCanceled()).isTrue();
+
+        assertThatThrownBy(() -> stateMachine.updateQueryInfo(Optional.of(unsummarizableStages(StageState.RUNNING))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+    }
+
+    @Test
+    public void testQueryInfoWithStagesThatCannotBeSummarizedBeforeQueryIsDone()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+        stateMachine.transitionToRunning();
+
+        assertThatThrownBy(() -> stateMachine.updateQueryInfo(Optional.of(unsummarizableStages(StageState.FINISHED))))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(stateMachine.getFinalQueryInfo()).isEmpty();
+    }
+
+    /**
+     * Two stages whose scheduled time overflows when summed into the query stats.
+     */
+    private static StagesInfo unsummarizableStages(StageState subStageState)
+    {
+        StageId outputStageId = new StageId("query", 0);
+        StageId subStageId = new StageId("query", 1);
+        Duration scheduledTime = Duration.succinctDuration(Long.MAX_VALUE, MILLISECONDS);
+        return new StagesInfo(
+                outputStageId,
+                ImmutableList.of(
+                        stageInfo(outputStageId, StageState.FINISHED, ImmutableList.of(subStageId), scheduledTime),
+                        stageInfo(subStageId, subStageState, ImmutableList.of(), scheduledTime)));
+    }
+
+    private static StageInfo stageInfo(StageId stageId, StageState state, List<StageId> subStages, Duration scheduledTime)
+    {
+        return new StageInfo(
+                stageId,
+                state,
+                null,
+                false,
+                ImmutableList.of(),
+                stageStatsWithScheduledTime(scheduledTime),
+                ImmutableList.of(),
+                subStages,
+                ImmutableMap.of(),
+                null);
+    }
+
+    private static StageStats stageStatsWithScheduledTime(Duration scheduledTime)
+    {
+        DataSize zeroBytes = DataSize.ofBytes(0);
+        Duration zero = new Duration(0, MILLISECONDS);
+        return new StageStats(
+                Instant.EPOCH,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                zeroBytes,
+                zeroBytes,
+                zeroBytes,
+                zeroBytes,
+                zeroBytes,
+                zeroBytes,
+                scheduledTime,
+                zero,
+                zero,
+                zero,
+                zero,
+                false,
+                ImmutableSet.of(),
+                zeroBytes,
+                zeroBytes,
+                0,
+                0,
+                zero,
+                zero,
+                zeroBytes,
+                zeroBytes,
+                0,
+                0,
+                zeroBytes,
+                zeroBytes,
+                0,
+                0,
+                zero,
+                zero,
+                zeroBytes,
+                Optional.empty(),
+                zeroBytes,
+                zeroBytes,
+                0,
+                0,
+                Metrics.EMPTY,
+                zero,
+                zero,
+                zeroBytes,
+                zeroBytes,
+                new StageGcStatistics(0, 0, 0, 0, 0, 0, 0),
+                ImmutableList.of());
     }
 
     private void assertStats(BasicQueryStats stats, int expectedStatsValue)

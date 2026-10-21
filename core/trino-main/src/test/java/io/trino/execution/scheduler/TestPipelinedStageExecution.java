@@ -48,14 +48,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RunnableScheduledFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
+import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.CANCELED;
 import static io.trino.execution.TaskState.FINISHED;
+import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
@@ -185,6 +188,48 @@ final class TestPipelinedStageExecution
         }
     }
 
+    @Test
+    void testCancelContinuesPastTaskWhoseCancelThrows()
+            throws Exception
+    {
+        testTerminationContinuesPastFailingTask(PipelinedStageExecution::cancel, CANCELED);
+    }
+
+    @Test
+    void testAbortContinuesPastTaskWhoseAbortThrows()
+            throws Exception
+    {
+        testTerminationContinuesPastFailingTask(PipelinedStageExecution::abort, ABORTED);
+    }
+
+    @Test
+    void testFailContinuesPastTaskWhoseAbortThrows()
+            throws Exception
+    {
+        testTerminationContinuesPastFailingTask(execution -> execution.fail(new RuntimeException("stage failed")), ABORTED);
+    }
+
+    private void testTerminationContinuesPastFailingTask(Consumer<PipelinedStageExecution> terminate, TaskState expectedState)
+            throws Exception
+    {
+        try (RecordingScheduledExecutor checkExecutor = new RecordingScheduledExecutor()) {
+            StageHarness stage = createStage(checkExecutor);
+            MockRemoteTask first = stage.scheduleTask(0);
+            MockRemoteTask failing = stage.scheduleTask(1);
+            MockRemoteTask last = stage.scheduleTask(2);
+            failing.failTerminationWith(new RuntimeException("termination failed"));
+
+            // one task's termination throws
+            terminate.accept(stage.execution());
+
+            // the other tasks are done once their final task info checks are scheduled, which happens before the executor closes
+            assertEventually(() -> assertThat(checkExecutor.delayedTasks()).hasSize(2));
+            assertThat(taskState(first)).isEqualTo(expectedState);
+            assertThat(taskState(last)).isEqualTo(expectedState);
+            assertThat(taskState(failing)).isEqualTo(RUNNING);
+        }
+    }
+
     private StageHarness createStage(ScheduledExecutorService checkExecutor)
     {
         SqlStage sqlStage = createSqlStage(
@@ -222,6 +267,11 @@ final class TestPipelinedStageExecution
                 .map(TaskInfo::taskStatus)
                 .map(TaskStatus::state)
                 .collect(toImmutableList());
+    }
+
+    private static TaskState taskState(MockRemoteTask task)
+    {
+        return task.getTaskStatus().state();
     }
 
     private record StageHarness(SqlStage sqlStage, PipelinedStageExecution execution, SettableFuture<StageInfo> finalStageInfo)

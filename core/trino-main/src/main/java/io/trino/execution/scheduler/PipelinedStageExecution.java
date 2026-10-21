@@ -71,6 +71,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.trino.execution.SqlStage.terminateTask;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.CANCELED;
 import static io.trino.execution.scheduler.StageExecution.State.FAILED;
@@ -273,7 +274,7 @@ public class PipelinedStageExecution
     {
         // Only send tasks a cancel command if the stage is successfully cancelled and not already failed
         if (stateMachine.transitionToCanceled()) {
-            tasks.values().forEach(RemoteTask::cancel);
+            tasks.values().forEach(task -> terminateTask(task, "cancel", RemoteTask::cancel));
         }
     }
 
@@ -281,13 +282,13 @@ public class PipelinedStageExecution
     public synchronized void abort()
     {
         stateMachine.transitionToAborted();
-        tasks.values().forEach(RemoteTask::abort);
+        tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
     }
 
     public synchronized void fail(Throwable failureCause)
     {
         stateMachine.transitionToFailed(failureCause);
-        tasks.values().forEach(RemoteTask::abort);
+        tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
     }
 
     @Override

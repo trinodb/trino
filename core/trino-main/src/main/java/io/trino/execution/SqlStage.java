@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
@@ -48,6 +49,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -70,6 +72,8 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public final class SqlStage
 {
+    private static final Logger log = Logger.get(SqlStage.class);
+
     private final Session session;
     private final StageStateMachine stateMachine;
     private final Supplier<Map<PlanNodeId, ConnectorTableCredentials>> tableCredentialsProvider;
@@ -187,14 +191,14 @@ public final class SqlStage
     public synchronized void finish()
     {
         if (stateMachine.transitionToFinished()) {
-            tasks.values().forEach(RemoteTask::cancel);
+            tasks.values().forEach(task -> terminateTask(task, "cancel", RemoteTask::cancel));
         }
     }
 
     public synchronized void abort()
     {
         if (stateMachine.transitionToAborted()) {
-            tasks.values().forEach(RemoteTask::abort);
+            tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
         }
     }
 
@@ -202,7 +206,18 @@ public final class SqlStage
     {
         requireNonNull(throwable, "throwable is null");
         if (stateMachine.transitionToFailed(throwable)) {
-            tasks.values().forEach(RemoteTask::abort);
+            tasks.values().forEach(task -> terminateTask(task, "abort", RemoteTask::abort));
+        }
+    }
+
+    // A task whose termination throws must not keep the other tasks of the stage running
+    public static void terminateTask(RemoteTask task, String action, Consumer<RemoteTask> terminate)
+    {
+        try {
+            terminate.accept(task);
+        }
+        catch (RuntimeException e) {
+            log.error(e, "Failed to %s task %s", action, task.getTaskId());
         }
     }
 

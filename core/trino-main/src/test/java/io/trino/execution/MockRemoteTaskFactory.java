@@ -213,6 +213,7 @@ public class MockRemoteTaskFactory
         private final List<FinalTaskInfoListener> finalTaskInfoListeners = new CopyOnWriteArrayList<>();
         private final AtomicInteger forcedFinalizations = new AtomicInteger();
         private volatile boolean withholdFinalTaskInfo;
+        private volatile RuntimeException terminationFailure;
 
         public MockRemoteTask(
                 TaskId taskId,
@@ -474,6 +475,22 @@ public class MockRemoteTaskFactory
             return forcedFinalizations.get();
         }
 
+        /**
+         * Makes {@link #cancel()} and {@link #abort()} throw the given failure before the task changes state.
+         */
+        public void failTerminationWith(RuntimeException failure)
+        {
+            terminationFailure = requireNonNull(failure, "failure is null");
+        }
+
+        private void throwTerminationFailure()
+        {
+            RuntimeException failure = terminationFailure;
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
         @Override
         public synchronized ListenableFuture<Void> whenSplitQueueHasSpace(long weightThreshold)
         {
@@ -483,12 +500,14 @@ public class MockRemoteTaskFactory
         @Override
         public void cancel()
         {
+            throwTerminationFailure();
             taskStateMachine.cancel();
         }
 
         @Override
         public void abort()
         {
+            throwTerminationFailure();
             taskStateMachine.abort();
             clearSplits();
         }

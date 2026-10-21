@@ -286,23 +286,30 @@ public class PipelinedQueryScheduler
                 distributedStagesScheduler = this.distributedStagesScheduler.get();
             }
 
-            if (state == QueryState.FINISHED) {
-                coordinatorStagesScheduler.cancel();
-                if (distributedStagesScheduler != null) {
-                    distributedStagesScheduler.cancel();
+            try {
+                if (state == QueryState.FINISHED) {
+                    coordinatorStagesScheduler.cancel();
+                    if (distributedStagesScheduler != null) {
+                        distributedStagesScheduler.cancel();
+                    }
+                    stageManager.finish();
                 }
-                stageManager.finish();
-            }
-            else if (state == QueryState.FAILED) {
-                coordinatorStagesScheduler.abort();
-                if (distributedStagesScheduler != null) {
-                    distributedStagesScheduler.abort();
+                else if (state == QueryState.FAILED) {
+                    coordinatorStagesScheduler.abort();
+                    if (distributedStagesScheduler != null) {
+                        distributedStagesScheduler.abort();
+                    }
+                    stageManager.abort();
                 }
-                stageManager.abort();
             }
-            schedulerSpan.end();
-
-            queryStateMachine.updateQueryInfo(Optional.of(getStagesInfo()));
+            catch (RuntimeException e) {
+                // the query is done; whatever failed here must not keep the final query info from being published
+                log.error(e, "Error ending the stages of query %s", queryStateMachine.getQueryId());
+            }
+            finally {
+                schedulerSpan.end();
+                stageManager.publishFinalQueryInfo();
+            }
         });
 
         if (queryStateMachine.isDone()) {
