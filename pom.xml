@@ -507,6 +507,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.re2j</groupId>
+                <artifactId>re2j</artifactId>
+                <version>1.8</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>2.4.240</version>
