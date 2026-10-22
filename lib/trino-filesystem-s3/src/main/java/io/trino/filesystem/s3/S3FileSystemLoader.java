@@ -256,6 +256,10 @@ final class S3FileSystemLoader
                     AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
                     AwsV4HttpSigner.NORMALIZE_PATH, true,
                     AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED, false);
+            case Aws4SignedPayloadSigner -> ImmutableMap.of(
+                    AwsV4HttpSigner.DOUBLE_URL_ENCODE, true,
+                    AwsV4HttpSigner.NORMALIZE_PATH, true,
+                    AwsV4HttpSigner.PAYLOAD_SIGNING_ENABLED, true);
         };
 
         S3AuthSchemeProvider delegate = S3AuthSchemeProvider.defaultProvider();
