@@ -63,7 +63,7 @@ public class TestMergeSortedPages
                                 .row(3, 2)
                                 .row(4, 1)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1, 4)
                 .row(2, 3)
                 .row(3, 2)
@@ -95,7 +95,7 @@ public class TestMergeSortedPages
                                 .row(6)
                                 .row(8)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1)
                 .row(2)
                 .row(3)
@@ -174,7 +174,7 @@ public class TestMergeSortedPages
                                 .row(98, 2, 2)
                                 .row(100, 1, 7)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(1, 1, 2)
                 .row(2, 1, 2)
                 .row(8, 1, 1)
@@ -239,7 +239,7 @@ public class TestMergeSortedPages
                                 .build(),
                         rowPagesBuilder(types)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .build();
         assertThat(actual).containsExactlyElementsOf(expected);
     }
@@ -283,7 +283,7 @@ public class TestMergeSortedPages
                                 .row(null, "a0", null)
                                 .row(17.0, "a0", null)
                                 .build()));
-        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+        MaterializedResult expected = resultBuilder(types)
                 .row(15.0, "a2", 17)
                 .row(9.0, "b2", 17)
                 .row(5.0, "c2", 17)
@@ -341,7 +341,7 @@ public class TestMergeSortedPages
 
         Page page = mergedPages.getResult();
         assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
-                .containsExactlyElementsOf(resultBuilder(TEST_SESSION, types)
+                .containsExactlyElementsOf(resultBuilder(types)
                         .row(1)
                         .build());
 

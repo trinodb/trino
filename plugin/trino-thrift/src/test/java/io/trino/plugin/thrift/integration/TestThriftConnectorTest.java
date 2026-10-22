@@ -66,7 +66,7 @@ public class TestThriftConnectorTest
     public void testShowSchemas()
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getSession(), VARCHAR)
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(VARCHAR)
                 .row("tiny")
                 .row("sf1");
         assertContains(actualSchemas, resultBuilder.build());

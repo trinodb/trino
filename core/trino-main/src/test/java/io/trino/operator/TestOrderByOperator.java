@@ -104,7 +104,7 @@ public class TestOrderByOperator
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), DOUBLE);
+        MaterializedResult.Builder expectedBuilder = resultBuilder(DOUBLE);
         for (int i = 0; i < numberOfRows; ++i) {
             expectedBuilder.row((double) numberOfRows - i - 1);
         }
@@ -155,7 +155,7 @@ public class TestOrderByOperator
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
+        MaterializedResult expected = resultBuilder(DOUBLE)
                 .row(-0.1)
                 .row(0.1)
                 .row(0.2)
@@ -199,7 +199,7 @@ public class TestOrderByOperator
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+        MaterializedResult expected = MaterializedResult.resultBuilder(VARCHAR, BIGINT)
                 .row("a", 4L)
                 .row("a", 1L)
                 .row("b", 3L)
@@ -243,7 +243,7 @@ public class TestOrderByOperator
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(4L)
                 .row(2L)
                 .row(1L)

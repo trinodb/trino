@@ -1080,7 +1080,7 @@ public abstract class AbstractTestAggregations
     public void testApproximateCountDistinctGroupBy()
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
                 .row("P", 303L)
@@ -1093,7 +1093,7 @@ public abstract class AbstractTestAggregations
     public void testApproximateCountDistinctGroupByWithStandardError()
     {
         MaterializedResult actual = computeActual("SELECT orderstatus, approx_distinct(custkey, 0.023) FROM orders GROUP BY orderstatus");
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 990L)
                 .row("F", 990L)
                 .row("P", 303L)

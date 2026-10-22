@@ -380,7 +380,7 @@ public class TestHivePageSink
     static MaterializedResult toMaterializedResult(ConnectorSession session, List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }

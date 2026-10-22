@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -39,7 +38,7 @@ public class TestRowNumberFunction
     @Test
     public void testRowNumber()
     {
-        MaterializedResult expected = resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(INTEGER, VARCHAR, BIGINT)
                 .row(1, "O", 1L)
                 .row(2, "O", 2L)
                 .row(3, "F", 3L)
@@ -51,7 +50,7 @@ public class TestRowNumberFunction
                 .row(33, "F", 9L)
                 .row(34, "O", 10L)
                 .build();
-        MaterializedResult expectedWithNulls = resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+        MaterializedResult expectedWithNulls = resultBuilder(BIGINT, VARCHAR, BIGINT)
                 .row(1L, null, 1L)
                 .row(3L, "F", 2L)
                 .row(5L, "F", 3L)

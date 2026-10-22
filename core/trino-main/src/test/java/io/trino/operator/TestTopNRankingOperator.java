@@ -115,7 +115,7 @@ public class TestTopNRankingOperator
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(DOUBLE, VARCHAR, BIGINT)
                 .row(0.3, "a", 1L)
                 .row(0.4, "a", 2L)
                 .row(0.5, "a", 3L)
@@ -170,7 +170,7 @@ public class TestTopNRankingOperator
 
             MaterializedResult expected;
             if (partial) {
-                expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR)
+                expected = resultBuilder(DOUBLE, VARCHAR)
                         .row(0.1, "c")
                         .row(0.2, "b")
                         .row(0.3, "a")
@@ -182,7 +182,7 @@ public class TestTopNRankingOperator
                         .build();
             }
             else {
-                expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+                expected = resultBuilder(DOUBLE, VARCHAR, BIGINT)
                         .row(0.1, "c", 1L)
                         .row(0.2, "b", 2L)
                         .row(0.3, "a", 3L)
@@ -336,7 +336,7 @@ public class TestTopNRankingOperator
                 orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(ASC_NULLS_FIRST)),
                 blockTypeOperators);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+        MaterializedResult expected = resultBuilder(DOUBLE, VARCHAR, BIGINT)
                 .row(null, "a", 1L)
                 .row(null, "a", 1L)
                 .row(0.4, "a", 3L)

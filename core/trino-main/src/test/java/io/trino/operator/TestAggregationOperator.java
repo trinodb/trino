@@ -104,7 +104,7 @@ public class TestAggregationOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1L)
                 .build();
 
@@ -137,7 +137,7 @@ public class TestAggregationOperator
                 new Page(4, createLongsBlock(10, 11, 10, 11), createBooleansBlock(true, true, true, true)),
                 new Page(4, createLongsBlock(5, 6, 7, 8), trueNullRleMask));
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(21L)
                 .build();
 
@@ -170,7 +170,7 @@ public class TestAggregationOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, REAL, DOUBLE, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT, REAL, DOUBLE, VARCHAR)
                 .row(100L, 4950L, 49.5, "399", 100L, 54950L, 44950.0f, 54950.0, "599")
                 .build();
 

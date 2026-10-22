@@ -1395,7 +1395,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ?")
                 .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "unknown")
                 .row(1, "bigint")
                 .row(2, "varchar(25)")
@@ -1406,7 +1406,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? OFFSET ?")
                 .build();
         actual = computeActual(session, "DESCRIBE INPUT my_query");
-        expected = resultBuilder(session, BIGINT, VARCHAR)
+        expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "unknown")
                 .row(1, "bigint")
                 .row(2, "varchar(25)")
@@ -1418,7 +1418,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? LIMIT ?")
                 .build();
         actual = computeActual(session, "DESCRIBE INPUT my_query");
-        expected = resultBuilder(session, BIGINT, VARCHAR)
+        expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "unknown")
                 .row(1, "bigint")
                 .row(2, "varchar(25)")
@@ -1430,7 +1430,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? FETCH FIRST ? ROWS ONLY")
                 .build();
         actual = computeActual(session, "DESCRIBE INPUT my_query");
-        expected = resultBuilder(session, BIGINT, VARCHAR)
+        expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "unknown")
                 .row(1, "bigint")
                 .row(2, "varchar(25)")
@@ -1450,7 +1450,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
         actual = computeActual(session, "DESCRIBE INPUT my_query");
-        expected = resultBuilder(session, BIGINT, VARCHAR)
+        expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "char(2)")
                 .row(1, "varchar")
                 .row(2, "timestamp(3)")
@@ -1478,7 +1478,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "integer")
                 .row(1, "varchar(0)")
                 .build();
@@ -1493,7 +1493,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .addPreparedStatement("my_query", "SELECT count(*) + ? FROM nation")
                 .build();
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+        MaterializedResult expected = resultBuilder(BIGINT, VARCHAR)
                 .row(0, "bigint")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
@@ -1522,7 +1522,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = getSession();
         String sql = "SELECT * FROM nation";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
@@ -1536,7 +1536,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = getSession();
         String sql = "SELECT localtimestamp a, current_timestamp b, localtime c";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("a", "", "", "", "timestamp(3)", 8, true)
                 .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
                 .row("c", "", "", "", "time(3)", 8, true)
@@ -1549,7 +1549,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = getSession();
         String sql = "SELECT 1, name, regionkey AS my_alias FROM nation";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
                 .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
@@ -1598,7 +1598,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("rows", "", "", "", "bigint", 8, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
@@ -1611,7 +1611,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -1624,7 +1624,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("Table", session.getCatalog().get(), "information_schema", "tables", "varchar", 0, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
@@ -1635,7 +1635,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = getSession();
         String sql = "SELECT count(*) AS this_is_aliased, 1 + 2 FROM nation";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("this_is_aliased", "", "", "", "bigint", 8, true)
                 .row("_col1", "", "", "", "integer", 4, false)
                 .build();
@@ -1665,7 +1665,7 @@ public abstract class AbstractTestEngineOnlyQueries
                         .collect(toImmutableSet()))
                 .build();
         String sql = "SELECT NUMBER '1.5'";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "number", 0, false)
                 .build();
         assertDescribeOutputWithBothSyntax(session, sql, expected);
@@ -1678,7 +1678,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .setClientCapabilities(ImmutableSet.of())
                 .build();
         String sql = "SELECT NUMBER '1.5'";
-        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+        MaterializedResult expected = resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "varchar", 0, false)
                 .build();
         assertDescribeOutputWithBothSyntax(session, sql, expected);
@@ -1878,7 +1878,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(custkey)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1002L)
                 .build();
 
@@ -1890,7 +1890,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS VARCHAR))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1024L)
                 .build();
 
@@ -1902,7 +1902,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(CAST(custkey AS DOUBLE))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1014L)
                 .build();
 
@@ -1917,7 +1917,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1001L)
                 .row("F", 998L)
                 .row("P", 304L)
@@ -1934,7 +1934,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1021L)
                 .row("F", 1019L)
                 .row("P", 304L)
@@ -1951,7 +1951,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1011L)
                 .row("F", 1011L)
                 .row("P", 304L)
@@ -1965,7 +1965,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(IF(orderstatus = 'O', custkey))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row(1001L)
                 .build();
 
@@ -1977,7 +1977,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(approx_set(null)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row(new Object[] {null})
                 .build();
 
@@ -1992,7 +1992,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", null)
                 .row("F", 998L)
                 .row("P", 304L)
@@ -2009,7 +2009,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 499L)
                 .row("F", 496L)
                 .row("P", 153L)
@@ -2023,7 +2023,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(custkey))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1002L)
                 .build();
 
@@ -2038,7 +2038,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1001L)
                 .row("F", 998L)
                 .row("P", 304L)
@@ -2052,7 +2052,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(create_hll(IF(orderstatus = 'O', custkey)))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1001L)
                 .build();
 
@@ -2067,7 +2067,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", null)
                 .row("F", 998L)
                 .row("P", 304L)
@@ -2081,7 +2081,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(CAST (null AS HyperLogLog))) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(new Object[] {null})
                 .build();
 
@@ -2092,7 +2092,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testEmptyApproxSet()
     {
         MaterializedResult actual = computeActual("SELECT cardinality(empty_approx_set())");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(0L)
                 .build();
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -2102,7 +2102,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testMergeEmptyApproxSet()
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(empty_approx_set())) FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(0L)
                 .build();
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -2112,7 +2112,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testMergeEmptyNonEmptyApproxSet()
     {
         MaterializedResult actual = computeActual("SELECT cardinality(merge(c)) FROM (SELECT create_hll(custkey) c FROM orders UNION ALL SELECT empty_approx_set())");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1002L)
                 .build();
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
@@ -2123,7 +2123,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(custkey) AS P4HYPERLOGLOG)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1002L)
                 .build();
 
@@ -2135,7 +2135,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS VARCHAR)) AS P4HYPERLOGLOG)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1024L)
                 .build();
 
@@ -2147,7 +2147,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(CAST(custkey AS DOUBLE)) AS P4HYPERLOGLOG)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT)
                 .row(1014L)
                 .build();
 
@@ -2162,7 +2162,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1001L)
                 .row("F", 998L)
                 .row("P", 308L)
@@ -2179,7 +2179,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1021L)
                 .row("F", 1019L)
                 .row("P", 302L)
@@ -2196,7 +2196,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 1011L)
                 .row("F", 1011L)
                 .row("P", 306L)
@@ -2210,7 +2210,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(IF(orderstatus = 'O', custkey)) AS P4HYPERLOGLOG)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row(1001L)
                 .build();
 
@@ -2222,7 +2222,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT cardinality(cast(approx_set(null) AS P4HYPERLOGLOG)) FROM orders");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row(new Object[] {null})
                 .build();
 
@@ -2237,7 +2237,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", null)
                 .row("F", 998L)
                 .row("P", 308L)
@@ -2254,7 +2254,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "FROM orders " +
                 "GROUP BY orderstatus");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("O", 495L)
                 .row("F", 491L)
                 .row("P", 153L)
@@ -2343,7 +2343,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult actual = computeActual("SELECT foo FROM (values (1, 2)) a(foo, bar)");
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row(1)
                 .build();
 
@@ -2657,7 +2657,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "   SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
                 "   FROM (VALUES (1), (1), (1), (2), (2), (3)) t (a)) t " +
                 "WHERE rn < 3 AND rn % 2 = 0 AND a = 2 LIMIT 2");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(2, 2L)
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -2717,7 +2717,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "SELECT a, row_number() OVER (PARTITION BY a ORDER BY a) rn\n" +
                 "FROM (VALUES (1), (2), (1), (2)) t (a)) t WHERE rn < 2 LIMIT 2");
 
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(BIGINT, BIGINT)
                 .row(1, 1L)
                 .row(2, 1L)
                 .build();
@@ -2728,7 +2728,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 "SELECT a, row_number() OVER (PARTITION BY a) rn\n" +
                 "FROM (VALUES (1), (2), (1), (2), (1)) t (a)) t WHERE rn < 3 LIMIT 2");
 
-        expected = resultBuilder(getSession(), BIGINT, BIGINT)
+        expected = resultBuilder(BIGINT, BIGINT)
                 .row(1, 1L)
                 .row(1, 2L)
                 .row(2, 1L)

@@ -190,7 +190,7 @@ public final class OperatorAssertion
     public static MaterializedResult toMaterializedResult(Session session, List<Type> types, List<Page> pages)
     {
         // materialize pages
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(session, types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         for (Page outputPage : pages) {
             resultBuilder.page(outputPage);
         }

@@ -278,7 +278,7 @@ public class TestDriver
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         BlockedSinkOperator sink = new BlockedSinkOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
@@ -393,14 +393,14 @@ public class TestDriver
     private PageConsumerOperator createSinkOperator(List<Type> types, int operatorId, String planNodeId)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new PageConsumerOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
     }
 
     private BlockedOperator createBlockedOperator(List<Type> types, int operatorId, String planNodeId)
     {
         // materialize the output to catch some type errors
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(types);
         return new BlockedOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
     }
 

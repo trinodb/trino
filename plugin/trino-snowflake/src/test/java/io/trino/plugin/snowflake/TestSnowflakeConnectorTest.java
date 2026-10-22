@@ -136,7 +136,7 @@ public class TestSnowflakeConnectorTest
     protected MaterializedResult getDescribeOrdersResult()
     {
         // Override this test because the type of columns "orderkey", "custkey" and "shippriority" should be decimal rather than integer for snowflake case
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")

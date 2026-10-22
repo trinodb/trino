@@ -117,7 +117,7 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedResult = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
@@ -205,21 +205,21 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition1 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
                 .row(0.6, 1L)
                 .build();
 
-        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition2 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.2, 2L)
                 .row(0.7, 2L)
                 .row(0.8, 2L)
                 .row(0.9, 2L)
                 .build();
 
-        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition3 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.1, 3L)
                 .row(0.19, 3L)
                 .build();
@@ -270,21 +270,21 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition1 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.3, 1L)
                 .row(0.4, 1L)
                 .row(0.5, 1L)
                 .row(0.6, 1L)
                 .build();
 
-        MaterializedResult expectedPartition2 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition2 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.2, 2L)
                 .row(0.7, 2L)
                 .row(0.8, 2L)
                 .row(0.9, 2L)
                 .build();
 
-        MaterializedResult expectedPartition3 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
+        MaterializedResult expectedPartition3 = resultBuilder(DOUBLE, BIGINT)
                 .row(0.1, 3L)
                 .row(0.19, 3L)
                 .build();
@@ -338,7 +338,7 @@ public class TestRowNumberOperator
                 10,
                 hashStrategyCompiler);
 
-        MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+        MaterializedResult expectedRows = resultBuilder(DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)
                 .row(0.2, 2L)
                 .row(0.1, 3L)

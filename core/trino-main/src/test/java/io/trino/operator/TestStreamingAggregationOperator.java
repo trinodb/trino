@@ -126,7 +126,7 @@ public class TestStreamingAggregationOperator
                 .row(false, null, 20)
                 .build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(DOUBLE, BIGINT, BIGINT)
                 .row(0.0, 1L, 1L)
                 .row(1.0, 1L, 2L)
                 .row(2.0, 1L, 3L)
@@ -151,7 +151,7 @@ public class TestStreamingAggregationOperator
                 .addSequencePage(50_000, 0, 0, 1)
                 .build();
 
-        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
+        MaterializedResult.Builder expectedBuilder = resultBuilder(VARCHAR, BIGINT, BIGINT);
         for (int i = 0; i < 50_000; ++i) {
             expectedBuilder.row(String.valueOf(i), 1L, i + 1L);
         }
@@ -165,7 +165,7 @@ public class TestStreamingAggregationOperator
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
         List<Page> input = rowPagesBuilder.build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT).build();
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT).build();
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
@@ -177,7 +177,7 @@ public class TestStreamingAggregationOperator
                 .row(false, "a", 5)
                 .build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT)
                 .row("a", 1L, 5L)
                 .build();
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
@@ -192,7 +192,7 @@ public class TestStreamingAggregationOperator
                 .addSequencePage(10, 0, 10, 10)
                 .build();
 
-        MaterializedResult.Builder builder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT);
+        MaterializedResult.Builder builder = resultBuilder(VARCHAR, BIGINT, BIGINT);
         for (int i = 0; i < 20; i++) {
             builder.row(format("%s", i), 1L, Long.valueOf(i));
         }
@@ -220,7 +220,7 @@ public class TestStreamingAggregationOperator
                 .row(false, "a", 10)
                 .build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT)
+        MaterializedResult expected = resultBuilder(VARCHAR, BIGINT, BIGINT)
                 .row("a", 10L, 55L)
                 .build();
         assertOperatorEquals(operatorFactory, driverContext, input, expected);

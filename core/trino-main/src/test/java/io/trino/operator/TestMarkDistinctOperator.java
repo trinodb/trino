@@ -82,7 +82,7 @@ public class TestMarkDistinctOperator
                 ImmutableList.of(0),
                 hashStrategyCompiler);
 
-        MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
+        MaterializedResult.Builder expected = resultBuilder(BIGINT, BOOLEAN);
         for (long i = 0; i < 100; i++) {
             expected.row(i, true);
             expected.row(i, false);

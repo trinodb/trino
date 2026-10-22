@@ -996,7 +996,7 @@ public abstract class BaseConnectorTest
 
     protected MaterializedResult getDescribeOrdersResult()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -2182,7 +2182,7 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '%s'",
                 getSession().getSchema().get()));
 
-        MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
+        MaterializedResult expected = resultBuilder(actual.getTypes())
                 .row("customer", "BASE TABLE")
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
@@ -2195,7 +2195,7 @@ public abstract class BaseConnectorTest
         // test SHOW TABLES
         actual = computeActual("SHOW TABLES");
 
-        MaterializedResult.Builder builder = resultBuilder(getSession(), actual.getTypes());
+        MaterializedResult.Builder builder = resultBuilder(actual.getTypes());
         for (MaterializedRow row : expected.getMaterializedRows()) {
             builder.row(row.getField(0));
         }
@@ -2208,7 +2208,7 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, view_definition FROM information_schema.views WHERE table_schema = '%s'",
                 getSession().getSchema().get()));
 
-        expected = resultBuilder(getSession(), actual.getTypes())
+        expected = resultBuilder(actual.getTypes())
                 .row(viewName, formatSqlText(query))
                 .build();
 
@@ -2216,7 +2216,7 @@ public abstract class BaseConnectorTest
 
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
-                .result().matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .result().matches(resultBuilder(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                         .row("x", "bigint", "", "")
                         .row("y", "varchar(3)", "", "")
                         .build());
@@ -7683,7 +7683,7 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "double", "double", "scalar", true, "t88")
                         .build());
@@ -7719,7 +7719,7 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")
@@ -7747,14 +7747,14 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW FUNCTIONS"))
                 .result()
                 .skippingTypesCheck()
-                .containsAll(resultBuilder(getSession())
+                .containsAll(resultBuilder()
                         .row(name3, "double", "", "scalar", false, "")
                         .build());
 
         assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
                 .result()
                 .skippingTypesCheck()
-                .matches(resultBuilder(getSession())
+                .matches(resultBuilder()
                         .row(name, "bigint", "integer", "scalar", true, "t42")
                         .row(name, "bigint", "bigint", "scalar", true, "")
                         .row(name, "double", "double", "scalar", true, "t88")

@@ -735,7 +735,7 @@ public abstract class BaseIcebergSystemTables
 
         long offset = format == PARQUET ? 4L : 3L;
         assertThat(computeActual("SELECT split_offsets FROM test_schema.\"test_table$files\""))
-                .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                .isEqualTo(resultBuilder(ImmutableList.of(new ArrayType(BIGINT)))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
                         .row(ImmutableList.of(offset))
