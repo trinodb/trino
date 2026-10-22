@@ -67,7 +67,7 @@ public class TestTimestampPrecision
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
 
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, List.of(createBaseColumn("created", 0, HIVE_TIMESTAMP, columnType, REGULAR, Optional.empty())), TupleDomain.all())) {
-            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, List.of(columnType)).toTestTypes();
+            MaterializedResult result = materializeSourceDataStream(pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected)));
         }
@@ -100,7 +100,7 @@ public class TestTimestampPrecision
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
 
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, List.of(createBaseColumn("created", 0, HIVE_TIMESTAMP, columnType, REGULAR, Optional.empty())), TupleDomain.all())) {
-            MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, List.of(columnType)).toTestTypes();
+            MaterializedResult result = materializeSourceDataStream(pageSource, List.of(columnType)).toTestTypes();
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected.atZone(ZoneId.of("UTC")))));
         }
