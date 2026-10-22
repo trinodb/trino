@@ -44,6 +44,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -58,7 +59,6 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -314,7 +314,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return ISO_LOCAL_DATE.format(toLocalDateTime((java.util.Date) value, TimeZone.getDefault()));
+            return ISO_LOCAL_DATE.format(toLocalDateTime((java.util.Date) value, new GregorianCalendar()));
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -418,7 +418,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime((java.util.Date) value, TimeZone.getDefault()));
+            return LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime((java.util.Date) value, new GregorianCalendar()));
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -430,25 +430,31 @@ public class TrinoPreparedStatement
         throw invalidConversion(value, "timestamp");
     }
 
-    private static LocalDateTime toLocalDateTime(java.util.Date value, TimeZone timeZone)
+    private static LocalDateTime toLocalDateTime(java.util.Date value, GregorianCalendar calendar)
+            throws SQLException
     {
         // java.util.Date uses the Julian calendar for dates preceding the introduction of the Gregorian calendar,
         // while Joda and java.time use the proleptic Gregorian calendar, so the same millisecond value represents
         // a different year/month/day. Read the fields using GregorianCalendar, which is consistent with java.util.Date.
-        Calendar calendar = new GregorianCalendar(timeZone);
         calendar.setTime(value);
         int year = calendar.get(Calendar.YEAR);
         if (calendar.get(Calendar.ERA) == GregorianCalendar.BC) {
             year = 1 - year;
         }
-        return LocalDateTime.of(
-                year,
-                calendar.get(Calendar.MONTH) + 1,
-                calendar.get(Calendar.DAY_OF_MONTH),
-                calendar.get(Calendar.HOUR_OF_DAY),
-                calendar.get(Calendar.MINUTE),
-                calendar.get(Calendar.SECOND),
-                toIntExact(MILLISECONDS.toNanos(calendar.get(Calendar.MILLISECOND))));
+        try {
+            return LocalDateTime.of(
+                    year,
+                    calendar.get(Calendar.MONTH) + 1,
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    calendar.get(Calendar.SECOND),
+                    toIntExact(MILLISECONDS.toNanos(calendar.get(Calendar.MILLISECOND))));
+        }
+        catch (DateTimeException e) {
+            // e.g. 1500-02-29 exists in the Julian calendar, but not in the proleptic Gregorian calendar
+            throw new SQLException("Value cannot be represented in the proleptic Gregorian calendar: " + value, e);
+        }
     }
 
     private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
@@ -483,7 +489,12 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            String formattedDateTime = LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime(x, cal.getTimeZone()));
+            GregorianCalendar calendar = new GregorianCalendar(cal.getTimeZone());
+            if (cal instanceof GregorianCalendar) {
+                // keep the Gregorian cutover of the supplied calendar, which may differ from the default one
+                calendar.setGregorianChange(((GregorianCalendar) cal).getGregorianChange());
+            }
+            String formattedDateTime = LOCAL_DATE_TIME_MILLIS_FORMATTER.format(toLocalDateTime(x, calendar));
             setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }
