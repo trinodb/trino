@@ -16,8 +16,9 @@ package io.trino.plugin.iceberg.util;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.util.JsonUtils;
-import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetricsUtil;
@@ -34,6 +35,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 
 public final class SystemTableUtil
@@ -90,15 +93,41 @@ public final class SystemTableUtil
         if (fields.isEmpty()) {
             return Optional.empty();
         }
+        Map<Integer, String> fieldNames = uniqueFieldNames(fields);
         List<RowType.Field> partitionFields = fields.stream()
                 .map(field -> RowType.field(
-                        field.name(),
+                        fieldNames.get(field.fieldId()),
                         toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
                 .collect(toImmutableList());
         List<Integer> fieldIds = fields.stream()
                 .map(PartitionField::fieldId)
                 .collect(toImmutableList());
         return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
+    }
+
+    /**
+     * Returns a unique name for each partition field, keyed by field id. Fields of different specs can share a name, for
+     * example when a v1 table is partitioned by x again after x was removed. The latest field, which has the highest field
+     * id, keeps the name, and earlier ones are suffixed with their field id, as Iceberg does. The suffix is repeated until
+     * the name is unique.
+     */
+    private static Map<Integer, String> uniqueFieldNames(List<PartitionField> fields)
+    {
+        Map<String, Integer> latestFieldIds = fields.stream()
+                .collect(toImmutableMap(PartitionField::name, PartitionField::fieldId, Math::max));
+        Set<String> names = new HashSet<>(latestFieldIds.keySet());
+        ImmutableMap.Builder<Integer, String> fieldNames = ImmutableMap.builder();
+        for (PartitionField field : fields) {
+            String name = field.name();
+            if (latestFieldIds.get(name) != field.fieldId()) {
+                do {
+                    name += "_" + field.fieldId();
+                }
+                while (!names.add(name));
+            }
+            fieldNames.put(field.fieldId(), name);
+        }
+        return fieldNames.buildOrThrow();
     }
 
     public static List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, PrimitiveType> idToPrimitiveTypeMapping)
