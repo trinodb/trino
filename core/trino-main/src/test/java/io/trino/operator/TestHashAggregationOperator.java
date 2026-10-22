@@ -662,7 +662,7 @@ public class TestHashAggregationOperator
             // Now, drive the operator to completion
             outputPages.addAll(toPages(operator, inputIterator));
 
-            MaterializedResult actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
+            MaterializedResult actual = toMaterializedResult(expected.getTypes(), outputPages);
 
             assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());

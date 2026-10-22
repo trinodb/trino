@@ -208,7 +208,7 @@ public class TestHashJoinOperator
                 .row("21", 63L, "21", 3L)
                 .row("21", 63L, "21", 2L)
                 .build();
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 

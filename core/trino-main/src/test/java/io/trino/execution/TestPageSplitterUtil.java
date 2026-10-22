@@ -27,7 +27,6 @@ import java.util.List;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.SequencePageBuilder.createSequencePage;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -50,8 +49,8 @@ public class TestPageSplitterUtil
         assertThat(pages).hasSizeGreaterThan(1);
         assertPageSize(pages, maxPageSizeInBytes);
         assertPositionCount(pages, positionCount);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, pages);
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, ImmutableList.of(largePage));
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(largePage));
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 
@@ -95,8 +94,8 @@ public class TestPageSplitterUtil
         assertThat((int) first.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertThat((int) second.getSizeInBytes()).isGreaterThan(maxPageSizeInBytes);
         assertPositionCount(pages, positionCount);
-        MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, pages);
-        MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, ImmutableList.of(initialPage));
+        MaterializedResult actual = toMaterializedResult(types, pages);
+        MaterializedResult expected = toMaterializedResult(types, ImmutableList.of(initialPage));
         assertThat(actual).containsExactlyElementsOf(expected);
     }
 }

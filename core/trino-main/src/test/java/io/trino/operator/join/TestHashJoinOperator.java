@@ -33,7 +33,6 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.IncrementalLoadFactorHashArraySizeSupplier;
 import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
-import io.trino.operator.OperatorAssertion;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
@@ -92,6 +91,7 @@ import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.JoinOperatorType.lookupOuterJoin;
 import static io.trino.operator.JoinOperatorType.probeOuterJoin;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
 import static io.trino.operator.join.JoinTestUtils.buildLookupSource;
@@ -497,7 +497,7 @@ public class TestHashJoinOperator
                     .row("33", 123_003L, "33", 303L)
                     .build();
 
-            assertEqualsIgnoreOrder(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows(), expected.getMaterializedRows());
+            assertEqualsIgnoreOrder(toMaterializedResult(concat(probePages.getTypes(), buildPages.getTypes()), actualPages).getMaterializedRows(), expected.getMaterializedRows());
 
             Metrics probeMetrics = joinOperator.getOperatorContext()
                     .getOperatorStats()
@@ -558,11 +558,6 @@ public class TestHashJoinOperator
             page = pageBuffer.poll();
         }
         return result;
-    }
-
-    private static MaterializedResult getProperColumns(Operator joinOperator, List<Type> types, List<Page> actualPages)
-    {
-        return OperatorAssertion.toMaterializedResult(joinOperator.getOperatorContext().getSession(), types, actualPages);
     }
 
     @Test
