@@ -198,6 +198,11 @@ public @interface TestGroup
 
     @Target({TYPE, METHOD})
     @Retention(RUNTIME)
+    @Tag("ydb")
+    @interface Ydb {}
+
+    @Target({TYPE, METHOD})
+    @Retention(RUNTIME)
     @Tag("mariadb")
     @interface Mariadb {}
 

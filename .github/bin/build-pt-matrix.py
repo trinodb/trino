@@ -24,6 +24,7 @@ SUITES = [
     # "SuiteSnowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
     "SuiteCassandra",
     "SuiteClickhouse",
+    "SuiteYdb",
     "SuiteBlackHole",
     "SuiteAllConnectorsSmoke",
     "SuiteIgnite",
@@ -117,6 +118,7 @@ ICEBERG_SUITES = {
 }
 JDBC_CONNECTOR_SUITES = ALL_CONNECTORS_SMOKE | {
     "SuiteClickhouse",
+    "SuiteYdb",
     "SuiteClients",
     "SuiteExasol",
     "SuiteIgnite",
@@ -148,6 +150,7 @@ MODULE_TO_SUITES = {
     "plugin/trino-blackhole": ALL_CONNECTORS_SMOKE | {"SuiteBlackHole"},
     "plugin/trino-cassandra": ALL_CONNECTORS_SMOKE | {"SuiteCassandra"},
     "plugin/trino-clickhouse": ALL_CONNECTORS_SMOKE | {"SuiteClickhouse"},
+    "plugin/trino-ydb": ALL_CONNECTORS_SMOKE | {"SuiteYdb"},
     "plugin/trino-delta-lake": ALL_CONNECTORS_SMOKE | DELTA_LAKE_SUITES,
     "plugin/trino-druid": ALL_CONNECTORS_SMOKE,
     "plugin/trino-duckdb": ALL_CONNECTORS_SMOKE,
@@ -334,6 +337,7 @@ class TestBuildMatrix(unittest.TestCase):
             "plugin/trino-singlestore",
             # "plugin/trino-snowflake", TODO https://github.com/trinodb/trino/pull/26519 Re-enable once the connector supports key-pair authentication
             "plugin/trino-sqlserver",
+            "plugin/trino-ydb",
         }
         matrix = build_matrix(impacted_modules)
         selected_suites = suites_from_matrix(matrix)
