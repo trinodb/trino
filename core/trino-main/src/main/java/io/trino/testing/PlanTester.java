@@ -1123,7 +1123,7 @@ public class PlanTester
         public MaterializedResult result(List<String> columnNames)
         {
             checkState(types.get() != null, "types were not set");
-            return new MaterializedResult(Optional.empty(), rows.build(), types.get(), columnNames);
+            return new MaterializedResult(rows.build(), types.get(), columnNames);
         }
     }
 }
