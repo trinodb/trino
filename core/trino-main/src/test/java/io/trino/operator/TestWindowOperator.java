@@ -154,7 +154,7 @@ public class TestWindowOperator
         List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
         assertThat(pages).as("Expected more than one output page").hasSizeGreaterThan(1);
 
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
         assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))

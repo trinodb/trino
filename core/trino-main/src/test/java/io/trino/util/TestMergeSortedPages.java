@@ -30,7 +30,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
@@ -340,7 +339,7 @@ public class TestMergeSortedPages
         assertThat(mergedPages.isFinished()).isFalse();
 
         Page page = mergedPages.getResult();
-        assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
+        assertThat(toMaterializedResult(types, ImmutableList.of(page)))
                 .containsExactlyElementsOf(resultBuilder(types)
                         .row(1)
                         .build());
@@ -397,7 +396,7 @@ public class TestMergeSortedPages
         assertThat(mergedPages.process()).isTrue();
 
         if (mergedPages.isFinished()) {
-            return toMaterializedResult(TEST_SESSION, types, ImmutableList.of());
+            return toMaterializedResult(types, ImmutableList.of());
         }
 
         Page page = mergedPages.getResult();
@@ -405,6 +404,6 @@ public class TestMergeSortedPages
         assertThat(mergedPages.isFinished()).isTrue();
         assertThat(memoryContext.getBytes()).isEqualTo(0L);
 
-        return toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page));
+        return toMaterializedResult(types, ImmutableList.of(page));
     }
 }

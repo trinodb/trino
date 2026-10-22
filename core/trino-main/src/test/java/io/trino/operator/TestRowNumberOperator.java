@@ -135,7 +135,7 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
@@ -229,7 +229,7 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -298,7 +298,7 @@ public class TestRowNumberOperator
         }
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
         Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
@@ -356,7 +356,7 @@ public class TestRowNumberOperator
         assertThat(rowNumberColumn.getPositionCount()).isEqualTo(3);
 
         pages = stripRowNumberColumn(pages);
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
+        MaterializedResult actual = toMaterializedResult(ImmutableList.of(DOUBLE, BIGINT), pages);
         assertThat(actual.getMaterializedRows()).hasSize(3);
         Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         Set<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
