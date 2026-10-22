@@ -17,7 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.util.JsonUtils;
-import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
+import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.MetricsUtil;
@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 
@@ -91,9 +92,11 @@ public final class SystemTableUtil
             return Optional.empty();
         }
         List<RowType.Field> partitionFields = fields.stream()
-                .map(field -> RowType.field(
-                        field.name(),
-                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                .map(field -> {
+                    Type resultType = field.transform().getResultType(schema.findType(field.sourceId()));
+                    checkArgument(resultType.isPrimitiveType(), "Partition field %s has non-primitive type %s", field.name(), resultType);
+                    return RowType.field(field.name(), toTrinoType(resultType, typeManager));
+                })
                 .collect(toImmutableList());
         List<Integer> fieldIds = fields.stream()
                 .map(PartitionField::fieldId)
