@@ -1522,7 +1522,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.3.5-3</version>
+                <version>3.3.5-4-SNAPSHOT</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.lz4</groupId>
