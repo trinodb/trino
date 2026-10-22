@@ -16,13 +16,11 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -326,11 +324,6 @@ public class MaterializedResult
         return new MaterializedRow(trinoRow.getPrecision(), convertedValues);
     }
 
-    public static MaterializedResult materializeSourceDataStream(ConnectorSession session, ConnectorPageSource pageSource, List<Type> types)
-    {
-        return materializeSourceDataStream(pageSource, types);
-    }
-
     public static MaterializedResult materializeSourceDataStream(ConnectorPageSource pageSource, List<Type> types)
     {
         MaterializedResult.Builder builder = resultBuilder(types);
@@ -342,26 +335,6 @@ public class MaterializedResult
             builder.page(outputPage.getPage());
         }
         return builder.build();
-    }
-
-    public static Builder resultBuilder(Session session, Type... types)
-    {
-        return resultBuilder(types);
-    }
-
-    public static Builder resultBuilder(Session session, Iterable<? extends Type> types)
-    {
-        return resultBuilder(types);
-    }
-
-    public static Builder resultBuilder(ConnectorSession session, Type... types)
-    {
-        return resultBuilder(types);
-    }
-
-    public static Builder resultBuilder(ConnectorSession session, Iterable<? extends Type> types)
-    {
-        return resultBuilder(types);
     }
 
     public static Builder resultBuilder(Type... types)
